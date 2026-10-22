@@ -27,6 +27,7 @@ import software.amazon.awssdk.services.s3.auth.scheme.S3AuthSchemeParams;
 import software.amazon.awssdk.services.s3.auth.scheme.S3AuthSchemeProvider;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.filesystem.s3.S3FileSystemConfig.SignerType.Aws4SignedPayloadSigner;
 import static io.trino.filesystem.s3.S3FileSystemConfig.SignerType.Aws4Signer;
 import static io.trino.filesystem.s3.S3FileSystemConfig.SignerType.Aws4UnsignedPayloadSigner;
 import static io.trino.filesystem.s3.S3FileSystemConfig.SignerType.AwsS3V4Signer;
@@ -63,6 +64,15 @@ final class TestS3FileSystemSigner
         assertThat(option.signerProperty(AwsV4HttpSigner.DOUBLE_URL_ENCODE)).isTrue();
         assertThat(option.signerProperty(AwsV4HttpSigner.NORMALIZE_PATH)).isTrue();
         assertThat(option.signerProperty(AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED)).isFalse();
+    }
+
+    @Test
+    void testAws4SignedPayloadSignerEnablesPayloadSigning()
+    {
+        AuthSchemeOption option = resolveSigV4(createAuthSchemeProvider(Aws4SignedPayloadSigner));
+        assertThat(option.signerProperty(AwsV4HttpSigner.DOUBLE_URL_ENCODE)).isTrue();
+        assertThat(option.signerProperty(AwsV4HttpSigner.NORMALIZE_PATH)).isTrue();
+        assertThat(option.signerProperty(AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED)).isTrue();
     }
 
     @ParameterizedTest
