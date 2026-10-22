@@ -73,7 +73,7 @@ public class TestLimitOperator
 
         OperatorFactory operatorFactory = new LimitOperatorFactory(0, new PlanNodeId("test"), 5);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .page(createSequencePage(ImmutableList.of(BIGINT), 3, 1))
                 .page(createSequencePage(ImmutableList.of(BIGINT), 2, 4))
                 .build();

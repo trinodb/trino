@@ -150,7 +150,7 @@ public class TestMemoryBlocking
     private PageConsumerOperator createSinkOperator(List<Type> types)
     {
         // materialize the output to catch some type errors
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         return new PageConsumerOperator(driverContext.addOperatorContext(2, new PlanNodeId("test"), "sink"), resultBuilder::page, Function.identity());
     }
 

@@ -73,7 +73,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY x, y, z
                 """);
 
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, DOUBLE, BIGINT)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, DOUBLE, BIGINT)
                 .row(1.0, 0.1, "a", 1L)
                 .row(1.0, 0.1, "b", 1L)
                 .row(1.0, Double.NaN, "a", 3L)
@@ -186,7 +186,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY 1
                 LIMIT 10
                 """))
-                .result().matches(resultBuilder(getSession(), DOUBLE, DOUBLE)
+                .result().matches(resultBuilder(DOUBLE, DOUBLE)
                         .row(1.0, 0.0)
                         .row(2.0, 0.0)
                         .row(2.0, 0.0)
@@ -212,7 +212,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY 2, 1
                 LIMIT 10
                 """))
-                .result().matches(resultBuilder(getSession(), DOUBLE, DOUBLE)
+                .result().matches(resultBuilder(DOUBLE, DOUBLE)
                         .row(0.06, 1.0)
                         .row(0.02, 2.0)
                         .row(0.06, 2.0)
@@ -239,7 +239,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY 1, 2
                 LIMIT 10
                 """))
-                .result().matches(resultBuilder(getSession(), DOUBLE, BIGINT, DOUBLE)
+                .result().matches(resultBuilder(DOUBLE, BIGINT, DOUBLE)
                         .row(1.0, 10L, 0.06)
                         .row(2.0, 4L, 0.06)
                         .row(2.0, 16L, 0.02)
@@ -340,7 +340,7 @@ public abstract class AbstractTestWindowQueries
                 WHERE rnk <= 2
                 ORDER BY orderstatus, rnk
                 """))
-                .result().matches(resultBuilder(getSession(), createVarcharType(1), createVarcharType(15), DOUBLE, BIGINT)
+                .result().matches(resultBuilder(createVarcharType(1), createVarcharType(15), DOUBLE, BIGINT)
                         .row("F", "Clerk#000000090", 2784836.61, 1L)
                         .row("F", "Clerk#000000084", 2674447.15, 2L)
                         .row("O", "Clerk#000000500", 2569878.29, 1L)
@@ -377,7 +377,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY 2 DESC
                 LIMIT 5
                 """))
-                .result().matches(resultBuilder(getSession(), DOUBLE, BIGINT)
+                .result().matches(resultBuilder(DOUBLE, BIGINT)
                         .row(12.0, 10L)
                         .row(12.0, 9L)
                         .row(12.0, 8L)
@@ -399,7 +399,7 @@ public abstract class AbstractTestWindowQueries
         MaterializedResult actual = computeActual("" +
                 "SELECT map_agg(orderkey, orderpriority) OVER(PARTITION BY orderstatus) FROM\n" +
                 "(SELECT * FROM orders ORDER BY orderkey LIMIT 5) t");
-        MaterializedResult expected = resultBuilder(getSession(), mapType(BIGINT, VarcharType.createVarcharType(1)))
+        MaterializedResult expected = resultBuilder(mapType(BIGINT, VarcharType.createVarcharType(1)))
                 .row(ImmutableMap.of(1L, "5-LOW", 2L, "1-URGENT", 4L, "5-LOW"))
                 .row(ImmutableMap.of(1L, "5-LOW", 2L, "1-URGENT", 4L, "5-LOW"))
                 .row(ImmutableMap.of(1L, "5-LOW", 2L, "1-URGENT", 4L, "5-LOW"))
@@ -597,7 +597,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY orderkey
                 LIMIT 5
                 """))
-                .result().matches(resultBuilder(getSession(), BIGINT, createVarcharType(1), BIGINT)
+                .result().matches(resultBuilder(BIGINT, createVarcharType(1), BIGINT)
                         .row(1L, "O", 1001L)
                         .row(2L, "O", 3007L)
                         .row(3L, "F", 3014L)
@@ -858,7 +858,7 @@ public abstract class AbstractTestWindowQueries
     {
         MaterializedResult actual = computeActual("SELECT a, row_number() OVER (ORDER BY a ASC, a DESC) FROM (VALUES 3, 2, 1) t(a)");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                 .row(1, 1L)
                 .row(2, 2L)
                 .row(3, 3L)

@@ -160,7 +160,7 @@ public abstract class BaseOpenSearchConnectorTest
     {
         // The column metadata for the OpenSearch connector tables are provided
         // based on the column name in alphabetical order.
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("clerk", "varchar", "", "")
                 .row("comment", "varchar", "", "")
                 .row("custkey", "bigint", "", "")
@@ -656,7 +656,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM " + indexName + " " +
                 "ORDER BY order_field");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
                 .row(null, null, "\"Check out the bi-weekly Trino Community Broadcast https://trino.io/broadcast/\"", null, null, null, "5309")
                 .build();
@@ -675,7 +675,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM " + indexName + " " +
                 "ORDER BY order_field");
 
-        MaterializedResult nestedExpected = resultBuilder(getSession(), nestedRows.getTypes())
+        MaterializedResult nestedExpected = resultBuilder(nestedRows.getTypes())
                 .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
                 .row(null, null, "\"Join the Trino Slack: https://trino.io/slack.html\"", null, null, null, "867")
                 .build();
@@ -694,7 +694,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM " + indexName + " " +
                 "ORDER BY order_field");
 
-        MaterializedResult arrayExpected = resultBuilder(getSession(), arrayRows.getTypes())
+        MaterializedResult arrayExpected = resultBuilder(arrayRows.getTypes())
                 .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
                 .row(null, null, "\"If you like Presto, you'll love Trino: https://trino.io/slack.html\"", null, null, null, "321")
                 .build();
@@ -713,7 +713,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM " + indexName + " " +
                 "ORDER BY order_field");
 
-        MaterializedResult rawRowsExpected = resultBuilder(getSession(), rawRows.getTypes())
+        MaterializedResult rawRowsExpected = resultBuilder(rawRows.getTypes())
                 .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
                 .row(null, null, "\"The founders and core contributors of Presto, and are now working on Trino: https://trino.io/blog/2020/12/27/announcing-trino.html\"", null, null, null, "654")
                 .build();
@@ -816,7 +816,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM " + indexName + " " +
                 "ORDER BY order_field");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row("\"dGVzdA==\"", "true", "123", "123", "123", "123", "123.0", "123.0")
                 .build();
         assertThat(rows.getTypes())
@@ -877,7 +877,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "es_timestamp " +
                 "FROM " + indexName);
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row("\"dGVzdA==\"", "true", "123")
                 .build();
 
@@ -1234,7 +1234,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "scaled_float_column " +
                 "FROM types");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(
                         true,
                         1.0f,
@@ -1276,7 +1276,7 @@ public abstract class BaseOpenSearchConnectorTest
                 .buildOrThrow());
 
         MaterializedResult rows = computeActual("SELECT * FROM unsupported_types");
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(1L)
                 .build();
 
@@ -1311,7 +1311,7 @@ public abstract class BaseOpenSearchConnectorTest
 
         MaterializedResult rows = computeActual("SELECT boolean_column FROM booleans");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(true)
                 .row(true)
                 .row(false)
@@ -1348,7 +1348,7 @@ public abstract class BaseOpenSearchConnectorTest
 
         MaterializedResult rows = computeActual("SELECT timestamp_column FROM timestamps");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(LocalDateTime.parse("2015-01-01T00:00:00"))
                 .row(LocalDateTime.parse("2015-01-01T12:10:30"))
                 .row(LocalDateTime.parse("2015-01-01T00:00:00.001"))
@@ -1429,7 +1429,7 @@ public abstract class BaseOpenSearchConnectorTest
                 FROM scaled_float_type
                 WHERE scaled_float_column = 123.46
                 """))
-                .result().matches(resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
+                .result().matches(resultBuilder(ImmutableList.of(VARCHAR, DOUBLE))
                         .row("bar", 123.46d)
                         .build());
     }
@@ -1468,7 +1468,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "long_column " +
                 "FROM coercions");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(1.0f, 1.0d, 1, 1L)
                 .build();
 
@@ -1743,7 +1743,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "field.ipv6_column " +
                 "FROM types_nested");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(true,
                         1.0f,
                         1.0d,
@@ -1821,7 +1821,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "nested_field.ipv6_column " +
                 "FROM nested_type_nested");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(true,
                         1.0f,
                         1.0d,

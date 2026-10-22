@@ -124,7 +124,7 @@ public class TestDataSketches
                 ORDER BY category
                 """.formatted(sketchA, sketchB));
         assertThat(actualEstimateResult.getRowCount()).isEqualTo(2);
-        MaterializedResult expectedEstimateResult = resultBuilder(getSession(), VARCHAR, DOUBLE)
+        MaterializedResult expectedEstimateResult = resultBuilder(VARCHAR, DOUBLE)
                 .row("a", 10d)
                 .row("b", 10d)
                 .build();

@@ -86,7 +86,7 @@ public class TestDruidCaseInsensitiveMapping
     @Test
     public void testNonLowerCaseTableName()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")

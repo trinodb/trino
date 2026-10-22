@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.ArrayType;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -31,7 +30,7 @@ public class TestApproxPercentileWindow
     public void testDoubleApproxPercentile()
     {
         assertWindowQuery("approx_percentile(DOUBLE '42', 0.5) over ()",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, DOUBLE)
+                resultBuilder(INTEGER, VARCHAR, DOUBLE)
                         .row(1, "O", 42.0d)
                         .row(2, "O", 42.0d)
                         .row(3, "F", 42.0d)
@@ -49,7 +48,7 @@ public class TestApproxPercentileWindow
     public void testLongArrayApproxPercentile()
     {
         assertWindowQuery("approx_percentile(12, array[0.3, 0.7]) over ()",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, new ArrayType(BIGINT))
+                resultBuilder(INTEGER, VARCHAR, new ArrayType(BIGINT))
                         .row(1, "O", ImmutableList.of(12L, 12L))
                         .row(2, "O", ImmutableList.of(12L, 12L))
                         .row(3, "F", ImmutableList.of(12L, 12L))
@@ -67,7 +66,7 @@ public class TestApproxPercentileWindow
     public void testDoubleArrayApproxPercentile()
     {
         assertWindowQuery("approx_percentile(DOUBLE '42.3', array[0.5]) over ()",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, new ArrayType(DOUBLE))
+                resultBuilder(INTEGER, VARCHAR, new ArrayType(DOUBLE))
                         .row(1, "O", ImmutableList.of(42.3d))
                         .row(2, "O", ImmutableList.of(42.3d))
                         .row(3, "F", ImmutableList.of(42.3d))

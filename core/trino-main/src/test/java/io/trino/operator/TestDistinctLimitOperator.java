@@ -79,7 +79,7 @@ public class TestDistinctLimitOperator
                 5,
                 hashStrategyCompiler);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1L)
                 .row(2L)
                 .row(3L)
@@ -108,7 +108,7 @@ public class TestDistinctLimitOperator
                 3,
                 hashStrategyCompiler);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1L)
                 .row(2L)
                 .row(3L)
@@ -136,7 +136,7 @@ public class TestDistinctLimitOperator
                 5,
                 hashStrategyCompiler);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1L)
                 .row(2L)
                 .row(3L)

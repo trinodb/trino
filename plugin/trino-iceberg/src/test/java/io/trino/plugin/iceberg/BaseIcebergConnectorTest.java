@@ -421,7 +421,7 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -4537,13 +4537,13 @@ public abstract class BaseIcebergConnectorTest
 
         MaterializedResult result = computeActual("SHOW STATS FOR " + tableName);
         MaterializedResult expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("col", null, 2.0, 0.0, null, "-10.0", "100.0")
                         .row(null, null, null, null, 2.0, null, null)
                         .build();
         if (format == AVRO) {
             expectedStatistics =
-                    resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("col", null, 2.0, 0.0, null, null, null)
                             .row(null, null, null, null, 2.0, null, null)
                             .build();
@@ -4554,13 +4554,13 @@ public abstract class BaseIcebergConnectorTest
 
         result = computeActual("SHOW STATS FOR " + tableName);
         expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("col", null, 3.0, 0.0, null, "-10.0", "200.0")
                         .row(null, null, null, null, 3.0, null, null)
                         .build();
         if (format == AVRO) {
             expectedStatistics =
-                    resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("col", null, 3.0, 0.0, null, null, null)
                             .row(null, null, null, null, 3.0, null, null)
                             .build();
@@ -4615,14 +4615,14 @@ public abstract class BaseIcebergConnectorTest
         MaterializedResult result = computeActual("SHOW STATS FOR " + tableName);
 
         MaterializedResult expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("col1", null, 2.0, 0.0, null, "-10.0", "100.0")
                         .row("col2", null, 2.0, 0.0, null, "-1", "10")
                         .row("col3", null, 2.0, 0.0, null, "2019-06-28", "2020-01-01")
                         .row(null, null, null, null, 2.0, null, null)
                         .build();
         if (format == AVRO) {
-            expectedStatistics = resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+            expectedStatistics = resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                     .row("col1", null, 2.0, 0.0, null, null, null)
                     .row("col2", null, 2.0, 0.0, null, null, null)
                     .row("col3", null, 2.0, 0.0, null, null, null)
@@ -4634,7 +4634,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES (200, 20, DATE '2020-06-28')", 1);
         result = computeActual("SHOW STATS FOR " + tableName);
         expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("col1", null, 3.0, 0.0, null, "-10.0", "200.0")
                         .row("col2", null, 3.0, 0.0, null, "-1", "20")
                         .row("col3", null, 3.0, 0.0, null, "2019-06-28", "2020-06-28")
@@ -4642,7 +4642,7 @@ public abstract class BaseIcebergConnectorTest
                         .build();
         if (format == AVRO) {
             expectedStatistics =
-                    resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("col1", null, 3.0, 0.0, null, null, null)
                             .row("col2", null, 3.0, 0.0, null, null, null)
                             .row("col3", null, 3.0, 0.0, null, null, null)
@@ -4662,7 +4662,7 @@ public abstract class BaseIcebergConnectorTest
         result = computeActual("SHOW STATS FOR " + tableName);
 
         expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("col1", null, 3.0, 5.0 / 13.0, null, "-10.0", "200.0")
                         .row("col2", null, 13.0, 0.0, null, "-1", "30")
                         .row("col3", null, 12.0, 0.0, null, "2019-06-28", "2020-07-25")
@@ -4670,7 +4670,7 @@ public abstract class BaseIcebergConnectorTest
                         .build();
         if (format == AVRO) {
             expectedStatistics =
-                    resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("col1", null, 3.0, 0.1, null, null, null)
                             .row("col2", null, 13.0, 0.0, null, null, null)
                             .row("col3", null, 12.0, 1.0 / 13.0, null, null, null)
@@ -7301,14 +7301,14 @@ public abstract class BaseIcebergConnectorTest
         // Make sure the whole table has stats
         MaterializedResult tableStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$path\" IS NOT NULL)".formatted(tableName));
         MaterializedResult expectedTableStatistics =
-                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("id", null, 4.0, 0.0, null, "1", "4")
                         .row("value", null, 3.0, 0.25, null, "1", "4")
                         .row(null, null, null, null, 4.0, null, null)
                         .build();
         if (format == AVRO) {
             expectedTableStatistics =
-                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("id", null, 4.0, 0.0, null, null, null)
                             .row("value", null, 3.0, 0.1, null, null, null)
                             .row(null, null, null, null, 4.0, null, null)
@@ -7329,14 +7329,14 @@ public abstract class BaseIcebergConnectorTest
 
         MaterializedResult firstPathStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + pathPredicateSql.formatted(firstPath) + ")");
         MaterializedResult expectedFirstPathStatistics =
-                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("id", null, 1.0, 0.0, null, "1", "1")
                         .row("value", null, 1.0, 0.0, null, "1", "1")
                         .row(null, null, null, null, 1.0, null, null)
                         .build();
         if (format == AVRO) {
             expectedFirstPathStatistics =
-                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("id", null, 1.0, 0.0, null, null, null)
                             .row("value", null, 1.0, 0.0, null, null, null)
                             .row(null, null, null, null, 1.0, null, null)
@@ -7346,14 +7346,14 @@ public abstract class BaseIcebergConnectorTest
 
         MaterializedResult secondThirdPathStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$path\" IN ('%s', '%s'))".formatted(tableName, secondPath, thirdPath));
         MaterializedResult expectedSecondThirdPathStatistics =
-                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("id", null, 2.0, 0.0, null, "2", "3")
                         .row("value", null, 1.0, 0.5, null, "2", "2")
                         .row(null, null, null, null, 2.0, null, null)
                         .build();
         if (format == AVRO) {
             expectedSecondThirdPathStatistics =
-                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("id", null, 2.0, 0.0, null, null, null)
                             .row("value", null, 2.0, 0.0, null, null, null)
                             .row(null, null, null, null, 2.0, null, null)
@@ -7363,14 +7363,14 @@ public abstract class BaseIcebergConnectorTest
 
         MaterializedResult fourthPathStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + pathPredicateSql.formatted(fourthPath) + ")");
         MaterializedResult expectedFourthPathStatistics =
-                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("id", null, 1.0, 0.0, null, "4", "4")
                         .row("value", null, 1.0, 0.0, null, "4", "4")
                         .row(null, null, null, null, 1.0, null, null)
                         .build();
         if (format == AVRO) {
             expectedFourthPathStatistics =
-                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("id", null, 1.0, 0.0, null, null, null)
                             .row("value", null, 1.0, 0.0, null, null, null)
                             .row(null, null, null, null, 1.0, null, null)

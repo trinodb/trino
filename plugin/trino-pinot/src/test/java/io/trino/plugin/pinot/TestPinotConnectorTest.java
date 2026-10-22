@@ -75,7 +75,7 @@ public class TestPinotConnectorTest
     @Override // Override because updated_at_seconds column exists
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("updated_at_seconds", "bigint", "", "")
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")

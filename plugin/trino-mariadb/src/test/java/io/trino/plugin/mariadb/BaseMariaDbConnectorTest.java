@@ -132,7 +132,7 @@ public abstract class BaseMariaDbConnectorTest
     protected MaterializedResult getDescribeOrdersResult()
     {
         // varchar length is different from base test
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(255)", "", "")

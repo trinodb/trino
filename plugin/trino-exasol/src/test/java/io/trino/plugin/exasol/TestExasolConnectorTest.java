@@ -141,7 +141,7 @@ final class TestExasolConnectorTest
         // - double instead of decimal(10,2) for column totalprice
         // - integer instead of decimal(10,0) for column shippriority
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(19,0)", "", "")
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
@@ -160,7 +160,7 @@ final class TestExasolConnectorTest
     public void testDescribeTable()
     {
         // Exasol reports bigint columns as decimal(19,0)
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(19,0)", "", "")
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")

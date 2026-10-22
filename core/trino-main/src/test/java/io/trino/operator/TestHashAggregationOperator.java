@@ -185,7 +185,7 @@ public class TestHashAggregationOperator
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
 
-        MaterializedResult.Builder expectedBuilder = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT);
+        MaterializedResult.Builder expectedBuilder = resultBuilder(VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT);
         for (int i = 0; i < numberOfRows; ++i) {
             expectedBuilder.row(Integer.toString(i), 3L, 3L * i, (double) i, Integer.toString(300_000 + i), 3L, 3L);
         }
@@ -251,7 +251,7 @@ public class TestHashAggregationOperator
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row(null, 42L, 0L, null, null, null, 0L, 0L)
                 .row(null, 49L, 0L, null, null, null, 0L, 0L)
                 .build();
@@ -630,7 +630,7 @@ public class TestHashAggregationOperator
             List<Page> expectedPages = rowPagesBuilder(BIGINT, BIGINT)
                     .addSequencePage(2000, 0, 0)
                     .build();
-            MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
+            MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                     .pages(expectedPages)
                     .build();
 
@@ -707,7 +707,7 @@ public class TestHashAggregationOperator
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
 
-        MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT, BIGINT);
+        MaterializedResult.Builder resultBuilder = resultBuilder(BIGINT, BIGINT);
         for (int i = 0; i < smallPagesSpillThresholdSize + 10; ++i) {
             resultBuilder.row((long) i, (long) i);
         }
@@ -1202,7 +1202,7 @@ public class TestHashAggregationOperator
 
     private void assertOperatorEquals(DriverContext driverContext, OperatorFactory operatorFactory, List<Page> input, List<Page> expectedPages)
     {
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                 .pages(expectedPages)
                 .build();
         OperatorAssertion.assertOperatorEquals(operatorFactory, driverContext, input, expected, false, false);

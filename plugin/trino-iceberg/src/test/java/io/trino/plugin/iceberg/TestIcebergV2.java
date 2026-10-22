@@ -453,7 +453,7 @@ public class TestIcebergV2
         try (TestTable table = newTrinoTable("test_optimize_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
             assertUpdate(session, "ALTER TABLE " + table.getName() + " EXECUTE optimize");
             assertThat(computeActual("SELECT split_offsets FROM \"" + table.getName() + "$files\""))
-                    .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
+                    .isEqualTo(resultBuilder(ImmutableList.of(new ArrayType(BIGINT)))
                             .row(ImmutableList.of(4L))
                             .build());
         }

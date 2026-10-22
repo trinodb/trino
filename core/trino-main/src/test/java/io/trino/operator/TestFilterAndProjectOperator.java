@@ -116,7 +116,7 @@ public class TestFilterAndProjectOperator
                 DataSize.ofBytes(0),
                 0);
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, BIGINT)
                 .row("0", 5L)
                 .row("1", 6L)
                 .row("2", 7L)

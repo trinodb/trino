@@ -2623,7 +2623,7 @@ public abstract class BaseHiveConnectorTest
         // verify that we create bucket_count files in each partition
         assertEqualsIgnoreOrder(
                 computeActual(format("SELECT orderpriority_nulls, orderstatus, COUNT(DISTINCT \"$path\") FROM %s GROUP BY 1, 2", tableName)),
-                resultBuilder(getSession(), createVarcharType(1), BIGINT)
+                resultBuilder(createVarcharType(1), BIGINT)
                         .row(null, "F", 4L)
                         .row(null, "O", 4L)
                         .row(null, "P", 4L)
@@ -2783,7 +2783,7 @@ public abstract class BaseHiveConnectorTest
         // verify that we create bucket_count files in each partition
         assertEqualsIgnoreOrder(
                 computeActual(format("SELECT orderstatus, COUNT(DISTINCT \"$path\") FROM %s GROUP BY 1", tableName)),
-                resultBuilder(getSession(), createVarcharType(1), BIGINT)
+                resultBuilder(createVarcharType(1), BIGINT)
                         .row("F", 11L)
                         .row("O", 11L)
                         .row("P", 11L)
@@ -2949,7 +2949,7 @@ public abstract class BaseHiveConnectorTest
         assertThat(partitions).hasSize(3);
 
         MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
-        MaterializedResult expected = resultBuilder(getSession(), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
+        MaterializedResult expected = resultBuilder(canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
                 .row("a", "b", "c")
                 .row("aa", "bb", "cc")
                 .row("aaa", "bbb", "ccc")
@@ -3908,7 +3908,7 @@ public abstract class BaseHiveConnectorTest
                 """);
 
         Type unboundedVarchar = canonicalizeType(VARCHAR);
-        MaterializedResult expected = resultBuilder(getSession(), unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar)
+        MaterializedResult expected = resultBuilder(unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar)
                 .row("grape", canonicalizeType(BIGINT).toString(), "", "")
                 .row("orange", canonicalizeType(BIGINT).toString(), "", "")
                 .row("pear", canonicalizeType(createVarcharType(65535)).toString(), "", "")
@@ -4702,7 +4702,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSql, 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('3', '4')", 1);
         MaterializedResult materializedRows = computeActual("SELECT * FROM " + tableName);
-        assertEqualsIgnoreOrder(materializedRows, resultBuilder(getSession(), VARCHAR, VARCHAR)
+        assertEqualsIgnoreOrder(materializedRows, resultBuilder(VARCHAR, VARCHAR)
                 .row("1", "2")
                 .row("3", "4")
                 .build()
@@ -5106,7 +5106,7 @@ public abstract class BaseHiveConnectorTest
                         "SELECT * FROM (VALUES (CAST (101 AS BIGINT), CAST (1 AS BIGINT)), (201, 2), (202, 2), (401, 4), (402, 4), (403, 4)) t(a, z)",
                 6);
 
-        List<MaterializedRow> expectedBefore = resultBuilder(session, BIGINT, BIGINT)
+        List<MaterializedRow> expectedBefore = resultBuilder(BIGINT, BIGINT)
                 .row(101L, 1L)
                 .row(201L, 2L)
                 .row(202L, 2L)
@@ -5115,7 +5115,7 @@ public abstract class BaseHiveConnectorTest
                 .row(403L, 4L)
                 .build()
                 .getMaterializedRows();
-        List<MaterializedRow> expectedAfter = resultBuilder(session, BIGINT, BIGINT)
+        List<MaterializedRow> expectedAfter = resultBuilder(BIGINT, BIGINT)
                 .row(101L, 1L)
                 .row(203L, 2L)
                 .row(204L, 2L)
@@ -5163,7 +5163,7 @@ public abstract class BaseHiveConnectorTest
     {
         Session session = getSession();
 
-        List<MaterializedRow> expected = resultBuilder(session, BIGINT, BIGINT)
+        List<MaterializedRow> expected = resultBuilder(BIGINT, BIGINT)
                 .row(101L, 1L)
                 .row(201L, 2L)
                 .row(202L, 2L)
@@ -5339,7 +5339,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate("DROP TABLE char_order_by");
 
-        MaterializedResult expected = resultBuilder(getSession(), createCharType(2))
+        MaterializedResult expected = resultBuilder(createCharType(2))
                 .row("a\0")
                 .row("a ")
                 .row("a ")
