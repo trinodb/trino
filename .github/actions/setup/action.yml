@@ -157,6 +157,18 @@ runs:
         # Load maven core extensions with retry.
         # Full plugin coordinates avoid prefix and version lookups, which query every declared repository and log warnings for blocked ones.
         run: .github/bin/retry ./mvnw -N -B -U -e --no-transfer-progress org.apache.maven.plugins:maven-help-plugin:3.5.2:active-profiles
+      - name: Check out Hadoop PR
+        if: ${{ inputs.java-version != '' }}
+        uses: actions/checkout@v7
+        with:
+          repository: trinodb/trino-hadoop-apache
+          ref: refs/pull/57/head
+          path: target/trino-hadoop-apache
+          persist-credentials: false
+      - name: Install Hadoop snapshot
+        if: ${{ inputs.java-version != '' }}
+        shell: bash
+        run: ./mvnw -B -V -nsu -f target/trino-hadoop-apache/pom.xml install
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash
