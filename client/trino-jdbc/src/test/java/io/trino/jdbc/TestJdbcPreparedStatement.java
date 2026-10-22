@@ -1078,6 +1078,7 @@ public class TestJdbcPreparedStatement
             throws SQLException
     {
         // java.sql.Date uses the Julian calendar before 1582-10-15, while the server uses the proleptic Gregorian calendar
+        testConvertDate(LocalDate.of(0, 1, 1), explicitPrepare);
         testConvertDate(LocalDate.of(999, 1, 1), explicitPrepare);
         testConvertDate(LocalDate.of(1582, 10, 4), explicitPrepare);
         testConvertDate(LocalDate.of(1582, 10, 15), explicitPrepare);
@@ -1492,6 +1493,7 @@ public class TestJdbcPreparedStatement
             throws SQLException
     {
         // java.sql.Timestamp uses the Julian calendar before 1582-10-15, while the server uses the proleptic Gregorian calendar
+        testConvertTimestamp(LocalDateTime.of(0, 1, 1, 12, 34, 56), explicitPrepare);
         testConvertTimestamp(LocalDateTime.of(999, 1, 1, 12, 34, 56), explicitPrepare);
         testConvertTimestamp(LocalDateTime.of(1582, 10, 4, 12, 34, 56), explicitPrepare);
         testConvertTimestamp(LocalDateTime.of(1582, 10, 15, 12, 34, 56), explicitPrepare);
