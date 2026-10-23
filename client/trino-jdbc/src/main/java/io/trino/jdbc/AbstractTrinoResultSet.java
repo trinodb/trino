@@ -1366,8 +1366,9 @@ abstract class AbstractTrinoResultSet
         ColumnInfo columnInfo = columnInfo(columnIndex);
         ClientTypeSignature columnTypeSignature = columnInfo.getColumnTypeSignature();
         String elementTypeName = getOnlyElement(columnTypeSignature.getArguments()).toString();
+        ClientTypeSignature elementTypeSignature = getOnlyElement(columnTypeSignature.getArgumentsAsTypeSignatures());
         int elementType = getOnlyElement(columnInfo.getColumnParameterTypes());
-        return new TrinoArray(elementTypeName, elementType, (List<?>) convertFromClientRepresentation(columnTypeSignature, value));
+        return new TrinoArray(elementTypeName, elementTypeSignature, elementType, (List<?>) value, (List<?>) convertFromClientRepresentation(columnTypeSignature, value));
     }
 
     @Override
