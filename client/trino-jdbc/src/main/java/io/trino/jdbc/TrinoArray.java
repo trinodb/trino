@@ -109,7 +109,7 @@ public class TrinoArray
     public ResultSet getResultSet(long index, int count)
             throws SQLException
     {
-        if (index < 1 || count < 0 || (index - 1 + count) > clientValues.length) {
+        if (index < 1 || count < 0 || index - 1 > clientValues.length - count) {
             throw new SQLException("Index out of bounds");
         }
         int arrayOffset = Ints.checkedCast(index - 1);
