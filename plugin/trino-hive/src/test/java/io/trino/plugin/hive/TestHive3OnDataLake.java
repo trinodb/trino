@@ -51,4 +51,22 @@ class TestHive3OnDataLake
             assertUpdate("DROP TABLE " + testTable);
         }
     }
+
+    @Test
+    public void testCreateEmptyPartitionOnTransactionalTable()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .build();
+        String tableName = "test_create_empty_partition_acid_" + randomNameSuffix();
+        String testTable = getFullyQualifiedTestTableName(tableName);
+        assertUpdate("CREATE TABLE " + testTable + " (id bigint, part varchar) WITH (format = 'ORC', transactional = true, partitioned_by = ARRAY['part'])");
+        try {
+            getQueryRunner().execute(session, "CALL system.create_empty_partition('" + HIVE_TEST_SCHEMA + "', '" + tableName + "', ARRAY['part'], ARRAY['a'])");
+            assertQuery("SELECT part FROM " + getFullyQualifiedTestTableName("\"" + tableName + "$partitions\""), "VALUES 'a'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + testTable);
+        }
+    }
 }

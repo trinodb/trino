@@ -1281,9 +1281,14 @@ public class SemiTransactionalHiveMetastore
                 case FINISHED -> throw new IllegalStateException("Tried to commit buffered metastore operations after transaction has been committed/aborted");
             }
         }
+        catch (Throwable failure) {
+            abortWriteTransaction(failure);
+            throw failure;
+        }
         finally {
             state = State.FINISHED;
         }
+        endWriteTransaction(true);
     }
 
     public synchronized void rollback()
@@ -1295,9 +1300,38 @@ public class SemiTransactionalHiveMetastore
                 case FINISHED -> throw new IllegalStateException("Tried to rollback buffered metastore operations after transaction has been committed/aborted");
             }
         }
+        catch (Throwable failure) {
+            abortWriteTransaction(failure);
+            throw failure;
+        }
         finally {
             state = State.FINISHED;
         }
+        endWriteTransaction(false);
+    }
+
+    @GuardedBy("this")
+    private void abortWriteTransaction(Throwable failure)
+    {
+        try {
+            endWriteTransaction(false);
+        }
+        catch (Throwable abortFailure) {
+            if (abortFailure != failure) {
+                failure.addSuppressed(abortFailure);
+            }
+        }
+    }
+
+    @GuardedBy("this")
+    private void endWriteTransaction(boolean commit)
+    {
+        if (!isAcidTransactionRunning()) {
+            return;
+        }
+        HiveTransaction transaction = currentHiveTransaction.orElseThrow();
+        currentHiveTransaction = Optional.empty();
+        endTransaction(transaction, commit);
     }
 
     public void checkSupportsHiveAcidTransactions()
@@ -1452,43 +1486,26 @@ public class SemiTransactionalHiveMetastore
     {
         String queryId = session.getQueryId();
         checkState(currentQueryId.equals(Optional.of(queryId)), "Invalid query id %s while current query is %s", queryId, currentQueryId);
-        Optional<HiveTransaction> transaction = currentHiveTransaction;
-
-        if (transaction.isEmpty()) {
-            clearCurrentTransaction();
+        if (isAcidTransactionRunning()) {
+            // The write transaction is committed or aborted together with the buffered operations, in commit() or rollback()
             return;
         }
 
-        try {
-            commit();
-        }
-        catch (Throwable commitFailure) {
-            try {
-                postCommitCleanup(transaction, false);
-            }
-            catch (Throwable cleanupFailure) {
-                if (cleanupFailure != commitFailure) {
-                    commitFailure.addSuppressed(cleanupFailure);
-                }
-            }
-            throw commitFailure;
-        }
-        postCommitCleanup(transaction, true);
+        Optional<HiveTransaction> transaction = currentHiveTransaction;
+        clearCurrentTransaction();
+        transaction.ifPresent(readTransaction -> endTransaction(readTransaction, true));
     }
 
-    private void postCommitCleanup(Optional<HiveTransaction> transaction, boolean commit)
+    private void endTransaction(HiveTransaction transaction, boolean commit)
     {
-        clearCurrentTransaction();
-        long transactionId = transaction.orElseThrow().getTransactionId();
-        ScheduledFuture<?> heartbeatTask = transaction.get().getHeartbeatTask();
-        heartbeatTask.cancel(true);
+        transaction.getHeartbeatTask().cancel(true);
 
         if (commit) {
             // Any failure around aborted transactions, etc. would be handled by Hive Metastore commit, and TrinoException will be thrown
-            delegate.commitTransaction(transactionId);
+            delegate.commitTransaction(transaction.getTransactionId());
         }
         else {
-            delegate.abortTransaction(transactionId);
+            delegate.abortTransaction(transaction.getTransactionId());
         }
     }
 
