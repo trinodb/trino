@@ -21,7 +21,7 @@ import java.util.Optional;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TestColumnMetadata
+public class TestColumnMetadata
 {
     @Test
     public void testBuilderFrom()
