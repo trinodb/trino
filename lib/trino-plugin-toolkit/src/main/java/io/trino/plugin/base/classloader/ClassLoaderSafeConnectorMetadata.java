@@ -745,6 +745,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName, List<ReferencingView> referencingViews)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getView(session, viewName, referencingViews);
+        }
+    }
+
+    @Override
     public boolean isView(ConnectorSession session, SchemaTableName viewName)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
