@@ -1125,17 +1125,17 @@ public class TestJdbcPreparedStatement
         Instant instant = dateTime.toInstant(ZoneOffset.UTC);
 
         assertBind((ps, i) -> ps.setObject(i, instant, Types.TIMESTAMP_WITH_TIMEZONE), explicitPrepare)
-                .resultsIn("timestamp(0) with time zone", "TIMESTAMP '2001-05-06 12:34:56 +00:00'")
+                .resultsIn("timestamp(3) with time zone", "TIMESTAMP '2001-05-06 12:34:56.000 +00:00'")
                 .roundTripsAs(Types.TIMESTAMP_WITH_TIMEZONE, Instant.class, instant);
 
         Instant instantWithDeciSecond = instant.plus(100, ChronoUnit.MILLIS);
 
         assertBind((ps, i) -> ps.setObject(i, instantWithDeciSecond), explicitPrepare)
-                .resultsIn("timestamp(1) with time zone", "TIMESTAMP '2001-05-06 12:34:56.1 +00:00'")
+                .resultsIn("timestamp(3) with time zone", "TIMESTAMP '2001-05-06 12:34:56.100 +00:00'")
                 .roundTripsAs(Types.TIMESTAMP_WITH_TIMEZONE, Instant.class, instantWithDeciSecond);
 
         assertBind((ps, i) -> ps.setObject(i, instantWithDeciSecond, Types.TIMESTAMP_WITH_TIMEZONE), explicitPrepare)
-                .resultsIn("timestamp(1) with time zone", "TIMESTAMP '2001-05-06 12:34:56.1 +00:00'")
+                .resultsIn("timestamp(3) with time zone", "TIMESTAMP '2001-05-06 12:34:56.100 +00:00'")
                 .roundTripsAs(Types.TIMESTAMP_WITH_TIMEZONE, Instant.class, instantWithDeciSecond);
 
         Instant instantWithMilliSecond = instant.plus(123, ChronoUnit.MILLIS);
@@ -1164,7 +1164,7 @@ public class TestJdbcPreparedStatement
         Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
 
         assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIMESTAMP), explicitPrepare)
-                .resultsIn("timestamp(0)", "TIMESTAMP '2001-05-06 12:34:56'")
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp)
                 .roundTripsAs(Types.TIMESTAMP, LocalDateTime.class, dateTime);
 
@@ -1172,12 +1172,12 @@ public class TestJdbcPreparedStatement
         Timestamp timestampWithWithDecisecond = new Timestamp(sqlTimestamp.getTime() + 100);
 
         assertBind((ps, i) -> ps.setObject(i, dateTimeWithDeciSecond), explicitPrepare)
-                .resultsIn("timestamp(1)", "TIMESTAMP '2001-05-06 12:34:56.1'")
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.100'")
                 .roundTripsAs(Types.TIMESTAMP, timestampWithWithDecisecond)
                 .roundTripsAs(Types.TIMESTAMP, LocalDateTime.class, dateTimeWithDeciSecond);
 
         assertBind((ps, i) -> ps.setObject(i, dateTimeWithDeciSecond, Types.TIMESTAMP), explicitPrepare)
-                .resultsIn("timestamp(1)", "TIMESTAMP '2001-05-06 12:34:56.1'")
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.100'")
                 .roundTripsAs(Types.TIMESTAMP, timestampWithWithDecisecond)
                 .roundTripsAs(Types.TIMESTAMP, LocalDateTime.class, dateTimeWithDeciSecond);
 
@@ -1228,7 +1228,7 @@ public class TestJdbcPreparedStatement
 
         // setObject with java.time.LocalTime
         assertBind((ps, i) -> ps.setObject(i, time), explicitPrepare)
-                .resultsIn("time(0)", "TIME '12:34:56'")
+                .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
         // setObject with java.sql.Time
@@ -1238,7 +1238,7 @@ public class TestJdbcPreparedStatement
 
         // setObject(TIME) with java.time.LocalTime
         assertBind((ps, i) -> ps.setObject(i, time, Types.TIME), explicitPrepare)
-                .resultsIn("time(0)", "TIME '12:34:56'")
+                .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
         // setObject(TIME) with java.sql.Time
@@ -1248,7 +1248,7 @@ public class TestJdbcPreparedStatement
 
         // setObject(TIME) with java.time.LocalDateTime
         assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIME), explicitPrepare)
-                .resultsIn("time(0)", "TIME '12:34:56'")
+                .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
         // setObject(TIME) with java.sql.Timestamp
@@ -1281,7 +1281,7 @@ public class TestJdbcPreparedStatement
 
         // DECISECOND setObject with java.time.LocalTime
         assertBind((ps, i) -> ps.setObject(i, timeWithDecisecond), explicitPrepare)
-                .resultsIn("time(1)", "TIME '12:34:56.1'")
+                .resultsIn("time(3)", "TIME '12:34:56.100'")
                 .roundTripsAs(Types.TIME, sqlTimeWithDecisecond);
 
         // DECISECOND setObject with java.sql.Time
@@ -1291,7 +1291,7 @@ public class TestJdbcPreparedStatement
 
         // DECISECOND setObject(TIME) with java.time.LocalTime
         assertBind((ps, i) -> ps.setObject(i, timeWithDecisecond, Types.TIME), explicitPrepare)
-                .resultsIn("time(1)", "TIME '12:34:56.1'")
+                .resultsIn("time(3)", "TIME '12:34:56.100'")
                 .roundTripsAs(Types.TIME, sqlTimeWithDecisecond);
 
         // DECISECOND setObject(TIME) with java.sql.Time
@@ -1301,7 +1301,7 @@ public class TestJdbcPreparedStatement
 
         // DECISECOND setObject(TIME) with java.time.LocalDateTime
         assertBind((ps, i) -> ps.setObject(i, dateTimeWithDecisecond, Types.TIME), explicitPrepare)
-                .resultsIn("time(1)", "TIME '12:34:56.1'")
+                .resultsIn("time(3)", "TIME '12:34:56.100'")
                 .roundTripsAs(Types.TIME, sqlTimeWithDecisecond);
 
         // DECISECOND setObject(TIME) with java.sql.Timestamp
@@ -1397,7 +1397,7 @@ public class TestJdbcPreparedStatement
 
         // MICROSECOND setObject(TIME) with java.sql.Timestamp
         assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithMicrosecond, Types.TIME), explicitPrepare)
-                .resultsIn("time(3)", "TIME '12:34:56.123'")
+                .resultsIn("time(6)", "TIME '12:34:56.123456'")
                 .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
 
         // NANOSECOND
@@ -1425,7 +1425,7 @@ public class TestJdbcPreparedStatement
 
         // NANOSECOND setObject(TIME) with java.sql.Timestamp
         assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithNanosecond, Types.TIME), explicitPrepare)
-                .resultsIn("time(3)", "TIME '12:34:56.123'")
+                .resultsIn("time(9)", "TIME '12:34:56.123456789'")
                 .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
 
         // setObject(TIME) String
@@ -1456,16 +1456,16 @@ public class TestJdbcPreparedStatement
     {
         // zero fraction
         assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 0, UTC), Types.TIME_WITH_TIMEZONE), explicitPrepare)
-                .resultsIn("time(0) with time zone", "TIME '12:34:56+00:00'")
+                .resultsIn("time(3) with time zone", "TIME '12:34:56.000+00:00'")
                 .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(5, 34, 56)));
 
         // setObject with implicit type
         assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 0, UTC)), explicitPrepare)
-                .resultsIn("time(0) with time zone", "TIME '12:34:56+00:00'");
+                .resultsIn("time(3) with time zone", "TIME '12:34:56.000+00:00'");
 
         // setObject with JDBCType
         assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 0, UTC), JDBCType.TIME_WITH_TIMEZONE), explicitPrepare)
-                .resultsIn("time(0) with time zone", "TIME '12:34:56+00:00'");
+                .resultsIn("time(3) with time zone", "TIME '12:34:56.000+00:00'");
 
         // millisecond precision
         assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 555_000_000, UTC), Types.TIME_WITH_TIMEZONE), explicitPrepare)
@@ -1547,7 +1547,7 @@ public class TestJdbcPreparedStatement
 
         // setObject with java.time.LocalDateTime
         assertBind((ps, i) -> ps.setObject(i, dateTime), explicitPrepare)
-                .resultsIn("timestamp(0)", "TIMESTAMP '2001-05-06 12:34:56'")
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
         // setObject with java.sql.Timestamp
@@ -1572,7 +1572,7 @@ public class TestJdbcPreparedStatement
 
         // setObject(TIMESTAMP) with java.time.LocalDateTime
         assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIMESTAMP), explicitPrepare)
-                .resultsIn("timestamp(0)", "TIMESTAMP '2001-05-06 12:34:56'")
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
         // setObject(TIMESTAMP) with java.sql.Timestamp
@@ -1610,7 +1610,7 @@ public class TestJdbcPreparedStatement
 
         // setObject with java.time.LocalDateTime
         assertBind((ps, i) -> ps.setObject(i, dateTimeWithDecisecond), explicitPrepare)
-                .resultsIn("timestamp(1)", "TIMESTAMP '2001-05-06 12:34:56.1'")
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.100'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithDecisecond);
 
         // setObject with java.sql.Timestamp
@@ -1635,7 +1635,7 @@ public class TestJdbcPreparedStatement
 
         // setObject(TIMESTAMP) with java.time.LocalDateTime
         assertBind((ps, i) -> ps.setObject(i, dateTimeWithDecisecond, Types.TIMESTAMP), explicitPrepare)
-                .resultsIn("timestamp(1)", "TIMESTAMP '2001-05-06 12:34:56.1'")
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.100'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithDecisecond);
 
         // setObject(TIMESTAMP) with java.sql.Timestamp
@@ -1712,26 +1712,27 @@ public class TestJdbcPreparedStatement
         // java.sql.Time has millisecond precision
         // java.util.Date has millisecond precision
         Timestamp sqlTimestampWithMicrosecond = Timestamp.valueOf(dateTimeWithMicrosecond);
+        Timestamp sameInstantInWarsawZoneWithMicrosecond = Timestamp.valueOf(dateTimeWithMicrosecond.atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneId.of("Europe/Warsaw")).toLocalDateTime());
 
         // setTimestamp
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithMicrosecond), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
-                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMillisecond);
+                .resultsIn("timestamp(6)", "TIMESTAMP '2001-05-06 12:34:56.123456'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMicrosecond);
 
         // setTimestamp with Calendar null
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithMicrosecond, null), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
-                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMillisecond);
+                .resultsIn("timestamp(6)", "TIMESTAMP '2001-05-06 12:34:56.123456'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMicrosecond);
 
         // setTimestamp with Calendar default
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithMicrosecond, Calendar.getInstance()), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
-                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMillisecond);
+                .resultsIn("timestamp(6)", "TIMESTAMP '2001-05-06 12:34:56.123456'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMicrosecond);
 
         // setTimestamp with Calendar other
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithMicrosecond, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 20:34:56.123'")
-                .roundTripsAs(Types.TIMESTAMP, sameInstantInWarsawZoneWithMillisecond);
+                .resultsIn("timestamp(6)", "TIMESTAMP '2001-05-06 20:34:56.123456'")
+                .roundTripsAs(Types.TIMESTAMP, sameInstantInWarsawZoneWithMicrosecond);
 
         // setObject with java.time.LocalDateTime
         assertBind((ps, i) -> ps.setObject(i, dateTimeWithMicrosecond), explicitPrepare)
@@ -1740,8 +1741,8 @@ public class TestJdbcPreparedStatement
 
         // setObject with java.sql.Timestamp
         assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithMicrosecond), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
-                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMillisecond);
+                .resultsIn("timestamp(6)", "TIMESTAMP '2001-05-06 12:34:56.123456'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMicrosecond);
 
         // setObject(TIMESTAMP) with java.time.LocalDateTime
         assertBind((ps, i) -> ps.setObject(i, dateTimeWithMicrosecond, Types.TIMESTAMP), explicitPrepare)
@@ -1750,8 +1751,8 @@ public class TestJdbcPreparedStatement
 
         // setObject(TIMESTAMP) with java.sql.Timestamp
         assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithMicrosecond, Types.TIMESTAMP), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
-                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMillisecond);
+                .resultsIn("timestamp(6)", "TIMESTAMP '2001-05-06 12:34:56.123456'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMicrosecond);
 
         // NANOSECOND
         LocalDateTime dateTimeWithNanosecond = dateTime.plusNanos(123_456_789);
@@ -1759,26 +1760,27 @@ public class TestJdbcPreparedStatement
         // java.sql.Time has millisecond precision
         // java.util.Date has millisecond precision
         Timestamp sqlTimestampWithNanosecond = Timestamp.valueOf(dateTimeWithNanosecond);
+        Timestamp sameInstantInWarsawZoneWithNanosecond = Timestamp.valueOf(dateTimeWithNanosecond.atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneId.of("Europe/Warsaw")).toLocalDateTime());
 
         // setTimestamp
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithNanosecond), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
-                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMillisecond);
+                .resultsIn("timestamp(9)", "TIMESTAMP '2001-05-06 12:34:56.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithNanosecond);
 
         // setTimestamp with Calendar null
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithNanosecond, null), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
-                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMillisecond);
+                .resultsIn("timestamp(9)", "TIMESTAMP '2001-05-06 12:34:56.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithNanosecond);
 
         // setTimestamp with Calendar default
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithNanosecond, Calendar.getInstance()), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
-                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMillisecond);
+                .resultsIn("timestamp(9)", "TIMESTAMP '2001-05-06 12:34:56.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithNanosecond);
 
         // setTimestamp with Calendar other
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithNanosecond, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 20:34:56.123'")
-                .roundTripsAs(Types.TIMESTAMP, sameInstantInWarsawZoneWithMillisecond);
+                .resultsIn("timestamp(9)", "TIMESTAMP '2001-05-06 20:34:56.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sameInstantInWarsawZoneWithNanosecond);
 
         // setObject with java.time.LocalDateTime
         assertBind((ps, i) -> ps.setObject(i, dateTimeWithNanosecond), explicitPrepare)
@@ -1787,8 +1789,8 @@ public class TestJdbcPreparedStatement
 
         // setObject with java.sql.Timestamp
         assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithNanosecond), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
-                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMillisecond);
+                .resultsIn("timestamp(9)", "TIMESTAMP '2001-05-06 12:34:56.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithNanosecond);
 
         // setObject(TIMESTAMP) with java.time.LocalDateTime
         assertBind((ps, i) -> ps.setObject(i, dateTimeWithNanosecond, Types.TIMESTAMP), explicitPrepare)
@@ -1797,8 +1799,8 @@ public class TestJdbcPreparedStatement
 
         // setObject(TIMESTAMP) with java.sql.Timestamp
         assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithNanosecond, Types.TIMESTAMP), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
-                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithMillisecond);
+                .resultsIn("timestamp(9)", "TIMESTAMP '2001-05-06 12:34:56.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithNanosecond);
 
         // BEFORE EPOCH
         LocalDateTime dateTimeWithBeforeEpoch = LocalDateTime.of(1944, 8, 1, 17, 3, 12, 123_456_789);
@@ -1810,23 +1812,23 @@ public class TestJdbcPreparedStatement
 
         // setTimestamp
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithBeforeEpoch), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '1944-08-01 17:03:12.123'")
-                .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlTimestampWithBeforeEpoch.getTime()));
+                .resultsIn("timestamp(9)", "TIMESTAMP '1944-08-01 17:03:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeEpoch);
 
         // setTimestamp with Calendar null
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithBeforeEpoch, null), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '1944-08-01 17:03:12.123'")
-                .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlTimestampWithBeforeEpoch.getTime()));
+                .resultsIn("timestamp(9)", "TIMESTAMP '1944-08-01 17:03:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeEpoch);
 
         // setTimestamp with Calendar default
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithBeforeEpoch, Calendar.getInstance()), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '1944-08-01 17:03:12.123'")
-                .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlTimestampWithBeforeEpoch.getTime()));
+                .resultsIn("timestamp(9)", "TIMESTAMP '1944-08-01 17:03:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeEpoch);
 
         // setTimestamp with Calendar other
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithBeforeEpoch, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '1944-08-02 02:03:12.123'")
-                .roundTripsAs(Types.TIMESTAMP, new Timestamp(sameInstantInWarsawZoneWithBeforeEpoch.getTime()));
+                .resultsIn("timestamp(9)", "TIMESTAMP '1944-08-02 02:03:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sameInstantInWarsawZoneWithBeforeEpoch);
 
         // setObject with java.time.LocalDateTime
         assertBind((ps, i) -> ps.setObject(i, dateTimeWithBeforeEpoch), explicitPrepare)
@@ -1835,8 +1837,8 @@ public class TestJdbcPreparedStatement
 
         // setObject with java.sql.Timestamp
         assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithBeforeEpoch), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '1944-08-01 17:03:12.123'")
-                .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlTimestampWithBeforeEpoch.getTime()));
+                .resultsIn("timestamp(9)", "TIMESTAMP '1944-08-01 17:03:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeEpoch);
 
         // setObject(TIMESTAMP) with java.sql.Date
         assertBind((ps, i) -> ps.setObject(i, sqlDateWithBeforeEpoch, Types.TIMESTAMP), explicitPrepare)
@@ -1860,8 +1862,8 @@ public class TestJdbcPreparedStatement
 
         // setObject(TIMESTAMP) with java.sql.Timestamp
         assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithBeforeEpoch, Types.TIMESTAMP), explicitPrepare)
-                .resultsIn("timestamp(3)", "TIMESTAMP '1944-08-01 17:03:12.123'")
-                .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlTimestampWithBeforeEpoch.getTime()));
+                .resultsIn("timestamp(9)", "TIMESTAMP '1944-08-01 17:03:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeEpoch);
 
         assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56", Types.TIMESTAMP), explicitPrepare)
                 .resultsIn("timestamp(0)", "TIMESTAMP '2001-05-06 12:34:56'")
