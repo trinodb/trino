@@ -45,6 +45,7 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.data.GenericRecord;
+import org.apache.iceberg.data.IcebergGenerics;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.deletes.BaseDVFileWriter;
@@ -55,6 +56,7 @@ import org.apache.iceberg.encryption.EncryptionKeyMetadata;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.formats.FormatModelRegistry;
 import org.apache.iceberg.hadoop.HadoopTables;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.DataWriter;
 import org.apache.iceberg.io.OutputFileFactory;
 import org.apache.iceberg.parquet.Parquet;
@@ -2256,6 +2258,7 @@ public class TestIcebergV3
     @ParameterizedTest
     @EnumSource(IcebergFileFormat.class)
     void testCreateTableWithUnknownType(IcebergFileFormat format)
+            throws Exception
     {
         try (TestTable table = newTrinoTable(
                 "test_create_unknown_type",
@@ -2266,6 +2269,24 @@ public class TestIcebergV3
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, NULL, ROW(10, NULL)), (2, NULL, NULL)", 2);
             assertThat(query("SELECT x, y IS NULL, z.a, z.b IS NULL FROM " + table.getName()))
                     .matches("VALUES (1, true, 10, true), (2, true, NULL, true)");
+
+            try (CloseableIterable<Record> records = IcebergGenerics.read(loadTable(table.getName())).build()) {
+                int recordCount = 0;
+                for (Record record : records) {
+                    recordCount++;
+                    assertThat(record.getField("y")).isNull();
+                    if (record.getField("x").equals(1)) {
+                        Record nested = (Record) record.getField("z");
+                        assertThat(nested.getField("a")).isEqualTo(10);
+                        assertThat(nested.getField("b")).isNull();
+                    }
+                    else {
+                        assertThat(record.getField("x")).isEqualTo(2);
+                        assertThat(record.getField("z")).isNull();
+                    }
+                }
+                assertThat(recordCount).isEqualTo(2);
+            }
 
             assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
             assertThat(query("SELECT x FROM " + table.getName()))
@@ -2325,12 +2346,17 @@ public class TestIcebergV3
     @ParameterizedTest
     @EnumSource(IcebergFileFormat.class)
     void testSortedByWithUnknownType(IcebergFileFormat format)
+            throws Exception
     {
         // The unknown column precedes the sort column, so sort channels shift when unknown is omitted from files
         try (TestTable table = newTrinoTable("test_sorted_unknown_type", "(y unknown, x int, z row(a unknown, b int)) WITH (format_version = 3, format = '" + format + "', sorted_by = ARRAY['x'])")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (NULL, 3, ROW(NULL, 30)), (NULL, 1, ROW(NULL, 10)), (NULL, 2, ROW(NULL, 20))", 3);
             assertThat(query("SELECT x, z.b FROM " + table.getName()))
                     .matches("VALUES (1, 10), (2, 20), (3, 30)");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\"", "VALUES 1");
+            try (CloseableIterable<Record> records = IcebergGenerics.read(loadTable(table.getName())).build()) {
+                assertThat(records).extracting(record -> record.getField("x")).containsExactly(1, 2, 3);
+            }
         }
     }
 
@@ -2357,6 +2383,15 @@ public class TestIcebergV3
         assertQueryFails(
                 "CREATE TABLE " + tableName + " AS SELECT NULL x",
                 ".* Column type is unknown: x");
+    }
+
+    @Test
+    void testUnknownTypeRequiresVersion3()
+    {
+        assertThatThrownBy(() -> getQueryRunner().execute(
+                "CREATE TABLE test_unknown_v2_" + randomNameSuffix() + " (x int, y unknown) WITH (format_version = 2)"))
+                .hasMessageContaining("Invalid schema for v2")
+                .hasMessageContaining("unknown is not supported until v3");
     }
 
     @Test

@@ -476,8 +476,10 @@ Iceberg `VARIANT` is supported only for tables using Iceberg format version `3`
 or higher. To create a table with `VARIANT` columns, set
 `format_version = 3` in the `WITH` clause. The default is `2`.
 
-`UNKNOWN` columns are always null, are not stored in Parquet and ORC data files,
-and cannot be used inside `ARRAY` or `MAP` for writes.
+`UNKNOWN` columns are always null. For Parquet and ORC, unknown fields are omitted
+from data files and cannot occur inside an `ARRAY` or `MAP` for writes. Each table
+and each `ROW` must retain at least one field with a concrete type when writing
+these formats.
 :::
 
 No other types are supported.
