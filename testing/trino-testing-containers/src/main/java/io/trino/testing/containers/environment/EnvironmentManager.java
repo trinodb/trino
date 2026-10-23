@@ -152,7 +152,20 @@ public final class EnvironmentManager
             stats.updateAndGet(s -> s.withStart());
             T newEnvironment = instantiate(environmentClass);
             newEnvironment.setManaged(true);
-            newEnvironment.start();  // If this throws, currentEnvironment stays null
+            try {
+                newEnvironment.start();
+            }
+            catch (Throwable e) {
+                // Release containers already started by a partially started environment
+                try {
+                    newEnvironment.allowClose();
+                    newEnvironment.close();
+                }
+                catch (Throwable closeFailure) {
+                    e.addSuppressed(closeFailure);
+                }
+                throw e;
+            }
 
             // Only set current after successful start
             currentEnvironment = newEnvironment;
