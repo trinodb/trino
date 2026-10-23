@@ -376,7 +376,6 @@ jobs:
           fi
       - name: Test current JDBC vs old server
         id: tests-current
-        if: always()
         run: |
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-server gib-impacted.log; then
             $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
