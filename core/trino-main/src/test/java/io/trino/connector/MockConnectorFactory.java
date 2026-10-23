@@ -112,6 +112,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness> getMaterializedViewFreshness;
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver;
+    private final BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final Function<SchemaTableName, Optional<String>> getComment;
     private final Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles;
@@ -173,6 +174,7 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness> getMaterializedViewFreshness,
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver,
+            BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             Function<SchemaTableName, Optional<String>> getComment,
             Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles,
@@ -230,6 +232,7 @@ public class MockConnectorFactory
         this.getMaterializedViewFreshness = requireNonNull(getMaterializedViewFreshness, "getMaterializedViewFreshness is null");
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getTableHandleObserver = requireNonNull(getTableHandleObserver, "getTableHandleObserver is null");
+        this.getViewObserver = requireNonNull(getViewObserver, "getViewObserver is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.getComment = requireNonNull(getComment, "getComment is null");
         this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
@@ -297,6 +300,7 @@ public class MockConnectorFactory
                 getMaterializedViewFreshness,
                 getTableHandle,
                 getTableHandleObserver,
+                getViewObserver,
                 getColumns,
                 getComment,
                 getColumnHandles,
@@ -453,6 +457,7 @@ public class MockConnectorFactory
         };
         private BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle = defaultGetTableHandle();
         private BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver = (_, _) -> {};
+        private BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver = (_, _) -> {};
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
         private boolean getColumnsSet;
         private Function<SchemaTableName, Optional<String>> getComment = _ -> Optional.empty();
@@ -587,6 +592,12 @@ public class MockConnectorFactory
         public Builder withGetTableHandleObserver(BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver)
         {
             this.getTableHandleObserver = requireNonNull(getTableHandleObserver, "getTableHandleObserver is null");
+            return this;
+        }
+
+        public Builder withGetViewObserver(BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver)
+        {
+            this.getViewObserver = requireNonNull(getViewObserver, "getViewObserver is null");
             return this;
         }
 
@@ -896,6 +907,7 @@ public class MockConnectorFactory
                     getMaterializedViewFreshness,
                     getTableHandle,
                     getTableHandleObserver,
+                    getViewObserver,
                     getColumns,
                     getComment,
                     getColumnHandles,

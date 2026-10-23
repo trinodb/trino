@@ -958,6 +958,15 @@ public class TracingMetadata
     }
 
     @Override
+    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName, List<ReferencingView> referencingViews)
+    {
+        Span span = startSpan("getView", viewName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getView(session, viewName, referencingViews);
+        }
+    }
+
+    @Override
     public Map<String, Object> getViewProperties(Session session, QualifiedObjectName viewName)
     {
         Span span = startSpan("getViewProperties", viewName);
@@ -1661,6 +1670,15 @@ public class TracingMetadata
         Span span = startSpan("getRedirectionAwareView", viewName);
         try (var _ = scopedSpan(span)) {
             return delegate.getRedirectionAwareView(session, viewName);
+        }
+    }
+
+    @Override
+    public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName, List<ReferencingView> referencingViews)
+    {
+        Span span = startSpan("getRedirectionAwareView", viewName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getRedirectionAwareView(session, viewName, referencingViews);
         }
     }
 
