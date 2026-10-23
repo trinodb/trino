@@ -321,13 +321,6 @@ public class ClickHouseClient
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
-    @Override
-    protected String getTableRemoteSchemaName(ResultSet resultSet)
-            throws SQLException
-    {
-        return resultSet.getString("TABLE_SCHEM");
-    }
-
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
         return Optional.of(new JdbcTypeHandle(Types.DECIMAL, Optional.of("Decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
