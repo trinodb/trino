@@ -138,7 +138,7 @@ public class StreamPreferredProperties
         Iterable<Symbol> desiredPartitioning = partitionSymbols;
         if (partitioningColumns.isPresent()) {
             if (exactColumnOrder) {
-                if (partitioningColumns.get().equals(desiredPartitioning)) {
+                if (partitioningColumns.get().equals(ImmutableList.copyOf(desiredPartitioning))) {
                     return this;
                 }
             }

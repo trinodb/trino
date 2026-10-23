@@ -151,6 +151,7 @@ public abstract class AbstractTestOrcReader
     }
 
     @Test
+    @SuppressWarnings("DistinctVarargsChecker")
     public void testLongPatchedBase()
             throws Exception
     {
@@ -158,6 +159,7 @@ public abstract class AbstractTestOrcReader
     }
 
     @Test
+    @SuppressWarnings("DistinctVarargsChecker")
     public void testLongStrideDictionary()
             throws Exception
     {
@@ -447,6 +449,7 @@ public abstract class AbstractTestOrcReader
     }
 
     @Test
+    @SuppressWarnings("DistinctVarargsChecker")
     public void testStringStrideDictionary()
             throws Exception
     {

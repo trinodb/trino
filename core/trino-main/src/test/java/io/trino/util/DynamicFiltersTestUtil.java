@@ -166,6 +166,7 @@ public final class DynamicFiltersTestUtil
         }
 
         @Override
+        @SuppressWarnings("UndefinedEquals")
         public boolean equals(Object o)
         {
             if (this == o) {

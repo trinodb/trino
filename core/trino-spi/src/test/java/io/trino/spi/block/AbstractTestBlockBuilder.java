@@ -285,7 +285,7 @@ abstract class AbstractTestBlockBuilder<T>
      */
     private ValueBlock createOffsetBlock(List<T> values, int offset)
     {
-        return blockFromValues(Iterables.concat(nCopies(offset, getUnusedTestValue()), values, nCopies(offset, getUnusedTestValue())))
+        return blockFromValues(Iterables.concat(nCopies(offset, getUnusedTestValue()), values))
                 .getRegion(offset, values.size());
     }
 

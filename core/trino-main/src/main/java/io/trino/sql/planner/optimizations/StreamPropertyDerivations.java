@@ -826,7 +826,7 @@ public final class StreamPropertyDerivations
 
         public boolean isExactlyPartitionedOn(Iterable<Symbol> columns)
         {
-            return partitioningColumns.isPresent() && columns.equals(ImmutableList.copyOf(partitioningColumns.get()));
+            return partitioningColumns.isPresent() && ImmutableList.copyOf(columns).equals(partitioningColumns.get());
         }
 
         public boolean isPartitionedOn(Iterable<Symbol> columns)

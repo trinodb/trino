@@ -29,6 +29,7 @@ import static io.trino.block.BlockAssertions.createDoublesBlock;
 import static io.trino.block.BlockAssertions.createLongRepeatBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static java.lang.Integer.signum;
 
 public class TestDoubleMinNAggregation
         extends AbstractTestAggregationFunction
@@ -79,7 +80,7 @@ public class TestDoubleMinNAggregation
 
     private void testCustomAggregation(Double[] values, int n)
     {
-        PriorityQueue<Double> heap = new PriorityQueue<>(n, (x, y) -> -Double.compare(x, y));
+        PriorityQueue<Double> heap = new PriorityQueue<>(n, (x, y) -> -signum(Double.compare(x, y)));
         Arrays.stream(values).filter(Objects::nonNull).forEach(heap::add);
         Double[] expected = new Double[heap.size()];
         for (int i = heap.size() - 1; i >= 0; i--) {
