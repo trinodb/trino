@@ -19,7 +19,6 @@ import io.trino.testing.containers.environment.EnvironmentManager;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.trino.TrinoContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -76,6 +75,7 @@ public final class TrinoProductTestContainer
     private static final String DEFAULT_IMAGE = "trinodb/trino";
     private static final DataSize MEMORY_LIMIT = DataSize.of(6, GIGABYTE);
     private static final long CPU_LIMIT = 4;
+    static final int STARTUP_TIMEOUT_SECONDS = 300;
 
     private TrinoProductTestContainer() {}
 
@@ -364,12 +364,8 @@ public final class TrinoProductTestContainer
                 }
             }
 
-            // Add a more robust wait strategy that ensures nodes are available
-            container.waitingFor(
-                    Wait.forHttp("/v1/info")
-                            .forPort(8080)
-                            .forStatusCode(200)
-                            .withStartupTimeout(Duration.ofSeconds(90)));
+            // TrinoContainer waits by running a test query, ignoring waitingFor()
+            container.withStartupTimeoutSeconds(STARTUP_TIMEOUT_SECONDS);
 
             return container;
         }
