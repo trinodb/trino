@@ -125,6 +125,7 @@ final class TestIcebergGcsRestCatalogStorageCredentialsRefresh
     {
         return ImmutableMap.<String, String>builder()
                 .put("fs.gcs.enabled", "true")
+                .put("gcs.write-block-size", WRITE_PART_SIZE.toString())
                 .put("gcs.auth-type", "APPLICATION_DEFAULT")
                 .put("gcs.endpoint", flociGcp.getEndpoint().toString())
                 .put("gcs.project-id", FLOCI_GCP_PROJECT_ID)

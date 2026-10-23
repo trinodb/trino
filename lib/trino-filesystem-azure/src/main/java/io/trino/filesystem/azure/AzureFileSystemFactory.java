@@ -34,8 +34,10 @@ import reactor.netty.resources.ConnectionProvider;
 
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -146,17 +148,24 @@ public class AzureFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        AzureAuth effectiveAuth = getEffectiveAuth(identity);
+        AzureAuth effectiveAuth = getEffectiveAuth(identity, Optional.empty());
         return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
     }
 
-    private AzureAuth getEffectiveAuth(ConnectorIdentity identity)
+    @Override
+    public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
+    {
+        AzureAuth effectiveAuth = getEffectiveAuth(identitySupplier.get(), Optional.of(identitySupplier));
+        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
+    }
+
+    private AzureAuth getEffectiveAuth(ConnectorIdentity identity, Optional<Supplier<ConnectorIdentity>> identitySupplier)
     {
         Map<String, String> sasTokens = identity.getExtraCredentials().entrySet().stream()
                 .filter(e -> e.getKey().startsWith(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX))
                 .collect(toImmutableMap(e -> e.getKey().substring(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX.length()), Entry::getValue));
         if (!sasTokens.isEmpty()) {
-            return new AzureAuthSasToken(sasTokens);
+            return new AzureAuthSasToken(sasTokens, identitySupplier);
         }
         return auth;
     }

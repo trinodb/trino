@@ -143,6 +143,8 @@ final class TestIcebergAzureRestCatalogVendedCredentialsRefresh
     {
         return ImmutableMap.<String, String>builder()
                 .put("fs.azure.enabled", "true")
+                .put("azure.write-block-size", WRITE_PART_SIZE.toString())
+                .put("azure.max-single-upload-size", WRITE_PART_SIZE.toString())
                 .put("azure.auth-type", "DEFAULT")
                 .buildOrThrow();
     }

@@ -15,5 +15,5 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 public interface VendedCredentialsProvider<T extends VendedCredentials>
 {
-    T getCredentials();
+    T getCredentials(boolean forceRefresh);
 }

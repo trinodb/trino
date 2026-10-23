@@ -25,6 +25,7 @@ import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
@@ -71,6 +72,14 @@ record S3Context(
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY),
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)));
             return withCredentialsProviderOverride(credentialsProvider);
+        }
+        return this;
+    }
+
+    public S3Context withCredentials(Supplier<ConnectorIdentity> identitySupplier)
+    {
+        if (identitySupplier.get().getExtraCredentials().containsKey(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY)) {
+            return withCredentialsProviderOverride(new IdentityAwsCredentialsProvider(identitySupplier));
         }
         return this;
     }

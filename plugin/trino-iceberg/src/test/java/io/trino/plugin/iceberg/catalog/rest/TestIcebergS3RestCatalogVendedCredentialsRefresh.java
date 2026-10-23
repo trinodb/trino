@@ -110,6 +110,7 @@ final class TestIcebergS3RestCatalogVendedCredentialsRefresh
     {
         return ImmutableMap.<String, String>builder()
                 .put("fs.s3.enabled", "true")
+                .put("s3.streaming.part-size", WRITE_PART_SIZE.toString())
                 .put("s3.endpoint", floci.endpoint().toString())
                 .put("s3.region", FLOCI_REGION)
                 .put("s3.path-style-access", "true")

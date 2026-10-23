@@ -68,13 +68,13 @@ abstract class AbstractIcebergRestVendedCredentialsProvider<T extends VendedCred
     }
 
     @Override
-    public T getCredentials()
+    public T getCredentials(boolean forceRefresh)
     {
         T current = cached;
-        if (shouldRefresh(current)) {
+        if (shouldRefresh(current, forceRefresh)) {
             synchronized (this) {
                 current = cached;
-                if (shouldRefresh(current)) {
+                if (shouldRefresh(current, forceRefresh)) {
                     current = refreshCachedState();
                     cached = current;
                 }
@@ -83,11 +83,11 @@ abstract class AbstractIcebergRestVendedCredentialsProvider<T extends VendedCred
         return current;
     }
 
-    private boolean shouldRefresh(T vendedCredentials)
+    private boolean shouldRefresh(T vendedCredentials, boolean forceRefresh)
     {
         return refreshCredentialsEnabled &&
                 credentialsEndpoint.isPresent() &&
-                isStale(vendedCredentials);
+                (forceRefresh || isStale(vendedCredentials));
     }
 
     private boolean isStale(T vendedCredentials)
