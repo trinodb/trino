@@ -49,12 +49,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,7 +65,6 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
-import static io.trino.jdbc.AbstractTrinoResultSet.DATE_FORMATTER;
 import static io.trino.jdbc.ColumnInfo.setTypeInfo;
 import static io.trino.jdbc.ObjectCasts.castToBigDecimal;
 import static io.trino.jdbc.ObjectCasts.castToBigint;
@@ -315,7 +314,7 @@ public class TrinoPreparedStatement
     {
         requireNonNull(value, "value is null");
         if (value instanceof java.util.Date) {
-            return DATE_FORMATTER.print(((java.util.Date) value).getTime());
+            value = toLocalDateTime((java.util.Date) value);
         }
         if (value instanceof LocalDate) {
             return ISO_LOCAL_DATE.format(((LocalDate) value));
@@ -355,13 +354,8 @@ public class TrinoPreparedStatement
     private String toTimeLiteral(Object value)
             throws SQLException
     {
-        if (value instanceof Timestamp) {
-            value = ((Timestamp) value).toLocalDateTime().toLocalTime();
-        }
         if (value instanceof java.util.Date) {
-            value = Instant.ofEpochMilli(((java.util.Date) value).getTime())
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalTime();
+            value = toLocalDateTime((java.util.Date) value);
         }
         if (value instanceof LocalDateTime) {
             value = ((LocalDateTime) value).toLocalTime();
@@ -423,13 +417,8 @@ public class TrinoPreparedStatement
     private String toTimestampLiteral(Object value)
             throws SQLException
     {
-        if (value instanceof Timestamp) {
-            value = ((Timestamp) value).toLocalDateTime();
-        }
         if (value instanceof java.util.Date) {
-            value = Instant.ofEpochMilli(((java.util.Date) value).getTime())
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDateTime();
+            value = toLocalDateTime((java.util.Date) value);
         }
         if (value instanceof LocalDateTime) {
             return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));
@@ -439,6 +428,15 @@ public class TrinoPreparedStatement
             return (String) value;
         }
         throw invalidConversion(value, "timestamp");
+    }
+
+    private static LocalDateTime toLocalDateTime(java.util.Date value)
+    {
+        if (value instanceof Timestamp) {
+            return ((Timestamp) value).toLocalDateTime();
+        }
+        // Use java.util calendar and time zone rules, consistently with Timestamp, which differ from java.time for historical dates
+        return new Timestamp(value.getTime()).toLocalDateTime();
     }
 
     private void setAsTimestampWithTimeZone(int parameterIndex, Object value)
@@ -473,10 +471,17 @@ public class TrinoPreparedStatement
             setTimestamp(parameterIndex, x);
         }
         else {
-            LocalDateTime dateTime = Instant.ofEpochMilli(x.getTime()) // epochMillis
-                    .plusNanos(x.getNanos() % 1_000_000) // nano of milli
-                    .atZone(cal.getTimeZone().toZoneId())
-                    .toLocalDateTime();
+            // Use java.util calendar rules, like Timestamp.toLocalDateTime(), so that the overloads agree before the Gregorian cutover
+            GregorianCalendar calendar = new GregorianCalendar(cal.getTimeZone());
+            calendar.setTimeInMillis(x.getTime());
+            LocalDateTime dateTime = LocalDateTime.of(
+                    calendar.get(Calendar.YEAR),
+                    calendar.get(Calendar.MONTH) + 1,
+                    calendar.get(Calendar.DAY_OF_MONTH),
+                    calendar.get(Calendar.HOUR_OF_DAY),
+                    calendar.get(Calendar.MINUTE),
+                    calendar.get(Calendar.SECOND),
+                    x.getNanos());
             setAsTimestamp(parameterIndex, dateTime);
         }
     }
