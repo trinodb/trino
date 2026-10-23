@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.iceberg.IcebergAvroDataConversion.toIcebergRecords;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
@@ -77,7 +78,10 @@ public final class IcebergAvroFileWriter
                     .build();
         }
         catch (IOException | UncheckedIOException e) {
-            throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Avro file: " + file.location(), e);
+            throw closeAllSuppress(new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Avro file: " + file.location(), e), rollbackAction::run);
+        }
+        catch (RuntimeException e) {
+            throw closeAllSuppress(e, rollbackAction::run);
         }
     }
 
