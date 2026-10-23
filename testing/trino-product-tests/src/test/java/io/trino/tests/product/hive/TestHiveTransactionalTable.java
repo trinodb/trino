@@ -15,6 +15,7 @@ package io.trino.tests.product.hive;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.trino.testing.containers.HdfsClient;
 import io.trino.testing.containers.environment.ProductTest;
 import io.trino.testing.containers.environment.QueryResult;
 import io.trino.testing.containers.environment.RequiresEnvironment;
@@ -27,6 +28,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.net.URI;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.SQLException;
@@ -1674,6 +1676,26 @@ class TestHiveTransactionalTable
             verifySelectForTrinoAndHive(env, "SELECT * FROM " + tableName, row(11, 100L), row(33, 200L), row(44, 400L), row(55, 500L));
             env.executeTrinoUpdate(format("DELETE FROM %s WHERE column2 IN (100, 500)", tableName));
             verifySelectForTrinoAndHive(env, "SELECT * FROM " + tableName, row(33, 200L), row(44, 400L));
+        });
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    void testFailedInsertIsNotCommitted(HiveTransactionalEnvironment env)
+    {
+        withTemporaryTable(env, "failed_insert", false, NONE, tableName -> {
+            env.executeTrinoUpdate(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
+            env.executeTrinoUpdate(format("INSERT INTO %s VALUES (11, 100)", tableName));
+
+            String tableLocation = URI.create((String) env.executeTrino(format("SELECT DISTINCT regexp_replace(\"$path\", '/delta_[^/]*/[^/]*$', '') FROM %s", tableName)).getOnlyValue()).getPath();
+            String blockedVersionFile = tableLocation + "/delta_0000002_0000002_0000/_orc_acid_version";
+            HdfsClient hdfsClient = env.createHdfsClient();
+            hdfsClient.createDirectory(blockedVersionFile);
+            assertThatThrownBy(() -> env.executeTrinoUpdate(format("INSERT INTO %s VALUES (22, 200)", tableName)))
+                    .hasMessageContaining("Exception writing _orc_acid_version file for delta directory");
+            hdfsClient.delete(blockedVersionFile);
+
+            verifySelectForTrinoAndHive(env, "SELECT * FROM " + tableName, row(11, 100L));
         });
     }
 
