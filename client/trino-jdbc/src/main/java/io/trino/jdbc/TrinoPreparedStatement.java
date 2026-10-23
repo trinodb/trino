@@ -613,6 +613,9 @@ public class TrinoPreparedStatement
         else if (x instanceof LocalDate) {
             setAsDate(parameterIndex, x);
         }
+        else if (x instanceof LocalTime) {
+            setAsTime(parameterIndex, x);
+        }
         else if (x instanceof LocalDateTime) {
             setAsTimestamp(parameterIndex, x);
         }
