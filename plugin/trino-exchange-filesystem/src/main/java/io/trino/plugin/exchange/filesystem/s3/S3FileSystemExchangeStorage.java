@@ -19,6 +19,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageBatch;
+import com.google.cloud.storage.StorageBatchResult;
 import com.google.cloud.storage.StorageOptions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
@@ -329,13 +330,15 @@ public class S3FileSystemExchangeStorage
         ListeningExecutorService deleteExecutor = gcsDeleteExecutor.orElseThrow(() -> new IllegalStateException("gcsDeleteExecutor is expected to be initialized"));
         return stats.getDeleteRecursively().record(translateFailures(deleteExecutor.submit(() -> {
             StorageBatch batch = storage.batch();
+            List<StorageBatchResult<Boolean>> results = new ArrayList<>();
             for (URI dir : directories) {
                 Page<Blob> blobs = storage.list(getBucketName(dir), Storage.BlobListOption.prefix(keyFromUri(dir)));
                 for (Blob blob : blobs.iterateAll()) {
-                    batch.delete(blob.getBlobId());
+                    results.add(batch.delete(blob.getBlobId()));
                 }
             }
             batch.submit();
+            results.forEach(StorageBatchResult::get);
         })));
     }
 
