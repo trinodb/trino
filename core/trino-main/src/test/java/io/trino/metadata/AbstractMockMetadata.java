@@ -635,6 +635,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName, List<ReferencingView> referencingViews)
+    {
+        return getView(session, viewName);
+    }
+
+    @Override
     public boolean isView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();
@@ -1129,6 +1135,12 @@ public abstract class AbstractMockMetadata
     public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName)
     {
         return RedirectionAwareView.noRedirection(getView(session, viewName));
+    }
+
+    @Override
+    public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName, List<ReferencingView> referencingViews)
+    {
+        return getRedirectionAwareView(session, viewName);
     }
 
     @Override
