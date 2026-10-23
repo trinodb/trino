@@ -21,6 +21,10 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.cost.StatsAndCosts;
@@ -168,6 +172,44 @@ public class TestSqlStage
         createTestTask(stage, 1);
         createTestTask(stage, 2);
         assertThat(callCount).hasValue(1);
+
+        stage.finish();
+    }
+
+    @Test
+    public void testTableCredentialsResolvedUnderStageSpan()
+    {
+        AtomicReference<SpanContext> credentialsSpanContext = new AtomicReference<>();
+        Metadata metadata = new AbstractMockMetadata()
+        {
+            @Override
+            public Optional<ConnectorTableCredentials> getTableCredentials(Session s, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle)
+            {
+                credentialsSpanContext.set(Span.current().getSpanContext());
+                return Optional.empty();
+            }
+        };
+
+        SqlStage stage = createSqlStage(
+                metadata,
+                new StageId(new QueryId("query"), 0),
+                createScanPlanFragment(),
+                ImmutableMap.of(),
+                new MockRemoteTaskFactory(executor, scheduledExecutor),
+                TEST_SESSION,
+                true,
+                new NodeTaskMap(new FinalizerService()),
+                executor,
+                SdkTracerProvider.builder()
+                        .addSpanProcessor(SimpleSpanProcessor.create(InMemorySpanExporter.create()))
+                        .build()
+                        .get("test"),
+                Span.getInvalid(),
+                new SplitSchedulerStats(),
+                (_, _) -> OptionalInt.empty());
+
+        createTestTask(stage, 0);
+        assertThat(credentialsSpanContext.get()).isEqualTo(stage.getStageSpan().getSpanContext());
 
         stage.finish();
     }
