@@ -1064,6 +1064,18 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Gets the view data for the specified view name. Returns {@link Optional#empty()} if {@code viewName}
+     * relation does not or is not a view (e.g. is a table, or a materialized view).
+     *
+     * @param referencingViews views the view is resolved through, outermost first, with their security mode; empty if referenced directly, may include other catalogs
+     * @see #getView(ConnectorSession, SchemaTableName)
+     */
+    default Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName, List<ReferencingView> referencingViews)
+    {
+        return getView(session, viewName);
+    }
+
+    /**
      * Is the specified table a view.
      */
     default boolean isView(ConnectorSession session, SchemaTableName viewName)
