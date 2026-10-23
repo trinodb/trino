@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.addIndexFilter;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -40,14 +42,22 @@ class CountQueryPageSource
         requireNonNull(split, "split is null");
 
         long start = System.nanoTime();
+        JsonNode query = buildSearchQuery(
+                table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast),
+                table.query(),
+                table.regexes());
+        if (!table.index().equals(split.index())) {
+            query = addIndexFilter(query, split.index());
+        }
+
         long count = client.count(
-                split.index(),
+                table.index(),
                 split.shard(),
-                buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes()));
+                query);
         readTimeNanos = System.nanoTime() - start;
 
-        if (table.limit().isPresent()) {
-            count = Math.min(table.limit().orElseThrow(), count);
+        if (table.topN().isPresent()) {
+            count = Math.min(table.topN().orElseThrow().limit(), count);
         }
 
         remaining = count;

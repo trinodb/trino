@@ -39,15 +39,15 @@ public final class TimestampToJsonCast
 
     @LiteralParameters("p")
     @SqlType(JSON)
-    public static Json cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
+    public static Json cast(@LiteralParameter("p") int precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
     {
-        return JsonItemBuilder.encodeVarchar(Slices.utf8Slice(formatTimestamp((int) precision, timestamp, 0, UTC, TIMESTAMP_FORMATTER)));
+        return JsonItemBuilder.encodeVarchar(Slices.utf8Slice(formatTimestamp(precision, timestamp, 0, UTC, TIMESTAMP_FORMATTER)));
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType(JSON)
-    public static Json cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
+    public static Json cast(@LiteralParameter("p") int precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        return JsonItemBuilder.encodeVarchar(Slices.utf8Slice(formatTimestamp((int) precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC, TIMESTAMP_FORMATTER)));
+        return JsonItemBuilder.encodeVarchar(Slices.utf8Slice(formatTimestamp(precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC, TIMESTAMP_FORMATTER)));
     }
 }

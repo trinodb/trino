@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
 import io.trino.Session;
+import io.trino.client.ClientCapabilities;
 import io.trino.client.OkHttpUtil;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.metadata.SessionPropertyManager;
@@ -24,6 +25,7 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
+import io.trino.type.SqlIntervalDayTime;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -36,6 +38,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.Principal;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -115,6 +120,30 @@ public class TestTestingTrinoClient
             assertThatThrownBy(() -> client.execute("SELECT 123"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("Error 403 Forbidden");
+        }
+    }
+
+    @Test
+    public void testIntervalPrecision()
+    {
+        OkHttpClient httpClient = new OkHttpClient.Builder()
+                .addInterceptor(OkHttpUtil.basicAuth(TEST_USER, PASSWORD))
+                .addInterceptor(httpsForwarded())
+                .build();
+        Session intervalSession = Session.builder(session)
+                .setClientCapabilities(Set.of(ClientCapabilities.PARAMETRIC_INTERVAL.toString()))
+                .build();
+        try (TestingTrinoClient client = new TestingTrinoClient(server, intervalSession, httpClient)) {
+            MaterializedRow row = client.execute(
+                    """
+                    SELECT x, ARRAY[x, -x], MAP(ARRAY[x, x * 2], ARRAY[1, 2]), ROW(x)
+                    FROM (VALUES INTERVAL '0.000000000001' SECOND(2, 12)) t(x)
+                    """).getResult().getMaterializedRows().getFirst();
+            SqlIntervalDayTime pico = new SqlIntervalDayTime(0, 1, 12);
+            assertThat(row.getField(0)).isEqualTo(pico);
+            assertThat(row.getField(1)).isEqualTo(List.of(pico, new SqlIntervalDayTime(-1, 999_999, 12)));
+            assertThat(row.getField(2)).isEqualTo(Map.of(pico, 1, new SqlIntervalDayTime(0, 2, 12), 2));
+            assertThat(((MaterializedRow) row.getField(3)).getField(0)).isEqualTo(pico);
         }
     }
 

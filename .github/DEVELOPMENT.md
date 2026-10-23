@@ -5,7 +5,9 @@ In this document you can find information about developing Trino.
 * [Trino organization](#trino-organization)
 * [Trino developer guide](#trino-developer-guide)
 * [Code style](#code-style)
+* [Configuration and session properties](#configuration-and-session-properties)
 * [Building](#building)
+* [Running benchmarks](#running-benchmarks)
 * [Additional IDE configuration](#additional-ide-configuration)
 * [Building docs](#building-docs)
 * [Building the Web UI](#building-the-web-ui)
@@ -34,7 +36,7 @@ the client protocol, writing tests and other lower level details.
 
 We recommend you use IntelliJ as your IDE. Code style is managed through [airstyle](https://github.com/airlift/airstyle).
 
-To run airstyle and other maven checks before opening a PR: `./mvnw validate`
+To run airstyle and other maven checks before opening a PR, see [Building](#building).
 
 In addition to those you should also adhere to the following:
 
@@ -61,7 +63,7 @@ When appropriate, use the stream API. However, note that the stream
 implementation does not perform well so avoid using it in inner loops or
 otherwise performance sensitive sections.
 
-### Categorize errors when throwing exceptions.
+### Categorize errors when throwing exceptions
 
 Categorize errors when throwing exceptions. For example, `TrinoException` takes
 an error code as an argument, `TrinoException(HIVE_TOO_MANY_OPEN_PARTITIONS)`.
@@ -71,7 +73,7 @@ of various failures.
 ### Add license header
 
 Ensure that all files have the appropriate license header; you can generate the
-license by running `mvn license:format`.
+license by running `mvnd license:format`.
 
 ### Prefer String formatting
 
@@ -85,11 +87,11 @@ code.
 
 Avoid using the ternary operator except for trivial expressions.
 
- ### Avoid `get` in method names, unless an object must be a Java bean
+### Avoid `get` in method names, unless an object must be a Java bean
 
-In most cases, replace `get` with a more specific verb that describes what is 
-happening in the method, like `find` or `fetch`. If there isn't a more specific 
-verb or the method is a getter, omit `get` because it isn't helpful to readers 
+In most cases, replace `get` with a more specific verb that describes what is
+happening in the method, like `find` or `fetch`. If there isn't a more specific
+verb or the method is a getter, omit `get` because it isn't helpful to readers
 and makes method names longer.
 
 ### Define class API for private inner classes too
@@ -178,6 +180,45 @@ vectorized implementation compared to the scalar equivalent logic. Ensure that
 the benefits hold for all CPU architectures on which the vectorized
 implementation is enabled.
 
+## Configuration and session properties
+
+### Naming
+
+- Config property names use **dashes**, e.g. `hive.max-partitions-per-scan`.
+- Session property names use **snake_case**, e.g. `max_partitions_per_scan`.
+
+### Adding a property
+
+- Every `@Config` setter gets an `@ConfigDescription("…")`.
+- Every session property registration includes a description.
+- Credentials and other secrets get `@ConfigSecuritySensitive` so values are redacted in logs
+  and info endpoints.
+
+### Renaming a config
+
+- Add `@LegacyConfig("old.name")` to the setter that has `@Config("new.name")`. The old name
+  keeps working as a backward-compatible alias.
+- If the value type or meaning changes, add a separate `@Deprecated` setter with
+  `@LegacyConfig(value = "old.name", replacedBy = "new.name")` that converts the old value.
+
+### Removing a config
+
+- Add the current name **and** any `@LegacyConfig` names to `@DefunctConfig` on the class so
+  startup fails loudly if the config is still set.
+- Remove the matching session property from `SystemSessionProperties.java` (or the connector's
+  session-properties class) if one exists.
+
+### Testing a new config
+
+- Add a matching `TestMyConfig` using Airlift's `ConfigAssertions` — see existing `Test*Config`
+  classes for the `testDefaults()` / `testExplicitPropertyMappings()` pattern.
+
+### Other conventions
+
+- Validation annotations (`@NotNull`, `@Min`, `@MinDuration`, etc.) go on getters, not fields.
+- Don't store the config object as a field — read values in the constructor and keep those
+  instead.
+
 ## Keep pom.xml clean and sorted
 
 There are several plugins in place to keep pom.xml clean.
@@ -186,19 +227,49 @@ Your build may fail if:
  - overall pom.xml structure is not correct
 
 Many such errors may be fixed automatically by running the following:
-`./mvnw sortpom:sort`
+`mvnd sortpom:sort`
 
 ## Building
+
+The commands use the [Maven Daemon](https://github.com/apache/maven-mvnd), which keeps Maven
+running between builds. `./mvnw` works in its place.
 
 The fastest way to build and install the whole project:
 
 ```bash
-./mvnw clean install -T 2C -nsu -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all=true
+mvnd clean install -nsu -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all=true
 ```
 
-This builds with two threads per core, skips snapshot update checks, tests, Javadoc, and the
-airbase checks (checkstyle, modernizer, dependency analysis). Run `./mvnw validate` separately
-before opening a PR to get those checks back.
+This skips snapshot update checks, tests, Javadoc, and the airbase checks (checkstyle,
+modernizer, dependency analysis).
+
+After that, build and test a single module without rebuilding everything. Modules it depends
+on come from their `target` directories, so repackage any you change first:
+
+```bash
+mvnd package -DskipTests -Dair.check.skip-all=true -pl <changed module>
+mvnd test -Dair.check.skip-all=true -pl <module> -Dtest=<TestClass>
+```
+
+Before opening a PR, run the static checks CI runs on the modules you changed. Both commands
+skip tests. The first runs the airbase checks and Javadoc. The second runs Error Prone.
+
+```bash
+mvnd verify -DskipTests -P ci -pl <changed modules>
+mvnd clean test-compile -Dair.check.skip-all=true -P errorprone-compiler -pl <changed modules>
+```
+
+## Running benchmarks
+
+Benchmarks use JMH. Compile them with annotation processing turned on. Without it, JMH
+generates no benchmark classes, or the run uses stale ones. Then run the benchmark's `main`
+method:
+
+```bash
+mvnd test-compile exec:exec -Dair.check.skip-all=true -Dmaven.compiler.proc=full -pl <module> \
+    -Dexec.classpathScope=test -Dexec.executable=java \
+    -Dexec.args="-cp %classpath <benchmark class>"
+```
 
 ## Additional IDE configuration
 
@@ -244,7 +315,7 @@ the POMs to each module. If that doesn't work, you can do it manually:
 Note that the version of errorprone used by the IDEA plugin might be older than
 the one configured in the `pom.xml` and you might need to disable some checks
 that are not yet supported by that older version. When in doubt, always check
-with the full Maven build (``./mvnw clean install -DskipTests -Perrorprone-compiler``).
+with the full Maven build (``mvnd clean install -DskipTests -Perrorprone-compiler``).
 
 ### Language injection in IDE
 
@@ -300,7 +371,7 @@ To build the Web UI locally, run:
 
 To run frontend checks, run:
 
-    bun run check
+    bun run verify
 
 Maven builds package the Web UI automatically, and Maven verification runs the
 frontend checks.

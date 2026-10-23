@@ -38,7 +38,6 @@ import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.MemoryContext;
@@ -318,8 +317,8 @@ public class TestHivePageSink
             }
         }
 
-        MaterializedResult expectedResults = toMaterializedResult(getHiveSession(config), columnTypes, ImmutableList.of(page));
-        MaterializedResult results = toMaterializedResult(getHiveSession(config), columnTypes, pages);
+        MaterializedResult expectedResults = toMaterializedResult(columnTypes, ImmutableList.of(page));
+        MaterializedResult results = toMaterializedResult(columnTypes, pages);
         assertThat(results).containsExactlyElementsOf(expectedResults);
         assertThat(round(stats.getInputPageSizeInBytes().getAllTime().getMax())).isEqualTo(page.getRetainedSizeInBytes());
         return fileEntry.length();
@@ -377,10 +376,10 @@ public class TestHivePageSink
         return pageBuilder.build();
     }
 
-    static MaterializedResult toMaterializedResult(ConnectorSession session, List<Type> types, List<Page> pages)
+    static MaterializedResult toMaterializedResult(List<Type> types, List<Page> pages)
     {
         // materialize pages
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(session, types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         for (Page outputPage : pages) {
             resultBuilder.page(outputPage);
         }

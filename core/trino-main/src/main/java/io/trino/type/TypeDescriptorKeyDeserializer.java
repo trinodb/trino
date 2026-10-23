@@ -15,8 +15,7 @@ package io.trino.type;
 
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.KeyDeserializer;
-
-import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
+import io.trino.spi.type.TypeDescriptor;
 
 public final class TypeDescriptorKeyDeserializer
         extends KeyDeserializer
@@ -24,6 +23,6 @@ public final class TypeDescriptorKeyDeserializer
     @Override
     public Object deserializeKey(String key, DeserializationContext context)
     {
-        return parseTypeDescriptor(key);
+        return TypeDescriptor.fromString(key);
     }
 }

@@ -119,12 +119,14 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.ORC;
@@ -451,7 +453,7 @@ public class TestIcebergV2
         try (TestTable table = newTrinoTable("test_optimize_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
             assertUpdate(session, "ALTER TABLE " + table.getName() + " EXECUTE optimize");
             assertThat(computeActual("SELECT split_offsets FROM \"" + table.getName() + "$files\""))
-                    .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
+                    .isEqualTo(resultBuilder(ImmutableList.of(new ArrayType(BIGINT)))
                             .row(ImmutableList.of(4L))
                             .build());
         }
@@ -461,21 +463,37 @@ public class TestIcebergV2
     public void testOptimizeNotNullViolation()
             throws Exception
     {
-        testOptimizeNotNullViolation(true);
-        testOptimizeNotNullViolation(false);
+        testOptimizeNotNullViolation(true, PARQUET, 0, false);
+        testOptimizeNotNullViolation(false, PARQUET, 0, false);
+        testOptimizeNotNullViolation(false, ORC, 0, true);
+        testOptimizeNotNullViolation(false, ORC, 101, false);
     }
 
-    private void testOptimizeNotNullViolation(boolean partitioned)
+    private void testOptimizeNotNullViolation(boolean partitioned, FileFormat format, int nullableColumnsBeforeX, boolean metricsDisabled)
             throws Exception
     {
-        String tableProperty = partitioned ? "WITH (partitioning = ARRAY['x'])" : "";
-        try (TestTable table = newTrinoTable("test_optimize_not_null", "(x INT NOT NULL)" + tableProperty)) {
+        String tableProperties = "format = '" + format.name() + "'";
+        if (partitioned) {
+            tableProperties += ", partitioning = ARRAY['x']";
+        }
+        String nullableColumns = IntStream.range(0, nullableColumnsBeforeX)
+                .mapToObj(column -> "c" + column + " varchar, ")
+                .collect(joining());
+        String tableSchema = "(" + nullableColumns + "x INT NOT NULL)";
+        try (TestTable table = newTrinoTable("test_optimize_not_null", tableSchema + " WITH (" + tableProperties + ")")) {
             BaseTable icebergTable = loadTable(table.getName());
+            if (metricsDisabled) {
+                icebergTable.updateProperties()
+                        .set("write.metadata.metrics.default", "none")
+                        .commit();
+            }
 
             // Add data file with NULL value on NOT NULL column
-            Schema nullableSchema = new Schema(Types.NestedField.optional(1, "x", Types.IntegerType.get()));
+            Schema nullableSchema = new Schema(icebergTable.schema().columns().stream()
+                    .map(field -> Types.NestedField.optional(field.fieldId(), field.name(), field.type()))
+                    .collect(toImmutableList()));
             GenericRecord record = GenericRecord.create(nullableSchema);
-            record.setField("x", null);
+            nullableSchema.columns().forEach(field -> record.setField(field.name(), null));
             insertRecord(icebergTable, nullableSchema, record);
             insertRecord(icebergTable, nullableSchema, record);
 
@@ -483,16 +501,14 @@ public class TestIcebergV2
             List<String> dataFiles = listFiles(dataDirectory);
             assertThat(dataFiles).hasSize(2);
 
-            assertThat(query("TABLE " + table.getName()))
+            assertThat(query("SELECT x FROM " + table.getName()))
                     .matches("VALUES CAST(NULL AS integer), NULL");
 
             assertThat(query("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE")).failure()
                     .hasMessage("NULL value not allowed for NOT NULL column: x");
-            assertEventually(() -> assertThat(listFiles(dataDirectory))
-                    .as("Failed optimize procedure shouldn't leave new data files")
-                    .containsExactlyInAnyOrderElementsOf(dataFiles));
+            assertEventually(() -> assertEqualsIgnoreOrder(listFiles(dataDirectory), dataFiles, "Data files after failed optimize"));
 
-            assertThat(query("TABLE " + table.getName()))
+            assertThat(query("SELECT x FROM " + table.getName()))
                     .matches("VALUES CAST(NULL AS integer), NULL");
         }
     }
@@ -506,14 +522,14 @@ public class TestIcebergV2
                 .createWriterFunc(fileSchema -> InternalWriter.create(schema.asStruct(), fileSchema))
                 .build()) {
             writer.add(record);
-            DataFile file = DataFiles.builder(PartitionSpec.unpartitioned())
-                    .withRecordCount(1)
-                    .withFileSizeInBytes(1000)
-                    .withPath(outputFile.location())
-                    .withFormat(FileFormat.PARQUET)
-                    .build();
-            table.newAppend().appendFile(file).commit();
         }
+        DataFile file = DataFiles.builder(PartitionSpec.unpartitioned())
+                .withRecordCount(1)
+                .withFileSizeInBytes(outputFile.toInputFile().getLength())
+                .withPath(outputFile.location())
+                .withFormat(FileFormat.PARQUET)
+                .build();
+        table.newAppend().appendFile(file).commit();
     }
 
     protected List<String> listFiles(Location location)

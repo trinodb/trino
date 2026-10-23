@@ -181,33 +181,35 @@ public class TestAdaptivePartitioning
                                                                 sb3 -> sb3.fragmentMatcher(fm -> fm.fragmentId(12).outputPartitionCount(1))))))
                 .build();
         assertAdaptivePlan(
-                "SELECT\n" +
-                        "  ps.partkey,\n" +
-                        "  sum(ps.supplycost * ps.availqty) AS value\n" +
-                        "FROM\n" +
-                        "  partsupp ps,\n" +
-                        "  supplier s,\n" +
-                        "  nation n\n" +
-                        "WHERE\n" +
-                        "  ps.suppkey = s.suppkey\n" +
-                        "  AND s.nationkey = n.nationkey\n" +
-                        "  AND n.name = 'GERMANY'\n" +
-                        "GROUP BY\n" +
-                        "  ps.partkey\n" +
-                        "HAVING\n" +
-                        "  sum(ps.supplycost * ps.availqty) > (\n" +
-                        "    SELECT sum(ps.supplycost * ps.availqty) * 0.0001\n" +
-                        "    FROM\n" +
-                        "      partsupp ps,\n" +
-                        "      supplier s,\n" +
-                        "      nation n\n" +
-                        "    WHERE\n" +
-                        "      ps.suppkey = s.suppkey\n" +
-                        "      AND s.nationkey = n.nationkey\n" +
-                        "      AND n.name = 'GERMANY'\n" +
-                        "  )\n" +
-                        "ORDER BY\n" +
-                        "  value DESC",
+                """
+                SELECT
+                  ps.partkey,
+                  sum(ps.supplycost * ps.availqty) AS value
+                FROM
+                  partsupp ps,
+                  supplier s,
+                  nation n
+                WHERE
+                  ps.suppkey = s.suppkey
+                  AND s.nationkey = n.nationkey
+                  AND n.name = 'GERMANY'
+                GROUP BY
+                  ps.partkey
+                HAVING
+                  sum(ps.supplycost * ps.availqty) > (
+                    SELECT sum(ps.supplycost * ps.availqty) * 0.0001
+                    FROM
+                      partsupp ps,
+                      supplier s,
+                      nation n
+                    WHERE
+                      ps.suppkey = s.suppkey
+                      AND s.nationkey = n.nationkey
+                      AND n.name = 'GERMANY'
+                  )
+                ORDER BY
+                  value DESC
+                """,
                 getSession(),
                 ImmutableMap.of(
                         new PlanFragmentId("4"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB * 2, ONE_MB), 10000),

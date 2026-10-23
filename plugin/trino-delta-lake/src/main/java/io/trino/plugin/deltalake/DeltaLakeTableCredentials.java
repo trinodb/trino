@@ -13,18 +13,31 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.metastore.FileSystemCredentials;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorTableCredentials;
 
+import java.util.Map;
+
 import static java.util.Objects.requireNonNull;
 
-public record DeltaLakeTableCredentials(VendedCredentialsHandle vendedCredentialsHandle, FileSystemCredentials fileSystemCredentials)
+/**
+ * Credentials shipped from the coordinator to workers, so the payload must stay JSON-serializable.
+ * {@link FileSystemCredentials} is resolved to its extra credentials map on the coordinator rather
+ * than carried as-is, because the interface has no Jackson type information.
+ */
+public record DeltaLakeTableCredentials(VendedCredentialsHandle vendedCredentialsHandle, Map<String, String> extraCredentials)
         implements ConnectorTableCredentials
 {
     public DeltaLakeTableCredentials
     {
         requireNonNull(vendedCredentialsHandle, "vendedCredentialsHandle is null");
-        requireNonNull(fileSystemCredentials, "fileSystemCredentials is null");
+        extraCredentials = ImmutableMap.copyOf(extraCredentials);
+    }
+
+    public static DeltaLakeTableCredentials of(VendedCredentialsHandle vendedCredentialsHandle, FileSystemCredentials fileSystemCredentials)
+    {
+        return new DeltaLakeTableCredentials(vendedCredentialsHandle, fileSystemCredentials.asExtraCredentials());
     }
 }

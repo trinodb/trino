@@ -30,6 +30,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import software.amazon.awssdk.retries.api.RetryStrategy;
+import software.amazon.awssdk.services.s3.model.ChecksumAlgorithm;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 
@@ -118,6 +119,26 @@ public class S3FileSystemConfig
         }
     }
 
+    public enum S3ChecksumAlgorithm
+    {
+        DEFAULT,
+        CRC32,
+        CRC32C,
+        SHA1,
+        SHA256;
+
+        public static ChecksumAlgorithm toChecksumAlgorithm(S3ChecksumAlgorithm checksumAlgorithm)
+        {
+            return switch (checksumAlgorithm) {
+                case DEFAULT -> null;
+                case CRC32 -> ChecksumAlgorithm.CRC32;
+                case CRC32C -> ChecksumAlgorithm.CRC32_C;
+                case SHA1 -> ChecksumAlgorithm.SHA1;
+                case SHA256 -> ChecksumAlgorithm.SHA256;
+            };
+        }
+    }
+
     public enum S3AuthType
     {
         DEFAULT,
@@ -148,6 +169,7 @@ public class S3FileSystemConfig
     private String region;
     private boolean pathStyleAccess;
     private boolean expectContinueEnabled = true;
+    private boolean chunkedEncodingEnabled = true;
     private StorageClassType storageClass = StorageClassType.STANDARD;
     private String iamRole;
     private String roleSessionName = "trino-filesystem";
@@ -174,6 +196,7 @@ public class S3FileSystemConfig
     private boolean preemptiveBasicProxyAuth;
     private Set<String> nonProxyHosts = ImmutableSet.of();
     private ObjectCannedAcl objectCannedAcl = ObjectCannedAcl.NONE;
+    private S3ChecksumAlgorithm checksumAlgorithm = S3ChecksumAlgorithm.DEFAULT;
     private RetryMode retryMode = RetryMode.LEGACY;
     private int maxErrorRetries = 20;
     private boolean crossRegionAccessEnabled;
@@ -251,6 +274,19 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setExpectContinueEnabled(boolean expectContinueEnabled)
     {
         this.expectContinueEnabled = expectContinueEnabled;
+        return this;
+    }
+
+    public boolean isChunkedEncodingEnabled()
+    {
+        return chunkedEncodingEnabled;
+    }
+
+    @Config("s3.chunked-encoding-enabled")
+    @ConfigDescription("Enable chunked encoding for S3 upload requests; disable for S3-compatible storage systems that do not support it")
+    public S3FileSystemConfig setChunkedEncodingEnabled(boolean chunkedEncodingEnabled)
+    {
+        this.chunkedEncodingEnabled = chunkedEncodingEnabled;
         return this;
     }
 
@@ -342,6 +378,20 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setCannedAcl(ObjectCannedAcl objectCannedAcl)
     {
         this.objectCannedAcl = objectCannedAcl;
+        return this;
+    }
+
+    @NotNull
+    public S3ChecksumAlgorithm getChecksumAlgorithm()
+    {
+        return checksumAlgorithm;
+    }
+
+    @Config("s3.checksum-algorithm")
+    @ConfigDescription("Checksum algorithm to use for S3 upload and delete requests; DEFAULT keeps the AWS SDK default behavior")
+    public S3FileSystemConfig setChecksumAlgorithm(S3ChecksumAlgorithm checksumAlgorithm)
+    {
+        this.checksumAlgorithm = checksumAlgorithm;
         return this;
     }
 

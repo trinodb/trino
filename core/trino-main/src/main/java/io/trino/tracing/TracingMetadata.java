@@ -15,7 +15,6 @@ package io.trino.tracing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
@@ -768,24 +767,6 @@ public class TracingMetadata
     }
 
     @Override
-    public boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName)
-    {
-        Span span = startSpan("delegateMaterializedViewRefreshToConnector", viewName);
-        try (var _ = scopedSpan(span)) {
-            return delegate.delegateMaterializedViewRefreshToConnector(session, viewName);
-        }
-    }
-
-    @Override
-    public ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName)
-    {
-        Span span = startSpan("refreshMaterializedView", viewName);
-        try (var _ = scopedSpan(span)) {
-            return delegate.refreshMaterializedView(session, viewName);
-        }
-    }
-
-    @Override
     public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType)
     {
         Span span = startSpan("beginRefreshMaterializedView", tableHandle);
@@ -1003,11 +984,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, boolean replace)
+    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, SaveMode saveMode)
     {
         Span span = startSpan("createView", viewName);
         try (var _ = scopedSpan(span)) {
-            delegate.createView(session, viewName, definition, properties, replace);
+            delegate.createView(session, viewName, definition, properties, saveMode);
         }
     }
 

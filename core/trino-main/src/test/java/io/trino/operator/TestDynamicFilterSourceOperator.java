@@ -117,8 +117,8 @@ public class TestDynamicFilterSourceOperator
     {
         List<Page> inputPages = ImmutableList.copyOf(pages);
         List<Page> outputPages = toPages(operator, inputPages.iterator());
-        MaterializedResult actual = toMaterializedResult(pipelineContext.getSession(), types, outputPages);
-        MaterializedResult expected = toMaterializedResult(pipelineContext.getSession(), types, inputPages);
+        MaterializedResult actual = toMaterializedResult(types, outputPages);
+        MaterializedResult expected = toMaterializedResult(types, inputPages);
         assertThat(actual).containsExactlyElementsOf(expected);
     }
 

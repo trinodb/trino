@@ -91,6 +91,7 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
         floci = closeAfterClass(new Floci());
         floci.start();
         floci.createBucket(bucketName);
+        floci.createRole("test");
 
         this.warehouseLocation = "s3://%s/default/".formatted(bucketName);
 

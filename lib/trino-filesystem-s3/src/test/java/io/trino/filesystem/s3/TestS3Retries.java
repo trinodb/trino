@@ -200,7 +200,8 @@ public class TestS3Retries
                         config.getSseCustomerKey()),
                 Optional.empty(),
                 config.getStorageClass(),
-                config.getCannedAcl());
+                config.getCannedAcl(),
+                config.getChecksumAlgorithm());
 
         // The toxicity is randomized, so iterate for more determinism
         for (int iteration = 0; iteration < attempts; iteration++) {

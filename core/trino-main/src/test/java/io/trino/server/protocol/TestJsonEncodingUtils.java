@@ -28,6 +28,7 @@ import io.trino.client.spooling.encoding.JsonQueryDataDecoder;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.encoding.JsonQueryDataEncoder;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -42,6 +43,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.variant.Variant;
+import io.trino.type.LongInterval;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -53,6 +55,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -68,16 +71,20 @@ import static io.trino.block.BlockAssertions.createTinyintsBlock;
 import static io.trino.block.BlockAssertions.createTypedLongsBlock;
 import static io.trino.server.protocol.ProtocolUtil.createColumn;
 import static io.trino.server.protocol.TestJsonEncodingUtils.TypedColumn.typed;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.IntervalField.DAY;
+import static io.trino.spi.type.IntervalField.SECOND;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
+import static io.trino.type.IntervalDayTimeType.createIntervalDayTimeType;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -142,6 +149,61 @@ public class TestJsonEncodingUtils
         Page page = page(blockBuilder.build());
         assertThat(roundTrip(columns, page, "[[[0,1,2,3,4,5,6,7,8,9]]]"))
                 .isEqualTo(column(List.of(0L, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L)));
+    }
+
+    @Test
+    public void testIntervalDayTimeSerialization()
+            throws IOException
+    {
+        Type type = createIntervalDayTimeType(DAY, SECOND, 9, 6);
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", type));
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        type.writeLong(blockBuilder, 1_234_567L); // 1.234567 seconds
+
+        // A client that advertises PARAMETRIC_INTERVAL receives every declared fractional digit
+        roundTrip(columns, page(blockBuilder.build()), "[[\"0 00:00:01.234567\"]]");
+    }
+
+    @Test
+    public void testIntervalDayTimeWithoutParametricIntervalSerialization()
+            throws IOException
+    {
+        Type type = createIntervalDayTimeType(DAY, SECOND, 9, 6);
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", type));
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        type.writeLong(blockBuilder, 1_234_567L); // 1.234567 seconds
+
+        // Without the capability the value is rounded to the legacy three-digit millisecond form,
+        // which a client from before parametric intervals parses as milliseconds
+        roundTrip(
+                sessionWithoutCapability(ClientCapabilities.PARAMETRIC_INTERVAL),
+                columns,
+                false,
+                page(blockBuilder.build()),
+                "[[\"0 00:00:01.235\"]]");
+    }
+
+    @Test
+    public void testLongIntervalSerialization()
+            throws IOException
+    {
+        Type type = createIntervalDayTimeType(DAY, SECOND, 9, 12);
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", type));
+        BlockBuilder builder = type.createBlockBuilder(null, 2);
+        type.writeObject(builder, new LongInterval(1_234_567L, 890_123));
+        type.writeObject(builder, new LongInterval(-1_234_568L, 109_877));
+        Page page = page(builder.build());
+        roundTrip(columns, page, "[[\"0 00:00:01.234567890123\"],[\"-0 00:00:01.234567890123\"]]");
+        roundTrip(sessionWithoutCapability(ClientCapabilities.PARAMETRIC_INTERVAL),
+                columns,
+                false,
+                page,
+                "[[\"0 00:00:01.235\"],[\"-0 00:00:01.235\"]]");
+
+        ArrayType arrayType = new ArrayType(type);
+        ArrayBlockBuilder array = arrayType.createBlockBuilder(null, 1);
+        array.buildEntry(values -> type.writeObject(values, new LongInterval(1_234_567L, 890_123)));
+        roundTrip(ImmutableList.of(typed("col0", arrayType)), page(array.build()), "[[[\"0 00:00:01.234567890123\"]]]");
     }
 
     @Test
@@ -835,7 +897,7 @@ public class TestJsonEncodingUtils
     {
         ImmutableList.Builder<Column> columns = ImmutableList.builderWithExpectedSize(types.size());
         for (TypedColumn typedColumn : types) {
-            columns.add(createColumn(typedColumn.name(), typedColumn.type(), true, true, supportsVariant, supportsVariantBinary));
+            columns.add(createColumn(typedColumn.name(), typedColumn.type(), true, true, supportsVariant, supportsVariantBinary, true));
         }
         return new JsonQueryDataDecoder.Factory().create(columns.build(), DataAttributes.empty(), supportsVariantBinary);
     }
@@ -948,5 +1010,152 @@ public class TestJsonEncodingUtils
     static <K, V> Entry<K, V> entry(K key, V value)
     {
         return new Entry<>(key, value);
+    }
+
+    @Test
+    public void testLegacyIntervalMapKeys()
+            throws IOException
+    {
+        Type keyType = createIntervalDayTimeType(DAY, SECOND, 9, 12);
+        MapType mapType = new MapType(keyType, BIGINT, new TypeOperators());
+        MapBlockBuilder builder = mapType.createBlockBuilder(null, 1);
+        builder.buildEntry((keys, values) -> {
+            keyType.writeObject(keys, new LongInterval(1_500_000, 1));
+            BIGINT.writeLong(values, 7);
+        });
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", mapType));
+        Page page = page(builder.build());
+        roundTrip(columns, page, "[[{\"0 00:00:01.500000000001\":7}]]");
+        roundTrip(sessionWithoutCapability(ClientCapabilities.PARAMETRIC_INTERVAL), columns, false, page, "[[{\"0 00:00:01.500\":7}]]");
+    }
+
+    @Test
+    public void testLegacyIntervalStructuralMapKeys()
+            throws IOException
+    {
+        Type intervalType = createIntervalDayTimeType(DAY, SECOND, 9, 12);
+        for (Type keyType : List.of(new ArrayType(intervalType), RowType.anonymous(List.of(intervalType)))) {
+            MapType mapType = new MapType(keyType, BIGINT, new TypeOperators());
+            MapBlockBuilder builder = mapType.createBlockBuilder(null, 1);
+            builder.buildEntry((keys, values) -> {
+                writeStructuralIntervalKey(keys, intervalType, new LongInterval(1_500_000, 1));
+                BIGINT.writeLong(values, 7);
+            });
+            List<TypedColumn> columns = List.of(typed("col0", mapType));
+            assertEncoding(TEST_SESSION, columns, page(builder.build()), "[[{\"[0 00:00:01.500000000001]\":7}]]");
+            assertEncoding(sessionWithoutCapability(ClientCapabilities.PARAMETRIC_INTERVAL), columns, page(builder.build()), "[[{\"[0 00:00:01.500]\":7}]]");
+
+            MapBlockBuilder collisions = mapType.createBlockBuilder(null, 1);
+            collisions.buildEntry((keys, values) -> {
+                writeStructuralIntervalKey(keys, intervalType, new LongInterval(1_500_000, 1));
+                BIGINT.writeLong(values, 1);
+                writeStructuralIntervalKey(keys, intervalType, new LongInterval(1_500_000, 2));
+                BIGINT.writeLong(values, 2);
+            });
+            QueryDataEncoder encoder = newEncoder(sessionWithoutCapability(ClientCapabilities.PARAMETRIC_INTERVAL), columns);
+            assertThatThrownBy(() -> encoder.encodeTo(new ByteArrayOutputStream(), List.of(page(collisions.build()))))
+                    .isInstanceOf(TrinoException.class)
+                    .hasMessageContaining("Interval map keys collide at millisecond precision");
+        }
+    }
+
+    private void assertEncoding(Session session, List<TypedColumn> columns, Page page, String expectedJson)
+            throws IOException
+    {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        newEncoder(session, columns).encodeTo(output, List.of(page));
+        assertThat(output.toString(UTF_8)).isEqualTo(expectedJson);
+    }
+
+    private static void writeStructuralIntervalKey(BlockBuilder builder, Type intervalType, LongInterval value)
+    {
+        switch (builder) {
+            case ArrayBlockBuilder array -> array.buildEntry(elements -> intervalType.writeObject(elements, value));
+            case RowBlockBuilder row -> row.buildEntry(fields -> intervalType.writeObject(fields.getFirst(), value));
+            default -> throw new IllegalArgumentException("Unexpected key builder: " + builder);
+        }
+    }
+
+    @Test
+    public void testLegacyIntervalMapValuedKeys()
+            throws IOException
+    {
+        Type intervalType = createIntervalDayTimeType(DAY, SECOND, 9, 12);
+        MapType keyType = new MapType(intervalType, new ArrayType(intervalType), new TypeOperators());
+        MapType mapType = new MapType(keyType, BIGINT, new TypeOperators());
+        List<TypedColumn> columns = List.of(typed("col0", mapType));
+        MapBlockBuilder builder = mapType.createBlockBuilder(null, 1);
+        builder.buildEntry((keys, values) -> {
+            ((MapBlockBuilder) keys).buildEntry((innerKeys, innerValues) -> {
+                intervalType.writeObject(innerKeys, new LongInterval(1_500_000, 1));
+                ((ArrayBlockBuilder) innerValues).buildEntry(elements -> intervalType.writeObject(elements, new LongInterval(2_500_000, 1)));
+            });
+            BIGINT.writeLong(values, 7);
+        });
+        assertEncoding(TEST_SESSION, columns, page(builder.build()), "[[{\"{0 00:00:01.500000000001=[0 00:00:02.500000000001]}\":7}]]");
+        assertEncoding(sessionWithoutCapability(ClientCapabilities.PARAMETRIC_INTERVAL), columns, page(builder.build()), "[[{\"{0 00:00:01.500=[0 00:00:02.500]}\":7}]]");
+
+        MapBlockBuilder collisions = mapType.createBlockBuilder(null, 1);
+        collisions.buildEntry((keys, values) -> {
+            for (int picos : List.of(1, 2)) {
+                ((MapBlockBuilder) keys).buildEntry((innerKeys, innerValues) -> {
+                    intervalType.writeObject(innerKeys, new LongInterval(1_500_000, picos));
+                    ((ArrayBlockBuilder) innerValues).buildEntry(elements -> intervalType.writeObject(elements, new LongInterval(2_500_000, picos)));
+                });
+                BIGINT.writeLong(values, picos);
+            }
+        });
+        assertEncoding(TEST_SESSION, columns, page(collisions.build()), "[[{\"{0 00:00:01.500000000001=[0 00:00:02.500000000001]}\":1,\"{0 00:00:01.500000000002=[0 00:00:02.500000000002]}\":2}]]");
+        QueryDataEncoder encoder = newEncoder(sessionWithoutCapability(ClientCapabilities.PARAMETRIC_INTERVAL), columns);
+        assertThatThrownBy(() -> encoder.encodeTo(new ByteArrayOutputStream(), List.of(page(collisions.build()))))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Interval map keys collide at millisecond precision");
+    }
+
+    @Test
+    public void testLegacyIntervalBoundarySerialization()
+            throws IOException
+    {
+        Type type = createIntervalDayTimeType(DAY, SECOND, 9, 6);
+        BlockBuilder builder = type.createBlockBuilder(null, 2);
+        type.writeLong(builder, Long.MAX_VALUE);
+        type.writeLong(builder, Long.MIN_VALUE);
+        roundTrip(sessionWithoutCapability(ClientCapabilities.PARAMETRIC_INTERVAL),
+                List.of(typed("col0", type)),
+                false,
+                page(builder.build()),
+                "[[\"106751991 04:00:54.776\"],[\"-106751991 04:00:54.776\"]]");
+    }
+
+    @Test
+    public void testLegacyIntervalMapKeyCollision()
+            throws IOException
+    {
+        Type keyType = createIntervalDayTimeType(DAY, SECOND, 9, 12);
+        MapType mapType = new MapType(keyType, BIGINT, new TypeOperators());
+        MapBlockBuilder builder = mapType.createBlockBuilder(null, 1);
+        builder.buildEntry((keys, values) -> {
+            keyType.writeObject(keys, new LongInterval(1_500_000, 1));
+            BIGINT.writeLong(values, 1);
+            keyType.writeObject(keys, new LongInterval(1_500_000, 2));
+            BIGINT.writeLong(values, 2);
+        });
+        QueryDataEncoder encoder = newEncoder(sessionWithoutCapability(ClientCapabilities.PARAMETRIC_INTERVAL), List.of(typed("col0", mapType)));
+        Page page = page(builder.build());
+        assertThatThrownBy(() -> encoder.encodeTo(new ByteArrayOutputStream(), List.of(page)))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Interval map keys collide at millisecond precision; use a client supporting PARAMETRIC_INTERVAL");
+
+        AtomicReference<TrinoException> failure = new AtomicReference<>();
+        try (var generator = new JsonMapper().getFactory().createGenerator(new ByteArrayOutputStream())) {
+            JsonEncodingUtils.writePagesToJsonGenerator(
+                    failure::set,
+                    generator,
+                    JsonEncodingUtils.createTypeEncoders(sessionWithoutCapability(ClientCapabilities.PARAMETRIC_INTERVAL), List.of(mapType)),
+                    new int[] {0},
+                    List.of(page));
+        }
+        assertThat(failure.get()).hasMessage("Interval map keys collide at millisecond precision; use a client supporting PARAMETRIC_INTERVAL");
+        assertThat(failure.get().getErrorCode()).isEqualTo(NOT_SUPPORTED.toErrorCode());
     }
 }

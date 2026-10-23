@@ -47,6 +47,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
 
+import static io.trino.testing.containers.TrinoProductTestContainer.withResourceLimits;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
@@ -126,7 +127,7 @@ public class JdbcKerberosEnvironment
         }
 
         // Start Trino master with Kerberos configuration
-        trinoMaster = new GenericContainer<>(DockerImageName.parse(TrinoTestImages.getDefaultTrinoImage()))
+        trinoMaster = withResourceLimits(new GenericContainer<>(DockerImageName.parse(TrinoTestImages.getDefaultTrinoImage())))
                 .withNetwork(network)
                 .withNetworkAliases("trino-master", "trino-master.docker.cluster")
                 .withCreateContainerCmdModifier(cmd -> cmd.withHostName("trino-master"))

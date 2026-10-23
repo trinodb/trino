@@ -14,7 +14,6 @@
 package io.trino.metadata;
 
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
@@ -424,16 +423,6 @@ public interface Metadata
     Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
-     * Returns true if materialized view refresh should be delegated to connector
-     */
-    boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName);
-
-    /**
-     * Refresh materialized view
-     */
-    ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName);
-
-    /**
      * Begin refresh materialized view query
      */
     InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType);
@@ -553,7 +542,7 @@ public interface Metadata
     /**
      * Creates the specified view with the specified view definition.
      */
-    void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, boolean replace);
+    void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, SaveMode saveMode);
 
     /**
      * Rename the specified view.

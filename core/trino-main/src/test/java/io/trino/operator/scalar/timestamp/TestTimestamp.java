@@ -31,6 +31,7 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
@@ -85,7 +86,7 @@ public class TestTimestamp
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("1589067296.12e0");
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123')")).matches("1589067296.123e0");
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("1589067296.1234e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("1589067296.1234498e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("1589067296.12345e0");
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("1589067296.123456e0");
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("1589067296.1234567e0");
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("1589067296.1234567e0");
@@ -1482,6 +1483,9 @@ public class TestTimestamp
 
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.55555555556 Pacific/Apia'");
 
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.4995' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56 Pacific/Apia'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999999999' AS TIMESTAMP(9) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:57.000000000 Pacific/Apia'");
+
         // 5-digit year in the future
         assertThat(assertions.expression("CAST(TIMESTAMP '12001-05-01 12:34:56' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56 Pacific/Apia'");
 
@@ -2419,6 +2423,41 @@ public class TestTimestamp
     }
 
     @Test
+    public void testRoundAtOverflowBound()
+    {
+        assertThat(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807' AS TIMESTAMP(4))")).matches("TIMESTAMP '294247-01-10 04:00:54.7758'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807000000' AS TIMESTAMP(4))")).matches("TIMESTAMP '294247-01-10 04:00:54.7758'");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807' AS TIMESTAMP(3))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807000000' AS TIMESTAMP(3))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807500000' AS TIMESTAMP(6))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807999999' AS TIMESTAMP(9))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+
+        assertThat(assertions.expression("format_datetime(TIMESTAMP '294247-01-10 04:00:54.775807', 'yyyy-MM-dd HH:mm:ss.SSS')")).isEqualTo("294247-01-10 04:00:54.776");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807' AS TIMESTAMP(3) WITH TIME ZONE)")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807000000' AS TIMESTAMP(3) WITH TIME ZONE)")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807' AS TIMESTAMP(5) WITH TIME ZONE)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807500000' AS TIMESTAMP(6) WITH TIME ZONE)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807999999' AS TIMESTAMP(9) WITH TIME ZONE)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+    }
+
+    @Test
     public void testToIso8601()
     {
         assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-05-01 12:34:56')"))
@@ -3305,38 +3344,10 @@ public class TestTimestamp
     public void testSubtract()
     {
         assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '2017-03-30 14:15:16.432'", "TIMESTAMP '2016-03-29 03:04:05.321'"))
-                .matches("INTERVAL '366 11:11:11.111' DAY TO SECOND");
+                .matches("CAST(INTERVAL '366 11:11:11.111' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
 
         assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '2016-03-29 03:04:05.321'", "TIMESTAMP '2017-03-30 14:15:16.432'"))
-                .matches("INTERVAL '-366 11:11:11.111' DAY TO SECOND");
-
-        // the difference in microseconds overflows a long, the difference in milliseconds does not
-        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '294247-01-10 04:00:54.775807'", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
-                .matches("INTERVAL '106751991 04:00:54.776' DAY TO SECOND");
-        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000000'", "TIMESTAMP '294247-01-10 04:00:54.775807'"))
-                .matches("INTERVAL '-106751991 04:00:54.776' DAY TO SECOND");
-        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '294247-01-10 04:00:54.775807000000'", "TIMESTAMP '1970-01-01 00:00:00.000000000000'"))
-                .matches("INTERVAL '106751991 04:00:54.776' DAY TO SECOND");
-
-        // half a millisecond rounds up in either direction, as it did before
-        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000500'", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
-                .matches("INTERVAL '0 00:00:00.001' DAY TO SECOND");
-        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000499'", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
-                .matches("INTERVAL '0 00:00:00.000' DAY TO SECOND");
-        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000000'", "TIMESTAMP '1970-01-01 00:00:00.000500'"))
-                .matches("INTERVAL '0 00:00:00.000' DAY TO SECOND");
-        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000000'", "TIMESTAMP '1970-01-01 00:00:00.000501'"))
-                .matches("INTERVAL '-0 00:00:00.001' DAY TO SECOND");
-
-        // a picosecond either side of the tie decides which way it rounds
-        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000500000000'", "TIMESTAMP '1970-01-01 00:00:00.000000000000'"))
-                .matches("INTERVAL '0 00:00:00.001' DAY TO SECOND");
-        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000500000000'", "TIMESTAMP '1970-01-01 00:00:00.000000000001'"))
-                .matches("INTERVAL '0 00:00:00.000' DAY TO SECOND");
-        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000000000000'", "TIMESTAMP '1970-01-01 00:00:00.000500000000'"))
-                .matches("INTERVAL '0 00:00:00.000' DAY TO SECOND");
-        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000000000000'", "TIMESTAMP '1970-01-01 00:00:00.000500000001'"))
-                .matches("INTERVAL '-0 00:00:00.001' DAY TO SECOND");
+                .matches("CAST(INTERVAL '-366 11:11:11.111' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
     }
 
     @Test

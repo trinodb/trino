@@ -734,6 +734,40 @@ public final class ValueDecoders
         };
     }
 
+    public ValueDecoder<int[]> getInt64TimestampMillisToLongTimestampWithTimeZoneDecoder(ParquetEncoding encoding)
+    {
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(int[] values, int offset, int length)
+            {
+                long[] buffer = new long[length];
+                delegate.read(buffer, 0, length);
+                // decoded values are epochMillis, convert to (packed epochMillisUtc, picosOfMilli=0)
+                for (int i = 0; i < length; i++) {
+                    encodeFixed12(
+                            packDateTimeWithZone(buffer[i], UTC_KEY),
+                            0,
+                            values,
+                            i + offset);
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
     public ValueDecoder<int[]> getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder(ParquetEncoding encoding)
     {
         ValueDecoder<long[]> delegate = getLongDecoder(encoding);
@@ -916,7 +950,9 @@ public final class ValueDecoders
                 BinaryBuffer buffer = new BinaryBuffer(length);
                 delegate.read(buffer, 0, length);
                 int[] offsets = buffer.getOffsets();
-                byte[] inputBytes = buffer.asSlice().byteArray();
+                Slice inputSlice = buffer.asSlice();
+                byte[] inputBytes = inputSlice.byteArray();
+                int inputBytesOffset = inputSlice.byteArrayOffset();
 
                 for (int i = 0; i < length; i++) {
                     int positionOffset = offsets[i];
@@ -926,7 +962,7 @@ public final class ValueDecoders
                     }
                     // No need for checkBytesFitInShortDecimal as the standard requires variable binary decimals
                     // to be stored in minimum possible number of bytes
-                    values[offset + i] = getShortDecimalValue(inputBytes, positionOffset, positionLength);
+                    values[offset + i] = getShortDecimalValue(inputBytes, inputBytesOffset + positionOffset, positionLength);
                 }
             }
 
@@ -974,10 +1010,12 @@ public final class ValueDecoders
                     bytesLength = Long.BYTES;
                 }
 
-                byte[] inputBytes = buffer.asSlice().byteArray();
+                Slice inputSlice = buffer.asSlice();
+                byte[] inputBytes = inputSlice.byteArray();
+                int inputBytesOffset = inputSlice.byteArrayOffset();
                 int[] offsets = buffer.getOffsets();
                 for (int i = 0; i < length; i++) {
-                    int inputOffset = offsets[i];
+                    int inputOffset = inputBytesOffset + offsets[i];
                     checkBytesFitInShortDecimal(inputBytes, inputOffset, bytesOffset, descriptor);
                     values[offset + i] = getShortDecimalValue(inputBytes, inputOffset + bytesOffset, bytesLength);
                 }

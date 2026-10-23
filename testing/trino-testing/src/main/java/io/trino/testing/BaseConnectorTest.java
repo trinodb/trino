@@ -996,7 +996,7 @@ public abstract class BaseConnectorTest
 
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
@@ -1245,6 +1245,25 @@ public abstract class BaseConnectorTest
         }
         finally {
             assertUpdate(format("DROP VIEW IF EXISTS %s.%s", schemaName, viewName));
+        }
+    }
+
+    @Test
+    public void testCreateViewIfNotExists()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+
+        String viewName = "test_create_view_if_not_exists_" + randomNameSuffix();
+
+        try {
+            assertUpdate("CREATE VIEW IF NOT EXISTS " + viewName + " AS SELECT 1 AS x");
+            assertQuery("SELECT * FROM " + viewName, "SELECT 1");
+
+            assertUpdate("CREATE VIEW IF NOT EXISTS " + viewName + " AS SELECT 2 AS x");
+            assertQuery("SELECT * FROM " + viewName, "SELECT 1");
+        }
+        finally {
+            assertUpdate("DROP VIEW IF EXISTS " + viewName);
         }
     }
 
@@ -2163,7 +2182,7 @@ public abstract class BaseConnectorTest
                 "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '%s'",
                 getSession().getSchema().get()));
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("customer", "BASE TABLE")
                 .row(viewName, "VIEW")
                 .row("nation", "BASE TABLE")
@@ -2176,7 +2195,7 @@ public abstract class BaseConnectorTest
         // test SHOW TABLES
         actual = computeActual("SHOW TABLES");
 
-        MaterializedResult.Builder builder = resultBuilder(getSession(), actual.getTypes());
+        MaterializedResult.Builder builder = resultBuilder(actual.getTypes());
         for (MaterializedRow row : expected.getMaterializedRows()) {
             builder.row(row.getField(0));
         }
@@ -2189,7 +2208,7 @@ public abstract class BaseConnectorTest
                 "SELECT table_name, view_definition FROM information_schema.views WHERE table_schema = '%s'",
                 getSession().getSchema().get()));
 
-        expected = resultBuilder(getSession(), actual.getTypes())
+        expected = resultBuilder(actual.getTypes())
                 .row(viewName, formatSqlText(query))
                 .build();
 
@@ -2197,7 +2216,7 @@ public abstract class BaseConnectorTest
 
         // test SHOW COLUMNS
         assertThat(query("SHOW COLUMNS FROM " + viewName))
-                .result().matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .result().matches(resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                         .row("x", "bigint", "", "")
                         .row("y", "varchar(3)", "", "")
                         .build());
@@ -2232,14 +2251,16 @@ public abstract class BaseConnectorTest
         String viewName = "test_show_create_view" + randomNameSuffix();
         assertUpdate("DROP VIEW IF EXISTS " + viewName);
         String ddl = format(
-                "CREATE VIEW %s.%s.%s SECURITY DEFINER AS\n" +
-                        "SELECT *\n" +
-                        "FROM\n" +
-                        "  (\n" +
-                        " VALUES \n" +
-                        "     ROW(1, 'one')\n" +
-                        "   , ROW(2, 't')\n" +
-                        ")  t (col1, col2)",
+                """
+                CREATE VIEW %s.%s.%s SECURITY DEFINER AS
+                SELECT *
+                FROM
+                  (
+                 VALUES\s
+                     ROW(1, 'one')
+                   , ROW(2, 't')
+                )  t (col1, col2)\
+                """,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 viewName);
@@ -5513,12 +5534,16 @@ public abstract class BaseConnectorTest
             assertUpdate(
                     "DELETE FROM " + table.getName() + "\n" +
                             "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM tpch.tiny.lineitem)) IS NULL\n",
-                    "SELECT count(*) FROM orders\n" +
-                            "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NULL\n");
+                    """
+                    SELECT count(*) FROM orders
+                    WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NULL
+                    """);
             assertQuery(
                     "SELECT * FROM " + table.getName(),
-                    "SELECT * FROM orders\n" +
-                            "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NOT NULL\n");
+                    """
+                    SELECT * FROM orders
+                    WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NOT NULL
+                    """);
         }
     }
 
@@ -6392,6 +6417,41 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testRowFieldName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        for (String fieldName : testColumnNameDataProvider()) {
+            testRowFieldName(fieldName);
+        }
+    }
+
+    protected void testRowFieldName(String fieldName)
+    {
+        String nameInSql = toColumnNameInSql(fieldName, true);
+        String tableName = "test_row_field_name_" + randomNameSuffix();
+
+        try {
+            // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
+            assertUpdate("CREATE TABLE " + tableName + "(col row(" + nameInSql + " varchar(50)))");
+        }
+        catch (RuntimeException e) {
+            if (isRowFieldNameRejected(e, fieldName)) {
+                // It is OK if given field name is not allowed and is clearly rejected by the connector.
+                return;
+            }
+            throw e;
+        }
+        try {
+            assertUpdate("INSERT INTO " + tableName + " SELECT row('abc')", 1);
+            assertQuery("SELECT col." + nameInSql + " FROM " + tableName, "VALUES 'abc'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
     private static String toColumnNameInSql(String columnName, boolean delimited)
     {
         String nameInSql = columnName;
@@ -6402,6 +6462,11 @@ public abstract class BaseConnectorTest
     }
 
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
+    {
+        return false;
+    }
+
+    protected boolean isRowFieldNameRejected(Exception exception, String fieldName)
     {
         return false;
     }
@@ -7618,7 +7683,7 @@ public abstract class BaseConnectorTest
         assertThat(query("SHOW FUNCTIONS"))
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "double", "double", "scalar", true, "t88")
                         .build());
@@ -7654,7 +7719,7 @@ public abstract class BaseConnectorTest
         assertThat(query("SHOW FUNCTIONS"))
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "bigint", "bigint", "scalar", true, "")
                         .row(name, "double", "double", "scalar", true, "t88")
@@ -7682,14 +7747,14 @@ public abstract class BaseConnectorTest
         assertThat(query("SHOW FUNCTIONS"))
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(name3, "double", "", "scalar", false, "")
                         .build());
 
         assertThat(query("SHOW FUNCTIONS FROM " + computeScalar("SELECT current_path")))
                 .result()
                 .skippingTypesCheck()
-                .matches(resultBuilder(getSession())
+                .matches(resultBuilder()
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "bigint", "bigint", "scalar", true, "")
                         .row(name, "double", "double", "scalar", true, "t88")

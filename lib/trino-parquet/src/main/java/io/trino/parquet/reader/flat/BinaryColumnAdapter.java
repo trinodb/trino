@@ -56,7 +56,7 @@ public class BinaryColumnAdapter
     @Override
     public Block createNullableBlock(long[] valueIsValid, BinaryBuffer values)
     {
-        return new VariableWidthBlock(values.getValueCount(), values.asSlice(), values.getOffsets(), Optional.of(valueIsValid));
+        return createBlock(values, Optional.of(valueIsValid));
     }
 
     @Override
@@ -79,13 +79,18 @@ public class BinaryColumnAdapter
         // Overwrite the next after last position with an empty value. This will be used as null.
         int[] offsets = dictionary.getOffsets();
         offsets[nonNullsCount + 1] = offsets[nonNullsCount];
-        return new VariableWidthBlock(dictionary.getValueCount(), dictionary.asSlice(), offsets, Optional.of(valueIsValid));
+        return createBlock(dictionary, Optional.of(valueIsValid));
     }
 
     @Override
     public Block createNonNullBlock(BinaryBuffer values)
     {
-        return new VariableWidthBlock(values.getValueCount(), values.asSlice(), values.getOffsets(), Optional.empty());
+        return createBlock(values, Optional.empty());
+    }
+
+    protected Block createBlock(BinaryBuffer values, Optional<long[]> valueIsValid)
+    {
+        return new VariableWidthBlock(values.getValueCount(), values.asSlice(), values.getOffsets(), valueIsValid);
     }
 
     @Override

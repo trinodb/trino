@@ -50,7 +50,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
@@ -854,24 +853,6 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Returns true if materialized view refresh should be delegated to connector using {@link ConnectorMetadata#refreshMaterializedView}
-     */
-    @Deprecated(since = "477", forRemoval = true)
-    default boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
-    }
-
-    /**
-     * Refresh materialized view
-     */
-    @Deprecated(since = "477", forRemoval = true)
-    default CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
-    }
-
-    /**
      * Begin materialized view query.
      * <p>
      * If connector does not support execution with retries, the method should throw:
@@ -971,10 +952,26 @@ public interface ConnectorMetadata
     /**
      * Create the specified view. The view definition is intended to
      * be serialized by the connector for permanent storage.
+     *
+     * @deprecated use {@link #createView(ConnectorSession, SchemaTableName, ConnectorViewDefinition, Map, SaveMode)}
      */
+    @Deprecated
     default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating views");
+    }
+
+    /**
+     * Creates a view using the specified view definition.
+     * IGNORE means the view is created using CREATE VIEW ... IF NOT EXISTS syntax.
+     * REPLACE means the view is created using CREATE OR REPLACE VIEW syntax.
+     *
+     * @throws TrinoException with {@code ALREADY_EXISTS} if the view already exists and {@code saveMode} is FAIL.
+     */
+    default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
+    {
+        // Delegate to deprecated SPI to not break existing connectors
+        createView(session, viewName, definition, viewProperties, saveMode == REPLACE);
     }
 
     /**
@@ -1801,12 +1798,6 @@ public interface ConnectorMetadata
      * @throws MaterializedViewNotFoundException when materialized view is not found
      */
     default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean considerGracePeriod)
-    {
-        return getMaterializedViewFreshness(session, name);
-    }
-
-    @Deprecated(forRemoval = true)
-    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getMaterializedView() is implemented without getMaterializedViewFreshness()");
     }

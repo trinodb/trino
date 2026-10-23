@@ -38,7 +38,7 @@ public class TestDropViewTask
     public void testDropExistingView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
         assertThat(metadata.isView(testSession, viewName)).isTrue();
 
         getFutureValue(executeDropView(asQualifiedName(viewName), false));

@@ -532,6 +532,33 @@ public class TestUnwrapCastInComparison
     }
 
     @Test
+    public void testCastTimestampToTimestampWithTimeZoneReducingPrecision()
+    {
+        Session session = Session.builder(assertions.getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.UTC_KEY)
+                .build();
+
+        // https://github.com/trinodb/trino/issues/30496
+        assertThat(assertions.query(
+                session,
+                "SELECT count(*) FROM (VALUES CAST(TIMESTAMP '2020-07-03 01:23:45.123456500' AS timestamp(9))) t(v) " +
+                        "WHERE CAST(v AS timestamp(6) with time zone) = TIMESTAMP '2020-07-03 01:23:45.123457 UTC'"))
+                .matches("VALUES BIGINT '1'");
+
+        for (String operator : COMPARISON_OPERATORS) {
+            // rounds up to the compared value
+            validate(session, operator, "timestamp(9)", "TIMESTAMP '2020-07-03 01:23:45.123456500'", "timestamp(6) with time zone", "TIMESTAMP '2020-07-03 01:23:45.123457 UTC'");
+            // rounds down to the compared value
+            validate(session, operator, "timestamp(9)", "TIMESTAMP '2020-07-03 01:23:45.123456499'", "timestamp(6) with time zone", "TIMESTAMP '2020-07-03 01:23:45.123456 UTC'");
+            validate(session, operator, "timestamp(12)", "TIMESTAMP '2020-07-03 01:23:45.999999999999'", "timestamp(3) with time zone", "TIMESTAMP '2020-07-03 01:23:46.000 UTC'");
+            validate(session, operator, "timestamp(6)", "TIMESTAMP '2020-07-03 01:23:45.500000'", "timestamp(0) with time zone", "TIMESTAMP '2020-07-03 01:23:46 UTC'");
+        }
+
+        validateBetween(session, "timestamp(9)", "TIMESTAMP '2020-07-03 01:23:45.123456500'", "timestamp(6) with time zone", "TIMESTAMP '2020-07-03 01:23:45.123457 UTC'", "TIMESTAMP '2020-07-03 01:23:45.123457 UTC'");
+        validateBetween(session, "timestamp(6)", "TIMESTAMP '2020-07-03 01:23:45.500000'", "timestamp(0) with time zone", "TIMESTAMP '2020-07-03 01:23:46 UTC'", "TIMESTAMP '2020-07-03 01:23:47 UTC'");
+    }
+
+    @Test
     public void testMap()
     {
         String from = "MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])";

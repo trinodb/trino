@@ -92,6 +92,21 @@ final class TestFakerQueries
     }
 
     @Test
+    void testParametricIntervals()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "interval_micros",
+                "(v interval second(2, 6) WITH (allowed_values = ARRAY['0.000001'])) WITH (null_probability = 0.0)")) {
+            assertQuery("SELECT CAST(min(v) AS varchar), CAST(max(v) AS varchar) FROM " + table.getName(),
+                    "VALUES ('0.000001', '0.000001')");
+        }
+        assertQueryFails(
+                "CREATE TABLE unsupported_interval (v interval second(2, 9))",
+                "Faker does not support day-time intervals with fractional precision greater than 6: interval second\\(2, 9\\)");
+    }
+
+    @Test
     void testSelectFromTable()
     {
         List<TestDataType> testCases = ImmutableList.<TestDataType>builder()
@@ -108,8 +123,8 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_decimal5", "decimal(5,2)", "count(rnd_decimal5)", "1000"))
                 .add(new TestDataType("rnd_real", "real", "count(rnd_real)", "1000"))
                 .add(new TestDataType("rnd_double", "double", "count(distinct rnd_double)", "1000"))
-                .add(new TestDataType("rnd_interval1", "interval day to second", "count(distinct rnd_interval1)", "1000"))
-                .add(new TestDataType("rnd_interval2", "interval year to month", "count(distinct rnd_interval2)", "1000"))
+                .add(new TestDataType("rnd_interval1", "interval day(2) to second(3)", "count(distinct rnd_interval1)", "1000"))
+                .add(new TestDataType("rnd_interval2", "interval year(9) to month", "count(distinct rnd_interval2)", "1000"))
                 .add(new TestDataType("rnd_timestamp", "timestamp", "count(distinct rnd_timestamp)", "1000"))
                 .add(new TestDataType("rnd_timestamp0", "timestamp(0)", "count(distinct rnd_timestamp0)", "1000"))
                 .add(new TestDataType("rnd_timestamp6", "timestamp(6)", "count(distinct rnd_timestamp6)", "1000"))
@@ -281,8 +296,8 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_decimal5", "decimal(5,2)", Map.of("min", "0.00", "max", "0.01"), "count(distinct rnd_decimal5)", "2"))
                 .add(new TestDataType("rnd_real", "real", Map.of("min", "0.0", "max", "1.4E-45"), "count(distinct rnd_real)", "2"))
                 .add(new TestDataType("rnd_double", "double", Map.of("min", "0.0", "max", "4.9E-324"), "count(distinct rnd_double)", "2"))
-                .add(new TestDataType("rnd_interval1", "interval day to second", Map.of("min", "0.000", "max", "0.001"), "count(distinct rnd_interval1)", "2"))
-                .add(new TestDataType("rnd_interval2", "interval year to month", Map.of("min", "0", "max", "1"), "count(distinct rnd_interval2)", "2"))
+                .add(new TestDataType("rnd_interval1", "interval day(2) to second(3)", Map.of("min", "0.000", "max", "0.001"), "count(distinct rnd_interval1)", "2"))
+                .add(new TestDataType("rnd_interval2", "interval year(9) to month", Map.of("min", "0", "max", "1"), "count(distinct rnd_interval2)", "2"))
                 .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("min", "2022-03-21 00:00:00.000", "max", "2022-03-21 00:00:00.001"), "count(distinct rnd_timestamp)", "2"))
                 .add(new TestDataType("rnd_timestamp0", "timestamp(0)", Map.of("min", "2022-03-21 00:00:00", "max", "2022-03-21 00:00:01"), "count(distinct rnd_timestamp0)", "2"))
                 .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("min", "2022-03-21 00:00:00.000000", "max", "2022-03-21 00:00:00.000001"), "count(distinct rnd_timestamp6)", "2"))
@@ -400,8 +415,8 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_decimal5", "decimal(5,2)", Map.of("allowed_values", "ARRAY['0.00', '0.01']"), "count(distinct rnd_decimal5)", "2"))
                 .add(new TestDataType("rnd_real", "real", Map.of("allowed_values", "ARRAY['0.0', '1.4E-45']"), "count(distinct rnd_real)", "2"))
                 .add(new TestDataType("rnd_double", "double", Map.of("allowed_values", "ARRAY['0.0', '4.9E-324']"), "count(distinct rnd_double)", "2"))
-                .add(new TestDataType("rnd_interval1", "interval day to second", Map.of("allowed_values", "ARRAY['0.000', '0.001']"), "count(distinct rnd_interval1)", "2"))
-                .add(new TestDataType("rnd_interval2", "interval year to month", Map.of("allowed_values", "ARRAY['0', '1']"), "count(distinct rnd_interval2)", "2"))
+                .add(new TestDataType("rnd_interval1", "interval day(2) to second(3)", Map.of("allowed_values", "ARRAY['0.000', '0.001']"), "count(distinct rnd_interval1)", "2"))
+                .add(new TestDataType("rnd_interval2", "interval year(9) to month", Map.of("allowed_values", "ARRAY['0', '1']"), "count(distinct rnd_interval2)", "2"))
                 .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("allowed_values", "ARRAY['2022-03-21 00:00:00.000', '2022-03-21 00:00:00.001']"), "count(distinct rnd_timestamp)", "2"))
                 .add(new TestDataType("rnd_timestamp0", "timestamp(0)", Map.of("allowed_values", "ARRAY['2022-03-21 00:00:00', '2022-03-21 00:00:01']"), "count(distinct rnd_timestamp0)", "2"))
                 .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("allowed_values", "ARRAY['2022-03-21 00:00:00.000000', '2022-03-21 00:00:00.000001']"), "count(distinct rnd_timestamp6)", "2"))
@@ -450,8 +465,8 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_decimal5", "decimal(5,2)", Map.of("min", "0.00", "max", "1.09", "step", "0.01"), "count(distinct rnd_decimal5)", "110"))
                 .add(new TestDataType("rnd_real", "real", Map.of("min", "0.0", "max", "1.3E-44", "step", "1.4E-45"), "count(distinct rnd_real)", "10"))
                 .add(new TestDataType("rnd_double", "double", Map.of("min", "0.0", "max", "4.4E-323", "step", "4.9E-324"), "count(distinct rnd_double)", "10"))
-                .add(new TestDataType("rnd_interval1", "interval day to second", Map.of("min", "0.000", "max", "0.009", "step", "0.001"), "count(distinct rnd_interval1)", "10"))
-                .add(new TestDataType("rnd_interval2", "interval year to month", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_interval2)", "10"))
+                .add(new TestDataType("rnd_interval1", "interval day(2) to second(3)", Map.of("min", "0.000", "max", "0.009", "step", "0.001"), "count(distinct rnd_interval1)", "10"))
+                .add(new TestDataType("rnd_interval2", "interval year(9) to month", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_interval2)", "10"))
                 .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("min", "2022-03-21 00:00:00.000", "max", "2022-03-21 00:00:00.009", "step", "1ms"), "count(distinct rnd_timestamp)", "10"))
                 .add(new TestDataType("rnd_timestamp0", "timestamp(0)", Map.of("min", "2022-03-21 00:00:00", "max", "2022-03-21 00:00:09", "step", "1s"), "count(distinct rnd_timestamp0)", "10"))
                 .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("min", "2022-03-21 00:00:00.000000", "max", "2022-03-21 00:00:00.000009", "step", "1us"), "count(distinct rnd_timestamp6)", "10"))
@@ -556,8 +571,8 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_decimal5", "decimal(5,2)", Map.of("min", "0.00", "max", "0.01"), "count(distinct rnd_decimal5)", "2"))
                 .add(new TestDataType("rnd_real", "real", Map.of("min", "0.0", "max", "1.4E-45"), "count(distinct rnd_real)", "2"))
                 .add(new TestDataType("rnd_double", "double", Map.of("min", "0.0", "max", "4.9E-324"), "count(distinct rnd_double)", "2"))
-                .add(new TestDataType("rnd_interval1", "interval day to second", Map.of("min", "0.000", "max", "0.001"), "count(distinct rnd_interval1)", "2"))
-                .add(new TestDataType("rnd_interval2", "interval year to month", Map.of("min", "0", "max", "1"), "count(distinct rnd_interval2)", "2"))
+                .add(new TestDataType("rnd_interval1", "interval day(2) to second(3)", Map.of("min", "0.000", "max", "0.001"), "count(distinct rnd_interval1)", "2"))
+                .add(new TestDataType("rnd_interval2", "interval year(9) to month", Map.of("min", "0", "max", "1"), "count(distinct rnd_interval2)", "2"))
                 .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("min", "2022-03-21 00:00:00.000", "max", "2022-03-21 00:00:00.001"), "count(distinct rnd_timestamp)", "2"))
                 .add(new TestDataType("rnd_timestamp0", "timestamp(0)", Map.of("min", "2022-03-21 00:00:00", "max", "2022-03-21 00:00:01"), "count(distinct rnd_timestamp0)", "2"))
                 .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("min", "2022-03-21 00:00:00.000000", "max", "2022-03-21 00:00:00.000001"), "count(distinct rnd_timestamp6)", "2"))
@@ -647,6 +662,17 @@ final class TestFakerQueries
             assertThat(createTable).containsPattern("clerk varchar\\(15\\)");
             assertThat(createTable).containsPattern("shippriority integer WITH \\(allowed_values = ARRAY\\['0'], null_probability = 0E0\\)");
             assertThat(createTable).containsPattern("comment varchar\\(79\\)");
+        }
+    }
+
+    @Test
+    void testCreateTableAsSelectIntervalBounds()
+    {
+        String source = "SELECT * FROM (VALUES INTERVAL '50 00:00:00.000001' DAY(9) TO SECOND(6), INTERVAL '51 00:00:00.000002' DAY(9) TO SECOND(6)) t(x)";
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "interval_bounds", "WITH (dictionary_detection_enabled = false) AS " + source)) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("min = '4320000.000001'", "max = '4406400.000002'");
+            assertQuery("SELECT min(x) >= INTERVAL '50 00:00:00.000001' DAY(9) TO SECOND(6) AND max(x) <= INTERVAL '51 00:00:00.000002' DAY(9) TO SECOND(6) FROM " + table.getName(), "VALUES true");
         }
     }
 

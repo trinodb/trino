@@ -20,6 +20,7 @@ import io.trino.grammar.sql.SqlKeywords;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionSpecification;
+import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.PathSpecification;
@@ -49,6 +50,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -66,6 +68,7 @@ public class SqlParser
     private static final BiConsumer<SqlBaseLexer, SqlBaseParser> DEFAULT_PARSER_INITIALIZER = (_, _) -> {};
 
     private static final ErrorHandler PARSER_ERROR_HANDLER = ErrorHandler.builder()
+            .specialRule(SqlBaseParser.RULE_aliasedExpression, "<expression>")
             .specialRule(SqlBaseParser.RULE_expression, "<expression>")
             .specialRule(SqlBaseParser.RULE_booleanExpression, "<expression>")
             .specialRule(SqlBaseParser.RULE_valueExpression, "<expression>")
@@ -136,12 +139,29 @@ public class SqlParser
         return (FunctionSpecification) invokeParser("function specification", sql, SqlBaseParser::standaloneFunctionSpecification);
     }
 
+    /// Applies an interval type transformation throughout the parsed statement, including nested
+    /// expressions and routine bodies. Interval literals retain their own inference rules.
+    public Statement createStatement(String sql, UnaryOperator<IntervalDataType> intervalTypeRewriter)
+    {
+        return (Statement) invokeParser("statement", sql, Optional.empty(), SqlBaseParser::singleStatement, intervalTypeRewriter);
+    }
+
+    public FunctionSpecification createFunctionSpecification(String sql, UnaryOperator<IntervalDataType> intervalTypeRewriter)
+    {
+        return (FunctionSpecification) invokeParser("function specification", sql, Optional.empty(), SqlBaseParser::standaloneFunctionSpecification, intervalTypeRewriter);
+    }
+
     private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction)
     {
         return invokeParser(name, sql, Optional.empty(), parseFunction);
     }
 
     private Node invokeParser(String name, String sql, Optional<NodeLocation> location, Function<SqlBaseParser, ParserRuleContext> parseFunction)
+    {
+        return invokeParser(name, sql, location, parseFunction, UnaryOperator.identity());
+    }
+
+    private Node invokeParser(String name, String sql, Optional<NodeLocation> location, Function<SqlBaseParser, ParserRuleContext> parseFunction, UnaryOperator<IntervalDataType> intervalTypeRewriter)
     {
         try {
             SqlBaseLexer lexer = new SqlBaseLexer(CharStreams.fromString(sql));
@@ -186,7 +206,7 @@ public class SqlParser
                 throw e;
             }
 
-            return new AstBuilder(location).visit(tree);
+            return new AstBuilder(location, intervalTypeRewriter).visit(tree);
         }
         catch (StackOverflowError e) {
             throw new ParsingException(name + " is too large (stack overflow while parsing)", location.orElse(new NodeLocation(1, 1)));

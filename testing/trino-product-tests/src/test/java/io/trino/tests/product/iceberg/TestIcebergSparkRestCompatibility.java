@@ -16,6 +16,7 @@ package io.trino.tests.product.iceberg;
 import io.trino.testing.containers.environment.ProductTest;
 import io.trino.testing.containers.environment.QueryResult;
 import io.trino.testing.containers.environment.RequiresEnvironment;
+import io.trino.testing.services.junit.Flaky;
 import io.trino.tests.product.TestGroup;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -25,6 +26,8 @@ import java.util.stream.Stream;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
+import static io.trino.tests.product.iceberg.SparkIcebergRestEnvironment.REST_CATALOG_SELF_SUPPRESSION_ISSUE;
+import static io.trino.tests.product.iceberg.SparkIcebergRestEnvironment.REST_CATALOG_SELF_SUPPRESSION_MATCH;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -39,6 +42,7 @@ class TestIcebergSparkRestCompatibility
 
     @ParameterizedTest
     @MethodSource("variantStorageFormats")
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testSparkReadsTrinoVariantData(StorageFormat storageFormat, SparkIcebergRestEnvironment env)
     {
         String tableName = toLowerCase(format("test_spark_reads_trino_variant_%s_%s", storageFormat, randomNameSuffix()));
@@ -76,6 +80,7 @@ class TestIcebergSparkRestCompatibility
 
     @ParameterizedTest
     @MethodSource("variantStorageFormats")
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testTrinoReadsSparkVariantData(StorageFormat storageFormat, SparkIcebergRestEnvironment env)
     {
         String tableName = toLowerCase(format("test_trino_reads_spark_variant_%s_%s", storageFormat, randomNameSuffix()));

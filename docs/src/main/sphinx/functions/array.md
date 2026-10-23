@@ -400,6 +400,7 @@ by `1` day if `start` date is less than or equal to `stop` date, otherwise `-1` 
 
 Generate a sequence of dates from `start` to `stop`, incrementing by `step`.
 The type of `step` can be either `INTERVAL DAY TO SECOND` or `INTERVAL YEAR TO MONTH`.
+A day-time step must be an exact whole number of days, at any interval precision.
 :::
 
 :::{function} sequence(start, stop, step) -> array(timestamp)
@@ -407,6 +408,8 @@ The type of `step` can be either `INTERVAL DAY TO SECOND` or `INTERVAL YEAR TO M
 
 Generate a sequence of timestamps from `start` to `stop`, incrementing by `step`.
 The type of `step` can be either `INTERVAL DAY TO SECOND` or `INTERVAL YEAR TO MONTH`.
+For a day-time step, the result timestamps retain the greater fractional-second
+precision of the endpoints and the step.
 :::
 
 :::{function} shuffle(x) -> array

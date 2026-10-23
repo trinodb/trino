@@ -34,6 +34,14 @@ public class FixedPageSource
         this(pages.iterator(), memoryUsage(pages));
     }
 
+    /**
+     * Reports the retained size of {@code pages} to {@code memoryContext} instead of through {@link #getMemoryUsage()}.
+     */
+    public FixedPageSource(List<Page> pages, MemoryContext memoryContext)
+    {
+        this(pages.iterator(), memoryUsage(pages), memoryContext);
+    }
+
     private static long memoryUsage(List<Page> pages)
     {
         long memoryUsageBytes = 0;
@@ -47,6 +55,17 @@ public class FixedPageSource
     {
         this.pages = requireNonNull(pages, "pages is null");
         this.memoryUsageBytes = memoryUsageBytes;
+    }
+
+    /**
+     * Reports {@code memoryUsageBytes} to {@code memoryContext} instead of through {@link #getMemoryUsage()}.
+     */
+    public FixedPageSource(Iterator<Page> pages, long memoryUsageBytes, MemoryContext memoryContext)
+    {
+        this.pages = requireNonNull(pages, "pages is null");
+        // getMemoryUsage must not report the memory again
+        this.memoryUsageBytes = 0;
+        memoryContext.setBytes(memoryUsageBytes);
     }
 
     @Override

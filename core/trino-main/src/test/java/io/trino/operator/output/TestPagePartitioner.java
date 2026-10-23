@@ -73,6 +73,7 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -85,8 +86,10 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.planner.SystemPartitioningHandle.SystemPartitionFunction.ROUND_ROBIN;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
@@ -169,7 +172,7 @@ public class TestPagePartitioner
         processPages(multiPartitionPartitioner, partitioningMode, page);
 
         List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
-        assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // order is different due to 2 partitions joined
+        assertEqualsIgnoreOrder(partitioned, expected); // order is different due to 2 partitions joined
         outputBuffer.clear();
 
         PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
@@ -228,7 +231,7 @@ public class TestPagePartitioner
         processPages(multiPartitionPartitioner, partitioningMode, page1, page2, page3);
 
         List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
-        assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // order is different due to 2 partitions joined
+        assertEqualsIgnoreOrder(partitioned, expected); // order is different due to 2 partitions joined
         outputBuffer.clear();
 
         PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
@@ -569,6 +572,30 @@ public class TestPagePartitioner
     }
 
     @Test
+    public void testRowWiseAppendKeepsDictionary()
+    {
+        TestOutputBuffer outputBuffer = new TestOutputBuffer();
+        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT, VARCHAR).build();
+        OperatorContext operatorContext = operatorContext();
+        // 13 buffered ids per partition of 100 kB entries flatten to more than a page
+        Block dictionary = createStringsBlock("a".repeat(100_000), "b".repeat(100_000));
+
+        Page columnarPage = new Page(createLongSequenceBlock(0, 24), DictionaryBlock.create(24, dictionary, IntStream.range(0, 24).map(position -> position / 2 % 2).toArray()));
+        pagePartitioner.partitionPage(columnarPage, operatorContext);
+        Page rowWisePage = new Page(createLongSequenceBlock(0, 2), DictionaryBlock.create(2, dictionary, new int[] {0, 1}));
+        pagePartitioner.partitionPage(rowWisePage, operatorContext);
+        assertThat(outputBuffer.getEnqueued()).isEmpty();
+
+        pagePartitioner.close();
+        for (int partition = 0; partition < PARTITION_COUNT; partition++) {
+            List<Slice> enqueued = outputBuffer.getEnqueued(partition);
+            assertThat(enqueued).hasSize(1);
+            assertThat(PAGE_DESERIALIZER.deserialize(enqueued.getFirst()).getPositionCount()).isEqualTo(13);
+            assertThat((long) enqueued.getFirst().length()).isLessThan(2 * dictionary.getSizeInBytes());
+        }
+    }
+
+    @Test
     public void testOutputForSimplePageWithType()
     {
         testOutputForSimplePageWithType(BIGINT, PartitioningMode.ROW_WISE);
@@ -618,7 +645,7 @@ public class TestPagePartitioner
         processPages(pagePartitioner, partitioningMode, page);
 
         List<Object> partitioned = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
-        assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // order is different due to 2 partitions joined
+        assertEqualsIgnoreOrder(partitioned, expected); // order is different due to 2 partitions joined
     }
 
     @Test
@@ -745,7 +772,7 @@ public class TestPagePartitioner
         multiPartitionPartitioner.close();
 
         List<Object> multiPartitionedOutput = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
-        assertThat(multiPartitionedOutput).containsExactlyInAnyOrderElementsOf(expected); // output of the PagePartitioner can be reordered
+        assertEqualsIgnoreOrder(multiPartitionedOutput, expected); // output of the PagePartitioner can be reordered
         outputBuffer.clear();
 
         // Test single partition output matches input

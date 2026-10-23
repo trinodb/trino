@@ -43,11 +43,14 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.containers.TestContainers.exposeFixedPorts;
 import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static java.util.function.Predicate.not;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testcontainers.postgresql.PostgreSQLContainer.POSTGRESQL_PORT;
 
 public class TestingPostgreSqlServer
@@ -235,28 +238,44 @@ public class TestingPostgreSqlServer
         }
     }
 
+    // Statements are logged asynchronously, so a marker statement executed after the recorded operation
+    // is the only reliable signal that all the operation's statements have been logged
+    private String logMarker()
+    {
+        String marker = "SELECT 'events recorder marker %s'".formatted(randomUUID());
+        execute(marker);
+        assertEventually(() -> assertThat(getRemoteDatabaseEvents()).contains(new RemoteDatabaseEvent(marker, RUNNING)));
+        return marker;
+    }
+
     public static class DatabaseEventsRecorder
     {
+        private final TestingPostgreSqlServer server;
         private final Supplier<Stream<String>> loggedQueriesSource;
 
-        private DatabaseEventsRecorder(Supplier<Stream<String>> loggedQueriesSource)
+        private DatabaseEventsRecorder(TestingPostgreSqlServer server, Supplier<Stream<String>> loggedQueriesSource)
         {
+            this.server = requireNonNull(server, "server is null");
             this.loggedQueriesSource = requireNonNull(loggedQueriesSource, "loggedQueriesSource is null");
         }
 
         static DatabaseEventsRecorder startRecording(TestingPostgreSqlServer server)
         {
-            int startingEventsCount = server.getRemoteDatabaseEvents().size();
-            return new DatabaseEventsRecorder(() ->
+            String startMarker = server.logMarker();
+            return new DatabaseEventsRecorder(server, () ->
                     server.getRemoteDatabaseEvents().stream()
-                            .skip(startingEventsCount)
-                            .map(RemoteDatabaseEvent::getQuery));
+                            .map(RemoteDatabaseEvent::getQuery)
+                            .dropWhile(query -> !query.equals(startMarker))
+                            .skip(1));
         }
 
         public DatabaseEventsRecorder stopEventsRecording()
         {
-            List<String> queries = loggedQueriesSource.get().collect(toImmutableList());
-            return new DatabaseEventsRecorder(queries::stream);
+            String stopMarker = server.logMarker();
+            List<String> queries = loggedQueriesSource.get()
+                    .takeWhile(query -> !query.equals(stopMarker))
+                    .collect(toImmutableList());
+            return new DatabaseEventsRecorder(server, queries::stream);
         }
 
         public Stream<String> streamQueriesContaining(String queryPart, String... alternativeQueryParts)

@@ -28,9 +28,12 @@ public interface H2ResourceGroupsDao
     @SqlUpdate("UPDATE resource_groups_global_properties SET name = :name")
     void updateResourceGroupsGlobalProperties(@Bind("name") String name);
 
-    @SqlUpdate("INSERT INTO resource_groups\n" +
-            "(resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, hard_physical_data_scan_limit, parent, environment)\n" +
-            "VALUES (:resource_group_id, :name, :soft_memory_limit, :max_queued, :soft_concurrency_limit, :hard_concurrency_limit, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :hard_physical_data_scan_limit, :parent, :environment)")
+    @SqlUpdate(
+            """
+            INSERT INTO resource_groups
+            (resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, hard_physical_data_scan_limit, parent, environment)
+            VALUES (:resource_group_id, :name, :soft_memory_limit, :max_queued, :soft_concurrency_limit, :hard_concurrency_limit, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :hard_physical_data_scan_limit, :parent, :environment)
+            """)
     void insertResourceGroup(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("name") String name,
@@ -47,22 +50,25 @@ public interface H2ResourceGroupsDao
             @Bind("parent") Long parent,
             @Bind("environment") String environment);
 
-    @SqlUpdate("UPDATE resource_groups SET\n" +
-            " resource_group_id = :resource_group_id\n" +
-            ", name = :name\n" +
-            ", soft_memory_limit = :soft_memory_limit\n" +
-            ", max_queued = :max_queued\n" +
-            ", soft_concurrency_limit = :soft_concurrency_limit\n" +
-            ", hard_concurrency_limit = :hard_concurrency_limit\n" +
-            ", scheduling_policy = :scheduling_policy\n" +
-            ", scheduling_weight = :scheduling_weight\n" +
-            ", jmx_export = :jmx_export\n" +
-            ", soft_cpu_limit = :soft_cpu_limit\n" +
-            ", hard_cpu_limit = :hard_cpu_limit\n" +
-            ", hard_physical_data_scan_limit = :hard_physical_data_scan_limit\n" +
-            ", parent = :parent\n" +
-            ", environment = :environment\n" +
-            "WHERE resource_group_id = :resource_group_id")
+    @SqlUpdate(
+            """
+            UPDATE resource_groups SET
+             resource_group_id = :resource_group_id
+            , name = :name
+            , soft_memory_limit = :soft_memory_limit
+            , max_queued = :max_queued
+            , soft_concurrency_limit = :soft_concurrency_limit
+            , hard_concurrency_limit = :hard_concurrency_limit
+            , scheduling_policy = :scheduling_policy
+            , scheduling_weight = :scheduling_weight
+            , jmx_export = :jmx_export
+            , soft_cpu_limit = :soft_cpu_limit
+            , hard_cpu_limit = :hard_cpu_limit
+            , hard_physical_data_scan_limit = :hard_physical_data_scan_limit
+            , parent = :parent
+            , environment = :environment
+            WHERE resource_group_id = :resource_group_id
+            """)
     void updateResourceGroup(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("name") String resourceGroup,
@@ -82,9 +88,12 @@ public interface H2ResourceGroupsDao
     @SqlUpdate("DELETE FROM resource_groups WHERE resource_group_id = :resource_group_id")
     void deleteResourceGroup(@Bind("resource_group_id") long resourceGroupId);
 
-    @SqlUpdate("INSERT INTO selectors\n" +
-            "(resource_group_id, priority, user_regex, user_group_regex, original_user_regex, authenticated_user_regex, source_regex, query_text_regex, query_type, client_tags, selector_resource_estimate)\n" +
-            "VALUES (:resource_group_id, :priority, :user_regex, :user_group_regex, :original_user_regex, :authenticated_user_regex, :source_regex, :query_text_regex, :query_type, :client_tags, :selector_resource_estimate)")
+    @SqlUpdate(
+            """
+            INSERT INTO selectors
+            (resource_group_id, priority, user_regex, user_group_regex, original_user_regex, authenticated_user_regex, source_regex, query_text_regex, query_type, client_tags, selector_resource_estimate)
+            VALUES (:resource_group_id, :priority, :user_regex, :user_group_regex, :original_user_regex, :authenticated_user_regex, :source_regex, :query_text_regex, :query_type, :client_tags, :selector_resource_estimate)
+            """)
     void insertSelector(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("priority") long priority,
@@ -98,23 +107,26 @@ public interface H2ResourceGroupsDao
             @Bind("client_tags") String clientTags,
             @Bind("selector_resource_estimate") String selectorResourceEstimate);
 
-    @SqlUpdate("UPDATE selectors SET\n" +
-            " resource_group_id = :resource_group_id\n" +
-            ", user_regex = :user_regex\n" +
-            ", user_group_regex = :user_group_regex\n" +
-            ", original_user_regex = :original_user_regex\n" +
-            ", authenticated_user_regex = :authenticated_user_regex\n" +
-            ", source_regex = :source_regex\n" +
-            ", query_text_regex = :query_text_regex\n" +
-            ", client_tags = :client_tags\n" +
-            "WHERE resource_group_id = :resource_group_id\n" +
-            " AND ((user_regex IS NULL AND :old_user_regex IS NULL) OR user_regex = :old_user_regex)\n" +
-            " AND ((user_group_regex IS NULL AND :old_user_group_regex IS NULL) OR user_group_regex = :old_user_group_regex)\n" +
-            " AND ((original_user_regex IS NULL AND :old_original_user_regex IS NULL) OR original_user_regex = :old_original_user_regex)\n" +
-            " AND ((authenticated_user_regex IS NULL AND :old_authenticated_user_regex IS NULL) OR authenticated_user_regex = :old_authenticated_user_regex)\n" +
-            " AND ((source_regex IS NULL AND :old_source_regex IS NULL) OR source_regex = :old_source_regex)\n" +
-            " AND ((query_text_regex IS NULL AND :old_query_text_regex IS NULL) OR query_text_regex = :old_query_text_regex)\n" +
-            " AND ((client_tags IS NULL AND :old_client_tags IS NULL) OR client_tags = :old_client_tags)")
+    @SqlUpdate(
+            """
+            UPDATE selectors SET
+             resource_group_id = :resource_group_id
+            , user_regex = :user_regex
+            , user_group_regex = :user_group_regex
+            , original_user_regex = :original_user_regex
+            , authenticated_user_regex = :authenticated_user_regex
+            , source_regex = :source_regex
+            , query_text_regex = :query_text_regex
+            , client_tags = :client_tags
+            WHERE resource_group_id = :resource_group_id
+             AND ((user_regex IS NULL AND :old_user_regex IS NULL) OR user_regex = :old_user_regex)
+             AND ((user_group_regex IS NULL AND :old_user_group_regex IS NULL) OR user_group_regex = :old_user_group_regex)
+             AND ((original_user_regex IS NULL AND :old_original_user_regex IS NULL) OR original_user_regex = :old_original_user_regex)
+             AND ((authenticated_user_regex IS NULL AND :old_authenticated_user_regex IS NULL) OR authenticated_user_regex = :old_authenticated_user_regex)
+             AND ((source_regex IS NULL AND :old_source_regex IS NULL) OR source_regex = :old_source_regex)
+             AND ((query_text_regex IS NULL AND :old_query_text_regex IS NULL) OR query_text_regex = :old_query_text_regex)
+             AND ((client_tags IS NULL AND :old_client_tags IS NULL) OR client_tags = :old_client_tags)
+            """)
     void updateSelector(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("user_regex") String newUserRegex,
@@ -132,14 +144,17 @@ public interface H2ResourceGroupsDao
             @Bind("old_query_text_regex") String oldQueryTextRegex,
             @Bind("old_client_tags") String oldClientTags);
 
-    @SqlUpdate("DELETE FROM selectors WHERE resource_group_id = :resource_group_id\n" +
-            " AND ((user_regex IS NULL AND :user_regex IS NULL) OR user_regex = :user_regex)\n" +
-            " AND ((user_group_regex IS NULL AND :user_group_regex IS NULL) OR user_group_regex = :user_group_regex)\n" +
-            " AND ((original_user_regex IS NULL AND :original_user_regex IS NULL) OR original_user_regex = :original_user_regex)\n" +
-            " AND ((authenticated_user_regex IS NULL AND :authenticated_user_regex IS NULL) OR authenticated_user_regex = :authenticated_user_regex)\n" +
-            " AND ((source_regex IS NULL AND :source_regex IS NULL) OR source_regex = :source_regex)\n" +
-            " AND ((query_text_regex IS NULL AND :query_text_regex IS NULL) OR query_text_regex = :query_text_regex)\n" +
-            " AND ((client_tags IS NULL AND :client_tags IS NULL) OR client_tags = :client_tags)")
+    @SqlUpdate(
+            """
+            DELETE FROM selectors WHERE resource_group_id = :resource_group_id
+             AND ((user_regex IS NULL AND :user_regex IS NULL) OR user_regex = :user_regex)
+             AND ((user_group_regex IS NULL AND :user_group_regex IS NULL) OR user_group_regex = :user_group_regex)
+             AND ((original_user_regex IS NULL AND :original_user_regex IS NULL) OR original_user_regex = :original_user_regex)
+             AND ((authenticated_user_regex IS NULL AND :authenticated_user_regex IS NULL) OR authenticated_user_regex = :authenticated_user_regex)
+             AND ((source_regex IS NULL AND :source_regex IS NULL) OR source_regex = :source_regex)
+             AND ((query_text_regex IS NULL AND :query_text_regex IS NULL) OR query_text_regex = :query_text_regex)
+             AND ((client_tags IS NULL AND :client_tags IS NULL) OR client_tags = :client_tags)
+            """)
     void deleteSelector(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("user_regex") String userRegex,
@@ -153,8 +168,11 @@ public interface H2ResourceGroupsDao
     @SqlUpdate("DELETE FROM selectors WHERE resource_group_id = :resource_group_id")
     void deleteSelectors(@Bind("resource_group_id") long resourceGroup);
 
-    @SqlUpdate("INSERT INTO exact_match_source_selectors (environment, source, query_type, update_time, resource_group_id)\n" +
-            "VALUES (:environment, :source, :query_type, now(), :resourceGroupId)\n")
+    @SqlUpdate(
+            """
+            INSERT INTO exact_match_source_selectors (environment, source, query_type, update_time, resource_group_id)
+            VALUES (:environment, :source, :query_type, now(), :resourceGroupId)
+            """)
     void insertExactMatchSelector(
             @Bind("environment") String environment,
             @Bind("source") String source,

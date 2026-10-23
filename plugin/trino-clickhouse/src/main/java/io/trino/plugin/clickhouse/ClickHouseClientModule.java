@@ -13,7 +13,8 @@
  */
 package io.trino.plugin.clickhouse;
 
-import com.clickhouse.jdbc.DriverV1;
+import com.clickhouse.client.api.ClientConfigProperties;
+import com.clickhouse.jdbc.Driver;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -34,8 +35,6 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.util.Properties;
 
-import static com.clickhouse.client.config.ClickHouseClientOption.USE_BINARY_STRING;
-import static com.clickhouse.jdbc.JdbcConfig.PROP_EXTERNAL_DATABASE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.clickhouse.ClickHouseClient.DEFAULT_DOMAIN_COMPACTION_THRESHOLD;
@@ -64,14 +63,11 @@ public class ClickHouseClientModule
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
     {
         Properties properties = new Properties();
-        // The connector expects byte array for FixedString and String types
-        properties.setProperty(USE_BINARY_STRING.getKey(), "true");
-        // externalDatabase=false is needed because Schema listing fetch is extremely slow on Clickhouse-server 24.3+
-        // https://github.com/ClickHouse/clickhouse-java/issues/1245
-        // https://github.com/ClickHouse/clickhouse-java/issues/1584
-        // in Clickhouse itself it has been left `true` by default only for backward compatibility.
-        properties.setProperty(PROP_EXTERNAL_DATABASE, "false");
-        return new ClickHouseConnectionFactory(DriverConnectionFactory.builder(new DriverV1(), config.getConnectionUrl(), credentialProvider)
+        // The connector expects raw bytes for String and FixedString columns; without this,
+        // clickhouse-jdbc decodes them as UTF-8 (replacing invalid sequences with U+FFFD) before
+        // getBytes() re-encodes, corrupting non-UTF-8 varbinary data.
+        properties.setProperty(ClientConfigProperties.BINARY_STRING_SUPPORT.getKey(), "true");
+        return new ClickHouseConnectionFactory(DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
                 .setConnectionProperties(properties)
                 .setOpenTelemetry(openTelemetry)
                 .build());

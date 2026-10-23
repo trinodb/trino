@@ -27,6 +27,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
@@ -48,7 +49,6 @@ import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAccessor;
 import java.util.Collection;
 import java.util.HashMap;
@@ -62,21 +62,25 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.parquet.ParquetTimestampUtils.decodeInt64Timestamp;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.canonicalizeColumnName;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -172,19 +176,27 @@ public final class DeltaLakeParquetStatisticsUtils
         if (type == DateType.DATE) {
             return LocalDate.parse((String) jsonValue).toEpochDay();
         }
-        if (type == TIMESTAMP_MILLIS) {
-            Instant instant = Instant.parse((String) jsonValue);
-            if (upperBound) {
-                instant = roundUpToMillisecond(instant);
-            }
-            return instant.toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
-        }
         if (type == TIMESTAMP_MICROS) {
             Instant instant = parseTimestampStatistic((String) jsonValue);
             return (instant.getEpochSecond() * MICROSECONDS_PER_SECOND) + (instant.getNano() / NANOSECONDS_PER_MICROSECOND);
         }
+        if (type == TIMESTAMP_TZ_MICROS) {
+            Instant instant = parseTimestampStatistic((String) jsonValue);
+            if (upperBound) {
+                instant = roundUpToMillisecond(instant);
+            }
+            long fractionMicros = instant.getNano() / NANOSECONDS_PER_MICROSECOND;
+            return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(instant.getEpochSecond(), fractionMicros * PICOSECONDS_PER_MICROSECOND, UTC_KEY);
+        }
         if (type instanceof RowType rowType) {
-            Map<?, ?> values = (Map<?, ?>) jsonValue;
+            // Row field names are lowercase, while the statistics keep the original case of the nested field names.
+            // Copy the map with canonical names, the fields are removed from it below
+            Map<String, Object> values = new HashMap<>();
+            for (Entry<?, ?> entry : ((Map<?, ?>) jsonValue).entrySet()) {
+                String fieldName = canonicalizeColumnName((String) entry.getKey());
+                checkState(!values.containsKey(fieldName), "Duplicate field %s in statistics: %s", fieldName, jsonValue);
+                values.put(fieldName, entry.getValue());
+            }
             List<Type> fieldTypes = rowType.getFieldTypes();
             return buildRowValue(rowType, fields -> {
                 for (int i = 0; i < fieldTypes.size(); ++i) {
@@ -282,9 +294,13 @@ public final class DeltaLakeParquetStatisticsUtils
             }
             return toJsonTimestamp(instant);
         }
-        if (type == TIMESTAMP_TZ_MILLIS) {
-            Instant ts = Instant.ofEpochMilli(unpackMillisUtc((long) value));
-            return ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC));
+        if (type == TIMESTAMP_TZ_MICROS) {
+            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
+            Instant instant = Instant.ofEpochMilli(timestamp.getEpochMillis()).plusNanos(timestamp.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND);
+            if (upperBound) {
+                return toJsonTimestampUpperBound(instant);
+            }
+            return toJsonTimestamp(instant);
         }
         if (type instanceof RowType rowType) {
             SqlRow row = (SqlRow) value;
@@ -390,6 +406,10 @@ public final class DeltaLakeParquetStatisticsUtils
             RowType.Field field = fields.get(i);
             Block fieldBlock = row.getRawFieldBlock(i);
             int fieldBlockIndex = row.getRawIndex();
+            if (fieldBlock.isNull(fieldBlockIndex)) {
+                // Null count is unknown
+                continue;
+            }
             String fieldName = field.getName().orElseThrow();
             if (field.getType() instanceof RowType fieldRowType) {
                 nullCounts.put(fieldName, toNullCount(fieldRowType, fieldRowType.getObject(fieldBlock, fieldBlockIndex)));
@@ -399,6 +419,16 @@ public final class DeltaLakeParquetStatisticsUtils
             }
         }
         return nullCounts.buildOrThrow();
+    }
+
+    private static Optional<Instant> int64StatisticToInstant(LongStatistics statistics, long timestamp)
+    {
+        // Trino wrote MILLIS while it mapped timestamp to timestamp(3) with time zone, and the Delta protocol specifies MICROS
+        if (!(statistics.type().getLogicalTypeAnnotation() instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation timestampAnnotation)) {
+            return Optional.empty();
+        }
+        DecodedTimestamp decodedTimestamp = decodeInt64Timestamp(timestamp, timestampAnnotation.getUnit());
+        return Optional.of(Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond()));
     }
 
     private static Optional<Object> getMin(Type type, Statistics<?> statistics)
@@ -426,8 +456,7 @@ public final class DeltaLakeParquetStatisticsUtils
 
         if (type instanceof TimestampWithTimeZoneType) {
             if (statistics instanceof LongStatistics longStatistics) {
-                Instant ts = Instant.ofEpochMilli(longStatistics.genericGetMin());
-                return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC)));
+                return int64StatisticToInstant(longStatistics, longStatistics.genericGetMin()).map(DeltaLakeParquetStatisticsUtils::toJsonTimestamp);
             }
             if (statistics instanceof BinaryStatistics binaryStatistics) {
                 return Optional.of(toJsonTimestamp(int96StatisticToInstant(binaryStatistics.genericGetMin())));
@@ -515,8 +544,7 @@ public final class DeltaLakeParquetStatisticsUtils
 
         if (type instanceof TimestampWithTimeZoneType) {
             if (statistics instanceof LongStatistics longStatistics) {
-                Instant ts = Instant.ofEpochMilli(longStatistics.genericGetMax());
-                return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC)));
+                return int64StatisticToInstant(longStatistics, longStatistics.genericGetMax()).map(DeltaLakeParquetStatisticsUtils::toJsonTimestampUpperBound);
             }
             if (statistics instanceof BinaryStatistics binaryStatistics) {
                 return Optional.of(toJsonTimestampUpperBound(int96StatisticToInstant(binaryStatistics.genericGetMax())));

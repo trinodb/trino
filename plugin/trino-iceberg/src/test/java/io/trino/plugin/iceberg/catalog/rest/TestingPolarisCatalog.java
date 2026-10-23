@@ -72,6 +72,7 @@ public final class TestingPolarisCatalog
         floci = closer.register(new Floci().withNetwork(network).withNetworkAliases("floci"));
         floci.start();
         floci.createBucket(bucketName);
+        floci.createRole("test");
 
         this.warehouseLocation = requireNonNull(warehouseLocation, "warehouseLocation is null");
         polarisCatalog = closer.register(new GenericContainer<>("apache/polaris:1.5.0"));

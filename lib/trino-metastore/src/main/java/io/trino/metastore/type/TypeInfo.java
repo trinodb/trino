@@ -19,7 +19,8 @@ public abstract sealed class TypeInfo
                 MapTypeInfo,
                 PrimitiveTypeInfo,
                 StructTypeInfo,
-                UnionTypeInfo
+                UnionTypeInfo,
+                UnknownTypeInfo
 {
     protected TypeInfo() {}
 

@@ -13,12 +13,16 @@
  */
 package io.trino.testing.containers;
 
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
+import io.airlift.log.Logger;
 import io.trino.testing.TestingProperties;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.URI;
@@ -26,6 +30,7 @@ import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -45,8 +50,18 @@ import static java.util.Objects.requireNonNull;
 public class HadoopContainer
         extends GenericContainer<HadoopContainer>
 {
+    private static final Logger log = Logger.get(HadoopContainer.class);
+
+    private static final RetryPolicy<Object> DOWNLOAD_RETRY_POLICY = RetryPolicy.builder()
+            .handle(IOException.class)
+            .withMaxAttempts(5)
+            .withBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10))
+            .onRetry(event -> log.warn(event.getLastException(), "Download failed (attempt %s), retrying", event.getAttemptCount()))
+            .build();
+
     private static final String DEFAULT_IMAGE = "ghcr.io/trinodb/testing/hive3.1";
     private static final String KERBERIZED_IMAGE = "ghcr.io/trinodb/testing/hive3.1-kerberos";
+    private static final String GCP_CREDENTIALS_FILE = "/etc/trino/gcp-credentials.json";
 
     public static final String HOST_NAME = "hadoop-master";
 
@@ -59,7 +74,10 @@ public class HadoopContainer
     private final boolean kerberizedImage;
     private boolean lzoCodecEnabled;
     private boolean trinoProxyUserEnabled;
+    private GcsConfig gcsConfig;
     private S3Config s3Config;
+
+    private record GcsConfig(String endpoint, String projectId) {}
 
     /**
      * Configuration for S3-compatible storage (like Minio).
@@ -96,7 +114,7 @@ public class HadoopContainer
         // Non-kerberized lanes require plain HMS thrift and HS2 auth.
         if (shouldOverrideHiveSiteXml()) {
             withCopyToContainer(
-                    Transferable.of(getHiveSiteXml()),
+                    Transferable.of(getHiveSiteXml("")),
                     "/opt/hive/conf/hive-site.xml");
         }
         // Always run via a startup wrapper that applies /etc/hadoop-init.d scripts before supervisord.
@@ -370,9 +388,55 @@ public class HadoopContainer
                    <property>
                        <name>hadoop.proxyuser.root.users</name>
                        <value>*</value>
-                   </property>%s%s%s
+                   </property>%s%s%s%s
                </configuration>
-               """.formatted(hostName, HDFS_NAMENODE_PORT, lzoCodecConfig, s3ConfigXml, trinoProxyUserConfig);
+               """.formatted(hostName, HDFS_NAMENODE_PORT, lzoCodecConfig, s3ConfigXml, getGcsConfigXml(), trinoProxyUserConfig);
+    }
+
+    private String getGcsConfigXml()
+    {
+        if (gcsConfig == null) {
+            return "";
+        }
+        return """
+               <!-- GCS configuration for Hive Metastore -->
+               <property>
+                   <name>fs.gs.path.encoding</name>
+                   <value>uri-path</value>
+               </property>
+               <property>
+                   <name>fs.gs.impl</name>
+                   <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem</value>
+               </property>
+               <property>
+                   <name>fs.AbstractFileSystem.gs.impl</name>
+                   <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS</value>
+               </property>
+               <property>
+                   <name>fs.gs.storage.root.url</name>
+                   <value>%s/</value>
+               </property>
+               <property>
+                   <name>fs.gs.storage.service.path</name>
+                   <value>storage/v1/</value>
+               </property>
+               <property>
+                   <name>fs.gs.project.id</name>
+                   <value>%s</value>
+               </property>
+               <property>
+                   <name>fs.gs.auth.type</name>
+                   <value>SERVICE_ACCOUNT_JSON_KEYFILE</value>
+               </property>
+               <property>
+                   <name>fs.gs.auth.service.account.json.keyfile</name>
+                   <value>%s</value>
+               </property>
+               <property>
+                   <name>fs.gs.token.server.url</name>
+                   <value>%s/token</value>
+               </property>
+               """.formatted(gcsConfig.endpoint(), gcsConfig.projectId(), GCP_CREDENTIALS_FILE, gcsConfig.endpoint());
     }
 
     /**
@@ -586,7 +650,7 @@ public class HadoopContainer
             """;
 
     // Generates a baseline non-kerberos hive-site.xml for the default Hive 3.1 lane
-    private String getHiveSiteXml()
+    private String getHiveSiteXml(String extraProperties)
     {
         return """
                <?xml version="1.0"?>
@@ -667,8 +731,9 @@ public class HadoopContainer
                        <name>hive.security.authorization.task.factory</name>
                        <value>org.apache.hadoop.hive.ql.parse.authorization.HiveAuthorizationTaskFactoryImpl</value>
                    </property>
+               %s
                </configuration>
-               """;
+               """.formatted(extraProperties);
     }
 
     // Generates a complete hive-site.xml with S3 configuration
@@ -790,6 +855,22 @@ public class HadoopContainer
         return this;
     }
 
+    public HadoopContainer withGcsConfig(String endpoint, String projectId, String serviceAccountJson, String warehouseDirectory)
+    {
+        checkState(!kerberizedImage, "GCS configuration is not supported for Kerberized Hadoop containers");
+        this.gcsConfig = new GcsConfig(endpoint, projectId);
+        withCopyToContainer(Transferable.of(serviceAccountJson), GCP_CREDENTIALS_FILE);
+        String extraProperties =
+                """
+                <property>
+                    <name>hive.metastore.warehouse.dir</name>
+                    <value>%s</value>
+                </property>
+                """.formatted(warehouseDirectory);
+        withCopyToContainer(Transferable.of(getHiveSiteXml(extraProperties)), "/opt/hive/conf/hive-site.xml");
+        return this;
+    }
+
     /**
      * Enables HDFS proxy-user permissions for the Trino service user.
      * <p>
@@ -820,8 +901,8 @@ public class HadoopContainer
             String lzoHadoopUrl = "https://repo1.maven.org/maven2/org/anarres/lzo/lzo-hadoop/1.0.6/lzo-hadoop-1.0.6.jar";
             String lzoCoreUrl = "https://repo1.maven.org/maven2/org/anarres/lzo/lzo-core/1.0.6/lzo-core-1.0.6.jar";
 
-            byte[] lzoHadoopJar = downloadUrl(lzoHadoopUrl);
-            byte[] lzoCoreJar = downloadUrl(lzoCoreUrl);
+            byte[] lzoHadoopJar = Failsafe.with(DOWNLOAD_RETRY_POLICY).get(() -> downloadUrl(lzoHadoopUrl));
+            byte[] lzoCoreJar = Failsafe.with(DOWNLOAD_RETRY_POLICY).get(() -> downloadUrl(lzoCoreUrl));
 
             // Verify downloads succeeded
             if (lzoHadoopJar.length < 1000) {

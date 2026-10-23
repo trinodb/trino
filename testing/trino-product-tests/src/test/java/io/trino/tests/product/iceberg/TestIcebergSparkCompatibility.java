@@ -22,6 +22,7 @@ import io.trino.testing.containers.HdfsClient;
 import io.trino.testing.containers.environment.ProductTest;
 import io.trino.testing.containers.environment.QueryResult;
 import io.trino.testing.containers.environment.RequiresEnvironment;
+import io.trino.testing.services.junit.Flaky;
 import io.trino.tests.product.TestGroup;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -61,6 +62,8 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
 import static io.trino.testing.containers.environment.Row.row;
 import static io.trino.tests.product.ConfiguredFeatures.assertDefaultConnectors;
+import static io.trino.tests.product.iceberg.SparkIcebergRestEnvironment.REST_CATALOG_SELF_SUPPRESSION_ISSUE;
+import static io.trino.tests.product.iceberg.SparkIcebergRestEnvironment.REST_CATALOG_SELF_SUPPRESSION_MATCH;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_AND_INSERT;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_AS_SELECT;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_WITH_NO_DATA_AND_INSERT;
@@ -135,6 +138,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @TestGroup.IcebergNessie
     @Test
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testConfiguredConnectors(SparkIcebergEnvironment env)
     {
         if (env.getClass() == SparkIcebergEnvironment.class) {
@@ -149,6 +153,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergNessie
     @ParameterizedTest
     @MethodSource("storageFormatsWithSpecVersion")
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testTrinoReadingSparkData(StorageFormat storageFormat, int specVersion, SparkIcebergEnvironment env)
     {
         String baseTableName = toLowerCase("test_trino_reading_primitive_types_" + storageFormat);
@@ -249,6 +254,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @TestGroup.IcebergNessie
     @Test
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testTrinoReadingSparkWriteTableProperties(SparkIcebergEnvironment env)
     {
         String baseTableName = toLowerCase("test_trino_reading_spark_write_table_properties_" + randomNameSuffix());
@@ -281,6 +287,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergNessie
     @ParameterizedTest
     @MethodSource("testSparkReadingTrinoDataDataProvider")
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testSparkReadingTrinoData(StorageFormat storageFormat, CreateMode createMode, SparkIcebergEnvironment env)
     {
         String baseTableName = toLowerCase("test_spark_reading_primitive_types_" + storageFormat + "_" + createMode);
@@ -537,9 +544,10 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergNessie
     @ParameterizedTest
     @MethodSource("specVersions")
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testSparkCreatesTrinoDrops(int specVersion, SparkIcebergEnvironment env)
     {
-        String baseTableName = "test_spark_creates_trino_drops";
+        String baseTableName = "test_spark_creates_trino_drops_" + randomNameSuffix();
         env.executeSparkUpdate(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES('format-version' = %s)", sparkTableName(baseTableName), specVersion));
         env.executeTrinoUpdate("DROP TABLE " + trinoTableName(baseTableName));
     }
@@ -548,9 +556,10 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @TestGroup.IcebergNessie
     @Test
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testTrinoCreatesSparkDrops(SparkIcebergEnvironment env)
     {
-        String baseTableName = "test_trino_creates_spark_drops";
+        String baseTableName = "test_trino_creates_spark_drops_" + randomNameSuffix();
         env.executeTrinoUpdate(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT)", trinoTableName(baseTableName)));
         env.executeSparkUpdate("DROP TABLE " + sparkTableName(baseTableName));
     }
@@ -621,6 +630,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @ParameterizedTest
     @MethodSource("storageFormats")
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testSparkReadsTrinoNestedPartitionedTable(StorageFormat storageFormat, SparkIcebergEnvironment env)
     {
         String baseTableName = toLowerCase("test_spark_reads_trino_nested_partitioned_table_" + storageFormat + randomNameSuffix());
@@ -663,6 +673,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @ParameterizedTest
     @MethodSource("storageFormats")
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testTrinoReadsSparkNestedPartitionedTable(StorageFormat storageFormat, SparkIcebergEnvironment env)
     {
         String baseTableName = toLowerCase("test_trino_reads_spark_nested_partitioned_table_" + storageFormat + randomNameSuffix());
@@ -705,6 +716,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @ParameterizedTest
     @MethodSource("storageFormats")
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testSparkReadsTrinoNestedPartitionedTableWithOneFieldStruct(StorageFormat storageFormat, SparkIcebergEnvironment env)
     {
         String baseTableName = toLowerCase("test_spark_reads_trino_nested_partitioned_table_with_one_field_struct_" + storageFormat + randomNameSuffix());
@@ -745,6 +757,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @ParameterizedTest
     @MethodSource("storageFormats")
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testTrinoReadsSparkNestedPartitionedTableWithOneFieldStruct(StorageFormat storageFormat, SparkIcebergEnvironment env)
     {
         String baseTableName = toLowerCase("test_trino_reads_spark_nested_partitioned_table_with_one_field_struct_" + storageFormat + randomNameSuffix());
@@ -851,14 +864,15 @@ class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         env.executeSparkUpdate(format(
-                "" +
-                        "CREATE TABLE %s (" +
-                        "  doc_id string,\n" +
-                        "  info MAP<STRING, INT>,\n" +
-                        "  pets ARRAY<STRING>,\n" +
-                        "  user_info STRUCT<name:STRING, surname:STRING, age:INT, gender:STRING>)" +
-                        "  USING ICEBERG" +
-                        " TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
+                """
+                CREATE TABLE %s (
+                  doc_id string,
+                  info MAP<STRING, INT>,
+                  pets ARRAY<STRING>,
+                  user_info STRUCT<name:STRING, surname:STRING, age:INT, gender:STRING>)
+                  USING ICEBERG
+                 TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)
+                """,
                 sparkTableName,
                 storageFormat,
                 specVersion));
@@ -883,12 +897,14 @@ class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         env.executeTrinoUpdate(format(
-                "CREATE TABLE %s (" +
-                        "  doc_id VARCHAR,\n" +
-                        "  info MAP(VARCHAR, INTEGER),\n" +
-                        "  pets ARRAY(VARCHAR),\n" +
-                        "  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR)) " +
-                        "  WITH (format = '%s')",
+                """
+                CREATE TABLE %s (
+                  doc_id VARCHAR,
+                  info MAP(VARCHAR, INTEGER),
+                  pets ARRAY(VARCHAR),
+                  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR))
+                  WITH (format = '%s')
+                """,
                 trinoTableName,
                 storageFormat));
 
@@ -906,6 +922,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @ParameterizedTest
     @MethodSource("storageFormatsWithSpecVersion")
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testTrinoReadingSparkIcebergTablePropertiesData(StorageFormat storageFormat, int specVersion, SparkIcebergEnvironment env)
     {
         String baseTableName = toLowerCase("test_trino_reading_spark_iceberg_table_properties_" + storageFormat);
@@ -915,14 +932,16 @@ class TestIcebergSparkCompatibility
 
         env.executeSparkUpdate("DROP TABLE IF EXISTS " + sparkTableName);
         env.executeSparkUpdate(format(
-                "CREATE TABLE %s (\n" +
-                        " doc_id STRING)\n" +
-                        " USING ICEBERG TBLPROPERTIES (" +
-                        " 'write.format.default'='%s'," +
-                        " 'write.object-storage.enabled'=true," +
-                        " 'write.data.path'='local:///write-data-path'," +
-                        " 'format-version' = %s," +
-                        " 'custom.table-property' = 'my_custom_value')",
+                """
+                CREATE TABLE %s (
+                 doc_id STRING)
+                 USING ICEBERG TBLPROPERTIES (
+                 'write.format.default'='%s',
+                 'write.object-storage.enabled'=true,
+                 'write.data.path'='local:///write-data-path',
+                 'format-version' = %s,
+                 'custom.table-property' = 'my_custom_value')
+                """,
                 sparkTableName,
                 storageFormat.toString(),
                 specVersion));
@@ -941,6 +960,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergRest
     @TestGroup.IcebergJdbc
     @Test
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testSparkReadingTrinoIcebergTablePropertiesData(SparkIcebergEnvironment env)
     {
         String baseTableName = "test_spark_reading_trino_iceberg_table_properties" + randomNameSuffix();
@@ -973,12 +993,14 @@ class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         env.executeSparkUpdate(format(
-                "CREATE TABLE %s (\n" +
-                        "  doc_id STRING\n" +
-                        ", nested_map MAP<STRING, ARRAY<STRUCT<sname: STRING, snumber: INT>>>\n" +
-                        ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>\n" +
-                        ", nested_struct STRUCT<name:STRING, complicated: ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>>)\n" +
-                        " USING ICEBERG TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
+                """
+                CREATE TABLE %s (
+                  doc_id STRING
+                , nested_map MAP<STRING, ARRAY<STRUCT<sname: STRING, snumber: INT>>>
+                , nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>
+                , nested_struct STRUCT<name:STRING, complicated: ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>>)
+                 USING ICEBERG TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)
+                """,
                 sparkTableName,
                 storageFormat,
                 specVersion));
@@ -1031,12 +1053,14 @@ class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         env.executeTrinoUpdate(format(
-                "CREATE TABLE %s (\n" +
-                        "  doc_id VARCHAR\n" +
-                        ", nested_map MAP(VARCHAR, ARRAY(ROW(sname VARCHAR, snumber INT)))\n" +
-                        ", nested_array ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))\n" +
-                        ", nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))" +
-                        "  WITH (format = '%s')",
+                """
+                CREATE TABLE %s (
+                  doc_id VARCHAR
+                , nested_map MAP(VARCHAR, ARRAY(ROW(sname VARCHAR, snumber INT)))
+                , nested_array ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))
+                , nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))\
+                  WITH (format = '%s')
+                """,
                 trinoTableName,
                 storageFormat));
 
@@ -1084,9 +1108,10 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @TestGroup.IcebergNessie
     @Test
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testTrinoWritingDataAfterSpark(SparkIcebergEnvironment env)
     {
-        String baseTableName = toLowerCase("test_trino_write_after_spark");
+        String baseTableName = "test_trino_write_after_spark_" + randomNameSuffix();
         String sparkTableName = sparkTableName(baseTableName);
         String trinoTableName = trinoTableName(baseTableName);
 
@@ -1108,6 +1133,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @Test
     @Timeout(value = 60, unit = TimeUnit.SECONDS)
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testTrinoSparkConcurrentInsert(SparkIcebergEnvironment env)
             throws Exception
     {
@@ -1292,6 +1318,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @TestGroup.IcebergNessie
     @Test
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testTrinoSparkParquetDeltaLengthByteArrayCompatibility(SparkIcebergEnvironment env)
     {
         String baseTableName = "test_trino_spark_iceberg_delta_length_compat_" + randomNameSuffix();
@@ -3010,6 +3037,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergRest
     @TestGroup.IcebergJdbc
     @Test
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testPartitionedByNonLowercaseColumn(SparkIcebergEnvironment env)
     {
         String baseTableName = "test_partitioned_by_non_lowercase_" + randomNameSuffix();
@@ -3073,6 +3101,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @TestGroup.IcebergNessie
     @Test
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testStringPartitioningWithSpecialCharactersCtasInTrino(SparkIcebergEnvironment env)
     {
         String baseTableName = "test_string_partitioning_with_special_chars_ctas_in_trino";
@@ -3094,6 +3123,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @TestGroup.IcebergNessie
     @Test
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testStringPartitioningWithSpecialCharactersInsertInTrino(SparkIcebergEnvironment env)
     {
         String baseTableName = "test_string_partitioning_with_special_chars_ctas_in_trino";
@@ -3113,6 +3143,7 @@ class TestIcebergSparkCompatibility
     @TestGroup.IcebergJdbc
     @TestGroup.IcebergNessie
     @Test
+    @Flaky(issue = REST_CATALOG_SELF_SUPPRESSION_ISSUE, match = REST_CATALOG_SELF_SUPPRESSION_MATCH)
     void testStringPartitioningWithSpecialCharactersInsertInSpark(SparkIcebergEnvironment env)
     {
         String baseTableName = "test_string_partitioning_with_special_chars_ctas_in_spark";
@@ -3152,13 +3183,15 @@ class TestIcebergSparkCompatibility
         String baseTableName = "test_trino_reading_migrated_nested_data_" + randomNameSuffix();
         String defaultCatalogTableName = sparkDefaultCatalogTableName(baseTableName);
 
-        String sparkTableDefinition = "" +
-                "CREATE TABLE %s (\n" +
-                "  doc_id STRING\n" +
-                ", nested_map MAP<STRING, ARRAY<STRUCT<sName: STRING, sNumber: INT>>>\n" +
-                ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mName: STRING, mNumber: INT>>>>\n" +
-                ", nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<street_number:INT, street_name:STRING>>)\n" +
-                " USING %s";
+        String sparkTableDefinition =
+                """
+                CREATE TABLE %s (
+                  doc_id STRING
+                , nested_map MAP<STRING, ARRAY<STRUCT<sName: STRING, sNumber: INT>>>
+                , nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mName: STRING, mNumber: INT>>>>
+                , nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<street_number:INT, street_name:STRING>>)
+                 USING %s
+                """;
         env.executeSparkUpdate(format(sparkTableDefinition, defaultCatalogTableName, storageFormat.name().toLowerCase(ENGLISH)));
 
         String insert = "" +
@@ -3226,11 +3259,13 @@ class TestIcebergSparkCompatibility
         String baseTableName = "test_migrated_data_with_altered_schema_" + randomNameSuffix();
         String defaultCatalogTableName = sparkDefaultCatalogTableName(baseTableName);
 
-        String sparkTableDefinition = "" +
-                "CREATE TABLE %s (\n" +
-                "  doc_id STRING\n" +
-                ", nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<a:INT, b:STRING>>)\n" +
-                " USING %s";
+        String sparkTableDefinition =
+                """
+                CREATE TABLE %s (
+                  doc_id STRING
+                , nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<a:INT, b:STRING>>)
+                 USING %s
+                """;
         env.executeSparkUpdate(format(sparkTableDefinition, defaultCatalogTableName, storageFormat));
 
         String insert = "" +

@@ -285,6 +285,23 @@ public class TestHiveMetastoreAccessOperations
     }
 
     @Test
+    public void testFlushMetadataCacheForPartitionedTable()
+    {
+        assertUpdate("CREATE TABLE test_flush_partitioned WITH (partitioned_by = ARRAY['part']) AS SELECT * FROM (VALUES (1, 10), (2, 20)) t(data, part)", 2);
+
+        assertMetastoreInvocations("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_flush_partitioned')",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLE)
+                        .build());
+
+        assertMetastoreInvocations("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_flush_partitioned', partition_columns => ARRAY['part'], partition_values => ARRAY['10'])",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLE)
+                        .add(GET_PARTITION)
+                        .build());
+    }
+
+    @Test
     public void testExplainSelect()
     {
         assertUpdate("CREATE TABLE test_explain AS SELECT 2 AS age", 1);

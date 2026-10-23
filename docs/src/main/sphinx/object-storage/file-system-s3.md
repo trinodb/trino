@@ -36,6 +36,10 @@ support:
   - Enable the HTTP expect-continue handshake for S3 PUT requests. Defaults to
     `true`. Set to `false` for S3-compatible storage systems that reject
     requests using this handshake.
+* - `s3.chunked-encoding-enabled`
+  - Enable [chunked encoding](https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html)
+    for upload requests. Defaults to `true`. Set to `false` for S3-compatible
+    storage systems that do not support `aws-chunked` content encoding.
 * - `s3.storage-class`
   - S3 storage class to use while writing data. Defaults to `STANDARD`. Other allowed
     values are: `STANDARD_IA`, `INTELLIGENT_TIERING`, `REDUCED_REDUNDANCY`, `ONEZONE_IA`,
@@ -51,6 +55,12 @@ support:
     by a different AWS user, the canned ACL may be set to one of the following:
     `PRIVATE`, `PUBLIC_READ`, `PUBLIC_READ_WRITE`, `AUTHENTICATED_READ`,
     `BUCKET_OWNER_READ`, or `BUCKET_OWNER_FULL_CONTROL`.
+* - `s3.checksum-algorithm`
+  - [Checksum algorithm](https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html)
+    to use for data integrity checks when uploading and deleting files.
+    Defaults to `DEFAULT`, which keeps the AWS SDK default behavior. Set to
+    `CRC32`, `CRC32C`, `SHA1`, or `SHA256` to enforce the specified algorithm
+    for all upload and delete requests.
 * - `s3.sse.type`
   - Set the type of S3 server-side encryption (SSE) to use. Defaults to `NONE`
     for no encryption. Other valid values are `S3` for encryption by S3 managed

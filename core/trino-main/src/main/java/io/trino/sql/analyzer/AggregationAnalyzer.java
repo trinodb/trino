@@ -44,6 +44,7 @@ import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InListExpression;
+import io.trino.sql.tree.IntervalValueExpression;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
@@ -335,6 +336,12 @@ class AggregationAnalyzer
         protected Boolean visitLocalTimestamp(LocalTimestamp node, Void context)
         {
             return true;
+        }
+
+        @Override
+        protected Boolean visitIntervalValueExpression(IntervalValueExpression node, Void context)
+        {
+            return process(node.getLeft(), context) && process(node.getRight(), context);
         }
 
         @Override

@@ -28,6 +28,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
@@ -66,7 +67,8 @@ public final class MemoryPageSourceProvider
             ConnectorTableHandle table,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         MemorySplit memorySplit = (MemorySplit) split;
         long tableId = memorySplit.table();
@@ -94,7 +96,7 @@ public final class MemoryPageSourceProvider
                 memorySplit.limit(),
                 sampleRatio);
 
-        return new DynamicFilteringPageSource(new FixedPageSource(pages), columns, dynamicFilter, enableLazyDynamicFiltering);
+        return new DynamicFilteringPageSource(new FixedPageSource(pages, memoryContext), columns, dynamicFilter, enableLazyDynamicFiltering);
     }
 
     private static class DynamicFilteringPageSource
@@ -171,12 +173,6 @@ public final class MemoryPageSourceProvider
                 return dynamicFilter.isBlocked();
             }
             return NOT_BLOCKED;
-        }
-
-        @Override
-        public long getMemoryUsage()
-        {
-            return delegate.getMemoryUsage();
         }
 
         @Override

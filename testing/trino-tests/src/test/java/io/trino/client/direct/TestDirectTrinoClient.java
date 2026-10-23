@@ -60,7 +60,11 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestDirectTrinoClient
 {
-    private static final String CLIENT_TIMEOUT = "2s";
+    // DirectTrinoClient heartbeats every half of the client timeout, so a stop-the-world pause longer than
+    // the other half lets the server abandon an active query. Keep that margin well above CI GC pauses.
+    private static final String CLIENT_TIMEOUT = "10s";
+    // Must exceed CLIENT_TIMEOUT so the long query relies on DirectTrinoClient heartbeats to stay alive
+    private static final String SLOW_PAGE_PROCESSING_DELAY = "11s";
 
     private StandaloneQueryRunner queryRunner;
     private StandaloneQueryRunner queryRunnerWithTaskRetry;
@@ -84,7 +88,7 @@ public class TestDirectTrinoClient
                 "   split_count = 1, " +
                 "   pages_per_split = 1, " +
                 "   rows_per_page = 1, " +
-                "   page_processing_delay = '3s'" +
+                "   page_processing_delay = '" + SLOW_PAGE_PROCESSING_DELAY + "'" +
                 ")");
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));
@@ -128,7 +132,7 @@ public class TestDirectTrinoClient
     }
 
     @Test
-    @Timeout(value = 20, unit = TimeUnit.SECONDS)
+    @Timeout(value = 40, unit = TimeUnit.SECONDS)
     public void testDirectTrinoClientLongQuery()
     {
         queryRunner.execute(TEST_SESSION, "SELECT * FROM blackhole.test_schema.slow_test_table");

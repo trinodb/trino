@@ -13,7 +13,6 @@
  */
 package io.trino.sql.gen;
 
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -29,6 +28,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.NonEvictableCache;
 import io.trino.metadata.FunctionManager;
@@ -57,15 +57,12 @@ import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
 import jakarta.annotation.Nullable;
-import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -83,6 +80,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
@@ -91,11 +89,11 @@ import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewr
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
-import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.util.CompilerUtils.isClassDumpEnabled;
+import static io.trino.util.CompilerUtils.isCompilerLimitExceeded;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Objects.requireNonNull;
@@ -245,13 +243,13 @@ public class PageFunctionCompiler
             pageProjectionWorkClass = projectionTemplates.defineClass(
                     projection,
                     ImmutableList.of(charVarcharCoercion),
-                    callSiteBinder -> definePageProjectWorkClass(projection, result.compactLayout(), callSiteBinder, charVarcharCoercion, classNameSuffix));
+                    callSiteBinder -> definePageProjectWorkClass(projection, result.compactLayout(), result.inputChannels(), callSiteBinder, charVarcharCoercion, classNameSuffix));
         }
         catch (TrinoException e) {
             throw e;
         }
         catch (Exception e) {
-            if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
+            if (isCompilerLimitExceeded(e)) {
                 throw new TrinoException(
                         QUERY_EXCEEDED_COMPILER_LIMIT,
                         "Failed to execute query; there may be too many columns used or expressions are too complex",
@@ -275,7 +273,7 @@ public class PageFunctionCompiler
         return makeClassName("PageProjectionWork", classNameSuffix);
     }
 
-    private ClassDefinition definePageProjectWorkClass(Expression projection, Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix)
+    private ClassDefinition definePageProjectWorkClass(Expression projection, Map<Symbol, Integer> compactLayout, InputChannels inputChannels, CallSiteBinder callSiteBinder, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -286,6 +284,7 @@ public class PageFunctionCompiler
         FieldDefinition blockBuilderField = classDefinition.declareField(a(PRIVATE, FINAL), "blockBuilder", BlockBuilder.class);
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
         FieldDefinition selectedPositionsField = classDefinition.declareField(a(PRIVATE, FINAL), "selectedPositions", SelectedPositions.class);
+        FieldDefinition pageField = classDefinition.declareField(a(PRIVATE, FINAL), "page", SourcePage.class);
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
@@ -294,7 +293,7 @@ public class PageFunctionCompiler
 
         // evaluate
         Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection, functionManager, metadata, typeManager, charVarcharCoercion);
-        generateEvaluateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, compactLayout, charVarcharCoercion, blockBuilderField);
+        generateEvaluateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, compactLayout, inputChannels, charVarcharCoercion, blockBuilderField);
 
         // constructor
         Parameter blockBuilder = arg("blockBuilder", BlockBuilder.class);
@@ -312,11 +311,17 @@ public class PageFunctionCompiler
                 .invokeConstructor(Object.class)
                 .append(thisVariable.setField(blockBuilderField, blockBuilder))
                 .append(thisVariable.setField(sessionField, session))
-                .append(thisVariable.setField(selectedPositionsField, selectedPositions));
+                .append(thisVariable.setField(selectedPositionsField, selectedPositions))
+                .append(thisVariable.setField(pageField, page));
 
-        for (int channel : getInputChannels(projection, compactLayout)) {
-            FieldDefinition blockField = classDefinition.declareField(a(PRIVATE, FINAL), "block_" + channel, Block.class);
-            body.append(thisVariable.setField(blockField, page.invoke("getBlock", Block.class, constantInt(channel))));
+        for (int channel = 0; channel < inputChannels.size(); channel++) {
+            if (inputChannels.isEagerlyLoaded(channel)) {
+                FieldDefinition blockField = classDefinition.declareField(a(PRIVATE, FINAL), "block_" + channel, Block.class);
+                body.append(thisVariable.setField(blockField, page.invoke("getBlock", Block.class, constantInt(channel))));
+            }
+            else {
+                generateBlockLoader(classDefinition, pageField, channel);
+            }
         }
 
         cachedInstanceBinder.generateInitializations(thisVariable, body);
@@ -376,6 +381,7 @@ public class PageFunctionCompiler
             Map<Lambda, CompiledLambda> compiledLambdaMap,
             Expression projection,
             Map<Symbol, Integer> compactLayout,
+            InputChannels inputChannels,
             CharVarcharCoercion charVarcharCoercion,
             FieldDefinition blockBuilder)
     {
@@ -404,7 +410,7 @@ public class PageFunctionCompiler
                 classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompilerProjection(typeManager.getTypeOperators(), compactLayout, callSiteBinder),
+                fieldReferenceCompilerProjection(typeManager.getTypeOperators(), compactLayout, inputChannels, callSiteBinder),
                 functionManager,
                 metadata,
                 typeManager,
@@ -471,7 +477,7 @@ public class PageFunctionCompiler
             throw e;
         }
         catch (Exception e) {
-            if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
+            if (isCompilerLimitExceeded(e)) {
                 throw new TrinoException(
                         QUERY_EXCEEDED_COMPILER_LIMIT,
                         "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.",
@@ -630,39 +636,39 @@ public class PageFunctionCompiler
         return method;
     }
 
-    private static Set<Integer> getInputChannels(Expression expression, Map<Symbol, Integer> compactLayout)
-    {
-        Set<Integer> channels = new TreeSet<>();
-        collectChannels(expression, compactLayout, channels);
-        return channels;
-    }
-
-    private static void collectChannels(Expression expression, Map<Symbol, Integer> compactLayout, Set<Integer> channels)
-    {
-        if (expression instanceof Reference reference) {
-            Integer channel = compactLayout.get(Symbol.from(reference));
-            if (channel != null) {
-                channels.add(channel);
-            }
-            return;
-        }
-        for (Expression child : expression.children()) {
-            collectChannels(child, compactLayout, channels);
-        }
-    }
-
-    private static BiFunction<Reference, Scope, BytecodeNode> fieldReferenceCompilerProjection(TypeOperators typeOperators, Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder)
+    private static BiFunction<Reference, Scope, BytecodeNode> fieldReferenceCompilerProjection(TypeOperators typeOperators, Map<Symbol, Integer> compactLayout, InputChannels inputChannels, CallSiteBinder callSiteBinder)
     {
         return (reference, scope) -> {
             int field = compactLayout.get(Symbol.from(reference));
+            BytecodeExpression block;
+            if (inputChannels.isEagerlyLoaded(field)) {
+                block = scope.getThis().getField("block_" + field, Block.class);
+            }
+            else {
+                block = scope.getThis().invoke("loadBlock_" + field, Block.class);
+            }
             return generateInputReference(
                     typeOperators,
                     callSiteBinder,
                     scope,
                     reference.type(),
-                    scope.getThis().getField("block_" + field, Block.class),
+                    block,
                     scope.getVariable("position"));
         };
+    }
+
+    // Loads the channel on first use and caches it, so channels in branches no row takes are never loaded
+    private static void generateBlockLoader(ClassDefinition classDefinition, FieldDefinition pageField, int channel)
+    {
+        FieldDefinition blockField = classDefinition.declareField(a(PRIVATE), "block_" + channel, Block.class);
+        MethodDefinition method = classDefinition.declareMethod(a(PRIVATE), "loadBlock_" + channel, type(Block.class));
+        Variable thisVariable = method.getThis();
+        method.getBody()
+                .append(new IfStatement()
+                        .condition(isNull(thisVariable.getField(blockField)))
+                        .ifTrue(thisVariable.setField(blockField, thisVariable.getField(pageField).invoke("getBlock", Block.class, constantInt(channel)))))
+                .append(thisVariable.getField(blockField))
+                .retObject();
     }
 
     private static BiFunction<Reference, Scope, BytecodeNode> fieldReferenceCompiler(TypeOperators typeOperators, Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder)

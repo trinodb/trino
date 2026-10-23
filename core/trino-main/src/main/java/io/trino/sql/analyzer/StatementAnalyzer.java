@@ -742,16 +742,6 @@ class StatementAnalyzer
             analysis.setUpdateType("REFRESH MATERIALIZED VIEW");
 
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, refreshMaterializedView, name.catalogName());
-            if (metadata.delegateMaterializedViewRefreshToConnector(session, name)) {
-                analysis.setDelegatedRefreshMaterializedView(name);
-                analysis.setUpdateTarget(
-                        catalogHandle.getVersion(),
-                        name,
-                        Optional.empty(),
-                        Optional.empty());
-                return createAndAssignScope(refreshMaterializedView, scope);
-            }
-
             QualifiedName storageName = getMaterializedViewStorageTableName(view)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Storage Table for materialized view '%s' does not exist", name));
 
@@ -5759,7 +5749,7 @@ class StatementAnalyzer
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
             try {
-                return (Query) sqlParser.createStatement(view);
+                return (Query) sqlParser.createStatement(view, TypeDescriptorTranslator::normalizeStoredIntervalType);
             }
             catch (ParsingException e) {
                 throw semanticException(INVALID_VIEW, node, e, "Failed parsing stored view '%s': %s", name, e.getMessage());
@@ -5813,7 +5803,7 @@ class StatementAnalyzer
         private Type getViewColumnType(ViewColumn column, QualifiedObjectName name, Node node)
         {
             try {
-                return plannerContext.getTypeManager().getType(column.type());
+                return plannerContext.getTypeManager().fromPersistedSqlType(column.type().getId());
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(INVALID_VIEW, node, e, "Unknown type '%s' for column '%s' in view: %s", column.type(), column.name(), name);

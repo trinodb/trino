@@ -567,19 +567,7 @@ public final class Int128Math
 
     public static int compareAbsolute(Int128 left, Int128 right)
     {
-        long leftHigh = left.getHigh();
-        long rightHigh = right.getHigh();
-        if (leftHigh != rightHigh) {
-            return Long.compareUnsigned(leftHigh, rightHigh);
-        }
-
-        long leftLow = left.getLow();
-        long rightLow = right.getLow();
-        if (leftLow != rightLow) {
-            return Long.compareUnsigned(leftLow, rightLow);
-        }
-
-        return 0;
+        return compareAbsolute(left.getLow(), left.getHigh(), right.getLow(), right.getHigh());
     }
 
     public static int compareAbsolute(
@@ -588,15 +576,16 @@ public final class Int128Math
             long rightLow,
             long rightHigh)
     {
-        if (leftHigh != rightHigh) {
-            return Long.compareUnsigned(leftHigh, rightHigh);
+        // The magnitude of Int128.MIN_VALUE is 2^127, which compares correctly as unsigned
+        if (leftHigh < 0) {
+            leftHigh = negateHigh(leftHigh, leftLow);
+            leftLow = negateLow(leftHigh, leftLow);
         }
-
-        if (leftLow != rightLow) {
-            return Long.compareUnsigned(leftLow, rightLow);
+        if (rightHigh < 0) {
+            rightHigh = negateHigh(rightHigh, rightLow);
+            rightLow = negateLow(rightHigh, rightLow);
         }
-
-        return 0;
+        return compareUnsigned(leftHigh, leftLow, rightHigh, rightLow);
     }
 
     private static long incrementLow(long unusedHigh, long low)

@@ -37,6 +37,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSyntax;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.tree.QualifiedName;
@@ -165,7 +166,7 @@ public class FunctionResolver
 
         FunctionMetadata functionMetadata = catalogFunctionBinding.boundFunctionMetadata();
         if (functionMetadata.isDeprecated()) {
-            warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION, "Use of deprecated function: %s::%s: %s".formatted(receiverType, methodName, functionMetadata.getDescription())));
+            warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION, "Use of deprecated function: %s::%s: %s".formatted(TypeSyntax.toSql(receiverType), methodName, functionMetadata.getDescription())));
         }
 
         return resolve(session, catalogFunctionBinding, accessControl);
@@ -192,7 +193,7 @@ public class FunctionResolver
 
         FunctionMetadata functionMetadata = catalogFunctionBinding.boundFunctionMetadata();
         if (functionMetadata.isDeprecated()) {
-            warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION, "Use of deprecated function: %s.%s: %s".formatted(receiverType, methodName, functionMetadata.getDescription())));
+            warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION, "Use of deprecated function: %s.%s: %s".formatted(TypeSyntax.toSql(receiverType), methodName, functionMetadata.getDescription())));
         }
 
         return resolve(session, catalogFunctionBinding, accessControl);

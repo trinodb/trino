@@ -82,6 +82,7 @@ public final class HiveTypeUtil
             case UNION -> storageFormat.getSerde().equalsIgnoreCase(AVRO.getSerde()) ||
                     storageFormat.getSerde().equalsIgnoreCase(ORC.getSerde()) ||
                     ((UnionTypeInfo) typeInfo).getAllUnionObjectTypeInfos().stream().allMatch(fieldTypeInfo -> typeSupported(fieldTypeInfo, storageFormat));
+            case UNKNOWN -> false;
         };
     }
 

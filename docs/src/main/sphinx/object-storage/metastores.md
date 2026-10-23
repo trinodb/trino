@@ -495,6 +495,13 @@ following properties:
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
     Options are `NONE` or `USER` (default: `NONE`).
+* - `iceberg.rest-catalog.snapshot-loading-mode`
+  - Snapshots to load from the REST catalog server. Options are `ALL` or
+    `REFS`. `REFS` loads only snapshots referenced by branches and tags, which
+    can speed up metadata loading for tables with many snapshots. Requires
+    REST catalog server support. Disable
+    `iceberg.extended-statistics.collect-on-write` when using `REFS`. Defaults
+    to `ALL`.
 * - `iceberg.rest-catalog.connection-timeout`
   - Maximum time [Duration](prop-type-duration) allowed for socket connection
     requests to complete before timing out.
@@ -619,7 +626,7 @@ connector.name=iceberg
 iceberg.catalog.type=rest
 iceberg.unique-table-location=false
 iceberg.rest-catalog.warehouse=gs://example-bucket
-iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1beta/restcatalog
+iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1/restcatalog
 iceberg.rest-catalog.security=GOOGLE
 iceberg.rest-catalog.google-project-id=example-project-id
 iceberg.rest-catalog.google-json-key-file-path=/path/to/rest_catalog_keyfile.json
@@ -643,7 +650,7 @@ connector.name=iceberg
 iceberg.catalog.type=rest
 iceberg.unique-table-location=false
 iceberg.rest-catalog.warehouse=gs://example-bucket
-iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1beta/restcatalog
+iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1/restcatalog
 iceberg.rest-catalog.security=GOOGLE
 iceberg.rest-catalog.google-project-id=example-project-id
 iceberg.rest-catalog.google-json-key-file-path=/path/to/rest_catalog_keyfile.json
@@ -666,7 +673,7 @@ connector.name=iceberg
 iceberg.catalog.type=rest
 iceberg.unique-table-location=false
 iceberg.rest-catalog.warehouse=gs://example-bucket
-iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1beta/restcatalog
+iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1/restcatalog
 iceberg.rest-catalog.security=GOOGLE
 iceberg.rest-catalog.google-project-id=example-project-id
 iceberg.rest-catalog.view-endpoints-enabled=false

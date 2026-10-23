@@ -262,9 +262,10 @@ public class CompatibilityEnvironment
     {
         long deadline = System.currentTimeMillis() + Duration.ofSeconds(30).toMillis();
         while (System.currentTimeMillis() < deadline) {
+            // Unlike SELECT 1, a table scan fails until the server is registered as an active worker node
             try (Connection connection = createCompatibilityTrinoConnection();
                     Statement statement = connection.createStatement();
-                    ResultSet resultSet = statement.executeQuery("SELECT 1")) {
+                    ResultSet resultSet = statement.executeQuery("SELECT count(*) FROM tpch.tiny.nation")) {
                 if (resultSet.next()) {
                     return;
                 }

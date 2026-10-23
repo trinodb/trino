@@ -30,7 +30,6 @@ import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.Varchars.truncateToLength;
-import static java.lang.Math.toIntExact;
 
 public final class CharacterStringCasts
 {
@@ -39,10 +38,10 @@ public final class CharacterStringCasts
     @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("varchar(y)")
     @LiteralParameters({"x", "y"})
-    public static Slice varcharToVarcharCast(@LiteralParameter("x") long x, @LiteralParameter("y") long y, @SqlType("varchar(x)") Slice slice)
+    public static Slice varcharToVarcharCast(@LiteralParameter("x") long x, @LiteralParameter("y") int y, @SqlType("varchar(x)") Slice slice)
     {
         if (x > y) {
-            return truncateToLength(slice, toIntExact(y));
+            return truncateToLength(slice, y);
         }
         return slice;
     }
@@ -50,10 +49,10 @@ public final class CharacterStringCasts
     @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("char(y)")
     @LiteralParameters({"x", "y"})
-    public static Slice charToCharCast(@LiteralParameter("x") long x, @LiteralParameter("y") long y, @SqlType("char(x)") Slice slice)
+    public static Slice charToCharCast(@LiteralParameter("x") long x, @LiteralParameter("y") int y, @SqlType("char(x)") Slice slice)
     {
         if (x > y) {
-            return truncateToLengthAndTrimSpaces(slice, toIntExact(y));
+            return truncateToLengthAndTrimSpaces(slice, y);
         }
         return slice;
     }
@@ -61,22 +60,22 @@ public final class CharacterStringCasts
     @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("char(y)")
     @LiteralParameters({"x", "y"})
-    public static Slice varcharToCharCast(@LiteralParameter("y") long y, @SqlType("varchar(x)") Slice slice)
+    public static Slice varcharToCharCast(@LiteralParameter("y") int y, @SqlType("varchar(x)") Slice slice)
     {
-        return truncateToLengthAndTrimSpaces(slice, toIntExact(y));
+        return truncateToLengthAndTrimSpaces(slice, y);
     }
 
     @ScalarOperator(OperatorType.SATURATED_FLOOR_CAST)
     @SqlType("varchar(y)")
     @LiteralParameters({"x", "y"})
-    public static Slice varcharToVarcharSaturatedFloorCast(@LiteralParameter("y") long y, @SqlType("varchar(x)") Slice slice)
+    public static Slice varcharToVarcharSaturatedFloorCast(@LiteralParameter("y") int y, @SqlType("varchar(x)") Slice slice)
     {
         if (countCodePoints(slice) <= y) {
             return slice;
         }
 
         IntList codePoints = toCodePoints(slice);
-        codePoints.size(toIntExact(y));
+        codePoints.size(y);
         return codePointsToSliceUtf8(codePoints);
     }
 

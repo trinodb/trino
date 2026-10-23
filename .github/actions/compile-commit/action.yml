@@ -20,7 +20,7 @@ runs:
         path: compile-commit-success.txt
         # use tree hashes instead of commit hashes to reuse cache when changes in commits are reorganized without changing the workspace
         key: compile-commit-success-${{ github.event.pull_request.head.repo.full_name }}-${{ steps.repo-hash.outputs.tree-hash }}
-    - uses: ./.github/actions/setup
+    - uses: $/.github/actions/setup
       with:
         cleanup-node: true
       if: steps.check-compile-commit-success.outputs.cache-hit != 'true'

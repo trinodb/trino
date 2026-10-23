@@ -14,13 +14,13 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import jakarta.annotation.Nullable;
 
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import java.util.function.Predicate;
+
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
@@ -122,10 +122,20 @@ public final class TypeUtils
         return false;
     }
 
-    static void checkElementNotNull(boolean isNull, String errorMsg)
+    /**
+     * Returns whether {@code type}, or any type nested in it through arrays, maps and rows, matches {@code predicate}.
+     */
+    public static boolean containsType(Type type, Predicate<Type> predicate)
     {
-        if (isNull) {
-            throw new TrinoException(NOT_SUPPORTED, errorMsg);
+        requireNonNull(type, "type is null");
+        if (predicate.test(type)) {
+            return true;
         }
+        return switch (type) {
+            case ArrayType arrayType -> containsType(arrayType.getElementType(), predicate);
+            case MapType mapType -> containsType(mapType.getKeyType(), predicate) || containsType(mapType.getValueType(), predicate);
+            case RowType rowType -> rowType.getFields().stream().anyMatch(field -> containsType(field.getType(), predicate));
+            default -> false;
+        };
     }
 }

@@ -122,7 +122,6 @@ public class DeltaLakePageSinkProvider
                 tableHandle.columnMappingMode(),
                 tableHandle.partitionedBy());
         return new DeltaLakePageSink(
-                typeManager.getTypeOperators(),
                 tableHandle.inputColumns(),
                 tableHandle.partitionedBy(),
                 pageIndexerFactory,
@@ -151,7 +150,6 @@ public class DeltaLakePageSinkProvider
         MetadataEntry metadataEntry = tableHandle.metadataEntry();
         DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(metadataEntry, tableHandle.protocolEntry(), typeManager);
         return new DeltaLakePageSink(
-                typeManager.getTypeOperators(),
                 tableHandle.inputColumns(),
                 tableHandle.metadataEntry().getOriginalPartitionColumns(),
                 pageIndexerFactory,
@@ -182,7 +180,6 @@ public class DeltaLakePageSinkProvider
                 DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.procedureHandle();
                 DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(optimizeHandle.getMetadataEntry(), optimizeHandle.getProtocolEntry(), typeManager);
                 yield new DeltaLakePageSink(
-                        typeManager.getTypeOperators(),
                         optimizeHandle.getTableColumns(),
                         optimizeHandle.getOriginalPartitionColumns(),
                         pageIndexerFactory,
@@ -218,7 +215,6 @@ public class DeltaLakePageSinkProvider
 
         Optional<DeltaLakeTableCredentials> deltaTableCredentials = tableCredentials.map(DeltaLakeTableCredentials.class::cast);
         return new DeltaLakeMergeSink(
-                typeManager.getTypeOperators(),
                 fileSystemFactory,
                 session,
                 parquetDateTimeZone,
@@ -280,7 +276,6 @@ public class DeltaLakePageSinkProvider
         DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(metadataEntry, protocolEntry, typeManager, true);
 
         return new DeltaLakeCdfPageSink(
-                typeManager.getTypeOperators(),
                 allColumns,
                 metadataEntry.getOriginalPartitionColumns(),
                 pageIndexerFactory,

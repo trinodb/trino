@@ -97,15 +97,16 @@ public class TestHiveCreateExternalTable
         String tableName = "test_create_external_non_exists_" + randomNameSuffix();
 
         @Language("SQL") String createTableSql = format(
-                "" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   col1 varchar,\n" +
-                        "   col2 varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   external_location = '%s',\n" +
-                        "   format = 'TEXTFILE'\n" +
-                        ")",
+                """
+                CREATE TABLE %s.%s.%s (
+                   col1 varchar,
+                   col2 varchar
+                )
+                WITH (
+                   external_location = '%s',
+                   format = 'TEXTFILE'
+                )\
+                """,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 tableName,

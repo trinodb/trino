@@ -127,13 +127,22 @@ class TestJsonItems
     @Test
     void testUnicodeScalarValues()
     {
-        for (String text : List.of("\"\\ud800\"", "\"\\udc00\"", "\"\\ud800x\"", "{\"\\ud800\":1}")) {
+        for (String text : List.of("\"\\ud800\"", "\"\\udc00\"", "\"\\ud800x\"")) {
             assertThatThrownBy(() -> JsonItems.fromText(utf8Slice(text)))
                     .isInstanceOf(TrinoException.class)
                     .hasMessageContaining("unpaired surrogate");
             assertThatThrownBy(() -> JsonItems.parseToTree(utf8Slice(text)))
                     .isInstanceOf(TrinoException.class)
                     .hasMessageContaining("unpaired surrogate");
+        }
+        // Jackson rejects unpaired surrogates in field names itself
+        for (String text : List.of("{\"\\ud800\":1}", "{\"\\udc00\":1}")) {
+            assertThatThrownBy(() -> JsonItems.fromText(utf8Slice(text)))
+                    .isInstanceOf(TrinoException.class)
+                    .hasMessageContaining("surrogate");
+            assertThatThrownBy(() -> JsonItems.parseToTree(utf8Slice(text)))
+                    .isInstanceOf(TrinoException.class)
+                    .hasMessageContaining("surrogate");
         }
         String text = "{\"\\ud83d\\ude00\":\"\\ud83d\\ude00\"}";
         assertThat(JsonItems.toText(JsonItems.fromText(utf8Slice(text))).toStringUtf8()).isEqualTo("{\"😀\":\"😀\"}");

@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.filesystem.Location;
@@ -28,19 +27,6 @@ import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
-import io.trino.spi.block.ArrayBlock;
-import io.trino.spi.block.Bitmap;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.ColumnarArray;
-import io.trino.spi.block.ColumnarMap;
-import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LongArrayBlock;
-import io.trino.spi.block.RowBlock;
-import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.format.FileMetaData;
@@ -51,25 +37,16 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
-import java.util.function.IntPredicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.hasInvalidStatistics;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonEncodeMax;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonEncodeMin;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.tightBounds;
-import static io.trino.spi.block.ColumnarArray.toColumnarArray;
-import static io.trino.spi.block.ColumnarMap.toColumnarMap;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.UnaryOperator.identity;
 
 public final class DeltaLakeWriter
@@ -81,7 +58,6 @@ public final class DeltaLakeWriter
     private final List<String> partitionValues;
     private final DeltaLakeWriterStats stats;
     private final long creationTime;
-    private final Map<Integer, Function<Block, Block>> coercers;
     private final List<DeltaLakeColumnHandle> columnHandles;
     private final DataFileType dataFileType;
 
@@ -105,15 +81,6 @@ public final class DeltaLakeWriter
         this.stats = requireNonNull(stats, "stats is null");
         this.creationTime = Instant.now().toEpochMilli();
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
-
-        ImmutableMap.Builder<Integer, Function<Block, Block>> coercers = ImmutableMap.builder();
-        for (int i = 0; i < columnHandles.size(); i++) {
-            Optional<Function<Block, Block>> coercer = createCoercer(columnHandles.get(i).baseType());
-            if (coercer.isPresent()) {
-                coercers.put(i, coercer.get());
-            }
-        }
-        this.coercers = coercers.buildOrThrow();
         this.dataFileType = requireNonNull(dataFileType, "dataFileType is null");
     }
 
@@ -130,24 +97,8 @@ public final class DeltaLakeWriter
     }
 
     @Override
-    public void appendRows(Page originalPage)
+    public void appendRows(Page page)
     {
-        Page page = originalPage;
-        if (!coercers.isEmpty()) {
-            Block[] translatedBlocks = new Block[originalPage.getChannelCount()];
-            for (int index = 0; index < translatedBlocks.length; index++) {
-                Block originalBlock = originalPage.getBlock(index);
-                Function<Block, Block> coercer = coercers.get(index);
-                if (coercer != null) {
-                    translatedBlocks[index] = coercer.apply(originalBlock);
-                }
-                else {
-                    translatedBlocks[index] = originalBlock;
-                }
-            }
-            page = new Page(originalPage.getPositionCount(), translatedBlocks);
-        }
-
         stats.addInputPageSizesInBytes(page.getRetainedSizeInBytes());
         fileWriter.appendRows(page);
         rowCount += page.getPositionCount();
@@ -259,184 +210,5 @@ public final class DeltaLakeWriter
                 .add("rowCount", rowCount)
                 .add("inputSizeInBytes", inputSizeInBytes)
                 .toString();
-    }
-
-    private static Optional<Function<Block, Block>> createCoercer(Type type)
-    {
-        if (type instanceof ArrayType arrayType) {
-            return createCoercer(arrayType.getElementType()).map(ArrayCoercer::new);
-        }
-        if (type instanceof MapType mapType) {
-            return Optional.of(new MapCoercer(mapType));
-        }
-        if (type instanceof RowType rowType) {
-            return Optional.of(new RowCoercer(rowType));
-        }
-        if (type instanceof TimestampWithTimeZoneType) {
-            return Optional.of(new TimestampCoercer());
-        }
-        return Optional.empty();
-    }
-
-    private static class ArrayCoercer
-            implements Function<Block, Block>
-    {
-        private final Function<Block, Block> elementCoercer;
-
-        public ArrayCoercer(Function<Block, Block> elementCoercer)
-        {
-            this.elementCoercer = requireNonNull(elementCoercer, "elementCoercer is null");
-        }
-
-        @Override
-        public Block apply(Block block)
-        {
-            ColumnarArray arrayBlock = toColumnarArray(block);
-            Block elementsBlock = elementCoercer.apply(arrayBlock.getElementsBlock());
-            int[] offsets = new int[arrayBlock.getPositionCount() + 1];
-            for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                offsets[i + 1] = offsets[i] + arrayBlock.getLength(i);
-            }
-            return ArrayBlock.fromElementBlock(arrayBlock.getPositionCount(), getValidityBitmap(arrayBlock.getPositionCount(), arrayBlock::isNull), offsets, elementsBlock);
-        }
-    }
-
-    private static class MapCoercer
-            implements Function<Block, Block>
-    {
-        private final MapType mapType;
-        private final Optional<Function<Block, Block>> keyCoercer;
-        private final Optional<Function<Block, Block>> valueCoercer;
-
-        public MapCoercer(MapType mapType)
-        {
-            this.mapType = requireNonNull(mapType, "mapType is null");
-            keyCoercer = createCoercer(mapType.getKeyType());
-            valueCoercer = createCoercer(mapType.getValueType());
-        }
-
-        @Override
-        public Block apply(Block block)
-        {
-            ColumnarMap mapBlock = toColumnarMap(block);
-            Block keysBlock = keyCoercer.isEmpty() ? mapBlock.getKeysBlock() : keyCoercer.get().apply(mapBlock.getKeysBlock());
-            Block valuesBlock = valueCoercer.isEmpty() ? mapBlock.getValuesBlock() : valueCoercer.get().apply(mapBlock.getValuesBlock());
-            int[] offsets = new int[mapBlock.getPositionCount() + 1];
-            for (int i = 0; i < mapBlock.getPositionCount(); i++) {
-                offsets[i + 1] = offsets[i] + mapBlock.getEntryCount(i);
-            }
-            return mapType.createBlockFromKeyValue(getValidityBitmap(mapBlock.getPositionCount(), mapBlock::isNull), offsets, keysBlock, valuesBlock);
-        }
-    }
-
-    private static class RowCoercer
-            implements Function<Block, Block>
-    {
-        private final List<Optional<Function<Block, Block>>> fieldCoercers;
-
-        public RowCoercer(RowType rowType)
-        {
-            fieldCoercers = rowType.getFieldTypes().stream()
-                    .map(DeltaLakeWriter::createCoercer)
-                    .collect(toImmutableList());
-        }
-
-        @Override
-        public Block apply(Block block)
-        {
-            if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
-                RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
-                RowBlock newRowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(
-                        1,
-                        DeltaLakeWriter.getValidityBitmap(1, rowBlock::isNull),
-                        coerceFields(rowBlock.getFieldBlocks()));
-                return RunLengthEncodedBlock.create(newRowBlock, runLengthEncodedBlock.getPositionCount());
-            }
-            if (block instanceof DictionaryBlock dictionaryBlock) {
-                RowBlock rowBlock = (RowBlock) dictionaryBlock.getDictionary();
-                List<Block> fieldBlocks = rowBlock.getFieldBlocks().stream()
-                        .map(dictionaryBlock::createProjection)
-                        .toList();
-                return RowBlock.fromNotNullSuppressedFieldBlocks(
-                        dictionaryBlock.getPositionCount(),
-                        getNulls(dictionaryBlock),
-                        coerceFields(fieldBlocks));
-            }
-            RowBlock rowBlock = (RowBlock) block;
-            return RowBlock.fromNotNullSuppressedFieldBlocks(
-                    rowBlock.getPositionCount(),
-                    getNulls(rowBlock),
-                    coerceFields(rowBlock.getFieldBlocks()));
-        }
-
-        private static Optional<long[]> getNulls(Block rowBlock)
-        {
-            if (!rowBlock.mayHaveNull()) {
-                return Optional.empty();
-            }
-
-            return DeltaLakeWriter.getValidityBitmap(rowBlock.getPositionCount(), rowBlock::isNull);
-        }
-
-        private Block[] coerceFields(List<Block> fields)
-        {
-            checkArgument(fields.size() == fieldCoercers.size());
-            Block[] newFields = new Block[fieldCoercers.size()];
-            for (int i = 0; i < fieldCoercers.size(); i++) {
-                Optional<Function<Block, Block>> coercer = fieldCoercers.get(i);
-                Block fieldBlock = fields.get(i);
-                if (coercer.isPresent()) {
-                    newFields[i] = coercer.get().apply(fieldBlock);
-                }
-                else {
-                    newFields[i] = fieldBlock;
-                }
-            }
-            return newFields;
-        }
-    }
-
-    private static class TimestampCoercer
-            implements Function<Block, Block>
-    {
-        @Override
-        public Block apply(Block block)
-        {
-            int positionCount = block.getPositionCount();
-            long[] values = new long[positionCount];
-            boolean mayHaveNulls = block.mayHaveNull();
-            long[] valueIsValid = mayHaveNulls ? new long[Bitmap.wordsForBits(positionCount)] : null;
-            boolean foundNull = false;
-
-            for (int position = 0; position < positionCount; position++) {
-                if (mayHaveNulls && block.isNull(position)) {
-                    foundNull = true;
-                    continue;
-                }
-                if (mayHaveNulls) {
-                    Bitmap.set(valueIsValid, 0, position);
-                }
-                values[position] = MILLISECONDS.toMicros(unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, position)));
-            }
-            return new LongArrayBlock(positionCount, foundNull ? Optional.of(valueIsValid) : Optional.empty(), values);
-        }
-    }
-
-    private static Optional<long[]> getValidityBitmap(int positionCount, IntPredicate isNull)
-    {
-        long[] valueIsValid = new long[Bitmap.wordsForBits(positionCount)];
-        boolean foundNull = false;
-        for (int position = 0; position < positionCount; position++) {
-            if (isNull.test(position)) {
-                foundNull = true;
-            }
-            else {
-                Bitmap.set(valueIsValid, 0, position);
-            }
-        }
-        if (!foundNull) {
-            return Optional.empty();
-        }
-        return Optional.of(valueIsValid);
     }
 }

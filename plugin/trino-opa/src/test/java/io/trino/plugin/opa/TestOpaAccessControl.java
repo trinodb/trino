@@ -29,6 +29,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -78,6 +79,7 @@ import static io.trino.plugin.opa.TestHelpers.createColumnSchema;
 import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
 import static io.trino.plugin.opa.TestHelpers.createResponseHandlerForParallelColumnMasking;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestOpaAccessControl
@@ -465,7 +467,10 @@ final class TestOpaAccessControl
         TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, "my_user");
 
         ThrowingMethodWrapper methodWrapper = new ThrowingMethodWrapper(
-                accessControl -> accessControl.checkCanSetSchemaAuthorization(TEST_SECURITY_CONTEXT, schema, principal));
+                accessControl -> accessControl.checkCanSetEntityAuthorization(
+                        TEST_SECURITY_CONTEXT,
+                        new EntityKindAndName("SCHEMA", ImmutableList.of(schema.getCatalogName(), schema.getSchemaName())),
+                        principal));
 
         String expectedRequest =
                 """
@@ -813,11 +818,11 @@ final class TestOpaAccessControl
             assertThat(expression.getCatalog()).contains("some_catalog");
             assertThat(expression.getSchema()).contains("some_schema");
         });
-        assertThat(result).map(
-                        viewExpression -> new OpaViewExpression(
-                                viewExpression.getExpression(),
-                                viewExpression.getSecurityIdentity()))
-                .containsExactlyInAnyOrderElementsOf(expectedExpressions);
+        assertEqualsIgnoreOrder(
+                result.stream()
+                        .map(viewExpression -> new OpaViewExpression(viewExpression.getExpression(), viewExpression.getSecurityIdentity()))
+                        .toList(),
+                expectedExpressions);
 
         String expectedRequest = String.format(
                 """
@@ -1197,12 +1202,12 @@ final class TestOpaAccessControl
 
     private void assertColumnMaskBehaviour(List<String> columnNames, Map<ColumnSchema, ViewExpression> actualResult, Map<ColumnSchema, OpaViewExpression> expectedResult, List<JsonNode> requests)
     {
-        assertThat(actualResult.entrySet().stream().map(entry -> {
+        assertEqualsIgnoreOrder(actualResult.entrySet().stream().map(entry -> {
             ViewExpression viewExpression = entry.getValue();
             assertThat(viewExpression.getCatalog()).contains(TEST_COLUMN_MASKING_TABLE_NAME.getCatalogName());
             assertThat(viewExpression.getSchema()).contains(TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getSchemaName());
             return Map.entry(entry.getKey(), new OpaViewExpression(viewExpression.getExpression(), viewExpression.getSecurityIdentity()));
-        })).containsExactlyInAnyOrderElementsOf(expectedResult.entrySet());
+        }).toList(), expectedResult.entrySet());
 
         Set<String> expectedRequests = columnNames.stream().map(columnName -> String.format(
                 """
@@ -1233,7 +1238,7 @@ final class TestOpaAccessControl
 
         assertThat(method.isAccessAllowed(createOpaAuthorizer(simpleOpaConfig(), permissiveMockClient))).isTrue();
         assertThat(method.isAccessAllowed(createOpaAuthorizer(simpleOpaConfig(), restrictiveMockClient))).isFalse();
-        assertThat(permissiveMockClient.getRequests()).containsExactlyInAnyOrderElementsOf(restrictiveMockClient.getRequests());
+        assertEqualsIgnoreOrder(permissiveMockClient.getRequests(), restrictiveMockClient.getRequests());
         assertStringRequestsEqual(expectedRequests, permissiveMockClient.getRequests(), "/input/action");
         assertAccessControlMethodThrowsForIllegalResponses(method::isAccessAllowed, simpleOpaConfig(), OPA_SERVER_URI);
     }

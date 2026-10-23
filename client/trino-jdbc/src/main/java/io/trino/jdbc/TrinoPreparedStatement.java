@@ -113,6 +113,8 @@ public class TrinoPreparedStatement
     private static final Pattern TOP_LEVEL_TYPE_PATTERN = Pattern.compile("(.+?)\\((.+)\\)");
     private static final Pattern TIMESTAMP_WITH_TIME_ZONE_PRECISION_PATTERN = Pattern.compile("timestamp\\((\\d+)\\) with time zone");
     private static final Pattern TIME_WITH_TIME_ZONE_PRECISION_PATTERN = Pattern.compile("time\\((\\d+)\\) with time zone");
+    private static final Pattern INTERVAL_TYPE_PATTERN = Pattern.compile("interval (year|month|day|hour|minute|second)\\((\\d+)(?:, (\\d+))?\\)(?: to (month|hour|minute|second)(?:\\((\\d+)\\))?)?");
+    private static final List<String> INTERVAL_FIELDS = List.of("year", "month", "day", "hour", "minute", "second");
 
     private final Map<Integer, String> parameters = new HashMap<>();
     private final List<List<String>> batchValues = new ArrayList<>();
@@ -1184,6 +1186,20 @@ public class TrinoPreparedStatement
     @VisibleForTesting
     static ClientTypeSignature getClientTypeSignatureFromTypeString(String type)
     {
+        Matcher intervalMatcher = INTERVAL_TYPE_PATTERN.matcher(type);
+        if (intervalMatcher.matches()) {
+            int start = INTERVAL_FIELDS.indexOf(intervalMatcher.group(1));
+            int end = intervalMatcher.group(4) == null ? start : INTERVAL_FIELDS.indexOf(intervalMatcher.group(4));
+            List<ClientTypeSignatureParameter> parameters = new ArrayList<>();
+            parameters.add(ClientTypeSignatureParameter.ofLong(start));
+            parameters.add(ClientTypeSignatureParameter.ofLong(end));
+            parameters.add(ClientTypeSignatureParameter.ofLong(parseLong(intervalMatcher.group(2))));
+            if (start >= 2) {
+                String fraction = start == 5 ? intervalMatcher.group(3) : intervalMatcher.group(5);
+                parameters.add(ClientTypeSignatureParameter.ofLong(fraction == null ? 0 : parseLong(fraction)));
+            }
+            return new ClientTypeSignature(start < 2 ? "interval year to month" : "interval day to second", parameters);
+        }
         String topLevelType;
         List<ClientTypeSignatureParameter> arguments = new ArrayList<>();
         Matcher topLevelMatcher = TOP_LEVEL_TYPE_PATTERN.matcher(type);

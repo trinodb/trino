@@ -688,8 +688,9 @@ public class JsonDeserializer
         public void decode(JsonParser parser, PageBuilder builder)
                 throws IOException
         {
+            int currentPosition = builder.getPositionCount();
             builder.declarePosition();
-            decodeValue(parser, builder.getPositionCount(), builder::getBlockBuilder);
+            decodeValue(parser, currentPosition, builder::getBlockBuilder);
         }
 
         @Override

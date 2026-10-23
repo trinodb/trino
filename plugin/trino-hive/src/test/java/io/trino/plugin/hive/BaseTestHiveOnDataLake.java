@@ -77,11 +77,11 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 abstract class BaseTestHiveOnDataLake
         extends AbstractTestQueryFramework
 {
-    private static final String HIVE_TEST_SCHEMA = "hive_datalake";
+    protected static final String HIVE_TEST_SCHEMA = "hive_datalake";
     private static final DataSize HIVE_S3_STREAMING_PART_SIZE = DataSize.of(5, MEGABYTE);
 
-    private final HiveFlociDataLake hiveFlociDataLake;
-    private final String bucketName;
+    protected final HiveFlociDataLake hiveFlociDataLake;
+    protected final String bucketName;
 
     private HiveMetastore metastoreClient;
 
@@ -148,7 +148,7 @@ abstract class BaseTestHiveOnDataLake
 
         assertThat(query("DESCRIBE " + viewName)).result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row("id", "integer", "", "")
                         .row("name", "varchar", "", "comment")
                         .row("ds", "date", "", "test comment")
@@ -156,7 +156,7 @@ abstract class BaseTestHiveOnDataLake
 
         assertThat(query("DESCRIBE " + partitionedViewName)).result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row("name", "varchar", "", "comment")
                         .row("ds", "date", "", "test comment")
                         .build());
@@ -2520,7 +2520,7 @@ abstract class BaseTestHiveOnDataLake
         assertThat(query("SHOW FUNCTIONS"))
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "double", "double", "scalar", true, "t88")
                         .build());
@@ -2539,7 +2539,7 @@ abstract class BaseTestHiveOnDataLake
         assertThat(query("SHOW FUNCTIONS"))
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "bigint", "bigint", "scalar", true, "")
                         .row(name, "double", "double", "scalar", true, "t88")
@@ -2638,7 +2638,7 @@ abstract class BaseTestHiveOnDataLake
                 .assertThat()
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row("POLAND", "Test Data", 25L, 5L)
                         .row("CZECH", "Test Data", 26L, 5L)
                         .build());
@@ -2651,7 +2651,7 @@ abstract class BaseTestHiveOnDataLake
                 .assertThat()
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row("POLAND", "Overwrite", 25L, 5L)
                         .build());
         computeActual(format("DROP TABLE %s", testTable));
@@ -2724,14 +2724,14 @@ abstract class BaseTestHiveOnDataLake
                 .assertThat()
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(114L * scaleFactorInThousands * 1000)
                         .build());
         query(format("SELECT \"$file_size\" BETWEEN %d AND %d FROM %s", fileSizeRangeStart, fileSizeRangeEnd, testTable))
                 .assertThat()
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(true)
                         .build());
     }

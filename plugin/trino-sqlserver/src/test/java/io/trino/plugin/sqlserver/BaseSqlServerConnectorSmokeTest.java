@@ -39,14 +39,16 @@ public abstract class BaseSqlServerConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
-                .isEqualTo("" +
-                        "CREATE TABLE sqlserver.dbo.region (\n" +
-                        "   regionkey bigint,\n" +
-                        "   name varchar(25),\n" +
-                        "   comment varchar(152)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   data_compression = 'NONE'\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE sqlserver.dbo.region (
+                           regionkey bigint,
+                           name varchar(25),
+                           comment varchar(152)
+                        )
+                        WITH (
+                           data_compression = 'NONE'
+                        )\
+                        """);
     }
 }

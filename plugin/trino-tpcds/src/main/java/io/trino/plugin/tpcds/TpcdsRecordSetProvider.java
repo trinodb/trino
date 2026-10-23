@@ -64,6 +64,6 @@ public class TpcdsRecordSetProvider
                 .withTable(table)
                 .withNoSexism(noSexism);
         Results results = constructResults(table, session);
-        return new TpcdsRecordSet(results, builder.build());
+        return new TpcdsRecordSet(results, builder.build(), scaleFactor);
     }
 }

@@ -259,6 +259,7 @@ public final class IcebergQueryRunner
             Floci floci = new Floci().withNetwork(network).withNetworkAliases("floci");
             floci.start();
             floci.createBucket(bucketName);
+            floci.createRole("iceberg");
 
             String warehouseLocation = "s3://%s/default/".formatted(bucketName);
 
@@ -319,6 +320,7 @@ public final class IcebergQueryRunner
             Floci floci = new Floci().withNetwork(network).withNetworkAliases("floci");
             floci.start();
             floci.createBucket(bucketName);
+            floci.createRole("iceberg");
 
             String warehouseLocation = "s3://%s/default/".formatted(bucketName);
 
@@ -384,7 +386,7 @@ public final class IcebergQueryRunner
                     .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
                     .addIcebergProperty("iceberg.unique-table-location", "false")
                     .addIcebergProperty("iceberg.catalog.type", "rest")
-                    .addIcebergProperty("iceberg.rest-catalog.uri", "https://biglake.googleapis.com/iceberg/v1beta/restcatalog")
+                    .addIcebergProperty("iceberg.rest-catalog.uri", "https://biglake.googleapis.com/iceberg/v1/restcatalog")
                     .addIcebergProperty("iceberg.rest-catalog.warehouse", "gs://" + requireEnv("GCP_STORAGE_BUCKET"))
                     .addIcebergProperty("iceberg.rest-catalog.security", "GOOGLE")
                     .addIcebergProperty("iceberg.rest-catalog.google-project-id", projectId)

@@ -33,6 +33,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.IntervalField;
 import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -51,6 +52,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.VarcharType;
 
 import java.math.BigDecimal;
@@ -71,15 +73,18 @@ import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
+import static io.trino.spi.type.IntervalField.SECOND;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.toIntExact;
+import static java.math.RoundingMode.HALF_DOWN;
 import static java.math.RoundingMode.HALF_UP;
 import static java.util.Objects.requireNonNullElse;
 
@@ -153,6 +158,9 @@ final class TrinoTypes
 
     private static TrinoType singletonType(Type type)
     {
+        if (type.getBaseName().equals(StandardTypes.INTERVAL_DAY_TO_SECOND) && type.getJavaType() != long.class) {
+            throw new TrinoException(NOT_SUPPORTED, "Day-time intervals with fractional precision above 6 are not supported in Python functions: " + type.getDisplayName());
+        }
         return switch (type.getBaseName()) {
             case StandardTypes.BOOLEAN -> TrinoType.BOOLEAN;
             case StandardTypes.BIGINT -> TrinoType.BIGINT;
@@ -263,7 +271,9 @@ final class TrinoTypes
             case StandardTypes.DATE -> output.writeInt(toIntExact((long) value));
             case StandardTypes.TIME -> output.writeLong(picosToMicros((long) value));
             case StandardTypes.INTERVAL_YEAR_TO_MONTH -> output.writeInt(toIntExact((long) value));
-            case StandardTypes.INTERVAL_DAY_TO_SECOND -> output.writeLong((long) value);
+            // The Python guest represents a day-time interval as a millisecond count (datetime.timedelta);
+            // the engine value is microseconds, so truncate to milliseconds at the boundary.
+            case StandardTypes.INTERVAL_DAY_TO_SECOND -> output.writeLong((long) value / MICROSECONDS_PER_MILLISECOND);
             case StandardTypes.UUID,
                  StandardTypes.IPADDRESS -> output.writeBytes((Slice) value);
             case StandardTypes.VARCHAR,
@@ -346,7 +356,7 @@ final class TrinoTypes
     {
         switch (type.getBaseName()) {
             case StandardTypes.INTERVAL_YEAR_TO_MONTH -> output.writeInt(toIntExact(type.getLong(block, position)));
-            case StandardTypes.INTERVAL_DAY_TO_SECOND -> output.writeLong(type.getLong(block, position));
+            case StandardTypes.INTERVAL_DAY_TO_SECOND -> output.writeLong(type.getLong(block, position) / MICROSECONDS_PER_MILLISECOND);
             case StandardTypes.UUID,
                  StandardTypes.IPADDRESS -> output.writeBytes(type.getSlice(block, position));
             case StandardTypes.VARCHAR,
@@ -504,14 +514,69 @@ final class TrinoTypes
             case StandardTypes.DOUBLE -> input.readDouble();
             case StandardTypes.REAL -> (long) input.readInt();
             case StandardTypes.DATE -> (long) input.readInt();
-            case StandardTypes.INTERVAL_YEAR_TO_MONTH -> (long) input.readInt();
-            case StandardTypes.INTERVAL_DAY_TO_SECOND -> input.readLong();
+            case StandardTypes.INTERVAL_YEAR_TO_MONTH -> normalizeIntervalResult(type, input.readInt());
+            case StandardTypes.INTERVAL_DAY_TO_SECOND -> {
+                long micros;
+                try {
+                    micros = Math.multiplyExact(input.readLong(), MICROSECONDS_PER_MILLISECOND);
+                }
+                catch (ArithmeticException e) {
+                    throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Python function returned an interval outside the supported range", e);
+                }
+                yield normalizeIntervalResult(type, micros);
+            }
             case StandardTypes.UUID,
                  StandardTypes.IPADDRESS -> input.readSlice(16);
             case StandardTypes.VARCHAR,
                  StandardTypes.VARBINARY -> input.readSlice(input.readInt());
             case StandardTypes.JSON -> toJson(input.readSlice(input.readInt()));
             default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
+        };
+    }
+
+    private static long normalizeIntervalResult(Type type, long value)
+    {
+        List<TypeParameter> parameters = type.getTypeDescriptor().getParameters();
+        IntervalField startField = IntervalField.fromCode(toIntExact(((TypeParameter.Numeric) parameters.get(0)).value()));
+        IntervalField endField = IntervalField.fromCode(toIntExact(((TypeParameter.Numeric) parameters.get(1)).value()));
+        long leadingPrecision = ((TypeParameter.Numeric) parameters.get(2)).value();
+        if (endField == SECOND) {
+            int fractionalPrecision = toIntExact(((TypeParameter.Numeric) parameters.get(3)).value());
+            try {
+                // Match interval casts: round ties toward positive infinity and check the final value.
+                value = BigDecimal.valueOf(value, 6)
+                        .setScale(fractionalPrecision, value < 0 ? HALF_DOWN : HALF_UP)
+                        .movePointRight(6)
+                        .longValueExact();
+            }
+            catch (ArithmeticException e) {
+                throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Function result cannot be converted to " + type.getDisplayName(), e);
+            }
+        }
+        else {
+            long unit = intervalFieldUnit(endField);
+            value = value / unit * unit;
+        }
+        long leadingValue = value / intervalFieldUnit(startField);
+        long limit = 1;
+        for (long digit = 0; digit < leadingPrecision; digit++) {
+            limit *= 10;
+        }
+        if (leadingValue <= -limit || leadingValue >= limit) {
+            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Function result cannot be converted to " + type.getDisplayName());
+        }
+        return value;
+    }
+
+    private static long intervalFieldUnit(IntervalField field)
+    {
+        return switch (field) {
+            case YEAR -> 12;
+            case MONTH -> 1;
+            case DAY -> MICROSECONDS_PER_DAY;
+            case HOUR -> 60L * 60 * MICROSECONDS_PER_SECOND;
+            case MINUTE -> 60 * MICROSECONDS_PER_SECOND;
+            case SECOND -> MICROSECONDS_PER_SECOND;
         };
     }
 

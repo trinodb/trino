@@ -1153,9 +1153,12 @@ public class TestAnalyzer
         // TODO: validate output
         analyze("SELECT a x FROM t1 ORDER BY a + 1");
 
-        assertFails("SELECT x.c as x\n" +
-                "FROM (VALUES 1) x(c)\n" +
-                "ORDER BY x.c")
+        assertFails(
+                """
+                SELECT x.c as x
+                FROM (VALUES 1) x(c)
+                ORDER BY x.c
+                """)
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasLocation(3, 10);
     }
@@ -1189,15 +1192,21 @@ public class TestAnalyzer
 
         analyze("SELECT a FROM t1 GROUP BY a ORDER BY MAX((SELECT x FROM (VALUES 4) t(x)))");
 
-        analyze("SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x\n" +
-                "FROM (VALUES (1, 2)) t(a, b)\n" +
-                "GROUP BY b\n" +
-                "ORDER BY (SELECT x.someField)");
+        analyze(
+                """
+                SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x
+                FROM (VALUES (1, 2)) t(a, b)
+                GROUP BY b
+                ORDER BY (SELECT x.someField)
+                """);
 
-        assertFails("SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x\n" +
-                "FROM (VALUES (1, 2)) t(a, b)\n" +
-                "GROUP BY b\n" +
-                "ORDER BY MAX((SELECT x.someField))")
+        assertFails(
+                """
+                SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x
+                FROM (VALUES (1, 2)) t(a, b)
+                GROUP BY b
+                ORDER BY MAX((SELECT x.someField))
+                """)
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessageMatching("line 4:22: Invalid reference to output projection attribute from ORDER BY aggregation");
     }
@@ -1215,26 +1224,35 @@ public class TestAnalyzer
                 new NodeMemoryConfig(),
                 new DynamicFilterConfig(),
                 new NodeSchedulerConfig()))).build();
-        analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
-                "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
-                "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +
-                "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k)");
-        assertFails(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, l, SUM(m)" +
-                "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13))\n" +
-                "t (a, b, c, d, e, f, g, h, i, j, k, l, m)\n" +
-                "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k, l)")
+        analyze(session,
+                """
+                SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)
+                FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))
+                t (a, b, c, d, e, f, g, h, i, j, k, l)
+                GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k)
+                """);
+        assertFails(session,
+                """
+                SELECT a, b, c, d, e, f, g, h, i, j, k, l, SUM(m)
+                FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13))
+                t (a, b, c, d, e, f, g, h, i, j, k, l, m)
+                GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k, l)
+                """)
                 .hasErrorCode(TOO_MANY_GROUPING_SETS)
-                .hasMessageMatching("line 3:10: GROUP BY has 4096 grouping sets but can contain at most 2048");
-        assertFails(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
-                "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, SUM(af)" +
-                "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, " +
-                "17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32))\n" +
-                "t (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
-                "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, af)\n" +
-                "GROUP BY CUBE (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
-                "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae)")
+                .hasMessageMatching("line 4:10: GROUP BY has 4096 grouping sets but can contain at most 2048");
+        assertFails(session,
+                """
+                SELECT a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,
+                q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, SUM(af)
+                FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32))
+                t (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,
+                q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, af)
+                GROUP BY CUBE (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,
+                q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae)
+                """)
                 .hasErrorCode(TOO_MANY_GROUPING_SETS)
-                .hasMessageMatching(format("line 3:10: GROUP BY has more than %s grouping sets but can contain at most 2048", Integer.MAX_VALUE));
+                .hasMessageMatching(format("line 7:10: GROUP BY has more than %s grouping sets but can contain at most 2048", Integer.MAX_VALUE));
     }
 
     @Test
@@ -1882,7 +1900,8 @@ public class TestAnalyzer
 
         assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE INTERVAL '1' day PRECEDING) FROM (VALUES INTERVAL '1' year) t(x)")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:44: Window frame RANGE value type (interval day to second) not compatible with sort item type (interval year to month)");
+                .hasMessageContaining("Window frame RANGE value type (interval day")
+                .hasMessageContaining("not compatible with sort item type (interval year");
 
         // window frame other than <expression> PRECEDING or <expression> FOLLOWING has no requirements regarding window ORDER BY clause
         // ORDER BY is not required
@@ -3867,73 +3886,23 @@ public class TestAnalyzer
     @Test
     void testInterval()
     {
-        assertFails("SELECT INTERVAL '1' YEAR(1)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+        // a fractional-seconds precision up to 12 (picoseconds) is accepted on a trailing SECOND
+        analyze("SELECT INTERVAL '1' DAY(1) TO SECOND(2)");
+        analyze("SELECT INTERVAL '1' HOUR(1) TO SECOND(2)");
+        analyze("SELECT INTERVAL '1' MINUTE(1) TO SECOND(2)");
+        analyze("SELECT INTERVAL '1' SECOND(1, 2)");
+        analyze("SELECT INTERVAL '1' SECOND(1, 12)");
+        analyze("SELECT CAST(NULL AS INTERVAL DAY TO SECOND(9))");
 
-        assertFails("SELECT INTERVAL '1' YEAR(1) TO MONTH")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+        // an out-of-range leading precision is rejected
+        assertFails("SELECT INTERVAL '1' DAY(10)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("INTERVAL day leading precision must be in range [1, 9]: 10");
 
-        assertFails("SELECT INTERVAL '1' MONTH(1)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' DAY(1)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' DAY(1) TO HOUR")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' DAY(1) TO MINUTE")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' DAY(1) TO SECOND")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' DAY(1) TO SECOND(2)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' HOUR(1)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' HOUR(1) TO MINUTE")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' HOUR(1) TO SECOND")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' HOUR(1) TO SECOND(2)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' MINUTE(1)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' MINUTE(1) TO SECOND")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' MINUTE(1) TO SECOND(2)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' SECOND(1)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' SECOND(1, 2)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+        // an out-of-range fractional-seconds precision is rejected
+        assertFails("SELECT INTERVAL '1' SECOND(1, 13)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("INTERVAL fractional seconds precision must be in range [0, 12]: 13");
     }
 
     @Test
@@ -8689,7 +8658,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, ImmutableMap.of(), false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, ImmutableMap.of(), FAIL));
 
         // stale view (different column type)
         ViewDefinition viewData2 = new ViewDefinition(
@@ -8700,7 +8669,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, ImmutableMap.of(), false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, ImmutableMap.of(), FAIL));
 
         // valid view with uppercase column name
         ViewDefinition viewData4 = new ViewDefinition(
@@ -8711,7 +8680,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, ImmutableMap.of(), false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, ImmutableMap.of(), FAIL));
 
         // recursive view referencing to itself
         ViewDefinition viewData5 = new ViewDefinition(
@@ -8722,7 +8691,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, ImmutableMap.of(), false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, ImmutableMap.of(), FAIL));
 
         // type analysis for INSERT
         SchemaTableName table8 = new SchemaTableName("s1", "t8");
@@ -8832,7 +8801,7 @@ public class TestAnalyzer
                 tableViewAndMaterializedView,
                 viewDefinition,
                 ImmutableMap.of(),
-                false));
+                FAIL));
         inSetupTransaction(session -> metadata.createTable(
                 session,
                 CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
@@ -8847,7 +8816,7 @@ public class TestAnalyzer
                 tableAndView,
                 viewDefinition,
                 ImmutableMap.of(),
-                false));
+                FAIL));
         inSetupTransaction(session -> metadata.createTable(
                 session,
                 CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,

@@ -157,9 +157,9 @@ public abstract class AbstractValueDecodersTest
     static DataBuffer getWrittenBuffer(ValuesWriter valuesWriter)
     {
         try {
-            return new DataBuffer(
-                    Slices.wrappedBuffer(valuesWriter.getBytes().toByteArray()),
-                    valuesWriter.toDictPageAndClose());
+            Slice dataPage = Slices.wrappedBuffer(valuesWriter.getBytes().toByteArray());
+            DictionaryPage dictionaryPage = valuesWriter.toDictPageAndClose();
+            return new DataBuffer(dataPage, dictionaryPage == null ? null : dictionaryPage.copy());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

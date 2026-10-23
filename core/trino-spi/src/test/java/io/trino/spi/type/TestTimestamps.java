@@ -15,6 +15,7 @@ package io.trino.spi.type;
 
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,5 +60,31 @@ final class TestTimestamps
 
         assertThatThrownBy(() -> roundDiv(1234, -1))
                 .isExactlyInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void testRoundDivAtOverflowBound()
+    {
+        assertThat(roundDiv(Long.MAX_VALUE, 10)).isEqualTo(922337203685477581L);
+        assertThat(roundDiv(Long.MAX_VALUE, 100)).isEqualTo(92233720368547758L);
+        assertThat(roundDiv(9223372036854775800L, 100)).isEqualTo(92233720368547758L);
+
+        assertThat(roundDiv(Long.MIN_VALUE, 10)).isEqualTo(-922337203685477581L);
+        assertThat(roundDiv(Long.MIN_VALUE, 100)).isEqualTo(-92233720368547758L);
+        assertThat(roundDiv(-9223372036854775800L, 100)).isEqualTo(-92233720368547758L);
+    }
+
+    @Test
+    public void testRoundAtOverflowBound()
+    {
+        assertThat(round(9223372036854775800L, 2)).isEqualTo(9223372036854775800L);
+        assertThat(round(Long.MAX_VALUE, 2)).isEqualTo(9223372036854775800L);
+        assertThatThrownBy(() -> round(Long.MAX_VALUE, 1))
+                .isExactlyInstanceOf(ArithmeticException.class);
+
+        assertThat(round(-9223372036854775800L, 2)).isEqualTo(-9223372036854775800L);
+        assertThat(round(Long.MIN_VALUE, 2)).isEqualTo(-9223372036854775800L);
+        assertThatThrownBy(() -> round(Long.MIN_VALUE, 1))
+                .isExactlyInstanceOf(ArithmeticException.class);
     }
 }

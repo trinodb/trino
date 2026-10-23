@@ -27,7 +27,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
-import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
@@ -86,13 +85,14 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VariantType.VARIANT;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toPersistedTypeDescriptor;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.type.ArrayParametricType.ARRAY;
 import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.FunctionParametricType.FUNCTION;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.trino.type.IntervalDayTimeParametricType.INTERVAL_DAY_TIME_PARAMETRIC;
+import static io.trino.type.IntervalYearMonthParametricType.INTERVAL_YEAR_MONTH_PARAMETRIC;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
@@ -116,6 +116,7 @@ public final class TypeRegistry
 
     private final NonEvictableCache<TypeDescriptor, Type> parametricTypeCache;
     private final NonEvictableCache<String, Type> sqlTypeCache;
+    private final NonEvictableCache<String, Type> persistedSqlTypeCache;
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
 
@@ -140,8 +141,6 @@ public final class TypeRegistry
         addType(NUMBER);
         addType(VARBINARY);
         addType(DATE);
-        addType(INTERVAL_YEAR_MONTH);
-        addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
         addType(SET_DIGEST);
         addType(P4_HYPER_LOG_LOG);
@@ -159,6 +158,8 @@ public final class TypeRegistry
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
+        addParametricType(INTERVAL_YEAR_MONTH_PARAMETRIC);
+        addParametricType(INTERVAL_DAY_TIME_PARAMETRIC);
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
@@ -171,18 +172,19 @@ public final class TypeRegistry
 
         parametricTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
         sqlTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
+        persistedSqlTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
         typeManager = new InternalTypeManager(this, typeOperators);
 
         verifyTypes();
     }
 
-    public Type getType(TypeDescriptor signature)
+    public Type getType(TypeDescriptor descriptor)
     {
-        Type type = types.get(signature);
+        Type type = types.get(descriptor);
         if (type == null) {
             try {
-                return uncheckedCacheGet(parametricTypeCache, signature, () -> instantiateParametricType(signature));
+                return uncheckedCacheGet(parametricTypeCache, descriptor, () -> instantiateParametricType(descriptor));
             }
             catch (UncheckedExecutionException e) {
                 throwIfUnchecked(e.getCause());
@@ -190,12 +192,6 @@ public final class TypeRegistry
             }
         }
         return type;
-    }
-
-    public Type getType(TypeId id)
-    {
-        // TODO: ID should be encoded in a more canonical form than SQL
-        return fromSqlType(id.getId());
     }
 
     public Type fromSqlType(String sqlType)
@@ -214,23 +210,39 @@ public final class TypeRegistry
         }
     }
 
-    private Type instantiateParametricType(TypeDescriptor signature)
+    public Type fromPersistedSqlType(String sqlType)
     {
-        ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
+        try {
+            return persistedSqlTypeCache.get(sqlType, () -> getType(toPersistedTypeDescriptor(SQL_PARSER.createType(sqlType))));
+        }
+        catch (ParsingException e) {
+            throw new TypeNotFoundException(sqlType, e);
+        }
+        catch (ExecutionException e) {
+            if (e.getCause() instanceof ParsingException parsingException) {
+                throw new TypeNotFoundException(sqlType, parsingException);
+            }
+            throw new RuntimeException("Could not get type from cache", e);
+        }
+    }
+
+    private Type instantiateParametricType(TypeDescriptor descriptor)
+    {
+        ParametricType parametricType = parametricTypes.get(descriptor.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            throw new TypeNotFoundException(signature.toString());
+            throw new TypeNotFoundException(descriptor.toString());
         }
 
         Type instantiatedType;
         try {
-            instantiatedType = parametricType.createType(typeManager, signature.getParameters());
+            instantiatedType = parametricType.createType(typeManager, descriptor.getParameters());
         }
         catch (IllegalArgumentException e) {
-            throw new TypeNotFoundException(signature.toString(), e);
+            throw new TypeNotFoundException(descriptor.toString(), e);
         }
 
         // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
-        // checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+        // checkState(instantiatedType.equalsSignature(descriptor), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, descriptor);
         return instantiatedType;
     }
 
@@ -445,9 +457,9 @@ public final class TypeRegistry
         }
 
         @Override
-        public Type getType(TypeDescriptor signature)
+        public Type getType(TypeDescriptor descriptor)
         {
-            return typeRegistry.getType(signature);
+            return typeRegistry.getType(descriptor);
         }
 
         @Override
@@ -457,9 +469,9 @@ public final class TypeRegistry
         }
 
         @Override
-        public Type getType(TypeId id)
+        public Type fromPersistedSqlType(String type)
         {
-            return typeRegistry.getType(id);
+            return typeRegistry.fromPersistedSqlType(type);
         }
 
         @Override

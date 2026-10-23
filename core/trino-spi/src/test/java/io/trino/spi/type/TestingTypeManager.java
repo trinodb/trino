@@ -44,28 +44,28 @@ public final class TestingTypeManager
     private final TypeOperators typeOperators = new TypeOperators();
 
     @Override
-    public Type getType(TypeDescriptor signature)
+    public Type getType(TypeDescriptor descriptor)
     {
         for (Type type : TYPES) {
-            if (signature.getBase().equals(type.getBaseName())) {
+            if (descriptor.getBase().equals(type.getBaseName())) {
                 return type;
             }
         }
 
-        List<TypeParameter> parameters = signature.getParameters();
-        return switch (signature.getBase()) {
+        List<TypeParameter> parameters = descriptor.getParameters();
+        return switch (descriptor.getBase()) {
             case StandardTypes.MAP -> new MapType(
                     getType(((TypeParameter.Type) parameters.get(0)).type()),
                     getType(((TypeParameter.Type) parameters.get(1)).type()),
                     typeOperators);
             case StandardTypes.ARRAY -> new ArrayType(getType(((TypeParameter.Type) parameters.get(0)).type()));
-            case StandardTypes.ROW -> RowType.from(signature.getParameters().stream()
+            case StandardTypes.ROW -> RowType.from(descriptor.getParameters().stream()
                     .map(parameter -> {
                         TypeParameter.Type typeParameter = (TypeParameter.Type) parameter;
                         return new RowType.Field(typeParameter.name(), getType(typeParameter.type()));
                     })
                     .collect(toImmutableList()));
-            default -> throw new TypeNotFoundException(signature.toString());
+            default -> throw new TypeNotFoundException(descriptor.toString());
         };
     }
 

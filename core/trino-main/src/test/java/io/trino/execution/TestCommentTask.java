@@ -63,7 +63,7 @@ public class TestCommentTask
     public void testCommentTableOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(TABLE, asQualifiedName(viewName), Optional.of("new comment"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -85,7 +85,7 @@ public class TestCommentTask
     public void testCommentView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
         assertThat(metadata.isView(testSession, viewName)).isTrue();
 
         getFutureValue(setComment(VIEW, asQualifiedName(viewName), Optional.of("new comment")));
@@ -150,7 +150,7 @@ public class TestCommentTask
     public void testCommentMaterializedViewOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(MATERIALIZED_VIEW, asQualifiedName(viewName), Optional.of("new comment"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -177,7 +177,7 @@ public class TestCommentTask
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
         QualifiedName columnName = qualifiedColumnName("existing_view", "test");
         QualifiedName missingColumnName = qualifiedColumnName("existing_view", "missing");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
         assertThat(metadata.isView(testSession, viewName)).isTrue();
 
         getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
@@ -193,7 +193,7 @@ public class TestCommentTask
     public void testCommentOnMixedCaseViewColumn()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, viewDefinition("SELECT 1", ImmutableList.of(new ViewColumn("Mixed", BIGINT.getTypeId(), Optional.empty()))), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, viewDefinition("SELECT 1", ImmutableList.of(new ViewColumn("Mixed", BIGINT.getTypeId(), Optional.empty()))), ImmutableMap.of(), FAIL);
         assertThat(metadata.isView(testSession, viewName)).isTrue();
 
         QualifiedName columnNameLowerCase = qualifiedColumnName("existing_view", "mixed");

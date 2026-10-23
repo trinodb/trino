@@ -22,6 +22,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -37,7 +38,7 @@ import static java.util.regex.Matcher.quoteReplacement;
 public final class Floci
         extends GenericContainer<Floci>
 {
-    public static final String FLOCI_IMAGE = "floci/floci:1.5.32";
+    public static final String FLOCI_IMAGE = "floci/floci:2.2.0";
     public static final String FLOCI_ACCESS_KEY = "floci-access-key";
     public static final String FLOCI_SECRET_KEY = "floci-secret-key";
     public static final String FLOCI_REGION = "us-east-1";
@@ -63,6 +64,24 @@ public final class Floci
                 AwsBasicCredentials.create(FLOCI_ACCESS_KEY, FLOCI_SECRET_KEY)));
         if (client instanceof S3ClientBuilder s3) {
             s3.forcePathStyle(true);
+        }
+    }
+
+    public void createRole(String roleName)
+    {
+        try (IamClient iam = IamClient.builder().applyMutation(this::updateClient).build()) {
+            iam.createRole(builder -> builder
+                    .roleName(roleName)
+                    .assumeRolePolicyDocument(
+                            """
+                            {
+                              "Version": "2012-10-17",
+                              "Statement": [{
+                                "Effect": "Allow",
+                                "Principal": {"AWS": "arn:aws:iam::000000000000:root"},
+                                "Action": "sts:AssumeRole"
+                              }]
+                            }"""));
         }
     }
 

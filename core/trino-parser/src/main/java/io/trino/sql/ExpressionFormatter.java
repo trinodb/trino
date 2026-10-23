@@ -40,6 +40,7 @@ import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.CurrentUser;
+import io.trino.sql.tree.DataTypeParameter;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DereferenceExpression;
@@ -64,6 +65,7 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IntervalValueExpression;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonConstructor;
@@ -125,7 +127,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -423,12 +424,12 @@ public final class ExpressionFormatter
         @Override
         protected String visitSimpleIntervalQualifier(SimpleIntervalQualifier node, Void context)
         {
-            if (node.getField() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
+            if (node.getField() instanceof IntervalField.Second(Optional<DataTypeParameter> fractionalPrecision) && fractionalPrecision.isPresent()) {
                 checkArgument(node.getPrecision().isPresent(), "Leading precision is required when fractional precision is specified");
-                return "SECOND(" + node.getPrecision().orElseThrow() + ", " + fractionalPrecision.orElseThrow() + ")";
+                return "SECOND(" + node.getPrecision().get() + ", " + fractionalPrecision.get() + ")";
             }
 
-            return node.getField().name() + (node.getPrecision().isPresent() ? "(" + node.getPrecision().orElseThrow() + ")" : "");
+            return node.getField().name() + node.getPrecision().map(precision -> "(" + precision + ")").orElse("");
         }
 
         @Override
@@ -437,12 +438,12 @@ public final class ExpressionFormatter
             StringBuilder result = new StringBuilder();
             result.append(node.getFrom().name());
             if (node.getPrecision().isPresent()) {
-                result.append("(").append(node.getPrecision().orElseThrow()).append(")");
+                result.append("(").append(node.getPrecision().get()).append(")");
             }
             result.append(" TO ");
             result.append(node.getTo().name());
-            if (node.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
-                result.append("(").append(fractionalPrecision.orElseThrow()).append(")");
+            if (node.getTo() instanceof IntervalField.Second(Optional<DataTypeParameter> fractionalPrecision) && fractionalPrecision.isPresent()) {
+                result.append("(").append(fractionalPrecision.get()).append(")");
             }
             return result.toString();
         }
@@ -759,6 +760,12 @@ public final class ExpressionFormatter
             }
 
             return builder.toString();
+        }
+
+        @Override
+        protected String visitIntervalValueExpression(IntervalValueExpression node, Void context)
+        {
+            return "((" + process(node.getLeft(), context) + " - " + process(node.getRight(), context) + ") " + process(node.getType().qualifier(), context) + ")";
         }
 
         @Override

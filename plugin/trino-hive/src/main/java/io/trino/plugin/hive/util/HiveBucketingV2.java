@@ -137,7 +137,7 @@ final class HiveBucketingV2
                 SqlMap map = ((MapBlock) block.getUnderlyingValueBlock()).getMap(block.getUnderlyingValuePosition(position));
                 yield hashOfMap((MapTypeInfo) type, map);
             }
-            case STRUCT, UNION -> throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
+            case STRUCT, UNION, UNKNOWN -> throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
         };
     }
 
@@ -182,7 +182,7 @@ final class HiveBucketingV2
             }
             case LIST -> hashOfList((ListTypeInfo) type, (Block) value);
             case MAP -> hashOfMap((MapTypeInfo) type, (SqlMap) value);
-            case STRUCT, UNION -> throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
+            case STRUCT, UNION, UNKNOWN -> throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
         };
     }
 

@@ -47,6 +47,25 @@ public class FlakyTestRetryExtension
             ExtensionContext extensionContext)
             throws Throwable
     {
+        interceptFlakyTest(invocation, invocationContext, extensionContext);
+    }
+
+    @Override
+    public void interceptTestTemplateMethod(
+            Invocation<Void> invocation,
+            ReflectiveInvocationContext<Method> invocationContext,
+            ExtensionContext extensionContext)
+            throws Throwable
+    {
+        interceptFlakyTest(invocation, invocationContext, extensionContext);
+    }
+
+    private static void interceptFlakyTest(
+            Invocation<Void> invocation,
+            ReflectiveInvocationContext<Method> invocationContext,
+            ExtensionContext extensionContext)
+            throws Throwable
+    {
         Method method = invocationContext.getExecutable();
         Flaky flaky = method.getAnnotation(Flaky.class);
 

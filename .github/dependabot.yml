@@ -21,10 +21,17 @@ updates:
         patterns:
           - "io.airlift:airbase"
           - "io.airlift:bom"
+      maven-model:
+        # These dependencies are separately maintained by trino-server-dev and root pom.xml
+        patterns:
+          - "org.apache.maven:maven-model-builder"
+          - "org.apache.maven:maven-model"
     cooldown:
       # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
       # when supply chain is compromised. This doesn't apply to the dependencies that we own and release.
       default-days: 7
+      semver-minor-days: 21
+      semver-major-days: 42
       exclude:
         - io.airlift:*
         - io.trino:*
@@ -52,3 +59,5 @@ updates:
       # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
       # when supply chain is compromised.
       default-days: 7
+      semver-minor-days: 21
+      semver-major-days: 42

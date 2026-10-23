@@ -61,7 +61,7 @@ public class TestHiddenColumns
     public void testDescribeTable()
     {
         assertThat(assertions.query("DESCRIBE region"))
-                .result().matches(resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .result().matches(resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                         .row("regionkey", "bigint", "", "")
                         .row("name", "varchar(25)", "", "")
                         .row("comment", "varchar(152)", "", "")

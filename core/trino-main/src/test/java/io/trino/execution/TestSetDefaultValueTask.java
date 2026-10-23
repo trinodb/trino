@@ -146,7 +146,7 @@ final class TestSetDefaultValueTask
     void testSetDefaultValueOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeSetDefaultValue(asQualifiedName(viewName), "test", "123", false)))
                 .hasErrorCode(TABLE_NOT_FOUND)

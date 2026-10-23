@@ -196,9 +196,16 @@ class ColumnInfo
                 builder.setColumnDisplaySize(DATE_MAX);
                 break;
             case "interval year to month":
-                builder.setColumnDisplaySize(TIMESTAMP_MAX);
-                break;
             case "interval day to second":
+                // the third argument is the leading-field precision and the fourth (day-time only) is the
+                // fractional-seconds precision; an older server sends the interval without arguments, so
+                // report them only when present
+                if (type.getArguments().size() > 2) {
+                    builder.setPrecision(type.getArguments().get(2).getLongLiteral().intValue());
+                }
+                if (type.getArguments().size() > 3) {
+                    builder.setScale(type.getArguments().get(3).getLongLiteral().intValue());
+                }
                 builder.setColumnDisplaySize(TIMESTAMP_MAX);
                 break;
             case "decimal":

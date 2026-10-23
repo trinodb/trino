@@ -618,7 +618,7 @@ public class TimeSharingTaskExecutor
             }
             if (splitsToOffer != null) {
                 for (PrioritizedSplitRunner split : splitsToOffer) {
-                    // best-effort; a split destroyed after this check is still offered and later discarded by TaskRunner via isFinished()
+                    // best-effort; the wait queue drops a split whose task is removed after this check
                     if (!split.isDestroyed()) {
                         waitingSplits.offer(split);
                     }

@@ -100,17 +100,15 @@ public class TestMemoryBlocking
         TableScanOperator source = new TableScanOperator(
                 driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _, _, reporter) -> {
-                    FixedPageSource pageSource = new FixedPageSource(rowPagesBuilder(types)
-                            .addSequencePage(10, 1)
-                            .addSequencePage(10, 1)
-                            .addSequencePage(10, 1)
-                            .addSequencePage(10, 1)
-                            .addSequencePage(10, 1)
-                            .build());
-                    reporter.setBytes(pageSource.getMemoryUsage());
-                    return pageSource;
-                },
+                (_, _, _, _, _, _, memoryContext) -> new FixedPageSource(
+                        rowPagesBuilder(types)
+                                .addSequencePage(10, 1)
+                                .addSequencePage(10, 1)
+                                .addSequencePage(10, 1)
+                                .addSequencePage(10, 1)
+                                .addSequencePage(10, 1)
+                                .build(),
+                        memoryContext),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
                 ImmutableList.of());
@@ -150,7 +148,7 @@ public class TestMemoryBlocking
     private PageConsumerOperator createSinkOperator(List<Type> types)
     {
         // materialize the output to catch some type errors
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         return new PageConsumerOperator(driverContext.addOperatorContext(2, new PlanNodeId("test"), "sink"), resultBuilder::page, Function.identity());
     }
 

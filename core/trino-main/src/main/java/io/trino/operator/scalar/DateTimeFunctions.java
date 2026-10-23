@@ -29,7 +29,9 @@ import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.type.DateTimes;
+import io.trino.type.LongInterval;
 import io.trino.util.DateTimeUtils;
+import io.trino.util.FastDate;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.Days;
@@ -52,16 +54,19 @@ import java.util.function.Function;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
+import static java.lang.Math.abs;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
@@ -75,18 +80,6 @@ public final class DateTimeFunctions
             new ThreadLocalCache<>(100, DateTimeFunctions::createDateTimeFormatter);
 
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
-    private static final DateTimeField DAY_OF_WEEK = UTC_CHRONOLOGY.dayOfWeek();
-    private static final DateTimeField DAY_OF_MONTH = UTC_CHRONOLOGY.dayOfMonth();
-    private static final DateTimeField DAY_OF_YEAR = UTC_CHRONOLOGY.dayOfYear();
-    private static final DateTimeField WEEK_OF_YEAR = UTC_CHRONOLOGY.weekOfWeekyear();
-    private static final DateTimeField YEAR_OF_WEEK = UTC_CHRONOLOGY.weekyear();
-    private static final DateTimeField MONTH_OF_YEAR = UTC_CHRONOLOGY.monthOfYear();
-    private static final DateTimeField QUARTER = QUARTER_OF_YEAR.getField(UTC_CHRONOLOGY);
-    private static final DateTimeField YEAR = UTC_CHRONOLOGY.year();
-    private static final int MILLISECONDS_IN_SECOND = 1000;
-    private static final int MILLISECONDS_IN_MINUTE = 60 * MILLISECONDS_IN_SECOND;
-    private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
-    private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
     private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
     private static final Slice ISO_8601_DATE_FORMAT = utf8Slice("%Y-%m-%d");
     private static final DateTimeFieldProvider[] DATE_FIELDS = {
@@ -145,7 +138,7 @@ public final class DateTimeFunctions
     {
         // TODO (https://github.com/trinodb/trino/issues/5781)
         try {
-            return packDateTimeWithZone(Math.round(unixTime * 1000), session.getTimeZoneKey());
+            return packDateTimeWithZone(unixTimeToEpochMillis(unixTime), session.getTimeZoneKey());
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -159,7 +152,7 @@ public final class DateTimeFunctions
         TimeZoneKey timeZoneKey;
         try {
             timeZoneKey = getTimeZoneKeyForOffset((hoursOffset * 60) + minutesOffset);
-            return packDateTimeWithZone(Math.round(unixTime * 1000), timeZoneKey);
+            return packDateTimeWithZone(unixTimeToEpochMillis(unixTime), timeZoneKey);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -172,11 +165,34 @@ public final class DateTimeFunctions
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime, @SqlType("varchar(x)") Slice zoneId)
     {
         try {
-            return packDateTimeWithZone(Math.round(unixTime * 1000), zoneId.toStringUtf8());
+            return packDateTimeWithZone(unixTimeToEpochMillis(unixTime), zoneId.toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+    }
+
+    private static long unixTimeToEpochMillis(double unixTime)
+    {
+        double millis = unixTime * MILLISECONDS_PER_SECOND;
+        if (abs(millis) >= 0x1p52) {
+            // Integral and too large to pack; the saturating cast keeps it so
+            return (long) millis;
+        }
+        // Round half away from zero, treating unixTime as a tie when it is the double nearest a half millisecond, as
+        // CAST(unixTime AS decimal(p, 3)) does for all but far-future values. The exact product is within 0.5 ulp of millis
+        // and a decimal that rounds to unixTime within 1.5 ulp, so away from a half millisecond, millis rounds the same.
+        double floor = Math.floor(millis);
+        double fraction = millis - floor;
+        if (abs(fraction - 0.5) > 2 * Math.ulp(millis)) {
+            return Math.round(millis);
+        }
+        long lowerMillis = (long) floor;
+        double halfMillisecond = (2 * lowerMillis + 1) / (2.0 * MILLISECONDS_PER_SECOND);
+        if (unixTime > halfMillisecond || (unixTime == halfMillisecond && unixTime > 0)) {
+            return lowerMillis + 1;
+        }
+        return lowerMillis;
     }
 
     @ScalarFunction("from_unixtime_nanos")
@@ -186,10 +202,10 @@ public final class DateTimeFunctions
 
         @LiteralParameters({"p", "s"})
         @SqlType("timestamp(9) with time zone")
-        public static LongTimestampWithTimeZone fromLong(@LiteralParameter("s") long scale, ConnectorSession session, @SqlType("decimal(p, s)") Int128 unixTimeNanos)
+        public static LongTimestampWithTimeZone fromLong(@LiteralParameter("s") int scale, ConnectorSession session, @SqlType("decimal(p, s)") Int128 unixTimeNanos)
         {
             // TODO (https://github.com/trinodb/trino/issues/5781)
-            Int128 decimal = rescale(unixTimeNanos, -(int) scale);
+            Int128 decimal = rescale(unixTimeNanos, -scale);
             BigInteger unixTimeNanosInt = decimal.toBigInteger();
             long epochSeconds = unixTimeNanosInt.divide(BigInteger.valueOf(NANOSECONDS_PER_SECOND)).longValue();
             long nanosOfSecond = unixTimeNanosInt.remainder(BigInteger.valueOf(NANOSECONDS_PER_SECOND)).longValue();
@@ -209,7 +225,7 @@ public final class DateTimeFunctions
 
         @LiteralParameters({"p", "s"})
         @SqlType("timestamp(9) with time zone")
-        public static LongTimestampWithTimeZone fromShort(@LiteralParameter("s") long scale, ConnectorSession session, @SqlType("decimal(p, s)") long unixTimeNanos)
+        public static LongTimestampWithTimeZone fromShort(@LiteralParameter("s") int scale, ConnectorSession session, @SqlType("decimal(p, s)") long unixTimeNanos)
         {
             // TODO (https://github.com/trinodb/trino/issues/5781)
             long roundedUnixTimeNanos = MathFunctions.Round.roundShort(scale, unixTimeNanos);
@@ -468,44 +484,12 @@ public final class DateTimeFunctions
         }
     }
 
-    @Description("Millisecond of the second of the given interval")
-    @ScalarFunction(value = "millisecond", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long millisecondFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
-    {
-        return milliseconds % MILLISECONDS_IN_SECOND;
-    }
-
-    @Description("Second of the minute of the given interval")
-    @ScalarFunction(value = "second", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long secondFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
-    {
-        return (milliseconds % MILLISECONDS_IN_MINUTE) / MILLISECONDS_IN_SECOND;
-    }
-
-    @Description("Minute of the hour of the given interval")
-    @ScalarFunction(value = "minute", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long minuteFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
-    {
-        return (milliseconds % MILLISECONDS_IN_HOUR) / MILLISECONDS_IN_MINUTE;
-    }
-
-    @Description("Hour of the day of the given interval")
-    @ScalarFunction(value = "hour", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long hourFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
-    {
-        return (milliseconds % MILLISECONDS_IN_DAY) / MILLISECONDS_IN_HOUR;
-    }
-
     @Description("Day of the week of the given date")
     @ScalarFunction(value = "day_of_week", alias = "dow", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return DAY_OF_WEEK.get(DAYS.toMillis(date));
+        return floorMod(date + 3, 7) + 1;
     }
 
     @Description("Day of the month of the given date")
@@ -513,15 +497,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return DAY_OF_MONTH.get(DAYS.toMillis(date));
-    }
-
-    @Description("Day of the month of the given interval")
-    @ScalarFunction(value = "day", alias = "day_of_month", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long dayFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
-    {
-        return milliseconds / MILLISECONDS_IN_DAY;
+        return FastDate.dayOf((int) date);
     }
 
     @Description("Last day of the month of the given date")
@@ -529,8 +505,8 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonthFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(DAYS.toMillis(date) + 1) - MILLISECONDS_IN_DAY;
-        return MILLISECONDS.toDays(millis);
+        int days = (int) date;
+        return (long) days - FastDate.dayOf(days) + FastDate.daysInMonthOf(days);
     }
 
     @Description("Day of the year of the given date")
@@ -538,7 +514,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfYearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return DAY_OF_YEAR.get(DAYS.toMillis(date));
+        return FastDate.dayOfYearOf((int) date);
     }
 
     @Description("Week of the year of the given date")
@@ -546,7 +522,8 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long weekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return WEEK_OF_YEAR.get(DAYS.toMillis(date));
+        int thursday = (int) (7 * floorDiv(date + 3, 7));
+        return (FastDate.dayOfYearOf(thursday) + 6) / 7;
     }
 
     @Description("Year of the ISO week of the given date")
@@ -554,7 +531,8 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long yearOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return YEAR_OF_WEEK.get(DAYS.toMillis(date));
+        int thursday = (int) (7 * floorDiv(date + 3, 7));
+        return FastDate.yearOf(thursday);
     }
 
     @Description("Month of the year of the given date")
@@ -562,15 +540,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long monthFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return MONTH_OF_YEAR.get(DAYS.toMillis(date));
-    }
-
-    @Description("Month of the year of the given interval")
-    @ScalarFunction(value = "month", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long monthFromInterval(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long months)
-    {
-        return months % 12;
+        return FastDate.monthOf((int) date);
     }
 
     @Description("Quarter of the year of the given date")
@@ -578,7 +548,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long quarterFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return QUARTER.get(DAYS.toMillis(date));
+        return FastDate.quarterOf((int) date);
     }
 
     @Description("Year of the given date")
@@ -586,15 +556,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long yearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return YEAR.get(DAYS.toMillis(date));
-    }
-
-    @Description("Year of the given interval")
-    @ScalarFunction(value = "year", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long yearFromInterval(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long months)
-    {
-        return months / 12;
+        return FastDate.yearOf((int) date);
     }
 
     public static DateTimeFormatter createDateTimeFormatter(Slice format)
@@ -751,11 +713,14 @@ public final class DateTimeFunctions
     @Description("Convert duration string to an interval")
     @ScalarFunction("parse_duration")
     @LiteralParameters("x")
-    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    @SqlType("interval day(9) to second")
     public static long parseDuration(@SqlType("varchar(x)") Slice duration)
     {
         try {
-            return Duration.valueOf(duration.toStringUtf8()).toMillis();
+            return Math.multiplyExact(Duration.valueOf(duration.toStringUtf8()).toMillis(), 1000);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Duration exceeds interval range: " + duration.toStringUtf8(), e);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -763,9 +728,26 @@ public final class DateTimeFunctions
     }
 
     @ScalarFunction("to_milliseconds")
-    @SqlType(StandardTypes.BIGINT)
-    public static long toMilliseconds(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
+    public static final class ToMilliseconds
     {
-        return value;
+        private ToMilliseconds() {}
+
+        @LiteralParameters({"q", "r"})
+        @SqlType(StandardTypes.BIGINT)
+        public static long toMilliseconds(@SqlType("interval day(q) to second(r)") long value)
+        {
+            return value / 1000;
+        }
+
+        @LiteralParameters({"q", "r"})
+        @SqlType(StandardTypes.BIGINT)
+        public static long toMilliseconds(@SqlType("interval day(q) to second(r)") LongInterval value)
+        {
+            long micros = value.getMicros();
+            if (micros < 0 && value.getPicosOfMicro() > 0) {
+                micros++;
+            }
+            return micros / 1000;
+        }
     }
 }

@@ -68,6 +68,17 @@ expresses every argument and return position as a template over them.
 
 ## Type id
 
+Use `TypeSyntax.toSql` or `Type.getDisplayName()` for SQL spelling.
+`TypeDescriptor.toString()` and `TypeTemplate.render()` use an internal
+structural representation, which can differ from SQL syntax. `Type.getTypeId()`
+continues to use SQL spelling.
+
+The internal base names of zoned datetime and interval types are
+`$timestamp_tz`, `$time_tz`, `$interval_day_time`, and `$interval_year_month`.
+They must not be exposed as SQL type names. The corresponding `StandardTypes`
+and zoned datetime `NAME` constants changed values. Java inlines these constants,
+so plugins compiled against their previous values must be rebuilt.
+
 A `TypeId` is the opaque identifier under which a type is persisted, for example in
 the catalog properties of a materialized view. It wraps the rendered form of the
 type's descriptor but guarantees nothing about its structure: where a `TypeDescriptor`

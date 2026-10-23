@@ -46,6 +46,7 @@ import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsFor
 import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsForResponse;
 import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestOpaBatchAccessControlFiltering
@@ -362,7 +363,7 @@ final class TestOpaBatchAccessControlFiltering
         for (Pair<String, List<T>> testCase : responsesAndExpectedFilteredObjects) {
             InstrumentedHttpClient httpClient = createMockHttpClient(OPA_SERVER_BATCH_URI, buildValidatingRequestHandler(TEST_IDENTITY, 200, testCase.first()));
             OpaAccessControl accessControl = createOpaAuthorizer(batchFilteringOpaConfig(), httpClient);
-            assertThat(method.apply(accessControl, TEST_SECURITY_CONTEXT, objectsToFilter)).containsExactlyInAnyOrderElementsOf(testCase.second());
+            assertEqualsIgnoreOrder(method.apply(accessControl, TEST_SECURITY_CONTEXT, objectsToFilter), testCase.second());
             assertStringRequestsEqual(expectedRequests, httpClient.getRequests(), "/input/action");
         }
 

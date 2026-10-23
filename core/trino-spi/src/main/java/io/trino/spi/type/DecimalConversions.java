@@ -17,22 +17,25 @@ import io.trino.spi.TrinoException;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.stream.LongStream;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Int128Math.compareAbsolute;
 import static io.trino.spi.type.Int128Math.rescale;
 import static java.lang.Double.doubleToRawLongBits;
-import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.parseFloat;
+import static java.lang.Long.numberOfLeadingZeros;
 import static java.lang.Math.abs;
 import static java.lang.Math.fma;
+import static java.lang.Math.min;
 import static java.lang.Math.nextDown;
 import static java.lang.Math.nextUp;
+import static java.lang.Math.rint;
+import static java.lang.Math.scalb;
+import static java.lang.Math.ulp;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 
@@ -57,6 +60,7 @@ public final class DecimalConversions
     // visible for testing
     static final Int128 MAX_EXACT_DOUBLE = Int128.valueOf(1L << 53);
     private static final long MAX_EXACT_DOUBLE_LONG = MAX_EXACT_DOUBLE.toLongExact();
+    private static final long NOT_ROUNDED = Long.MIN_VALUE;
     // visible for testing
     static final Int128 MAX_EXACT_FLOAT = Int128.valueOf(1L << 24);
     // The 29 significand bits a double loses when narrowed to a float: a midpoint sets them to 2^28, and the margin
@@ -64,6 +68,11 @@ public final class DecimalConversions
     private static final long DISCARDED_FLOAT_BITS_MASK = (1L << 29) - 1;
     private static final long DISCARDED_FLOAT_BITS_MIDPOINT = 1L << 28;
     private static final long DISCARDED_FLOAT_BITS_MARGIN = 8;
+    // The largest power of five below 2^31
+    private static final int MAX_INT_POWER_OF_FIVE = 13;
+    private static final long[] POWERS_OF_FIVE = LongStream.iterate(1, power -> power * 5)
+            .limit(MAX_INT_POWER_OF_FIVE + 1)
+            .toArray();
 
     private DecimalConversions() {}
 
@@ -72,11 +81,16 @@ public final class DecimalConversions
         if (-MAX_EXACT_DOUBLE_LONG <= decimal && decimal <= MAX_EXACT_DOUBLE_LONG) {
             return ((double) decimal) / tenToScale;
         }
-        int scale = Long.numberOfTrailingZeros(tenToScale);
-        if (scale <= MAX_SHORT_PRECISION && longTenToNth(scale) == tenToScale) {
-            return BigDecimal.valueOf(decimal, scale).doubleValue();
+        if (tenToScale == 1) {
+            return decimal;
         }
-        return BigDecimal.valueOf(decimal).divide(BigDecimal.valueOf(tenToScale)).doubleValue();
+        // The dividend rounds to double, so the quotient can be an ulp off. The residual decimal - value * tenToScale
+        // corrects it, and is exact: value * tenToScale is a multiple of ulp(value) * 2^scale within a few
+        // ulp(value) * 10^scale of the dividend, so the fma result spans about log2(5^scale) <= 42 bits, and adding
+        // back the small integer the dividend lost to rounding keeps it under 53.
+        double dividend = decimal;
+        double value = dividend / tenToScale;
+        return value + (fma(-value, tenToScale, dividend) + (decimal - (long) dividend)) / tenToScale;
     }
 
     public static double longDecimalToDouble(Int128 decimal, long scale)
@@ -85,9 +99,8 @@ public final class DecimalConversions
         if (scale < DOUBLE_10_POW.length && compareAbsolute(decimal, MAX_EXACT_DOUBLE) <= 0) {
             return (double) decimal.toLong() / DOUBLE_10_POW[intScale(scale)];
         }
-
-        // TODO: optimize and convert directly to double in similar fashion as in double to decimal casts
-        return parseDouble(Decimals.toString(decimal, intScale(scale)));
+        // Converting 63 bits with a sticky bit to double rounds correctly
+        return stickyQuotient(decimal, intScale(scale), 63);
     }
 
     public static long shortDecimalToReal(long decimal, long tenToScale)
@@ -97,30 +110,34 @@ public final class DecimalConversions
         }
         // Dividing in double and narrowing to float rounds twice, which can only misround near a float midpoint.
         double value = (double) decimal / tenToScale;
-        long discardedBits = doubleToRawLongBits(value) & DISCARDED_FLOAT_BITS_MASK;
-        if (abs(discardedBits - DISCARDED_FLOAT_BITS_MIDPOINT) > DISCARDED_FLOAT_BITS_MARGIN) {
+        if (abs(discardedFloatBits(value) - DISCARDED_FLOAT_BITS_MIDPOINT) > DISCARDED_FLOAT_BITS_MARGIN) {
             return floatToRawIntBits((float) value);
         }
-        if (-MAX_EXACT_DOUBLE_LONG <= decimal && decimal <= MAX_EXACT_DOUBLE_LONG) {
-            // An exact dividend rounds the divide correctly, so only a true midpoint misrounds.
-            if (discardedBits != DISCARDED_FLOAT_BITS_MIDPOINT) {
-                return floatToRawIntBits((float) value);
-            }
-            // Exact operands make the residual's sign exact: zero is a tie, its sign gives the side.
-            double residual = fma(value, tenToScale, -(double) decimal);
-            if (residual == 0) {
-                return floatToRawIntBits((float) value);
-            }
-            if (residual < 0) {
-                return floatToRawIntBits((float) nextUp(value));
-            }
-            return floatToRawIntBits((float) nextDown(value));
+        // A correctly rounded quotient only misrounds on a float midpoint it does not equal exactly. There, the sign
+        // of the residual decimal - value * tenToScale gives the side.
+        double dividend = decimal;
+        double dividendError = 0;
+        if (decimal < -MAX_EXACT_DOUBLE_LONG || decimal > MAX_EXACT_DOUBLE_LONG) {
+            // Correct the quotient as shortDecimalToDouble does
+            dividendError = decimal - (long) dividend;
+            value += (fma(-value, tenToScale, dividend) + dividendError) / tenToScale;
         }
-        int scale = Long.numberOfTrailingZeros(tenToScale);
-        if (scale <= MAX_SHORT_PRECISION && longTenToNth(scale) == tenToScale) {
-            return floatToRawIntBits(BigDecimal.valueOf(decimal, scale).floatValue());
+        if (discardedFloatBits(value) != DISCARDED_FLOAT_BITS_MIDPOINT) {
+            return floatToRawIntBits((float) value);
         }
-        return floatToRawIntBits(BigDecimal.valueOf(decimal).divide(BigDecimal.valueOf(tenToScale)).floatValue());
+        double residual = fma(-value, tenToScale, dividend) + dividendError;
+        if (residual == 0) {
+            return floatToRawIntBits((float) value);
+        }
+        if (residual > 0) {
+            return floatToRawIntBits((float) nextUp(value));
+        }
+        return floatToRawIntBits((float) nextDown(value));
+    }
+
+    private static long discardedFloatBits(double value)
+    {
+        return doubleToRawLongBits(value) & DISCARDED_FLOAT_BITS_MASK;
     }
 
     public static long longDecimalToReal(Int128 decimal, long scale)
@@ -129,26 +146,103 @@ public final class DecimalConversions
         if (scale < FLOAT_10_POW.length && compareAbsolute(decimal, MAX_EXACT_FLOAT) <= 0) {
             return floatToRawIntBits((float) decimal.toLong() / FLOAT_10_POW[intScale(scale)]);
         }
+        // 53 bits with a sticky bit round the quotient to odd, which narrows to float correctly, subnormal or not.
+        // Narrowing a correctly rounded double could round twice.
+        return floatToRawIntBits((float) stickyQuotient(decimal, intScale(scale), 53));
+    }
 
-        // TODO: optimize and convert directly to float in similar fashion as in double to decimal casts
-        return floatToRawIntBits(parseFloat(Decimals.toString(decimal, intScale(scale))));
+    /**
+     * Returns {@code decimal / 10^scale} truncated to {@code significandBits}, with the lowest bit set if any
+     * discarded bit is nonzero.
+     */
+    private static double stickyQuotient(Int128 decimal, int scale, int significandBits)
+    {
+        long high = decimal.getHigh();
+        long low = decimal.getLow();
+        boolean negative = high < 0;
+        if (negative) {
+            high = (low == 0) ? -high : ~high;
+            low = -low;
+        }
+        if ((high | low) == 0) {
+            return 0;
+        }
+
+        // Shift the unsigned magnitude to the top of the 192-bit dividend u2:u1:u0, so that the quotient keeps over
+        // 100 bits after dividing by 5^38 < 2^89. The 2^scale part of 10^scale goes to the exponent:
+        // decimal / 10^scale = u2:u1:u0 / 5^scale * 2^(exponent - 128).
+        int shift = (high == 0) ? 64 + numberOfLeadingZeros(low) : numberOfLeadingZeros(high);
+        long u2;
+        long u1;
+        if (shift >= 64) {
+            u2 = low << (shift - 64);
+            u1 = 0;
+        }
+        else {
+            u2 = (high << shift) | (low >>> 1 >>> (63 - shift));
+            u1 = low << shift;
+        }
+        long u0 = 0;
+        int exponent = 64 - shift - scale;
+
+        boolean sticky = false;
+        for (int remaining = scale; remaining > 0; remaining -= MAX_INT_POWER_OF_FIVE) {
+            long divisor = POWERS_OF_FIVE[min(remaining, MAX_INT_POWER_OF_FIVE)];
+            long quotient = divideLimb(0, u2, divisor);
+            long remainder = u2 - quotient * divisor;
+            u2 = quotient;
+            quotient = divideLimb(remainder, u1, divisor);
+            remainder = u1 - quotient * divisor;
+            u1 = quotient;
+            quotient = divideLimb(remainder, u0, divisor);
+            remainder = u0 - quotient * divisor;
+            u0 = quotient;
+            sticky |= remainder != 0;
+        }
+
+        // The quotient exceeds 2^102, so its top 64 bits lie in u2:u1, or in u1:u0 when u2 is zero
+        if (u2 == 0) {
+            u2 = u1;
+            u1 = u0;
+            u0 = 0;
+            exponent -= 64;
+        }
+        int leading = numberOfLeadingZeros(u2);
+        long top = (u2 << leading) | (u1 >>> 1 >>> (63 - leading));
+        sticky |= ((u1 << leading) | u0) != 0 || (top << significandBits) != 0;
+        int discarded = 64 - significandBits;
+        long significand = (top >>> discarded) | (sticky ? 1 : 0);
+        double value = scalb((double) significand, exponent - leading + discarded);
+        return negative ? -value : value;
+    }
+
+    /**
+     * Returns {@code (remainder * 2^64 + limb) / divisor}, where {@code remainder < divisor < 2^31}, which keeps each
+     * 32-bit step below 2^63. The new remainder is {@code limb - quotient * divisor}, in wrapping arithmetic.
+     */
+    private static long divideLimb(long remainder, long limb, long divisor)
+    {
+        long dividend = (remainder << 32) | (limb >>> 32);
+        long quotientHigh = dividend / divisor;
+        dividend = ((dividend - quotientHigh * divisor) << 32) | (limb & 0xFFFF_FFFFL);
+        return (quotientHigh << 32) | (dividend / divisor);
     }
 
     public static long doubleToShortDecimal(double value, long precision, long scale)
     {
-        // TODO: implement specialized version for short decimals
-        Int128 decimal = internalDoubleToLongDecimal(value, precision, scale);
-
-        long low = decimal.getLow();
-        long high = decimal.getHigh();
-
-        checkState(high == (low >> 63), "Unexpected long decimal");
-
-        return low;
+        long rounded = roundToScale(value, ulp(value), precision, scale);
+        if (rounded != NOT_ROUNDED) {
+            return rounded;
+        }
+        return toShortDecimal(internalDoubleToLongDecimal(value, precision, scale));
     }
 
     public static Int128 doubleToLongDecimal(double value, long precision, long scale)
     {
+        long rounded = roundToScale(value, ulp(value), precision, scale);
+        if (rounded != NOT_ROUNDED) {
+            return Int128.valueOf(rounded);
+        }
         return internalDoubleToLongDecimal(value, precision, scale);
     }
 
@@ -177,18 +271,23 @@ public final class DecimalConversions
 
     public static long realToShortDecimal(float value, long precision, long scale)
     {
-        // TODO: implement specialized version for short decimals
-        Int128 decimal = realToLongDecimal(value, precision, scale);
-
-        long low = decimal.getLow();
-        long high = decimal.getHigh();
-
-        checkState(high == (low >> 63), "Unexpected long decimal");
-
-        return low;
+        long rounded = roundToScale(value, ulp(value), precision, scale);
+        if (rounded != NOT_ROUNDED) {
+            return rounded;
+        }
+        return toShortDecimal(internalRealToLongDecimal(value, precision, scale));
     }
 
-    public static Int128 realToLongDecimal(float floatValue, long precision, long scale)
+    public static Int128 realToLongDecimal(float value, long precision, long scale)
+    {
+        long rounded = roundToScale(value, ulp(value), precision, scale);
+        if (rounded != NOT_ROUNDED) {
+            return Int128.valueOf(rounded);
+        }
+        return internalRealToLongDecimal(value, precision, scale);
+    }
+
+    private static Int128 internalRealToLongDecimal(float floatValue, long precision, long scale)
     {
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
@@ -209,6 +308,45 @@ public final class DecimalConversions
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
         }
+    }
+
+    /**
+     * Returns the unscaled value of the shortest decimal string of a double or float {@code value}, rounded
+     * {@code HALF_UP} to {@code scale}, or {@link #NOT_ROUNDED} when the double arithmetic cannot settle it or the
+     * result does not fit {@code precision}. The string lies within half of {@code ulp} of {@code value}, so it
+     * rounds the same as {@code value} itself unless {@code value * 10^scale} is within that distance, scaled, of a
+     * midpoint between integers.
+     */
+    private static long roundToScale(double value, double ulp, long precision, long scale)
+    {
+        if (scale >= DOUBLE_10_POW.length) {
+            return NOT_ROUNDED;
+        }
+        double tenToScale = DOUBLE_10_POW[intScale(scale)];
+        double product = value * tenToScale;
+        // Rejects NaN and infinities. Above 2^53, ulp * tenToScale / 2 exceeds 1/2, so the margin below never holds.
+        if (!(abs(product) < MAX_EXACT_DOUBLE_LONG)) {
+            return NOT_ROUNDED;
+        }
+        double rounded = rint(product);
+        // product - rounded is exact, and fma gives the exact error of the product, so only the sum rounds, by at most
+        // 2^-54. ulp * tenToScale / 2 is exact too, short of underflow.
+        double distance = abs((product - rounded) + fma(value, tenToScale, -product));
+        if (distance >= 0.5 - (ulp * tenToScale / 2 + 0x1p-50)) {
+            return NOT_ROUNDED;
+        }
+        long result = (long) rounded;
+        if (precision <= MAX_SHORT_PRECISION && overflows(result, intScale(precision))) {
+            return NOT_ROUNDED;
+        }
+        return result;
+    }
+
+    private static long toShortDecimal(Int128 decimal)
+    {
+        long low = decimal.getLow();
+        checkState(decimal.getHigh() == (low >> 63), "Unexpected long decimal");
+        return low;
     }
 
     public static long shortToShortCast(

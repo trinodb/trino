@@ -15,7 +15,6 @@ package io.trino.operator.window;
 
 import org.junit.jupiter.api.Test;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -28,7 +27,7 @@ public class TestFirstValueFunction
     public void testFirstValueUnbounded()
     {
         assertWindowQuery("first_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                resultBuilder(INTEGER, VARCHAR, VARCHAR)
                         .row(3, "F", "1993-10-14")
                         .row(5, "F", "1993-10-14")
                         .row(6, "F", "1993-10-14")
@@ -41,7 +40,7 @@ public class TestFirstValueFunction
                         .row(34, "O", "1996-01-02")
                         .build());
         assertWindowQueryWithNulls("first_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                resultBuilder(BIGINT, VARCHAR, VARCHAR)
                         .row(3L, "F", "1993-10-14")
                         .row(5L, "F", "1993-10-14")
                         .row(6L, "F", "1993-10-14")
@@ -55,7 +54,7 @@ public class TestFirstValueFunction
                         .build());
 
         assertWindowQuery("first_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                resultBuilder(INTEGER, VARCHAR, INTEGER)
                         .row(3, "F", 3)
                         .row(5, "F", 3)
                         .row(6, "F", 3)
@@ -68,7 +67,7 @@ public class TestFirstValueFunction
                         .row(34, "O", 1)
                         .build());
         assertWindowQueryWithNulls("first_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 3L)
                         .row(5L, "F", 3L)
                         .row(6L, "F", 3L)
@@ -83,7 +82,7 @@ public class TestFirstValueFunction
 
         // Timestamp
         assertWindowQuery("date_format(first_value(cast(orderdate as TIMESTAMP)) OVER (PARTITION BY orderstatus ORDER BY orderkey), '%Y-%m-%d')",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                resultBuilder(INTEGER, VARCHAR, VARCHAR)
                         .row(3, "F", "1993-10-14")
                         .row(5, "F", "1993-10-14")
                         .row(6, "F", "1993-10-14")
@@ -103,7 +102,7 @@ public class TestFirstValueFunction
         assertWindowQuery(
                 "first_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                resultBuilder(INTEGER, VARCHAR, INTEGER)
                         .row(3, "F", 3)
                         .row(5, "F", 3)
                         .row(6, "F", 3)
@@ -118,7 +117,7 @@ public class TestFirstValueFunction
         assertWindowQueryWithNulls(
                 "first_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 3L)
                         .row(5L, "F", 3L)
                         .row(6L, "F", 3L)
@@ -136,7 +135,7 @@ public class TestFirstValueFunction
     public void testFirstValueUnboundedIgnoreNulls()
     {
         assertWindowQuery("first_value(orderdate) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                resultBuilder(INTEGER, VARCHAR, VARCHAR)
                         .row(3, "F", "1993-10-14")
                         .row(5, "F", "1993-10-14")
                         .row(6, "F", "1993-10-14")
@@ -149,7 +148,7 @@ public class TestFirstValueFunction
                         .row(34, "O", "1996-01-02")
                         .build());
         assertWindowQueryWithNulls("first_value(orderdate) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                resultBuilder(BIGINT, VARCHAR, VARCHAR)
                         .row(3L, "F", "1993-10-14")
                         .row(5L, "F", "1993-10-14")
                         .row(6L, "F", "1993-10-14")
@@ -164,7 +163,7 @@ public class TestFirstValueFunction
         assertWindowQueryWithNulls(
                 "first_value(orderdate) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                resultBuilder(BIGINT, VARCHAR, VARCHAR)
                         .row(3L, "F", "1993-10-14")
                         .row(5L, "F", "1993-10-14")
                         .row(6L, "F", "1993-10-14")
@@ -178,7 +177,7 @@ public class TestFirstValueFunction
                         .build());
 
         assertWindowQuery("first_value(orderkey) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                resultBuilder(INTEGER, VARCHAR, INTEGER)
                         .row(3, "F", 3)
                         .row(5, "F", 3)
                         .row(6, "F", 3)
@@ -191,7 +190,7 @@ public class TestFirstValueFunction
                         .row(34, "O", 1)
                         .build());
         assertWindowQueryWithNulls("first_value(orderkey) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 3L)
                         .row(5L, "F", 3L)
                         .row(6L, "F", 3L)
@@ -206,7 +205,7 @@ public class TestFirstValueFunction
         assertWindowQueryWithNulls(
                 "first_value(orderkey) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey NULLS FIRST " +
                         "ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(null, "F", 3L)
                         .row(3L, "F", 3L)
                         .row(5L, "F", 3L)
@@ -221,7 +220,7 @@ public class TestFirstValueFunction
 
         // Timestamp
         assertWindowQuery("date_format(first_value(cast(orderdate as TIMESTAMP)) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey), '%Y-%m-%d')",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                resultBuilder(INTEGER, VARCHAR, VARCHAR)
                         .row(3, "F", "1993-10-14")
                         .row(5, "F", "1993-10-14")
                         .row(6, "F", "1993-10-14")
@@ -241,7 +240,7 @@ public class TestFirstValueFunction
         assertWindowQuery(
                 "first_value(orderkey) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                resultBuilder(INTEGER, VARCHAR, INTEGER)
                         .row(3, "F", 3)
                         .row(5, "F", 3)
                         .row(6, "F", 3)
@@ -256,7 +255,7 @@ public class TestFirstValueFunction
         assertWindowQueryWithNulls(
                 "first_value(orderkey) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey NULLS FIRST " +
                         "ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(null, "F", 3L)
                         .row(3L, "F", 3L)
                         .row(5L, "F", 3L)
@@ -274,7 +273,7 @@ public class TestFirstValueFunction
     public void testFirstValueUnboundedRespectNulls()
     {
         assertWindowQuery("first_value(orderdate) RESPECT NULLS  OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                resultBuilder(INTEGER, VARCHAR, VARCHAR)
                         .row(3, "F", "1993-10-14")
                         .row(5, "F", "1993-10-14")
                         .row(6, "F", "1993-10-14")
@@ -287,7 +286,7 @@ public class TestFirstValueFunction
                         .row(34, "O", "1996-01-02")
                         .build());
         assertWindowQueryWithNulls("first_value(orderdate) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                resultBuilder(BIGINT, VARCHAR, VARCHAR)
                         .row(3L, "F", "1993-10-14")
                         .row(5L, "F", "1993-10-14")
                         .row(6L, "F", "1993-10-14")
@@ -302,7 +301,7 @@ public class TestFirstValueFunction
         assertWindowQueryWithNulls(
                 "first_value(orderdate) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                resultBuilder(BIGINT, VARCHAR, VARCHAR)
                         .row(3L, "F", "1993-10-14")
                         .row(5L, "F", "1993-10-14")
                         .row(6L, "F", "1993-10-14")
@@ -316,7 +315,7 @@ public class TestFirstValueFunction
                         .build());
 
         assertWindowQuery("first_value(orderkey) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                resultBuilder(INTEGER, VARCHAR, INTEGER)
                         .row(3, "F", 3)
                         .row(5, "F", 3)
                         .row(6, "F", 3)
@@ -329,7 +328,7 @@ public class TestFirstValueFunction
                         .row(34, "O", 1)
                         .build());
         assertWindowQueryWithNulls("first_value(orderkey) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 3L)
                         .row(5L, "F", 3L)
                         .row(6L, "F", 3L)
@@ -344,7 +343,7 @@ public class TestFirstValueFunction
         assertWindowQueryWithNulls(
                 "first_value(orderkey) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey NULLS FIRST " +
                         "ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(null, "F", null)
                         .row(3L, "F", null)
                         .row(5L, "F", null)
@@ -359,7 +358,7 @@ public class TestFirstValueFunction
 
         // Timestamp
         assertWindowQuery("date_format(first_value(cast(orderdate as TIMESTAMP)) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey), '%Y-%m-%d')",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                resultBuilder(INTEGER, VARCHAR, VARCHAR)
                         .row(3, "F", "1993-10-14")
                         .row(5, "F", "1993-10-14")
                         .row(6, "F", "1993-10-14")
@@ -379,7 +378,7 @@ public class TestFirstValueFunction
         assertWindowQuery(
                 "first_value(orderkey) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                resultBuilder(INTEGER, VARCHAR, INTEGER)
                         .row(3, "F", 3)
                         .row(5, "F", 3)
                         .row(6, "F", 3)
@@ -394,7 +393,7 @@ public class TestFirstValueFunction
         assertWindowQueryWithNulls(
                 "first_value(orderkey) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey NULLS FIRST " +
                         "ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(null, "F", null)
                         .row(3L, "F", null)
                         .row(5L, "F", 3L)

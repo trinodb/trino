@@ -15,7 +15,10 @@ package io.trino.spi.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeSyntax;
 
 import java.util.List;
 import java.util.Optional;
@@ -146,6 +149,19 @@ public class ConnectorViewDefinition
         private final String name;
         private final TypeId type;
         private final Optional<String> comment;
+
+        /// Creates a view column with its type persisted using SQL spelling.
+        public static ViewColumn fromType(String name, Type type, Optional<String> comment)
+        {
+            return fromTypeDescriptor(name, type.getTypeDescriptor(), comment);
+        }
+
+        /// Creates a view column from a descriptor without resolving it through a type manager.
+        /// The persisted type identifier uses SQL spelling.
+        public static ViewColumn fromTypeDescriptor(String name, TypeDescriptor type, Optional<String> comment)
+        {
+            return new ViewColumn(name, TypeId.of(TypeSyntax.toSql(type)), comment);
+        }
 
         @JsonCreator
         public ViewColumn(

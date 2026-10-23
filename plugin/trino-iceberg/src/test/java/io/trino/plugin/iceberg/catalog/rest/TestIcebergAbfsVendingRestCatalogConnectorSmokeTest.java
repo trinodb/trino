@@ -111,8 +111,8 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
             public Map<String, String> getVendedCredentialsConfig(String restServerUri)
             {
                 return ImmutableMap.<String, String>builder()
-                        .put(AzureProperties.ADLS_SAS_TOKEN_PREFIX + account, sasToken)
-                        .put(AzureProperties.ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX + account, Long.toString(sasTokenExpiresAtMs))
+                        .put(AzureProperties.ADLS_SAS_TOKEN_PREFIX + account + ".dfs.core.windows.net", sasToken)
+                        .put(AzureProperties.ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX + account + ".dfs.core.windows.net", Long.toString(sasTokenExpiresAtMs))
                         .buildOrThrow();
             }
         };

@@ -15,14 +15,23 @@ package io.trino.testing.services.junit;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
+@TestInstance(PER_METHOD)
 class TestFlakyTestRetryExtension
 {
     private int attempts;
     private TestInfo originalTestInfo;
+    private final List<String> attemptedValues = new ArrayList<>();
 
     @Test
     @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
@@ -37,5 +46,17 @@ class TestFlakyTestRetryExtension
             fail("I am trying hard to fail!");
         }
         assertThat(attempts).isEqualTo(3);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"a", "b"})
+    @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
+    void testRetryingParameterized(String value)
+    {
+        attemptedValues.add(value);
+        if (attemptedValues.size() <= 2) {
+            fail("I am trying hard to fail! value: " + value);
+        }
+        assertThat(attemptedValues).containsExactly(value, value, value);
     }
 }

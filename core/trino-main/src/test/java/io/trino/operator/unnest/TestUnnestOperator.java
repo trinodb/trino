@@ -123,7 +123,7 @@ public class TestUnnestOperator
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
                 0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false, false);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT, BIGINT, BIGINT)
                 .row(1L, 2L, 4L, 5L)
                 .row(1L, 3L, null, null)
                 .row(2L, 99L, null, null)
@@ -157,7 +157,7 @@ public class TestUnnestOperator
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
                 0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false, false);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, new ArrayType(BIGINT), new ArrayType(BIGINT), new ArrayType(BIGINT))
+        MaterializedResult expected = resultBuilder(BIGINT, new ArrayType(BIGINT), new ArrayType(BIGINT), new ArrayType(BIGINT))
                 .row(1L, ImmutableList.of(2L, 4L), ImmutableList.of(4L, 8L), ImmutableList.of(5L, 10L))
                 .row(1L, ImmutableList.of(3L, 6L), null, null)
                 .row(2L, ImmutableList.of(99L, 198L), null, null)
@@ -185,7 +185,7 @@ public class TestUnnestOperator
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
                 0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), true, false);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT, BIGINT, BIGINT, BIGINT)
                 .row(1L, 2L, 4L, 5L, 1L)
                 .row(1L, 3L, null, null, 2L)
                 .row(2L, 99L, null, null, 1L)
@@ -211,7 +211,7 @@ public class TestUnnestOperator
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
                 0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false, false);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE, BIGINT, DOUBLE)
+        MaterializedResult expected = resultBuilder(BIGINT, DOUBLE, BIGINT, DOUBLE)
                 .row(1L, NEGATIVE_INFINITY, 1L, NEGATIVE_INFINITY)
                 .row(1L, POSITIVE_INFINITY, 2L, POSITIVE_INFINITY)
                 .row(1L, NaN, 3L, NaN)
@@ -237,7 +237,7 @@ public class TestUnnestOperator
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
                 0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1), ImmutableList.of(arrayOfRowType), false, false);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, DOUBLE, VARCHAR)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT, DOUBLE, VARCHAR)
                 .row(1L, 2L, 4.2, "abc")
                 .row(1L, 3L, 6.6, "def")
                 .row(2L, 99L, 3.14, "pi")
@@ -271,7 +271,7 @@ public class TestUnnestOperator
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
                 0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2, 3), ImmutableList.of(mapType, arrayType, arrayOfRowType), false, true);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR)
                 .row(1L, 1L, 2L, 3L, 4L, 5.5, "a")
                 .row(1L, null, null, null, 6L, 7.7, "b")
                 .row(2L, null, null, null, null, null, null)
@@ -303,7 +303,7 @@ public class TestUnnestOperator
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
                 0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2, 3), ImmutableList.of(mapType, arrayType, arrayOfRowType), true, true);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT)
                 .row(1L, 1L, 2L, 3L, 4L, 5.5, "a", 1L)
                 .row(1L, 6L, 7L, null, null, null, null, 2L)
                 .row(2L, null, null, null, null, null, null, null)

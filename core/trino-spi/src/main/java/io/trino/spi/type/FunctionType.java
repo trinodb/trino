@@ -32,13 +32,13 @@ public final class FunctionType
 {
     public static final String NAME = "function";
 
-    private final TypeDescriptor signature;
+    private final TypeDescriptor descriptor;
     private final Type returnType;
     private final List<Type> argumentTypes;
 
     public FunctionType(List<Type> argumentTypes, Type returnType)
     {
-        this.signature = new TypeDescriptor(NAME, typeParameters(argumentTypes, returnType));
+        this.descriptor = new TypeDescriptor(NAME, typeParameters(argumentTypes, returnType));
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.argumentTypes = List.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
@@ -75,7 +75,7 @@ public final class FunctionType
     @Override
     public TypeDescriptor getTypeDescriptor()
     {
-        return signature;
+        return descriptor;
     }
 
     @Override

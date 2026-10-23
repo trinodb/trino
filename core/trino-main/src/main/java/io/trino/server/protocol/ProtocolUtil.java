@@ -15,6 +15,7 @@ package io.trino.server.protocol;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.trino.client.ClientStandardTypes;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.Column;
@@ -37,6 +38,9 @@ import io.trino.server.ResultQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
@@ -58,6 +62,8 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
+import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.NUMBER;
 import static io.trino.spi.type.StandardTypes.ROW;
@@ -78,20 +84,39 @@ public final class ProtocolUtil
 
     private ProtocolUtil() {}
 
-    public static Column createColumn(String name, Type type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
+    public static Column createColumn(String name, Type type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary, boolean supportsParametricInterval)
     {
-        String formatted = formatType(TypeDescriptorTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
+        String formatted = formatType(TypeDescriptorTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval);
 
-        return new Column(name, formatted, toClientTypeSignature(type.getTypeDescriptor(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+        return new Column(name, formatted, toClientTypeSignature(type.getTypeDescriptor(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
     }
 
-    private static String formatType(DataType type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
+    public static String formatType(Type type, boolean supportsParametricInterval)
+    {
+        if (supportsParametricInterval) {
+            return type.getDisplayName();
+        }
+        String base = type.getTypeDescriptor().getBase();
+        if (base.equalsIgnoreCase(INTERVAL_DAY_TO_SECOND) || base.equalsIgnoreCase(INTERVAL_YEAR_TO_MONTH)) {
+            return toClientBase(base);
+        }
+        return switch (type) {
+            case ArrayType array -> "array(" + formatType(array.getElementType(), false) + ")";
+            case MapType map -> "map(" + formatType(map.getKeyType(), false) + ", " + formatType(map.getValueType(), false) + ")";
+            case RowType row -> row.getFields().stream()
+                    .map(field -> field.getName().map(name -> "\"" + name.replace("\"", "\"\"") + "\" ").orElse("") + formatType(field.getType(), false))
+                    .collect(Collectors.joining(", ", "row(", ")"));
+            default -> type.getDisplayName();
+        };
+    }
+
+    private static String formatType(DataType type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary, boolean supportsParametricInterval)
     {
         return switch (type) {
             case DateTimeDataType dataTimeType -> {
                 if (!supportsParametricDateTime) {
                     if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && dataTimeType.isWithTimeZone()) {
-                        yield TIMESTAMP_WITH_TIME_ZONE;
+                        yield ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
                     }
                     if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !dataTimeType.isWithTimeZone()) {
                         yield TIMESTAMP;
@@ -100,7 +125,7 @@ public final class ProtocolUtil
                         yield TIME;
                     }
                     if (dataTimeType.getType() == DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
-                        yield TIME_WITH_TIME_ZONE;
+                        yield ClientStandardTypes.TIME_WITH_TIME_ZONE;
                     }
                 }
 
@@ -108,7 +133,7 @@ public final class ProtocolUtil
             }
             case RowDataType rowDataType -> rowDataType.getFields().stream()
                     .map(field -> field.getName().map(name -> name + " ").orElse("") +
-                            formatType(field.getType(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary))
+                            formatType(field.getType(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval))
                     .collect(Collectors.joining(", ", ROW + "(", ")"));
             case GenericDataType dataType -> {
                 if (!supportsNumberType && dataType.getName().getValue().equalsIgnoreCase(NUMBER)) {
@@ -127,54 +152,79 @@ public final class ProtocolUtil
                                 return numericParameter.getValue();
                             }
                             if (parameter instanceof io.trino.sql.tree.TypeParameter typeParameter) {
-                                return formatType(typeParameter.getValue(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
+                                return formatType(typeParameter.getValue(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval);
                             }
                             throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
                         })
                         .collect(Collectors.joining(", ", dataType.getName().getValue() + "(", ")"));
             }
-            case IntervalDataType _ -> ExpressionFormatter.formatExpression(type);
+            case IntervalDataType intervalType -> supportsParametricInterval
+                    ? ExpressionFormatter.formatExpression(type)
+                    : toClientBase(TypeDescriptorTranslator.toTypeDescriptor(intervalType).getBase());
         };
     }
 
-    private static ClientTypeSignature toClientTypeSignature(TypeDescriptor signature, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
+    private static ClientTypeSignature toClientTypeSignature(TypeDescriptor descriptor, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary, boolean supportsParametricInterval)
     {
+        if (!supportsParametricInterval && (descriptor.getBase().equalsIgnoreCase(INTERVAL_DAY_TO_SECOND) || descriptor.getBase().equalsIgnoreCase(INTERVAL_YEAR_TO_MONTH))) {
+            return new ClientTypeSignature(toClientBase(descriptor.getBase()));
+        }
         if (!supportsParametricDateTime) {
-            if (signature.getBase().equalsIgnoreCase(TIMESTAMP)) {
+            if (descriptor.getBase().equalsIgnoreCase(TIMESTAMP)) {
                 return new ClientTypeSignature(TIMESTAMP);
             }
-            if (signature.getBase().equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
-                return new ClientTypeSignature(TIMESTAMP_WITH_TIME_ZONE);
+            if (descriptor.getBase().equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
+                return new ClientTypeSignature(ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE);
             }
-            if (signature.getBase().equalsIgnoreCase(TIME)) {
+            if (descriptor.getBase().equalsIgnoreCase(TIME)) {
                 return new ClientTypeSignature(TIME);
             }
-            if (signature.getBase().equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
-                return new ClientTypeSignature(TIME_WITH_TIME_ZONE);
+            if (descriptor.getBase().equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
+                return new ClientTypeSignature(ClientStandardTypes.TIME_WITH_TIME_ZONE);
             }
         }
-        if (!supportsNumberType && signature.getBase().equalsIgnoreCase(NUMBER)) {
+        if (!supportsNumberType && descriptor.getBase().equalsIgnoreCase(NUMBER)) {
             return new ClientTypeSignature(VARCHAR);
         }
-        if (!supportsVariant && !supportsVariantBinary && signature.getBase().equalsIgnoreCase(VARIANT)) {
+        if (!supportsVariant && !supportsVariantBinary && descriptor.getBase().equalsIgnoreCase(VARIANT)) {
             return new ClientTypeSignature(JSON);
         }
 
-        return new ClientTypeSignature(signature.getBase(), signature.getParameters().stream()
-                .map(parameter -> toClientTypeSignatureParameter(signature.getBase(), parameter, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary))
+        return new ClientTypeSignature(toClientBase(descriptor.getBase()), descriptor.getParameters().stream()
+                .map(parameter -> toClientTypeSignatureParameter(descriptor.getBase(), parameter, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval))
                 .collect(toImmutableList()));
     }
 
-    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
+    /// The wire protocol identifies the time-zone and interval types by their SQL name, not the internal
+    /// `$timestamp_tz`/`$time_tz`/`$interval_*` base, so map those back when building the client signature.
+    /// Every other base is already its own SQL spelling.
+    private static String toClientBase(String base)
+    {
+        if (base.equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
+            return ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+        }
+        if (base.equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
+            return ClientStandardTypes.TIME_WITH_TIME_ZONE;
+        }
+        if (base.equalsIgnoreCase(INTERVAL_DAY_TO_SECOND)) {
+            return ClientStandardTypes.INTERVAL_DAY_TO_SECOND;
+        }
+        if (base.equalsIgnoreCase(INTERVAL_YEAR_TO_MONTH)) {
+            return ClientStandardTypes.INTERVAL_YEAR_TO_MONTH;
+        }
+        return base;
+    }
+
+    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary, boolean supportsParametricInterval)
     {
         return switch (parameter) {
             case TypeParameter.Type(Optional<String> name, TypeDescriptor type) -> {
                 if (base.equalsIgnoreCase(ROW)) { // for backward compatibility with old clients, which expect NAMED_TYPE for row fields
                     yield ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
                             name.map(RowFieldName::new),
-                            toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary)));
+                            toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval)));
                 }
-                yield ClientTypeSignatureParameter.ofType(toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+                yield ClientTypeSignatureParameter.ofType(toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
             }
             case TypeParameter.Numeric number -> ClientTypeSignatureParameter.ofLong(number.value());
         };

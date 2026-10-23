@@ -56,6 +56,20 @@ public class TestCustomFunctions
     }
 
     @Test
+    public void testLiteralParameter()
+    {
+        assertThat(assertions.function("custom_varchar_bound", "CAST('abc' AS varchar(7))"))
+                .isEqualTo(7L);
+        assertThat(assertions.function("custom_varchar_bound", "CAST('abc' AS varchar)"))
+                .isEqualTo((long) Integer.MAX_VALUE);
+
+        assertThat(assertions.function("custom_char_bound", "CAST('abc' AS char(7))"))
+                .isEqualTo(7L);
+        assertThat(assertions.function("custom_char_bound", "CAST('abc' AS char(65536))"))
+                .isEqualTo(65536L);
+    }
+
+    @Test
     public void testSliceIsNull()
     {
         assertThat(assertions.function("custom_is_null", "CAST(NULL AS VARCHAR)"))

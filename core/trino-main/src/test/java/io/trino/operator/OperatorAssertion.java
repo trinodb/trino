@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-import io.trino.Session;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
@@ -187,10 +186,10 @@ public final class OperatorAssertion
         return toPages(operatorFactory, driverContext, ImmutableList.of());
     }
 
-    public static MaterializedResult toMaterializedResult(Session session, List<Type> types, List<Page> pages)
+    public static MaterializedResult toMaterializedResult(List<Type> types, List<Page> pages)
     {
         // materialize pages
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(session, types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         for (Page outputPage : pages) {
             resultBuilder.page(outputPage);
         }
@@ -244,7 +243,7 @@ public final class OperatorAssertion
             boolean closeOperatorFactory)
     {
         List<Page> pages = toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages, closeOperatorFactory);
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
+        MaterializedResult actual = toMaterializedResult(expected.getTypes(), pages);
         assertThat(actual).containsExactlyElementsOf(expected);
     }
 
@@ -275,7 +274,7 @@ public final class OperatorAssertion
             List<Page> actualPages,
             MaterializedResult expected)
     {
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), actualPages);
+        MaterializedResult actual = toMaterializedResult(expected.getTypes(), actualPages);
         assertThat(ImmutableMultiset.copyOf(actual.getMaterializedRows())).isEqualTo(ImmutableMultiset.copyOf(expected.getMaterializedRows()));
     }
 

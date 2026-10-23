@@ -220,8 +220,7 @@ public class TestDeltaLakeConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time") ||
-                typeName.equals("time(6)") ||
-                typeName.equals("timestamp(6) with time zone")) {
+                typeName.equals("time(6)")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
         return Optional.of(dataMappingTestSetup);
@@ -236,7 +235,7 @@ public class TestDeltaLakeConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -452,10 +451,16 @@ public class TestDeltaLakeConnectorTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
-                .isEqualTo(format("CREATE SCHEMA %s.%s\n" +
-                        "WITH (\n" +
-                        "   location = 's3://%s/test_schema'\n" +
-                        ")", getSession().getCatalog().orElseThrow(), schemaName, bucketName));
+                .isEqualTo(format(
+                        """
+                        CREATE SCHEMA %s.%s
+                        WITH (
+                           location = 's3://%s/test_schema'
+                        )\
+                        """,
+                        getSession().getCatalog().orElseThrow(),
+                        schemaName,
+                        bucketName));
     }
 
     @Test
@@ -680,9 +685,10 @@ public class TestDeltaLakeConnectorTest
                 "SELECT * FROM " + tableName + " WHERE t < TIMESTAMP '" + value + "'");
         assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes()).isEqualTo(0);
 
+        // Other writers truncate the maximum to milliseconds, so the reader widens it by one millisecond
         queryResult = queryRunner.executeWithPlan(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE t > TIMESTAMP '" + value + "'");
+                "SELECT * FROM " + tableName + " WHERE t > TIMESTAMP '" + value + "' + INTERVAL '0.001' SECOND");
         assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes()).isEqualTo(0);
 
         assertQueryStats(
@@ -750,9 +756,9 @@ public class TestDeltaLakeConnectorTest
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES " +
                         "(1, NULL)," +
-                        "(2, TIMESTAMP '0001-01-01 00:00:00.000 UTC')," +
-                        "(3, TIMESTAMP '2023-07-20 02:02:04.000 UTC')," +
-                        "(4, TIMESTAMP '9999-12-31 23:59:59.999 UTC')");
+                        "(2, TIMESTAMP '0001-01-01 00:00:00.000000 UTC')," +
+                        "(3, TIMESTAMP '2023-07-20 02:02:03.999900 UTC')," +
+                        "(4, TIMESTAMP '9999-12-31 23:59:59.999000 UTC')");
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -765,7 +771,7 @@ public class TestDeltaLakeConnectorTest
         assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 2"))
                 .contains("/part=0001-01-01 00%3A00%3A00/");
         assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 3"))
-                .contains("/part=2023-07-20 02%3A02%3A04/");
+                .contains("/part=2023-07-20 02%3A02%3A03.9999/");
         assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 4"))
                 .contains("/part=9999-12-31 23%3A59%3A59.999/");
 
@@ -783,15 +789,15 @@ public class TestDeltaLakeConnectorTest
                         "(1, NULL)," +
                         "(2, TIMESTAMP '0001-01-01 00:00:00.000 UTC')," +
                         "(3, TIMESTAMP '2023-11-21 09:19:00.000 +02:00')," +
-                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')",
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000000 UTC')",
                 4);
 
         // date_trunc optimization
         assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('day', part) >= TIMESTAMP '2005-09-10 07:00:00.000 +07:00'"))
                 .isFullyPushedDown()
                 .matches("VALUES " +
-                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')," +
-                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')");
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000000 UTC')," +
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000000 UTC')");
 
         assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('day', part) = TIMESTAMP '2005-09-10 00:00:00.000 +07:00'"))
                 .isReplacedWithEmptyValues();
@@ -799,7 +805,7 @@ public class TestDeltaLakeConnectorTest
         assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('hour', part) >= TIMESTAMP '2005-09-10 13:00:00.001 +00:00'"))
                 .isFullyPushedDown()
                 .matches("VALUES " +
-                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')");
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000000 UTC')");
 
         // the DATE is upcast to timestamp_tz using the session time zone (Asia/Kathmandu).
         // part is in UTC, so there is no match for date_trunc.
@@ -813,19 +819,19 @@ public class TestDeltaLakeConnectorTest
         assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('week', part) >= TIMESTAMP '2005-09-10 00:00:00.000 +00:00'"))
                 .isFullyPushedDown()
                 .matches("VALUES " +
-                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')");
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000000 UTC')");
 
         assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('quarter', part) = TIMESTAMP '2005-07-01 00:00:00.000 +00:00'"))
                 .isFullyPushedDown()
                 .matches("VALUES " +
-                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')");
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000000 UTC')");
 
         // cast timestamp_tz as DATE optimization
         assertThat(query("SELECT * FROM " + tableName + " WHERE cast(part AS date) >= DATE '2005-09-10'"))
                 .isFullyPushedDown()
                 .matches("VALUES " +
-                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')," +
-                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')");
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000000 UTC')," +
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000000 UTC')");
 
         assertThat(query("SELECT * FROM " + tableName + " WHERE cast(part AS date) = DATE '2005-10-10'"))
                 .isFullyPushedDown()
@@ -835,8 +841,8 @@ public class TestDeltaLakeConnectorTest
         assertThat(query("SELECT * FROM " + tableName + " WHERE year(part) >= 2005"))
                 .isFullyPushedDown()
                 .matches("VALUES " +
-                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')," +
-                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')");
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000000 UTC')," +
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000000 UTC')");
 
         assertThat(query("SELECT * FROM " + tableName + " WHERE year(part) = 2006"))
                 .isFullyPushedDown()
@@ -931,6 +937,90 @@ public class TestDeltaLakeConnectorTest
             assertQuery(
                     "SELECT x, a FROM " + table.getName(),
                     "VALUES ('first', NULL), ('second', 'xxx')");
+        }
+    }
+
+    @Test
+    public void testOptimizeReturnsMetrics()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_returns_metrics", "(key integer, value varchar)")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'eleven')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (12, 'twelve')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (13, 'thirteen')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (14, 'fourteen')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (15, 'fifteen')", 1);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(5);
+
+            // TestingTrinoServer uses two writers per task; use one so OPTIMIZE produces a single output file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertUpdate(
+                    singleWriterSession,
+                    "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 5), ('removed_deletion_vectors_count', 0), ('added_data_files_count', 1)");
+
+            assertQuery(
+                    "SELECT * FROM " + tableName,
+                    "VALUES (11, 'eleven'), (12, 'twelve'), (13, 'thirteen'), (14, 'fourteen'), (15, 'fifteen')");
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(1)
+                    .doesNotContainAnyElementsOf(initialFiles);
+        }
+    }
+
+    @Test
+    public void testOptimizeWithDeletionVectors()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_optimize_deletion_vectors",
+                "WITH (deletion_vectors_enabled = true) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation", 25);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(2);
+            assertUpdate("DELETE FROM " + tableName + " WHERE nationkey < 5", 10);
+
+            // TestingTrinoServer uses two writers per task; use one so OPTIMIZE produces a single output file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertUpdate(
+                    singleWriterSession,
+                    "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 2), ('removed_deletion_vectors_count', 2), ('added_data_files_count', 1)");
+            assertThat(getActiveFiles(tableName)).hasSize(1);
+            assertQuery(
+                    "SELECT * FROM " + tableName,
+                    "SELECT * FROM nation WHERE nationkey >= 5 UNION ALL SELECT * FROM nation WHERE nationkey >= 5");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithPartitionedTableAndDeleteVector()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_optimize_partitioned_deletion_vectors",
+                "WITH (deletion_vectors_enabled = true, partitioned_by = ARRAY['regionkey']) AS SELECT nationkey, regionkey FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation", 25);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(10);
+            assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 1 AND nationkey < 5", 6);
+
+            assertUpdate(
+                    "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 10), ('removed_deletion_vectors_count', 2), ('added_data_files_count', 5)");
+            assertThat(getActiveFiles(tableName)).hasSize(5);
+            assertQuery(
+                    "SELECT nationkey, regionkey, count(*) FROM " + tableName + " GROUP BY nationkey, regionkey",
+                    "SELECT nationkey, regionkey, 2 FROM nation WHERE regionkey <> 1 OR nationkey >= 5");
         }
     }
 
@@ -3291,6 +3381,26 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testReadCdfChangesOnPartitionValueRequiringEncoding()
+    {
+        String tableName = "test_cdf_partition_value_requiring_encoding_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(page_url VARCHAR, domain VARCHAR) WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('url1', 'do main')", 1);
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url2' WHERE domain = 'do main'", 1);
+
+        assertTableChangesQuery(
+                "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))",
+                """
+                VALUES
+                    ('url1', 'do main', 'insert', BIGINT '1'),
+                    ('url1', 'do main', 'update_preimage', BIGINT '2'),
+                    ('url2', 'do main', 'update_postimage', BIGINT '2')
+                """);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testCdfWithNameMappingModeOnTableWithColumnDropped()
     {
         testCdfWithMappingModeOnTableWithColumnDropped(ColumnMappingMode.NAME);
@@ -4704,6 +4814,20 @@ public class TestDeltaLakeConnectorTest
         testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1969-12-31 23:59:59.9999995'");
         testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1969-12-31 23:59:59.999999499999'");
         testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1969-12-31 23:59:59.9999994'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.9 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.56 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.4896 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.89356 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123456 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.1234567 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.12345678 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123456789 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.1234567891 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.12345678912 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123456789123 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '2020-09-27 12:34:56.123 America/New_York'");
         testCharCoercionOnCreateTableAsSelectWithNoData("CHAR 'ab '");
         testCharCoercionOnCreateTableAsSelectWithNoData("CHAR 'A'");
         testCharCoercionOnCreateTableAsSelectWithNoData("CHAR 'é'");
@@ -4719,6 +4843,15 @@ public class TestDeltaLakeConnectorTest
                 "AS SELECT %s ts WITH NO DATA".formatted(actualValue))) {
             assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("timestamp(6)");
             assertTimestampNtzFeature(testTable.getName());
+        }
+    }
+
+    private void testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData(@Language("SQL") String actualValue)
+    {
+        try (TestTable testTable = newTrinoTable(
+                "test_timestamp_tz_coercion_on_create_table_as_select_with_no_data",
+                "AS SELECT %s ts WITH NO DATA".formatted(actualValue))) {
+            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("timestamp(6) with time zone");
         }
     }
 
@@ -4935,6 +5068,21 @@ public class TestDeltaLakeConnectorTest
         testAddColumnWithTypeCoercion("timestamp(10)", "timestamp(6)");
         testAddColumnWithTypeCoercion("timestamp(11)", "timestamp(6)");
         testAddColumnWithTypeCoercion("timestamp(12)", "timestamp(6)");
+
+        testAddColumnWithTypeCoercion("timestamp with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(0) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(1) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(2) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(3) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(4) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(5) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(6) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(7) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(8) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(9) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(10) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(11) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(12) with time zone", "timestamp(6) with time zone");
 
         testAddColumnWithTypeCoercion("char(1)", "varchar");
 

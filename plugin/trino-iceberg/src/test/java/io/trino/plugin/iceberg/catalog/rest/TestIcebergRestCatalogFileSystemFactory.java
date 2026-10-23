@@ -32,6 +32,8 @@ import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -167,8 +169,14 @@ final class TestIcebergRestCatalogFileSystemFactory
                 .hasMessage("Failed to initialize the vended credentials from the provided fileIoProperties");
     }
 
-    @Test
-    void testAzureVendedCredentialsWithSingleAccount()
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "mystorageaccount",
+            "mystorageaccount.dfs.core.windows.net",
+            "mystorageaccount.blob.core.windows.net",
+            "mystorageaccount.dfs.core.chinacloudapi.cn",
+    })
+    void testAzureVendedCredentialsWithSingleAccount(String keySuffix)
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
         TrinoFileSystemFactory delegate = identity -> {
@@ -179,7 +187,7 @@ final class TestIcebergRestCatalogFileSystemFactory
         IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
 
         Map<String, String> fileIoProperties = ImmutableMap.of(
-                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + keySuffix, "sv=2022-test-sas-token");
 
         factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("abfs://container@mystorageaccount.dfs.core.windows.net/some/path/file"));
 
@@ -201,8 +209,8 @@ final class TestIcebergRestCatalogFileSystemFactory
         IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
 
         Map<String, String> fileIoProperties = ImmutableMap.of(
-                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account1", "sas-token-1",
-                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account2", "sas-token-2");
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account1.dfs.core.windows.net", "sas-token-1",
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account2.dfs.core.windows.net", "sas-token-2");
 
         factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("abfs://container@account1.dfs.core.windows.net/some/path/file"));
 
@@ -211,6 +219,45 @@ final class TestIcebergRestCatalogFileSystemFactory
         assertThat(identity.getExtraCredentials())
                 .containsEntry(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "account1", "sas-token-1")
                 .containsEntry(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "account2", "sas-token-2");
+    }
+
+    @Test
+    void testAzureVendedCredentialsWithBareAndHostKeyedFormsCombined()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount.dfs.core.windows.net", "sv=2022-test-sas-token",
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount.blob.core.windows.net", "sv=2022-test-sas-token",
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("abfs://container@mystorageaccount.dfs.core.windows.net/some/path/file"));
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
+    }
+
+    @Test
+    void testAzureVendedCredentialsWithConflictingTokensForSameAccount()
+    {
+        IcebergRestCatalogFileSystemFactory factory = createFactory(_ -> new MockTrinoFileSystem(), true);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount.dfs.core.windows.net", "sas-token-1",
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sas-token-2");
+
+        TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+
+        assertThatThrownBy(() -> fileSystem.newInputFile(Location.of("abfs://container@mystorageaccount.dfs.core.windows.net/some/path/file")))
+                .hasMessage("Conflicting SAS tokens returned for storage account: mystorageaccount");
     }
 
     @Test
@@ -224,7 +271,7 @@ final class TestIcebergRestCatalogFileSystemFactory
 
         IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
 
-        Map<String, String> fileIoProperties = ImmutableMap.of(AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
+        Map<String, String> fileIoProperties = ImmutableMap.of(AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount.dfs.core.windows.net", "sv=2022-test-sas-token");
 
         factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("abfs://container@mystorageaccount.dfs.core.windows.net/some/path/file"));
 
@@ -246,7 +293,7 @@ final class TestIcebergRestCatalogFileSystemFactory
         IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false);
 
         Map<String, String> fileIoProperties = ImmutableMap.of(
-                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount.dfs.core.windows.net", "sv=2022-test-sas-token");
 
         ConnectorIdentity originalIdentity = ConnectorIdentity.ofUser("test");
         factory.create(originalIdentity, fileIoProperties);

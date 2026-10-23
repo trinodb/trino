@@ -63,7 +63,7 @@ final class TestIcebergBigLakeVendedCredentials
 
         return IcebergQueryRunner.builder(SCHEMA)
                 .addIcebergProperty("iceberg.catalog.type", "rest")
-                .addIcebergProperty("iceberg.rest-catalog.uri", "https://biglake.googleapis.com/iceberg/v1beta/restcatalog")
+                .addIcebergProperty("iceberg.rest-catalog.uri", "https://biglake.googleapis.com/iceberg/v1/restcatalog")
                 .addIcebergProperty("iceberg.rest-catalog.warehouse", "gs://" + GCP_CREDENTIALS_VENDING_STORAGE_BUCKET)
                 .addIcebergProperty("iceberg.rest-catalog.security", "GOOGLE")
                 .addIcebergProperty("iceberg.rest-catalog.google-project-id", projectId)

@@ -48,9 +48,11 @@ runs:
             echo "Skipping disk cleanup, ${available_gb} GiB available"
           fi
       - name: Configure Docker Hub mirror
+        # The script configures the Linux Docker daemon; other runners do not provide Docker
+        if: runner.os == 'Linux'
         shell: bash
         run: ./.github/bin/configure-docker-hub-mirror.sh
-      - uses: actions/setup-java@v6.0.1
+      - uses: actions/setup-java@v6.1.0
         if: ${{ inputs.java-version != '' }}
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
@@ -150,10 +152,11 @@ runs:
         shell: bash
         run: .github/bin/retry ./mvnw -v
       - name: Preload Maven core extensions
-        # Load maven core extensions with retry.
         if: ${{ inputs.java-version != '' }}
         shell: bash
-        run: .github/bin/retry ./mvnw -N -B -U -e --no-transfer-progress help:evaluate -Dexpression=maven.version -DforceStdout
+        # Load maven core extensions with retry.
+        # Full plugin coordinates avoid prefix and version lookups, which query every declared repository and log warnings for blocked ones.
+        run: .github/bin/retry ./mvnw -N -B -U -e --no-transfer-progress org.apache.maven.plugins:maven-help-plugin:3.5.2:active-profiles
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash

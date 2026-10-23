@@ -21,7 +21,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Map;
 
-import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,18 +46,12 @@ public class TestRemoteQueryCommentLogging
     @Test
     public void testShouldLogContextInComment()
     {
-        var events = postgreSqlServer.recordEventsForOperations(() -> getQueryRunner().execute("CREATE TABLE postgresql.tpch.log_nation_test_table AS (SELECT * FROM postgresql.tpch.nation)"));
-        String temporaryTable = "\"tpch\".\"tpch\".\"tmp_trino_";
-        assertEventually(() -> assertThat(events.streamQueriesContaining(temporaryTable))
-                .size()
-                .isGreaterThanOrEqualTo(3)); // Depending on whether fault tolerancy is enabled or not, this might vary and we don't want to over-specify
-
-        assertThat(events
+        assertThat(postgreSqlServer.recordEventsForOperations(() -> getQueryRunner().execute("CREATE TABLE postgresql.tpch.log_nation_test_table AS (SELECT * FROM postgresql.tpch.nation)"))
                 .stopEventsRecording()
-                .streamQueriesContaining(temporaryTable))
+                .streamQueriesContaining("\"tpch\".\"tpch\".\"tmp_trino_"))
                 .allMatch(query -> query.endsWith("/*query executed by user*/"))
                 .size()
-                .isGreaterThanOrEqualTo(3);
+                .isGreaterThanOrEqualTo(3); // Depending on whether fault tolerancy is enabled or not, this might vary and we don't want to over-specify
 
         assertThat(postgreSqlServer.recordEventsForOperations(() -> getQueryRunner().execute("SELECT * FROM postgresql.tpch.log_nation_test_table"))
                 .stopEventsRecording()

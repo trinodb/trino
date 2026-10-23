@@ -63,6 +63,7 @@ import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static io.trino.filesystem.TrinoFileSystem.checkStartingFrom;
 import static io.trino.filesystem.s3.S3Exceptions.handleS3Exception;
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3ChecksumAlgorithm.toChecksumAlgorithm;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
@@ -202,6 +203,7 @@ final class S3FileSystem
                         .overrideConfiguration(context::applyCredentialProviderOverride)
                         .requestPayer(requestPayer)
                         .bucket(bucket)
+                        .checksumAlgorithm(toChecksumAlgorithm(context.checksumAlgorithm()))
                         .delete(builder -> builder.objects(objects).quiet(true))
                         .build();
 

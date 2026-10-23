@@ -31,7 +31,6 @@ import io.trino.type.DateOperators;
 import io.trino.util.JsonCastException;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.StandardTypes.BIGINT;
@@ -262,7 +261,7 @@ public final class JsonOperators
     @SqlType(JSON)
     public static Json castFromDate(@SqlType(DATE) long value)
     {
-        return JsonItemBuilder.encodeVarchar(utf8Slice(printDate((int) value)));
+        return JsonItemBuilder.encodeVarchar(printDate((int) value));
     }
 
     @ScalarOperator(CAST)

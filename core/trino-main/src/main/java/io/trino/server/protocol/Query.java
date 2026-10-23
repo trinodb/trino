@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
@@ -141,6 +142,7 @@ class Query
     @GuardedBy("this")
     private boolean exchangeFinished;
     private final boolean supportsParametricDateTime;
+    private final boolean supportsParametricInterval;
     private final boolean supportsNumberType;
     private final boolean supportsVariant;
     private final boolean supportsVariantBinary;
@@ -155,6 +157,10 @@ class Query
     private long lastToken = -1;
 
     private volatile boolean resultsConsumed;
+
+    private final SettableFuture<Void> finalQueryInfoCollected = SettableFuture.create();
+    // Shared between concurrent pollers so it must not be cancellable
+    private final ListenableFuture<Void> finalQueryInfoFuture = ignoreCancellation(finalQueryInfoCollected);
 
     @GuardedBy("this")
     private List<Column> columns;
@@ -232,6 +238,8 @@ class Query
 
         result.queryManager.setOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
+        result.queryManager.addFinalQueryInfoListener(result.getQueryId(), _ -> result.finalQueryInfoCollected.set(null));
+
         result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
             // Wait for the query info to become available and close the exchange client if there is no output stage for the query results to be pulled from.
             // This listener also makes sure the exchange client is always properly closed upon query failure.
@@ -271,6 +279,7 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        this.supportsParametricInterval = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_INTERVAL.toString());
         this.supportsNumberType = session.getClientCapabilities().contains(ClientCapabilities.NUMBER.toString());
         this.supportsVariant = session.getClientCapabilities().contains(ClientCapabilities.VARIANT.toString());
         this.supportsVariantBinary = session.getClientCapabilities().contains(ClientCapabilities.VARIANT_BINARY.toString());
@@ -587,8 +596,8 @@ class Query
                 if ("CALL".equals(updateType)) {
                     types = ImmutableList.of(VARCHAR, BIGINT);
                     columns = ImmutableList.of(
-                            createColumn("metric_name", VARCHAR, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary),
-                            createColumn("metric_value", BIGINT, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+                            createColumn("metric_name", VARCHAR, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval),
+                            createColumn("metric_value", BIGINT, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
                     queryDataProducer = QueryDataProducerFactory.create(session, types);
                     Optional<Map<String, Long>> callResult = queryManager.getCallResult(queryId);
                     if (callResult.isPresent() && !callResult.get().isEmpty()) {
@@ -744,7 +753,7 @@ class Query
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < columnNames.size(); i++) {
-                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();
@@ -759,8 +768,13 @@ class Query
 
     private ListenableFuture<Void> queryDoneFuture(QueryState currentState)
     {
-        if (currentState.isDone()) {
+        if (currentState == FAILED) {
+            // A failed query drops nextUri immediately
             return immediateVoidFuture();
+        }
+        if (currentState.isDone()) {
+            // getNextResult keeps providing nextUri until the final query info is collected
+            return finalQueryInfoFuture;
         }
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }

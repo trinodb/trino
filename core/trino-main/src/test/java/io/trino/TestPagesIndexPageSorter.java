@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Collections;
 import java.util.List;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -150,8 +149,8 @@ public class TestPagesIndexPageSorter
     {
         List<Page> outputPages = ImmutableList.copyOf(sorter.sort(types, inputPages, sortChannels, sortOrders, expectedPositions));
 
-        MaterializedResult expected = toMaterializedResult(TEST_SESSION, types, expectedPages);
-        MaterializedResult actual = toMaterializedResult(TEST_SESSION, types, outputPages);
+        MaterializedResult expected = toMaterializedResult(types, expectedPages);
+        MaterializedResult actual = toMaterializedResult(types, outputPages);
         assertThat(actual.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
     }
 }

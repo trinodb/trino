@@ -51,6 +51,7 @@ import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.TableUpdateInfo;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
+import io.trino.plugin.deltalake.metastore.FileSystemCredentials;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.NotADeltaLakeTableException;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
@@ -367,9 +368,12 @@ import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.blockToNativeValue;
+import static io.trino.spi.type.TypeUtils.containsType;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -492,7 +496,7 @@ public class DeltaLakeMetadata
     private final TransactionLogReaderFactory transactionLogReaderFactory;
     private final ConnectorExpressionEvaluator evaluator;
     private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
-    private final Map<VendedCredentialsHandle, Optional<DeltaLakeTableCredentials>> tableCredentialsMap = new ConcurrentHashMap<>();
+    private final Map<VendedCredentialsHandle, Optional<FileSystemCredentials>> tableCredentialsMap = new ConcurrentHashMap<>();
 
     private record QueriedTable(SchemaTableName schemaTableName, long version)
     {
@@ -749,13 +753,12 @@ public class DeltaLakeMetadata
 
     public Optional<DeltaLakeTableCredentials> getTableCredentials(VendedCredentialsHandle vendedCredentialsHandle)
     {
-        Optional<DeltaLakeTableCredentials> credentials = tableCredentialsMap.get(vendedCredentialsHandle);
-        if (credentials != null && credentials.isPresent() && credentials.get().fileSystemCredentials().isValid()) {
-            return credentials;
+        Optional<FileSystemCredentials> credentials = tableCredentialsMap.get(vendedCredentialsHandle);
+        if (credentials == null || credentials.isEmpty() || !credentials.get().isValid()) {
+            credentials = tableCredentialsProvider.getTableCredentials(vendedCredentialsHandle);
+            tableCredentialsMap.put(vendedCredentialsHandle, credentials);
         }
-        credentials = tableCredentialsProvider.getTableCredentials(vendedCredentialsHandle);
-        tableCredentialsMap.put(vendedCredentialsHandle, credentials);
-        return credentials;
+        return credentials.map(fileSystemCredentials -> DeltaLakeTableCredentials.of(vendedCredentialsHandle, fileSystemCredentials));
     }
 
     @Override
@@ -991,6 +994,9 @@ public class DeltaLakeMetadata
     {
         if (type instanceof TimestampType) {
             return TIMESTAMP_MICROS;
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            return TIMESTAMP_TZ_MICROS;
         }
         if (type instanceof CharType) {
             return VARCHAR;
@@ -1878,16 +1884,7 @@ public class DeltaLakeMetadata
 
     private static boolean containsTimestampType(Type type)
     {
-        if (type instanceof ArrayType arrayType) {
-            return containsTimestampType(arrayType.getElementType());
-        }
-        if (type instanceof MapType mapType) {
-            return containsTimestampType(mapType.getKeyType()) || containsTimestampType(mapType.getValueType());
-        }
-        if (type instanceof RowType rowType) {
-            return rowType.getFields().stream().anyMatch(field -> containsTimestampType(field.getType()));
-        }
-        return type instanceof TimestampType;
+        return containsType(type, TimestampType.class::isInstance);
     }
 
     @Override
@@ -3142,15 +3139,12 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
         return switch (executeHandle.procedureId()) {
-            case OPTIMIZE -> {
-                finishOptimize(session, executeHandle, fragments, splitSourceInfo);
-                yield ImmutableMap.of();
-            }
+            case OPTIMIZE -> finishOptimize(session, executeHandle, fragments, splitSourceInfo);
             default -> throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
         };
     }
 
-    private void finishOptimize(ConnectorSession session, DeltaLakeTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
+    private Map<String, Long> finishOptimize(ConnectorSession session, DeltaLakeTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.procedureHandle();
         String tableLocation = executeHandle.tableLocation();
@@ -3200,6 +3194,16 @@ public class DeltaLakeMetadata
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
         }
+        long removedDeletionVectors = scannedDataFiles.stream()
+                .map(file -> file.deletionVector().map(DeletionVectorEntry::uniqueId))
+                .flatMap(Optional::stream)
+                .distinct()
+                .count();
+        return ImmutableMap.<String, Long>builder()
+                .put("rewritten_data_files_count", (long) scannedDataFiles.size())
+                .put("removed_deletion_vectors_count", removedDeletionVectors)
+                .put("added_data_files_count", (long) dataFileInfos.size())
+                .buildOrThrow();
     }
 
     private long commitOptimizeOperation(
@@ -4803,6 +4807,7 @@ public class DeltaLakeMetadata
         if (isNotFinite(maxValue, column.type())) {
             maxValue = Optional.empty();
         }
+        maxValue = maxValue.map(value -> widenTruncatedTimestampMaximum(column.type(), value));
         if (minValue.isPresent() && maxValue.isPresent()) {
             return Domain.create(
                     ofRanges(range(column.type(), minValue.get(), true, maxValue.get(), true)),
@@ -4815,6 +4820,17 @@ public class DeltaLakeMetadata
         return maxValue
                 .map(value -> Domain.create(ofRanges(lessThanOrEqual(column.type(), value)), hasNulls))
                 .orElseGet(() -> Domain.all(column.type()));
+    }
+
+    private static Object widenTruncatedTimestampMaximum(Type type, Object value)
+    {
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.getPrecision() > TIMESTAMP_TZ_MILLIS.getPrecision()) {
+            // other engines truncate the maximum down to milliseconds, so a file holding only 01:02:03.456789 records 01:02:03.456,
+            // and a filter above the recorded maximum would otherwise prune the file
+            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
+            return LongTimestampWithTimeZone.fromEpochMillisAndFraction(timestamp.getEpochMillis() + 1, timestamp.getPicosOfMilli(), timestamp.getTimeZoneKey());
+        }
+        return value;
     }
 
     private static boolean isNotFinite(Optional<Object> value, Type type)

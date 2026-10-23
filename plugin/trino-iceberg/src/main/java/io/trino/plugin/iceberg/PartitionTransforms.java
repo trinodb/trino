@@ -659,37 +659,25 @@ public final class PartitionTransforms
 
     private static Hasher hashShortDecimal(DecimalType decimal)
     {
-        // Reused across rows; safe because Hasher is invoked single-threaded per operator/driver
-        byte[] bytes = new byte[8];
         return (block, position) -> {
             long unscaled = decimal.getLong(block, position);
-            int offset = minimalBigEndianBytes(unscaled, bytes);
+            byte[] bytes = new byte[8];
+            LONG_HANDLE_BIG_ENDIAN.set(bytes, 0, unscaled);
+            int offset = minimalBigEndianOffset(bytes);
             return bucketHash(Slices.wrappedBuffer(bytes, offset, 8 - offset));
         };
     }
 
     private static Hasher hashLongDecimal(DecimalType decimal)
     {
-        // Reused across rows; safe because Hasher is invoked single-threaded per operator/driver
-        byte[] bytes = new byte[16];
         return (block, position) -> {
             Int128 unscaled = (Int128) decimal.getObject(block, position);
+            byte[] bytes = new byte[16];
             LONG_HANDLE_BIG_ENDIAN.set(bytes, 0, unscaled.getHigh());
             LONG_HANDLE_BIG_ENDIAN.set(bytes, 8, unscaled.getLow());
             int offset = minimalBigEndianOffset(bytes);
             return bucketHash(Slices.wrappedBuffer(bytes, offset, 16 - offset));
         };
-    }
-
-    /**
-     * Writes a long value as big-endian bytes into the buffer and returns the offset
-     * of the first byte of the minimal two's-complement representation (matching
-     * {@link java.math.BigInteger#toByteArray()} output).
-     */
-    private static int minimalBigEndianBytes(long value, byte[] bytes)
-    {
-        LONG_HANDLE_BIG_ENDIAN.set(bytes, 0, value);
-        return minimalBigEndianOffset(bytes);
     }
 
     /**

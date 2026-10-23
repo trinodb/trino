@@ -288,12 +288,25 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
 
     private static PlanFragment fragmentWithCatalog(CatalogHandle catalogHandle)
     {
-        return PLAN_FRAGMENT.withActiveCatalogs(ImmutableList.of(
+        List<CatalogProperties> activeCatalogs = ImmutableList.of(
                 new CatalogProperties(
                         catalogHandle.getCatalogName(),
                         catalogHandle.getVersion(),
                         new ConnectorName("mock"),
-                        ImmutableMap.of())));
+                        ImmutableMap.of()));
+        return new PlanFragment(
+                PLAN_FRAGMENT.getId(),
+                PLAN_FRAGMENT.getRoot(),
+                PLAN_FRAGMENT.getSymbols(),
+                PLAN_FRAGMENT.getPartitioning(),
+                PLAN_FRAGMENT.getPartitionCount(),
+                PLAN_FRAGMENT.getPartitionedSources(),
+                PLAN_FRAGMENT.getOutputPartitioningScheme(),
+                PLAN_FRAGMENT.getOutputSkewedBucketCount(),
+                PLAN_FRAGMENT.getStatsAndCosts(),
+                activeCatalogs,
+                PLAN_FRAGMENT.getLanguageFunctions(),
+                PLAN_FRAGMENT.getJsonRepresentation());
     }
 
     private static class NoInfoTransactionManager

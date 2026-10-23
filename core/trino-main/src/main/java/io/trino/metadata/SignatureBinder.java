@@ -877,8 +877,8 @@ public class SignatureBinder
                                     actualType,
                                     base,
                                     type.get());
-                            TypeDescriptor typeSignature = type.get().getTypeDescriptor();
-                            originalTypeTypeParametersBuilder.add(TypeParameter.numericParameter(((TypeParameter.Numeric) typeSignature.getParameters().get(i)).value()));
+                            TypeDescriptor typeDescriptor = type.get().getTypeDescriptor();
+                            originalTypeTypeParametersBuilder.add(TypeParameter.numericParameter(((TypeParameter.Numeric) typeDescriptor.getParameters().get(i)).value()));
                         }
                     }
                     case NumericExpression.Literal(long value) -> originalTypeTypeParametersBuilder.add(TypeParameter.numericParameter(value));
@@ -923,16 +923,16 @@ public class SignatureBinder
     {
         private final List<TypeTemplate> formalLambdaArgumentTemplates;
         private final TypeTemplate formalLambdaReturnTemplate;
-        private final TypeDescriptorProvider typeSignatureProvider;
+        private final TypeDescriptorProvider typeDescriptorProvider;
 
         public FunctionSolver(
                 List<TypeTemplate> formalLambdaArgumentTemplates,
                 TypeTemplate formalLambdaReturnTemplate,
-                TypeDescriptorProvider typeSignatureProvider)
+                TypeDescriptorProvider typeDescriptorProvider)
         {
             this.formalLambdaArgumentTemplates = formalLambdaArgumentTemplates;
             this.formalLambdaReturnTemplate = formalLambdaReturnTemplate;
-            this.typeSignatureProvider = typeSignatureProvider;
+            this.typeDescriptorProvider = typeDescriptorProvider;
         }
 
         @Override
@@ -943,14 +943,14 @@ public class SignatureBinder
                 return SolverReturnStatus.UNCHANGED_NOT_SATISFIED;
             }
             TypeDescriptor actualLambdaTypeDescriptor;
-            if (!typeSignatureProvider.hasDependency()) {
-                actualLambdaTypeDescriptor = typeSignatureProvider.getTypeDescriptor();
+            if (!typeDescriptorProvider.hasDependency()) {
+                actualLambdaTypeDescriptor = typeDescriptorProvider.getTypeDescriptor();
                 if (!FunctionType.NAME.equals(actualLambdaTypeDescriptor.getBase()) || !getLambdaArgumentTypeDescriptors(actualLambdaTypeDescriptor).equals(toTypeDescriptors(lambdaArgumentTypes.get()))) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
             }
             else {
-                actualLambdaTypeDescriptor = typeSignatureProvider.getTypeDescriptor(lambdaArgumentTypes.get());
+                actualLambdaTypeDescriptor = typeDescriptorProvider.getTypeDescriptor(lambdaArgumentTypes.get());
                 if (!FunctionType.NAME.equals(actualLambdaTypeDescriptor.getBase())) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }

@@ -360,6 +360,13 @@ public abstract class BaseIcebergConnectorTest
                 .hasMessageContaining("Cannot update Iceberg table: supplied previous location does not match current location");
     }
 
+    @Override
+    protected boolean isRowFieldNameRejected(Exception exception, String fieldName)
+    {
+        // TODO Fail with a clear message. The column types written to the metastore are Hive type strings, which cannot contain these field names.
+        return exception.getMessage().matches("Error: .* expected at the position \\d+ of 'struct<%s:string>' but .* is found\\.".formatted(Pattern.quote(fieldName)));
+    }
+
     @Test
     public void testDeleteOnV1Table()
     {
@@ -401,17 +408,20 @@ public abstract class BaseIcebergConnectorTest
     public void testShowCreateSchema()
     {
         assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
-                .matches("CREATE SCHEMA iceberg.tpch\n" +
-                        "AUTHORIZATION USER user\n" +
-                        "WITH \\(\n" +
-                        "\\s+location = '.*/tpch'\n" +
-                        "\\)");
+                .matches(
+                        """
+                        CREATE SCHEMA iceberg.tpch
+                        AUTHORIZATION USER user
+                        WITH \\(
+                        \\s+location = '.*/tpch'
+                        \\)\
+                        """);
     }
 
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -1388,17 +1398,19 @@ public abstract class BaseIcebergConnectorTest
                 "SELECT count(*) from orders");
 
         assertThat(computeScalar("SHOW CREATE TABLE test_create_partitioned_table_as")).isEqualTo(format(
-                "CREATE TABLE %s.%s.%s (\n" +
-                        "   \"order key\" bigint,\n" +
-                        "   ship_priority integer,\n" +
-                        "   order_status varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   format_version = 2,\n" +
-                        "   location = '%s',\n" +
-                        "   partitioning = ARRAY['order_status','ship_priority','bucket(\"order key\", 9)']\n" +
-                        ")",
+                """
+                CREATE TABLE %s.%s.%s (
+                   "order key" bigint,
+                   ship_priority integer,
+                   order_status varchar
+                )
+                WITH (
+                   format = '%s',
+                   format_version = 2,
+                   location = '%s',
+                   partitioning = ARRAY['order_status','ship_priority','bucket("order key", 9)']
+                )\
+                """,
                 getSession().getCatalog().orElseThrow(),
                 getSession().getSchema().orElseThrow(),
                 "test_create_partitioned_table_as",
@@ -4420,6 +4432,95 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testMaxInferredColumnDefaults()
+    {
+        String columns = IntStream.rangeClosed(1, 102)
+                .mapToObj(i -> "c" + i + " varchar")
+                .collect(joining(", "));
+        String values = IntStream.rangeClosed(1, 102)
+                .mapToObj(i -> "'v" + i + "'")
+                .collect(joining(", "));
+        try (TestTable table = newTrinoTable("test_max_inferred_column_defaults", "(" + columns + ") WITH (sorted_by = ARRAY['c102'], max_inferred_metrics_column_defaults = 100)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("max_inferred_metrics_column_defaults = 100");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (" + values + ")", 1);
+            if (format == ORC) {
+                assertThat(query("SELECT cardinality(value_counts), upper_bounds.\"100\", upper_bounds.\"101\", upper_bounds.\"102\" FROM \"" + table.getName() + "$files\""))
+                        .matches("VALUES (BIGINT '101', VARCHAR 'v100', CAST(NULL AS varchar), VARCHAR 'v102')");
+            }
+        }
+    }
+
+    @Test
+    public void testUpdatingMaxInferredMetricsColumnDefaults()
+    {
+        try (TestTable table = newTrinoTable("test_max_inferred_metrics_column_defaults", "(x int)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("max_inferred_metrics_column_defaults = ");
+            assertThat(getTableProperties(table.getName()))
+                    .doesNotContainKey("write.metadata.metrics.max-inferred-column-defaults");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_inferred_metrics_column_defaults = 5");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("max_inferred_metrics_column_defaults = 5");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.metrics.max-inferred-column-defaults", "5");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_inferred_metrics_column_defaults = 1");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("max_inferred_metrics_column_defaults = 1");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.metrics.max-inferred-column-defaults", "1");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_inferred_metrics_column_defaults = 0");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("max_inferred_metrics_column_defaults = 0");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.metrics.max-inferred-column-defaults", "0");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_inferred_metrics_column_defaults = DEFAULT");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("max_inferred_metrics_column_defaults = ");
+            assertThat(getTableProperties(table.getName()))
+                    .doesNotContainKey("write.metadata.metrics.max-inferred-column-defaults");
+
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES max_inferred_metrics_column_defaults = -1",
+                    ".* max_inferred_metrics_column_defaults must be greater than or equal to 0");
+        }
+    }
+
+    @Test
+    public void testCreateTableWithMaxInferredMetricsColumnDefaults()
+    {
+        try (TestTable table = newTrinoTable("test_create_max_inferred_metrics_column_defaults", "(x int) WITH (max_inferred_metrics_column_defaults = 5)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("max_inferred_metrics_column_defaults = 5");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.metrics.max-inferred-column-defaults", "5");
+        }
+
+        assertQueryFails(
+                "CREATE TABLE test_create_invalid_max_inferred_metrics_column_defaults (x int) WITH (max_inferred_metrics_column_defaults = -1)",
+                ".* max_inferred_metrics_column_defaults must be greater than or equal to 0");
+    }
+
+    @Test
+    public void testCreateTableAsSelectWithMaxInferredMetricsColumnDefaults()
+    {
+        try (TestTable table = newTrinoTable("test_ctas_max_inferred_metrics_column_defaults", "WITH (max_inferred_metrics_column_defaults = 5) AS SELECT 1 x")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("max_inferred_metrics_column_defaults = 5");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.metrics.max-inferred-column-defaults", "5");
+        }
+
+        assertQueryFails(
+                "CREATE TABLE test_ctas_invalid_max_inferred_metrics_column_defaults WITH (max_inferred_metrics_column_defaults = -1) AS SELECT 1 x",
+                ".* max_inferred_metrics_column_defaults must be greater than or equal to 0");
+    }
+
+    @Test
     public void testBasicTableStatistics()
     {
         String tableName = "test_basic_table_statistics";
@@ -4436,13 +4537,13 @@ public abstract class BaseIcebergConnectorTest
 
         MaterializedResult result = computeActual("SHOW STATS FOR " + tableName);
         MaterializedResult expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("col", null, 2.0, 0.0, null, "-10.0", "100.0")
                         .row(null, null, null, null, 2.0, null, null)
                         .build();
         if (format == AVRO) {
             expectedStatistics =
-                    resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("col", null, 2.0, 0.0, null, null, null)
                             .row(null, null, null, null, 2.0, null, null)
                             .build();
@@ -4453,13 +4554,13 @@ public abstract class BaseIcebergConnectorTest
 
         result = computeActual("SHOW STATS FOR " + tableName);
         expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("col", null, 3.0, 0.0, null, "-10.0", "200.0")
                         .row(null, null, null, null, 3.0, null, null)
                         .build();
         if (format == AVRO) {
             expectedStatistics =
-                    resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("col", null, 3.0, 0.0, null, null, null)
                             .row(null, null, null, null, 3.0, null, null)
                             .build();
@@ -4514,14 +4615,14 @@ public abstract class BaseIcebergConnectorTest
         MaterializedResult result = computeActual("SHOW STATS FOR " + tableName);
 
         MaterializedResult expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("col1", null, 2.0, 0.0, null, "-10.0", "100.0")
                         .row("col2", null, 2.0, 0.0, null, "-1", "10")
                         .row("col3", null, 2.0, 0.0, null, "2019-06-28", "2020-01-01")
                         .row(null, null, null, null, 2.0, null, null)
                         .build();
         if (format == AVRO) {
-            expectedStatistics = resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+            expectedStatistics = resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                     .row("col1", null, 2.0, 0.0, null, null, null)
                     .row("col2", null, 2.0, 0.0, null, null, null)
                     .row("col3", null, 2.0, 0.0, null, null, null)
@@ -4533,7 +4634,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES (200, 20, DATE '2020-06-28')", 1);
         result = computeActual("SHOW STATS FOR " + tableName);
         expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("col1", null, 3.0, 0.0, null, "-10.0", "200.0")
                         .row("col2", null, 3.0, 0.0, null, "-1", "20")
                         .row("col3", null, 3.0, 0.0, null, "2019-06-28", "2020-06-28")
@@ -4541,7 +4642,7 @@ public abstract class BaseIcebergConnectorTest
                         .build();
         if (format == AVRO) {
             expectedStatistics =
-                    resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("col1", null, 3.0, 0.0, null, null, null)
                             .row("col2", null, 3.0, 0.0, null, null, null)
                             .row("col3", null, 3.0, 0.0, null, null, null)
@@ -4561,7 +4662,7 @@ public abstract class BaseIcebergConnectorTest
         result = computeActual("SHOW STATS FOR " + tableName);
 
         expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("col1", null, 3.0, 5.0 / 13.0, null, "-10.0", "200.0")
                         .row("col2", null, 13.0, 0.0, null, "-1", "30")
                         .row("col3", null, 12.0, 0.0, null, "2019-06-28", "2020-07-25")
@@ -4569,7 +4670,7 @@ public abstract class BaseIcebergConnectorTest
                         .build();
         if (format == AVRO) {
             expectedStatistics =
-                    resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("col1", null, 3.0, 0.1, null, null, null)
                             .row("col2", null, 13.0, 0.0, null, null, null)
                             .row("col3", null, 12.0, 1.0 / 13.0, null, null, null)
@@ -6065,6 +6166,15 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testProjectionPushdownWithBetweenSymmetric()
+    {
+        try (TestTable table = newTrinoTable("test_projection_between_symmetric", "(value integer, bounds row(low integer, high integer))")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, ROW(0, 10)), (5, ROW(10, 0)), (20, ROW(0, 10))", 3);
+            assertQuery("SELECT value + 1 BETWEEN SYMMETRIC bounds.low AND bounds.high FROM " + table.getName(), "VALUES true, true, false");
+        }
+    }
+
+    @Test
     public void testProjectionPushdownAfterRename()
     {
         assertUpdate("CREATE TABLE projection_pushdown_after_rename (id INT, a ROW(b INT, c ROW (d INT)))");
@@ -6185,8 +6295,7 @@ public abstract class BaseIcebergConnectorTest
                     .hasSizeBetween(1, workerCount)
                     .doesNotContainAnyElementsOf(initialFiles);
             // No files should be removed (this is expire_snapshots's job, when it exists)
-            assertThat(getAllDataFilesFromTableDirectory(tableName))
-                    .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
+            assertEqualsIgnoreOrder(getAllDataFilesFromTableDirectory(tableName), concat(initialFiles, updatedFiles));
 
             // optimize with low retention threshold, nothing should change
             // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
@@ -6194,8 +6303,7 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                     .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
             assertThat(getActiveFiles(tableName)).isEqualTo(updatedFiles);
-            assertThat(getAllDataFilesFromTableDirectory(tableName))
-                    .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
+            assertEqualsIgnoreOrder(getAllDataFilesFromTableDirectory(tableName), concat(initialFiles, updatedFiles));
 
             // optimize with delimited procedure name
             assertQueryFails("ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Table procedure not registered: optimize");
@@ -6252,8 +6360,7 @@ public abstract class BaseIcebergConnectorTest
                 .hasSizeBetween(1, workerCount)
                 .doesNotContainAnyElementsOf(initialFiles);
         // No files should be removed (this is expire_snapshots's job, when it exists)
-        assertThat(getAllDataFilesFromMvStorageTableDirectory(mvName))
-                .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
+        assertEqualsIgnoreOrder(getAllDataFilesFromMvStorageTableDirectory(mvName), concat(initialFiles, updatedFiles));
 
         assertUpdate("DROP MATERIALIZED VIEW " + mvName);
         assertUpdate("DROP TABLE " + tableName);
@@ -6299,7 +6406,7 @@ public abstract class BaseIcebergConnectorTest
             List<String> updatedFiles = getActiveFiles(tableName);
             // as we force repartitioning there should be only 3 partitions
             assertThat(updatedFiles).hasSize(3);
-            assertThat(getAllDataFilesFromTableDirectory(tableName)).containsExactlyInAnyOrderElementsOf(ImmutableSet.copyOf(concat(initialFiles, updatedFiles)));
+            assertEqualsIgnoreOrder(getAllDataFilesFromTableDirectory(tableName), ImmutableSet.copyOf(concat(initialFiles, updatedFiles)));
 
             assertUpdate("DROP TABLE " + tableName);
         }
@@ -6644,8 +6751,7 @@ public abstract class BaseIcebergConnectorTest
                 "VALUES ('rewritten_data_files_count', 0), ('removed_delete_files_count', 0), ('added_data_files_count', 0)");
         assertThat(query("SELECT a FROM " + tableName))
                 .matches("VALUES 1, 2");
-        assertThat(getActiveFiles(tableName))
-                .containsExactlyInAnyOrderElementsOf(initialFiles);
+        assertEqualsIgnoreOrder(getActiveFiles(tableName), initialFiles);
 
         assertUpdate("DELETE FROM " + tableName + " WHERE a = 1", 1);
         // Calling optimize after adding a DELETE should result in compaction
@@ -6670,8 +6776,7 @@ public abstract class BaseIcebergConnectorTest
         // OPTIMIZE shouldn't have to rewrite files
         computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertThat(query("SELECT COUNT(*) FROM " + tableName)).matches("VALUES BIGINT '100'");
-        assertThat(getActiveFiles(tableName))
-                .containsExactlyInAnyOrderElementsOf(initialFiles);
+        assertEqualsIgnoreOrder(getActiveFiles(tableName), initialFiles);
 
         // Change in partitioning should result in OPTIMIZE rewriting all files
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['nationkey']");
@@ -6685,9 +6790,9 @@ public abstract class BaseIcebergConnectorTest
         // OPTIMIZE shouldn't have to rewrite files anymore
         computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertThat(query("SELECT COUNT(*) FROM " + tableName)).matches("VALUES BIGINT '100'");
-        assertThat(getActiveFiles(tableName))
-                .hasSize(25)
-                .containsExactlyInAnyOrderElementsOf(filesAfterPartioningChange);
+        List<String> activeFiles = getActiveFiles(tableName);
+        assertThat(activeFiles).hasSize(25);
+        assertEqualsIgnoreOrder(activeFiles, filesAfterPartioningChange);
     }
 
     private List<String> getActiveFiles(String tableName)
@@ -7196,14 +7301,14 @@ public abstract class BaseIcebergConnectorTest
         // Make sure the whole table has stats
         MaterializedResult tableStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$path\" IS NOT NULL)".formatted(tableName));
         MaterializedResult expectedTableStatistics =
-                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("id", null, 4.0, 0.0, null, "1", "4")
                         .row("value", null, 3.0, 0.25, null, "1", "4")
                         .row(null, null, null, null, 4.0, null, null)
                         .build();
         if (format == AVRO) {
             expectedTableStatistics =
-                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("id", null, 4.0, 0.0, null, null, null)
                             .row("value", null, 3.0, 0.1, null, null, null)
                             .row(null, null, null, null, 4.0, null, null)
@@ -7224,14 +7329,14 @@ public abstract class BaseIcebergConnectorTest
 
         MaterializedResult firstPathStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + pathPredicateSql.formatted(firstPath) + ")");
         MaterializedResult expectedFirstPathStatistics =
-                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("id", null, 1.0, 0.0, null, "1", "1")
                         .row("value", null, 1.0, 0.0, null, "1", "1")
                         .row(null, null, null, null, 1.0, null, null)
                         .build();
         if (format == AVRO) {
             expectedFirstPathStatistics =
-                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("id", null, 1.0, 0.0, null, null, null)
                             .row("value", null, 1.0, 0.0, null, null, null)
                             .row(null, null, null, null, 1.0, null, null)
@@ -7241,14 +7346,14 @@ public abstract class BaseIcebergConnectorTest
 
         MaterializedResult secondThirdPathStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$path\" IN ('%s', '%s'))".formatted(tableName, secondPath, thirdPath));
         MaterializedResult expectedSecondThirdPathStatistics =
-                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("id", null, 2.0, 0.0, null, "2", "3")
                         .row("value", null, 1.0, 0.5, null, "2", "2")
                         .row(null, null, null, null, 2.0, null, null)
                         .build();
         if (format == AVRO) {
             expectedSecondThirdPathStatistics =
-                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("id", null, 2.0, 0.0, null, null, null)
                             .row("value", null, 2.0, 0.0, null, null, null)
                             .row(null, null, null, null, 2.0, null, null)
@@ -7258,14 +7363,14 @@ public abstract class BaseIcebergConnectorTest
 
         MaterializedResult fourthPathStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + pathPredicateSql.formatted(fourthPath) + ")");
         MaterializedResult expectedFourthPathStatistics =
-                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("id", null, 1.0, 0.0, null, "4", "4")
                         .row("value", null, 1.0, 0.0, null, "4", "4")
                         .row(null, null, null, null, 1.0, null, null)
                         .build();
         if (format == AVRO) {
             expectedFourthPathStatistics =
-                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                    resultBuilder(VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                             .row("id", null, 1.0, 0.0, null, null, null)
                             .row("value", null, 1.0, 0.0, null, null, null)
                             .row(null, null, null, null, 1.0, null, null)
@@ -9744,6 +9849,28 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testBucketedJoinOnDecimal()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_bucketed_join_decimal_",
+                "WITH (partitioning = ARRAY['bucket(short_key, 13)', 'bucket(long_key, 17)']) AS " +
+                        "SELECT CAST(orderkey AS decimal(18, 0)) short_key, CAST(orderkey AS decimal(38, 0)) long_key FROM tpch.tiny.orders")) {
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                    .setCatalogSessionProperty(ICEBERG_CATALOG, BUCKET_EXECUTION_ENABLED, "true")
+                    .build();
+            assertQuery(
+                    session,
+                    "SELECT count(*) FROM " + table.getName() + " JOIN (SELECT CAST(orderkey AS decimal(18, 0)) short_key FROM tpch.tiny.lineitem) USING (short_key)",
+                    "VALUES 60175");
+            assertQuery(
+                    session,
+                    "SELECT count(*) FROM " + table.getName() + " JOIN (SELECT CAST(orderkey AS decimal(38, 0)) long_key FROM tpch.tiny.lineitem) USING (long_key)",
+                    "VALUES 60175");
+        }
+    }
+
+    @Test
     public void testBucketPartitionFilterIncluded()
     {
         String tableName = "test_partition_" + randomNameSuffix();
@@ -10424,6 +10551,10 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails(
                 "CREATE TABLE test_create_table_with_gc_enabled_via_extra_properties WITH (extra_properties = MAP(ARRAY['gc.enabled'], ARRAY['false'])) AS SELECT 1 as c1",
                 "\\QIllegal keys in extra_properties: [gc.enabled]");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_as_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['write.metadata.metrics.max-inferred-column-defaults'], ARRAY['1'])) AS SELECT 1 as c1",
+                "\\QIllegal keys in extra_properties: [write.metadata.metrics.max-inferred-column-defaults]");
     }
 
     @Test

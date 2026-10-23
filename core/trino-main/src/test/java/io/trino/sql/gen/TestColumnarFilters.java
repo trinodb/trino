@@ -31,10 +31,12 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.IntArrayBlockBuilder;
 import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
@@ -103,6 +105,7 @@ import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -121,6 +124,7 @@ public class TestColumnarFilters
     private static final int ARRAY_CHANNEL = 6;
     private static final int REAL_CHANNEL = 7;
     private static final int BOOLEAN_CHANNEL = 8;
+    private static final int UNKNOWN_CHANNEL = 9;
 
     private static final String COL_ROW_NUM = "$col_" + ROW_NUM_CHANNEL;
     private static final String COL_DOUBLE = "$col_" + DOUBLE_CHANNEL;
@@ -131,6 +135,7 @@ public class TestColumnarFilters
     private static final String COL_ARRAY = "$col_" + ARRAY_CHANNEL;
     private static final String COL_REAL = "$col_" + REAL_CHANNEL;
     private static final String COL_BOOLEAN = "$col_" + BOOLEAN_CHANNEL;
+    private static final String COL_UNKNOWN = "$col_" + UNKNOWN_CHANNEL;
 
     private static final Type ARRAY_CHANNEL_TYPE = new ArrayType(INTEGER);
     private static final Map<Symbol, Integer> LAYOUT = ImmutableMap.<Symbol, Integer>builder()
@@ -143,6 +148,7 @@ public class TestColumnarFilters
             .put(new Symbol(ARRAY_CHANNEL_TYPE, COL_ARRAY), ARRAY_CHANNEL)
             .put(new Symbol(REAL, COL_REAL), REAL_CHANNEL)
             .put(new Symbol(BOOLEAN, COL_BOOLEAN), BOOLEAN_CHANNEL)
+            .put(new Symbol(UNKNOWN, COL_UNKNOWN), UNKNOWN_CHANNEL)
             .buildOrThrow();
     private static final FullConnectorSession FULL_CONNECTOR_SESSION = new FullConnectorSession(
             TestingSession.testSessionBuilder().build(),
@@ -187,6 +193,10 @@ public class TestColumnarFilters
         Expression isNullFilter = new IsNull(new Reference(INTEGER, COL_INT_A));
         assertThatColumnarFilterEvaluationIsSupported(isNullFilter);
         verifyFilter(inputPages, isNullFilter);
+
+        Expression isNullUnknownFilter = new IsNull(new Reference(UNKNOWN, COL_UNKNOWN));
+        assertThatColumnarFilterEvaluationIsSupported(isNullUnknownFilter);
+        verifyFilter(inputPages, isNullUnknownFilter);
     }
 
     @ParameterizedTest
@@ -277,6 +287,10 @@ public class TestColumnarFilters
         Expression isNotNullFilter = createNotExpression(new IsNull(new Reference(INTEGER, COL_INT_A)));
         assertThatColumnarFilterEvaluationIsSupported(isNotNullFilter);
         verifyFilter(inputPages, isNotNullFilter);
+
+        Expression isNotNullUnknownFilter = createNotExpression(new IsNull(new Reference(UNKNOWN, COL_UNKNOWN)));
+        assertThatColumnarFilterEvaluationIsSupported(isNotNullUnknownFilter);
+        verifyFilter(inputPages, isNotNullUnknownFilter);
     }
 
     @Test
@@ -737,10 +751,19 @@ public class TestColumnarFilters
                     createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded),
                     createArraysBlock(positionsCount, nullsProvider),
                     createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded),
-                    createBooleansBlock(positionsCount, nullsProvider, dictionaryEncoded)));
+                    createBooleansBlock(positionsCount, nullsProvider, dictionaryEncoded),
+                    createUnknownBlock(positionsCount, dictionaryEncoded)));
             rowCount += positionsCount;
         }
         return builder.build();
+    }
+
+    private static Block createUnknownBlock(int positionsCount, boolean rle)
+    {
+        if (rle) {
+            return RunLengthEncodedBlock.create(UNKNOWN, null, positionsCount);
+        }
+        return new ByteArrayBlock(positionsCount, Optional.of(new long[wordsForBits(positionsCount)]), new byte[positionsCount]);
     }
 
     private static Block createRowNumberBlock(long start, int positionsCount)

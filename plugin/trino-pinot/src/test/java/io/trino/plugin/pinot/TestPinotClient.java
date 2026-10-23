@@ -38,45 +38,48 @@ public class TestPinotClient
     @Test
     public void testBrokersParsed()
     {
-        HttpClient httpClient = new TestingHttpClient(_ -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8, "{\n" +
-                "  \"tableName\": \"dummy\",\n" +
-                "  \"brokers\": [\n" +
-                "    {\n" +
-                "      \"tableType\": \"offline\",\n" +
-                "      \"instances\": [\n" +
-                "        \"Broker_dummy-broker-host1-datacenter1_6513\",\n" +
-                "        \"Broker_dummy-broker-host2-datacenter1_6513\",\n" +
-                "        \"Broker_dummy-broker-host4-datacenter1_6513\"\n" +
-                "      ]\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"tableType\": \"realtime\",\n" +
-                "      \"instances\": [\n" +
-                "        \"Broker_dummy-broker-host1-datacenter1_6513\",\n" +
-                "        \"Broker_dummy-broker-host2-datacenter1_6513\",\n" +
-                "        \"Broker_dummy-broker-host3-datacenter1_6513\"\n" +
-                "      ]\n" +
-                "    }\n" +
-                "  ],\n" +
-                "  \"server\": [\n" +
-                "    {\n" +
-                "      \"tableType\": \"offline\",\n" +
-                "      \"instances\": [\n" +
-                "        \"Server_dummy-server-host8-datacenter1_7090\",\n" +
-                "        \"Server_dummy-server-host9-datacenter1_7090\"\n" +
-                "      ]\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"tableType\": \"realtime\",\n" +
-                "      \"instances\": [\n" +
-                "        \"Server_dummy-server-host7-datacenter1_7090\",\n" +
-                "        \"Server_dummy-server-host4-datacenter1_7090\",\n" +
-                "        \"Server_dummy-server-host5-datacenter1_7090\",\n" +
-                "        \"Server_dummy-server-host6-datacenter1_7090\"\n" +
-                "      ]\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}"));
+        HttpClient httpClient = new TestingHttpClient(_ -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8,
+                """
+                {
+                  "tableName": "dummy",
+                  "brokers": [
+                    {
+                      "tableType": "offline",
+                      "instances": [
+                        "Broker_dummy-broker-host1-datacenter1_6513",
+                        "Broker_dummy-broker-host2-datacenter1_6513",
+                        "Broker_dummy-broker-host4-datacenter1_6513"
+                      ]
+                    },
+                    {
+                      "tableType": "realtime",
+                      "instances": [
+                        "Broker_dummy-broker-host1-datacenter1_6513",
+                        "Broker_dummy-broker-host2-datacenter1_6513",
+                        "Broker_dummy-broker-host3-datacenter1_6513"
+                      ]
+                    }
+                  ],
+                  "server": [
+                    {
+                      "tableType": "offline",
+                      "instances": [
+                        "Server_dummy-server-host8-datacenter1_7090",
+                        "Server_dummy-server-host9-datacenter1_7090"
+                      ]
+                    },
+                    {
+                      "tableType": "realtime",
+                      "instances": [
+                        "Server_dummy-server-host7-datacenter1_7090",
+                        "Server_dummy-server-host4-datacenter1_7090",
+                        "Server_dummy-server-host5-datacenter1_7090",
+                        "Server_dummy-server-host6-datacenter1_7090"
+                      ]
+                    }
+                  ]
+                }
+                """));
         PinotConfig pinotConfig = new PinotConfig()
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MILLISECONDS))
                 .setControllerUrls(ImmutableList.of("localhost:7900"));

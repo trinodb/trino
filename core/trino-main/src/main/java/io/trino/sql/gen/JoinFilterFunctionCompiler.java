@@ -13,7 +13,6 @@
  */
 package io.trino.sql.gen;
 
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -50,7 +49,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import jakarta.annotation.Nullable;
-import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -70,10 +68,10 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
-import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static io.trino.util.CompilerUtils.isClassDumpEnabled;
+import static io.trino.util.CompilerUtils.isCompilerLimitExceeded;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
@@ -152,7 +150,7 @@ public class JoinFilterFunctionCompiler
             });
         }
         catch (RuntimeException e) {
-            if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
+            if (isCompilerLimitExceeded(e)) {
                 throw new TrinoException(
                         QUERY_EXCEEDED_COMPILER_LIMIT,
                         "Failed to execute query; the join condition may be too complex",

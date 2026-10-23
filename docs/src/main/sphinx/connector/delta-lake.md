@@ -312,7 +312,7 @@ this table:
 * - `TIMESTAMPNTZ` (`TIMESTAMP_NTZ`)
   - `TIMESTAMP(6)`
 * - `TIMESTAMP`
-  - `TIMESTAMP(3) WITH TIME ZONE`
+  - `TIMESTAMP(6) WITH TIME ZONE`
 * - `VARIANT`
   - `JSON`
 * - `ARRAY`
@@ -360,7 +360,7 @@ this table:
   - `DATE`
 * - `TIMESTAMP`
   - `TIMESTAMPNTZ` (`TIMESTAMP_NTZ`)
-* - `TIMESTAMP(3) WITH TIME ZONE`
+* - `TIMESTAMP WITH TIME ZONE`
   - `TIMESTAMP`
 * - `ARRAY`
   - `ARRAY`
@@ -738,6 +738,19 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
+```text
+        metric_name             | metric_value
+--------------------------------+--------------
+ rewritten_data_files_count     |            1
+ removed_deletion_vectors_count |            1
+ added_data_files_count         |            2
+```
+
+The `removed_deletion_vectors_count` metric counts deletion vectors removed from
+the active table state, not physical files deleted from storage. Unreferenced
+deletion vector files can be removed by [VACUUM](delta-lake-vacuum), subject to the
+retention period.
+
 Use a `WHERE` clause with [metadata columns](delta-lake-special-columns) to filter
 which files are optimized.
 
@@ -857,11 +870,11 @@ SELECT * FROM "test_table$history"
 ```
 
 ```text
- version |               timestamp               | user_id | user_name |  operation   |         operation_parameters          |                 cluster_id      | read_version |  isolation_level  | is_blind_append | operation_metrics              
----------+---------------------------------------+---------+-----------+--------------+---------------------------------------+---------------------------------+--------------+-------------------+-----------------+-------------------
-       2 | 2023-01-19 07:40:54.684 Europe/Vienna | trino   | trino     | WRITE        | {queryId=20230119_064054_00008_4vq5t} | trino-406-trino-coordinator     |            2 | WriteSerializable | true            | {}
-       1 | 2023-01-19 07:40:41.373 Europe/Vienna | trino   | trino     | ADD COLUMNS  | {queryId=20230119_064041_00007_4vq5t} | trino-406-trino-coordinator     |            0 | WriteSerializable | true            | {}
-       0 | 2023-01-19 07:40:10.497 Europe/Vienna | trino   | trino     | CREATE TABLE | {queryId=20230119_064010_00005_4vq5t} | trino-406-trino-coordinator     |            0 | WriteSerializable | true            | {}
+ version |          timestamp          | user_id | user_name |  operation   |         operation_parameters          |                 cluster_id      | read_version |  isolation_level  | is_blind_append | operation_metrics              
+---------+-----------------------------+---------+-----------+--------------+---------------------------------------+---------------------------------+--------------+-------------------+-----------------+-------------------
+       2 | 2023-01-19 06:40:54.684 UTC | trino   | trino     | WRITE        | {queryId=20230119_064054_00008_4vq5t} | trino-406-trino-coordinator     |            2 | WriteSerializable | true            | {}
+       1 | 2023-01-19 06:40:41.373 UTC | trino   | trino     | ADD COLUMNS  | {queryId=20230119_064041_00007_4vq5t} | trino-406-trino-coordinator     |            0 | WriteSerializable | true            | {}
+       0 | 2023-01-19 06:40:10.497 UTC | trino   | trino     | CREATE TABLE | {queryId=20230119_064010_00005_4vq5t} | trino-406-trino-coordinator     |            0 | WriteSerializable | true            | {}
 ```
 
 The output of the query has the following history columns:

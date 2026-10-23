@@ -44,6 +44,7 @@ public class TestHttpTokenPoller
 {
     private static final String TOKEN_PATH = "/v1/authentications/sso/test/token";
     private static final Duration ONE_SECOND = Duration.ofSeconds(1);
+    private static final Duration ONE_MINUTE = Duration.ofMinutes(1);
 
     private static final TokenPoller tokenPoller = new HttpTokenPoller(new OkHttpClient.Builder()
             .callTimeout(Duration.ofMillis(500))
@@ -122,6 +123,18 @@ public class TestHttpTokenPoller
     }
 
     @Test
+    public void testHttpStatus503Retried()
+    {
+        server.enqueue(statusAndBody(HTTP_UNAVAILABLE, "Server failure"));
+        server.enqueue(statusAndBody(HTTP_OK, jsonPair("token", "token")));
+
+        TokenPollResult result = tokenPoller.pollForToken(tokenUri(), ONE_MINUTE);
+
+        assertThat(result.getToken().token()).isEqualTo("token");
+        assertThat(server.getRequestCount()).isEqualTo(2);
+    }
+
+    @Test
     public void testHttpStatus503()
     {
         for (int i = 1; i <= 100; i++) {
@@ -134,7 +147,7 @@ public class TestHttpTokenPoller
                 .hasMessageFindingMatch("Request to http://.* failed: JsonResponse\\{statusCode=503,")
                 .hasMessageContaining("[Error: Server failure #");
 
-        assertThat(server.getRequestCount()).isGreaterThan(1);
+        assertThat(server.getRequestCount()).isLessThan(100);
     }
 
     @Test

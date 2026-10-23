@@ -35,6 +35,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.regex.Pattern;
 
 import static io.trino.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -153,7 +154,7 @@ public class TestLakehouseConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -285,6 +286,22 @@ public class TestLakehouseConnectorTest
         };
     }
 
+    @Override
+    protected void testRowFieldName(String fieldName)
+    {
+        // The Hive metastore container returns non-ASCII characters in column types as '?', so the table cannot be dropped
+        if (!fieldName.equals("カラム")) {
+            super.testRowFieldName(fieldName);
+        }
+    }
+
+    @Override
+    protected boolean isRowFieldNameRejected(Exception exception, String fieldName)
+    {
+        // TODO Fail with a clear message. The column types written to the metastore are Hive type strings, which cannot contain these field names.
+        return exception.getMessage().matches("Error: .* expected at the position \\d+ of 'struct<%s:string>' but .* is found\\.".formatted(Pattern.quote(fieldName)));
+    }
+
     @Disabled("Long names cause metastore timeouts")
     @Test
     @Override
@@ -341,7 +358,18 @@ public class TestLakehouseConnectorTest
     @Override
     public void testRenameSchema()
     {
-        assertQueryFails("ALTER SCHEMA tpch RENAME TO tpch_renamed", "Hive metastore does not support renaming schemas");
+        // Use a temporary schema: even a failed attempt to rename the tpch schema breaks concurrent tests using its ORC ACID tables,
+        // as Hive 3 moves the schema's transactional write IDs to the new name despite rejecting the rename
+        String schemaName = "test_rename_schema_" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        try {
+            assertQueryFails(
+                    "ALTER SCHEMA %s RENAME TO %s_renamed".formatted(schemaName, schemaName),
+                    "Hive metastore does not support renaming schemas");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA " + schemaName);
+        }
     }
 
     @Test

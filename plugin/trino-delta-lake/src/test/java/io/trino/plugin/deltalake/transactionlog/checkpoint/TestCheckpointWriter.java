@@ -43,10 +43,10 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -83,12 +83,13 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static java.math.RoundingMode.HALF_UP;
@@ -351,7 +352,7 @@ public class TestCheckpointWriter
                 Optional.of(new DeltaLakeParquetFileStatistics(
                         Optional.of(5L),
                         Optional.of(ImmutableMap.<String, Object>builder()
-                                .put("ts", DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, "2060-10-31 01:00:00"))
+                                .put("ts", convertToTimestampWithTimeZone("2060-10-31T01:00:00.123456"))
                                 .put("ts_ntz", convertToTimestamp("2060-10-31T01:00:00.123"))
                                 .put("str", utf8Slice("a"))
                                 .put("dec_short", 101L)
@@ -366,7 +367,7 @@ public class TestCheckpointWriter
                                 .put("row", new SqlRow(0, minMaxRowFieldBlocks))
                                 .buildOrThrow()),
                         Optional.of(ImmutableMap.<String, Object>builder()
-                                .put("ts", DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, "2060-10-31 02:00:00"))
+                                .put("ts", convertToTimestampWithTimeZone("2060-10-31T02:00:00.654321"))
                                 .put("ts_ntz", convertToTimestamp("2060-10-31T02:00:00.123"))
                                 .put("str", utf8Slice("a"))
                                 .put("dec_short", 201L)
@@ -436,6 +437,10 @@ public class TestCheckpointWriter
         assertThat(readEntries.protocolEntry()).isEqualTo(entries.protocolEntry());
         assertThat(readEntries.addFileEntries().stream().map(x -> makeComparable(columnTypeMapping, x)).collect(toImmutableSet()))
                 .isEqualTo(entries.addFileEntries().stream().map(x -> makeComparable(columnTypeMapping, x)).collect(toImmutableSet()));
+
+        DeltaLakeFileStatistics readStatistics = getOnlyElement(readEntries.addFileEntries()).getStats().orElseThrow();
+        assertThat(readStatistics.getMinValues().orElseThrow()).containsEntry("ts", convertToTimestampWithTimeZone("2060-10-31T01:00:00.123456"));
+        assertThat(readStatistics.getMaxValues().orElseThrow()).containsEntry("ts", convertToTimestampWithTimeZone("2060-10-31T02:00:00.654321"));
     }
 
     @Test
@@ -509,7 +514,11 @@ public class TestCheckpointWriter
                             "byt": 10,
                             "fl": 0.100,
                             "dou": "-Infinity",
-                            "dat": "2000-01-01"
+                            "dat": "2000-01-01",
+                            "row": {
+                              "s1": 1,
+                              "s2": "a"
+                            }
                           },
                           "maxValues": {
                             "ts": "2960-10-31T02:00:00.002Z",
@@ -523,7 +532,11 @@ public class TestCheckpointWriter
                             "byt": 20,
                             "fl": 0.200,
                             "dou": 0.202,
-                            "dat": "3000-01-01"
+                            "dat": "3000-01-01",
+                            "row": {
+                              "s1": 2,
+                              "s2": "z"
+                            }
                           },
                           "nullCount": {
                             "ts": 1,
@@ -540,7 +553,11 @@ public class TestCheckpointWriter
                             "bin": 12,
                             "dat": 13,
                             "arr": 0,
-                            "m": 14
+                            "m": 14,
+                            "row": {
+                              "s1": 0,
+                              "s2": 15
+                            }
                           }
                         }"""),
                 Optional.empty(),
@@ -582,6 +599,141 @@ public class TestCheckpointWriter
         assertThat(readEntries.protocolEntry()).isEqualTo(entries.protocolEntry());
         assertThat(readEntries.addFileEntries().stream().map(x -> makeComparable(columnTypeMapping, x)).collect(toImmutableSet()))
                 .isEqualTo(entries.addFileEntries().stream().map(x -> makeComparable(columnTypeMapping, x)).collect(toImmutableSet()));
+    }
+
+    @Test
+    void testCheckpointWriteJsonReadParquetMixedCaseStructFields(@TempDir Path directory)
+            throws IOException
+    {
+        // Schema and statistics from databricks73/insert_nested_nonlowercase_columns
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format("metadataFormatProvider", ImmutableMap.of()),
+                """
+                {
+                  "type": "struct",
+                  "fields": [
+                    {"name": "an_int", "type": "integer", "nullable": true, "metadata": {}},
+                    {"name": "nested", "type": {
+                        "type": "struct",
+                        "fields": [
+                          {"name": "lower_case_string", "type": "string", "nullable": true, "metadata": {}},
+                          {"name": "UPPER_CASE_STRING", "type": "string", "nullable": true, "metadata": {}},
+                          {"name": "MiXeD_CaSe_StRiNg", "type": "string", "nullable": true, "metadata": {}}
+                        ]}, "nullable": true, "metadata": {}}
+                  ]
+                }""",
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
+        AddFileEntry addFileEntry = new AddFileEntry(
+                "part-00001-55d13068-dd09-43fd-ad1a-42835e2befa6-c000.snappy.parquet",
+                ImmutableMap.of(),
+                1391,
+                1614685296000L,
+                true,
+                Optional.of(
+                        """
+                        {"numRecords":1,"minValues":{"an_int":2,"nested":{"lower_case_string":"databricks","UPPER_CASE_STRING":"DATABRICKS"}},"maxValues":{"an_int":2,"nested":{"lower_case_string":"databricks","UPPER_CASE_STRING":"DATABRICKS"}},"nullCount":{"an_int":0,"nested":{"lower_case_string":0,"UPPER_CASE_STRING":0,"MiXeD_CaSe_StRiNg":1}}}"""),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.empty());
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(),
+                ImmutableSet.of(addFileEntry),
+                ImmutableSet.of());
+        Map<String, Type> columnTypeMapping = extractSchema(metadataEntry, protocolEntry, typeManager).stream()
+                .collect(toImmutableMap(DeltaLakeColumnMetadata::physicalName, DeltaLakeColumnMetadata::physicalColumnType));
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        String checkpointPath = writeCheckpoint(writer, entries, directory.resolve("mixed_case.checkpoint.parquet"));
+
+        DeltaLakeJsonFileStatistics statistics = toJsonStatistics(columnTypeMapping, readCheckpoint(checkpointPath, metadataEntry, protocolEntry, true));
+        Map<String, Object> nestedMinMax = ImmutableMap.of("lower_case_string", "databricks", "upper_case_string", "DATABRICKS");
+        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("an_int", 2L, "nested", nestedMinMax));
+        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("an_int", 2L, "nested", nestedMinMax));
+        assertThat(statistics.getNullCount()).contains(ImmutableMap.of(
+                "an_int", 0L,
+                "nested", ImmutableMap.of("lower_case_string", 0L, "upper_case_string", 0L, "mixed_case_string", 1L)));
+    }
+
+    @Test
+    void testCheckpointWriteReadMissingStructNullCounts(@TempDir Path directory)
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format("metadataFormatProvider", ImmutableMap.of()),
+                """
+                {
+                  "type": "struct",
+                  "fields": [
+                    {"name": "id", "type": "integer", "nullable": true, "metadata": {}},
+                    {"name": "row", "type": {
+                        "type": "struct",
+                        "fields": [
+                          {"name": "s1", "type": "integer", "nullable": true, "metadata": {}},
+                          {"name": "s2", "type": "string", "nullable": true, "metadata": {}},
+                          {"name": "s3", "type": {
+                              "type": "struct",
+                              "fields": [
+                                {"name": "x", "type": "integer", "nullable": true, "metadata": {}}
+                              ]}, "nullable": true, "metadata": {}}
+                        ]}, "nullable": true, "metadata": {}}
+                  ]
+                }""",
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
+        // The file was written before s2 and s3 were added to the struct, so it has no statistics for them
+        AddFileEntry addFileEntry = new AddFileEntry(
+                "addFilePath",
+                ImmutableMap.of(),
+                1000,
+                1001,
+                true,
+                Optional.of(
+                        """
+                        {"numRecords":20,"minValues":{"id":1,"row":{"s1":1}},"maxValues":{"id":2,"row":{"s1":2}},"nullCount":{"id":0,"row":{"s1":3}}}"""),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.empty());
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(),
+                ImmutableSet.of(addFileEntry),
+                ImmutableSet.of());
+        Map<String, Type> columnTypeMapping = extractSchema(metadataEntry, protocolEntry, typeManager).stream()
+                .collect(toImmutableMap(DeltaLakeColumnMetadata::physicalName, DeltaLakeColumnMetadata::physicalColumnType));
+        Map<String, Object> expectedMinValues = ImmutableMap.of("id", 1L, "row", ImmutableMap.of("s1", 1L));
+        Map<String, Object> expectedMaxValues = ImmutableMap.of("id", 2L, "row", ImmutableMap.of("s1", 2L));
+        Map<String, Object> expectedNullCount = ImmutableMap.of("id", 0L, "row", ImmutableMap.of("s1", 3L));
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        String firstCheckpointPath = writeCheckpoint(writer, entries, directory.resolve("first.checkpoint.parquet"));
+
+        CheckpointEntries firstEntries = readCheckpoint(firstCheckpointPath, metadataEntry, protocolEntry, true);
+        // The next checkpoint is written from the statistics read from the first one
+        String secondCheckpointPath = writeCheckpoint(writer, firstEntries, directory.resolve("second.checkpoint.parquet"));
+
+        DeltaLakeJsonFileStatistics firstStatistics = toJsonStatistics(columnTypeMapping, firstEntries);
+        assertThat(firstStatistics.getMinValues()).contains(expectedMinValues);
+        assertThat(firstStatistics.getMaxValues()).contains(expectedMaxValues);
+        assertThat(firstStatistics.getNullCount()).contains(expectedNullCount);
+
+        DeltaLakeJsonFileStatistics secondStatistics = toJsonStatistics(columnTypeMapping, readCheckpoint(secondCheckpointPath, metadataEntry, protocolEntry, true));
+        assertThat(secondStatistics.getMinValues()).contains(expectedMinValues);
+        assertThat(secondStatistics.getMaxValues()).contains(expectedMaxValues);
+        assertThat(secondStatistics.getNullCount()).contains(expectedNullCount);
     }
 
     @Test
@@ -697,6 +849,12 @@ public class TestCheckpointWriter
                 + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
     }
 
+    private static LongTimestampWithTimeZone convertToTimestampWithTimeZone(String value)
+    {
+        LocalDateTime localDateTime = LocalDateTime.parse(value);
+        return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(localDateTime.toEpochSecond(UTC), (long) localDateTime.getNano() * PICOSECONDS_PER_NANOSECOND, UTC_KEY);
+    }
+
     @Test
     public void testJsonStatsTimestampMaximumRoundsUpInCheckpointStruct(@TempDir Path directory)
             throws IOException
@@ -707,8 +865,8 @@ public class TestCheckpointWriter
                 "\"maxValues\":{\"ts\":\"2024-01-15T10:30:00.123456Z\"}," +
                 "\"nullCount\":{\"ts\":0}}");
 
-        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
-        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600124L, UTC_KEY)));
+        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("ts", LongTimestampWithTimeZone.fromEpochMillisAndFraction(1705314600123L, 456_000_000, UTC_KEY)));
+        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("ts", LongTimestampWithTimeZone.fromEpochMillisAndFraction(1705314600124L, 0, UTC_KEY)));
     }
 
     @Test
@@ -721,8 +879,8 @@ public class TestCheckpointWriter
                 "\"maxValues\":{\"ts\":\"2024-01-15T10:30:00.123Z\"}," +
                 "\"nullCount\":{\"ts\":0}}");
 
-        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
-        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
+        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("ts", LongTimestampWithTimeZone.fromEpochMillisAndFraction(1705314600123L, 0, UTC_KEY)));
+        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("ts", LongTimestampWithTimeZone.fromEpochMillisAndFraction(1705314600123L, 0, UTC_KEY)));
     }
 
     private DeltaLakeParquetFileStatistics roundTripJsonStatistics(Path directory, String jsonStatistics)
@@ -877,7 +1035,7 @@ public class TestCheckpointWriter
 
             entries = readCheckpoint(targetPath, metadata, protocol, true);
             assertThat(entries.addFileEntries()).containsExactlyElementsOf(expected.addFileEntries());
-            assertThat(entries.removeFileEntries()).containsExactlyInAnyOrderElementsOf(expected.removeFileEntries());
+            assertEqualsIgnoreOrder(entries.removeFileEntries(), expected.removeFileEntries());
         }
     }
 
@@ -998,5 +1156,19 @@ public class TestCheckpointWriter
     private static TrinoOutputFile createOutputFile(String path)
     {
         return new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION).newOutputFile(Location.of(path));
+    }
+
+    private static String writeCheckpoint(CheckpointWriter writer, CheckpointEntries entries, Path path)
+            throws IOException
+    {
+        String checkpointPath = path.toUri().toString();
+        writer.write(entries, createOutputFile(checkpointPath));
+        return checkpointPath;
+    }
+
+    private static DeltaLakeJsonFileStatistics toJsonStatistics(Map<String, Type> columnTypeMapping, CheckpointEntries entries)
+    {
+        DeltaLakeParquetFileStatistics statistics = (DeltaLakeParquetFileStatistics) getOnlyElement(entries.addFileEntries()).getStats().orElseThrow();
+        return convertParquetToJsonStatistics(columnTypeMapping, statistics);
     }
 }

@@ -34,6 +34,7 @@ import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
+import static io.trino.spi.type.TypeUtils.containsType;
 import static io.trino.util.JsonUtil.canCastFromJson;
 
 /// Streams `CAST(json_parse(x) AS T)` through the ordinary JSON cast converters,
@@ -55,7 +56,8 @@ public class SpecializeCastWithJsonParse
         if (expression instanceof Cast(Call call, Type type, _) &&
                 call.function().name().equals(builtinFunctionName("json_parse")) &&
                 canCastFromJson(type) &&
-                !containsRow(type)) {
+                // The streaming cast implementation does not support rows, including nested rows.
+                !containsType(type, RowType.class::isInstance)) {
             Expression string = call.arguments().getFirst();
             return switch (type) {
                 case ArrayType arrayType -> Optional.of(new Call(metadata.getCoercion(getCharVarcharCoercion(session), builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), string.type(), arrayType), call.arguments()));
@@ -65,11 +67,5 @@ public class SpecializeCastWithJsonParse
         }
 
         return Optional.empty();
-    }
-
-    private static boolean containsRow(Type type)
-    {
-        // The streaming cast implementation does not support rows, including nested rows.
-        return type instanceof RowType || type.getTypeParameters().stream().anyMatch(SpecializeCastWithJsonParse::containsRow);
     }
 }

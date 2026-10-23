@@ -77,7 +77,7 @@ public class TestDruidConnectorTest
                 .setInitialTables(ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER))
                 .build();
         // Pre-load a dataset with case-sensitive string values for testCaseSensitiveAggregationPushdown
-        MaterializedResult caseSensitiveRows = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VarcharType.createVarcharType(1), BIGINT, TIMESTAMP_MILLIS)
+        MaterializedResult caseSensitiveRows = MaterializedResult.resultBuilder(VarcharType.createVarcharType(1), BIGINT, TIMESTAMP_MILLIS)
                 .columnNames(List.of("string_col", "bigint_col", "__time"))
                 .row("A", 1, 0L)
                 .row("a", 2, 0L)
@@ -132,7 +132,7 @@ public class TestDruidConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")
@@ -167,18 +167,21 @@ public class TestDruidConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE druid.druid.orders (\n" +
-                        "   __time timestamp(3) NOT NULL,\n" +
-                        "   clerk varchar,\n" +
-                        "   comment varchar,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderdate varchar,\n" +
-                        "   orderkey bigint,\n" +
-                        "   orderpriority varchar,\n" +
-                        "   orderstatus varchar,\n" +
-                        "   shippriority bigint,\n" +
-                        "   totalprice double\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE druid.druid.orders (
+                           __time timestamp(3) NOT NULL,
+                           clerk varchar,
+                           comment varchar,
+                           custkey bigint,
+                           orderdate varchar,
+                           orderkey bigint,
+                           orderpriority varchar,
+                           orderstatus varchar,
+                           shippriority bigint,
+                           totalprice double
+                        )\
+                        """);
     }
 
     @Override
@@ -226,7 +229,7 @@ public class TestDruidConnectorTest
         copyAndIngestTpchData(materializedRows, druidServer, datasourceB);
 
         // Assert that only columns from datsourceA are returned
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")
@@ -241,7 +244,7 @@ public class TestDruidConnectorTest
         assertThat(query("DESCRIBE " + datasourceA)).result().matches(expectedColumns);
 
         // Assert that only columns from datsourceB are returned
-        expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        expectedColumns = MaterializedResult.resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk_x", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment_x", "varchar", "", "")

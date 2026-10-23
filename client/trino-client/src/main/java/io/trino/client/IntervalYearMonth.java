@@ -20,6 +20,7 @@ import static java.lang.Integer.parseInt;
 import static java.lang.Math.addExact;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public final class IntervalYearMonth
 {
@@ -51,7 +52,7 @@ public final class IntervalYearMonth
             months = -months;
         }
 
-        return format("%s%d-%d", sign, months / 12, months % 12);
+        return format(ENGLISH, "%s%d-%d", sign, months / 12, months % 12);
     }
 
     public static int parseMonths(String value)

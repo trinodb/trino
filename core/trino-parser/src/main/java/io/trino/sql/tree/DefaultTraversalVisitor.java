@@ -24,6 +24,14 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitIntervalValueExpression(IntervalValueExpression node, C context)
+    {
+        process(node.getLeft(), context);
+        process(node.getRight(), context);
+        return null;
+    }
+
+    @Override
     protected Void visitCast(Cast node, C context)
     {
         process(node.getExpression(), context);

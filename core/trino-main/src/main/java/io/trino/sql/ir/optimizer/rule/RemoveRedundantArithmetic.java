@@ -36,6 +36,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
+import io.trino.type.LongInterval;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -134,6 +135,7 @@ public class RemoveRedundantArithmetic
 
         return switch (type) {
             case TinyintType _, SmallintType _, IntegerType _, BigintType _ -> (long) value == 0;
+            case IntervalDayTimeType _ when value instanceof LongInterval interval -> interval.getMicros() == 0 && interval.getPicosOfMicro() == 0;
             case IntervalDayTimeType _, IntervalYearMonthType _ -> (long) value == 0;
             case RealType _ -> toIntExact((long) value) == floatToRawIntBits(copySign(0f, floatingZeroExpectedSign));
             case DoubleType _ -> doubleToRawLongBits((double) value) == doubleToRawLongBits(copySign(0d, floatingZeroExpectedSign));

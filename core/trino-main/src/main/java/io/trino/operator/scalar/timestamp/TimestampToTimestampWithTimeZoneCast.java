@@ -23,14 +23,19 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.round;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.type.DateTimes.getMicrosOfMilli;
+import static io.trino.type.DateTimes.rescale;
 import static io.trino.type.DateTimes.roundToNearest;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.trino.type.DateTimes.scaleFactor;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
+import static java.lang.Math.incrementExact;
 
 @ScalarOperator(CAST)
 public final class TimestampToTimestampWithTimeZoneCast
@@ -44,8 +49,7 @@ public final class TimestampToTimestampWithTimeZoneCast
             ConnectorSession session,
             @SqlType("timestamp(sourcePrecision)") long timestamp)
     {
-        long epochMillis = scaleEpochMicrosToMillis(round(timestamp, 3));
-        epochMillis = round(epochMillis, (int) (3 - targetPrecision));
+        long epochMillis = rescale(roundDiv(timestamp, scaleFactor((int) targetPrecision, 6)), (int) targetPrecision, 3);
         return toShort(session, epochMillis);
     }
 
@@ -56,7 +60,7 @@ public final class TimestampToTimestampWithTimeZoneCast
             ConnectorSession session,
             @SqlType("timestamp(sourcePrecision)") LongTimestamp timestamp)
     {
-        long epochMillis = scaleEpochMicrosToMillis(round(timestamp.getEpochMicros(), (int) (6 - targetPrecision)));
+        long epochMillis = rescale(roundDiv(timestamp.getEpochMicros(), scaleFactor((int) targetPrecision, 6)), (int) targetPrecision, 3);
         return toShort(session, epochMillis);
     }
 
@@ -69,7 +73,12 @@ public final class TimestampToTimestampWithTimeZoneCast
             @SqlType("timestamp(sourcePrecision)") long epochMicros)
     {
         if (sourcePrecision > targetPrecision) {
-            epochMicros = round(epochMicros, (int) (6 - targetPrecision));
+            try {
+                epochMicros = round(epochMicros, (int) (6 - targetPrecision));
+            }
+            catch (ArithmeticException e) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
+            }
         }
 
         return toLong(session, epochMicros, 0);
@@ -90,18 +99,27 @@ public final class TimestampToTimestampWithTimeZoneCast
         long epochMicros = timestamp.getEpochMicros();
         int picosOfMicro = timestamp.getPicosOfMicro();
 
-        if (targetPrecision < 6) {
-            epochMicros = round(epochMicros, (int) (6 - targetPrecision));
-            picosOfMicro = 0;
-        }
-        else if (targetPrecision == 6) {
-            if (roundToNearest(picosOfMicro, PICOSECONDS_PER_MICROSECOND) == PICOSECONDS_PER_MICROSECOND) {
-                epochMicros++;
+        try {
+            if (targetPrecision < 6) {
+                epochMicros = round(epochMicros, (int) (6 - targetPrecision));
+                picosOfMicro = 0;
             }
-            picosOfMicro = 0;
+            else if (targetPrecision == 6) {
+                if (roundToNearest(picosOfMicro, PICOSECONDS_PER_MICROSECOND) == PICOSECONDS_PER_MICROSECOND) {
+                    epochMicros = incrementExact(epochMicros);
+                }
+                picosOfMicro = 0;
+            }
+            else {
+                picosOfMicro = (int) round(picosOfMicro, (int) (12 - targetPrecision));
+                if (picosOfMicro == PICOSECONDS_PER_MICROSECOND) {
+                    epochMicros = incrementExact(epochMicros);
+                    picosOfMicro = 0;
+                }
+            }
         }
-        else {
-            picosOfMicro = (int) round(picosOfMicro, (int) (12 - targetPrecision));
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
         }
 
         return toLong(session, epochMicros, picosOfMicro);

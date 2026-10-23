@@ -13,10 +13,7 @@
  */
 package io.trino.tests.product.utils;
 
-import com.google.common.base.Throwables;
 import org.intellij.lang.annotations.Language;
-
-import java.util.regex.Pattern;
 
 public final class HadoopTestUtils
 {
@@ -43,11 +40,4 @@ public final class HadoopTestUtils
                     // HiveServer2 occasionally closes a fresh JDBC connection during the SASL handshake
                     "|Could not establish connection to jdbc:hive2://hadoop-master:10000" +
                     ")";
-
-    public static boolean isErrorCommittingToHive(Throwable throwable)
-    {
-        return Pattern.compile(RETRYABLE_FAILURES_MATCH)
-                .matcher(Throwables.getStackTraceAsString(throwable))
-                .find();
-    }
 }

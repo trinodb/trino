@@ -101,6 +101,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.lang.Double.NaN;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
@@ -411,7 +412,7 @@ public class TestEventListenerBasic
             assertFailedQuery(
                     mySession,
                     sql,
-                    "Query killed. Message: because",
+                    "Query killed by user 'user'. Message: because",
                     event -> {
                         QueryStatistics statistics = event.getStatistics();
                         assertThat(statistics.getResourceWaitingTime()).isPresent();
@@ -1641,9 +1642,11 @@ public class TestEventListenerBasic
     {
         QueryEvents queryEvents = runQueryAndWaitForEvents(sql).getQueryEvents();
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
-        assertThat(event.getMetadata().getTables())
-                .map(TestEventListenerBasic::getQualifiedName)
-                .containsExactlyInAnyOrderElementsOf(inputTables);
+        assertEqualsIgnoreOrder(
+                event.getMetadata().getTables().stream()
+                        .map(TestEventListenerBasic::getQualifiedName)
+                        .toList(),
+                inputTables);
         if (outputColumnMetadata.length != 0) {
             assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                     .containsExactly(outputColumnMetadata);

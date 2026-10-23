@@ -73,6 +73,7 @@ abstract class BaseIcebergEncryptionFlociTest
     {
         hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
         hiveFlociDataLake.start();
+        onFlociStarted();
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
@@ -114,6 +115,8 @@ abstract class BaseIcebergEncryptionFlociTest
         // Otherwise the catalog would wrap keys with a different KMS client than the one used to unwrap them during reads.
         catalog = getTrinoCatalog(getHiveMetastore(getQueryRunner()), getFileSystemFactory(getQueryRunner()), "iceberg", encryptionManagerFactory);
     }
+
+    protected void onFlociStarted() {}
 
     protected abstract String kmsKey();
 
