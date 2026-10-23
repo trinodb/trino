@@ -2415,7 +2415,7 @@ class StatementAnalyzer
                 return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.empty());
             }
 
-            RedirectionAwareView viewRedirection = metadata.getRedirectionAwareView(session, name);
+            RedirectionAwareView viewRedirection = metadata.getRedirectionAwareView(session, name, analysis.getReferencingViews());
             Optional<ViewDefinition> optionalView = viewRedirection.viewDefinition();
             if (optionalView.isPresent()) {
                 if (table.getQueryPeriod().isPresent() && !isBranchVersionReference(table)) {

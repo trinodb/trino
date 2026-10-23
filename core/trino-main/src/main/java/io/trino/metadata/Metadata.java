@@ -526,6 +526,12 @@ public interface Metadata
     Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName);
 
     /**
+     * Returns the view definition for the specified view name,
+     * for a view resolved through the given views (outermost first).
+     */
+    Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName, List<ReferencingView> referencingViews);
+
+    /**
      * Returns the view definition for the specified view name.
      */
     Map<String, Object> getViewProperties(Session session, QualifiedObjectName viewName);
@@ -907,6 +913,12 @@ public interface Metadata
      * Get the target view after performing redirection.
      */
     RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Get the target view after performing redirection,
+     * for a view resolved through the given views (outermost first).
+     */
+    RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName, List<ReferencingView> referencingViews);
 
     /**
      * Returns a table handle for the specified table name with a specified version

@@ -1623,7 +1623,14 @@ public final class MetadataManager
     @Override
     public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
-        Optional<ConnectorViewDefinition> connectorView = getViewInternal(session, viewName);
+        return getView(session, viewName, ImmutableList.of());
+    }
+
+    @Override
+    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName, List<ReferencingView> referencingViews)
+    {
+        requireNonNull(referencingViews, "referencingViews is null");
+        Optional<ConnectorViewDefinition> connectorView = getViewInternal(session, viewName, referencingViews);
         if (connectorView.isEmpty() || connectorView.get().isRunAsInvoker() || isCatalogManagedSecurity(session, viewName.catalogName())) {
             return connectorView.map(view -> createViewDefinition(viewName, view, view.getOwner().map(Identity::ofUser)));
         }
@@ -1674,6 +1681,11 @@ public final class MetadataManager
 
     private Optional<ConnectorViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName)
     {
+        return getViewInternal(session, viewName, ImmutableList.of());
+    }
+
+    private Optional<ConnectorViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName, List<ReferencingView> referencingViews)
+    {
         if (cannotExist(viewName)) {
             return Optional.empty();
         }
@@ -1685,7 +1697,7 @@ public final class MetadataManager
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-            return metadata.getView(connectorSession, viewName.asSchemaTableName());
+            return metadata.getView(connectorSession, viewName.asSchemaTableName(), referencingViews);
         }
         return Optional.empty();
     }
@@ -2094,8 +2106,14 @@ public final class MetadataManager
     @Override
     public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName)
     {
+        return getRedirectionAwareView(session, viewName, ImmutableList.of());
+    }
+
+    @Override
+    public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName, List<ReferencingView> referencingViews)
+    {
         QualifiedObjectName targetViewName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
-        Optional<ViewDefinition> view = getView(session, targetViewName);
+        Optional<ViewDefinition> view = getView(session, targetViewName, referencingViews);
 
         if (targetViewName.equals(viewName)) {
             return RedirectionAwareView.noRedirection(view);

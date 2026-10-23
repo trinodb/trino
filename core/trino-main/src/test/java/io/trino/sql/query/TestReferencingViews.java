@@ -63,6 +63,7 @@ public class TestReferencingViews
     private record Load(String table, List<ReferencingView> referencingViews) {}
 
     private final List<Load> tableLoads = new CopyOnWriteArrayList<>();
+    private final List<Load> viewLoads = new CopyOnWriteArrayList<>();
     private final QueryAssertions assertions;
     private final TestingAccessControlManager accessControl;
 
@@ -85,6 +86,7 @@ public class TestReferencingViews
                 .withGetColumns(_ -> TPCH_NATION_SCHEMA)
                 .withData(_ -> TPCH_NATION_DATA)
                 .withGetTableHandleObserver((table, views) -> tableLoads.add(new Load(table.getTableName(), ImmutableList.copyOf(views))))
+                .withGetViewObserver((view, views) -> viewLoads.add(new Load(view.getTableName(), ImmutableList.copyOf(views))))
                 .build()));
         runner.createCatalog(MOCK_CATALOG, "mock", ImmutableMap.of());
 
@@ -128,6 +130,14 @@ public class TestReferencingViews
         // views from all catalogs are passed, the connector decides which ones it understands
         assertThat(tableLoadsFor("SELECT * FROM other.default.cross_view")).containsExactly(new Load("t", ImmutableList.of(definer("other", "cross_view"))));
         assertThat(tableLoadsFor("SELECT * FROM view_over_cross_view")).containsExactly(new Load("t", ImmutableList.of(invoker("mock", "view_over_cross_view"), definer("other", "cross_view"))));
+    }
+
+    @Test
+    public void testViewLoadsCarryEnclosingViews()
+    {
+        assertThat(viewLoadsFor("SELECT * FROM outer_view")).contains(
+                new Load("outer_view", ImmutableList.of()),
+                new Load("inner_view", ImmutableList.of(definer("mock", "outer_view"))));
     }
 
     @Test
@@ -180,6 +190,13 @@ public class TestReferencingViews
         tableLoads.clear();
         assertions.execute(sql);
         return ImmutableList.copyOf(tableLoads);
+    }
+
+    private List<Load> viewLoadsFor(String sql)
+    {
+        viewLoads.clear();
+        assertions.execute(sql);
+        return ImmutableList.copyOf(viewLoads);
     }
 
     private static ReferencingView definer(String catalog, String view)
