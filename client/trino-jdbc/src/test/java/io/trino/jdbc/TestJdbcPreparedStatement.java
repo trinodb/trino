@@ -1228,7 +1228,8 @@ public class TestJdbcPreparedStatement
 
         // setObject with java.time.LocalTime
         assertBind((ps, i) -> ps.setObject(i, time), explicitPrepare)
-                .isInvalid("Unsupported object type: java.time.LocalTime");
+                .resultsIn("time(0)", "TIME '12:34:56'")
+                .roundTripsAs(Types.TIME, sqlTime);
 
         // setObject with java.sql.Time
         assertBind((ps, i) -> ps.setObject(i, sqlTime), explicitPrepare)
@@ -1280,7 +1281,8 @@ public class TestJdbcPreparedStatement
 
         // DECISECOND setObject with java.time.LocalTime
         assertBind((ps, i) -> ps.setObject(i, timeWithDecisecond), explicitPrepare)
-                .isInvalid("Unsupported object type: java.time.LocalTime");
+                .resultsIn("time(1)", "TIME '12:34:56.1'")
+                .roundTripsAs(Types.TIME, sqlTimeWithDecisecond);
 
         // DECISECOND setObject with java.sql.Time
         assertBind((ps, i) -> ps.setObject(i, sqlTimeWithDecisecond), explicitPrepare)
@@ -1332,7 +1334,8 @@ public class TestJdbcPreparedStatement
 
         // MILLISECOND setObject with java.time.LocalTime
         assertBind((ps, i) -> ps.setObject(i, timeWithMillisecond), explicitPrepare)
-                .isInvalid("Unsupported object type: java.time.LocalTime");
+                .resultsIn("time(3)", "TIME '12:34:56.123'")
+                .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
 
         // MILLISECOND setObject with java.sql.Time
         assertBind((ps, i) -> ps.setObject(i, sqlTimeWithMillisecond), explicitPrepare)
@@ -1379,7 +1382,8 @@ public class TestJdbcPreparedStatement
 
         // MICROSECOND setObject with java.time.LocalTime
         assertBind((ps, i) -> ps.setObject(i, timeWithMicrosecond), explicitPrepare)
-                .isInvalid("Unsupported object type: java.time.LocalTime");
+                .resultsIn("time(6)", "TIME '12:34:56.123456'")
+                .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
 
         // MICROSECOND setObject(TIME) with java.time.LocalTime
         assertBind((ps, i) -> ps.setObject(i, timeWithMicrosecond, Types.TIME), explicitPrepare)
@@ -1406,7 +1410,8 @@ public class TestJdbcPreparedStatement
 
         // NANOSECOND setObject with java.time.LocalTime
         assertBind((ps, i) -> ps.setObject(i, timeWithNanosecond), explicitPrepare)
-                .isInvalid("Unsupported object type: java.time.LocalTime");
+                .resultsIn("time(9)", "TIME '12:34:56.123456789'")
+                .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
 
         // NANOSECOND setObject(TIME) with java.time.LocalTime
         assertBind((ps, i) -> ps.setObject(i, timeWithNanosecond, Types.TIME), explicitPrepare)
