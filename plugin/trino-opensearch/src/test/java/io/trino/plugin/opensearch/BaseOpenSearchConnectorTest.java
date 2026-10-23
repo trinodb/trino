@@ -317,6 +317,25 @@ public abstract class BaseOpenSearchConnectorTest
             throws IOException
     {
         String index = "field_name_with_special_characters_" + randomNameSuffix();
+        createIndex(index,
+                """
+                {
+                    "properties": {
+                        "with$sign": {
+                            "type": "long"
+                        },
+                        "nested": {
+                            "type": "object",
+                            "properties": {
+                                "with$sign": {
+                                    "type": "text"
+                                }
+                            }
+                        }
+                    }
+                }
+                """);
+
         index(index, ImmutableMap.<String, Object>builder()
                 .put("with$sign", 55)
                 .put("nested", ImmutableMap.<String, Object>builder()
