@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.RecordPageSource;
 
 import java.util.List;
@@ -48,8 +49,9 @@ public class RecordPageSourceProvider
             ConnectorTableHandle table,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
-        return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, table, columns));
+        return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, table, columns), memoryContext);
     }
 }

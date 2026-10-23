@@ -30,18 +30,28 @@ public class RecordPageSource
     private final RecordCursor cursor;
     private final List<Type> types;
     private final PageBuilder pageBuilder;
+    private final MemoryContext memoryContext;
     private boolean closed;
 
-    public RecordPageSource(RecordSet recordSet)
+    public RecordPageSource(RecordSet recordSet, MemoryContext memoryContext)
     {
-        this(recordSet.getColumnTypes(), recordSet.cursor());
+        this(recordSet.getColumnTypes(), recordSet.cursor(), memoryContext);
     }
 
-    public RecordPageSource(List<Type> types, RecordCursor cursor)
+    public RecordPageSource(List<Type> types, RecordCursor cursor, MemoryContext memoryContext)
     {
         this.cursor = requireNonNull(cursor, "cursor is null");
         this.types = List.copyOf(requireNonNull(types, "types is null"));
         this.pageBuilder = new PageBuilder(this.types);
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        try {
+            updateMemoryUsage();
+        }
+        catch (Throwable throwable) {
+            try (cursor) {
+                throw throwable;
+            }
+        }
     }
 
     public RecordCursor getCursor()
@@ -62,16 +72,12 @@ public class RecordPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return cursor.getMemoryUsage() + pageBuilder.getRetainedSizeInBytes();
-    }
-
-    @Override
     public void close()
     {
         closed = true;
         cursor.close();
+        // The builder remains retained; its reservation is released by the context's owner.
+        updateMemoryUsage();
     }
 
     @Override
@@ -124,9 +130,16 @@ public class RecordPageSource
         if ((closed && !pageBuilder.isEmpty()) || pageBuilder.isFull()) {
             Page page = pageBuilder.build();
             pageBuilder.reset();
+            updateMemoryUsage();
             return SourcePage.create(page);
         }
 
+        updateMemoryUsage();
         return null;
+    }
+
+    private void updateMemoryUsage()
+    {
+        memoryContext.setBytes(cursor.getMemoryUsage() + pageBuilder.getRetainedSizeInBytes());
     }
 }
