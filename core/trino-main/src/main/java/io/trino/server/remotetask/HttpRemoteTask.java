@@ -73,7 +73,6 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
-import jakarta.ws.rs.ServiceUnavailableException;
 
 import java.net.URI;
 import java.time.Instant;
@@ -107,6 +106,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.HttpStatus.SERVICE_UNAVAILABLE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -1003,7 +1003,7 @@ public final class HttpRemoteTask
             public void onSuccess(JsonResponse<TaskInfo> result)
             {
                 if (result.getStatusCode() != OK.code()) {
-                    onFailure(exceptionForErrorCode(result));
+                    onFailure(exceptionForErrorCode(result, request.getUri()));
                     return;
                 }
 
@@ -1024,10 +1024,10 @@ public final class HttpRemoteTask
                 }
             }
 
-            private static RuntimeException exceptionForErrorCode(JsonResponse<TaskInfo> result)
+            private static RuntimeException exceptionForErrorCode(JsonResponse<TaskInfo> result, URI uri)
             {
                 return switch (result.getStatusCode()) {
-                    case HTTP_UNAVAILABLE -> new ServiceUnavailableException("Service Unavailable");
+                    case HTTP_UNAVAILABLE -> new RetryableResponseException(SERVICE_UNAVAILABLE, uri);
                     default -> new RuntimeException("Unexpected http status code " + result.getStatusCode());
                 };
             }

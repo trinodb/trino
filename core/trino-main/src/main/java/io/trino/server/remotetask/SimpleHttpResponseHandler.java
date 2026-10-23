@@ -20,6 +20,7 @@ import io.trino.spi.TrinoException;
 
 import java.net.URI;
 
+import static io.airlift.http.client.HttpStatus.SERVICE_UNAVAILABLE;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -48,8 +49,8 @@ public class SimpleHttpResponseHandler<T>
             if (response.getStatusCode() == HttpStatus.OK.code() && response.hasValue()) {
                 callback.success(response.getValue());
             }
-            else if (response.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
-                callback.failed(new ServiceUnavailableException(uri));
+            else if (response.getStatusCode() == SERVICE_UNAVAILABLE.code()) {
+                callback.failed(new RetryableResponseException(SERVICE_UNAVAILABLE, uri));
             }
             else {
                 // Something is broken in the server or the client, so fail the task immediately (includes 500 errors)
@@ -84,14 +85,5 @@ public class SimpleHttpResponseHandler<T>
     {
         stats.updateFailure();
         callback.failed(t);
-    }
-
-    private static class ServiceUnavailableException
-            extends RuntimeException
-    {
-        public ServiceUnavailableException(URI uri)
-        {
-            super("Server returned SERVICE_UNAVAILABLE: " + uri);
-        }
     }
 }
