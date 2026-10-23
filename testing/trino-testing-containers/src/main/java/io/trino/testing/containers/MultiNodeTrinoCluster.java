@@ -14,7 +14,6 @@
 package io.trino.testing.containers;
 
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.trino.TrinoContainer;
@@ -34,6 +33,7 @@ import java.util.Properties;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static io.trino.testing.containers.TrinoProductTestContainer.STARTUP_TIMEOUT_SECONDS;
 import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
 import static java.util.Objects.requireNonNull;
 
@@ -432,12 +432,8 @@ public class MultiNodeTrinoCluster
                 coordinatorCustomizer.accept(coordinator);
             }
 
-            // Add a robust wait strategy
-            coordinator.waitingFor(
-                    Wait.forHttp("/v1/info")
-                            .forPort(8080)
-                            .forStatusCode(200)
-                            .withStartupTimeout(Duration.ofSeconds(90)));
+            // TrinoContainer waits by running a test query, ignoring waitingFor()
+            coordinator.withStartupTimeoutSeconds(STARTUP_TIMEOUT_SECONDS);
 
             // Build workers
             List<TrinoWorkerContainer> workers = new ArrayList<>();
