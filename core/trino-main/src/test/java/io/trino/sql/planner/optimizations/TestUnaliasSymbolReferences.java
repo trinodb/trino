@@ -162,7 +162,8 @@ public class TestUnaliasSymbolReferences
                             WarningCollector.NOOP,
                             createPlanOptimizersStatsCollector(),
                             new CachingTableStatsProvider(metadata, session, () -> false),
-                            RuntimeInfoProvider.noImplementation()));
+                            RuntimeInfoProvider.noImplementation(),
+                            () -> false));
 
             Plan actual = new Plan(optimized, StatsAndCosts.empty());
             PlanAssert.assertPlan(session, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), planTester.getStatsCalculator(), actual, pattern);

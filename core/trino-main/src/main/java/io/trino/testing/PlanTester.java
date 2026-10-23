@@ -248,6 +248,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -963,6 +964,11 @@ public class PlanTester
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
+        return createPlan(session, sql, optimizers, stage, warningCollector, planOptimizersStatsCollector, () -> false);
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector, BooleanSupplier isQueryDone)
+    {
         // session must be in a transaction registered with the transaction manager in this query runner
         transactionManager.getTransactionInfo(session.getRequiredTransactionId());
 
@@ -990,7 +996,8 @@ public class PlanTester
                 costCalculator,
                 warningCollector,
                 planOptimizersStatsCollector,
-                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session, () -> false));
+                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session, () -> false),
+                isQueryDone);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         // make PlanTester always compute plan statistics for test purposes
@@ -1007,7 +1014,8 @@ public class PlanTester
                 new PlanSanityChecker(false),
                 warningCollector,
                 planOptimizersStatsCollector,
-                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session, () -> false));
+                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session, () -> false),
+                () -> false);
         return adaptivePlanner.optimize(subPlan, runtimeInfoProvider);
     }
 

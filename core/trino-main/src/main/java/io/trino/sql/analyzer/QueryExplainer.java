@@ -193,7 +193,8 @@ public class QueryExplainer
                 costCalculator,
                 warningCollector,
                 planOptimizersStatsCollector,
-                new CachingTableStatsProvider(plannerContext.getMetadata(), session, () -> false));
+                new CachingTableStatsProvider(plannerContext.getMetadata(), session, () -> false),
+                () -> false);
         return logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED, true);
     }
 

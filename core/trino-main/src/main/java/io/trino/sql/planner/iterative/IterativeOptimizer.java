@@ -50,6 +50,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -58,6 +59,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
+import static io.trino.sql.planner.LogicalPlanner.checkQueryNotDone;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
@@ -126,7 +128,8 @@ public class IterativeOptimizer
                 context.session(),
                 context.warningCollector(),
                 context.tableStatsProvider(),
-                context.runtimeInfoProvider());
+                context.runtimeInfoProvider(),
+                context.isQueryDone());
         exploreGroup(memo.getRootGroup(), optimizerContext, changedPlanNodeIds);
         context.planOptimizersStatsCollector().add(optimizerContext.getIterativeOptimizerStatsCollector());
         return new Result(memo.extract(), ImmutableSet.copyOf(changedPlanNodeIds));
@@ -346,6 +349,7 @@ public class IterativeOptimizer
         private final WarningCollector warningCollector;
         private final TableStatsProvider tableStatsProvider;
         private final RuntimeInfoProvider runtimeStatsProvider;
+        private final BooleanSupplier isQueryDone;
 
         private final PlanOptimizersStatsCollector iterativeOptimizerStatsCollector;
 
@@ -359,7 +363,8 @@ public class IterativeOptimizer
                 Session session,
                 WarningCollector warningCollector,
                 TableStatsProvider tableStatsProvider,
-                RuntimeInfoProvider runtimeStatsProvider)
+                RuntimeInfoProvider runtimeStatsProvider,
+                BooleanSupplier isQueryDone)
         {
             checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
 
@@ -374,10 +379,12 @@ public class IterativeOptimizer
             this.iterativeOptimizerStatsCollector = createPlanOptimizersStatsCollector();
             this.tableStatsProvider = tableStatsProvider;
             this.runtimeStatsProvider = runtimeStatsProvider;
+            this.isQueryDone = isQueryDone;
         }
 
         public void checkTimeoutNotExhausted()
         {
+            checkQueryNotDone(isQueryDone);
             if (NANOSECONDS.toMillis(nanoTime() - startTimeInNanos) >= timeoutInMilliseconds) {
                 StringBuilder message = new StringBuilder(format("The optimizer exhausted the time limit of %d ms", timeoutInMilliseconds));
                 List<QueryPlanOptimizerStatistics> topRulesByTime = iterativeOptimizerStatsCollector.getTopRuleStats(5);

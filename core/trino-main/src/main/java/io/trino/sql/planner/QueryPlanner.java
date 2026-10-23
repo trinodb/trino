@@ -134,6 +134,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -206,6 +207,7 @@ class QueryPlanner
     private final SubqueryPlanner subqueryPlanner;
     private final Optional<TranslationMap> outerContext;
     private final Map<NodeRef<Node>, RelationPlan> recursiveSubqueries;
+    private final BooleanSupplier isQueryDone;
 
     QueryPlanner(
             Analysis analysis,
@@ -215,7 +217,8 @@ class QueryPlanner
             PlannerContext plannerContext,
             Optional<TranslationMap> outerContext,
             Session session,
-            Map<NodeRef<Node>, RelationPlan> recursiveSubqueries)
+            Map<NodeRef<Node>, RelationPlan> recursiveSubqueries,
+            BooleanSupplier isQueryDone)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -233,8 +236,9 @@ class QueryPlanner
         this.plannerContext = plannerContext;
         this.session = session;
         this.outerContext = outerContext;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries);
+        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone);
         this.recursiveSubqueries = recursiveSubqueries;
+        this.isQueryDone = requireNonNull(isQueryDone, "isQueryDone is null");
     }
 
     public RelationPlan plan(Query query)
@@ -272,7 +276,7 @@ class QueryPlanner
 
         // plan anchor relation
         Relation anchorNode = union.getRelations().getFirst();
-        RelationPlan anchorPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+        RelationPlan anchorPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                 .process(anchorNode, null);
 
         // prune anchor plan outputs to contain only the symbols exposed in the scope
@@ -296,7 +300,8 @@ class QueryPlanner
                 plannerContext,
                 outerContext,
                 session,
-                ImmutableMap.of(NodeRef.of(analysis.getRecursiveReference(query)), anchorPlan))
+                ImmutableMap.of(NodeRef.of(analysis.getRecursiveReference(query)), anchorPlan),
+                isQueryDone)
                 .process(recursionStepRelation, null);
 
         // coerce recursion step outputs and prune them to contain only the symbols exposed in the scope
@@ -723,7 +728,7 @@ class QueryPlanner
         TableHandle handle = analysis.getTableHandle(table);
 
         // create table scan
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                 .process(table, null);
 
         PlanBuilder builder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
@@ -826,7 +831,7 @@ class QueryPlanner
         List<io.trino.sql.tree.Expression> orderedColumnValues = Arrays.stream(orderedColumnValuesArray).toList();
 
         // create table scan
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                 .process(table, null);
 
         PlanBuilder subPlanBuilder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
@@ -960,7 +965,7 @@ class QueryPlanner
         List<List<ColumnHandle>> mergeCaseColumnsHandles = mergeAnalysis.getMergeCaseColumnHandles();
 
         // Make the plan for the merge target table scan
-        RelationPlan targetTablePlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+        RelationPlan targetTablePlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                 .process(merge.getTarget());
 
         // Assign a unique id to every target table row
@@ -984,7 +989,7 @@ class QueryPlanner
                 planWithUniqueId.getFieldMappings(),
                 outerContext);
 
-        RelationPlan source = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+        RelationPlan source = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                 .process(merge.getSource());
 
         // Assign a unique id to every source table row
@@ -995,7 +1000,7 @@ class QueryPlanner
                 source.getFieldMappings(),
                 outerContext);
 
-        RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+        RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                 .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, sourcePlanWithUniqueId, analysis.getSubqueries(merge)); // TODO: ir
 
         PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
@@ -1325,7 +1330,7 @@ class QueryPlanner
 
     private PlanBuilder planQueryBody(Query query)
     {
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                 .process(query.getQueryBody(), null);
 
         return newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
@@ -1334,7 +1339,7 @@ class QueryPlanner
     private PlanBuilder planFrom(QuerySpecification node)
     {
         if (node.getFrom().isPresent()) {
-            RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+            RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                     .process(node.getFrom().get(), null);
             return newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
         }
@@ -2140,7 +2145,7 @@ class QueryPlanner
             mappings.put(scopeAwareKey(windowFunction, analysis, subPlan.getScope()), newSymbol);
         }
 
-        PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+        PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                 .planPatternRecognitionComponents(
                         subPlan.getTranslations(),
                         frame.getSubsets(),
@@ -2282,7 +2287,7 @@ class QueryPlanner
                 // pattern recognition does not allow frame exclusion
                 FrameExclusion.NO_OTHERS);
 
-        PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+        PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                 .planPatternRecognitionComponents(
                         subPlan.getTranslations(),
                         frame.getSubsets(),
