@@ -158,6 +158,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness> getMaterializedViewFreshness;
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver;
+    private final BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final Function<SchemaTableName, Optional<String>> getComment;
     private final Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles;
@@ -215,6 +216,7 @@ public class MockConnector
             BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness> getMaterializedViewFreshness,
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver,
+            BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             Function<SchemaTableName, Optional<String>> getComment,
             Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles,
@@ -271,6 +273,7 @@ public class MockConnector
         this.getMaterializedViewFreshness = requireNonNull(getMaterializedViewFreshness, "getMaterializedViewFreshness is null");
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getTableHandleObserver = requireNonNull(getTableHandleObserver, "getTableHandleObserver is null");
+        this.getViewObserver = requireNonNull(getViewObserver, "getViewObserver is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.getComment = requireNonNull(getComment, "getComment is null");
         this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
@@ -803,6 +806,13 @@ public class MockConnector
         public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
         {
             return getViews.apply(session, schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new));
+        }
+
+        @Override
+        public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName, List<ReferencingView> referencingViews)
+        {
+            getViewObserver.accept(viewName, referencingViews);
+            return getView(session, viewName);
         }
 
         @Override
