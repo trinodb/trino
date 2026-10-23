@@ -142,10 +142,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
@@ -453,7 +453,7 @@ public class TestingTrinoServer
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
 
-        getFutureValue(injector.getInstance(Announcer.class).forceAnnounce());
+        getUnchecked(injector.getInstance(Announcer.class).forceAnnounce());
         // Must be run before startup is considered complete and node will therefore accept tasks.
         // Technically `this` reference might escape here. However, the object is fully constructed.
         additionalConfiguration.accept(this);
