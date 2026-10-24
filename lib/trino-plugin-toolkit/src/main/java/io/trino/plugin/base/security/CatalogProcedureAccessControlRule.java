@@ -93,9 +93,4 @@ public class CatalogProcedureAccessControlRule
     {
         return procedureAccessControlRule.canExecuteProcedure();
     }
-
-    public boolean canGrantExecuteProcedure()
-    {
-        return procedureAccessControlRule.canGrantExecuteProcedure();
-    }
 }
