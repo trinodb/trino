@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
@@ -32,13 +33,19 @@ import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer;
 import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeSerializer;
 import com.fasterxml.jackson.databind.jsontype.impl.TypeIdResolverBase;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.module.SimpleSerializers;
+import com.fasterxml.jackson.databind.ser.BasicSerializerFactory;
 import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
+import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
+import com.fasterxml.jackson.databind.ser.SerializerFactory;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableList;
 import io.trino.cache.NonEvictableCache;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
@@ -52,6 +59,9 @@ public abstract class AbstractTypedJacksonModule<T>
 {
     private static final String TYPE_PROPERTY = "@type";
 
+    private final Class<T> baseClass;
+    private final TypeIdResolver typeResolver;
+
     protected AbstractTypedJacksonModule(
             Class<T> baseClass,
             Function<Object, String> nameResolver,
@@ -59,10 +69,23 @@ public abstract class AbstractTypedJacksonModule<T>
     {
         super(baseClass.getSimpleName() + "Module", Version.unknownVersion());
 
-        TypeIdResolver typeResolver = new InternalTypeResolver(nameResolver, classResolver);
+        this.baseClass = baseClass;
+        typeResolver = new InternalTypeResolver(nameResolver, classResolver);
 
-        addSerializer(baseClass, new InternalTypeSerializer<>(baseClass, typeResolver));
         addDeserializer(baseClass, new InternalTypeDeserializer<>(baseClass, typeResolver));
+    }
+
+    @Override
+    public void setupModule(SetupContext context)
+    {
+        super.setupModule(context);
+        // Each mapper gets its own serializer, which builds and caches bean serializers with that mapper's modifiers
+        Optional<ObjectMapper> mapper = Optional.of(context.getOwner())
+                .filter(ObjectMapper.class::isInstance)
+                .map(ObjectMapper.class::cast);
+        SimpleSerializers serializers = new SimpleSerializers();
+        serializers.addSerializer(baseClass, new InternalTypeSerializer<>(baseClass, typeResolver, mapper));
+        context.addSerializers(serializers);
     }
 
     private static class InternalTypeDeserializer<T>
@@ -97,11 +120,13 @@ public abstract class AbstractTypedJacksonModule<T>
     {
         private final TypeSerializer typeSerializer;
         private final NonEvictableCache<Class<?>, JsonSerializer<T>> serializerCache = buildNonEvictableCache(CacheBuilder.newBuilder());
+        private final Optional<ObjectMapper> mapper;
 
-        public InternalTypeSerializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
+        public InternalTypeSerializer(Class<T> baseClass, TypeIdResolver typeIdResolver, Optional<ObjectMapper> mapper)
         {
             super(baseClass);
             this.typeSerializer = new AsPropertyTypeSerializer(typeIdResolver, null, TYPE_PROPERTY);
+            this.mapper = requireNonNull(mapper, "mapper is null");
         }
 
         @Override
@@ -128,11 +153,25 @@ public abstract class AbstractTypedJacksonModule<T>
         }
 
         @SuppressWarnings("unchecked")
-        private static <T> JsonSerializer<T> createSerializer(SerializerProvider provider, Class<?> type)
+        private JsonSerializer<T> createSerializer(SerializerProvider provider, Class<?> type)
                 throws JsonMappingException
         {
             JavaType javaType = provider.constructType(type);
-            return (JsonSerializer<T>) BeanSerializerFactory.instance.createSerializer(provider, javaType);
+            return (JsonSerializer<T>) serializerFactory().createSerializer(provider, javaType);
+        }
+
+        // The mapper's factory maps every subtype of the base class to this serializer, so only its
+        // modifiers, such as Blackbird property accessors, are reused on a plain bean serializer factory
+        private SerializerFactory serializerFactory()
+        {
+            SerializerFactory factory = BeanSerializerFactory.instance;
+            if (mapper.isPresent() && mapper.get().getSerializerFactory() instanceof BasicSerializerFactory configured) {
+                // Each added modifier goes first, so adding them in reverse keeps the mapper's order
+                for (BeanSerializerModifier modifier : ImmutableList.copyOf(configured.getFactoryConfig().serializerModifiers()).reverse()) {
+                    factory = factory.withSerializerModifier(modifier);
+                }
+            }
+            return factory;
         }
     }
 
