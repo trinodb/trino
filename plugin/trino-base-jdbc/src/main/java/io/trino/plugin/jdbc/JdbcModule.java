@@ -129,11 +129,6 @@ public class JdbcModule
         return newSetBinder(binder, Procedure.class);
     }
 
-    public static void bindProcedure(Binder binder, Class<? extends Provider<? extends Procedure>> type)
-    {
-        procedureBinder(binder).addBinding().toProvider(type).in(Scopes.SINGLETON);
-    }
-
     public static Multibinder<TablePropertiesProvider> tablePropertiesProviderBinder(Binder binder)
     {
         return newSetBinder(binder, TablePropertiesProvider.class);
