@@ -41,11 +41,6 @@ class RangerTrinoResource
         return new RangerTrinoResource(KEY_USER, userName);
     }
 
-    public static RangerTrinoResource forRole(String roleName)
-    {
-        return new RangerTrinoResource(KEY_ROLE, roleName);
-    }
-
     public static RangerTrinoResource forQueryId(String queryId)
     {
         return new RangerTrinoResource(KEY_QUERY_ID, queryId);
