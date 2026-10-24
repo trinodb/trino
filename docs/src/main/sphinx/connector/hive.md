@@ -1207,7 +1207,7 @@ SELECT * FROM example.web."page_views$partitions";
   -
 * - `partition_projection_format`
   - Used with `partition_projection_type` set to `DATE`. The date column
-    projection format, defined as a string such as `yyyy MM` or `MM-dd-yy
+    projection format, defined as a string such as `yyyy-MM` or `MM-dd-yy
     HH:mm:ss` for use with the [Java DateTimeFormatter
     class](https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html).
     Mapped from the AWS Athena table property
@@ -1218,6 +1218,12 @@ SELECT * FROM example.web."page_views$partitions";
     interval unit given in `partition_projection_interval`. Mapped from the AWS
     Athena table property
     [projection.${columnName}.interval.unit](https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html).
+    Supported units are `DAYS`, `HOURS`, `MINUTES`, and `SECONDS`. Formats with
+    month, quarter, or year precision, such as `yyyy-MM`, `'abc'-yyyy-MM`,
+    `yyyy-'Q'Q`, or `yyyy`, are supported only for `VARCHAR` columns and require
+    an explicit supported interval unit. Values advance by the configured
+    interval, regardless of the format precision. `MONTHS`, `YEARS`, and `WEEKS`
+    intervals are not supported.
   -
 
 :::
