@@ -23,6 +23,7 @@ import java.util.Locale;
 import static io.trino.client.IntervalDayTime.formatInterval;
 import static io.trino.client.IntervalDayTime.formatMicros;
 import static io.trino.client.IntervalDayTime.formatMillis;
+import static io.trino.client.IntervalDayTime.parseMillis;
 import static io.trino.client.IntervalDayTime.parseMicros;
 import static io.trino.client.IntervalDayTime.parseToPicos;
 import static io.trino.client.IntervalDayTime.toMicros;
@@ -45,6 +46,18 @@ public class TestIntervalDayTime
         }
         assertThat(parseToPicos("0 00:00:00.000000000001")).containsExactly(0, 1);
         assertThat(parseToPicos("0 00:00:01")).containsExactly(1_000_000, 0);
+    }
+
+    @Test
+    public void testLegacyMillisRequiresDecimalPoint()
+    {
+        assertThat(parseMillis("1 02:03:04.005")).isEqualTo(93_784_005);
+
+        for (String value : new String[] {"1 02:03:04x005", "1 02:03:04,005", "1 02:03:040005"}) {
+            assertThatThrownBy(() -> parseMillis(value))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageStartingWith("Invalid day-time interval:");
+        }
     }
 
     @Test
