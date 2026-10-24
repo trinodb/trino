@@ -194,11 +194,13 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static java.lang.Boolean.parseBoolean;
@@ -483,9 +485,11 @@ public final class IcebergUtil
         List<NestedField> icebergColumns = schema.columns();
         ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 5);
         for (NestedField column : icebergColumns) {
+            Type type = toTrinoType(column.type(), typeManager);
             columns.add(ColumnMetadata.builder()
                     .setName(column.name())
-                    .setType(toTrinoType(column.type(), typeManager))
+                    .setType(type)
+                    .setTimeZone(containsTimestampWithTimeZone(type) ? Optional.of(UTC_KEY) : Optional.empty())
                     .setNullable(column.isOptional())
                     .setComment(Optional.ofNullable(column.doc()))
                     .setDefaultValue(formatIcebergDefaultAsSql(column.writeDefault(), column.type()))

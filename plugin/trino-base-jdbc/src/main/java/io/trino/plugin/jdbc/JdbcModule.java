@@ -65,7 +65,6 @@ public class JdbcModule
 
         newOptionalBinder(binder, JdbcMetadataFactory.class).setDefault().to(DefaultJdbcMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, IdentityCacheMapping.class).setDefault().to(SingletonIdentityCacheMapping.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, TimestampTimeZoneDomain.class).setDefault().toInstance(TimestampTimeZoneDomain.ANY);
         newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class)).setDefault().to(JdbcSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorSplitManager.class).setDefault().to(JdbcDynamicFilteringSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(JdbcPageSourceProvider.class).in(Scopes.SINGLETON);
