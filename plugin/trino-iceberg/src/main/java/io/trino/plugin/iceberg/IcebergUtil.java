@@ -96,6 +96,7 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -210,6 +211,7 @@ import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
+import static java.util.Comparator.reverseOrder;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
@@ -526,6 +528,52 @@ public final class IcebergUtil
                 .nullable(childColumn.isOptional())
                 .comment(childColumn.doc())
                 .build();
+    }
+
+    public static Map<Integer, IcebergColumnHandle> buildColumnHandleIndex(Schema tableSchema, Map<Integer, Schema> schemas, TypeManager typeManager)
+    {
+        // Equality deletes can reference fields dropped from the table schema, which are resolved from the newest schema that contains them.
+        // Fields of the table schema are resolved from it when needed, as indexing a field nested in a wide row would repeat the type of the row.
+        if (schemas.size() <= 1) {
+            // dropping a field always creates a newer schema
+            return ImmutableMap.of();
+        }
+        Map<Integer, IcebergColumnHandle> index = new HashMap<>();
+        schemas.values().stream()
+                .sorted(comparing(Schema::schemaId, reverseOrder()))
+                .forEach(schema -> {
+                    for (NestedField column : schema.columns()) {
+                        addDroppedColumnHandles(tableSchema, index, column, column, ImmutableList.of(), typeManager);
+                    }
+                });
+        return ImmutableMap.copyOf(index);
+    }
+
+    private static void addDroppedColumnHandles(Schema tableSchema, Map<Integer, IcebergColumnHandle> index, NestedField baseColumn, NestedField field, List<Integer> path, TypeManager typeManager)
+    {
+        if (tableSchema.findField(field.fieldId()) == null && !index.containsKey(field.fieldId())) {
+            try {
+                // a nested field is projected from its base column, so it is read through a dereference
+                index.put(field.fieldId(), createColumnHandle(baseColumn, field, typeManager, path));
+            }
+            catch (TrinoException e) {
+                if (!e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
+                    throw e;
+                }
+                // Skip fields with unsupported types (e.g. geometry, geography);
+                // SELECT on those columns will still fail at projection time
+            }
+        }
+        // equality delete keys can be nested in structs, but not in lists or maps
+        if (field.type().isStructType()) {
+            for (NestedField child : field.type().asStructType().fields()) {
+                List<Integer> childPath = ImmutableList.<Integer>builder()
+                        .addAll(path)
+                        .add(child.fieldId())
+                        .build();
+                addDroppedColumnHandles(tableSchema, index, baseColumn, child, childPath, typeManager);
+            }
+        }
     }
 
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
