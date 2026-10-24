@@ -257,7 +257,7 @@ public class NativeLogicalTypesAvroTypeManager
                 logicalType = fromSchemaIgnoreInvalid(schema);
                 break;
             case LOCAL_TIMESTAMP_MICROS, LOCAL_TIMESTAMP_MILLIS:
-                log.debug("Logical type %s not currently supported by by Trino", typeName);
+                log.debug("Logical type %s not currently supported by Trino", typeName);
                 // fall through
             default:
                 return new NonNativeAvroLogicalType(typeName);

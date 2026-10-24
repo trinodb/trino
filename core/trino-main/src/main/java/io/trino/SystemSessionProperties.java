@@ -830,7 +830,7 @@ public final class SystemSessionProperties
                             if (value < 0 || value > MAX_TASK_RETRY_ATTEMPTS) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be greater than or equal to 0 and not not greater than %s", TASK_RETRY_ATTEMPTS_PER_TASK, MAX_TASK_RETRY_ATTEMPTS));
+                                        format("%s must be greater than or equal to 0 and not greater than %s", TASK_RETRY_ATTEMPTS_PER_TASK, MAX_TASK_RETRY_ATTEMPTS));
                             }
                         },
                         false),
