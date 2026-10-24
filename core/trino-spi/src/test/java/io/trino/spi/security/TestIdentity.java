@@ -33,6 +33,7 @@ class TestIdentity
                     "connector2", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("connector2role"))))
             // not part of identity:
             .withExtraCredentials(ImmutableMap.of("extra1", "credential1"))
+            .withClaims(ImmutableMap.of("claim1", "value1", "claim2", "value2"))
             .build();
 
     @Test
@@ -79,5 +80,39 @@ class TestIdentity
 
         assertThat(otherIdentity.hashCode())
                 .isEqualTo(TEST_IDENTITY.hashCode());
+    }
+
+    @Test
+    public void testClaims()
+    {
+        Identity identity = Identity.forUser("user")
+                .withClaims(ImmutableMap.of("sub", "user123", "email", "user@example.com"))
+                .build();
+
+        assertThat(identity.getClaims())
+                .containsEntry("sub", "user123")
+                .containsEntry("email", "user@example.com")
+                .hasSize(2);
+
+        Identity identityWithAdditionalClaims = Identity.forUser("user")
+                .withClaims(ImmutableMap.of("claim1", "value1"))
+                .withAdditionalClaims(ImmutableMap.of("claim2", "value2", "claim3", "value3"))
+                .build();
+
+        assertThat(identityWithAdditionalClaims.getClaims())
+                .containsEntry("claim1", "value1")
+                .containsEntry("claim2", "value2")
+                .containsEntry("claim3", "value3")
+                .hasSize(3);
+
+        Identity copiedIdentity = Identity.from(TEST_IDENTITY).build();
+        assertThat(copiedIdentity.getClaims()).isEmpty();
+
+        Identity copiedWithClaims = Identity.from(TEST_IDENTITY)
+                .withClaims(ImmutableMap.of("newclaim", "newvalue"))
+                .build();
+        assertThat(copiedWithClaims.getClaims())
+                .containsEntry("newclaim", "newvalue")
+                .hasSize(1);
     }
 }
