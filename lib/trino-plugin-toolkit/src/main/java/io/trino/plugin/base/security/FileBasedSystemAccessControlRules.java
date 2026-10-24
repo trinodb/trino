@@ -34,6 +34,7 @@ public class FileBasedSystemAccessControlRules
     private final Optional<List<CatalogSessionPropertyAccessControlRule>> catalogSessionPropertyRules;
     private final Optional<List<CatalogFunctionAccessControlRule>> functionRules;
     private final Optional<List<CatalogProcedureAccessControlRule>> procedureRules;
+    private final Optional<List<CatalogTableProcedureAccessControlRule>> tableProcedureRules;
 
     @JsonCreator
     public FileBasedSystemAccessControlRules(
@@ -48,7 +49,8 @@ public class FileBasedSystemAccessControlRules
             @JsonProperty("system_session_properties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules,
             @JsonProperty("catalog_session_properties") Optional<List<CatalogSessionPropertyAccessControlRule>> catalogSessionPropertyRules,
             @JsonProperty("functions") Optional<List<CatalogFunctionAccessControlRule>> functionRules,
-            @JsonProperty("procedures") Optional<List<CatalogProcedureAccessControlRule>> procedureRules)
+            @JsonProperty("procedures") Optional<List<CatalogProcedureAccessControlRule>> procedureRules,
+            @JsonProperty("table_procedures") Optional<List<CatalogTableProcedureAccessControlRule>> tableProcedureRules)
     {
         this.catalogRules = catalogRules.map(ImmutableList::copyOf);
         this.queryAccessRules = queryAccessRules.map(ImmutableList::copyOf);
@@ -62,6 +64,7 @@ public class FileBasedSystemAccessControlRules
         this.catalogSessionPropertyRules = catalogSessionPropertyRules.map(ImmutableList::copyOf);
         this.functionRules = functionRules.map(ImmutableList::copyOf);
         this.procedureRules = procedureRules.map(ImmutableList::copyOf);
+        this.tableProcedureRules = tableProcedureRules.map(ImmutableList::copyOf);
     }
 
     public Optional<List<CatalogAccessControlRule>> getCatalogRules()
@@ -122,5 +125,10 @@ public class FileBasedSystemAccessControlRules
     public Optional<List<CatalogProcedureAccessControlRule>> getProcedureRules()
     {
         return procedureRules;
+    }
+
+    public Optional<List<CatalogTableProcedureAccessControlRule>> getTableProcedureRules()
+    {
+        return tableProcedureRules;
     }
 }
