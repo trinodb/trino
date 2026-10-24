@@ -23,11 +23,14 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TimestampType;
@@ -56,7 +59,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -65,6 +70,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
+import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
@@ -200,6 +206,128 @@ class TestCreateTableTask
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
                     .isEqualTo(ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateTableOverExistingViewFails()
+    {
+        metadata.registerView(new SchemaTableName("schema", "existing_view"));
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("existing_view"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                FAIL,
+                ImmutableList.of(),
+                Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
+                    .hasErrorCode(TABLE_ALREADY_EXISTS)
+                    .hasMessageContaining("already exists");
+            assertThat(metadata.getCreateTableCallCount()).isEqualTo(0);
+            return null;
+        });
+    }
+
+    @Test
+    void testReplaceTableOverExistingViewFails()
+    {
+        metadata.registerView(new SchemaTableName("schema", "existing_view"));
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("existing_view"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                REPLACE,
+                ImmutableList.of(),
+                Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
+                    .hasErrorCode(TABLE_ALREADY_EXISTS)
+                    .hasMessageContaining("already exists");
+            assertThat(metadata.getCreateTableCallCount()).isEqualTo(0);
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateTableIfNotExistsOverExistingViewIsIgnored()
+    {
+        metadata.registerView(new SchemaTableName("schema", "existing_view"));
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("existing_view"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                IGNORE,
+                ImmutableList.of(),
+                Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
+            assertThat(metadata.getCreateTableCallCount()).isEqualTo(0);
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateTableOverExistingMaterializedViewFails()
+    {
+        metadata.registerMaterializedView(new SchemaTableName("schema", "existing_materialized_view"));
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("existing_materialized_view"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                FAIL,
+                ImmutableList.of(),
+                Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
+                    .hasErrorCode(TABLE_ALREADY_EXISTS)
+                    .hasMessageContaining("already exists");
+            assertThat(metadata.getCreateTableCallCount()).isEqualTo(0);
+            return null;
+        });
+    }
+
+    @Test
+    void testReplaceTableOverExistingMaterializedViewFails()
+    {
+        metadata.registerMaterializedView(new SchemaTableName("schema", "existing_materialized_view"));
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("existing_materialized_view"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                REPLACE,
+                ImmutableList.of(),
+                Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
+                    .hasErrorCode(TABLE_ALREADY_EXISTS)
+                    .hasMessageContaining("already exists");
+            assertThat(metadata.getCreateTableCallCount()).isEqualTo(0);
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateTableIfNotExistsOverExistingMaterializedViewIsIgnored()
+    {
+        metadata.registerMaterializedView(new SchemaTableName("schema", "existing_materialized_view"));
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("existing_materialized_view"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                IGNORE,
+                ImmutableList.of(),
+                Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
+            assertThat(metadata.getCreateTableCallCount()).isEqualTo(0);
             return null;
         });
     }
@@ -586,6 +714,18 @@ class TestCreateTableTask
             implements ConnectorMetadata
     {
         private final List<ConnectorTableMetadata> tables = new CopyOnWriteArrayList<>();
+        private final Set<SchemaTableName> views = new CopyOnWriteArraySet<>();
+        private final Set<SchemaTableName> materializedViews = new CopyOnWriteArraySet<>();
+
+        public void registerView(SchemaTableName viewName)
+        {
+            views.add(viewName);
+        }
+
+        public void registerMaterializedView(SchemaTableName viewName)
+        {
+            materializedViews.add(viewName);
+        }
 
         @Override
         public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
@@ -606,6 +746,48 @@ class TestCreateTableTask
                 return new TestingTableHandle(tableName);
             }
             return null;
+        }
+
+        @Override
+        public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+        {
+            if (views.contains(viewName)) {
+                return Optional.of(new ConnectorViewDefinition(
+                        "SELECT a FROM some_table",
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        true,
+                        ImmutableList.of()));
+            }
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean isView(ConnectorSession session, SchemaTableName viewName)
+        {
+            return views.contains(viewName);
+        }
+
+        @Override
+        public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+        {
+            if (materializedViews.contains(viewName)) {
+                return Optional.of(new ConnectorMaterializedViewDefinition(
+                        "SELECT a FROM some_table",
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("a", BIGINT.getTypeId(), Optional.empty())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of("owner"),
+                        ImmutableList.of()));
+            }
+            return Optional.empty();
         }
 
         @Override
