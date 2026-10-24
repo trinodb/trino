@@ -844,6 +844,7 @@ public final class HiveUtil
         return handle -> ColumnMetadata.builder()
                 .setName(handle.getName())
                 .setType(handle.getType())
+                .setTimeZone(handle.getColumnMetadata().getTimeZone())
                 .setComment(handle.isHidden() ? Optional.empty() : columnComment.get(handle.getName()))
                 .setExtraInfo(columnExtraInfo(handle.isPartitionKey()))
                 .setHidden(handle.isHidden())
