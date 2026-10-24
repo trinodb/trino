@@ -46,8 +46,11 @@ support:
     `GLACIER`, `DEEP_ARCHIVE`, `OUTPOSTS`, `GLACIER_IR`, `SNOW`, `EXPRESS_ONEZONE`.
 * - `s3.signer-type`
   - AWS signing protocol to use for authenticating S3 requests. Supported values are: 
-    `AwsS3V4Signer`, `Aws4Signer`, `AsyncAws4Signer`, `Aws4UnsignedPayloadSigner`, 
-    `EventStreamAws4Signer`.
+    `AwsS3V4Signer`, `Aws4Signer`, `AsyncAws4Signer`, `Aws4UnsignedPayloadSigner`,
+    `Aws4SignedPayloadSigner`, `EventStreamAws4Signer`. 
+    Note that `Aws4SignedPayloadSigner` sends the SHA-256 of the payload in the 
+    `x-amz-content-sha256` header. To get a plain SHA-256 instead of a per-chunk
+    signature, also set `s3.chunked-encoding-enabled=false`.
 * - `s3.canned-acl`
   - [Canned ACL](https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl)
     to use when uploading files to S3. Defaults to `NONE`, which has the same
