@@ -48,19 +48,24 @@ export interface MemoryAllocationItem {
     allocation: number
 }
 
+// io.trino.spi.memory.MemoryPoolInfo. Revocable memory is only reported per task (keys are task IDs,
+// "<queryId>.<stage>.<partition>.<attempt>"); there is no per-query revocable map.
 export interface MemoryUsagePool {
     freeBytes: number
     maxBytes: number
     reservedBytes: number
     reservedRevocableBytes: number
     queryMemoryAllocations: {
-        [key: string]: MemoryAllocationItem
+        [queryId: string]: MemoryAllocationItem[]
     }
     queryMemoryReservations: {
-        [key: string]: number
+        [queryId: string]: number
     }
-    queryMemoryRevocableReservations: {
-        [key: string]: number
+    taskMemoryReservations: {
+        [taskId: string]: number
+    }
+    taskMemoryRevocableReservations: {
+        [taskId: string]: number
     }
 }
 
@@ -150,6 +155,9 @@ export interface QueryStats {
     runningPercentage: number
     spilledDataSize: string
     totalCpuTime: string
+    totalBlockedTime: string
+    inputBlockedTime: string
+    outputBlockedTime: string
     totalDrivers: number
     totalMemoryReservation: string
     totalScheduledTime: string
@@ -199,6 +207,9 @@ export interface QueryInfo extends QueryInfoBase {
     sessionUser: string
     queryDataEncoding: string
     traceToken: string
+    // Set by the query list, not the server: share of all cluster cores (0-100) this query used over the last
+    // few seconds; undefined until two samples exist or once the query is done
+    cpuShare?: number
 }
 
 export interface Session {

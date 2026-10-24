@@ -11,8 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { ReactNode } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import React, { ReactNode, useEffect } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Box, Divider, Grid, Tab, Tabs, Typography } from '@mui/material'
 import { QueryJson } from './QueryJson'
 import { QueryReferences } from './QueryReferences'
@@ -35,6 +35,7 @@ const tabComponentMap: Record<TabValue, ReactNode> = {
 export const QueryDetails = () => {
     const { queryId } = useParams()
     const [searchParams, setSearchParams] = useSearchParams()
+    const navigate = useNavigate()
     const requestedTab = searchParams.get('tab')
     const tabValue: TabValue = tabValues.includes(requestedTab as TabValue) ? (requestedTab as TabValue) : 'overview'
 
@@ -54,20 +55,40 @@ export const QueryDetails = () => {
         setSearchParams(nextParams)
     }
 
+    // Escape goes back to the dashboard, unless something on the page is using it (a dialog, a menu, a field, the
+    // JSON editor) or already handled it
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement
+            if (
+                event.key !== 'Escape' ||
+                event.defaultPrevented ||
+                target.isContentEditable ||
+                ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
+                target.closest('[role="dialog"], [role="menu"], [role="listbox"], .monaco-editor')
+            ) {
+                return
+            }
+            // The dashboard re-selects this query if it is still listed
+            navigate('/dashboard', { state: { selectedQueryId: queryId } })
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+    }, [navigate, queryId])
+
     return (
         <>
-            <Box sx={{ pb: 2 }}>
-                <Typography variant="h4">Query details</Typography>
-            </Box>
-
             <>
-                <Grid container sx={{ pt: 2, alignItems: 'center' }}>
+                <Grid container sx={{ alignItems: 'center' }}>
                     <Grid size={{ xs: 12, lg: 4 }}>
-                        <Typography variant="h6">{queryId}</Typography>
+                        <Typography variant="h6" sx={{ overflowWrap: 'anywhere' }}>
+                            {queryId}
+                        </Typography>
                     </Grid>
                     <Grid size={{ xs: 12, lg: 8 }}>
                         <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', lg: 'flex-end' } }}>
-                            <Tabs value={tabValue} onChange={handleTabChange}>
+                            {/* Scrollable so the six tabs never push the page wider than a phone screen */}
+                            <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" sx={{ minWidth: 0 }}>
                                 <Tab value="overview" label="Overview" />
                                 <Tab value="livePlan" label="Live plan" />
                                 <Tab value="stagePerformance" label="Stage performance" />
