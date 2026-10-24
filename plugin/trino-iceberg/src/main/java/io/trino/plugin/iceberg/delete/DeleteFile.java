@@ -46,7 +46,8 @@ public record DeleteFile(
         long dataSequenceNumber,
         OptionalLong contentOffset,
         Optional<Integer> contentSizeInBytes,
-        Optional<ParquetFileDecryptionData> parquetFileDecryptionData)
+        Optional<ParquetFileDecryptionData> parquetFileDecryptionData,
+        Optional<String> referencedDataFile)
 {
     private static final long INSTANCE_SIZE = instanceSize(DeleteFile.class);
 
@@ -69,6 +70,14 @@ public record DeleteFile(
         OptionalLong contentOffset = deleteFile.contentOffset() == null ? OptionalLong.empty() : OptionalLong.of(deleteFile.contentOffset());
         Optional<Integer> contentSizeInBytes = Optional.ofNullable(deleteFile.contentSizeInBytes()).map(Math::toIntExact);
 
+        // Iceberg's DeleteFile declares dataSequenceNumber() as boxed Long. The production
+        // manifest-read path always assigns it before handing the file to Trino, but in-memory
+        // builders leave it null. Guard explicitly so auto-unboxing cannot turn a misuse into a
+        // bare NPE that hides which field was missing.
+        Long dataSequenceNumber = requireNonNull(
+                deleteFile.dataSequenceNumber(),
+                () -> "Iceberg DeleteFile is missing dataSequenceNumber: " + deleteFile.location());
+
         return new DeleteFile(
                 deleteFile.content(),
                 deleteFile.location(),
@@ -78,10 +87,11 @@ public record DeleteFile(
                 Optional.ofNullable(deleteFile.equalityFieldIds()).orElseGet(ImmutableList::of),
                 rowPositionLowerBound,
                 rowPositionUpperBound,
-                deleteFile.dataSequenceNumber(),
+                dataSequenceNumber,
                 contentOffset,
                 contentSizeInBytes,
-                parquetFileDecryptionData);
+                parquetFileDecryptionData,
+                Optional.ofNullable(deleteFile.referencedDataFile()));
     }
 
     public DeleteFile
@@ -95,6 +105,7 @@ public record DeleteFile(
         requireNonNull(contentOffset, "contentOffset is null");
         requireNonNull(contentSizeInBytes, "contentSizeInBytes is null");
         requireNonNull(parquetFileDecryptionData, "parquetFileDecryptionData is null");
+        requireNonNull(referencedDataFile, "referencedDataFile is null");
     }
 
     public boolean isDeletionVector()
@@ -105,12 +116,26 @@ public record DeleteFile(
                 && contentSizeInBytes.isPresent();
     }
 
+    // A position delete file is "file-scoped" when it references exactly one data file.
+    // When that data file is rewritten (removed), the delete file becomes dangling and
+    // must be cleaned up. Partition-scoped deletes (no referencedDataFile) may still apply
+    // to sibling data files in the same partition and must NOT be removed.
+    public boolean isFileScopedPositionDelete(String dataFilePath)
+    {
+        return content == FileContent.POSITION_DELETES
+                && referencedDataFile.isPresent()
+                && referencedDataFile.get().equals(dataFilePath);
+    }
+
     public long retainedSizeInBytes()
     {
+        // referencedDataFile is populated for v3 deletion vectors and for file-scoped position
+        // delete files. Excluding it under-reports memory for any table on the v3 read path.
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
                 + estimatedSizeOf(equalityFieldIds, _ -> SIZE_OF_INT)
-                + sizeOf(parquetFileDecryptionData, ParquetFileDecryptionData::getRetainedSizeInBytes);
+                + sizeOf(parquetFileDecryptionData, ParquetFileDecryptionData::getRetainedSizeInBytes)
+                + sizeOf(referencedDataFile, value -> estimatedSizeOf(value));
     }
 
     @Override
