@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
+import io.trino.plugin.pinot.client.InstanceInfo;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
@@ -33,11 +34,13 @@ public class PinotSplit
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(PinotSplit.class);
+    private static final int INSTANCE_INFO_SIZE = instanceSize(InstanceInfo.class);
 
     private final SplitType splitType;
     private final Optional<String> suffix;
     private final List<String> segments;
     private final Optional<String> segmentHost;
+    private final Optional<InstanceInfo> instanceInfo;
     private final Optional<String> timePredicate;
 
     @JsonCreator
@@ -46,12 +49,14 @@ public class PinotSplit
             @JsonProperty("suffix") Optional<String> suffix,
             @JsonProperty("segments") List<String> segments,
             @JsonProperty("segmentHost") Optional<String> segmentHost,
+            @JsonProperty("instanceInfo") Optional<InstanceInfo> instanceInfo,
             @JsonProperty("timePredicate") Optional<String> timePredicate)
     {
         this.splitType = requireNonNull(splitType, "splitType id is null");
         this.suffix = requireNonNull(suffix, "suffix is null");
         this.segments = ImmutableList.copyOf(requireNonNull(segments, "segments is null"));
         this.segmentHost = requireNonNull(segmentHost, "segmentHost is null");
+        this.instanceInfo = requireNonNull(instanceInfo, "instanceInfo is null");
         this.timePredicate = requireNonNull(timePredicate, "timePredicate is null");
 
         // make sure the segment properties are present when the split type is segment
@@ -59,6 +64,7 @@ public class PinotSplit
             checkArgument(suffix.isPresent(), "Suffix is missing from this split");
             checkArgument(!segments.isEmpty(), "Segments are missing from the split");
             checkArgument(segmentHost.isPresent(), "Segment host address is missing from the split");
+            checkArgument(instanceInfo.isPresent(), "Instance info is missing from the split");
         }
     }
 
@@ -69,16 +75,18 @@ public class PinotSplit
                 Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
-    public static PinotSplit createSegmentSplit(String suffix, List<String> segments, String segmentHost, Optional<String> timePredicate)
+    public static PinotSplit createSegmentSplit(String suffix, List<String> segments, String segmentHost, InstanceInfo instanceInfo, Optional<String> timePredicate)
     {
         return new PinotSplit(
                 SplitType.SEGMENT,
                 Optional.of(requireNonNull(suffix, "suffix is null")),
                 requireNonNull(segments, "segments are null"),
                 Optional.of(requireNonNull(segmentHost, "segmentHost is null")),
+                Optional.of(requireNonNull(instanceInfo, "instanceInfo is null")),
                 requireNonNull(timePredicate, "timePredicate is null"));
     }
 
@@ -106,6 +114,16 @@ public class PinotSplit
         return segments;
     }
 
+    /**
+     * The controller's instance config for {@link #getSegmentHost()}, resolved once by the coordinator when the
+     * split was generated so that workers never have to look it up themselves. Present on every segment split.
+     */
+    @JsonProperty
+    public Optional<InstanceInfo> getInstanceInfo()
+    {
+        return instanceInfo;
+    }
+
     @JsonProperty
     public Optional<String> getTimePredicate()
     {
@@ -120,6 +138,7 @@ public class PinotSplit
                 .add("suffix", suffix)
                 .add("segments", segments)
                 .add("segmentHost", segmentHost)
+                .add("instanceInfo", instanceInfo)
                 .toString();
     }
 
@@ -130,6 +149,7 @@ public class PinotSplit
                 + sizeOf(suffix, SizeOf::estimatedSizeOf)
                 + estimatedSizeOf(segments, SizeOf::estimatedSizeOf)
                 + sizeOf(segmentHost, SizeOf::estimatedSizeOf)
+                + sizeOf(instanceInfo, info -> INSTANCE_INFO_SIZE + estimatedSizeOf(info.instanceName()) + estimatedSizeOf(info.hostName()))
                 + sizeOf(timePredicate, SizeOf::estimatedSizeOf);
     }
 
