@@ -200,6 +200,9 @@ public final class TypeConverter
         if (type.equals(VARIANT)) {
             return Types.VariantType.get();
         }
+        if (type.getTypeDescriptor().equals(UNKNOWN_TYPE)) {
+            return Types.UnknownType.get();
+        }
         if (type instanceof RowType rowType) {
             return fromRow(rowType, columnIdentity, nextFieldId);
         }

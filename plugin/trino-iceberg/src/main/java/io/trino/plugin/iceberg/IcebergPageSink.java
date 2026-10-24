@@ -92,6 +92,7 @@ import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToNanos;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -126,6 +127,9 @@ public class IcebergPageSink
 
     private final int maxOpenWriters;
     private final Schema outputSchema;
+    // Iceberg spec requires omitting unknown type fields from Parquet and ORC files
+    private final boolean omitUnknownFields;
+    private final Schema writerSchema;
     private final PartitionSpec partitionSpec;
     private final LocationProvider locationProvider;
     private final IcebergFileWriterFactory fileWriterFactory;
@@ -138,15 +142,14 @@ public class IcebergPageSink
     private final long targetMaxFileSizeBytes;
     private final long idleWriterMinFileSize;
     private final Map<String, String> storageProperties;
-    private final List<TrinoSortField> sortFields;
     private final int sortOrderId;
-    private final boolean sortedWritingEnabled;
     private final DataSize sortingFileWriterBufferSize;
     private final Integer sortingFileWriterMaxOpenFiles;
     private final Location tempDirectory;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
     private final List<Type> columnTypes;
+    private final List<Type> writerColumnTypes;
     // Per sort field: index path from root struct to the leaf field (e.g. [1, 0] for top.nested)
     private final List<List<Integer>> sortIndexPaths;
     private final List<SortOrder> sortOrders;
@@ -186,7 +189,13 @@ public class IcebergPageSink
             PageSorter pageSorter)
     {
         requireNonNull(partitionColumns, "partitionColumns is null");
+        requireNonNull(sortFields, "sortFields is null");
         this.outputSchema = requireNonNull(outputSchema, "outputSchema is null");
+        this.omitUnknownFields = fileFormat != IcebergFileFormat.AVRO && UnknownTypes.containsUnknown(outputSchema.asStruct());
+        if (omitUnknownFields && !UnknownTypes.isWriteSupported(outputSchema)) {
+            throw new TrinoException(NOT_SUPPORTED, "Writing unknown type in array, map, or a struct with only unknown type fields is not supported");
+        }
+        this.writerSchema = omitUnknownFields ? UnknownTypes.removeUnknown(outputSchema) : outputSchema;
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
@@ -200,13 +209,15 @@ public class IcebergPageSink
         this.targetMaxFileSizeBytes = getTargetMaxFileSizeBytes(storageProperties, targetMaxFileSize);
         this.idleWriterMinFileSize = IcebergSessionProperties.getIdleWriterMinFileSize(session);
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
-        this.sortFields = requireNonNull(sortFields, "sortFields is null");
-        this.sortedWritingEnabled = isSortedWritingEnabled(session);
+        boolean sortedWritingEnabled = isSortedWritingEnabled(session);
         this.sortingFileWriterBufferSize = requireNonNull(sortingFileWriterBufferSize, "sortingFileWriterBufferSize is null");
         this.sortingFileWriterMaxOpenFiles = sortingFileWriterMaxOpenFiles;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.columnTypes = getTopLevelColumns(outputSchema, typeManager).stream()
+                .map(IcebergColumnHandle::getType)
+                .collect(toImmutableList());
+        this.writerColumnTypes = getTopLevelColumns(writerSchema, typeManager).stream()
                 .map(IcebergColumnHandle::getType)
                 .collect(toImmutableList());
 
@@ -233,8 +244,12 @@ public class IcebergPageSink
                 if (outputSchema.findField(sortField.sourceColumnId()) == null) {
                     throw new TrinoException(ICEBERG_INVALID_METADATA, "Unable to find sort field source column in the table schema: " + sortField);
                 }
-                List<Integer> nestedFieldIds = getNestedFieldIds(outputSchema.asStruct(), sortField.sourceColumnId());
-                sortIndexPaths.add(getIndexPathToField(outputSchema.asStruct(), nestedFieldIds));
+                if (writerSchema.findField(sortField.sourceColumnId()) == null) {
+                    // Unknown type values are always null, so sorting by them is a no-op
+                    continue;
+                }
+                List<Integer> nestedFieldIds = getNestedFieldIds(writerSchema.asStruct(), sortField.sourceColumnId());
+                sortIndexPaths.add(getIndexPathToField(writerSchema.asStruct(), nestedFieldIds));
                 sortOrders.add(sortField.sortOrder());
             }
             this.sortIndexPaths = sortIndexPaths.build();
@@ -358,6 +373,9 @@ public class IcebergPageSink
 
             // Transform geospatial columns: validate SRID and convert EWKB to WKB
             pageForWriter = transformGeometryColumnsForWrite(pageForWriter);
+            if (omitUnknownFields) {
+                pageForWriter = UnknownTypes.removeUnknown(pageForWriter, columnTypes, outputSchema);
+            }
 
             writer.appendRows(pageForWriter);
 
@@ -529,7 +547,7 @@ public class IcebergPageSink
                     .map(partition -> locationProvider.newDataLocation(partitionSpec, partition, fileName))
                     .orElseGet(() -> locationProvider.newDataLocation(fileName));
 
-            if (!sortFields.isEmpty() && sortedWritingEnabled) {
+            if (!sortIndexPaths.isEmpty()) {
                 String tempName = "sorting-file-writer-%s-%s".formatted(session.getQueryId(), randomUUID());
                 Location tempFilePrefix = tempDirectory.appendPath(tempName);
                 WriteContext writerContext = createWriter(outputPath, partitionData);
@@ -539,7 +557,7 @@ public class IcebergPageSink
                         writerContext.getWriter(),
                         sortingFileWriterBufferSize,
                         sortingFileWriterMaxOpenFiles,
-                        columnTypes,
+                        writerColumnTypes,
                         sortIndexPaths,
                         sortOrders,
                         pageSorter,
@@ -633,7 +651,7 @@ public class IcebergPageSink
         IcebergFileWriter writer = fileWriterFactory.createDataFileWriter(
                 fileSystem,
                 Location.of(outputPath),
-                outputSchema,
+                writerSchema,
                 session,
                 fileFormat,
                 metricsConfig,

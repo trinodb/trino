@@ -45,6 +45,7 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.data.GenericRecord;
+import org.apache.iceberg.data.IcebergGenerics;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.deletes.BaseDVFileWriter;
@@ -55,6 +56,7 @@ import org.apache.iceberg.encryption.EncryptionKeyMetadata;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.formats.FormatModelRegistry;
 import org.apache.iceberg.hadoop.HadoopTables;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.DataWriter;
 import org.apache.iceberg.io.OutputFileFactory;
 import org.apache.iceberg.parquet.Parquet;
@@ -2073,6 +2075,10 @@ public class TestIcebergV3
         assertThat(query("SELECT col_int FROM " + tableName + " WHERE col_unknown IS NOT NULL"))
                 .returnsEmptyResult();
 
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL, false)", 1);
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, NULL, true), (2, NULL, false)");
+
         catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
     }
 
@@ -2134,9 +2140,7 @@ public class TestIcebergV3
         assertThat(query("SELECT col_int FROM " + tableName + " WHERE col_row.field_unknown IS NOT NULL"))
                 .returnsEmptyResult();
 
-        assertQueryFails(
-                "INSERT INTO " + tableName + " VALUES (2, ROW(20 AS field_int, NULL AS field_unknown))",
-                "Writing to Iceberg tables with unknown type columns is not supported");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, ROW(20 AS field_int, NULL AS field_unknown))", 1);
 
         catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
     }
@@ -2239,41 +2243,168 @@ public class TestIcebergV3
     }
 
     @Test
-    void testUnsupportedWriteOnUnknownType()
+    void testWriteOnUnknownType()
+    {
+        try (TestTable table = newTrinoTable("test_write_unknown_type", "(x int, y unknown) WITH (format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, NULL)", 1);
+            assertUpdate("UPDATE " + table.getName() + " SET x = 2", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 3", 0);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (2, NULL)");
+            assertUpdate("DELETE FROM " + table.getName(), 1);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testCreateTableWithUnknownType(IcebergFileFormat format)
             throws Exception
     {
-        String tableName = "test_write_unknown_type" + randomNameSuffix();
-        createV3Table(tableName, new Schema(
-                Types.NestedField.optional(1, "x", Types.IntegerType.get()),
-                Types.NestedField.optional(2, "y", Types.UnknownType.get())));
+        try (TestTable table = newTrinoTable(
+                "test_create_unknown_type",
+                "(x int, y unknown, z row(a int, b unknown)) WITH (format_version = 3, format = '" + format + "')")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("y unknown");
 
-        Table table = loadTable(tableName);
-        Record record = GenericRecord.create(table.schema());
-        record.setField("x", 1);
-        record.setField("y", null);
-        appendDataFile(table, FileFormat.PARQUET, record, null);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, NULL, ROW(10, NULL)), (2, NULL, NULL)", 2);
+            assertThat(query("SELECT x, y IS NULL, z.a, z.b IS NULL FROM " + table.getName()))
+                    .matches("VALUES (1, true, 10, true), (2, true, NULL, true)");
 
-        assertQueryFails("INSERT INTO " + tableName + " VALUES (1, NULL)", "Writing to Iceberg tables with unknown type columns is not supported");
-        assertQueryFails("UPDATE " + tableName + " SET x = 2", "Writing to Iceberg tables with unknown type columns is not supported");
-        assertQueryFails("DELETE FROM " + tableName + " WHERE x = 1", "Writing to Iceberg tables with unknown type columns is not supported");
-        assertQueryFails("MERGE INTO " + tableName + " t USING (VALUES 1) s(x) ON t.x = s.x WHEN MATCHED THEN DELETE", "Writing to Iceberg tables with unknown type columns is not supported");
-        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE optimize", "Writing to Iceberg tables with unknown type columns is not supported");
-        assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL)");
+            try (CloseableIterable<Record> records = IcebergGenerics.read(loadTable(table.getName())).build()) {
+                int recordCount = 0;
+                for (Record record : records) {
+                    recordCount++;
+                    assertThat(record.getField("y")).isNull();
+                    if (record.getField("x").equals(1)) {
+                        Record nested = (Record) record.getField("z");
+                        assertThat(nested.getField("a")).isEqualTo(10);
+                        assertThat(nested.getField("b")).isNull();
+                    }
+                    else {
+                        assertThat(record.getField("x")).isEqualTo(2);
+                        assertThat(record.getField("z")).isNull();
+                    }
+                }
+                assertThat(recordCount).isEqualTo(2);
+            }
 
-        catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            assertThat(query("SELECT x FROM " + table.getName()))
+                    .matches("VALUES 2");
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testMergeOnUnknownType(IcebergFileFormat format)
+    {
+        try (TestTable table = newTrinoTable("test_merge_unknown_type", "(x int, y unknown, z varchar) WITH (format_version = 3, format = '" + format + "')")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, NULL, 'a'), (2, NULL, 'b'), (3, NULL, 'c')", 3);
+
+            assertUpdate(
+                    "MERGE INTO " + table.getName() + " t USING (VALUES (1, 'x'), (2, 'y'), (4, 'w')) s(x, z) ON t.x = s.x " +
+                            "WHEN MATCHED AND s.x = 1 THEN DELETE " +
+                            "WHEN MATCHED THEN UPDATE SET z = s.z " +
+                            "WHEN NOT MATCHED THEN INSERT (x, y, z) VALUES (s.x, NULL, s.z)",
+                    3);
+            assertThat(query("SELECT x, y IS NULL, z FROM " + table.getName()))
+                    .matches("VALUES (2, true, CAST('y' AS varchar)), (3, true, CAST('c' AS varchar)), (4, true, CAST('w' AS varchar))");
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testTruncateOnUnknownType(IcebergFileFormat format)
+    {
+        try (TestTable table = newTrinoTable("test_truncate_unknown_type", "(x int, y unknown) WITH (format_version = 3, format = '" + format + "')")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, NULL), (2, NULL)", 2);
+
+            assertUpdate("TRUNCATE TABLE " + table.getName());
+            assertThat(query("SELECT count(*) FROM " + table.getName()))
+                    .matches("VALUES BIGINT '0'");
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testOptimizeOnUnknownType(IcebergFileFormat format)
+    {
+        try (TestTable table = newTrinoTable("test_optimize_unknown_type", "(x int, y unknown, z row(a int, b unknown)) WITH (format_version = 3, format = '" + format + "')")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, NULL, ROW(10, NULL))", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, NULL, ROW(20, NULL))", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, NULL, NULL)", 1);
+            long filesBefore = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\"");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize");
+            assertThat((long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\""))
+                    .isLessThan(filesBefore);
+            assertThat(query("SELECT x, y IS NULL, z.a FROM " + table.getName()))
+                    .matches("VALUES (1, true, 10), (2, true, 20), (3, true, NULL)");
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testSortedByWithUnknownType(IcebergFileFormat format)
+            throws Exception
+    {
+        // The unknown column precedes the sort column, so sort channels shift when unknown is omitted from files
+        try (TestTable table = newTrinoTable("test_sorted_unknown_type", "(y unknown, x int, z row(a unknown, b int)) WITH (format_version = 3, format = '" + format + "', sorted_by = ARRAY['x'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (NULL, 3, ROW(NULL, 30)), (NULL, 1, ROW(NULL, 10)), (NULL, 2, ROW(NULL, 20))", 3);
+            assertThat(query("SELECT x, z.b FROM " + table.getName()))
+                    .matches("VALUES (1, 10), (2, 20), (3, 30)");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\"", "VALUES 1");
+            try (CloseableIterable<Record> records = IcebergGenerics.read(loadTable(table.getName())).build()) {
+                assertThat(records).extracting(record -> record.getField("x")).containsExactly(1, 2, 3);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testPartitionedByUnknownTypeWrite(IcebergFileFormat format)
+    {
+        try (TestTable table = newTrinoTable("test_partition_by_unknown_type", "(x int, y unknown) WITH (format_version = 3, format = '" + format + "', partitioning = ARRAY['y'])")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("partitioning = ARRAY['y']");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, NULL), (2, NULL)", 2);
+            assertThat(query("SELECT x, y IS NULL FROM " + table.getName()))
+                    .matches("VALUES (1, true), (2, true)");
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE y IS NULL"))
+                    .matches("VALUES 1, 2");
+        }
     }
 
     @Test
-    void testUnsupportedCreateTableWithUnknownType()
+    void testCreateTableAsSelectUnknownType()
     {
-        // The engine doesn't support creating tables with unknown type
-        String tableName = "test_unsupported_create_unknown_type" + randomNameSuffix();
-        assertQueryFails(
-                "CREATE TABLE " + tableName + "(x unknown)",
-                ".* Unknown type 'unknown' for column 'x'");
+        String tableName = "test_ctas_unknown_type" + randomNameSuffix();
         assertQueryFails(
                 "CREATE TABLE " + tableName + " AS SELECT NULL x",
                 ".* Column type is unknown: x");
+    }
+
+    @Test
+    void testUnknownTypeRequiresVersion3()
+    {
+        assertThatThrownBy(() -> getQueryRunner().execute(
+                "CREATE TABLE test_unknown_v2_" + randomNameSuffix() + " (x int, y unknown) WITH (format_version = 2)"))
+                .hasMessageContaining("Invalid schema for v2")
+                .hasMessageContaining("unknown is not supported until v3");
+    }
+
+    @Test
+    void testUnsupportedWriteUnknownTypeInCollection()
+    {
+        String tableName = "test_unsupported_unknown_in_array" + randomNameSuffix();
+        createV3Table(tableName, new Schema(
+                Types.NestedField.optional(1, "x", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "y", Types.ListType.ofOptional(3, Types.UnknownType.get()))));
+
+        assertQueryFails("INSERT INTO " + tableName + " VALUES (1, NULL)", ".*Writing unknown type in array, map, or a struct.*");
+
+        catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
     }
 
     @Test
