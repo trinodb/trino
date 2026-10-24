@@ -13,23 +13,15 @@
  */
 package io.trino.filesystem.azure;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.TestInstance.Lifecycle;
 
-import java.io.IOException;
-
-import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.FLAT;
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
-
-@TestInstance(Lifecycle.PER_CLASS)
-class TestAzureFileSystemGen2Flat
-        extends AbstractTestAzureFileSystem
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class TestAzureFileSystemOAuthFlatAzureWithEncryption
+        extends TestAzureFileSystemOAuthFlatAzure
 {
-    @BeforeAll
-    void setup()
-            throws IOException
+    @Override
+    protected boolean useServerSideEncryptionWithCustomerKey()
     {
-        initializeWithAccessKeyAndMultipartWrites(requireEnv("ABFS_FLAT_ACCOUNT"), requireEnv("ABFS_FLAT_ACCESS_KEY"), FLAT);
+        return true;
     }
 }
