@@ -241,22 +241,6 @@ public class SparkIcebergRestEnvironment
 
     // REST catalog methods
 
-    /**
-     * Returns the internal REST catalog URI (for containers on the same network).
-     */
-    public String getRestCatalogUri()
-    {
-        return restCatalog.getRestUri();
-    }
-
-    /**
-     * Returns the external REST catalog URI (for connecting from the host).
-     */
-    public String getExternalRestCatalogUri()
-    {
-        return restCatalog.getExternalRestUri();
-    }
-
     // Standard ProductTestEnvironment methods
 
     @Override

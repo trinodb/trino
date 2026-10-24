@@ -729,11 +729,6 @@ public abstract class LdapEnvironment
 
     // ==================== Getter Methods ====================
 
-    public String getTrinoServerAddress()
-    {
-        return format("https://%s:%d", trinoContainer.getHost(), trinoContainer.getMappedPort(HTTPS_PORT));
-    }
-
     public String getTrinoHostName()
     {
         return TRINO_HOST;

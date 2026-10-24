@@ -192,23 +192,6 @@ public class HiveTransactionalEnvironment
         }
     }
 
-    /**
-     * Verifies that HiveServer2 is accessible and responsive.
-     *
-     * @return true if HiveServer2 is accessible
-     */
-    public boolean verifyHiveServer2Connectivity()
-    {
-        try (Connection conn = createHiveConnection();
-                Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery("SELECT 1")) {
-            return rs.next() && rs.getInt(1) == 1;
-        }
-        catch (SQLException e) {
-            return false;
-        }
-    }
-
     // Compaction helpers for transactional tables
 
     /**
