@@ -22,6 +22,6 @@ public interface TokenAwareMetastoreClientFactory
     /**
      * Create a connected {@link ThriftMetastoreClient}
      */
-    ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
+    ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken, ThriftMetastoreClientInitializer clientInitializer)
             throws TException;
 }

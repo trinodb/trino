@@ -20,6 +20,6 @@ import java.util.Optional;
 
 public interface ThriftMetastoreClientFactory
 {
-    ThriftMetastoreClient create(URI uri, Optional<String> delegationToken)
+    ThriftMetastoreClient create(URI uri, Optional<String> delegationToken, ThriftMetastoreClientInitializer clientInitializer)
             throws TTransportException;
 }
