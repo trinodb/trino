@@ -62,15 +62,18 @@ import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Execution(ExecutionMode.CONCURRENT)
 public class TestMergeWriterOperator
 {
     private static final long FINISH_MEMORY_USAGE = 12345;
+    private static final long ABORT_MEMORY_USAGE = 67890;
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -94,20 +97,7 @@ public class TestMergeWriterOperator
             throws Exception
     {
         MemoryReportingMergeSinkProvider mergeSinkProvider = new MemoryReportingMergeSinkProvider();
-        PageSinkManager pageSinkManager = new PageSinkManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, mergeSinkProvider));
-        MergeWriterOperatorFactory factory = new MergeWriterOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                pageSinkManager,
-                mergeTarget(),
-                Optional.empty(),
-                TEST_SESSION,
-                Function.identity());
-
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
-                .addPipelineContext(0, true, true, false)
-                .addDriverContext();
-        Operator operator = factory.createOperator(driverContext);
+        Operator operator = createMergeWriterOperator(mergeSinkProvider);
         OperatorContext operatorContext = operator.getOperatorContext();
 
         assertThat(operatorContext.getOperatorMemoryContext().getUserMemory()).isEqualTo(0);
@@ -127,6 +117,7 @@ public class TestMergeWriterOperator
         // closing the operator releases the memory
         operator.close();
         assertThat(operatorContext.getOperatorMemoryContext().getUserMemory()).isEqualTo(0);
+        assertThat(mergeSinkProvider.sink().isAborted()).isFalse();
     }
 
     @Test
@@ -134,6 +125,40 @@ public class TestMergeWriterOperator
             throws Exception
     {
         MemoryReportingMergeSinkProvider mergeSinkProvider = new MemoryReportingMergeSinkProvider();
+        Operator operator = createMergeWriterOperator(mergeSinkProvider);
+        OperatorContext operatorContext = operator.getOperatorContext();
+
+        // simulate query cancellation: close operator without calling finish, then assert that the memory is released
+        operator.addInput(createMergePage(42));
+        assertThat(mergeSinkProvider.sink().reportedMemory()).isGreaterThan(0);
+        assertThat(operatorContext.getOperatorMemoryContext().getUserMemory()).isGreaterThan(0);
+
+        operator.close();
+        assertThat(operatorContext.getOperatorMemoryContext().getUserMemory()).isEqualTo(0);
+        assertThat(mergeSinkProvider.sink().isAborted()).isTrue();
+    }
+
+    @Test
+    public void testMergeSinkIsAbortedWhenFinishFails()
+            throws Exception
+    {
+        MemoryReportingMergeSinkProvider mergeSinkProvider = new MemoryReportingMergeSinkProvider(true);
+        Operator operator = createMergeWriterOperator(mergeSinkProvider);
+        OperatorContext operatorContext = operator.getOperatorContext();
+
+        operator.addInput(createMergePage(42));
+        operator.finish();
+        assertThatThrownBy(operator::getOutput)
+                .hasMessageContaining("finish failed");
+        assertThat(mergeSinkProvider.sink().isAborted()).isFalse();
+
+        operator.close();
+        assertThat(operatorContext.getOperatorMemoryContext().getUserMemory()).isEqualTo(0);
+        assertThat(mergeSinkProvider.sink().isAborted()).isTrue();
+    }
+
+    private Operator createMergeWriterOperator(MemoryReportingMergeSinkProvider mergeSinkProvider)
+    {
         PageSinkManager pageSinkManager = new PageSinkManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, mergeSinkProvider));
         MergeWriterOperatorFactory factory = new MergeWriterOperatorFactory(
                 0,
@@ -147,16 +172,8 @@ public class TestMergeWriterOperator
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        Operator operator = factory.createOperator(driverContext);
-        OperatorContext operatorContext = operator.getOperatorContext();
 
-        // simulate query cancellation: close operator without calling finish, then assert that the memory is released
-        operator.addInput(createMergePage(42));
-        assertThat(mergeSinkProvider.sink().reportedMemory()).isGreaterThan(0);
-        assertThat(operatorContext.getOperatorMemoryContext().getUserMemory()).isGreaterThan(0);
-
-        operator.close();
-        assertThat(operatorContext.getOperatorMemoryContext().getUserMemory()).isEqualTo(0);
+        return factory.createOperator(driverContext);
     }
 
     private static MergeTarget mergeTarget()
@@ -190,7 +207,18 @@ public class TestMergeWriterOperator
     private static class MemoryReportingMergeSinkProvider
             implements ConnectorPageSinkProvider
     {
+        private final boolean failOnFinish;
         private MemoryReportingMergeSink sink;
+
+        public MemoryReportingMergeSinkProvider()
+        {
+            this(false);
+        }
+
+        public MemoryReportingMergeSinkProvider(boolean failOnFinish)
+        {
+            this.failOnFinish = failOnFinish;
+        }
 
         public MemoryReportingMergeSink sink()
         {
@@ -228,7 +256,7 @@ public class TestMergeWriterOperator
                 ConnectorPageSinkId pageSinkId,
                 MemoryContext memoryContext)
         {
-            sink = new MemoryReportingMergeSink(memoryContext);
+            sink = new MemoryReportingMergeSink(memoryContext, failOnFinish);
             return sink;
         }
     }
@@ -237,16 +265,24 @@ public class TestMergeWriterOperator
             implements ConnectorMergeSink
     {
         private final MemoryContext memoryContext;
+        private final boolean failOnFinish;
         private long reportedMemory;
+        private boolean aborted;
 
-        public MemoryReportingMergeSink(MemoryContext memoryContext)
+        public MemoryReportingMergeSink(MemoryContext memoryContext, boolean failOnFinish)
         {
             this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+            this.failOnFinish = failOnFinish;
         }
 
         public long reportedMemory()
         {
             return reportedMemory;
+        }
+
+        public boolean isAborted()
+        {
+            return aborted;
         }
 
         @Override
@@ -261,7 +297,18 @@ public class TestMergeWriterOperator
         {
             // simulates memory used while producing the merge result, e.g. by a file reader
             memoryContext.setBytes(FINISH_MEMORY_USAGE);
+            if (failOnFinish) {
+                return failedFuture(new RuntimeException("finish failed"));
+            }
             return completedFuture(ImmutableList.of());
+        }
+
+        @Override
+        public void abort()
+        {
+            aborted = true;
+            // simulates memory used while rolling back the written data
+            memoryContext.setBytes(ABORT_MEMORY_USAGE);
         }
     }
 }
