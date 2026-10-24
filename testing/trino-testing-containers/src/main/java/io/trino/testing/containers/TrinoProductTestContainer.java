@@ -33,7 +33,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -178,15 +177,6 @@ public final class TrinoProductTestContainer
     }
 
     /**
-     * Creates a JDBC connection to the given Trino container with the specified properties.
-     */
-    public static Connection createConnection(TrinoContainer container, Properties properties)
-            throws SQLException
-    {
-        return DriverManager.getConnection(container.getJdbcUrl(), properties);
-    }
-
-    /**
      * Waits for the Trino cluster to be fully ready for queries.
      * The standard TrinoContainer wait strategy checks basic connectivity, but there's
      * a race condition where the node may not be fully registered for distributed queries.
@@ -255,15 +245,6 @@ public final class TrinoProductTestContainer
         private String hdfsSiteXml;
 
         private Builder() {}
-
-        /**
-         * Sets the Docker image to use for Trino.
-         */
-        public Builder withImage(String imageName)
-        {
-            this.imageName = requireNonNull(imageName, "imageName is null");
-            return this;
-        }
 
         /**
          * Sets the Trino version to use (uses trinodb/trino:{version}).

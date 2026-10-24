@@ -51,11 +51,6 @@ public final class HdfsClient
     private final OkHttpClient httpClient;
     private final ObjectMapper objectMapper;
 
-    public HdfsClient(URI webHdfsUri, String username)
-    {
-        this(webHdfsUri, username, Map.of());
-    }
-
     public HdfsClient(URI webHdfsUri, String username, Map<String, InetAddress> hostMapping)
     {
         this.webHdfsUri = requireNonNull(webHdfsUri, "webHdfsUri is null");

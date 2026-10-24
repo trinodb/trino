@@ -155,23 +155,6 @@ public class Hive4MetastoreContainer
         return this;
     }
 
-    /**
-     * Configures S3 settings for the Hive Metastore.
-     *
-     * @param accessKey S3 access key
-     * @param secretKey S3 secret key
-     * @param s3Host S3 endpoint host
-     * @param s3Port S3 endpoint port
-     * @return this container for chaining
-     */
-    public Hive4MetastoreContainer withS3Config(String accessKey, String secretKey, String s3Host, int s3Port)
-    {
-        withCopyToContainer(
-                Transferable.of(getHiveSiteXml(warehouseDir, accessKey, secretKey, s3Host, s3Port)),
-                "/opt/hive/conf/hive-site.xml");
-        return this;
-    }
-
     @Override
     public void start()
     {
@@ -190,24 +173,6 @@ public class Hive4MetastoreContainer
     private static String getHiveSiteXml(String warehouseDir, String accessKey, String secretKey, String s3Host, int s3Port)
     {
         return HIVE_SITE_XML_TEMPLATE.formatted(warehouseDir, accessKey, secretKey, s3Host, s3Port);
-    }
-
-    /**
-     * Returns the configured warehouse directory path.
-     *
-     * @return the warehouse directory path
-     */
-    public String getWarehouseDir()
-    {
-        return warehouseDir;
-    }
-
-    /**
-     * Returns the Thrift URI for connecting to this Metastore from the host.
-     */
-    public String getHiveMetastoreUri()
-    {
-        return "thrift://" + getHost() + ":" + getMappedPort(HIVE_METASTORE_PORT);
     }
 
     /**
