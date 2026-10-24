@@ -14,7 +14,6 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.trino.plugin.tpch.TpchPlugin;
 
@@ -42,13 +41,6 @@ public class WebUiQueryRunner
                     .setCatalog("tpch")
                     .setSchema("tiny")
                     .build());
-        }
-
-        @CanIgnoreReturnValue
-        public Builder withConnectorProperties(Map<String, String> connectorProperties)
-        {
-            this.connectorProperties = ImmutableMap.copyOf(connectorProperties);
-            return this;
         }
 
         @Override

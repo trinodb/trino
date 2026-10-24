@@ -6593,23 +6593,6 @@ public abstract class AbstractTestEngineOnlyQueries
                 .isFalse();
     }
 
-    private static String pivotQuery(int columnsCount)
-    {
-        String fields = IntStream.range(0, columnsCount)
-                .mapToObj(_ -> "lower(name)")
-                .collect(joining(", "));
-
-        String literals = IntStream.range(0, columnsCount)
-                .mapToObj(columnNumber -> format("%d", columnNumber))
-                .collect(joining(", "));
-
-        String columns = IntStream.range(0, columnsCount)
-                .mapToObj(columnNumber -> format("a%d", columnNumber))
-                .collect(joining(", "));
-
-        return format("SELECT * FROM (SELECT %s FROM region LIMIT 1) a(%s) INNER JOIN unnest(ARRAY[%s], ARRAY[%2$s]) b(b1, b2) ON true", fields, columns, literals);
-    }
-
     /**
      * Regression test for https://github.com/trinodb/trino/pull/7723.
      */
