@@ -393,17 +393,6 @@ public class IcebergColumnHandle
             this.baseColumnIdentity = requireNonNull(columnIdentity, "columnIdentity is null");
         }
 
-        public Builder(IcebergColumnHandle handle)
-        {
-            requireNonNull(handle, "handle is null");
-            this.baseColumnIdentity = handle.getBaseColumnIdentity();
-            this.baseType = handle.getBaseType();
-            this.path = handle.getPath();
-            this.type = handle.getType();
-            this.nullable = handle.isNullable();
-            this.comment = handle.getComment();
-        }
-
         public Builder baseColumnIdentity(ColumnIdentity baseColumnIdentity)
         {
             this.baseColumnIdentity = baseColumnIdentity;
