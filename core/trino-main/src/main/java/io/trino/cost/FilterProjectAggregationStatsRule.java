@@ -24,6 +24,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isNonEstimatablePredicateApproximationEnabled;
+import static io.trino.cost.EstimateConfidence.LOW;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static java.util.Objects.requireNonNull;
@@ -91,7 +92,8 @@ public class FilterProjectAggregationStatsRule
             if (sourceStats.isOutputRowCountUnknown()) {
                 return Optional.of(filteredStats);
             }
-            return Optional.of(sourceStats.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT));
+            return Optional.of(sourceStats.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT)
+                    .degradeConfidenceTo(LOW));
         }
         return Optional.of(filteredStats);
     }

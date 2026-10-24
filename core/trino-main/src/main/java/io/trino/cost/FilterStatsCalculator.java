@@ -165,7 +165,10 @@ public class FilterStatsCalculator
             if (isNaN(outputRowCount)) {
                 return PlanNodeStatsEstimate.unknown();
             }
-            return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedStats(estimates)));
+            EstimateConfidence confidence = estimates.stream()
+                    .map(PlanNodeStatsEstimate::getConfidence)
+                    .reduce(input.getConfidence(), EstimateConfidence::min);
+            return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedStats(estimates), confidence));
         }
 
         /**
@@ -255,6 +258,7 @@ public class FilterStatsCalculator
 
                 PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
                 result.setOutputRowCount(0.0);
+                result.setConfidence(input.getConfidence());
                 input.getSymbolsWithKnownStatistics().forEach(symbol -> result.addSymbolStatistics(symbol, SymbolStatsEstimate.zero()));
                 return result.build();
             }
