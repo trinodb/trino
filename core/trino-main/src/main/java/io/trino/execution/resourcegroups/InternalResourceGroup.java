@@ -14,10 +14,12 @@
 package io.trino.execution.resourcegroups;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.trino.execution.ManagedQueryExecution;
 import io.trino.execution.resourcegroups.WeightedFairQueue.Usage;
@@ -63,10 +65,12 @@ import static io.trino.spi.resourcegroups.SchedulingPolicy.FAIR;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.QUERY_PRIORITY;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED_FAIR;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
  * Resource groups form a tree, and all access to a group is guarded by the root of the tree.
@@ -79,6 +83,13 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class InternalResourceGroup
         implements ResourceGroup
 {
+    private static final Logger log = Logger.get(InternalResourceGroup.class);
+    // How long a done query may wait for its final query info before its slot is freed anyway. The bounded
+    // teardown paths resolve within task.termination-timeout plus query.remote-task.max-error-duration plus
+    // NO_FINAL_TASK_INFO_CHECK_INTERVAL (one minute each by default); raising those past a few minutes makes
+    // slow but healthy teardowns hit this backstop
+    private static final Duration FINAL_QUERY_INFO_TIMEOUT = Duration.ofMinutes(5);
+
     public static final int DEFAULT_WEIGHT = 1;
 
     private final InternalResourceGroup root;
@@ -87,6 +98,7 @@ public class InternalResourceGroup
     private final BiConsumer<InternalResourceGroup, Boolean> jmxExportListener;
     private final Executor executor;
     private final AtomicBoolean resourceUsageStagingInProgress;
+    private final Ticker ticker;
 
     // Configuration
     // =============
@@ -129,6 +141,8 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private UpdateablePriorityQueue<ManagedQueryExecution> queuedQueries = new FifoQueue<>();
     private final Map<ManagedQueryExecution, StagedResourceUsage> runningQueries = new ConcurrentHashMap<>();
+    // Running queries that are done, keyed to the ticker reading at which they were first seen done
+    private final Map<ManagedQueryExecution, Long> doneQueriesSinceNanos = new ConcurrentHashMap<>();
     @GuardedBy("root")
     private int descendantRunningQueries;
     @GuardedBy("root")
@@ -140,17 +154,25 @@ public class InternalResourceGroup
     private long lastStartNanos;
     private final CounterStat timeBetweenStartsSec = new CounterStat();
     private final CounterStat startedQueries = new CounterStat();
+    private final CounterStat queriesFreedWithoutFinalQueryInfo = new CounterStat();
 
     public InternalResourceGroup(String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
     {
-        this(Optional.empty(), name, jmxExportListener, executor);
+        this(name, jmxExportListener, executor, Ticker.systemTicker());
     }
 
-    private InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
+    @VisibleForTesting
+    InternalResourceGroup(String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor, Ticker ticker)
+    {
+        this(Optional.empty(), name, jmxExportListener, executor, ticker);
+    }
+
+    private InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor, Ticker ticker)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
         this.executor = requireNonNull(executor, "executor is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
         requireNonNull(name, "name is null");
         if (parent.isPresent()) {
             id = new ResourceGroupId(parent.get().id, name);
@@ -539,6 +561,13 @@ public class InternalResourceGroup
     }
 
     @Managed
+    @Nested
+    public CounterStat getQueriesFreedWithoutFinalQueryInfo()
+    {
+        return queriesFreedWithoutFinalQueryInfo;
+    }
+
+    @Managed
     @Override
     public int getSchedulingWeight()
     {
@@ -659,7 +688,7 @@ public class InternalResourceGroup
             if (subGroups.containsKey(name)) {
                 return subGroups.get(name);
             }
-            InternalResourceGroup subGroup = new InternalResourceGroup(Optional.of(this), name, jmxExportListener, executor);
+            InternalResourceGroup subGroup = new InternalResourceGroup(Optional.of(this), name, jmxExportListener, executor, ticker);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
@@ -697,11 +726,8 @@ public class InternalResourceGroup
             else {
                 enqueueQuery(query);
             }
-            query.addStateChangeListener(state -> {
-                if (state.isDone()) {
-                    queryFinished(query);
-                }
-            });
+            // The query holds its slot until its tasks have ended, not until its state is done
+            query.addFinalQueryInfoListener(_ -> queryFinished(query));
         }
     }
 
@@ -762,6 +788,8 @@ public class InternalResourceGroup
 
     public void updateGroupsAndProcessQueuedQueries()
     {
+        freeQueriesWithoutFinalQueryInfo();
+
         boolean acquired = acquireResourceUsageStaging();
         if (acquired) {
             try {
@@ -796,19 +824,91 @@ public class InternalResourceGroup
             ManagedQueryExecution query = entry.getKey();
             StagedResourceUsage resourceUsage = entry.getValue();
 
-            ResourceUsage newResourceUsage = new ResourceUsage(
-                    query.getTotalCpuTime().toMillis(),
-                    query.getTotalMemoryReservation().toBytes(),
-                    query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize().toBytes());
-            // Update resource usage only if the query is still running.
-            // We cannot use entry.setValue(...) because we don’t want to restore the query
-            // in case it was removed on completion.
-            StagedResourceUsage staged = resourceUsage.stage(newResourceUsage);
-            runningQueries.computeIfPresent(query, (_, _) -> staged);
+            currentResourceUsage(query).ifPresent(newResourceUsage -> {
+                // Update resource usage only if the query is still running.
+                // We cannot use entry.setValue(...) because we don’t want to restore the query
+                // in case it was removed on completion.
+                StagedResourceUsage staged = resourceUsage.stage(cumulative(newResourceUsage, resourceUsage.current()));
+                runningQueries.computeIfPresent(query, (_, _) -> staged);
+            });
         }
 
         for (InternalResourceGroup subGroup : dirtySubGroups) {
             subGroup.stageResourceUsage();
+        }
+    }
+
+    // CPU and physical input only grow, so a reading below the last one is incomplete: a final query info
+    // published without its stages reports neither. The last reading stands for what the new one lacks.
+    private static ResourceUsage cumulative(ResourceUsage reading, ResourceUsage lastReading)
+    {
+        return new ResourceUsage(
+                max(reading.cpuUsageMillis(), lastReading.cpuUsageMillis()),
+                reading.memoryUsageBytes(),
+                max(reading.physicalInputDataUsageBytes(), lastReading.physicalInputDataUsageBytes()));
+    }
+
+    // The stats of a query that is done but has no final query info yet may fail to build; the query is still
+    // accounted, and freed, from its last reading
+    private static Optional<ResourceUsage> currentResourceUsage(ManagedQueryExecution query)
+    {
+        try {
+            return Optional.of(new ResourceUsage(
+                    query.getTotalCpuTime().toMillis(),
+                    query.getTotalMemoryReservation().toBytes(),
+                    query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize().toBytes()));
+        }
+        catch (RuntimeException e) {
+            log.error(e, "Failed to read the resource usage of query %s", query.getSession().getQueryId());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * A query holds its slot until its final query info arrives, which requires every one of its tasks to end.
+     * A query that is done but never reaches that point would hold its slot forever, so after the timeout the
+     * slot is freed as if the final query info had arrived.
+     * <p>
+     * The sweep runs on every refresh, so it reads the running queries without the root lock and takes it
+     * only to free an expired query. The refresh then updates resource usage and starts queued queries itself,
+     * so an expired query is freed without triggering another refresh, which would run this sweep again.
+     */
+    private void freeQueriesWithoutFinalQueryInfo()
+    {
+        long now = ticker.read();
+        for (ManagedQueryExecution query : runningQueries.keySet()) {
+            if (!query.isDone()) {
+                continue;
+            }
+            long doneSinceNanos = doneQueriesSinceNanos.computeIfAbsent(query, _ -> now);
+            if (!runningQueries.containsKey(query)) {
+                // freed by its final query info while being recorded; drop the record it left behind
+                doneQueriesSinceNanos.remove(query);
+                continue;
+            }
+            if (now - doneSinceNanos < FINAL_QUERY_INFO_TIMEOUT.toNanos()) {
+                continue;
+            }
+            if (doneQueriesSinceNanos.remove(query) == null) {
+                // freed meanwhile by its final query info
+                continue;
+            }
+            log.error(
+                    "Query %s in resource group %s has been %s for %s but its final query info has not arrived; freeing its slot",
+                    query.getSession().getQueryId(),
+                    id,
+                    query.getState(),
+                    succinctDuration(NANOSECONDS.toMillis(now - doneSinceNanos), MILLISECONDS));
+            InternalResourceGroup group = this;
+            while (group != null) {
+                group.queriesFreedWithoutFinalQueryInfo.update(1);
+                group = group.parent.orElse(null);
+            }
+            removeFinishedQuery(query);
+        }
+
+        for (InternalResourceGroup subGroup : dirtySubGroups) {
+            subGroup.freeQueriesWithoutFinalQueryInfo();
         }
     }
 
@@ -842,12 +942,20 @@ public class InternalResourceGroup
 
     private void queryFinished(ManagedQueryExecution query)
     {
+        removeFinishedQuery(query);
+
+        // Processing queued queries may recalculate resource usage for running queries, but only if no other thread
+        // is already doing so. If skipped due to contention, processing will use slightly stale stats, which is acceptable
+        // because updates are incremental and deltas are small. The more important effect of updating resource usage
+        // on query finish — freeing resources for queued queries — is already handled above.
+        root.triggerProcessQueuedQueries();
+    }
+
+    private void removeFinishedQuery(ManagedQueryExecution query)
+    {
         // CPU and data scan are measured cumulatively (i.e. total CPU & physical input data used until this moment by the query).
         // Memory is measured instantaneously (how much memory the query is using at this moment). At query completion, memory usage drops to zero.
-        ResourceUsage finalUsage = new ResourceUsage(
-                query.getTotalCpuTime().toMillis(),
-                0L,
-                query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize().toBytes());
+        Optional<ResourceUsage> currentUsage = currentResourceUsage(query);
 
         synchronized (root) {
             if (!runningQueries.containsKey(query) && !queuedQueries.contains(query)) {
@@ -859,9 +967,13 @@ public class InternalResourceGroup
 
             // The query is present in runningQueries
             if (lastUsage != null) {
-                ResourceUsage delta = finalUsage.subtract(lastUsage.current());
+                ResourceUsage lastReading = lastUsage.current();
+                ResourceUsage currentReading = cumulative(currentUsage.orElse(lastReading), lastReading);
+                ResourceUsage finalUsage = new ResourceUsage(currentReading.cpuUsageMillis(), 0L, currentReading.physicalInputDataUsageBytes());
+                ResourceUsage delta = finalUsage.subtract(lastReading);
 
                 runningQueries.remove(query);
+                doneQueriesSinceNanos.remove(query);
 
                 // Update usage statistics up to the root
                 InternalResourceGroup group = this;
@@ -889,12 +1001,6 @@ public class InternalResourceGroup
 
             updateEligibility();
         }
-
-        // Processing queued queries may recalculate resource usage for running queries, but only if no other thread
-        // is already doing so. If skipped due to contention, processing will use slightly stale stats, which is acceptable
-        // because updates are incremental and deltas are small. The more important effect of updating resource usage
-        // on query finish — freeing resources for queued queries — is already handled above.
-        root.triggerProcessQueuedQueries();
     }
 
     private ResourceUsage updateResourceUsageAndGetDelta()

@@ -63,6 +63,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -266,12 +267,44 @@ public class TestStageStateMachine
         assertThat(stats.getSpilledDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
     }
 
+    @Test
+    public void testFinalStageInfoWithoutTasksThatCannotBeSummarized()
+    {
+        StageStateMachine stateMachine = createStageStateMachine();
+        assertThat(stateMachine.transitionToFinished()).isTrue();
+        // a scheduled time that does not fit the nanoseconds the stage stats add up
+        TaskInfo task = TaskInfo.createInitialTask(
+                new TaskId(STAGE_ID, 0, 0),
+                URI.create(""),
+                "0",
+                false,
+                Optional.empty(),
+                taskStats(ImmutableList.of(), 0, succinctDuration(Long.MAX_VALUE, MILLISECONDS)));
+        List<TaskInfo> finalTaskInfos = ImmutableList.of(task.withTaskStatus(TaskStatus.failWith(task.taskStatus(), TaskState.FINISHED, ImmutableList.of())));
+        assertThatThrownBy(() -> stateMachine.getStageInfo(() -> finalTaskInfos))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("too large");
+
+        stateMachine.setAllTasksFinal(finalTaskInfos);
+
+        // the final stage info is requested with tasks it cannot be built from
+        StageInfo stageInfo = stateMachine.getStageInfo(() -> finalTaskInfos);
+        assertThat(stageInfo.isFinalStageInfo()).isTrue();
+        assertThat(stageInfo.state()).isEqualTo(StageState.FINISHED);
+        assertThat(stageInfo.tasks()).isEmpty();
+    }
+
     private static TaskStats taskStats(List<PipelineContext> pipelineContexts)
     {
         return taskStats(pipelineContexts, 0);
     }
 
     private static TaskStats taskStats(List<PipelineContext> pipelineContexts, int baseValue)
+    {
+        return taskStats(pipelineContexts, baseValue, new Duration(baseValue, MILLISECONDS));
+    }
+
+    private static TaskStats taskStats(List<PipelineContext> pipelineContexts, int baseValue, Duration totalScheduledTime)
     {
         return new TaskStats(
                 Instant.now(),
@@ -296,7 +329,7 @@ public class TestStageStateMachine
                 DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
-                new Duration(baseValue, MILLISECONDS),
+                totalScheduledTime,
                 new Duration(baseValue, MILLISECONDS),
                 new Duration(baseValue, MILLISECONDS),
                 false,

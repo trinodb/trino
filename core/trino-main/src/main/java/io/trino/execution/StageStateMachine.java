@@ -227,7 +227,15 @@ public class StageStateMachine
     {
         requireNonNull(finalTaskInfos, "finalTaskInfos is null");
         checkState(stageState.get().isDone());
-        StageInfo stageInfo = getStageInfo(() -> finalTaskInfos);
+        StageInfo stageInfo;
+        try {
+            stageInfo = getStageInfo(() -> finalTaskInfos);
+        }
+        catch (RuntimeException e) {
+            // the stage is done; a final stage info that cannot be built from its tasks must not keep the query from its final query info
+            log.error(e, "Error building the final stage info of stage %s from its tasks; publishing it without tasks", stageId);
+            stageInfo = getStageInfo(ImmutableList::of);
+        }
         checkArgument(stageInfo.isFinalStageInfo(), "finalTaskInfos are not all done");
         finalStageInfo.compareAndSet(Optional.empty(), Optional.of(stageInfo));
     }

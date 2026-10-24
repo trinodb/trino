@@ -133,6 +133,7 @@ import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
 import static io.trino.execution.scheduler.StageExecution.State.RUNNING;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
+import static io.trino.execution.scheduler.faulttolerant.EventDrivenFaultTolerantQueryScheduler.NO_FINAL_TASK_INFO_CHECK_INTERVAL;
 import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.RetryPolicy.QUERY;
 import static io.trino.operator.output.SkewedPartitionRebalancer.getSkewedBucketCount;
@@ -272,11 +273,8 @@ public class PipelinedQueryScheduler
         }
         started = true;
 
-        if (queryStateMachine.isDone()) {
-            return;
-        }
-
-        // when query is done or any time a stage completes, attempt to transition query to "final query info ready"
+        // when query is done or any time a stage completes, attempt to transition query to "final query info ready".
+        // Registered before the isDone check so a query already done fires it at once
         queryStateMachine.addStateChangeListener(state -> {
             if (!state.isDone()) {
                 return;
@@ -288,24 +286,35 @@ public class PipelinedQueryScheduler
                 distributedStagesScheduler = this.distributedStagesScheduler.get();
             }
 
-            if (state == QueryState.FINISHED) {
-                coordinatorStagesScheduler.cancel();
-                if (distributedStagesScheduler != null) {
-                    distributedStagesScheduler.cancel();
+            try {
+                if (state == QueryState.FINISHED) {
+                    coordinatorStagesScheduler.cancel();
+                    if (distributedStagesScheduler != null) {
+                        distributedStagesScheduler.cancel();
+                    }
+                    stageManager.finish();
                 }
-                stageManager.finish();
-            }
-            else if (state == QueryState.FAILED) {
-                coordinatorStagesScheduler.abort();
-                if (distributedStagesScheduler != null) {
-                    distributedStagesScheduler.abort();
+                else if (state == QueryState.FAILED) {
+                    coordinatorStagesScheduler.abort();
+                    if (distributedStagesScheduler != null) {
+                        distributedStagesScheduler.abort();
+                    }
+                    stageManager.abort();
                 }
-                stageManager.abort();
             }
-            schedulerSpan.end();
-
-            queryStateMachine.updateQueryInfo(Optional.of(getStagesInfo()));
+            catch (RuntimeException e) {
+                // the query is done; whatever failed here must not keep the final query info from being published
+                log.error(e, "Error ending the stages of query %s", queryStateMachine.getQueryId());
+            }
+            finally {
+                schedulerSpan.end();
+                stageManager.publishFinalQueryInfo();
+            }
         });
+
+        if (queryStateMachine.isDone()) {
+            return;
+        }
 
         Optional<DistributedStagesScheduler> distributedStagesScheduler = createDistributedStagesScheduler(currentAttempt.get());
 
@@ -552,7 +561,7 @@ public class PipelinedQueryScheduler
                 NodeScheduler nodeScheduler,
                 StageManager stageManager,
                 InternalNodeManager nodeManager,
-                Executor executor,
+                ScheduledExecutorService executor,
                 AtomicReference<DistributedStagesScheduler> distributedStagesScheduler,
                 SqlTaskManager coordinatorTaskManager)
         {
@@ -569,6 +578,7 @@ public class PipelinedQueryScheduler
                         taskLifecycleListener,
                         nodeManager,
                         executor,
+                        NO_FINAL_TASK_INFO_CHECK_INTERVAL,
                         bucketToPartitionForStagesConsumedByCoordinator.get(stage.getFragment().getId()).map(BucketToPartition::bucketToPartition),
                         OptionalInt.empty(),
                         0);
@@ -934,6 +944,7 @@ public class PipelinedQueryScheduler
                         taskLifecycleListener,
                         nodeManager,
                         executor,
+                        NO_FINAL_TASK_INFO_CHECK_INTERVAL,
                         bucketToPartition.map(BucketToPartition::bucketToPartition),
                         skewedBucketCount,
                         attempt);

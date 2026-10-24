@@ -1487,7 +1487,20 @@ public class QueryStateMachine
 
     public QueryInfo updateQueryInfo(Optional<StagesInfo> stagesInfo)
     {
-        QueryInfo queryInfo = getQueryInfo(stagesInfo);
+        QueryInfo queryInfo;
+        try {
+            queryInfo = getQueryInfo(stagesInfo);
+        }
+        catch (RuntimeException e) {
+            // The final query info releases everything the query holds, such as its resource group slot. If the stages
+            // cannot be summarized once they have all ended, publish the final query info without them rather than never.
+            // While a stage is still running the stages are published again on its final stage info, so rethrow.
+            if (!isDone() || stagesInfo.isEmpty() || !getAllStages(stagesInfo).stream().allMatch(StageInfo::isFinalStageInfo)) {
+                throw e;
+            }
+            QUERY_STATE_LOG.error(e, "Error building the final query info of query %s from its stages; publishing it without stages", queryId);
+            queryInfo = getQueryInfo(Optional.empty());
+        }
         if (queryInfo.isFinalQueryInfo()) {
             if (!finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(queryInfo))) {
                 // use the final query info if it is already set
