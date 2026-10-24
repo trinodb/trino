@@ -107,6 +107,19 @@ public class TestDeltaLakePlugin
     }
 
     @Test
+    public void testBigLakeMetastoreIsNotSupported()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "biglake",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("The BigLake metastore is not supported by the Delta Lake connector");
+    }
+
+    @Test
     public void testNoCaching()
     {
         ConnectorFactory factory = getConnectorFactory();

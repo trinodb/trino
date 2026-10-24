@@ -102,6 +102,33 @@ public class TestHivePlugin
     }
 
     @Test
+    public void testBigLakeMetastore()
+    {
+        ConnectorFactory factory = getHiveConnectorFactory();
+
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore", "biglake",
+                                "hive.metastore.biglake.project-id", "example-project",
+                                "hive.metastore.biglake.catalog-id", "example-catalog",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown();
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "biglake",
+                        "hive.metastore.biglake.project-id", "example-project",
+                        "hive.metastore.biglake.catalog-id", "example-catalog",
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
+    }
+
+    @Test
     public void testImmutablePartitionsAndInsertOverwriteMutuallyExclusive()
     {
         ConnectorFactory connectorFactory = getHiveConnectorFactory();

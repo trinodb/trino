@@ -20,6 +20,9 @@ import io.trino.plugin.deltalake.metastore.glue.DeltaLakeGlueMetastoreModule;
 import io.trino.plugin.deltalake.metastore.thrift.DeltaLakeThriftMetastoreModule;
 import io.trino.plugin.hive.metastore.CachingHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
+import io.trino.spi.TrinoException;
+
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class DeltaLakeMetastoreModule
         extends AbstractConfigurationAwareModule
@@ -31,6 +34,7 @@ public class DeltaLakeMetastoreModule
             case THRIFT -> new DeltaLakeThriftMetastoreModule();
             case FILE -> new DeltaLakeFileMetastoreModule();
             case GLUE -> new DeltaLakeGlueMetastoreModule();
+            case BIGLAKE -> throw new TrinoException(NOT_SUPPORTED, "The BigLake metastore is not supported by the Delta Lake connector");
         });
 
         install(new CachingHiveMetastoreModule());
