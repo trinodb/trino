@@ -38,16 +38,6 @@ public class SqlTypeBytecodeExpression
         return new SqlTypeBytecodeExpression(type, callSiteBinder.getAccessibleType(type.getJavaType()), binding);
     }
 
-    private static String generateName(Type type)
-    {
-        String name = type.getTypeDescriptor().toString();
-        if (name.length() > 20) {
-            // Use type base to reduce the identifier size in generated code
-            name = type.getBaseName();
-        }
-        return name.replaceAll("\\W+", "_");
-    }
-
     private final Type type;
     private final Class<?> accessibleJavaElementType;
     private final Binding binding;

@@ -4776,11 +4776,6 @@ public class ExpressionAnalyzer
             return new Context(scope, requireNonNull(functionInputTypes, "functionInputTypes is null"), this.fieldToLambdaArgumentDeclaration, patternRecognitionContext, correlationSupport, inWindow);
         }
 
-        public Context notExpectingLambda()
-        {
-            return new Context(scope, null, this.fieldToLambdaArgumentDeclaration, patternRecognitionContext, correlationSupport, inWindow);
-        }
-
         public static Context patternRecognition(Scope scope, Set<String> labels, boolean inWindow)
         {
             return new Context(scope, null, null, Optional.of(new PatternRecognitionContext(labels, Navigation.DEFAULT)), CorrelationSupport.DISALLOWED, inWindow);
@@ -4885,11 +4880,9 @@ public class ExpressionAnalyzer
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
-                analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
-                analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
                 analyzer.getUniquePredicates(),
@@ -4918,11 +4911,9 @@ public class ExpressionAnalyzer
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
-                analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
-                analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
                 analyzer.getUniquePredicates(),
@@ -4948,11 +4939,9 @@ public class ExpressionAnalyzer
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
-                analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
-                analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
                 analyzer.getUniquePredicates(),
@@ -4996,11 +4985,9 @@ public class ExpressionAnalyzer
                 parametersRowType,
                 new ExpressionAnalysis(
                         analyzer.getExpressionTypes(),
-                        analyzer.getExpressionCoercions(),
                         analyzer.getSubqueryInPredicates(),
                         analyzer.getSubqueries(),
                         analyzer.getExistsSubqueries(),
-                        analyzer.getColumnReferences(),
                         analyzer.getQuantifiedComparisons(),
                         analyzer.getMatchPredicates(),
                         analyzer.getUniquePredicates(),
@@ -5026,11 +5013,9 @@ public class ExpressionAnalyzer
         updateAnalysis(analysis, analyzer, session, accessControl);
         return new TypeAndAnalysis(type, new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
-                analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
-                analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
                 analyzer.getUniquePredicates(),
@@ -5102,11 +5087,9 @@ public class ExpressionAnalyzer
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
-                analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
-                analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
                 analyzer.getUniquePredicates(),

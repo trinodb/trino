@@ -34,8 +34,6 @@ import static java.util.Objects.requireNonNull;
 public class ExpressionAnalysis
 {
     private final Map<NodeRef<Expression>, Type> expressionTypes;
-    private final Map<NodeRef<Expression>, Type> expressionCoercions;
-    private final Map<NodeRef<Expression>, ResolvedField> columnReferences;
     private final List<OperandAndPredicate> subqueryInPredicates;
     private final Set<NodeRef<SubqueryExpression>> subqueries;
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries;
@@ -46,19 +44,15 @@ public class ExpressionAnalysis
 
     public ExpressionAnalysis(
             Map<NodeRef<Expression>, Type> expressionTypes,
-            Map<NodeRef<Expression>, Type> expressionCoercions,
             List<OperandAndPredicate> subqueryInPredicates,
             Set<NodeRef<SubqueryExpression>> subqueries,
             Set<NodeRef<ExistsPredicate>> existsSubqueries,
-            Map<NodeRef<Expression>, ResolvedField> columnReferences,
             List<OperandAndPredicate> quantifiedComparisons,
             List<OperandAndPredicate> matchPredicates,
             Set<NodeRef<UniquePredicate>> uniquePredicates,
             Set<NodeRef<FunctionCall>> windowFunctions)
     {
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
-        this.expressionCoercions = ImmutableMap.copyOf(requireNonNull(expressionCoercions, "expressionCoercions is null"));
-        this.columnReferences = ImmutableMap.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
         this.subqueryInPredicates = ImmutableList.copyOf(requireNonNull(subqueryInPredicates, "subqueryInPredicates is null"));
         this.subqueries = ImmutableSet.copyOf(requireNonNull(subqueries, "subqueries is null"));
         this.existsSubqueries = ImmutableSet.copyOf(requireNonNull(existsSubqueries, "existsSubqueries is null"));
@@ -76,16 +70,6 @@ public class ExpressionAnalysis
     public Map<NodeRef<Expression>, Type> getExpressionTypes()
     {
         return expressionTypes;
-    }
-
-    public Type getCoercion(Expression expression)
-    {
-        return expressionCoercions.get(NodeRef.of(expression));
-    }
-
-    public boolean isColumnReference(Expression node)
-    {
-        return columnReferences.containsKey(NodeRef.of(node));
     }
 
     public List<OperandAndPredicate> getSubqueryInPredicates()

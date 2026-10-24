@@ -119,11 +119,6 @@ public class QueryManagerStats
         @GuardedBy("this")
         private boolean started;
 
-        public StatisticsListener()
-        {
-            finalQueryInfoSupplier = Optional::empty;
-        }
-
         public StatisticsListener(DispatchQuery managedQueryExecution)
         {
             finalQueryInfoSupplier = () -> Optional.of(managedQueryExecution.getBasicQueryInfo());

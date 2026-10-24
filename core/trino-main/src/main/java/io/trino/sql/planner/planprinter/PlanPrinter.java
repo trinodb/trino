@@ -380,24 +380,6 @@ public class PlanPrinter
     public static String textDistributedPlan(
             StagesInfo stages,
             QueryStats queryStats,
-            Metadata metadata,
-            FunctionManager functionManager,
-            Session session,
-            boolean verbose,
-            NodeVersion version)
-    {
-        return textDistributedPlan(
-                stages,
-                queryStats,
-                new ValuePrinter(metadata, functionManager, session),
-                verbose,
-                new NoOpAnonymizer(),
-                version);
-    }
-
-    public static String textDistributedPlan(
-            StagesInfo stages,
-            QueryStats queryStats,
             ValuePrinter valuePrinter,
             boolean verbose,
             Anonymizer anonymizer,

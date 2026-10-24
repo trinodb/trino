@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import io.trino.json.Json;
 import io.trino.json.JsonBlock;
 import io.trino.json.JsonBlockBuilder;
-import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonItemSemantics;
 import io.trino.json.JsonItems;
 import io.trino.spi.block.Block;
@@ -224,14 +223,6 @@ public class JsonType
         JsonBlock jsonBlock = (JsonBlock) block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
         return jsonBlock.getJson(valuePosition);
-    }
-
-    /// Renders a JSON value (in either typed-item binary encoding or raw text form) to
-    /// canonical JSON text. Exposed for callers that consume an asJson-style payload
-    /// outside the block API (e.g. cross-module reflective tests).
-    public static Slice jsonText(Slice slice)
-    {
-        return JsonItemEncoding.isEncoding(slice) ? JsonItems.toText(Json.of(slice)) : slice;
     }
 
     private static int readVariableWidthLength(byte[] fixedSizeSlice, int fixedSizeOffset)

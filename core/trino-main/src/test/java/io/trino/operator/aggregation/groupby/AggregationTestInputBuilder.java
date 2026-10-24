@@ -37,13 +37,6 @@ public class AggregationTestInputBuilder
         return this;
     }
 
-    public AggregationTestInputBuilder setPages(Page[] pages)
-    {
-        this.pages = pages;
-
-        return this;
-    }
-
     public AggregationTestInput build()
     {
         return new AggregationTestInput(function, pages, offset);

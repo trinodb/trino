@@ -71,13 +71,6 @@ public class NodePartitionMap
         return bucketToPartition;
     }
 
-    public InternalNode getNode(Split split)
-    {
-        int bucket = splitToBucket.applyAsInt(split);
-        int partition = bucketToPartition.bucketToPartition()[bucket];
-        return requireNonNull(partitionToNode.get(partition));
-    }
-
     public BucketNodeMap asBucketNodeMap()
     {
         ImmutableList.Builder<InternalNode> bucketToNode = ImmutableList.builder();

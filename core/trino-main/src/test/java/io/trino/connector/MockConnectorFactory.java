@@ -547,12 +547,6 @@ public class MockConnectorFactory
             return this;
         }
 
-        public Builder withStreamRelationColumns(StreamRelationColumns streamRelationColumns)
-        {
-            this.streamRelationColumns = Optional.of(streamRelationColumns);
-            return this;
-        }
-
         public Builder withGetViews(BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews)
         {
             this.getViews = requireNonNull(getViews, "getViews is null");

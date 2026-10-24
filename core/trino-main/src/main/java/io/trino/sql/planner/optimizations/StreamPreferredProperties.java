@@ -96,14 +96,6 @@ public class StreamPreferredProperties
         return new StreamPreferredProperties(Optional.of(MULTIPLE), Optional.empty(), orderSensitive);
     }
 
-    public StreamPreferredProperties withFixedParallelism()
-    {
-        if (distribution.isPresent() && distribution.get() == FIXED) {
-            return this;
-        }
-        return fixedParallelism();
-    }
-
     public static StreamPreferredProperties partitionedOn(Collection<Symbol> partitionSymbols)
     {
         if (partitionSymbols.isEmpty()) {

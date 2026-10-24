@@ -746,35 +746,11 @@ public class QueryAssertions
         }
 
         @CanIgnoreReturnValue
-        public ResultAssert hasColumnNames(String... expectedColumnNames)
-        {
-            return hasColumnNames(Arrays.asList(expectedColumnNames));
-        }
-
-        @CanIgnoreReturnValue
-        public ResultAssert hasColumnNames(List<String> expectedColumnNames)
-        {
-            assertThat(actual.getColumnNames())
-                    .as("Column names for query [%s]", description)
-                    .isEqualTo(expectedColumnNames);
-            return this;
-        }
-
-        @CanIgnoreReturnValue
         public ResultAssert hasTypes(List<Type> expectedTypes)
         {
             assertThat(actual.getTypes())
                     .as("Output types for query [%s]", description)
                     .isEqualTo(expectedTypes);
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public ResultAssert hasType(int index, Type expectedType)
-        {
-            assertThat(actual.getTypes())
-                    .as("Output types for query [%s]", description)
-                    .element(index).isEqualTo(expectedType);
             return this;
         }
 

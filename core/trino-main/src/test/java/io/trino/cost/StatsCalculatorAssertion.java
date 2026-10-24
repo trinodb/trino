@@ -72,12 +72,6 @@ public class StatsCalculatorAssertion
         return this;
     }
 
-    public StatsCalculatorAssertion withSourceStats(Map<PlanNode, PlanNodeStatsEstimate> stats)
-    {
-        sourcesStats.putAll(stats);
-        return this;
-    }
-
     public StatsCalculatorAssertion withTableStatisticsProvider(TableStatsProvider tableStatsProvider)
     {
         this.tableStatsProvider = Optional.of(tableStatsProvider);

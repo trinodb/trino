@@ -110,12 +110,6 @@ public class QueryResultRows
             return this;
         }
 
-        public Builder addPages(List<Page> page)
-        {
-            pages.addAll(page);
-            return this;
-        }
-
         public Builder withTypes(List<Type> types)
         {
             this.types = types;

@@ -258,7 +258,6 @@ public class Analysis
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<AnalyzeMetadata> analyzeMetadata = Optional.empty();
-    private Optional<List<ColumnSchema>> updatedColumns = Optional.empty();
     private Optional<MergeAnalysis> mergeAnalysis = Optional.empty();
 
     private final QueryType queryType;
@@ -810,11 +809,6 @@ public class Analysis
         this.sortKeyCoercionsForFrameBoundComparison.putAll(sortKeyCoercionsForFrameBoundComparison);
     }
 
-    public void addNullIfComparisonType(NullIfExpression expression, Type type)
-    {
-        this.nullIfComparisonTypes.put(NodeRef.of(expression), type);
-    }
-
     public void addNullIfComparisonTypes(Map<NodeRef<NullIfExpression>, Type> types)
     {
         this.nullIfComparisonTypes.putAll(types);
@@ -898,16 +892,6 @@ public class Analysis
     public Optional<Insert> getInsert()
     {
         return insert;
-    }
-
-    public void setUpdatedColumns(List<ColumnSchema> updatedColumns)
-    {
-        this.updatedColumns = Optional.of(updatedColumns);
-    }
-
-    public Optional<List<ColumnSchema>> getUpdatedColumns()
-    {
-        return updatedColumns;
     }
 
     public Optional<MergeAnalysis> getMergeAnalysis()

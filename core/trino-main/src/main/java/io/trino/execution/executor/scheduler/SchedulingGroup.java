@@ -161,11 +161,6 @@ final class SchedulingGroup<T>
         return runnableQueue.peek();
     }
 
-    public int runnableCount()
-    {
-        return runnableQueue.size();
-    }
-
     @Override
     public String toString()
     {
