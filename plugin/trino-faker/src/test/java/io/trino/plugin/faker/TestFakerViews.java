@@ -13,15 +13,25 @@
  */
 package io.trino.plugin.faker;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ViewColumn;
+import io.trino.metadata.ViewDefinition;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 
+import static io.trino.spi.connector.SaveMode.FAIL;
+import static io.trino.spi.connector.SaveMode.IGNORE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestFakerViews
         extends AbstractTestQueryFramework
@@ -31,6 +41,39 @@ final class TestFakerViews
             throws Exception
     {
         return FakerQueryRunner.builder().build();
+    }
+
+    @Test
+    void testCreateViewIgnoreKeepsExistingView()
+    {
+        String viewName = "test_create_view_ignore_" + randomNameSuffix();
+        QualifiedObjectName view = new QualifiedObjectName(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), viewName);
+        ViewDefinition definition = new ViewDefinition(
+                "SELECT 2 AS x",
+                getSession().getCatalog(),
+                getSession().getSchema(),
+                ImmutableList.of(new ViewColumn("x", INTEGER.getTypeId(), Optional.empty())),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of());
+
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT 1 AS x");
+        try {
+            // the engine checks for an existing view first, so call the metadata directly to reach the connector
+            getQueryRunner().inTransaction(getSession(), session -> {
+                getQueryRunner().getPlannerContext().getMetadata().createView(session, view, definition, ImmutableMap.of(), IGNORE);
+                return null;
+            });
+            assertThat(query("SELECT * FROM " + viewName)).matches("VALUES 1");
+
+            assertThatThrownBy(() -> getQueryRunner().inTransaction(getSession(), session -> {
+                getQueryRunner().getPlannerContext().getMetadata().createView(session, view, definition, ImmutableMap.of(), FAIL);
+                return null;
+            })).hasMessageContaining("already exists");
+        }
+        finally {
+            assertUpdate("DROP VIEW IF EXISTS " + viewName);
+        }
     }
 
     @Test
