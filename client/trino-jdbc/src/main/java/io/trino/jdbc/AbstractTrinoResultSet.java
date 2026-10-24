@@ -285,28 +285,28 @@ abstract class AbstractTrinoResultSet
     public byte getByte(int columnIndex)
             throws SQLException
     {
-        return toNumber(column(columnIndex)).byteValue();
+        return toNumberInRange(column(columnIndex), Byte.MIN_VALUE, Byte.MAX_VALUE, "byte").byteValue();
     }
 
     @Override
     public short getShort(int columnIndex)
             throws SQLException
     {
-        return toNumber(column(columnIndex)).shortValue();
+        return toNumberInRange(column(columnIndex), Short.MIN_VALUE, Short.MAX_VALUE, "short").shortValue();
     }
 
     @Override
     public int getInt(int columnIndex)
             throws SQLException
     {
-        return toNumber(column(columnIndex)).intValue();
+        return toNumberInRange(column(columnIndex), Integer.MIN_VALUE, Integer.MAX_VALUE, "int").intValue();
     }
 
     @Override
     public long getLong(int columnIndex)
             throws SQLException
     {
-        return toNumber(column(columnIndex)).longValue();
+        return toNumberInRange(column(columnIndex), Long.MIN_VALUE, Long.MAX_VALUE, "long").longValue();
     }
 
     @Override
@@ -1971,6 +1971,30 @@ abstract class AbstractTrinoResultSet
             throw new SQLException("Invalid column label: " + label);
         }
         return index;
+    }
+
+    private static Number toNumberInRange(Object value, long minimum, long maximum, String targetType)
+            throws SQLException
+    {
+        Number number = toNumber(value);
+        boolean outOfRange;
+        if (number instanceof BigDecimal) {
+            BigDecimal decimal = (BigDecimal) number;
+            outOfRange = decimal.compareTo(BigDecimal.valueOf(minimum)) < 0 || BigDecimal.valueOf(maximum).compareTo(decimal) < 0;
+        }
+        else if (number instanceof Float || number instanceof Double) {
+            double doubleValue = number.doubleValue();
+            // Long.MAX_VALUE rounds to 2^63 as a double, so the upper bound must be exclusive.
+            outOfRange = !Double.isFinite(doubleValue) || doubleValue < minimum || maximum < doubleValue || doubleValue >= 0x1.0p63;
+        }
+        else {
+            long longValue = number.longValue();
+            outOfRange = longValue < minimum || maximum < longValue;
+        }
+        if (outOfRange) {
+            throw new SQLException("Numeric overflow converting to " + targetType + ": " + value);
+        }
+        return number;
     }
 
     private static Number toNumber(Object value)

@@ -199,7 +199,7 @@ public abstract class BaseTestJdbcResultSet
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "SMALLINT '12345'", Types.SMALLINT, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo((short) 12345);
-                assertThat(rs.getByte(column)).isEqualTo((byte) 57); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
                 assertThat(rs.getShort(column)).isEqualTo((short) 12345);
                 assertThat(rs.getInt(column)).isEqualTo(12345);
                 assertThat(rs.getLong(column)).isEqualTo(12345L);
@@ -224,8 +224,8 @@ public abstract class BaseTestJdbcResultSet
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "1234567890", Types.INTEGER, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(1234567890);
-                assertThat(rs.getByte(column)).isEqualTo((byte) -46); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
-                assertThat(rs.getShort(column)).isEqualTo((short) 722); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
                 assertThat(rs.getInt(column)).isEqualTo(1234567890);
                 assertThat(rs.getLong(column)).isEqualTo(1234567890L);
                 assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1234567890"));
@@ -249,9 +249,9 @@ public abstract class BaseTestJdbcResultSet
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "1234567890123456789", Types.BIGINT, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(1234567890123456789L);
-                assertThat(rs.getByte(column)).isEqualTo((byte) 21); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
-                assertThat(rs.getShort(column)).isEqualTo((short) -32491); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
-                assertThat(rs.getInt(column)).isEqualTo(2112454933); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
                 assertThat(rs.getLong(column)).isEqualTo(1234567890123456789L);
                 assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1234567890123456789"));
                 assertThat(rs.getFloat(column)).isEqualTo(1234567890123456789f);
@@ -292,10 +292,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "REAL '12345e21'", Types.REAL, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(1.2345e25f);
-                assertThat(rs.getByte(column)).isEqualTo((byte) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
-                assertThat(rs.getShort(column)).isEqualTo((short) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
-                assertThat(rs.getInt(column)).isEqualTo(Integer.MAX_VALUE);
-                assertThat(rs.getLong(column)).isEqualTo(Long.MAX_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
                 assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1.2345E+25"));
                 assertThat(rs.getFloat(column)).isEqualTo(1.2345e25f);
                 assertThat(rs.getDouble(column)).isEqualTo(1.2345000397219687e25);
@@ -305,10 +305,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "REAL 'NaN'", Types.REAL, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Float.NaN);
-                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
-                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
-                assertThat(rs.getInt(column)).isEqualTo(0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
-                assertThat(rs.getLong(column)).isEqualTo(0L); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: NaN");
                 assertThat(rs.getFloat(column)).isNaN();
                 assertThat(rs.getDouble(column)).isNaN();
@@ -318,10 +318,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "REAL '-Infinity'", Types.REAL, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Float.NEGATIVE_INFINITY);
-                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
-                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
-                assertThat(rs.getInt(column)).isEqualTo(Integer.MIN_VALUE);
-                assertThat(rs.getLong(column)).isEqualTo(Long.MIN_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: -Infinity");
                 assertThat(rs.getFloat(column)).isEqualTo(Float.NEGATIVE_INFINITY);
                 assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
@@ -356,10 +356,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "DOUBLE '12345e21'", Types.DOUBLE, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(1.2345e25);
-                assertThat(rs.getByte(column)).isEqualTo((byte) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
-                assertThat(rs.getShort(column)).isEqualTo((short) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
-                assertThat(rs.getInt(column)).isEqualTo(Integer.MAX_VALUE);
-                assertThat(rs.getLong(column)).isEqualTo(Long.MAX_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
                 assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1.2345E+25"));
                 assertThat(rs.getFloat(column)).isEqualTo(1.2345e25f);
                 assertThat(rs.getDouble(column)).isEqualTo(1.2345e25);
@@ -369,10 +369,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "DOUBLE 'NaN'", Types.DOUBLE, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Double.NaN);
-                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
-                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
-                assertThat(rs.getInt(column)).isEqualTo(0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
-                assertThat(rs.getLong(column)).isEqualTo(0L); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: NaN");
                 assertThat(rs.getFloat(column)).isNaN();
                 assertThat(rs.getDouble(column)).isNaN();
@@ -382,10 +382,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "DOUBLE '-Infinity'", Types.DOUBLE, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Double.NEGATIVE_INFINITY);
-                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
-                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
-                assertThat(rs.getInt(column)).isEqualTo(Integer.MIN_VALUE);
-                assertThat(rs.getLong(column)).isEqualTo(Long.MIN_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: -Infinity");
                 assertThat(rs.getFloat(column)).isEqualTo(Float.NEGATIVE_INFINITY);
                 assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
@@ -497,10 +497,9 @@ public abstract class BaseTestJdbcResultSet
             verify((long) (double) outsideOfDoubleExactRange - outsideOfDoubleExactRange != 0, "outsideOfDoubleExactRange should not be exact-representable as a double");
             checkRepresentation(connectedStatement.getStatement(), format("NUMBER '%s'", outsideOfDoubleExactRange), Types.OTHER, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
-                // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
-                assertThat(rs.getByte(column)).isEqualTo((byte) -34);
-                assertThat(rs.getShort(column)).isEqualTo((short) -34);
-                assertThat(rs.getInt(column)).isEqualTo(-34);
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
                 assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
                 assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
                 assertThat(rs.getFloat(column)).isEqualTo(9.223372e18f);
@@ -535,10 +534,10 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "NUMBER 'NaN'", Types.OTHER, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Double.NaN);
                 assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: NaN");
-                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
-                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
-                assertThat(rs.getInt(column)).isEqualTo(0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
-                assertThat(rs.getLong(column)).isEqualTo(0L); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: NaN");
                 assertThat(rs.getFloat(column)).isNaN();
                 assertThat(rs.getDouble(column)).isNaN();
@@ -548,10 +547,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "NUMBER '+Infinity'", Types.OTHER, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Double.POSITIVE_INFINITY);
-                assertThat(rs.getByte(column)).isEqualTo((byte) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, Infinity != -1
-                assertThat(rs.getShort(column)).isEqualTo((short) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, Infinity != -1
-                assertThat(rs.getInt(column)).isEqualTo(Integer.MAX_VALUE);
-                assertThat(rs.getLong(column)).isEqualTo(Long.MAX_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: +Infinity");
                 assertThat(rs.getFloat(column)).isEqualTo(Float.POSITIVE_INFINITY);
                 assertThat(rs.getDouble(column)).isEqualTo(Double.POSITIVE_INFINITY);
@@ -561,10 +560,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "NUMBER '-Infinity'", Types.OTHER, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Double.NEGATIVE_INFINITY);
-                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
-                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
-                assertThat(rs.getInt(column)).isEqualTo(Integer.MIN_VALUE);
-                assertThat(rs.getLong(column)).isEqualTo(Long.MIN_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: -Infinity");
                 assertThat(rs.getFloat(column)).isEqualTo(Float.NEGATIVE_INFINITY);
                 assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
