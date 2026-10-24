@@ -64,10 +64,10 @@ public class TestSchedulingQueue
         assertThat(queue.dequeue(1)).isEqualTo("T2");
         assertThat(queue.dequeue(1)).isEqualTo("T1");
 
-        queue.finish("G1", "T1");
-        queue.finish("G1", "T2");
-        queue.finish("G1", "T3");
-        queue.finish("G1", "T4");
+        queue.finish("G1", "T1", 0);
+        queue.finish("G1", "T2", 0);
+        queue.finish("G1", "T3", 0);
+        queue.finish("G1", "T4", 0);
 
         assertThat(queue.state("G1")).isEqualTo(State.BLOCKED);
     }
@@ -242,13 +242,13 @@ public class TestSchedulingQueue
         queue.enqueue("G1", "T3", 2);
 
         assertThat(queue.peek()).isEqualTo("T1");
-        queue.finish("G1", "T1");
+        queue.finish("G1", "T1", 0);
         assertThat(queue.peek()).isEqualTo("T2");
         assertThat(queue.state("G1")).isEqualTo(State.RUNNABLE);
 
         // check that the group becomes not-runnable
-        queue.finish("G1", "T2");
-        queue.finish("G1", "T3");
+        queue.finish("G1", "T2", 0);
+        queue.finish("G1", "T3", 0);
         assertThat(queue.peek()).isNull();
         assertThat(queue.state("G1")).isEqualTo(State.BLOCKED);
 
@@ -272,13 +272,13 @@ public class TestSchedulingQueue
         assertThat(queue.peek()).isEqualTo("T3");
         assertThat(queue.state("G1")).isEqualTo(State.RUNNABLE);
 
-        queue.finish("G1", "T3");
+        queue.finish("G1", "T3", 0);
         assertThat(queue.state("G1")).isEqualTo(State.RUNNING);
 
-        queue.finish("G1", "T1");
+        queue.finish("G1", "T1", 0);
         assertThat(queue.state("G1")).isEqualTo(State.RUNNING);
 
-        queue.finish("G1", "T2");
+        queue.finish("G1", "T2", 0);
         assertThat(queue.state("G1")).isEqualTo(State.BLOCKED);
     }
 
@@ -296,11 +296,69 @@ public class TestSchedulingQueue
         queue.block("G1", "T2", 0);
         assertThat(queue.state("G1")).isEqualTo(State.BLOCKED);
 
-        queue.finish("G1", "T1");
+        queue.finish("G1", "T1", 0);
         assertThat(queue.state("G1")).isEqualTo(State.BLOCKED);
 
-        queue.finish("G1", "T2");
+        queue.finish("G1", "T2", 0);
         assertThat(queue.state("G1")).isEqualTo(State.BLOCKED);
+    }
+
+    @Test
+    public void testBlockChargesElapsedWeight()
+    {
+        SchedulingQueue<String, String> queue = new SchedulingQueue<>();
+        queue.startGroup("G1");
+        queue.startGroup("G2");
+
+        queue.enqueue("G1", "T1", 0);
+        queue.enqueue("G2", "T2", 0);
+        assertThat(queue.dequeue(1000)).isEqualTo("T1");
+        assertThat(queue.dequeue(1000)).isEqualTo("T2");
+        queue.enqueue("G1", "T3", 0);
+
+        queue.block("G1", "T1", 10);
+        queue.enqueue("G2", "T2", 20);
+
+        assertThat(queue.dequeue(1000)).isEqualTo("T3");
+    }
+
+    @Test
+    public void testFinishChargesElapsedWeight()
+    {
+        SchedulingQueue<String, String> queue = new SchedulingQueue<>();
+        queue.startGroup("G1");
+        queue.startGroup("G2");
+
+        queue.enqueue("G1", "T1", 0);
+        queue.enqueue("G2", "T2", 0);
+        assertThat(queue.dequeue(1000)).isEqualTo("T1");
+        assertThat(queue.dequeue(1000)).isEqualTo("T2");
+        queue.enqueue("G1", "T3", 0);
+
+        queue.finish("G1", "T1", 10);
+        queue.enqueue("G2", "T2", 20);
+
+        assertThat(queue.dequeue(1000)).isEqualTo("T3");
+    }
+
+    @Test
+    public void testBlockedGroupResumesAtBaseline()
+    {
+        SchedulingQueue<String, String> queue = new SchedulingQueue<>();
+        queue.startGroup("G1");
+        queue.startGroup("G2");
+
+        queue.enqueue("G1", "T1", 0);
+        queue.enqueue("G2", "T2", 0);
+        assertThat(queue.dequeue(1000)).isEqualTo("T1");
+        assertThat(queue.dequeue(1000)).isEqualTo("T2");
+
+        queue.block("G1", "T1", 10);
+        queue.enqueue("G2", "T2", 20);
+        queue.enqueue("G1", "T1", 0);
+
+        assertThat(queue.dequeue(1000)).isEqualTo("T2");
+        assertThat(queue.dequeue(1000)).isEqualTo("T1");
     }
 
     @Test

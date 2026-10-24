@@ -18,13 +18,19 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.Duration;
 import io.trino.execution.TaskId;
+import io.trino.execution.executor.LeafSplitMemoryEstimate;
+import io.trino.execution.executor.SplitConcurrencyController;
 import io.trino.execution.executor.TaskHandle;
+import io.trino.execution.executor.TaskMemory;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
@@ -50,12 +56,17 @@ public class TimeSharingTaskHandle
     private long scheduledNanos;
     @GuardedBy("this")
     private final SplitConcurrencyController concurrencyController;
+    private final AtomicBoolean targetConcurrencyIncreased = new AtomicBoolean();
 
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
     private final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
     private final MultilevelSplitQueue splitQueue;
     private final OptionalInt maxDriversPerTask;
+
+    private final LeafSplitMemoryEstimate leafMemoryEstimate = new LeafSplitMemoryEstimate();
+    // Leaf splits blocked on their output or on another operator.
+    private final Set<PrioritizedSplitRunner> parkedLeafSplits = ConcurrentHashMap.newKeySet();
 
     public TimeSharingTaskHandle(
             TaskId taskId,
@@ -76,13 +87,26 @@ public class TimeSharingTaskHandle
 
     public synchronized Priority addScheduledNanos(long durationNanos)
     {
+        int previousTargetConcurrency = concurrencyController.getTargetConcurrency();
         concurrencyController.update(durationNanos, utilizationSupplier.getAsDouble(), runningLeafSplits.size());
+        if (concurrencyController.getTargetConcurrency() > previousTargetConcurrency) {
+            targetConcurrencyIncreased.set(true);
+        }
         scheduledNanos += durationNanos;
 
         Priority newPriority = splitQueue.updatePriority(priority.get(), durationNanos, scheduledNanos);
 
         priority.set(newPriority);
         return newPriority;
+    }
+
+    // Returns true once per target concurrency increase so the executor can start queued leaf splits.
+    public boolean pollTargetConcurrencyIncreased()
+    {
+        if (!targetConcurrencyIncreased.get()) {
+            return false;
+        }
+        return targetConcurrencyIncreased.getAndSet(false);
     }
 
     public synchronized Priority resetLevelPriority()
@@ -120,6 +144,38 @@ public class TimeSharingTaskHandle
         return maxDriversPerTask;
     }
 
+    @Override
+    public void setTaskMemory(TaskMemory taskMemory)
+    {
+        leafMemoryEstimate.setTaskMemory(taskMemory);
+    }
+
+    public LeafSplitMemoryEstimate getLeafMemoryEstimate()
+    {
+        return leafMemoryEstimate;
+    }
+
+    public void leafSplitParked(PrioritizedSplitRunner split)
+    {
+        parkedLeafSplits.add(split);
+    }
+
+    public void leafSplitUnparked(PrioritizedSplitRunner split)
+    {
+        parkedLeafSplits.remove(split);
+    }
+
+    // A task with a leaf split waiting on its output or on another operator gains nothing from more leaf splits.
+    public boolean isParked()
+    {
+        return !parkedLeafSplits.isEmpty();
+    }
+
+    public synchronized boolean hasQueuedLeafSplits()
+    {
+        return !queuedLeafSplits.isEmpty();
+    }
+
     // Returns any remaining splits. The caller must destroy these.
     public synchronized List<PrioritizedSplitRunner> destroy()
     {
@@ -132,6 +188,7 @@ public class TimeSharingTaskHandle
         runningIntermediateSplits.clear();
         runningLeafSplits.clear();
         queuedLeafSplits.clear();
+        parkedLeafSplits.clear();
         return builder.build();
     }
 
@@ -156,6 +213,11 @@ public class TimeSharingTaskHandle
     synchronized int getRunningLeafSplits()
     {
         return runningLeafSplits.size();
+    }
+
+    synchronized int getTargetConcurrency()
+    {
+        return concurrencyController.getTargetConcurrency();
     }
 
     public synchronized long getScheduledNanos()
@@ -185,6 +247,7 @@ public class TimeSharingTaskHandle
         concurrencyController.splitFinished(split.getScheduledNanos(), utilizationSupplier.getAsDouble(), runningLeafSplits.size());
         runningIntermediateSplits.remove(split);
         runningLeafSplits.remove(split);
+        parkedLeafSplits.remove(split);
     }
 
     public int getNextSplitId()

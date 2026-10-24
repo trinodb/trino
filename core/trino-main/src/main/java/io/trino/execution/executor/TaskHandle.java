@@ -16,4 +16,7 @@ package io.trino.execution.executor;
 public interface TaskHandle
 {
     boolean isDestroyed();
+
+    // Supplies the memory figures that leaf split admission reads for this task.
+    default void setTaskMemory(TaskMemory taskMemory) {}
 }

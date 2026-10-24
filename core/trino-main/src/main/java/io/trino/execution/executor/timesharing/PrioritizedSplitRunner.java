@@ -25,6 +25,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.execution.SplitRunner;
+import io.trino.execution.SplitRunner.BlockedReason;
 import io.trino.tracing.TrinoAttributes;
 
 import java.util.concurrent.TimeUnit;
@@ -52,6 +53,7 @@ public final class PrioritizedSplitRunner
 
     private final TimeSharingTaskHandle taskHandle;
     private final int splitId;
+    private final boolean leaf;
     private final long workerId;
     private final SplitRunner split;
 
@@ -83,6 +85,7 @@ public final class PrioritizedSplitRunner
     PrioritizedSplitRunner(
             TimeSharingTaskHandle taskHandle,
             int splitId,
+            boolean leaf,
             SplitRunner split,
             Span splitSpan,
             Tracer tracer,
@@ -94,6 +97,7 @@ public final class PrioritizedSplitRunner
     {
         this.taskHandle = requireNonNull(taskHandle, "taskHandle is null");
         this.splitId = splitId;
+        this.leaf = leaf;
         this.split = requireNonNull(split, "split is null");
         this.splitSpan = requireNonNull(splitSpan, "splitSpan is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
@@ -215,6 +219,16 @@ public final class PrioritizedSplitRunner
             finishedFuture.setException(e);
             throw e;
         }
+    }
+
+    public boolean isLeaf()
+    {
+        return leaf;
+    }
+
+    public BlockedReason getBlockedReason()
+    {
+        return split.getBlockedReason();
     }
 
     public void markFailed(Throwable cause)

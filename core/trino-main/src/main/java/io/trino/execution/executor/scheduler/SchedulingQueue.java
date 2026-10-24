@@ -154,31 +154,16 @@ final class SchedulingQueue<G, T>
                 .collect(Collectors.toSet());
     }
 
-    public void finish(G group, T task)
+    public void finish(G group, T task, long deltaWeight)
     {
         checkArgument(groups.containsKey(group), "Unknown group: %s", group);
 
         SchedulingGroup<T> info = groups.get(group);
 
         State previousState = info.state();
-        info.finish(task);
-        State newState = info.state();
+        info.finish(task, deltaWeight);
 
-        if (newState == RUNNABLE) {
-            runnableQueue.addOrReplace(group, info.weight());
-            baselineWeights.addOrReplace(group, info.weight());
-        }
-        else if (newState == RUNNING) {
-            runnableQueue.removeIfPresent(group);
-            baselineWeights.addOrReplace(group, info.weight());
-        }
-        else if (newState == BLOCKED && previousState != BLOCKED) {
-            info.addWeight(-baselineWeight());
-            runnableQueue.removeIfPresent(group);
-            baselineWeights.removeIfPresent(group);
-        }
-
-        verifyState(group);
+        doTransition(group, info, previousState, info.state());
     }
 
     public void enqueue(G group, T task, long deltaWeight)
@@ -293,6 +278,7 @@ final class SchedulingQueue<G, T>
             baselineWeights.addOrReplace(group, info.weight());
         }
         else if (newState == BLOCKED && previousState != BLOCKED) {
+            baselineWeights.addOrReplace(group, info.weight());
             info.addWeight(-baselineWeight());
             runnableQueue.removeIfPresent(group);
             baselineWeights.removeIfPresent(group);
