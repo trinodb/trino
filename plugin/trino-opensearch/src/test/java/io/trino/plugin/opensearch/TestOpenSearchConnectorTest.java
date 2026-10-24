@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.opensearch;
 
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+
 public class TestOpenSearchConnectorTest
         extends BaseOpenSearchConnectorTest
 {
@@ -21,4 +24,9 @@ public class TestOpenSearchConnectorTest
         // 1.0.0 and 1.0.1 causes NotSslRecordException during the initialization
         super("opensearchproject/opensearch:1.1.0");
     }
+
+    @Test
+    @Disabled("match_only_text field type was introduced in OpenSearch 2.12")
+    @Override
+    public void testMatchOnlyTextDataType() {}
 }
