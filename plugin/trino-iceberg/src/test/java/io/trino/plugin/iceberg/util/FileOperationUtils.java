@@ -98,6 +98,9 @@ public final class FileOperationUtils
             if (path.contains("delete_file") && (path.endsWith(".orc") || path.endsWith(".parquet"))) {
                 return DELETE;
             }
+            if (path.contains("/data/dv-") && path.endsWith(".puffin")) {
+                return DELETE;
+            }
             if (path.endsWith(".trinoSchema") || path.contains("/.trinoPermissions/")) {
                 return METASTORE;
             }
