@@ -4386,7 +4386,7 @@ public class DeltaLakeMetadata
                     .collect(toImmutableSet());
             if (!mergedColumnStatistics.keySet().equals(analyzePhysicalColumns)) {
                 // sanity validation
-                throw new IllegalStateException(format("Unexpected columns in in mergedColumnStatistics %s; expected %s", mergedColumnStatistics.keySet(), analyzePhysicalColumns));
+                throw new IllegalStateException(format("Unexpected columns in mergedColumnStatistics %s; expected %s", mergedColumnStatistics.keySet(), analyzePhysicalColumns));
             }
         });
 

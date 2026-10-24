@@ -110,7 +110,7 @@ public class OpenLineageHttpTransportConfig
     }
 
     @Config("openlineage-event-listener.transport.headers")
-    @ConfigDescription("List of custom custom HTTP headers provided as: \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\" ")
+    @ConfigDescription("List of custom HTTP headers provided as: \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\" ")
     public OpenLineageHttpTransportConfig setHeaders(List<String> headers)
     {
         try {
@@ -131,7 +131,7 @@ public class OpenLineageHttpTransportConfig
     }
 
     @Config("openlineage-event-listener.transport.url-params")
-    @ConfigDescription("List of custom custom url params provided as: \"url-param-1: url param value 1, ...\" ")
+    @ConfigDescription("List of custom url params provided as: \"url-param-1: url param value 1, ...\" ")
     public OpenLineageHttpTransportConfig setUrlParams(List<String> urlParas)
     {
         try {
