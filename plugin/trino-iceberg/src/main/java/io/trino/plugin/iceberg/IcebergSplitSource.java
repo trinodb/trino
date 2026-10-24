@@ -131,8 +131,10 @@ import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.predicate.FloatingPointValueSet.nanValue;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.clamp;
 import static java.util.Collections.emptyIterator;
@@ -626,6 +628,7 @@ public class IcebergSplitSource
                         wholeFileTask.file().lowerBounds(),
                         wholeFileTask.file().upperBounds(),
                         wholeFileTask.file().nullValueCounts(),
+                        wholeFileTask.file().nanValueCounts(),
                         predicatedColumns),
                 parquetFileDecryptionData(
                         wholeFileTask.file().format(),
@@ -724,6 +727,7 @@ public class IcebergSplitSource
             @Nullable Map<Integer, ByteBuffer> lowerBounds,
             @Nullable Map<Integer, ByteBuffer> upperBounds,
             @Nullable Map<Integer, Long> nullValueCounts,
+            @Nullable Map<Integer, Long> nanValueCounts,
             List<IcebergColumnHandle> predicatedColumns)
     {
         ImmutableMap.Builder<IcebergColumnHandle, Domain> domainBuilder = ImmutableMap.builder();
@@ -737,6 +741,8 @@ public class IcebergSplitSource
                 Long nullValueCount = nullValueCounts.get(fieldId);
                 mayContainNulls = nullValueCount == null || nullValueCount > 0;
             }
+            Long nanValueCount = nanValueCounts == null ? null : nanValueCounts.get(fieldId);
+            boolean mayContainNaN = nanValueCount == null || nanValueCount > 0;
             Type type = fieldIdToType.get(fieldId);
             domainBuilder.put(
                     column,
@@ -745,7 +751,8 @@ public class IcebergSplitSource
                             type,
                             lowerBounds == null ? null : fromByteBuffer(type, lowerBounds.get(fieldId)),
                             upperBounds == null ? null : fromByteBuffer(type, upperBounds.get(fieldId)),
-                            mayContainNulls));
+                            mayContainNulls,
+                            mayContainNaN));
         }
         return TupleDomain.withColumnDomains(domainBuilder.buildOrThrow());
     }
@@ -755,7 +762,8 @@ public class IcebergSplitSource
             Type statisticsIcebergType,
             @Nullable Object lowerBound,
             @Nullable Object upperBound,
-            boolean mayContainNulls)
+            boolean mayContainNulls,
+            boolean mayContainNaN)
     {
         io.trino.spi.type.Type type = columnHandle.getType();
         if (lowerBound == null && upperBound == null) {
@@ -777,7 +785,12 @@ public class IcebergSplitSource
         else {
             statisticsRange = Range.greaterThanOrEqual(type, convertIcebergValueToTrino(statisticsIcebergType, lowerBound));
         }
-        return Domain.create(ValueSet.ofRanges(statisticsRange), mayContainNulls);
+        ValueSet values = ValueSet.ofRanges(statisticsRange);
+        // Iceberg bounds exclude NaN, so only an explicit zero count can rule it out.
+        if (mayContainNaN && typeHasNaN(type)) {
+            values = values.union(ValueSet.of(type, nanValue(type)));
+        }
+        return Domain.create(values, mayContainNulls);
     }
 
     private static class PartitionConstraintMatcher

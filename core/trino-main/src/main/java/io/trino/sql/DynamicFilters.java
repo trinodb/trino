@@ -25,6 +25,7 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.BooleanType;
@@ -293,14 +294,20 @@ public final class DynamicFilters
                 }
                 return domain;
             }
-            Range span = domain.getValues().getRanges().getSpan();
-            return switch (operator) {
-                case EQUAL -> {
-                    if (nullAllowed) {
-                        yield Domain.create(domain.getValues(), true);
-                    }
-                    yield domain;
+            if (operator == EQUAL) {
+                return nullAllowed ? Domain.create(domain.getValues(), true) : domain;
+            }
+            Range span;
+            if (domain.getValues() instanceof FloatingPointValueSet floatingPoint) {
+                if (floatingPoint.isNaNAllowed()) {
+                    return Domain.create(ValueSet.all(domain.getType()), nullAllowed);
                 }
+                span = floatingPoint.getOrderedValues().getSpan();
+            }
+            else {
+                span = domain.getValues().getRanges().getSpan();
+            }
+            return switch (operator) {
                 case LESS_THAN -> {
                     Range range = Range.lessThan(span.getType(), span.getHighBoundedValue());
                     yield Domain.create(ValueSet.ofRanges(range), false);

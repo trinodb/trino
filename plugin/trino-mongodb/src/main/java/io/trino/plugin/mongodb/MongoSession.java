@@ -51,7 +51,9 @@ import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -636,7 +638,12 @@ public class MongoSession
 
         List<Object> singleValues = new ArrayList<>();
         List<Document> disjuncts = new ArrayList<>();
-        for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
+        // BSON accepts infinities. Keep the lower infinity bound because MongoDB orders NaN before numbers.
+        verify(!(domain.getValues() instanceof FloatingPointValueSet floatingPoint) || !floatingPoint.isNaNAllowed(), "NaN domain must be handled before rendering");
+        Ranges ranges = domain.getValues() instanceof FloatingPointValueSet floatingPoint
+                ? floatingPoint.getOrderedValues().getRanges()
+                : domain.getValues().getRanges();
+        for (Range range : ranges.getOrderedRanges()) {
             if (range.isSingleValue()) {
                 Optional<Object> translated = translateValue(range.getSingleValue(), type);
                 if (translated.isEmpty()) {

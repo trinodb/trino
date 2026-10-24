@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.metadata.FunctionPreimages;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
@@ -50,9 +51,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
 import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
 import static io.trino.operator.join.JoinUtils.getSemiJoinDynamicFilterId;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
+import static io.trino.spi.function.PreimageResult.Exactness.CONSERVATIVE;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.DynamicFilters.getDescriptor;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
@@ -93,10 +96,14 @@ public class RemoveUnsupportedDynamicFilters
     {
         private final CharVarcharCoercion charVarcharCoercion;
         private final TypeCoercion typeCoercion;
+        private final FunctionPreimages preimages;
+        private final boolean functionPreimagesEnabled;
 
         public Rewriter(Session session)
         {
             this.charVarcharCoercion = getCharVarcharCoercion(session);
+            this.functionPreimagesEnabled = isFunctionPreimagesEnabled(session);
+            this.preimages = new FunctionPreimages(plannerContext.getMetadata(), plannerContext.getFunctionManager(), plannerContext.getTypeManager(), session);
             this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
         }
 
@@ -319,18 +326,16 @@ public class RemoveUnsupportedDynamicFilters
             if (!typeCoercion.canCoerce(castSourceType, castTargetType)) {
                 return false;
             }
-            return doesSaturatedFloorCastOperatorExist(castTargetType, castSourceType);
-        }
-
-        private boolean doesSaturatedFloorCastOperatorExist(Type fromType, Type toType)
-        {
-            try {
-                plannerContext.getMetadata().getCoercion(charVarcharCoercion, SATURATED_FLOOR_CAST, fromType, toType);
+            if (functionPreimagesEnabled) {
+                return preimages.bindCast(castSourceType, castTargetType, CONSERVATIVE).isPresent();
             }
-            catch (OperatorNotFoundException e) {
+            try {
+                plannerContext.getMetadata().getCoercion(charVarcharCoercion, SATURATED_FLOOR_CAST, castTargetType, castSourceType);
+                return true;
+            }
+            catch (OperatorNotFoundException _) {
                 return false;
             }
-            return true;
         }
 
         private Expression removeAllDynamicFilters(Expression expression)

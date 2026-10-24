@@ -47,7 +47,11 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.sql.TestTable;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SchemaParser;
@@ -64,6 +68,7 @@ import org.apache.iceberg.encryption.NativeEncryptionInputFile;
 import org.apache.iceberg.encryption.NativeEncryptionKeyMetadata;
 import org.apache.iceberg.encryption.NativeEncryptionOutputFile;
 import org.apache.iceberg.formats.FileWriterBuilder;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
@@ -75,6 +80,8 @@ import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.ByteBuffers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
@@ -86,6 +93,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
@@ -98,9 +106,14 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
+import static io.trino.spi.predicate.FloatingPointValueSet.nanValue;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.lang.Float.floatToRawIntBits;
+import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 import static org.apache.iceberg.encryption.EncryptedFiles.encryptedOutput;
 import static org.apache.iceberg.formats.FormatModelRegistry.positionDeleteWriteBuilder;
@@ -221,13 +234,78 @@ public class TestIcebergSplitSource
                 ImmutableMap.of(bigintColumn, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1000L, true, 2000L, true)), false)));
         List<IcebergColumnHandle> predicatedColumns = ImmutableList.of(bigintColumn);
 
-        assertThat(createFileStatisticsDomain(primitiveTypes, lowerBound, upperBound, ImmutableMap.of(1, 0L), predicatedColumns))
+        assertThat(createFileStatisticsDomain(primitiveTypes, lowerBound, upperBound, ImmutableMap.of(1, 0L), null, predicatedColumns))
                 .isEqualTo(domainLowerUpperBound);
 
         TupleDomain<IcebergColumnHandle> domainLowerUpperBoundAllowNulls = TupleDomain.withColumnDomains(
                 ImmutableMap.of(bigintColumn, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1000L, true, 2000L, true)), true)));
-        assertThat(createFileStatisticsDomain(primitiveTypes, lowerBound, upperBound, ImmutableMap.of(1, 1L), predicatedColumns))
+        assertThat(createFileStatisticsDomain(primitiveTypes, lowerBound, upperBound, ImmutableMap.of(1, 1L), null, predicatedColumns))
                 .isEqualTo(domainLowerUpperBoundAllowNulls);
+    }
+
+    @Test
+    public void testFloatingPointStatisticsPruning()
+    {
+        for (io.trino.spi.type.Type type : ImmutableList.of(REAL, DOUBLE)) {
+            Type.PrimitiveType icebergType = type.equals(REAL) ? Types.FloatType.get() : Types.DoubleType.get();
+            Object bound = type.equals(REAL) ? (Object) 1.0f : 1.0;
+            Object value = type.equals(REAL) ? (Object) (long) floatToRawIntBits(1.0f) : 1.0;
+            IcebergColumnHandle column = IcebergColumnHandle.optional(new ColumnIdentity(1, "x", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                    .columnType(type)
+                    .build();
+            Map<Integer, Type.PrimitiveType> primitiveTypes = ImmutableMap.of(1, icebergType);
+            Map<Integer, ByteBuffer> bounds = ImmutableMap.of(1, Conversions.toByteBuffer(icebergType, bound));
+            List<IcebergColumnHandle> columns = ImmutableList.of(column);
+            Domain valuesWithNaN = Domain.multipleValues(type, ImmutableList.of(value, nanValue(type)));
+            TupleDomain<IcebergColumnHandle> nanPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.singleValue(type, nanValue(type))));
+
+            for (Map<Integer, Long> nanCounts : ImmutableList.of(ImmutableMap.<Integer, Long>of(), ImmutableMap.of(1, 1L))) {
+                TupleDomain<IcebergColumnHandle> domain = createFileStatisticsDomain(primitiveTypes, bounds, bounds, ImmutableMap.of(1, 0L), nanCounts, columns);
+                assertThat(domain).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(column, valuesWithNaN)));
+                assertThat(domain.overlaps(nanPredicate)).isTrue();
+            }
+            assertThat(createFileStatisticsDomain(primitiveTypes, bounds, bounds, ImmutableMap.of(1, 0L), null, columns))
+                    .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(column, valuesWithNaN)));
+            assertThat(createFileStatisticsDomain(primitiveTypes, bounds, bounds, ImmutableMap.of(1, 0L), ImmutableMap.of(1, 0L), columns))
+                    .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.singleValue(type, value))));
+
+            for (Map<Integer, ByteBuffer> lowerBounds : ImmutableList.of(bounds, ImmutableMap.<Integer, ByteBuffer>of())) {
+                for (Map<Integer, ByteBuffer> upperBounds : ImmutableList.of(bounds, ImmutableMap.<Integer, ByteBuffer>of())) {
+                    assertThat(createFileStatisticsDomain(primitiveTypes, lowerBounds, upperBounds, null, null, columns).overlaps(nanPredicate)).isTrue();
+                }
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PARQUET", "ORC"})
+    public void testNaNPruningWithFiniteBounds(String format)
+            throws Exception
+    {
+        String tableName = "test_nan_pruning_" + format.toLowerCase(ENGLISH);
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format = '" + format + "') AS SELECT * FROM (VALUES (1.0e0), (nan())) t(x)", 2);
+        try {
+            Table table = catalog.loadTable(SESSION, new SchemaTableName("tpch", tableName));
+            DataFile file;
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().includeColumnStats().planFiles()) {
+                file = getOnlyElement(tasks).file().copy();
+            }
+            int fieldId = table.schema().findField("x").fieldId();
+            Map<Integer, ByteBuffer> bounds = ImmutableMap.of(fieldId, Conversions.toByteBuffer(Types.DoubleType.get(), 1.0));
+            // Iceberg bounds exclude NaN. Trino's writer omits bounds instead, so supply spec-compliant metrics.
+            DataFile fileWithFiniteBounds = DataFiles.builder(table.spec())
+                    .copy(file)
+                    .withMetrics(new Metrics(file.recordCount(), file.columnSizes(), file.valueCounts(), file.nullValueCounts(), ImmutableMap.of(fieldId, 1L), bounds, bounds))
+                    .build();
+            table.newRewrite().rewriteFiles(ImmutableSet.of(file), ImmutableSet.of(fileWithFiniteBounds)).commit();
+
+            for (String predicate : ImmutableList.of("x <> 1.0e0", "NOT (x < 2.0e0)", "x IS DISTINCT FROM 1.0e0")) {
+                assertQuery("SELECT count(*) FROM " + tableName + " WHERE " + predicate, "VALUES 1");
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Test
@@ -243,26 +321,26 @@ public class TestIcebergSplitSource
                 ImmutableMap.of(bigintColumn, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2000L)), false)));
         List<IcebergColumnHandle> predicatedColumns = ImmutableList.of(bigintColumn);
 
-        assertThat(createFileStatisticsDomain(primitiveTypes, null, upperBound, ImmutableMap.of(1, 0L), predicatedColumns))
+        assertThat(createFileStatisticsDomain(primitiveTypes, null, upperBound, ImmutableMap.of(1, 0L), null, predicatedColumns))
                 .isEqualTo(domainLessThanUpperBound);
-        assertThat(createFileStatisticsDomain(primitiveTypes, ImmutableMap.of(), upperBound, ImmutableMap.of(1, 0L), predicatedColumns))
+        assertThat(createFileStatisticsDomain(primitiveTypes, ImmutableMap.of(), upperBound, ImmutableMap.of(1, 0L), null, predicatedColumns))
                 .isEqualTo(domainLessThanUpperBound);
 
         TupleDomain<IcebergColumnHandle> domainGreaterThanLessBound = TupleDomain.withColumnDomains(
                 ImmutableMap.of(bigintColumn, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, -1000L)), false)));
-        assertThat(createFileStatisticsDomain(primitiveTypes, lowerBound, null, ImmutableMap.of(1, 0L), predicatedColumns))
+        assertThat(createFileStatisticsDomain(primitiveTypes, lowerBound, null, ImmutableMap.of(1, 0L), null, predicatedColumns))
                 .isEqualTo(domainGreaterThanLessBound);
-        assertThat(createFileStatisticsDomain(primitiveTypes, lowerBound, ImmutableMap.of(), ImmutableMap.of(1, 0L), predicatedColumns))
+        assertThat(createFileStatisticsDomain(primitiveTypes, lowerBound, ImmutableMap.of(), ImmutableMap.of(1, 0L), null, predicatedColumns))
                 .isEqualTo(domainGreaterThanLessBound);
 
-        assertThat(createFileStatisticsDomain(primitiveTypes, ImmutableMap.of(), ImmutableMap.of(), null, predicatedColumns))
+        assertThat(createFileStatisticsDomain(primitiveTypes, ImmutableMap.of(), ImmutableMap.of(), null, null, predicatedColumns))
                 .isEqualTo(TupleDomain.all());
-        assertThat(createFileStatisticsDomain(primitiveTypes, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), predicatedColumns))
+        assertThat(createFileStatisticsDomain(primitiveTypes, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), null, predicatedColumns))
                 .isEqualTo(TupleDomain.all());
-        assertThat(createFileStatisticsDomain(primitiveTypes, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(1, 1L), predicatedColumns))
+        assertThat(createFileStatisticsDomain(primitiveTypes, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(1, 1L), null, predicatedColumns))
                 .isEqualTo(TupleDomain.all());
 
-        assertThat(createFileStatisticsDomain(primitiveTypes, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(1, 0L), predicatedColumns))
+        assertThat(createFileStatisticsDomain(primitiveTypes, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(1, 0L), null, predicatedColumns))
                 .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(bigintColumn, Domain.notNull(BIGINT))));
     }
 
