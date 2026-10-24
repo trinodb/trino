@@ -94,6 +94,9 @@ public class TestCheckConstraint
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_localtimestamp"))) {
                         return TPCH_NATION_SCHEMA;
                     }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_now"))) {
+                        return TPCH_NATION_SCHEMA;
+                    }
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_not_deterministic"))) {
                         return TPCH_NATION_SCHEMA;
                     }
@@ -132,6 +135,9 @@ public class TestCheckConstraint
                     }
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_localtimestamp"))) {
                         return ImmutableList.of("LOCALTIMESTAMP > TIMESTAMP '2022-12-31 23:59:59'");
+                    }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_now"))) {
+                        return ImmutableList.of("NOW() > TIMESTAMP '2022-12-31 23:59:59'");
                     }
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_not_deterministic"))) {
                         return ImmutableList.of("nationkey > random()");
@@ -330,6 +336,13 @@ public class TestCheckConstraint
     }
 
     @Test
+    public void testInsertUnsupportedNow()
+    {
+        assertThat(assertions.query("INSERT INTO mock.tiny.nation_now VALUES (101, 'POLAND', 0, 'No comment')"))
+                .failure().hasMessageContaining("Check constraint expression should not contain temporal expression");
+    }
+
+    @Test
     public void testInsertUnsupportedConstraint()
     {
         assertThat(assertions.query("INSERT INTO mock.tiny.nation_invalid_function VALUES (101, 'POLAND', 0, 'No comment')"))
@@ -495,6 +508,13 @@ public class TestCheckConstraint
     public void testUpdateUnsupportedLocaltimestamp()
     {
         assertThat(assertions.query("UPDATE mock.tiny.nation_localtimestamp SET nationkey = 10"))
+                .failure().hasMessageContaining("Check constraint expression should not contain temporal expression");
+    }
+
+    @Test
+    public void testUpdateUnsupportedNow()
+    {
+        assertThat(assertions.query("UPDATE mock.tiny.nation_now SET nationkey = 10"))
                 .failure().hasMessageContaining("Check constraint expression should not contain temporal expression");
     }
 
@@ -752,6 +772,19 @@ public class TestCheckConstraint
         assertThat(assertions.query(
                 """
                 MERGE INTO mock.tiny.nation_localtimestamp USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
+                WHEN MATCHED AND t.x = 1 THEN DELETE
+                WHEN MATCHED THEN UPDATE SET regionkey = 9
+                WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 0, 'No comment')
+                """))
+                .failure().hasMessageContaining("Check constraint expression should not contain temporal expression");
+    }
+
+    @Test
+    public void testMergeUnsupportedNow()
+    {
+        assertThat(assertions.query(
+                """
+                MERGE INTO mock.tiny.nation_now USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 9
                 WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 0, 'No comment')
