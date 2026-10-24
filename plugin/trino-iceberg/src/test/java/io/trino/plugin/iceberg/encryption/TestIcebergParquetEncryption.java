@@ -25,7 +25,9 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
+import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
@@ -38,8 +40,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.LongStream;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -48,15 +53,20 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.createEncryptionManager;
 import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.createTestRecords;
 import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.createTestRecordsWithName;
+import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.withNewEncryptionKey;
 import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.writeEncryptedAvroDataFile;
 import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.writeEncryptedDataFile;
+import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.writeEncryptedDeletionVectors;
 import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.writeEncryptedEqualityDeleteFile;
 import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.writeEncryptedPositionDeleteFile;
 import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.writePlaintextDataFile;
+import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.writePlaintextDeletionVectors;
 import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.writePlaintextFileWithEncryptionKeyMetadata;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
+import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.encryption.Ciphers.PLAIN_BLOCK_SIZE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -145,6 +155,188 @@ final class TestIcebergParquetEncryption
                     .isEqualTo(98L);
             assertThat(computeActual("SELECT min(id) FROM " + tableName).getOnlyValue())
                     .isEqualTo(2);
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    void testReadEncryptedParquetTableWithDeletionVectors()
+            throws Exception
+    {
+        String tableName = "enc_parquet_dv_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+
+        createIcebergTable(schemaTableName, TABLE_SCHEMA, ImmutableMap.of(FORMAT_VERSION, "3"));
+        try {
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+            setTableEncryptionKey(table, schemaTableName);
+            EncryptionManager encryptionManager = createEncryptionManager(TEST_KEY_ID, KMS_CLIENT);
+
+            DataFile firstDataFile = writeEncryptedDataFile(table, encryptionManager, createTestRecords(TABLE_SCHEMA, 100));
+            DataFile secondDataFile = writeEncryptedDataFile(table, encryptionManager, createTestRecords(TABLE_SCHEMA, 100));
+            table.newFastAppend().appendFile(firstDataFile).appendFile(secondDataFile).commit();
+
+            // Positions past the 100 rows are intentional padding, so each DV spans several 1 MiB AES-GCM blocks
+            // that the reader must decrypt and stitch together. More than 4,096 positions per container gives
+            // roaring bitmap containers, and every other position avoids run encoding.
+            long[] largeDeletionVectorPositions = LongStream.range(0, 160)
+                    .flatMap(container -> LongStream.range(0, 4097).map(i -> container * 65536 + 2 * i))
+                    .toArray();
+            // Both DVs share one Puffin file, so the second one starts past the first block
+            RowDelta rowDelta = table.newRowDelta();
+            writeEncryptedDeletionVectors(table, ImmutableMap.of(
+                    firstDataFile.location(), largeDeletionVectorPositions,
+                    secondDataFile.location(), largeDeletionVectorPositions))
+                    .forEach(rowDelta::addDeletes);
+            rowDelta.commit();
+            invalidateTableCache(schemaTableName);
+
+            assertThat(computeActual("SELECT count(DISTINCT file_path), bool_and(key_metadata IS NOT NULL), max(content_offset) > " + PLAIN_BLOCK_SIZE + " FROM \"" + tableName + "$files\" WHERE file_format = 'PUFFIN'")
+                    .getMaterializedRows().getFirst().getFields())
+                    .containsExactly(1L, true, true);
+            // Even positions below 100 are deleted in both data files
+            assertThat(computeActual("SELECT count(*), min(id), max(id) FROM " + tableName)
+                    .getMaterializedRows().getFirst().getFields())
+                    .containsExactly(100L, 1, 99);
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    void testDeletionVectorWithWrongKeyFails()
+            throws Exception
+    {
+        String tableName = "enc_parquet_dv_wrong_key_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+
+        createIcebergTable(schemaTableName, TABLE_SCHEMA, ImmutableMap.of(FORMAT_VERSION, "3"));
+        try {
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+            setTableEncryptionKey(table, schemaTableName);
+            EncryptionManager encryptionManager = createEncryptionManager(TEST_KEY_ID, KMS_CLIENT);
+
+            DataFile dataFile = writeEncryptedDataFile(table, encryptionManager, createTestRecords(TABLE_SCHEMA, 100));
+            table.newFastAppend().appendFile(dataFile).commit();
+
+            DeleteFile deletionVector = getOnlyElement(writeEncryptedDeletionVectors(table, ImmutableMap.of(dataFile.location(), new long[] {0, 1})));
+            table.newRowDelta().addDeletes(withNewEncryptionKey(table, deletionVector, encryptionManager)).commit();
+            invalidateTableCache(schemaTableName);
+
+            assertThatThrownBy(() -> computeActual("SELECT count(*) FROM " + tableName))
+                    .hasMessageContaining("Failed to read deletion vector file");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    void testDeletionVectorWithoutFileLengthFails()
+            throws Exception
+    {
+        String tableName = "enc_parquet_dv_no_length_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+
+        createIcebergTable(schemaTableName, TABLE_SCHEMA, ImmutableMap.of(FORMAT_VERSION, "3"));
+        try {
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+            setTableEncryptionKey(table, schemaTableName);
+            EncryptionManager encryptionManager = createEncryptionManager(TEST_KEY_ID, KMS_CLIENT);
+
+            DataFile dataFile = writeEncryptedDataFile(table, encryptionManager, createTestRecords(TABLE_SCHEMA, 100));
+            table.newFastAppend().appendFile(dataFile).commit();
+
+            DeleteFile deletionVector = getOnlyElement(writeEncryptedDeletionVectors(table, ImmutableMap.of(dataFile.location(), new long[] {0, 1})));
+            // Iceberg's DV writer always records the file length, so substitute key metadata without one; the length check runs before decryption
+            DeleteFile withoutFileLength = FileMetadata.deleteFileBuilder(table.spec())
+                    .copy(deletionVector)
+                    .withEncryptionKeyMetadata(encryptionManager.encrypt(table.io().newOutputFile(deletionVector.location())).keyMetadata())
+                    .build();
+            table.newRowDelta().addDeletes(withoutFileLength).commit();
+            invalidateTableCache(schemaTableName);
+
+            assertThatThrownBy(() -> computeActual("SELECT count(*) FROM " + tableName))
+                    .hasMessageContaining("Missing encrypted file length in key metadata");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    void testDeletionVectorContentBeyondFileFails()
+            throws Exception
+    {
+        String tableName = "enc_parquet_dv_beyond_file_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+
+        createIcebergTable(schemaTableName, TABLE_SCHEMA, ImmutableMap.of(FORMAT_VERSION, "3"));
+        try {
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+            setTableEncryptionKey(table, schemaTableName);
+            EncryptionManager encryptionManager = createEncryptionManager(TEST_KEY_ID, KMS_CLIENT);
+
+            DataFile dataFile = writeEncryptedDataFile(table, encryptionManager, createTestRecords(TABLE_SCHEMA, 100));
+            table.newFastAppend().appendFile(dataFile).commit();
+
+            DeleteFile deletionVector = getOnlyElement(writeEncryptedDeletionVectors(table, ImmutableMap.of(dataFile.location(), new long[] {0, 1})));
+            DeleteFile beyondFile = FileMetadata.deleteFileBuilder(table.spec())
+                    .copy(deletionVector)
+                    .withContentSizeInBytes(deletionVector.fileSizeInBytes())
+                    .build();
+            table.newRowDelta().addDeletes(beyondFile).commit();
+            invalidateTableCache(schemaTableName);
+
+            assertThatThrownBy(() -> computeActual("SELECT count(*) FROM " + tableName))
+                    .hasMessageContaining("Failed to read deletion vector file");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    void testReadMixedEncryptedAndPlaintextDeletionVectors()
+            throws Exception
+    {
+        String tableName = "enc_mixed_dv_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+
+        createIcebergTable(schemaTableName, TABLE_SCHEMA, ImmutableMap.of(FORMAT_VERSION, "3"));
+        try {
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+
+            // Write plaintext files before encryption is enabled, and a plaintext DV for the first one
+            DataFile firstPlaintextFile = writePlaintextDataFile(table, createTestRecords(TABLE_SCHEMA, 100));
+            DataFile secondPlaintextFile = writePlaintextDataFile(table, createTestRecords(TABLE_SCHEMA, 100));
+            table.newFastAppend().appendFile(firstPlaintextFile).appendFile(secondPlaintextFile).commit();
+            DeleteFile plaintextDeletionVector = getOnlyElement(writePlaintextDeletionVectors(table, ImmutableMap.of(firstPlaintextFile.location(), new long[] {0, 1})));
+            table.newRowDelta().addDeletes(plaintextDeletionVector).commit();
+
+            // Enable encryption, then delete from the second plaintext file, which writes an encrypted DV
+            setTableEncryptionKey(table, schemaTableName);
+            DeleteFile encryptedDeletionVectorForPlaintextFile = getOnlyElement(writeEncryptedDeletionVectors(table, ImmutableMap.of(secondPlaintextFile.location(), new long[] {0, 1})));
+            table.newRowDelta().addDeletes(encryptedDeletionVectorForPlaintextFile).commit();
+
+            // Write an encrypted file and DV
+            EncryptionManager encryptionManager = createEncryptionManager(TEST_KEY_ID, KMS_CLIENT);
+            DataFile encryptedFile = writeEncryptedDataFile(table, encryptionManager, createTestRecords(TABLE_SCHEMA, 100));
+            table.newFastAppend().appendFile(encryptedFile).commit();
+            DeleteFile encryptedDeletionVector = getOnlyElement(writeEncryptedDeletionVectors(table, ImmutableMap.of(encryptedFile.location(), new long[] {0, 1})));
+            table.newRowDelta().addDeletes(encryptedDeletionVector).commit();
+            invalidateTableCache(schemaTableName);
+
+            assertThat(query("SELECT file_path, key_metadata IS NOT NULL AS encrypted FROM \"" + tableName + "$files\" WHERE file_format = 'PUFFIN'"))
+                    .matches("VALUES (VARCHAR '%s', false), (VARCHAR '%s', true), (VARCHAR '%s', true)".formatted(
+                            plaintextDeletionVector.location(),
+                            encryptedDeletionVectorForPlaintextFile.location(),
+                            encryptedDeletionVector.location()));
+            assertThat(computeActual("SELECT count(*) FROM " + tableName).getOnlyValue())
+                    .isEqualTo(294L);
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
@@ -308,7 +500,7 @@ final class TestIcebergParquetEncryption
             invalidateTableCache(schemaTableName);
 
             assertThatThrownBy(() -> computeActual("SELECT * FROM " + tableName))
-                    .hasMessageContaining("Reading encrypted non-Parquet file is not supported");
+                    .hasMessageContaining("Reading encrypted AVRO file is not supported");
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
@@ -387,6 +579,11 @@ final class TestIcebergParquetEncryption
 
     private void createIcebergTable(SchemaTableName schemaTableName, Schema schema)
     {
+        createIcebergTable(schemaTableName, schema, ImmutableMap.of());
+    }
+
+    private void createIcebergTable(SchemaTableName schemaTableName, Schema schema, Map<String, String> extraProperties)
+    {
         catalog.newCreateTableTransaction(
                         SESSION,
                         schemaTableName,
@@ -394,7 +591,10 @@ final class TestIcebergParquetEncryption
                         PartitionSpec.unpartitioned(),
                         SortOrder.unsorted(),
                         Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
-                        ImmutableMap.of(DEFAULT_FILE_FORMAT, "PARQUET"))
+                        ImmutableMap.<String, String>builder()
+                                .put(DEFAULT_FILE_FORMAT, "PARQUET")
+                                .putAll(extraProperties)
+                                .buildOrThrow())
                 .commitTransaction();
     }
 
@@ -403,6 +603,7 @@ final class TestIcebergParquetEncryption
         table.updateProperties()
                 .set(ENCRYPTION_TABLE_KEY, TEST_KEY_ID)
                 .commit();
+        table.refresh();
         invalidateTableCache(schemaTableName);
     }
 

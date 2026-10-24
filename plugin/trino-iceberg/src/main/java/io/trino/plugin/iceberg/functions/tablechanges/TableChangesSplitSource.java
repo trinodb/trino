@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.common.io.Closer;
 import io.trino.plugin.iceberg.IcebergFileFormat;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
+import io.trino.plugin.iceberg.IcebergSplit.FileDecryptionData;
 import io.trino.plugin.iceberg.IcebergSplitSource;
 import io.trino.plugin.iceberg.PartitionData;
 import io.trino.spi.SplitWeight;
@@ -165,7 +165,7 @@ public class TableChangesSplitSource
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
                 SplitWeight.standard(),
-                parquetFileDecryptionData(task.file()));
+                fileDecryptionData(task.file()));
     }
 
     private TableChangesSplit toSplit(DeletedDataFileScanTask task)
@@ -184,12 +184,12 @@ public class TableChangesSplitSource
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
                 SplitWeight.standard(),
-                parquetFileDecryptionData(task.file()));
+                fileDecryptionData(task.file()));
     }
 
-    private Optional<ParquetFileDecryptionData> parquetFileDecryptionData(ContentFile<?> file)
+    private Optional<FileDecryptionData> fileDecryptionData(ContentFile<?> file)
     {
-        return IcebergSplitSource.parquetFileDecryptionData(
+        return IcebergSplitSource.fileDecryptionData(
                 file.format(),
                 file.location(),
                 file.fileSizeInBytes(),

@@ -25,7 +25,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
+import io.trino.plugin.iceberg.IcebergSplit.FileDecryptionData;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
@@ -91,7 +91,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.IcebergSplitSource.createFileStatisticsDomain;
-import static io.trino.plugin.iceberg.IcebergSplitSource.parquetFileDecryptionData;
+import static io.trino.plugin.iceberg.IcebergSplitSource.fileDecryptionData;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
@@ -167,7 +167,7 @@ public class TestIcebergSplitSource
 
         IcebergSplit split = generateSplit(nationTable, tableHandle);
         assertThat(split.fileStatisticsDomain()).isEqualTo(TupleDomain.all());
-        assertThat(split.parquetFileDecryptionData()).isEmpty();
+        assertThat(split.fileDecryptionData()).isEmpty();
 
         IcebergColumnHandle nationKey = IcebergColumnHandle.optional(new ColumnIdentity(1, "nationkey", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
                 .columnType(BIGINT)
@@ -387,7 +387,7 @@ public class TestIcebergSplitSource
     }
 
     @Test
-    public void testParquetFileDecryptionData()
+    public void testFileDecryptionData()
     {
         byte[] expectedKey = new byte[] {1, 2, 3};
         byte[] expectedAadPrefix = new byte[] {4, 5, 6};
@@ -451,6 +451,12 @@ public class TestIcebergSplitSource
                             }
 
                             @Override
+                            public Long fileLength()
+                            {
+                                return null;
+                            }
+
+                            @Override
                             public ByteBuffer buffer()
                             {
                                 return keyMetadata;
@@ -497,16 +503,16 @@ public class TestIcebergSplitSource
             }
         };
 
-        assertThatThrownBy(() -> parquetFileDecryptionData(
+        assertThatThrownBy(() -> fileDecryptionData(
                 FileFormat.ORC,
                 "memory:///test.orc",
                 10,
                 keyMetadata,
                 fileIo,
                 encryptionManager))
-                .hasMessageContaining("Reading encrypted non-Parquet file is not supported");
+                .hasMessageContaining("Reading encrypted ORC file is not supported");
 
-        assertThat(parquetFileDecryptionData(
+        assertThat(fileDecryptionData(
                 FileFormat.PARQUET,
                 "memory:///test.parquet",
                 10,
@@ -514,7 +520,7 @@ public class TestIcebergSplitSource
                 fileIo,
                 encryptionManager)).isEmpty();
 
-        Optional<ParquetFileDecryptionData> decryptionData = parquetFileDecryptionData(
+        Optional<FileDecryptionData> decryptionData = fileDecryptionData(
                 FileFormat.PARQUET,
                 "memory:///test.parquet",
                 10,
@@ -528,7 +534,48 @@ public class TestIcebergSplitSource
     }
 
     @Test
-    public void testParquetFileDecryptionDataWithStandardKeyMetadataManager()
+    public void testFileDecryptionDataFileLength()
+    {
+        FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
+        String location = "local:///file-length-" + UUID.randomUUID() + ".puffin";
+        EncryptionManager encryptionManager = EncryptionTestHelpers.createEncryptionManager();
+        NativeEncryptionKeyMetadata keyMetadata = ((NativeEncryptionOutputFile) encryptionManager.encrypt(fileIo.newOutputFile(location))).keyMetadata();
+
+        Optional<FileDecryptionData> withFileLength = fileDecryptionData(
+                FileFormat.PUFFIN,
+                location,
+                10,
+                keyMetadata.copyWithLength(123).buffer(),
+                fileIo,
+                encryptionManager);
+
+        assertThat(withFileLength).isPresent();
+        assertThat(withFileLength.orElseThrow().fileLength()).hasValue(123);
+
+        assertThatThrownBy(() -> fileDecryptionData(
+                FileFormat.PUFFIN,
+                location,
+                10,
+                keyMetadata.buffer(),
+                fileIo,
+                encryptionManager))
+                .hasMessageContaining("Missing encrypted file length in key metadata");
+
+        // Parquet files are decrypted with the key and AAD prefix alone
+        Optional<FileDecryptionData> parquetWithoutFileLength = fileDecryptionData(
+                FileFormat.PARQUET,
+                location,
+                10,
+                keyMetadata.buffer(),
+                fileIo,
+                encryptionManager);
+
+        assertThat(parquetWithoutFileLength).isPresent();
+        assertThat(parquetWithoutFileLength.orElseThrow().fileLength()).isEmpty();
+    }
+
+    @Test
+    public void testFileDecryptionDataWithStandardKeyMetadataManager()
     {
         try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_standard_key_metadata_manager", "(id bigint)")) {
             FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
@@ -544,7 +591,7 @@ public class TestIcebergSplitSource
                 byte[] expectedAadPrefix = ByteBuffers.toByteArray(encryptedOutputFile.keyMetadata().aadPrefix());
                 EncryptionManager tableEncryptionManager = catalog.loadTable(SESSION, tableName).encryption();
 
-                Optional<ParquetFileDecryptionData> decryptionData = parquetFileDecryptionData(
+                Optional<FileDecryptionData> decryptionData = fileDecryptionData(
                         FileFormat.PARQUET,
                         location,
                         10,
