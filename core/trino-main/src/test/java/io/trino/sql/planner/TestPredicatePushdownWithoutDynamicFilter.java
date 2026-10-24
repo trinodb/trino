@@ -25,7 +25,9 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.plan.ExchangeNode;
-import org.junit.jupiter.api.Test;
+import io.trino.testing.PlanTester;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -60,15 +62,18 @@ public class TestPredicatePushdownWithoutDynamicFilter
         super(false);
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
     @Override
-    public void testCoercions()
+    public void testCoercions(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         // Ensure constant equality predicate is pushed to the other side of the join
         // when type coercions are involved
 
         // values have the same type (varchar(4)) in both tables
         assertPlan(
+                planTester,
                 "WITH " +
                         "    t(k, v) AS (SELECT nationkey, CAST(name AS varchar(4)) FROM nation)," +
                         "    u(k, v) AS (SELECT nationkey, CAST(name AS varchar(4)) FROM nation) " +
@@ -92,6 +97,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
 
         // values have different types (varchar(4) vs varchar(5)) in each table
         assertPlan(
+                planTester,
                 "WITH " +
                         "    t(k, v) AS (SELECT nationkey, CAST(name AS varchar(4)) FROM nation)," +
                         "    u(k, v) AS (SELECT nationkey, CAST(name AS varchar(5)) FROM nation) " +
@@ -114,15 +120,18 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
     }
 
-    @Test
-    public void testNormalizeOuterJoinToInner()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testNormalizeOuterJoinToInner(boolean iterativePredicatePushdown)
     {
-        Session disableJoinReordering = Session.builder(getPlanTester().getDefaultSession())
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        Session disableJoinReordering = Session.builder(planTester.getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
                 .build();
 
         // one join
         assertPlan(
+                planTester,
                 "SELECT customer.name, orders.orderdate " +
                         "FROM orders " +
                         "LEFT JOIN customer ON orders.custkey = customer.custkey " +
@@ -135,11 +144,12 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        not(getPlanTester().getPlannerContext().getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_name"))),
+                                                        not(planTester.getPlannerContext().getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_name"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
 
         // nested joins
         assertPlan(
+                planTester,
                 "SELECT customer.name, lineitem.partkey " +
                         "FROM lineitem " +
                         "LEFT JOIN orders ON lineitem.orderkey = orders.orderkey " +
@@ -160,15 +170,18 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        not(getPlanTester().getPlannerContext().getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_name"))),
+                                                        not(planTester.getPlannerContext().getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_name"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
     }
 
-    @Test
-    public void testNonDeterministicPredicateDoesNotPropagateFromFilteringSideToSourceSideOfSemiJoin()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testNonDeterministicPredicateDoesNotPropagateFromFilteringSideToSourceSideOfSemiJoin(boolean iterativePredicatePushdown)
     {
-        assertPlan("SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = random(5))",
-                noSemiJoinRewrite(),
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester,
+                "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = random(5))",
+                noSemiJoinRewrite(planTester),
                 anyTree(
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
@@ -182,10 +195,12 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
-    @Test
-    public void testNonStraddlingJoinExpression()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testNonStraddlingJoinExpression(boolean iterativePredicatePushdown)
     {
-        assertPlan(
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester,
                 "SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey AND cast(lineitem.linenumber AS varchar) = '2'",
                 anyTree(
                         join(INNER, builder -> builder

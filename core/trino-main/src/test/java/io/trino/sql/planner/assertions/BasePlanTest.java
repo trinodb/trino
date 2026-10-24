@@ -88,6 +88,11 @@ public class BasePlanTest
     // Subclasses should implement this method to inject their own query runners
     protected PlanTester createPlanTester()
     {
+        return createPlanTester(sessionProperties);
+    }
+
+    protected PlanTester createPlanTester(Map<String, String> sessionProperties)
+    {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema("tiny")
@@ -165,6 +170,26 @@ public class BasePlanTest
 
     protected void assertPlan(@Language("SQL") String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
+        assertPlan(planTester, sql, stage, pattern, optimizers);
+    }
+
+    protected static void assertPlan(PlanTester planTester, @Language("SQL") String sql, PlanMatchPattern pattern)
+    {
+        assertPlan(planTester, sql, OPTIMIZED_AND_VALIDATED, pattern, planTester.getPlanOptimizers(true));
+    }
+
+    protected static void assertPlan(PlanTester planTester, @Language("SQL") String sql, Session session, PlanMatchPattern pattern)
+    {
+        assertPlanWithSession(planTester, sql, session, true, pattern);
+    }
+
+    protected static void assertPlan(PlanTester planTester, @Language("SQL") String sql, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
+    {
+        assertPlan(planTester, sql, OPTIMIZED, pattern, optimizers);
+    }
+
+    private static void assertPlan(PlanTester planTester, @Language("SQL") String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
+    {
         try {
             planTester.inTransaction(transactionSession -> {
                 Plan actualPlan = planTester.createPlan(transactionSession, sql, optimizers, stage, NOOP, createPlanOptimizersStatsCollector());
@@ -208,6 +233,11 @@ public class BasePlanTest
     }
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
+    {
+        assertPlanWithSession(planTester, sql, session, forceSingleNode, pattern);
+    }
+
+    private static void assertPlanWithSession(PlanTester planTester, @Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
     {
         try {
             planTester.inTransaction(session, transactionSession -> {
