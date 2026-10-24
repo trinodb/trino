@@ -905,21 +905,6 @@ public final class DistributedQueryRunner
         }
 
         @CanIgnoreReturnValue
-        public SELF registerResource(AutoCloseable closeable)
-        {
-            checkState(extraCloseables != null, "query runner is already built");
-            extraCloseables.add(requireNonNull(closeable, "closeable is null"));
-            return self();
-        }
-
-        @CanIgnoreReturnValue
-        public SELF registerResources(Iterable<? extends AutoCloseable> closeables)
-        {
-            closeables.forEach(this::registerResource);
-            return self();
-        }
-
-        @CanIgnoreReturnValue
         public SELF withTracing()
         {
             this.withTracing = true;

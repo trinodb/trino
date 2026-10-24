@@ -77,17 +77,6 @@ public class TestTable
         return name;
     }
 
-    public static TestTable fromColumns(SqlExecutor sqlExecutor, String namePrefix, Map<String, List<String>> columns)
-    {
-        return fromColumns(
-                sqlExecutor,
-                namePrefix,
-                columns,
-                column -> {
-                    throw new IllegalArgumentException(String.format("Some values missing for column '%s'", column));
-                });
-    }
-
     public static TestTable fromColumns(SqlExecutor sqlExecutor, String namePrefix, Map<String, List<String>> columns, String defaultValue)
     {
         return fromColumns(sqlExecutor, namePrefix, columns, _ -> defaultValue);
