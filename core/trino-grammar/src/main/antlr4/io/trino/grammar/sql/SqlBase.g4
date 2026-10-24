@@ -606,14 +606,14 @@ expression
     ;
 
 booleanExpression
-    : valueExpression predicate[$valueExpression.ctx]?  #predicated
+    : valueExpression predicate?                        #predicated
     | NOT booleanExpression                             #logicalNot
     | booleanExpression AND booleanExpression           #and
     | booleanExpression OR booleanExpression            #or
     ;
 
 // workaround for https://github.com/antlr/antlr4/issues/780
-predicate[ParserRuleContext value]
+predicate
     : comparisonOperator right=valueExpression                            #comparison
     | comparisonOperator comparisonQuantifier '(' query ')'               #quantifiedComparison
     | NOT? BETWEEN (ASYMMETRIC | SYMMETRIC)? lower=valueExpression AND upper=valueExpression #between
@@ -875,7 +875,7 @@ typeParameter
     ;
 
 simpleWhenClause
-    : WHEN partial=predicate[null] THEN result=expression
+    : WHEN partial=predicate THEN result=expression
     | WHEN condition=expression THEN result=expression
     ;
 
