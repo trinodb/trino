@@ -17,6 +17,7 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -82,10 +83,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -365,6 +368,97 @@ public class TestQueryStateMachine
 
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertFinalState(stateMachine, FINISHED);
+    }
+
+    @Test
+    public void testExternalFailureRacingWithCommitCompletionDoesNotOverrideSuccessfulCommit()
+            throws Exception
+    {
+        BlockingCommitTransactionManager transactionManager =
+                new BlockingCommitTransactionManager(createTestTransactionManager());
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .withTransactionManager(transactionManager)
+                .build();
+
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+        stateMachine.resultsConsumed();
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
+        assertState(stateMachine, FINISHING);
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        Future<Boolean> externalFailure = executor.submit(() -> {
+            ready.countDown();
+            awaitUninterruptibly(start);
+            return stateMachine.transitionToFailed(
+                    new IllegalStateException("external failure"));
+        });
+
+        Future<?> commitCompletion = executor.submit(() -> {
+            ready.countDown();
+            awaitUninterruptibly(start);
+            transactionManager.completeCommit();
+        });
+
+        try {
+            assertThat(ready.await(10, SECONDS)).isTrue();
+        }
+        finally {
+            start.countDown();
+        }
+
+        assertThat(externalFailure.get(10, SECONDS)).isFalse();
+        commitCompletion.get(10, SECONDS);
+
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 10, SECONDS);
+        assertFinalState(stateMachine, FINISHED);
+    }
+
+    @Test
+    public void testExternalFailureBeforeCommitStartsPreventsCommit()
+            throws Exception
+    {
+        CountDownLatch lookupCompleted = new CountDownLatch(1);
+        CountDownLatch continueAfterLookup = new CountDownLatch(1);
+
+        BlockingCommitTransactionManager transactionManager =
+                new BlockingCommitTransactionManager(createTestTransactionManager());
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .withTransactionManager(transactionManager)
+                .build();
+
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+
+        transactionManager.setTransactionLookupHook(() -> {
+            lookupCompleted.countDown();
+            checkState(
+                    awaitUninterruptibly(continueAfterLookup, 30, SECONDS),
+                    "Timed out waiting for transaction lookup release");
+        });
+
+        Future<Boolean> finishing = executor.submit(
+                stateMachine::transitionToFinishing);
+
+        IllegalStateException failure =
+                new IllegalStateException("failure before commit");
+
+        try {
+            assertThat(lookupCompleted.await(30, SECONDS)).isTrue();
+            assertThat(stateMachine.getQueryState()).isEqualTo(FINISHING);
+            assertThat(transactionManager.isCommitStarted()).isFalse();
+
+            assertThat(stateMachine.transitionToFailed(failure)).isTrue();
+        }
+        finally {
+            continueAfterLookup.countDown();
+        }
+
+        assertThat(finishing.get(30, SECONDS)).isTrue();
+        assertThat(transactionManager.isCommitStarted()).isFalse();
+        assertFinalState(stateMachine, FAILED, failure);
     }
 
     @Test
@@ -1100,10 +1194,17 @@ public class TestQueryStateMachine
         private final TransactionManager delegate;
         private final SettableFuture<Void> commitFuture = SettableFuture.create();
         private final AtomicBoolean commitStarted = new AtomicBoolean();
+        private final AtomicReference<Runnable> transactionLookupHook = new AtomicReference<>();
 
         private BlockingCommitTransactionManager(TransactionManager delegate)
         {
             this.delegate = delegate;
+        }
+
+        public void setTransactionLookupHook(Runnable action)
+        {
+            checkState(transactionLookupHook.compareAndSet(null, action),
+                    "Transaction lookup hook already registered");
         }
 
         public boolean isCommitStarted()
@@ -1141,7 +1242,14 @@ public class TestQueryStateMachine
         @Override
         public Optional<TransactionInfo> getTransactionInfoIfExist(TransactionId transactionId)
         {
-            return delegate.getTransactionInfoIfExist(transactionId);
+            Optional<TransactionInfo> transaction = delegate.getTransactionInfoIfExist(transactionId);
+            if (transaction.isPresent()) {
+                Runnable action = transactionLookupHook.getAndSet(null);
+                if (action != null) {
+                    action.run();
+                }
+            }
+            return transaction;
         }
 
         @Override
@@ -1244,8 +1352,10 @@ public class TestQueryStateMachine
         public ListenableFuture<Void> asyncCommit(TransactionId transactionId)
         {
             checkState(commitStarted.compareAndSet(false, true), "Commit already started");
-            delegate.asyncCommit(transactionId);
-            return commitFuture;
+            return Futures.transformAsync(
+                    commitFuture,
+                    _ -> delegate.asyncCommit(transactionId),
+                    directExecutor());
         }
 
         @Override
