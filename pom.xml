@@ -204,6 +204,7 @@
         <dep.jna.version>5.19.1</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
+        <dep.kerby.version>2.1.2</dep.kerby.version>
         <dep.netty.version>4.2.19.Final</dep.netty.version>
         <dep.okhttp.version>5.5.0</dep.okhttp.version>
         <dep.okio.version>3.18.2</dep.okio.version>
@@ -504,6 +505,12 @@
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-kotlin</artifactId>
                 <version>${dep.protobuf.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.re2j</groupId>
+                <artifactId>re2j</artifactId>
+                <version>1.8</version>
             </dependency>
 
             <dependency>
@@ -1522,7 +1529,7 @@
             <dependency>
                 <groupId>io.trino.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
-                <version>3.3.5-3</version>
+                <version>3.3.5-4-SNAPSHOT</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.lz4</groupId>
@@ -1954,6 +1961,30 @@
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
                 <version>4.3.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.kerby</groupId>
+                <artifactId>kerb-core</artifactId>
+                <version>${dep.kerby.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.kerby</groupId>
+                <artifactId>kerby-asn1</artifactId>
+                <version>${dep.kerby.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.kerby</groupId>
+                <artifactId>kerby-pkix</artifactId>
+                <version>${dep.kerby.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.kerby</groupId>
+                <artifactId>kerby-util</artifactId>
+                <version>${dep.kerby.version}</version>
             </dependency>
 
             <dependency>
