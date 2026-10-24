@@ -50,6 +50,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -546,7 +547,7 @@ public class TrinoHiveCatalog
         if (!viewProperties.isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Hive catalog does not support creating views with properties");
         }
-        trinoViewHiveMetastore.createView(session, schemaViewName, definition, replace);
+        trinoViewHiveMetastore.createView(session, schemaViewName, definition, replace ? SaveMode.REPLACE : SaveMode.FAIL);
     }
 
     @Override
