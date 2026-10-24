@@ -17,6 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.filesystem.Location;
 
+import java.util.Optional;
+
+import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -25,8 +28,14 @@ public class LocationHandle
     private final Location targetPath;
     private final Location writePath;
     private final WriteMode writeMode;
+    private final Optional<String> stagingOperationId;
 
     public LocationHandle(Location targetPath, Location writePath, WriteMode writeMode)
+    {
+        this(targetPath, writePath, writeMode, Optional.empty());
+    }
+
+    public LocationHandle(Location targetPath, Location writePath, WriteMode writeMode, Optional<String> stagingOperationId)
     {
         if (writeMode.isWritePathSameAsTargetPath() && !targetPath.equals(writePath)) {
             throw new IllegalArgumentException(format("targetPath is expected to be same as writePath for writeMode %s", writeMode));
@@ -34,17 +43,23 @@ public class LocationHandle
         this.targetPath = requireNonNull(targetPath, "targetPath is null");
         this.writePath = requireNonNull(writePath, "writePath is null");
         this.writeMode = requireNonNull(writeMode, "writeMode is null");
+        this.stagingOperationId = requireNonNull(stagingOperationId, "stagingOperationId is null");
+        if ((writeMode == STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY) != stagingOperationId.isPresent()) {
+            throw new IllegalArgumentException("stagingOperationId must be present only for table-local staging");
+        }
     }
 
     @JsonCreator
     public LocationHandle(
             @JsonProperty("targetPath") String targetPath,
             @JsonProperty("writePath") String writePath,
-            @JsonProperty("writeMode") WriteMode writeMode)
+            @JsonProperty("writeMode") WriteMode writeMode,
+            @JsonProperty("stagingOperationId") Optional<String> stagingOperationId)
     {
         this(Location.of(requireNonNull(targetPath, "targetPath is null")),
                 Location.of(requireNonNull(writePath, "writePath is null")),
-                writeMode);
+                writeMode,
+                stagingOperationId);
     }
 
     // This method should only be called by LocationService
@@ -83,12 +98,22 @@ public class LocationHandle
         return writeMode;
     }
 
+    @JsonProperty
+    public Optional<String> getStagingOperationId()
+    {
+        return stagingOperationId;
+    }
+
     public enum WriteMode
     {
         /**
          * common mode for new table or existing table (both new and existing partition) and when staging directory is enabled
          */
         STAGE_AND_MOVE_TO_TARGET_DIRECTORY(false),
+        /**
+         * Stage beneath the table root (or a custom partition destination) without renaming the table root.
+         */
+        STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY(false),
         /**
          * for new table in S3 or when staging directory is disabled
          */
