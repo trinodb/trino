@@ -722,7 +722,7 @@ abstract class AbstractTrinoResultSet
                 List<io.trino.client.RowField> fields = row.getFields();
                 List<ClientTypeSignatureParameter> typeArguments = columnType.getArguments();
                 verify(fields.size() == typeArguments.size(), "Type mismatch: %s, %s", row, columnType);
-                Row.Builder builder = Row.builderWithExpectedSize(fields.size());
+                Row.Builder builder = Row.builderWithExpectedSize(fields.size()).withSqlTypeName(columnType.toString());
                 for (int i = 0; i < fields.size(); i++) {
                     io.trino.client.RowField field = fields.get(i);
                     ClientTypeSignatureParameter clientTypeSignatureParameter = typeArguments.get(i);
