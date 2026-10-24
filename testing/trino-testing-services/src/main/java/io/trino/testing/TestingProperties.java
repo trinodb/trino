@@ -49,11 +49,6 @@ public final class TestingProperties
         return getProjectProperty("project.version");
     }
 
-    public static String getTemurinRelease()
-    {
-        return getProjectProperty("temurin.release");
-    }
-
     public static String getDockerImagesVersion()
     {
         String version = getProjectProperty("docker.images.version");
