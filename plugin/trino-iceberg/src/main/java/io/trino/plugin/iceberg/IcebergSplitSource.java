@@ -144,6 +144,7 @@ import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.encryption.EncryptedFiles.encryptedInput;
+import static org.apache.iceberg.expressions.Expressions.and;
 import static org.apache.iceberg.types.Conversions.fromByteBuffer;
 import static org.apache.iceberg.util.ByteBuffers.toByteArray;
 
@@ -151,6 +152,8 @@ public class IcebergSplitSource
         implements ConnectorSplitSource
 {
     private static final Logger log = Logger.get(IcebergSplitSource.class);
+    // Matches IN_PREDICATE_LIMIT in Iceberg InclusiveEvalVisitor and ManifestEvaluator, above which IN predicates do not prune by manifest summaries or file statistics
+    private static final int ICEBERG_IN_PREDICATE_LIMIT = 200;
 
     private final IcebergFileSystemFactory fileSystemFactory;
     private final ConnectorSession session;
@@ -286,8 +289,21 @@ public class IcebergSplitSource
                 .transformKeys(IcebergColumnHandle.class::cast);
 
         if (fileScanIterable == null) {
-            this.pushedDownDynamicFilterPredicate = dynamicFilterPredicate
+            Set<Integer> partitionSourceColumnIds = specsById.values().stream()
+                    .flatMap(spec -> spec.fields().stream())
+                    .filter(partitionField -> !partitionField.transform().isVoid())
+                    .map(PartitionField::sourceId)
+                    .collect(toImmutableSet());
+            TupleDomain<IcebergColumnHandle> convertibleDynamicFilterPredicate = dynamicFilterPredicate
                     .filter((columnHandle, domain) -> isConvertibleToIcebergExpression(domain) && !isMetadataColumnId(columnHandle.getId()));
+            // Iceberg matches each file's partition against value sets of any size
+            TupleDomain<IcebergColumnHandle> partitionDynamicFilterPredicate = convertibleDynamicFilterPredicate
+                    .filter((columnHandle, _) -> partitionSourceColumnIds.contains(columnHandle.getId()));
+            // Other value sets above the Iceberg limit are pushed down as their span and matched exactly in processFileScanTask
+            this.pushedDownDynamicFilterPredicate = convertibleDynamicFilterPredicate
+                    .filter((columnHandle, _) -> !partitionSourceColumnIds.contains(columnHandle.getId()))
+                    .simplify(ICEBERG_IN_PREDICATE_LIMIT)
+                    .intersect(partitionDynamicFilterPredicate);
 
             TupleDomain<IcebergColumnHandle> effectivePredicate = TupleDomain.intersect(
                     ImmutableList.of(dataColumnPredicate, tableHandle.getUnenforcedPredicate(), pushedDownDynamicFilterPredicate));
@@ -298,6 +314,11 @@ public class IcebergSplitSource
             }
 
             Expression filterExpression = toIcebergExpression(effectivePredicate);
+            TupleDomain<IcebergColumnHandle> partitionDynamicFilterSpans = partitionDynamicFilterPredicate.simplify(ICEBERG_IN_PREDICATE_LIMIT);
+            if (!partitionDynamicFilterSpans.equals(partitionDynamicFilterPredicate)) {
+                // Spans of large partition value sets let Iceberg prune by manifest summaries and file statistics
+                filterExpression = and(filterExpression, toIcebergExpression(partitionDynamicFilterSpans));
+            }
             Scan scan = (Scan) tableScan.filter(filterExpression);
             // Use stats to populate fileStatisticsDomain if there are predicated columns. Otherwise, skip them.
             if (!predicatedColumnIds.isEmpty()) {
