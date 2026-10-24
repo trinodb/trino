@@ -237,6 +237,7 @@ public final class AggregationFromAnnotationsParser
 
         // verify parameter types
         List<Class<?>> parameterTypes = getNonDependencyParameterTypes(combineFunction);
+        @SuppressWarnings("DistinctVarargsChecker")
         List<Class<?>> expectedParameterTypes = Stream.concat(stateDetails.stream(), stateDetails.stream())
                 .map(AccumulatorStateDetails::getStateClass)
                 .collect(toImmutableList());

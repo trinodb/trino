@@ -1815,6 +1815,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    @SuppressWarnings("DistinctVarargsChecker")
     public void testLongStrideDictionary()
             throws Exception
     {
@@ -1934,6 +1935,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    @SuppressWarnings("DistinctVarargsChecker")
     public void testStringStrideDictionary()
             throws Exception
     {
