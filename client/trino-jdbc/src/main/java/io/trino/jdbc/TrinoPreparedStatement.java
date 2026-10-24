@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
-import org.joda.time.DateTimeZone;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -55,6 +54,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,9 +65,6 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
-import static io.trino.jdbc.AbstractTrinoResultSet.DATE_FORMATTER;
-import static io.trino.jdbc.AbstractTrinoResultSet.TIMESTAMP_FORMATTER;
-import static io.trino.jdbc.AbstractTrinoResultSet.TIME_FORMATTER;
 import static io.trino.jdbc.ColumnInfo.setTypeInfo;
 import static io.trino.jdbc.ObjectCasts.castToBigDecimal;
 import static io.trino.jdbc.ObjectCasts.castToBigint;
@@ -82,31 +79,37 @@ import static io.trino.jdbc.ObjectCasts.invalidConversion;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Objects.requireNonNull;
 
 public class TrinoPreparedStatement
         extends TrinoStatement
         implements PreparedStatement
 {
+    private static final DateTimeFormatter TIME_FORMATTER =
+            new DateTimeFormatterBuilder()
+                    .appendPattern("HH:mm:ss")
+                    .appendFraction(NANO_OF_SECOND, 3, 9, true)
+                    .toFormatter();
+
     private static final DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
             new DateTimeFormatterBuilder()
                     .append(ISO_LOCAL_DATE)
                     .appendLiteral(' ')
-                    .append(ISO_LOCAL_TIME)
+                    .append(TIME_FORMATTER)
                     .toFormatter();
 
     private static final DateTimeFormatter OFFSET_DATE_TIME_FORMATTER =
             new DateTimeFormatterBuilder()
                     .append(ISO_LOCAL_DATE)
                     .appendLiteral(' ')
-                    .append(ISO_LOCAL_TIME)
+                    .append(TIME_FORMATTER)
                     .appendOffset("+HH:mm", "+00:00")
                     .toFormatter();
 
     private static final DateTimeFormatter OFFSET_TIME_FORMATTER =
             new DateTimeFormatterBuilder()
-                    .append(ISO_LOCAL_TIME)
+                    .append(TIME_FORMATTER)
                     .appendOffset("+HH:mm", "+00:00")
                     .toFormatter();
 
@@ -311,7 +314,7 @@ public class TrinoPreparedStatement
     {
         requireNonNull(value, "value is null");
         if (value instanceof java.util.Date) {
-            return DATE_FORMATTER.print(((java.util.Date) value).getTime());
+            value = toLocalDateTime((java.util.Date) value);
         }
         if (value instanceof LocalDate) {
             return ISO_LOCAL_DATE.format(((LocalDate) value));
@@ -352,13 +355,13 @@ public class TrinoPreparedStatement
             throws SQLException
     {
         if (value instanceof java.util.Date) {
-            return TIME_FORMATTER.print(((java.util.Date) value).getTime());
-        }
-        if (value instanceof LocalTime) {
-            return ISO_LOCAL_TIME.format((LocalTime) value);
+            value = toLocalDateTime((java.util.Date) value);
         }
         if (value instanceof LocalDateTime) {
-            return ISO_LOCAL_TIME.format((LocalDateTime) value);
+            value = ((LocalDateTime) value).toLocalTime();
+        }
+        if (value instanceof LocalTime) {
+            return TIME_FORMATTER.format((LocalTime) value);
         }
         if (value instanceof String) {
             // TODO validate proper format
@@ -415,7 +418,7 @@ public class TrinoPreparedStatement
             throws SQLException
     {
         if (value instanceof java.util.Date) {
-            return TIMESTAMP_FORMATTER.print(((java.util.Date) value).getTime());
+            value = toLocalDateTime((java.util.Date) value);
         }
         if (value instanceof LocalDateTime) {
             return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));
@@ -425,6 +428,15 @@ public class TrinoPreparedStatement
             return (String) value;
         }
         throw invalidConversion(value, "timestamp");
+    }
+
+    private static LocalDateTime toLocalDateTime(java.util.Date value)
+    {
+        if (value instanceof Timestamp) {
+            return ((Timestamp) value).toLocalDateTime();
+        }
+        // Use java.util calendar and time zone rules, consistently with Timestamp, which differ from java.time for historical dates
+        return new Timestamp(value.getTime()).toLocalDateTime();
     }
 
     private void setAsTimestampWithTimeZone(int parameterIndex, Object value)
@@ -459,8 +471,18 @@ public class TrinoPreparedStatement
             setTimestamp(parameterIndex, x);
         }
         else {
-            String formattedDateTime = TIMESTAMP_FORMATTER.withZone(DateTimeZone.forTimeZone(cal.getTimeZone())).print(x.getTime());
-            setParameter(parameterIndex, formatLiteral("TIMESTAMP", formattedDateTime));
+            // Use java.util calendar rules, like Timestamp.toLocalDateTime(), so that the overloads agree before the Gregorian cutover
+            GregorianCalendar calendar = new GregorianCalendar(cal.getTimeZone());
+            calendar.setTimeInMillis(x.getTime());
+            LocalDateTime dateTime = LocalDateTime.of(
+                    calendar.get(Calendar.YEAR),
+                    calendar.get(Calendar.MONTH) + 1,
+                    calendar.get(Calendar.DAY_OF_MONTH),
+                    calendar.get(Calendar.HOUR_OF_DAY),
+                    calendar.get(Calendar.MINUTE),
+                    calendar.get(Calendar.SECOND),
+                    x.getNanos());
+            setAsTimestamp(parameterIndex, dateTime);
         }
     }
 
@@ -612,6 +634,9 @@ public class TrinoPreparedStatement
         }
         else if (x instanceof LocalDate) {
             setAsDate(parameterIndex, x);
+        }
+        else if (x instanceof LocalTime) {
+            setAsTime(parameterIndex, x);
         }
         else if (x instanceof LocalDateTime) {
             setAsTimestamp(parameterIndex, x);
