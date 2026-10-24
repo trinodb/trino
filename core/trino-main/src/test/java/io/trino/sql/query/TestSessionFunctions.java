@@ -106,6 +106,29 @@ public class TestSessionFunctions
     }
 
     @Test
+    public void testSessionFunctionWithAggregation()
+    {
+        Session session = testSessionBuilder()
+                .setIdentity(Identity.ofUser("test_current_user"))
+                .setCatalog("trino_rocks")
+                .setSchema("trino_rocks")
+                .setPath(SqlPath.buildPath("test_path", Optional.empty()))
+                .build();
+
+        try (QueryAssertions assertions = new QueryAssertions(session)) {
+            assertThat(assertions.query(
+                    "SELECT CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA, CURRENT_PATH, count(*)"
+                            + "FROM (VALUES 1, 2)"))
+                    .matches(format(
+                            "SELECT CAST('%s' AS VARCHAR), CAST('%s' AS VARCHAR), CAST('%s' AS VARCHAR), CAST('%s' AS VARCHAR), BIGINT '2'",
+                            session.getUser(),
+                            session.getCatalog().orElseThrow(),
+                            session.getSchema().orElseThrow(),
+                            session.getPath()));
+        }
+    }
+
+    @Test
     public void testCurrentGroups()
     {
         Identity identityWithoutGroups = Identity.ofUser("test_current_user");
