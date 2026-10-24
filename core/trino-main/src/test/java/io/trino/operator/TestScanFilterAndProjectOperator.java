@@ -313,7 +313,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (_, _) -> (_, _, _, _, _, _, _) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                (_, _) -> (_, _, _, _, _, _, memoryContext) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input), memoryContext),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),

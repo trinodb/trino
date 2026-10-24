@@ -21,6 +21,7 @@ import io.trino.testing.tpch.TpchIndexedData.IndexedTable;
 
 import java.util.function.Function;
 
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static java.util.Objects.requireNonNull;
 
 class TpchConnectorIndex
@@ -49,6 +50,6 @@ class TpchConnectorIndex
 
         // convert the output record set of the index into the column ordering
         // expect by the query
-        return new RecordPageSource(outputFormatter.apply(rawOutputRecordSet));
+        return new RecordPageSource(outputFormatter.apply(rawOutputRecordSet), NO_LIMIT);
     }
 }
