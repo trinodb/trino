@@ -15,25 +15,34 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.IrUtils.validateType;
 
+/// SQL equality against the elements of an array expression. The array's element
+/// type must match the value's type. A null array produces null; an empty array
+/// produces false, including for a null value. Otherwise a match produces true,
+/// and no match produces null if any comparison is indeterminate, or false.
+///
+/// Array constructors and non-null array constants can use specialized IN
+/// evaluation without materializing a new array. Other array expressions are
+/// evaluated once at runtime. This is an internal IR representation; it does not
+/// add SQL syntax or change the semantics of SQL IN lists.
+///
+/// The array expression is the sole representation of the candidates. Consumers
+/// that need known elements inspect it without retaining a second representation
+/// in this node.
 @JsonSerialize
-public record In(Expression value, List<Expression> valueList)
+public record In(Expression value, Expression valueList)
         implements Expression
 {
     public In
     {
-        valueList = ImmutableList.copyOf(valueList);
-
-        for (Expression item : valueList) {
-            validateType(value.type(), item);
-        }
+        validateType(new ArrayType(value.type()), valueList);
     }
 
     @Override
@@ -51,19 +60,12 @@ public record In(Expression value, List<Expression> valueList)
     @Override
     public List<? extends Expression> children()
     {
-        return ImmutableList.<Expression>builder()
-                .add(value)
-                .addAll(valueList)
-                .build();
+        return ImmutableList.of(value, valueList);
     }
 
     @Override
     public String toString()
     {
-        return "$in(%s, [%s])".formatted(
-                value,
-                valueList().stream()
-                        .map(Expression::toString)
-                        .collect(Collectors.joining(", ")));
+        return "$in(%s, %s)".formatted(value, valueList);
     }
 }

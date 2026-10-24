@@ -21,6 +21,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
@@ -358,68 +359,68 @@ public class TestExpressionInterpreter
     public void testIn()
     {
         assertOptimizedEquals(
-                new In(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new In(new Constant(INTEGER, 3L), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L)))),
                 TRUE);
         assertOptimizedEquals(
-                new In(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 9L), new Constant(INTEGER, 5L))),
+                new In(new Constant(INTEGER, 3L), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 9L), new Constant(INTEGER, 5L)))),
                 FALSE);
         assertOptimizedEquals(
-                new In(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, null), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new In(new Constant(INTEGER, 3L), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, null), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L)))),
                 TRUE);
 
         assertOptimizedEquals(
-                new In(new Constant(INTEGER, null), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, null), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new In(new Constant(INTEGER, null), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, null), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L)))),
                 new Constant(BOOLEAN, null));
         assertOptimizedEquals(
-                new In(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, null))),
+                new In(new Constant(INTEGER, 3L), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, null)))),
                 new Constant(BOOLEAN, null));
 
         assertOptimizedEquals(
-                new In(new Reference(INTEGER, "bound_value"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 1234L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new In(new Reference(INTEGER, "bound_value"), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 1234L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L)))),
                 TRUE);
         assertOptimizedEquals(
-                new In(new Reference(INTEGER, "bound_value"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new In(new Reference(INTEGER, "bound_value"), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L)))),
                 FALSE);
         assertOptimizedEquals(
-                new In(new Constant(INTEGER, 1234L), ImmutableList.of(new Constant(INTEGER, 2L), new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new In(new Constant(INTEGER, 1234L), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L)))),
                 TRUE);
         assertOptimizedEquals(
-                new In(new Constant(INTEGER, 99L), ImmutableList.of(new Constant(INTEGER, 2L), new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new In(new Constant(INTEGER, 99L), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L)))),
                 FALSE);
         assertOptimizedEquals(
-                new In(new Reference(INTEGER, "bound_value"), ImmutableList.of(new Constant(INTEGER, 2L), new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new In(new Reference(INTEGER, "bound_value"), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L)))),
                 TRUE);
 
         assertOptimizedEquals(
-                new In(new Reference(INTEGER, "unbound_value"), ImmutableList.of(new Constant(INTEGER, 1L))),
+                new In(new Reference(INTEGER, "unbound_value"), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 1L)))),
                 comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
 
         assertOptimizedEquals(
-                new In(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))))),
-                new In(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))))));
+                new In(new Constant(INTEGER, 3L), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L)))))),
+                new In(new Constant(INTEGER, 3L), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L)))))));
         assertOptimizedEquals(
-                new In(new Constant(INTEGER, null), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))))),
-                new In(new Constant(INTEGER, null), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))))));
+                new In(new Constant(INTEGER, null), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L)))))),
+                new In(new Constant(INTEGER, null), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L)))))));
         assertOptimizedEquals(
-                new In(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, null), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))))),
-                new In(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, null), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))))));
+                new In(new Constant(INTEGER, 3L), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, null), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L)))))),
+                new In(new Constant(INTEGER, 3L), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, null), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L)))))));
         assertOptimizedEquals(
-                new In(new Constant(INTEGER, null), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, null), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))))),
-                new In(new Constant(INTEGER, null), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, null), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))))));
+                new In(new Constant(INTEGER, null), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, null), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L)))))),
+                new In(new Constant(INTEGER, null), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, null), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L)))))));
         assertOptimizedEquals(
-                new In(new Constant(INTEGER, 3L), ImmutableList.of(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))))),
-                new In(new Constant(INTEGER, 3L), ImmutableList.of(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))))));
-        assertTrinoExceptionThrownBy(() -> evaluate(new In(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L)))))))
+                new In(new Constant(INTEGER, 3L), new Array(INTEGER, ImmutableList.of(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L)))))),
+                new In(new Constant(INTEGER, 3L), new Array(INTEGER, ImmutableList.of(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L)))))));
+        assertTrinoExceptionThrownBy(() -> evaluate(new In(new Constant(INTEGER, 3L), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))))))))
                 .hasErrorCode(DIVISION_BY_ZERO);
 
         assertOptimizedEquals(
-                new In(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
-                new In(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))));
+                new In(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L)))),
+                new In(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L)))));
         assertOptimizedEquals(
-                new In(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L))),
-                new In(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L))));
+                new In(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)))),
+                new In(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)))));
         assertOptimizedEquals(
-                new In(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 2L))),
+                new In(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Array(INTEGER, ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 2L)))),
                 comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 2L)));
     }
 

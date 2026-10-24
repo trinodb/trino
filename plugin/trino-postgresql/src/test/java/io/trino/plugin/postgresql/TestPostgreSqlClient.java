@@ -38,6 +38,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.ComparisonOperator;
@@ -458,10 +459,10 @@ public class TestPostgreSqlClient
                         SESSION,
                         translateToConnectorExpression(
                                 new In(new Reference(createVarcharType(10), "c_varchar"),
-                                        List.of(
+                                        new Array(createVarcharType(10), List.of(
                                                 new Constant(VARCHAR_COLUMN.getColumnType(), utf8Slice("value1")),
                                                 new Constant(VARCHAR_COLUMN.getColumnType(), utf8Slice("value2")),
-                                                new Reference(createVarcharType(10), "c_varchar2")))),
+                                                new Reference(createVarcharType(10), "c_varchar2"))))),
                         Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(\"c_varchar\") IN (?, ?, \"c_varchar2\")");
