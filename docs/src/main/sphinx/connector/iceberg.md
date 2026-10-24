@@ -251,7 +251,9 @@ implementation is used:
   -  
 * - `iceberg.allowed-extra-properties`
   -  List of extra properties that are allowed to be set on Iceberg tables.
-     Use `*` to allow all properties.
+     Use `*` to allow all properties. `write.merge.mode` and
+     `write.merge.isolation-level` are always allowed because Trino interprets
+     them for [](iceberg-row-level-operation-modes).
   - `[]`
 * - `iceberg.split-manager-threads`
   -  Number of threads to use for generating splits.
@@ -267,6 +269,10 @@ implementation is used:
   - Number of threads to use for deleting files when running the `expire_snapshots`
     or `remove_orphan_files` procedure, or when executing `DROP TABLE` queries.
   - Double the number of processors on the coordinator node.
+* - `iceberg.copy-on-write-rewrite-threads`
+  - Number of threads per worker for parallel file rewrites during
+    [copy-on-write](iceberg-row-level-operation-modes) operations.
+  - Number of processors on the worker node.
 * - `iceberg.bucket-execution`
   - Enable bucket-aware execution. This allows the engine to use physical
     bucketing information to optimize queries by reducing data exchanges.
@@ -895,6 +901,140 @@ A partition delete is performed if the `WHERE` clause meets these conditions.
 Tables using v2 of the Iceberg specification support deletion of individual rows
 by writing position delete files.
 
+(iceberg-row-level-operation-modes)=
+#### Row-level operation modes
+
+Iceberg defines two strategies for executing row-level `DELETE`, `UPDATE`, and
+`MERGE` statements:
+
+- **Merge-on-read** (default): the engine writes a new *delete file* (position
+  or equality delete, or a v3 deletion vector) that records which rows are
+  logically deleted; existing data files are unchanged. Subsequent reads apply
+  the delete file at scan time. This keeps writes cheap and concentrates the
+  cost on readers.
+- **Copy-on-write**: the engine rewrites each affected data file with the
+  surviving rows (for `DELETE` and `UPDATE`) or the merged contents (for
+  `MERGE`) and records the replacement via an `OverwriteFiles` commit. Writes
+  are more expensive than merge-on-read, but reads see the new data files
+  directly without applying any delete files, which keeps read latency low and
+  simplifies downstream readers that do not support deletion vectors.
+
+The Trino Iceberg connector selects the mode for every row-level operation
+from a single table property: `write.merge.mode`. Setting it to
+`copy-on-write` enables copy-on-write for `DELETE`, `UPDATE`, and `MERGE`.
+`merge-on-read`, or leaving the property unset, selects merge-on-read. Any
+other string is rejected. This differs from Iceberg, whose default for
+`write.merge.mode` is `copy-on-write`. To keep the behaviour
+unambiguous, the connector intentionally **ignores** the sibling properties
+`write.delete.mode` and `write.update.mode` when deciding how to execute a
+row-level statement, even though those properties remain valid Iceberg table
+properties.
+
+`write.merge.mode` and `write.merge.isolation-level` can be set through
+`extra_properties` on a default catalog. They do not need to be listed in
+`iceberg.allowed-extra-properties`. Other extra property keys still do.
+
+The following statement opts a table in to copy-on-write for all row-level
+operations:
+
+```sql
+ALTER TABLE example.testdb.customer_orders
+SET PROPERTIES extra_properties = MAP(
+    ARRAY['write.merge.mode'],
+    ARRAY['copy-on-write']);
+```
+
+Setting the property back to `merge-on-read` returns the table to the default
+merge-on-read path:
+
+```sql
+ALTER TABLE example.testdb.customer_orders
+SET PROPERTIES extra_properties = MAP(
+    ARRAY['write.merge.mode'],
+    ARRAY['merge-on-read']);
+```
+
+The isolation level used for copy-on-write conflict detection follows the
+same single-property contract: the connector reads
+`write.merge.isolation-level` (default `serializable`) and ignores
+`write.delete.isolation-level` and `write.update.isolation-level`.
+
+Copy-on-write is supported on Iceberg format v2 and v3 tables with data files
+in Parquet, ORC, or Avro. When a v3 table is under copy-on-write, row-lineage
+columns (`_row_id`, `_last_updated_sequence_number`) are preserved on
+rewritten data files. When sorted writing is enabled, rewritten files are
+sorted by the table sort order. When it is disabled, rewritten files are
+recorded as unsorted. Copy-on-write does not alter the Iceberg specification
+version of the target table; it only changes how writes are committed.
+
+When a table is switched from merge-on-read to copy-on-write, any pre-existing
+delete files are applied during the rewrite, so query results are always
+correct. Delete files that become unreferenced by the rewrite are removed in
+the same commit when the connector can prove they are file-scoped — that is,
+when they record a `referenced_data_file` pointer. Iceberg always records this
+for v3 deletion vectors, so they are cleaned up. Format v2 position-delete
+files that do not record `referenced_data_file` (including those written by the
+merge-on-read path) are conservatively left in place after the rewrite, because
+the connector cannot prove they do not also apply to sibling data files. Such
+leftover delete files are harmless — they reference data files that no longer
+exist, so reads are unaffected — and are pruned by later table maintenance.
+
+The mode that an in-flight statement uses is frozen at planning time. The
+connector resolves `write.merge.mode` from the table snapshot loaded for the
+statement and reads back the same value during execution. A concurrent
+`ALTER TABLE ... SET PROPERTIES` that flips the mode between planning and
+commit therefore does not affect the running statement; the change applies
+to the next row-level operation on the table.
+
+When a copy-on-write commit fails with an unknown final state (for example a
+catalog HTTP timeout on the metadata write), the connector intentionally
+**skips** the orphan-file cleanup that normally runs on rollback. The
+underlying Iceberg snapshot may have been silently accepted, in which case
+the new data files must remain reachable. Use `ALTER TABLE ... EXECUTE
+remove_orphan_files` to reclaim any data files left behind in this case.
+
+The connector exports the following JMX statistics under
+`io.trino.plugin.iceberg:type=CopyOnWriteStats,name=<catalog>`. Each name below
+is a nested counter. Read the total from `<Name>.TotalCount`. `OneMinute`,
+`FiveMinute`, and `FifteenMinute` rates are exported on the same bean.
+
+:::{list-table} Copy-on-write JMX counters
+:widths: 35 65
+:header-rows: 1
+
+* - Counter
+  - Meaning
+* - `Commits`
+  - Number of successful copy-on-write commits, including insert-only
+    `MERGE`s that produce no rewrites.
+* - `RewrittenFiles`
+  - Number of data files replaced by copy-on-write commits.
+* - `RewrittenOldBytes`
+  - Total size in bytes of data files replaced by copy-on-write commits.
+* - `RewrittenNewBytes`
+  - Total size in bytes of new data files written to replace rewritten
+    files. Compare against `RewrittenOldBytes` to track write
+    amplification.
+* - `DanglingDeletesRemoved`
+  - Number of v2/v3 row-delete files no longer referenced after a
+    copy-on-write commit, removed in the same Iceberg transaction to keep
+    metadata clean.
+* - `CommitStateUnknown`
+  - Number of copy-on-write commits whose final state could not be
+    determined (catalog 5xx, IO timeout, etc.). The connector skips orphan
+    cleanup in this case; expect non-zero values to correlate with files
+    left behind for `remove_orphan_files`.
+* - `OrphanFilesCleanedUp`
+  - Number of orphan data files unlinked from storage during copy-on-write
+    rollback. Best-effort; individual storage errors are logged but do not
+    propagate.
+* - `UniqueRewriteTaskInvariantViolations`
+  - Number of detected violations of the "one rewrite task per data file"
+    invariant. Always zero in a healthy connector. Treat any non-zero rate
+    as a P0: a violation, if not caught, would duplicate every surviving
+    row of the affected data file.
+:::
+
 (iceberg-schema-table-management)=
 ### Schema and table management
 
@@ -1256,7 +1396,11 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
     for details.
 * - `extra_properties`
   - Additional properties added to an Iceberg table. The properties are not used by Trino,
-    and are available in the `$properties` metadata table.
+    except for `write.merge.mode` and `write.merge.isolation-level`, which select the mode
+    and conflict-detection isolation of row-level operations as described in
+    [](iceberg-row-level-operation-modes). Those two keys are always permitted. Other keys
+    must be listed in `iceberg.allowed-extra-properties`. The properties are available in
+    the `$properties` metadata table.
     The properties are not included in the output of `SHOW CREATE TABLE` statements.
 :::
 

@@ -66,6 +66,7 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MergeableScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
@@ -388,7 +389,7 @@ public class IcebergSplitSource
                 outputRowsLowerBound = saturatedAdd(outputRowsLowerBound, wholeFileTask.file().recordCount());
             }
 
-            if (fileHasNoDeletions && noDataColumnsProjected(wholeFileTask)) {
+            if ((fileHasNoDeletions && noDataColumnsProjected(wholeFileTask)) || keepCopyOnWriteFileWhole(wholeFileTask)) {
                 scanTaskBuilder.add(fileScanTaskWithDomain);
             }
             else {
@@ -396,6 +397,12 @@ public class IcebergSplitSource
             }
         }
         return scanTaskBuilder.build().iterator();
+    }
+
+    private boolean keepCopyOnWriteFileWhole(FileScanTask task)
+    {
+        return IcebergMetadata.resolveRowLevelOperationMode(tableHandle.getStorageProperties()) == RowLevelOperationMode.COPY_ON_WRITE
+                && task.file().format() == FileFormat.AVRO;
     }
 
     private boolean isUnconstrainedPathAndTimeDomain()

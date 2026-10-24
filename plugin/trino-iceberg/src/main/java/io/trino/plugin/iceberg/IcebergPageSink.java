@@ -772,7 +772,7 @@ public class IcebergPageSink
         return new PartitionColumn(field, sourceChannels, sourceType, transform.type(), transform.blockTransform());
     }
 
-    private static List<Integer> getNestedFieldIds(Types.StructType schema, Integer sourceId)
+    static List<Integer> getNestedFieldIds(Types.StructType schema, Integer sourceId)
     {
         Map<Integer, Integer> parentIndex = TypeUtil.indexParents(schema);
         Map<Integer, Types.NestedField> idIndex = TypeUtil.indexById(schema);
@@ -788,7 +788,7 @@ public class IcebergPageSink
         return parentColumnsBuilder.build().reverse();
     }
 
-    private static List<Integer> getIndexPathToField(Types.StructType schema, List<Integer> nestedFieldIds)
+    static List<Integer> getIndexPathToField(Types.StructType schema, List<Integer> nestedFieldIds)
     {
         ImmutableList.Builder<Integer> sourceIdsBuilder = ImmutableList.builder();
         Types.StructType current = schema;
@@ -806,7 +806,7 @@ public class IcebergPageSink
         return sourceIdsBuilder.build();
     }
 
-    private static int findFieldPosFromSchema(int fieldId, Types.StructType struct)
+    static int findFieldPosFromSchema(int fieldId, Types.StructType struct)
     {
         for (int i = 0; i < struct.fields().size(); i++) {
             if (struct.fields().get(i).fieldId() == fieldId) {
@@ -816,7 +816,7 @@ public class IcebergPageSink
         throw new IllegalArgumentException("Could not find field " + fieldId + " in schema");
     }
 
-    private static Location createLocalSchemeIfAbsent(String path)
+    static Location createLocalSchemeIfAbsent(String path)
     {
         Location location = Location.of(path);
         if (location.scheme().isPresent()) {
