@@ -47,11 +47,6 @@ public enum GeometryType
         return standardName;
     }
 
-    public static GeometryType getForEsriGeometryType(String type)
-    {
-        return getForInternalLibraryName(type);
-    }
-
     public static GeometryType getForJtsGeometryType(String type)
     {
         return getForInternalLibraryName(type);
