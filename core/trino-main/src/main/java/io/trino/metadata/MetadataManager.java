@@ -74,6 +74,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -283,7 +284,14 @@ public final class MetadataManager
     @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
+        return getTableHandle(session, table, startVersion, endVersion, ImmutableList.of());
+    }
+
+    @Override
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, List<ReferencingView> referencingViews)
+    {
         requireNonNull(table, "table is null");
+        requireNonNull(referencingViews, "referencingViews is null");
         if (cannotExist(table)) {
             return Optional.empty();
         }
@@ -301,7 +309,8 @@ public final class MetadataManager
                     connectorSession,
                     table.asSchemaTableName(),
                     startTableVersion,
-                    endTableVersion);
+                    endTableVersion,
+                    referencingViews);
             return Optional.ofNullable(tableHandle)
                     .map(connectorTableHandle -> new TableHandle(
                             catalogHandle,
@@ -1614,7 +1623,14 @@ public final class MetadataManager
     @Override
     public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
-        Optional<ConnectorViewDefinition> connectorView = getViewInternal(session, viewName);
+        return getView(session, viewName, ImmutableList.of());
+    }
+
+    @Override
+    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName, List<ReferencingView> referencingViews)
+    {
+        requireNonNull(referencingViews, "referencingViews is null");
+        Optional<ConnectorViewDefinition> connectorView = getViewInternal(session, viewName, referencingViews);
         if (connectorView.isEmpty() || connectorView.get().isRunAsInvoker() || isCatalogManagedSecurity(session, viewName.catalogName())) {
             return connectorView.map(view -> createViewDefinition(viewName, view, view.getOwner().map(Identity::ofUser)));
         }
@@ -1665,6 +1681,11 @@ public final class MetadataManager
 
     private Optional<ConnectorViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName)
     {
+        return getViewInternal(session, viewName, ImmutableList.of());
+    }
+
+    private Optional<ConnectorViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName, List<ReferencingView> referencingViews)
+    {
         if (cannotExist(viewName)) {
             return Optional.empty();
         }
@@ -1676,7 +1697,7 @@ public final class MetadataManager
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-            return metadata.getView(connectorSession, viewName.asSchemaTableName());
+            return metadata.getView(connectorSession, viewName.asSchemaTableName(), referencingViews);
         }
         return Optional.empty();
     }
@@ -2056,12 +2077,18 @@ public final class MetadataManager
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
+        return getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion, ImmutableList.of());
+    }
+
+    @Override
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, List<ReferencingView> referencingViews)
+    {
         QualifiedObjectName targetTableName = getRedirectedTableName(session, tableName, startVersion, endVersion);
         if (targetTableName.equals(tableName)) {
-            return noRedirection(getTableHandle(session, tableName, startVersion, endVersion));
+            return noRedirection(getTableHandle(session, tableName, startVersion, endVersion, referencingViews));
         }
 
-        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion);
+        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion, referencingViews);
         if (tableHandle.isPresent()) {
             return withRedirectionTo(targetTableName, tableHandle.get());
         }
@@ -2079,8 +2106,14 @@ public final class MetadataManager
     @Override
     public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName)
     {
+        return getRedirectionAwareView(session, viewName, ImmutableList.of());
+    }
+
+    @Override
+    public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName, List<ReferencingView> referencingViews)
+    {
         QualifiedObjectName targetViewName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
-        Optional<ViewDefinition> view = getView(session, targetViewName);
+        Optional<ViewDefinition> view = getView(session, targetViewName, referencingViews);
 
         if (targetViewName.equals(viewName)) {
             return RedirectionAwareView.noRedirection(view);

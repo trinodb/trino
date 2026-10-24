@@ -40,6 +40,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.eventlistener.BaseViewReferenceInfo;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
@@ -267,6 +268,7 @@ public class Analysis
     private final Deque<Table> tablesForView = new ArrayDeque<>();
 
     private final Deque<TableReferenceInfo> referenceChain = new ArrayDeque<>();
+    private final Deque<ReferencingView> referencingViews = new ArrayDeque<>();
 
     // row id field for update/delete queries
     private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
@@ -987,7 +989,7 @@ public class Analysis
         return Optional.ofNullable(expandableBaseScopes.get(NodeRef.of(node)));
     }
 
-    public void registerTableForView(Table tableReference, QualifiedObjectName name, boolean isMaterializedView)
+    public void registerTableForView(Table tableReference, QualifiedObjectName name, boolean isMaterializedView, boolean runAsInvoker)
     {
         tablesForView.push(requireNonNull(tableReference, "tableReference is null"));
         BaseViewReferenceInfo referenceInfo;
@@ -998,12 +1000,23 @@ public class Analysis
             referenceInfo = new ViewReferenceInfo(name.catalogName(), name.schemaName(), name.objectName());
         }
         referenceChain.push(referenceInfo);
+        referencingViews.push(new ReferencingView(name.asCatalogSchemaTableName(), runAsInvoker));
     }
 
     public void unregisterTableForView()
     {
         tablesForView.pop();
         referenceChain.pop();
+        referencingViews.pop();
+    }
+
+    /**
+     * Views (including materialized views) the table currently being analyzed is resolved through, outermost first.
+     */
+    public List<ReferencingView> getReferencingViews()
+    {
+        // referencingViews iterates innermost first
+        return ImmutableList.copyOf(referencingViews).reverse();
     }
 
     public boolean hasTableInView(Table tableReference)

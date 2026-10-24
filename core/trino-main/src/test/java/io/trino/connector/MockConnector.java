@@ -75,6 +75,7 @@ import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -118,6 +119,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -155,6 +157,8 @@ public class MockConnector
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
     private final BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness> getMaterializedViewFreshness;
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
+    private final BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver;
+    private final BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final Function<SchemaTableName, Optional<String>> getComment;
     private final Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles;
@@ -211,6 +215,8 @@ public class MockConnector
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
             BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness> getMaterializedViewFreshness,
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
+            BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver,
+            BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             Function<SchemaTableName, Optional<String>> getComment,
             Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles,
@@ -266,6 +272,8 @@ public class MockConnector
         this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
         this.getMaterializedViewFreshness = requireNonNull(getMaterializedViewFreshness, "getMaterializedViewFreshness is null");
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
+        this.getTableHandleObserver = requireNonNull(getTableHandleObserver, "getTableHandleObserver is null");
+        this.getViewObserver = requireNonNull(getViewObserver, "getViewObserver is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.getComment = requireNonNull(getComment, "getComment is null");
         this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
@@ -551,6 +559,13 @@ public class MockConnector
         public void dropSchema(ConnectorSession session, String schemaName, boolean cascade) {}
 
         @Override
+        public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion, List<ReferencingView> referencingViews)
+        {
+            getTableHandleObserver.accept(tableName, referencingViews);
+            return getTableHandle(session, tableName, startVersion, endVersion);
+        }
+
+        @Override
         public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
         {
             if (startVersion.isPresent() || (branches.isEmpty() && endVersion.isPresent())) {
@@ -791,6 +806,13 @@ public class MockConnector
         public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
         {
             return getViews.apply(session, schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new));
+        }
+
+        @Override
+        public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName, List<ReferencingView> referencingViews)
+        {
+            getViewObserver.accept(viewName, referencingViews);
+            return getView(session, viewName);
         }
 
         @Override
