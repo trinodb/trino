@@ -65,12 +65,4 @@ public class NessieContainer
     {
         return "http://" + HOST_NAME + ":" + NESSIE_PORT + "/api/v2";
     }
-
-    /**
-     * Returns the externally accessible Nessie API URI for connecting from the host.
-     */
-    public String getExternalNessieUri()
-    {
-        return "http://" + getHost() + ":" + getMappedPort(NESSIE_PORT) + "/api/v2";
-    }
 }

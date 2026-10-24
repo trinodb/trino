@@ -13,7 +13,6 @@
  */
 package io.trino.testing.containers;
 
-import com.google.common.net.HostAndPort;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
@@ -49,14 +48,6 @@ public class LokiContainer
                 .forPort(LOKI_HTTP_PORT)
                 .forStatusCode(200)
                 .withStartupTimeout(Duration.ofSeconds(60)));
-    }
-
-    /**
-     * Returns the HTTP endpoint as HostAndPort for connecting from the host.
-     */
-    public HostAndPort getHttpEndpoint()
-    {
-        return HostAndPort.fromParts(getHost(), getMappedPort(LOKI_HTTP_PORT));
     }
 
     /**

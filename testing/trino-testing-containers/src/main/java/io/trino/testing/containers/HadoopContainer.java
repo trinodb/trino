@@ -255,12 +255,6 @@ public class HadoopContainer
                """.formatted(hostName);
     }
 
-    // Core-site configuration with HDFS default and proxy user settings
-    private String getCoreSiteXml()
-    {
-        return getCoreSiteXml(false);
-    }
-
     // Core-site configuration with optional LZO codec registration
     private String getCoreSiteXml(boolean includeLzoCodecs)
     {
@@ -448,14 +442,6 @@ public class HadoopContainer
     public String getHiveMetastoreUri()
     {
         return "thrift://" + hostName + ":" + HIVE_METASTORE_PORT;
-    }
-
-    /**
-     * Returns the externally accessible Hive Metastore URI for connecting from the host.
-     */
-    public String getExternalHiveMetastoreUri()
-    {
-        return "thrift://" + getHost() + ":" + getMappedPort(HIVE_METASTORE_PORT);
     }
 
     /**

@@ -101,22 +101,6 @@ public class TrinoWorkerContainer
     }
 
     /**
-     * Adds a config property to config.properties.
-     * These are appended to the base worker configuration.
-     *
-     * @param key the property key
-     * @param value the property value
-     * @return this container for chaining
-     */
-    public TrinoWorkerContainer withConfigProperty(String key, String value)
-    {
-        requireNonNull(key, "key is null");
-        requireNonNull(value, "value is null");
-        configProperties.put(key, value);
-        return this;
-    }
-
-    /**
      * Adds multiple config properties to config.properties.
      *
      * @param properties the properties to add
