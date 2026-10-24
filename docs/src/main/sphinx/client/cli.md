@@ -242,8 +242,8 @@ mode:
     the timezone set on your workstation.
 * - `--user`
   - Sets the username for [](cli-username-password-auth). Defaults to your
-    operating system username. You can override the default username, if your
-    cluster uses a different username or authentication mechanism. 
+    operating system username when using password authentication. For other
+    authentication methods, no username is sent unless this option is specified.
 :::
 
 Most of the options can also be set as parameters in the URL. This means
