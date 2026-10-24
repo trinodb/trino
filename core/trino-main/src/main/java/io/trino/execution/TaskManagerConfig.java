@@ -55,6 +55,7 @@ public class TaskManagerConfig
     public static final int MAX_WRITER_COUNT = 64;
 
     private boolean threadPerDriverSchedulerEnabled = true;
+    private boolean threadPerDriverSchedulerVirtualThreadsEnabled = true;
     private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = DataSize.of(16, Unit.MEGABYTE);
@@ -124,6 +125,19 @@ public class TaskManagerConfig
     public boolean isThreadPerDriverSchedulerEnabled()
     {
         return threadPerDriverSchedulerEnabled;
+    }
+
+    @Config("experimental.thread-per-driver-scheduler-virtual-threads-enabled")
+    @ConfigDescription("Use virtual threads for split processing with the thread-per-driver scheduler")
+    public TaskManagerConfig setThreadPerDriverSchedulerVirtualThreadsEnabled(boolean enabled)
+    {
+        this.threadPerDriverSchedulerVirtualThreadsEnabled = enabled;
+        return this;
+    }
+
+    public boolean isThreadPerDriverSchedulerVirtualThreadsEnabled()
+    {
+        return threadPerDriverSchedulerVirtualThreadsEnabled;
     }
 
     @MinDuration("1ms")
