@@ -49,9 +49,12 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.exchange.ExchangeId;
+import io.trino.spi.function.InvocationConvention;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
+import io.trino.sql.planner.PlanFragment;
 import io.trino.util.EmbedVersion;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -72,16 +75,23 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
+import static io.trino.execution.TaskTestUtils.LANGUAGE_FUNCTION_ID;
 import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT;
+import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT_WITH_LANGUAGE_FUNCTION;
 import static io.trino.execution.TaskTestUtils.SPLIT;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -238,6 +248,28 @@ public abstract class BaseTestSqlTaskManager
     }
 
     @Test
+    public void testLateTaskUpdateDoesNotRegisterLanguageFunctions()
+            throws InterruptedException, ExecutionException, TimeoutException
+    {
+        WorkerLanguageFunctionProvider languageFunctionProvider = createLanguageFunctionProvider();
+        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig(), languageFunctionProvider)) {
+            TaskId taskId = newTaskId();
+            OutputBuffers outputBuffers = PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds();
+
+            createTask(sqlTaskManager, taskId, PLAN_FRAGMENT_WITH_LANGUAGE_FUNCTION, outputBuffers);
+            assertLanguageFunctionRegistered(languageFunctionProvider, true);
+
+            pollTerminatingTaskInfoUntilDone(sqlTaskManager, sqlTaskManager.abortTask(taskId));
+            // the functions are unregistered by the onDone callback, which runs asynchronously
+            assertEventually(() -> assertLanguageFunctionRegistered(languageFunctionProvider, false));
+
+            // a task update arriving after the task completed must not register the functions again, as nothing would unregister them
+            updateTask(sqlTaskManager, taskId, PLAN_FRAGMENT_WITH_LANGUAGE_FUNCTION, outputBuffers);
+            assertLanguageFunctionRegistered(languageFunctionProvider, false);
+        }
+    }
+
+    @Test
     public void testRemoveOldTasks()
             throws InterruptedException, ExecutionException, TimeoutException
     {
@@ -324,11 +356,21 @@ public abstract class BaseTestSqlTaskManager
 
     private SqlTaskManager createSqlTaskManager(TaskManagerConfig taskManagerConfig, NodeMemoryConfig nodeMemoryConfig)
     {
+        return createSqlTaskManager(taskManagerConfig, nodeMemoryConfig, createLanguageFunctionProvider());
+    }
+
+    private SqlTaskManager createSqlTaskManager(TaskManagerConfig taskManagerConfig, WorkerLanguageFunctionProvider languageFunctionProvider)
+    {
+        return createSqlTaskManager(taskManagerConfig, new NodeMemoryConfig(), languageFunctionProvider);
+    }
+
+    private SqlTaskManager createSqlTaskManager(TaskManagerConfig taskManagerConfig, NodeMemoryConfig nodeMemoryConfig, WorkerLanguageFunctionProvider languageFunctionProvider)
+    {
         return new SqlTaskManager(
                 new EmbedVersion("testversion"),
                 new NoConnectorServicesProvider(),
                 createTestingPlanner(),
-                new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager()),
+                languageFunctionProvider,
                 new MockLocationFactory(),
                 taskExecutor,
                 new NodeInfo("test"),
@@ -359,18 +401,46 @@ public abstract class BaseTestSqlTaskManager
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, OutputBuffers outputBuffers)
     {
+        return createTask(sqlTaskManager, taskId, PLAN_FRAGMENT, outputBuffers);
+    }
+
+    private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, PlanFragment fragment, OutputBuffers outputBuffers)
+    {
         sqlTaskManager.getQueryContext(taskId.queryId())
                 .addTaskContext(new TaskStateMachine(taskId, directExecutor()), ImmutableMap.of(), testSessionBuilder().build(), () -> {}, false, false);
+        return updateTask(sqlTaskManager, taskId, fragment, outputBuffers);
+    }
+
+    private static TaskInfo updateTask(SqlTaskManager sqlTaskManager, TaskId taskId, PlanFragment fragment, OutputBuffers outputBuffers)
+    {
         return sqlTaskManager.updateTask(
                 TEST_SESSION,
                 taskId,
                 Span.getInvalid(),
-                Optional.of(PLAN_FRAGMENT),
+                Optional.of(fragment),
                 ImmutableMap.of(),
                 ImmutableList.of(),
                 outputBuffers,
                 ImmutableMap.of(),
                 false);
+    }
+
+    private static WorkerLanguageFunctionProvider createLanguageFunctionProvider()
+    {
+        return new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager());
+    }
+
+    private static void assertLanguageFunctionRegistered(WorkerLanguageFunctionProvider languageFunctionProvider, boolean registered)
+    {
+        ThrowingCallable specialize = () -> languageFunctionProvider.specialize(LANGUAGE_FUNCTION_ID, new InvocationConvention(ImmutableList.of(), NULLABLE_RETURN, true, true), createTestingFunctionManager());
+        if (registered) {
+            assertThatCode(specialize).doesNotThrowAnyException();
+        }
+        else {
+            assertThatThrownBy(specialize)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageStartingWith("Unknown function implementation");
+        }
     }
 
     private static TaskInfo pollTerminatingTaskInfoUntilDone(SqlTaskManager taskManager, TaskInfo taskInfo)
