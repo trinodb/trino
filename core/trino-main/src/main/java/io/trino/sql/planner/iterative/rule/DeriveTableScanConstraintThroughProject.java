@@ -275,14 +275,16 @@ public class DeriveTableScanConstraintThroughProject
                 newEnforcedConstraint,
                 // The scan's statistics (if any) still describe a superset of the narrowed scan and
                 // may be unreproducible by the connector, so they are inherited rather than dropped.
-                // Otherwise, if the connector cannot compute statistics for the narrowed handle, the
-                // pre-narrowing estimate is frozen the way pushFilterIntoTableScan does, but from the
-                // scan rather than the filter: the filter stays in the plan, so deriving from it would
-                // double-count its selectivity.
+                // Otherwise the pre-narrowing scan estimate is frozen regardless of whether the
+                // connector asks for it: the filter stays in the plan and estimates the complete
+                // predicate on top of the scan, so statistics the connector computes for the narrowed
+                // handle would count the derived domain's selectivity a second time. Unlike
+                // pushFilterIntoTableScan, the estimate is taken from the scan rather than the filter
+                // for the same reason.
                 tableScan.getStatistics().or(() -> deriveTableStatisticsForPushdown(
                         context.getStatsProvider(),
                         session,
-                        result.get().isPrecalculateStatistics(),
+                        true,
                         tableScan)),
                 tableScan.isUpdateTarget(),
                 tableScan.getUseConnectorNodePartitioning());

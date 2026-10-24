@@ -286,12 +286,13 @@ public class TestDeriveTableScanConstraintThroughProject
     }
 
     @Test
-    public void testUsesNarrowedScanStatisticsWhenConnectorCalculates()
+    public void testFreezesScanStatisticsWhenConnectorCalculates()
     {
-        // the connector computes statistics for the narrowed handle itself: the scan estimate comes
-        // from the narrowed table (400 rows), while the retained filter still estimates the complete
-        // predicate on top of it (1 in 4 status values, 100 rows), so the derived domain's selectivity
-        // shows up in both
+        // the connector does not ask for precalculated statistics and reports 400 rows for the
+        // narrowed handle, which already reflect the derived domain; those are never consulted,
+        // because the retained filter estimates the complete predicate on top of the scan and would
+        // count the same selectivity twice (100 rows instead of 400). The scan keeps the original
+        // estimate instead (1000) and the filter applies its selectivity once (250)
         tester().assertThat(rule)
                 .withSession(mockSession)
                 .on(p -> p.filter(
@@ -310,16 +311,17 @@ public class TestDeriveTableScanConstraintThroughProject
                                 project(
                                         ImmutableMap.of("x", expression(new Cast(new Reference(STATUS_TYPE, "status"), WIDE_STATUS_TYPE))),
                                         tableScan(CALCULATED_NARROWED_TABLE.getTableName(), ImmutableMap.of("status", "status"))
-                                                .withOutputRowCount(400)))
-                                .withOutputRowCount(100));
+                                                .withOutputRowCount(1000)))
+                                .withOutputRowCount(250));
     }
 
     @Test
-    public void testUsesNarrowedScanStatisticsForPartiallyCapturedPredicate()
+    public void testFreezesScanStatisticsForPartiallyCapturedPredicate()
     {
         // only the OR conjunct is captured by the derived domain; the length conjunct is inlinable
-        // and left to the regular pushdown, but the retained filter still estimates both on top of
-        // the narrowed table (400 rows, 1 in 4 status values, unknown selectivity 0.9 for length: 90 rows)
+        // and left to the regular pushdown. The scan keeps the original estimate (1000) and the
+        // retained filter estimates both conjuncts once on top of it (1 in 4 status values, unknown
+        // selectivity 0.9 for length: 225 rows)
         Expression lengthIsOne = comparison(EQUAL, new Call(LENGTH, ImmutableList.of(X)), new Constant(BIGINT, 1L));
         Expression predicate = new Logical(AND, ImmutableList.of(X_O_OR_F, lengthIsOne));
         tester().assertThat(rule)
@@ -340,8 +342,8 @@ public class TestDeriveTableScanConstraintThroughProject
                                 project(
                                         ImmutableMap.of("x", expression(new Cast(new Reference(STATUS_TYPE, "status"), WIDE_STATUS_TYPE))),
                                         tableScan(CALCULATED_NARROWED_TABLE.getTableName(), ImmutableMap.of("status", "status"))
-                                                .withOutputRowCount(400)))
-                                .withOutputRowCount(90));
+                                                .withOutputRowCount(1000)))
+                                .withOutputRowCount(225));
     }
 
     @Test
