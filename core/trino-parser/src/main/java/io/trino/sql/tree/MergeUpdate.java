@@ -28,13 +28,6 @@ public class MergeUpdate
 {
     private final List<Assignment> assignments;
 
-    @Deprecated
-    public MergeUpdate(Optional<Expression> expression, List<Assignment> assignments)
-    {
-        super(Optional.empty(), expression);
-        this.assignments = ImmutableList.copyOf(requireNonNull(assignments, "assignments is null"));
-    }
-
     public MergeUpdate(NodeLocation location, Optional<Expression> expression, List<Assignment> assignments)
     {
         super(location, expression);

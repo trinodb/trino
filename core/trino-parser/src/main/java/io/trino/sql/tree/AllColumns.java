@@ -35,12 +35,6 @@ public class AllColumns
     }
 
     @Deprecated
-    public AllColumns(Expression target, List<Identifier> aliases)
-    {
-        this(Optional.empty(), Optional.of(target), aliases);
-    }
-
-    @Deprecated
     public AllColumns(Optional<NodeLocation> location, Optional<Expression> target, List<Identifier> aliases)
     {
         super(location);

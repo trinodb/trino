@@ -33,11 +33,6 @@ public final class ExpressionTreeRewriter<C>
         return new ExpressionTreeRewriter<>(rewriter).rewrite(node, null);
     }
 
-    public static <C, T extends Expression> T rewriteWith(ExpressionRewriter<C> rewriter, T node, C context)
-    {
-        return new ExpressionTreeRewriter<>(rewriter).rewrite(node, context);
-    }
-
     public ExpressionTreeRewriter(ExpressionRewriter<C> rewriter)
     {
         this.rewriter = rewriter;

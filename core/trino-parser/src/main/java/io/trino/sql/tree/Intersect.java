@@ -28,11 +28,6 @@ public class Intersect
 {
     private final List<Relation> relations;
 
-    public Intersect(List<Relation> relations, boolean distinct, Optional<Corresponding> corresponding)
-    {
-        this(Optional.empty(), relations, distinct, corresponding);
-    }
-
     public Intersect(NodeLocation location, List<Relation> relations, boolean distinct, Optional<Corresponding> corresponding)
     {
         this(Optional.of(location), relations, distinct, corresponding);
