@@ -369,7 +369,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.getHiveCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
-import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
@@ -420,7 +419,6 @@ import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
-import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
@@ -741,12 +739,12 @@ public class IcebergMetadata
         if (endVersion.isPresent()) {
             long snapshotId = getSnapshotIdFromVersion(session, table, endVersion.get());
             return tableHandleForSnapshot(
-                    session,
                     tableName,
                     table,
                     OptionalLong.of(snapshotId),
                     schemaFor(table, snapshotId),
-                    Optional.empty());
+                    Optional.empty(),
+                    getTablePartitioning(session, table));
         }
         return tableHandleForCurrentSnapshot(session, tableName, table);
     }
@@ -769,21 +767,21 @@ public class IcebergMetadata
     private IcebergTableHandle tableHandleForCurrentSnapshot(ConnectorSession session, SchemaTableName tableName, BaseTable table)
     {
         return tableHandleForSnapshot(
-                session,
                 tableName,
                 table,
                 getCurrentSnapshotId(table),
                 table.schema(),
-                Optional.of(table.spec()));
+                Optional.of(table.spec()),
+                getTablePartitioning(session, table));
     }
 
     private IcebergTableHandle tableHandleForSnapshot(
-            ConnectorSession session,
             SchemaTableName tableName,
             BaseTable table,
             OptionalLong tableSnapshotId,
             Schema tableSchema,
-            Optional<PartitionSpec> partitionSpec)
+            Optional<PartitionSpec> partitionSpec,
+            Optional<IcebergTablePartitioning> tablePartitioning)
     {
         validateTableForTrino(table, tableSnapshotId);
         Map<String, String> tableProperties = table.properties();
@@ -803,7 +801,7 @@ public class IcebergMetadata
                 Optional.ofNullable(tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING)),
                 table.location(),
                 table.properties(),
-                getTablePartitioning(session, table),
+                tablePartitioning,
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
@@ -903,14 +901,7 @@ public class IcebergMetadata
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type for temporal table version: " + versionType.getDisplayName());
     }
 
-    @Override
-    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
-    {
-        return getRawSystemTable(session, tableName)
-                .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
-    }
-
-    private Optional<BaseTable> getRawBaseTable(ConnectorSession session, SchemaTableName tableName)
+    private Optional<SystemTableSource> getSystemTableSource(ConnectorSession session, SchemaTableName tableName)
     {
         if (!isIcebergTableName(tableName.getTableName()) || isDataTable(tableName.getTableName()) || isMaterializedViewStorage(tableName.getTableName())) {
             return Optional.empty();
@@ -921,8 +912,10 @@ public class IcebergMetadata
         SchemaTableName baseName = new SchemaTableName(tableName.getSchemaName(), name);
         try {
             return getMaterializedView(session, baseName)
-                    .map(definition -> loadMaterializedViewStorageTable(session, baseName, definition))
-                    .or(() -> Optional.of(catalog.loadTable(session, baseName)));
+                    .map(definition -> new SystemTableSource(
+                            getMaterializedViewStorageTableName(baseName, definition),
+                            loadMaterializedViewStorageTable(session, baseName, definition)))
+                    .or(() -> Optional.of(new SystemTableSource(baseName, catalog.loadTable(session, baseName))));
         }
         catch (TableNotFoundException e) {
             return Optional.empty();
@@ -932,6 +925,8 @@ public class IcebergMetadata
             return Optional.empty();
         }
     }
+
+    private record SystemTableSource(SchemaTableName tableName, BaseTable table) {}
 
     private BaseTable loadMaterializedViewStorageTable(ConnectorSession session, SchemaTableName materializedViewName, ConnectorMaterializedViewDefinition definition)
     {
@@ -951,15 +946,16 @@ public class IcebergMetadata
                 .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + materializedViewName));
     }
 
-    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        Optional<BaseTable> baseTable = getRawBaseTable(session, tableName);
-        if (baseTable.isEmpty()) {
+        Optional<SystemTableSource> source = getSystemTableSource(session, tableName);
+        if (source.isEmpty()) {
             return Optional.empty();
         }
-        BaseTable table = baseTable.get();
+        BaseTable table = source.orElseThrow().table();
         TableType tableType = IcebergTableName.tableTypeFrom(tableName.getTableName());
-        return switch (tableType) {
+        Optional<SystemTable> systemTable = switch (tableType) {
             case DATA, MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected table type: " + tableType); // Handled above.
             case HISTORY -> Optional.of(new HistoryTable(tableName, table));
             case METADATA_LOG_ENTRIES -> Optional.of(new MetadataLogEntriesTable(tableName, table, icebergScanExecutor));
@@ -973,15 +969,33 @@ public class IcebergMetadata
             case REFS -> Optional.of(new RefsTable(tableName, table, icebergScanExecutor));
             default -> Optional.empty();
         };
+        return systemTable.map(result -> {
+            // System table rows can depend on any file in the captured base table, not only the partitions written.
+            List<ConnectorTableHandle> sourceTableHandles = ImmutableList.of(tableHandleForSnapshot(
+                    source.orElseThrow().tableName(),
+                    table,
+                    getCurrentSnapshotId(table),
+                    table.schema(),
+                    Optional.of(table.spec()),
+                    Optional.empty()));
+            return new ClassLoaderSafeSystemTable(result, getClass().getClassLoader())
+            {
+                @Override
+                public List<ConnectorTableHandle> getSourceTableHandles()
+                {
+                    return sourceTableHandles;
+                }
+            };
+        });
     }
 
     private Optional<ConnectorViewDefinition> getRawSystemView(ConnectorSession session, SchemaTableName tableName)
     {
-        Optional<BaseTable> baseTable = getRawBaseTable(session, tableName);
-        if (baseTable.isEmpty()) {
+        Optional<SystemTableSource> source = getSystemTableSource(session, tableName);
+        if (source.isEmpty()) {
             return Optional.empty();
         }
-        BaseTable table = baseTable.get();
+        BaseTable table = source.orElseThrow().table();
         TableType tableType = IcebergTableName.tableTypeFrom(tableName.getTableName());
         return switch (tableType) {
             case PARTITIONS -> Optional.of(PartitionsView.create(typeManager, table, catalogName.toString(), tableName.getSchemaName(), tableNameFrom(tableName.getTableName())));
@@ -995,9 +1009,12 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
 
         if (table.getSnapshotId().isEmpty()) {
-            // A table with missing snapshot id produces no splits, so we optimize here by returning
-            // TupleDomain.none() as the predicate
-            return new ConnectorTableProperties(TupleDomain.none(), Optional.empty(), Optional.empty(), ImmutableList.of());
+            // Preserve read dependencies for MERGE conflict detection, even when the scan produces no splits.
+            return new ConnectorTableProperties(
+                    table.getEnforcedPredicate().transformKeys(ColumnHandle.class::cast),
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableList.of());
         }
 
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
@@ -3430,7 +3447,7 @@ public class IcebergMetadata
     {
         IcebergMergeTableHandle mergeHandle = (IcebergMergeTableHandle) mergeTableHandle;
         IcebergTableHandle handle = mergeHandle.getTableHandle();
-        return finishWrite(session, handle, fragments);
+        return finishWrite(session, handle, sourceTableHandles, fragments);
     }
 
     private static void verifyTableVersionForUpdate(IcebergTableHandle table)
@@ -3470,7 +3487,7 @@ public class IcebergMetadata
         }
     }
 
-    private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, IcebergTableHandle table, Collection<Slice> fragments)
+    private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, IcebergTableHandle table, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments)
     {
         if (fragments.isEmpty()) {
             // Avoid recording "empty" write operation
@@ -3497,7 +3514,6 @@ public class IcebergMetadata
         int formatVersion = table.getFormatVersion();
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
         Map<Integer, PartitionSpec> partitionSpecs = icebergTable.specs();
-        CommitTaskDomainCollector domainCollector = new CommitTaskDomainCollector(icebergTable, typeManager);
         ImmutableList.Builder<String> referencedDataFiles = ImmutableList.builder();
         List<DeletionVectorInfo> deletionVectorInfos = new ArrayList<>();
         boolean hasDeleteTasks = false;
@@ -3507,7 +3523,6 @@ public class IcebergMetadata
         for (Slice fragment : fragments) {
             CommitTaskData task = commitTaskCodec.fromJson(fragment.getInput());
             PartitionSpec partitionSpec = verifyNotNull(partitionSpecs.get(task.partitionSpecId()), "No partition spec found for id %s", task.partitionSpecId());
-            domainCollector.add(task, partitionSpec);
             switch (task.content()) {
                 case DATA -> {
                     hasDataTasks = true;
@@ -3568,10 +3583,7 @@ public class IcebergMetadata
             }
         }
 
-        TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> !isMetadataColumnId(column.getId()));
-        TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(table.getUnenforcedPredicate());
-        effectivePredicate = effectivePredicate.intersect(domainCollector.domains());
-        effectivePredicate = effectivePredicate.filter((_, domain) -> isConvertibleToIcebergExpression(domain));
+        TupleDomain<IcebergColumnHandle> effectivePredicate = conflictDetectionPredicate(table, sourceTableHandles);
 
         if (!effectivePredicate.isAll()) {
             rowDelta.conflictDetectionFilter(toIcebergExpression(effectivePredicate));
@@ -3598,57 +3610,20 @@ public class IcebergMetadata
         return outputMetadata(icebergTable);
     }
 
-    /**
-     * Collects identity partition value domains from commit tasks for the row-level conflict detection filter.
-     */
-    static class CommitTaskDomainCollector
+    private static TupleDomain<IcebergColumnHandle> conflictDetectionPredicate(IcebergTableHandle table, List<ConnectorTableHandle> sourceTableHandles)
     {
-        private final PartitionSpec partitionSpec;
-        private final Set<IcebergColumnHandle> partitionColumns;
-        private final Map<IcebergColumnHandle, Set<Domain>> domainsFromTasks = new HashMap<>();
-        private boolean allTasksMatchTableSpec = true;
-
-        CommitTaskDomainCollector(Table icebergTable, TypeManager typeManager)
-        {
-            this.partitionSpec = icebergTable.spec();
-            this.partitionColumns = ImmutableSet.copyOf(getProjectedColumns(icebergTable.schema(), typeManager, identityPartitionColumnsInAllSpecs(icebergTable)));
-        }
-
-        void add(CommitTaskData commitTask, PartitionSpec taskPartitionSpec)
-        {
-            if (!allTasksMatchTableSpec) {
-                return;
-            }
-            if (commitTask.partitionDataJson().isEmpty() || taskPartitionSpec.isUnpartitioned() || !taskPartitionSpec.equals(partitionSpec)) {
-                // We should not produce any specific domains if there are no partitions or current partitions does not match task partitions for any of tasks
-                // As each partition value narrows down conflict scope we should produce values from all commit tasks or not at all, to avoid partial information
-                allTasksMatchTableSpec = false;
-                domainsFromTasks.clear();
-                return;
-            }
-
-            PartitionData partitionData = PartitionData.fromJson(commitTask.partitionDataJson().get(), partitionSpec);
-            Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
-            Map<ColumnHandle, NullableValue> partitionValues = getPartitionValues(partitionColumns, partitionKeys);
-
-            for (Entry<ColumnHandle, NullableValue> entry : partitionValues.entrySet()) {
-                IcebergColumnHandle columnHandle = (IcebergColumnHandle) entry.getKey();
-                NullableValue value = entry.getValue();
-                Domain newDomain = value.isNull() ? Domain.onlyNull(columnHandle.getType()) : Domain.singleValue(columnHandle.getType(), value.getValue());
-                domainsFromTasks.computeIfAbsent(columnHandle, _ -> new HashSet<>()).add(newDomain);
-            }
-        }
-
-        TupleDomain<IcebergColumnHandle> domains()
-        {
-            if (!allTasksMatchTableSpec) {
-                return TupleDomain.all();
-            }
-            return withColumnDomains(domainsFromTasks.entrySet().stream()
-                    .collect(toImmutableMap(
-                            Entry::getKey,
-                            entry -> Domain.union(ImmutableList.copyOf(entry.getValue())))));
-        }
+        // Conflict detection must cover rows read, including target self-reads, rather than partitions written.
+        return sourceTableHandles.stream()
+                .filter(IcebergTableHandle.class::isInstance)
+                .map(IcebergTableHandle.class::cast)
+                .filter(source -> source.getSchemaTableName().equals(table.getSchemaTableName()))
+                // Versioned reads use immutable snapshots and have no current partition specification.
+                .filter(source -> source.getSpecId().isPresent())
+                .map(source -> source.getEnforcedPredicate()
+                        .filter((column, _) -> !isMetadataColumnId(column.getId()))
+                        .intersect(source.getUnenforcedPredicate())
+                        .filter((_, domain) -> isConvertibleToIcebergExpression(domain)))
+                .reduce(TupleDomain.none(), TupleDomain::columnWiseUnion);
     }
 
     @Override

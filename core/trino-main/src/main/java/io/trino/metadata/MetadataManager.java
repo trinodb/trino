@@ -26,6 +26,7 @@ import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.connector.system.SystemTableHandle;
 import io.trino.metadata.LanguageFunctionManager.RunAsIdentityLoader;
 import io.trino.plugin.base.util.UncheckedCloser;
 import io.trino.security.AccessControl;
@@ -1442,11 +1443,20 @@ public final class MetadataManager
     {
         CatalogHandle catalogHandle = mergeHandle.tableHandle().catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
-                .filter(handle -> handle.catalogHandle().equals(catalogHandle))
-                .map(TableHandle::connectorHandle)
+                .flatMap(handle -> {
+                    if (handle.catalogHandle().equals(catalogHandle)) {
+                        return Stream.of(handle.connectorHandle());
+                    }
+                    if (handle.catalogHandle().getType() == CatalogHandle.CatalogHandleType.SYSTEM && handle.catalogHandle().getRootCatalogHandle().equals(catalogHandle)) {
+                        SystemTableHandle systemTableHandle = (SystemTableHandle) handle.connectorHandle();
+                        return systemTableHandle.sourceTableHandles().stream();
+                    }
+                    return Stream.empty();
+                })
                 .collect(toImmutableList());
-        return metadata.finishMerge(session.toConnectorSession(catalogHandle), mergeHandle.connectorMergeHandle(), sourceConnectorHandles, fragments, computedStatistics);
+        return metadata.finishMerge(connectorSession, mergeHandle.connectorMergeHandle(), sourceConnectorHandles, fragments, computedStatistics);
     }
 
     @Override
