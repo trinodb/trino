@@ -62,6 +62,11 @@ event-listener.config-files=etc/http-event-listener.properties,...
   - Enable the plugin to log `QueryCompletedEvent` events
   - `false`
 
+* - http-event-listener.excluded-fields
+  - Comma-separated list of property names to omit from HTTP events, for
+    example `payload,user`. A name matches properties at any nesting level.
+  - Empty
+
 * - http-event-listener.connect-ingest-uri
   - The URI that the plugin will POST events to
   - None. See the [requirements](http-event-listener-requirements) section.

@@ -14,6 +14,7 @@
 package io.trino.plugin.httpquery;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -80,6 +81,7 @@ final class TestHttpEventListener
 
     private final EventListenerFactory factory = new HttpEventListenerFactory();
 
+    private static final JsonMapper JSON_MAPPER = new JsonMapper();
     private static final JsonCodec<QueryCompletedEvent> queryCompleteEventJsonCodec = jsonCodec(QueryCompletedEvent.class);
     private static final JsonCodec<QueryCreatedEvent> queryCreateEventJsonCodec = jsonCodec(QueryCreatedEvent.class);
 
@@ -245,6 +247,50 @@ final class TestHttpEventListener
 
         eventListener.queryCompleted(queryCompleteEvent);
         checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
+    }
+
+    @Test
+    void testQueryCreatedEventWithExcludedFields()
+            throws Exception
+    {
+        EventListener eventListener = createEventListener(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.log-created", "true",
+                "http-event-listener.excluded-fields", "createTime,query,principal"));
+
+        server.enqueue(new MockResponse.Builder().code(200).build());
+
+        eventListener.queryCreated(queryCreatedEvent);
+
+        JsonNode event = requestBody(server.takeRequest(5, TimeUnit.SECONDS));
+        assertThat(event.has("createTime")).isFalse();
+        assertThat(event.get("metadata").has("query")).isFalse();
+        assertThat(event.get("context").has("principal")).isFalse();
+        assertThat(event.get("metadata").get("queryId").asText()).isEqualTo("queryId");
+        assertThat(event.get("context").get("user").asText()).isEqualTo("user");
+    }
+
+    @Test
+    void testQueryCompletedEventWithExcludedFields()
+            throws Exception
+    {
+        EventListener eventListener = createEventListener(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.log-completed", "true",
+                "http-event-listener.excluded-fields", "ioMetadata,query,principal,wallTime"));
+
+        server.enqueue(new MockResponse.Builder().code(200).build());
+
+        eventListener.queryCompleted(queryCompleteEvent);
+
+        JsonNode event = requestBody(server.takeRequest(5, TimeUnit.SECONDS));
+        assertThat(event.has("ioMetadata")).isFalse();
+        assertThat(event.get("metadata").has("query")).isFalse();
+        assertThat(event.get("context").has("principal")).isFalse();
+        assertThat(event.get("statistics").has("wallTime")).isFalse();
+        assertThat(event.get("metadata").get("queryId").asText()).isEqualTo("queryId");
+        assertThat(event.get("context").get("user").asText()).isEqualTo("user");
+        assertThat(event.get("statistics").has("cpuTime")).isTrue();
     }
 
     @Test
@@ -443,10 +489,18 @@ final class TestHttpEventListener
                 .describedAs("Body is empty")
                 .isFalse();
 
-        JsonMapper jsonMapper = new JsonMapper();
-        assertThat(jsonMapper.readTree(body))
+        assertThat(JSON_MAPPER.readTree(body))
                 .as("Json value is wrong, expected %s but found %s", eventJson, body)
-                .isEqualTo(jsonMapper.readTree(eventJson));
+                .isEqualTo(JSON_MAPPER.readTree(eventJson));
+    }
+
+    private static JsonNode requestBody(RecordedRequest recordedRequest)
+            throws JsonProcessingException
+    {
+        assertThat(recordedRequest)
+                .describedAs("No request sent when logging is enabled")
+                .isNotNull();
+        return JSON_MAPPER.readTree(recordedRequest.getBody().utf8());
     }
 
     private void setupServerTLSCertificate()
