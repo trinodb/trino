@@ -65,9 +65,6 @@ public abstract class DictionaryValuesWriter
     /* maximum size in bytes allowed for the dictionary will fail over to plain encoding if reached */
     protected final int maxDictionaryByteSize;
 
-    /* will become true if the dictionary becomes too big */
-    protected boolean dictionaryTooBig;
-
     /* current size in bytes the dictionary will take once serialized */
     protected long dictionaryByteSize;
 
@@ -224,7 +221,6 @@ public abstract class DictionaryValuesWriter
     {
         lastUsedDictionaryByteSize = 0;
         lastUsedDictionarySize = 0;
-        dictionaryTooBig = false;
         dictionaryByteSize = 0;
         clearDictionaryContent();
     }
