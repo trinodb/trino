@@ -63,11 +63,6 @@ public class JdbcBasicEnvironment
         return TrinoProductTestContainer.createConnection(trino, user);
     }
 
-    public TrinoContainer getTrinoContainer()
-    {
-        return trino;
-    }
-
     @Override
     public String getTrinoJdbcUrl()
     {

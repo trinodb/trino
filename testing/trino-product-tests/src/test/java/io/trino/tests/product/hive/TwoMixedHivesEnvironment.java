@@ -434,20 +434,4 @@ public class TwoMixedHivesEnvironment
     {
         return kdc;
     }
-
-    /**
-     * Returns the first Hadoop container (Kerberized).
-     */
-    public HadoopContainer getKerberizedHadoop()
-    {
-        return hadoop1;
-    }
-
-    /**
-     * Returns the second Hadoop container (Standard - no auth).
-     */
-    public HadoopContainer getStandardHadoop()
-    {
-        return hadoop2;
-    }
 }

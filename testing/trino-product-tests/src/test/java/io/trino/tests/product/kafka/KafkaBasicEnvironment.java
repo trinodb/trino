@@ -160,18 +160,6 @@ public class KafkaBasicEnvironment
     }
 
     @Override
-    public String getTopicNameSuffix()
-    {
-        return "";
-    }
-
-    @Override
-    public boolean supportsColumnMapping()
-    {
-        return true;
-    }
-
-    @Override
     public TestingKafka getKafka()
     {
         return kafka;

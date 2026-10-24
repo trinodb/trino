@@ -255,16 +255,6 @@ public class HiveHudiRedirectionsEnvironment
         return BUCKET_NAME;
     }
 
-    /**
-     * Returns the S3 path for the warehouse directory.
-     *
-     * @return the S3 warehouse path (e.g., "s3a://hudi-test-bucket/warehouse")
-     */
-    public String getWarehousePath()
-    {
-        return "s3a://" + BUCKET_NAME + "/warehouse";
-    }
-
     // Standard ProductTestEnvironment methods
 
     @Override

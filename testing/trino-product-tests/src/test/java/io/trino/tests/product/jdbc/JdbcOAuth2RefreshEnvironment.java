@@ -46,12 +46,4 @@ public class JdbcOAuth2RefreshEnvironment
                 Transferable.of("io.trino=INFO\n"),
                 "/etc/trino/log.properties");
     }
-
-    /**
-     * Returns the timeout in seconds for the internally issued token.
-     */
-    public int getIssuedTokenTimeoutSeconds()
-    {
-        return ISSUED_TOKEN_TIMEOUT_IN_SECONDS;
-    }
 }

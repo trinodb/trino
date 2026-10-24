@@ -41,19 +41,6 @@ public abstract class KafkaEnvironment
     public abstract String getCatalogName();
 
     /**
-     * Returns the topic name suffix for this environment.
-     * Used to create different topics for each catalog to avoid conflicts.
-     */
-    public abstract String getTopicNameSuffix();
-
-    /**
-     * Returns whether this environment supports column mapping in table definitions.
-     * The basic kafka catalog with table definitions supports mapping Avro/Protobuf
-     * field names to different column names. The schema registry catalog does not.
-     */
-    public abstract boolean supportsColumnMapping();
-
-    /**
      * Returns the TestingKafka instance for sending messages.
      */
     public abstract TestingKafka getKafka();
