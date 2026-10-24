@@ -1118,6 +1118,58 @@ abstract class BaseTestHiveOnDataLake
     }
 
     @Test
+    void testReadSymlinkTableWithDatePartitionProjection()
+    {
+        // Simulates an S3 Inventory table: daily manifests under hive/dt=yyyy-MM-dd-HH-mm/symlink.txt point to data files stored elsewhere
+        String tableName = "symlink_partition_projection_" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String inventoryPath = format("%s/%s", HIVE_TEST_SCHEMA, tableName);
+        String manifestsLocation = format("s3://%s/%s/hive/", bucketName, inventoryPath);
+
+        hiveFlociDataLake.floci().putObject(bucketName, "a\u0001first".getBytes(UTF_8), inventoryPath + "/data/day1.csv");
+        hiveFlociDataLake.floci().putObject(bucketName, "b\u0001second\nc\u0001third".getBytes(UTF_8), inventoryPath + "/data/day2.csv");
+        hiveFlociDataLake.floci().putObject(bucketName, "d\u0001fourth".getBytes(UTF_8), inventoryPath + "/data/day3.csv");
+        hiveFlociDataLake.floci().putObject(bucketName, format("s3://%s/%s/data/day1.csv", bucketName, inventoryPath).getBytes(UTF_8), inventoryPath + "/hive/dt=2026-10-22-01-00/symlink.txt");
+        hiveFlociDataLake.floci().putObject(bucketName, format("s3://%s/%s/data/day2.csv", bucketName, inventoryPath).getBytes(UTF_8), inventoryPath + "/hive/dt=2026-10-23-01-00/symlink.txt");
+        // a manifest in a partition outside of the projection range (after 2026-10-24-01-00) must never be read
+        hiveFlociDataLake.floci().putObject(bucketName, format("s3://%s/%s/data/day3.csv", bucketName, inventoryPath).getBytes(UTF_8), inventoryPath + "/hive/dt=2026-10-25-01-00/symlink.txt");
+
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  key varchar, " +
+                        "  value varchar, " +
+                        "  dt timestamp(3) WITH (" +
+                        "    partition_projection_type='date', " +
+                        "    partition_projection_format='yyyy-MM-dd-HH-mm', " +
+                        "    partition_projection_range=ARRAY['2026-10-22-01-00', '2026-10-24-01-00'], " +
+                        "    partition_projection_interval=1, " +
+                        "    partition_projection_interval_unit='DAYS'" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  format='TEXTFILE', " +
+                        "  symlink_manifest=true, " +
+                        "  external_location='" + manifestsLocation + "', " +
+                        "  partitioned_by=ARRAY['dt'], " +
+                        "  partition_projection_enabled=true, " +
+                        "  partition_projection_location_template='" + manifestsLocation + "dt=${dt}/')");
+
+        assertQuery(
+                "SELECT key, value, dt FROM " + fullyQualifiedTestTableName,
+                "VALUES ('a', 'first', TIMESTAMP '2026-10-22 01:00:00'), " +
+                        "('b', 'second', TIMESTAMP '2026-10-23 01:00:00'), " +
+                        "('c', 'third', TIMESTAMP '2026-10-23 01:00:00')");
+        assertQuery(
+                "SELECT key, value FROM " + fullyQualifiedTestTableName + " WHERE dt = TIMESTAMP '2026-10-23 01:00:00'",
+                "VALUES ('b', 'second'), ('c', 'third')");
+        assertQuery(
+                "SELECT count(*) FROM " + fullyQualifiedTestTableName + " WHERE dt > TIMESTAMP '2026-10-22 01:00:00'",
+                "VALUES 2");
+        assertThat(computeActual("SELECT key FROM " + fullyQualifiedTestTableName + " WHERE dt = TIMESTAMP '2026-10-25 01:00:00'").getRowCount()).isEqualTo(0);
+
+        assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
+    }
+
+    @Test
     void testReadDatePartitionProjectionWithFormatAndLocationTemplate()
     {
         String tableName = "partition_projection_read_custom_date" + randomNameSuffix();
