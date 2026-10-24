@@ -198,19 +198,20 @@ public class TestSelectAll
                 .matches("VALUES " +
                         "CAST(ROW(ROW(1, 1)) AS row(row(a integer, b integer))), " +
                         "CAST(ROW(ROW(2, 2)) AS row(row(a integer, b integer)))");
-        // the following query should fail due to multiple rows returned from subquery, but instead fails to decorrelate
-        assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0, 1)) FROM (VALUES 2) t(a)")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
+        // the subquery returns multiple rows in scalar position; the dependent-join framework handles this
+        // shape (legacy fails to decorrelate it) and raises the correct multiple-rows error at runtime
+        assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0, 1)) FROM (VALUES 2) t(a)")).failure().hasMessageContaining("Scalar sub-query has returned multiple rows");
         // filter in subquery
         assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) WHERE true) FROM (VALUES 1) t(a)")).matches("VALUES 1");
         assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) WHERE 0 = 0) FROM (VALUES 1) t(a)")).matches("VALUES 1");
-        assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) t2(b) WHERE b > 1) FROM (VALUES 1) t(a)")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
-        assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) WHERE false) FROM (VALUES 1) t(a)")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) t2(b) WHERE b > 1) FROM (VALUES 1) t(a)")).matches("VALUES CAST(NULL AS INTEGER)");
+        assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) WHERE false) FROM (VALUES 1) t(a)")).matches("VALUES CAST(NULL AS INTEGER)");
         // limit in subquery
         assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) LIMIT 1) FROM (VALUES 1, 2) t(a)")).matches("VALUES 1, 2");
         assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) LIMIT 5) FROM (VALUES 1, 2) t(a)")).matches("VALUES 1, 2");
         assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) LIMIT 0) FROM (VALUES 1, 2) t(a)")).matches("VALUES CAST(NULL AS INTEGER), CAST(NULL AS INTEGER)");
-        assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0, 1) LIMIT 1) FROM (VALUES 2, 3) t(a)")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
-        assertThat(assertions.query("SELECT (SELECT t.* FROM (SELECT * FROM (VALUES 0, 1) LIMIT 1)) FROM (VALUES 2, 3) t(a)")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0, 1) LIMIT 1) FROM (VALUES 2, 3) t(a)")).matches("VALUES 2, 3");
+        assertThat(assertions.query("SELECT (SELECT t.* FROM (SELECT * FROM (VALUES 0, 1) LIMIT 1)) FROM (VALUES 2, 3) t(a)")).matches("VALUES 2, 3");
         // alias shadowing
         assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) t) FROM (VALUES 1) t(a)")).matches("VALUES 0");
         assertThat(assertions.query("SELECT(SELECT(SELECT t.* FROM (VALUES 0)) FROM (VALUES 1) t(a)) FROM (VALUES 2) t(a)")).matches("VALUES 1");
@@ -220,7 +221,7 @@ public class TestSelectAll
         assertThat(assertions.query("SELECT EXISTS(SELECT t.* FROM (VALUES 1) t2(b) WHERE t2.b > t.a) FROM (VALUES 0, 2) t(a)")).matches("VALUES true, false");
 
         // IN subquery
-        assertThat(assertions.query("SELECT 1 IN (SELECT t.*) FROM (VALUES 1, 2) t(a)")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertThat(assertions.query("SELECT 1 IN (SELECT t.*) FROM (VALUES 1, 2) t(a)")).matches("VALUES true, false");
 
         // lateral relation
         assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.*)")).matches("VALUES (0, 0), (1, 1)");
@@ -231,14 +232,14 @@ public class TestSelectAll
         // filter in lateral relation
         assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE true)")).matches("VALUES (0, 0), (1, 1)");
         assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE 0 = 0)")).matches("VALUES (0, 0), (1, 1)");
-        assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE false)")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
-        assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE t.a = 0)")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE false)")).returnsEmptyResult();
+        assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE t.a = 0)")).matches("VALUES (0, 0)");
         // FROM in lateral relation
         assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* FROM (VALUES 1))")).matches("VALUES (0, 0), (1, 1)");
         assertThat(assertions.query("SELECT t.* FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.*) t")).matches("VALUES (0, 0), (1, 1)");
-        assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* FROM (VALUES 1, 2))")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
-        assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* FROM (VALUES 1, 2) LIMIT 1)")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
-        assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* FROM (SELECT * FROM (VALUES 1, 2) LIMIT 1))")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* FROM (VALUES 1, 2))")).matches("VALUES (0, 0), (0, 0), (1, 1), (1, 1)");
+        assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* FROM (VALUES 1, 2) LIMIT 1)")).matches("VALUES (0, 0), (1, 1)");
+        assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* FROM (SELECT * FROM (VALUES 1, 2) LIMIT 1))")).matches("VALUES (0, 0), (1, 1)");
 
         // reference to further outer scope relation
         assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t2.* from (VALUES 3, 4) t2(b), LATERAL (SELECT t.*))")).matches("VALUES (0, 3), (1, 3), (0, 4), (1, 4)");
