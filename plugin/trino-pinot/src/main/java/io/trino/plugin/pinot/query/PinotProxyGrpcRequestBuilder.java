@@ -48,24 +48,6 @@ public class PinotProxyGrpcRequestBuilder
         return this;
     }
 
-    public PinotProxyGrpcRequestBuilder setRequestId(int requestId)
-    {
-        this.requestId = requestId;
-        return this;
-    }
-
-    public PinotProxyGrpcRequestBuilder setBrokerId(String brokerId)
-    {
-        this.brokerId = brokerId;
-        return this;
-    }
-
-    public PinotProxyGrpcRequestBuilder setEnableTrace(boolean enableTrace)
-    {
-        this.enableTrace = enableTrace;
-        return this;
-    }
-
     public PinotProxyGrpcRequestBuilder setEnableStreaming(boolean enableStreaming)
     {
         this.enableStreaming = enableStreaming;
