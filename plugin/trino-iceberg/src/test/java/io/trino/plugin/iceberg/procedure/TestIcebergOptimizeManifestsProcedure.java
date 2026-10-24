@@ -38,6 +38,8 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_TABLES;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.TRINO_QUERY_START_TIME;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
@@ -428,6 +430,31 @@ final class TestIcebergOptimizeManifestsProcedure
         try (TestTable table = newTrinoTable("test_unsupported_where", "WITH (partitioning = ARRAY['part']) AS SELECT 1 id, 1 part")) {
             assertQueryFails("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests WHERE id = 1", ".* WHERE not supported for procedure OPTIMIZE_MANIFESTS");
             assertQueryFails("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests WHERE part = 10", ".* WHERE not supported for procedure OPTIMIZE_MANIFESTS");
+        }
+    }
+
+    @Test
+    void testDependencySummaryNotCarriedForwardOnNONMaterializedViewStorageTable()
+    {
+        try (TestTable table = newTrinoTable("test_dependency_summary", "(x int)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertThat(manifestFiles(table.getName())).hasSize(2);
+
+            // Only a materialized view storage table is supposed to carry the dependency summary, but nothing
+            // stops another writer from setting those properties on an ordinary table
+            loadTable(table.getName()).newAppend()
+                    .set(DEPENDS_ON_TABLES, "1234")
+                    .set(TRINO_QUERY_START_TIME, "2026-01-01T00:00:00.000Z")
+                    .commit();
+            assertThat(loadTable(table.getName()).currentSnapshot().summary())
+                    .containsKeys(DEPENDS_ON_TABLES, TRINO_QUERY_START_TIME);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
+            assertThat(manifestFiles(table.getName())).hasSize(1);
+
+            assertThat(loadTable(table.getName()).currentSnapshot().summary())
+                    .doesNotContainKeys(DEPENDS_ON_TABLES, TRINO_QUERY_START_TIME);
         }
     }
 

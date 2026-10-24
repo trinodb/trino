@@ -37,7 +37,8 @@ public record IcebergOptimizeHandle(
         int sortOrderId,
         IcebergFileFormat fileFormat,
         Map<String, String> tableStorageProperties,
-        DataSize maxScannedFileSize)
+        DataSize maxScannedFileSize,
+        boolean isMaterializedViewStorage)
         implements IcebergProcedureHandle
 {
     public IcebergOptimizeHandle
