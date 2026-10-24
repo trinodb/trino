@@ -51,6 +51,8 @@ public class TestRemoveRedundantMatchClauses
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of());
     private static final ResolvedFunction DIVIDE_BIGINT = FUNCTIONS.resolveOperator(DIVIDE, ImmutableList.of(BIGINT, BIGINT));
 
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(FUNCTIONS.getPlannerContext());
+
     @Test
     void test()
     {
@@ -83,6 +85,10 @@ public class TestRemoveRedundantMatchClauses
                         ImmutableList.of(equalityClause(new Reference(BIGINT, "x"), new Reference(VARCHAR, "r2"))),
                         new Reference(VARCHAR, "d"))));
 
+        // TODO https://github.com/trinodb/trino/issues/31065 -- the short-circuit is wrong when the
+        //  operand is null: `null = null` is unknown, so the clause does not fire and the result is
+        //  the default value, not the clause result. For x=null, a=1, r1='a', r2='b', d='cc' the
+        //  original evaluates to 'cc' and the rewrite to 'b'.
         assertThat(optimize(
                 new Match(
                         new Constant(BIGINT, 1L),
@@ -134,6 +140,8 @@ public class TestRemoveRedundantMatchClauses
                                 equalityClause(new Reference(BIGINT, "x"), new Reference(VARCHAR, "r2"))),
                         new Reference(VARCHAR, "d"))));
 
+        // TODO https://github.com/trinodb/trino/issues/31065, same as above: for x=null the original
+        //  evaluates to the default value, the rewrite to r1
         assertThat(optimize(
                 new Match(
                         new Reference(BIGINT, "x"),
@@ -260,6 +268,11 @@ public class TestRemoveRedundantMatchClauses
     }
 
     private Optional<Expression> optimize(Expression expression)
+    {
+        return VERIFIER.verify(expression, apply(expression));
+    }
+
+    private Optional<Expression> apply(Expression expression)
     {
         return new RemoveRedundantMatchClauses(FUNCTIONS.getPlannerContext()).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
