@@ -25,7 +25,8 @@ It does not use HiveQL or any part of Hive's execution environment.
 The Hive connector requires a
 {ref}`Hive metastore service <hive-thrift-metastore>` (HMS), or a compatible
 implementation of the Hive metastore, such as
-{ref}`AWS Glue <hive-glue-metastore>`.
+{ref}`AWS Glue <hive-glue-metastore>` or a
+{ref}`BigLake Hive catalog <hive-biglake-metastore>`.
 
 You must select and configure a [supported
 file system](hive-file-system-configuration) in your catalog configuration file.
@@ -85,6 +86,14 @@ must instead set `hive.metastore` to `glue`:
 ```properties
 connector.name=hive
 hive.metastore=glue
+```
+
+If you are using a {ref}`BigLake Hive catalog <hive-biglake-metastore>` as your
+metastore, you must instead set `hive.metastore` to `biglake`:
+
+```properties
+connector.name=hive
+hive.metastore=biglake
 ```
 
 Each metastore type has specific configuration properties along with
