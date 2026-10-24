@@ -603,6 +603,154 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testMayFailConjunctPushedToPreservedSideOfNormalizedLeftJoin()
+    {
+        assertPlan("SELECT 1 FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey WHERE l.partkey IS NOT NULL AND CAST(o.clerk AS bigint) = 1",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .left(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                filter(
+                                                        comparison(EQUAL, new Cast(new Reference(createVarcharType(15), "O_CLERK"), BIGINT), new Constant(BIGINT, 1L)),
+                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey", "O_CLERK", "clerk"))))))));
+    }
+
+    @Test
+    public void testMayFailConjunctPushedToPreservedSideOfNormalizedRightJoin()
+    {
+        assertPlan("SELECT 1 FROM lineitem l RIGHT JOIN orders o ON o.orderkey = l.orderkey WHERE l.partkey IS NOT NULL AND CAST(o.clerk AS bigint) = 1",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .left(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                filter(
+                                                        comparison(EQUAL, new Cast(new Reference(createVarcharType(15), "O_CLERK"), BIGINT), new Constant(BIGINT, 1L)),
+                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey", "O_CLERK", "clerk"))))))));
+    }
+
+    @Test
+    public void testMayFailConjunctPushedToPreservedSideOfNormalizedFullJoin()
+    {
+        assertPlan("SELECT 1 FROM orders o FULL JOIN lineitem l ON o.orderkey = l.orderkey WHERE l.partkey IS NOT NULL AND CAST(o.clerk AS bigint) = 1",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .left(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                filter(
+                                                        comparison(EQUAL, new Cast(new Reference(createVarcharType(15), "O_CLERK"), BIGINT), new Constant(BIGINT, 1L)),
+                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey", "O_CLERK", "clerk"))))))));
+    }
+
+    @Test
+    public void testMayFailConjunctStaysOnJoinForNonPreservedSideOfNormalizedLeftJoin()
+    {
+        assertPlan("SELECT 1 FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey WHERE l.partkey IS NOT NULL AND CAST(l.comment AS bigint) = 1",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .filter(comparison(EQUAL, new Cast(new Reference(createVarcharType(44), "L_COMMENT"), BIGINT), new Constant(BIGINT, 1L)))
+                                .left(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_COMMENT", "comment"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testMayFailConjunctStaysOnJoinForNonPreservedSideOfNormalizedRightJoin()
+    {
+        assertPlan("SELECT 1 FROM lineitem l RIGHT JOIN orders o ON o.orderkey = l.orderkey WHERE l.partkey IS NOT NULL AND CAST(l.comment AS bigint) = 1",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .filter(comparison(EQUAL, new Cast(new Reference(createVarcharType(44), "L_COMMENT"), BIGINT), new Constant(BIGINT, 1L)))
+                                .left(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_COMMENT", "comment"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testNonDeterministicConjunctNotPushedToPreservedSideOfNormalizedLeftJoin()
+    {
+        Call randomFunction = new Call(
+                getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "rand", ImmutableList.of()),
+                ImmutableList.of());
+
+        assertPlan("SELECT 1 FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey WHERE l.partkey IS NOT NULL AND CAST(o.clerk AS double) > rand()",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .filter(comparison(GREATER_THAN, new Cast(new Reference(createVarcharType(15), "O_CLERK"), DOUBLE), randomFunction))
+                                .left(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey", "O_CLERK", "clerk")))))));
+    }
+
+    @Test
+    public void testMayFailMultiSymbolConjunctPushedToPreservedJoinSubtree()
+    {
+        assertPlan(
+                "SELECT 1 FROM (orders o JOIN customer c ON o.custkey = c.custkey) LEFT JOIN lineitem l ON o.orderkey = l.orderkey " +
+                        "WHERE l.partkey IS NOT NULL AND CAST(o.clerk AS bigint) = c.nationkey",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .left(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                join(INNER, subtreeBuilder -> subtreeBuilder
+                                                        .equiCriteria(
+                                                                ImmutableList.of(
+                                                                        equiJoinClause("O_CUSTKEY", "C_CUSTKEY"),
+                                                                        equiJoinClause("O_CLERK_BIGINT", "C_NATIONKEY")))
+                                                        .left(
+                                                                project(
+                                                                        ImmutableMap.of("O_CLERK_BIGINT", expression(new Cast(new Reference(createVarcharType(15), "O_CLERK"), BIGINT))),
+                                                                        anyTree(
+                                                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey", "O_CUSTKEY", "custkey", "O_CLERK", "clerk")))))
+                                                        .right(
+                                                                anyTree(
+                                                                        tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_NATIONKEY", "nationkey"))))))))));
+    }
+
+    @Test
+    public void testMayFailConjunctStaysOnInnerJoinWithCriteria()
+    {
+        assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.orderkey = l.orderkey WHERE l.partkey IS NOT NULL AND CAST(o.clerk AS bigint) = 1",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .filter(comparison(EQUAL, new Cast(new Reference(createVarcharType(15), "O_CLERK"), BIGINT), new Constant(BIGINT, 1L)))
+                                .left(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey", "O_CLERK", "clerk")))))));
+    }
+
+    @Test
     public void testJoin()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",

@@ -418,6 +418,7 @@ public class PredicatePushDown
         public PlanNode visitJoin(JoinNode node, RewriteContext<Expression> context)
         {
             Expression inheritedPredicate = context.get();
+            JoinType originalJoinType = node.getType();
 
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToOuterToInnerJoin(node, inheritedPredicate);
@@ -434,6 +435,7 @@ public class PredicatePushDown
             switch (node.getType()) {
                 case INNER -> {
                     InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(
+                            originalJoinType,
                             inheritedPredicate,
                             leftEffectivePredicate,
                             rightEffectivePredicate,
@@ -703,6 +705,7 @@ public class PredicatePushDown
             switch (node.getType()) {
                 case INNER -> {
                     InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(
+                            INNER,
                             inheritedPredicate,
                             leftEffectivePredicate,
                             rightEffectivePredicate,
@@ -892,6 +895,7 @@ public class PredicatePushDown
         }
 
         private InnerJoinPushDownResult processInnerJoin(
+                JoinType originalJoinType,
                 Expression inheritedPredicate,
                 Expression leftEffectivePredicate,
                 Expression rightEffectivePredicate,
@@ -902,13 +906,36 @@ public class PredicatePushDown
             checkArgument(leftSymbols.containsAll(extractUnique(leftEffectivePredicate)), "leftEffectivePredicate must only contain symbols from leftSymbols");
             checkArgument(rightSymbols.containsAll(extractUnique(rightEffectivePredicate)), "rightEffectivePredicate must only contain symbols from rightSymbols");
 
+            Set<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
+            Set<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
+
+            // Every row of a side preserved by the original outer join reaches the inherited predicate,
+            // so its conjuncts over that side alone are evaluated for those rows even when they may fail
+            boolean leftPreserved = originalJoinType == LEFT || originalJoinType == FULL;
+            boolean rightPreserved = originalJoinType == RIGHT || originalJoinType == FULL;
+            List<Expression> leftPreservedConjuncts = new ArrayList<>();
+            List<Expression> rightPreservedConjuncts = new ArrayList<>();
+            List<Expression> inheritedConjuncts = new ArrayList<>();
+            for (Expression conjunct : extractConjuncts(inheritedPredicate)) {
+                if (isDeterministic(conjunct) && !allowUnsafePushdown && mayFail(plannerContext, getCharVarcharCoercion(session), conjunct)) {
+                    Set<Symbol> conjunctSymbols = extractUnique(conjunct);
+                    if (leftPreserved && leftScope.containsAll(conjunctSymbols)) {
+                        leftPreservedConjuncts.add(conjunct);
+                        continue;
+                    }
+                    if (rightPreserved && rightScope.containsAll(conjunctSymbols)) {
+                        rightPreservedConjuncts.add(conjunct);
+                        continue;
+                    }
+                }
+                inheritedConjuncts.add(conjunct);
+            }
+
             List<Expression> nonDeterministic = new ArrayList<>();
             List<Expression> candidates = new ArrayList<>();
             List<Expression> residuals = new ArrayList<>();
             List<Expression> mayFail = new ArrayList<>();
-            for (Expression predicate : List.of(joinPredicate, inheritedPredicate)) {
-                List<Expression> conjuncts = extractConjuncts(predicate);
-
+            for (List<Expression> conjuncts : List.of(extractConjuncts(joinPredicate), inheritedConjuncts)) {
                 for (Expression conjunct : conjuncts) {
                     if (!isDeterministic(conjunct)) {
                         nonDeterministic.add(conjunct);
@@ -950,9 +977,6 @@ public class PredicatePushDown
                     .filter(conjunct -> !isInferenceCandidate(plannerContext, getCharVarcharCoercion(session), conjunct))
                     .toList();
 
-            Set<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
-            Set<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
-
             EqualityInference allInference = new EqualityInference(plannerContext, getCharVarcharCoercion(session),
                     ImmutableList.<Expression>builder()
                             .addAll(candidates)
@@ -971,6 +995,7 @@ public class PredicatePushDown
                             .build());
 
             ImmutableList.Builder<Expression> leftPushDownConjuncts = ImmutableList.<Expression>builder()
+                    .addAll(leftPreservedConjuncts)
                     .addAll(inferenceWithoutLeft.generateEqualitiesPartitionedBy(leftScope).scopeEqualities())
                     .addAll(rightResiduals.stream()
                             .map(conjunct -> allInference.rewrite(conjunct, leftScope))
@@ -978,6 +1003,7 @@ public class PredicatePushDown
                             .toList());
 
             ImmutableList.Builder<Expression> rightPushDownConjuncts = ImmutableList.<Expression>builder()
+                    .addAll(rightPreservedConjuncts)
                     .addAll(inferenceWithoutRight.generateEqualitiesPartitionedBy(rightScope).scopeEqualities())
                     .addAll(leftResiduals.stream()
                             .map(conjunct -> allInference.rewrite(conjunct, rightScope))
