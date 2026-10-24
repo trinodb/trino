@@ -49,6 +49,29 @@ public class TestTransformConnectorPageSource
         assertThat(BIGINT.getLong(page.getBlock(0), 1)).isEqualTo(11);
     }
 
+    @Test
+    public void testSelectRangeOnLoadedAndUnloadedBlocks()
+    {
+        SourcePage inputPage = new SelectingSourcePage(new LongArrayBlock(5, Optional.empty(), new long[] {10, 11, 12, 13, 14}));
+        ConnectorPageSource pageSource = TransformConnectorPageSource.builder()
+                .transform(0, block -> block)
+                .transform(0, block -> block)
+                .build(new SinglePageSource(inputPage));
+
+        SourcePage page = pageSource.getNextSourcePage();
+        assertThat(page.getBlock(0).getPositionCount()).isEqualTo(5);
+
+        page.selectPositions(1, 3);
+        assertThat(page.getPositionCount()).isEqualTo(3);
+        // channel 0 is loaded before the selection, channel 1 after it
+        for (int channel = 0; channel < 2; channel++) {
+            Block block = page.getBlock(channel);
+            assertThat(block.getPositionCount()).isEqualTo(3);
+            assertThat(BIGINT.getLong(block, 0)).isEqualTo(11);
+            assertThat(BIGINT.getLong(block, 2)).isEqualTo(13);
+        }
+    }
+
     private static final class SelectingSourcePage
             implements SourcePage
     {

@@ -158,5 +158,11 @@ public class MappedPageSource
         {
             sourcePage.selectPositions(positions, offset, size);
         }
+
+        @Override
+        public void selectPositions(int offset, int size)
+        {
+            sourcePage.selectPositions(offset, size);
+        }
     }
 }
