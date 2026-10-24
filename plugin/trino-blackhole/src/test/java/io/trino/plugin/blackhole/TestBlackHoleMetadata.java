@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
 import org.junit.jupiter.api.Test;
@@ -28,8 +29,13 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.connector.SaveMode.FAIL;
+import static io.trino.spi.connector.SaveMode.IGNORE;
+import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -91,6 +97,7 @@ final class TestBlackHoleMetadata
     @Test
     void testGetView()
     {
+        metadata.createSchema(SESSION, "default2", ImmutableMap.of(), new TrinoPrincipal(USER, SESSION.getUser()));
         ConnectorViewDefinition viewDefinition = createViewDefinition();
         Map<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
                 .put(new SchemaTableName("default", "test_view"), viewDefinition)
@@ -99,7 +106,7 @@ final class TestBlackHoleMetadata
                 .buildOrThrow();
 
         for (Entry<SchemaTableName, ConnectorViewDefinition> entry : views.entrySet()) {
-            metadata.createView(SESSION, entry.getKey(), entry.getValue(), ImmutableMap.of(), false);
+            metadata.createView(SESSION, entry.getKey(), entry.getValue(), ImmutableMap.of(), FAIL);
         }
 
         assertThat(metadata.listViews(SESSION, Optional.empty()))
@@ -111,6 +118,67 @@ final class TestBlackHoleMetadata
                 .containsExactlyEntriesOf(views);
         assertThat(metadata.getViews(SESSION, Optional.of("default2")))
                 .containsExactly(entry(new SchemaTableName("default2", "test_view2"), viewDefinition));
+    }
+
+    @Test
+    void testCreateViewSaveModes()
+    {
+        SchemaTableName viewName = new SchemaTableName("default", "test_view");
+        ConnectorViewDefinition original = createViewDefinition();
+        ConnectorViewDefinition other = new ConnectorViewDefinition(
+                "SELECT 2",
+                Optional.of("blackhole"),
+                Optional.of("default"),
+                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col2", BIGINT.getTypeId(), Optional.empty())),
+                Optional.empty(),
+                Optional.empty(),
+                true,
+                ImmutableList.of());
+
+        metadata.createView(SESSION, viewName, original, ImmutableMap.of(), FAIL);
+
+        // IGNORE keeps the existing view
+        metadata.createView(SESSION, viewName, other, ImmutableMap.of(), IGNORE);
+        assertThat(metadata.getView(SESSION, viewName)).contains(original);
+
+        // FAIL rejects an existing view
+        assertTrinoExceptionThrownBy(() -> metadata.createView(SESSION, viewName, other, ImmutableMap.of(), FAIL))
+                .hasErrorCode(ALREADY_EXISTS)
+                .hasMessage("View 'default.test_view' already exists");
+        assertThat(metadata.getView(SESSION, viewName)).contains(original);
+
+        // REPLACE overwrites it
+        metadata.createView(SESSION, viewName, other, ImmutableMap.of(), REPLACE);
+        assertThat(metadata.getView(SESSION, viewName)).contains(other);
+    }
+
+    @Test
+    void testCreateViewInNotExistSchema()
+    {
+        SchemaTableName viewName = new SchemaTableName("schema1", "test_view");
+        assertTrinoExceptionThrownBy(() -> metadata.createView(SESSION, viewName, createViewDefinition(), ImmutableMap.of(), FAIL))
+                .hasErrorCode(NOT_FOUND)
+                .hasMessage("Schema schema1 not found");
+    }
+
+    @Test
+    void testCreateViewOnExistingTable()
+    {
+        SchemaTableName tableName = new SchemaTableName("default", "test_table");
+        ConnectorOutputTableHandle table = metadata.beginCreateTable(
+                SESSION,
+                new ConnectorTableMetadata(tableName, ImmutableList.of(), tableProperties),
+                Optional.empty(),
+                NO_RETRIES,
+                false);
+        metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
+
+        for (SaveMode saveMode : SaveMode.values()) {
+            assertTrinoExceptionThrownBy(() -> metadata.createView(SESSION, tableName, createViewDefinition(), ImmutableMap.of(), saveMode))
+                    .hasErrorCode(TABLE_ALREADY_EXISTS)
+                    .hasMessage("Table 'default.test_table' already exists");
+        }
+        assertThat(metadata.getView(SESSION, tableName)).isEmpty();
     }
 
     private static ConnectorViewDefinition createViewDefinition()

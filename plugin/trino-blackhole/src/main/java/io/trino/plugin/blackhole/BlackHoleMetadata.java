@@ -84,6 +84,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
@@ -456,10 +457,20 @@ public class BlackHoleMetadata
     public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle) {}
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
     {
         checkArgument(viewProperties.isEmpty(), "This connector does not support creating views with properties");
-        views.put(viewName, definition);
+        checkSchemaExists(viewName.getSchemaName());
+        if (tables.containsKey(viewName)) {
+            throw new TrinoException(TABLE_ALREADY_EXISTS, "Table '%s' already exists".formatted(viewName));
+        }
+
+        if (saveMode == REPLACE) {
+            views.put(viewName, definition);
+        }
+        else if (views.putIfAbsent(viewName, definition) != null && saveMode == FAIL) {
+            throw new TrinoException(ALREADY_EXISTS, "View '%s' already exists".formatted(viewName));
+        }
     }
 
     @Override
