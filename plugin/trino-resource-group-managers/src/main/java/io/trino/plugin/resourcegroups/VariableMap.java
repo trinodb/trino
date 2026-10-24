@@ -21,8 +21,6 @@ import static java.util.Objects.requireNonNull;
 
 public class VariableMap
 {
-    private static final VariableMap EMPTY_VARIABLE_MAP = new VariableMap(ImmutableMap.of());
-
     private final Map<String, String> variables;
 
     public VariableMap(Map<String, String> variables)
@@ -39,10 +37,5 @@ public class VariableMap
     public String toString()
     {
         return variables.toString();
-    }
-
-    public static VariableMap emptyVariableMap()
-    {
-        return EMPTY_VARIABLE_MAP;
     }
 }

@@ -227,11 +227,6 @@ public class DbResourceGroupConfigurationManager
         return selectors.get();
     }
 
-    private synchronized ResourceGroupGlobalProperties getResourceGroupGlobalPropertiesFromDB()
-    {
-        return dao.getResourceGroupGlobalProperties();
-    }
-
     @VisibleForTesting
     public synchronized void load()
     {
