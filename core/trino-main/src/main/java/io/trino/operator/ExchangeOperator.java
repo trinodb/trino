@@ -16,10 +16,13 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
 import io.trino.connector.CatalogHandle;
+import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeDataSource;
 import io.trino.exchange.ExchangeEncryptionKey;
+import io.trino.exchange.ExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.TaskId;
@@ -37,8 +40,10 @@ import io.trino.util.Ciphers;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -66,6 +71,7 @@ public class ExchangeOperator
         private boolean closed;
 
         private final NoMoreSplitsTracker noMoreSplitsTracker = new NoMoreSplitsTracker();
+        private final ProducerTasks producerTasks = new ProducerTasks();
         private int nextOperatorInstanceId;
 
         public ExchangeOperatorFactory(
@@ -121,6 +127,7 @@ public class ExchangeOperator
                     exchangeDataSource,
                     serdeFactory,
                     noMoreSplitsTracker,
+                    producerTasks,
                     operatorInstanceId);
             noMoreSplitsTracker.operatorAdded(operatorInstanceId);
 
@@ -151,6 +158,7 @@ public class ExchangeOperator
     private final ExchangeDataSource exchangeDataSource;
     private final PagesSerdeFactory serdeFactory;
     private final NoMoreSplitsTracker noMoreSplitsTracker;
+    private final ProducerTasks producerTasks;
     private final int operatorInstanceId;
 
     private PageDeserializer deserializer;
@@ -162,6 +170,7 @@ public class ExchangeOperator
             ExchangeDataSource exchangeDataSource,
             PagesSerdeFactory serdeFactory,
             NoMoreSplitsTracker noMoreSplitsTracker,
+            ProducerTasks producerTasks,
             int operatorInstanceId)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -169,6 +178,7 @@ public class ExchangeOperator
         this.exchangeDataSource = requireNonNull(exchangeDataSource, "exchangeDataSource is null");
         this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
         this.noMoreSplitsTracker = requireNonNull(noMoreSplitsTracker, "noMoreSplitsTracker is null");
+        this.producerTasks = requireNonNull(producerTasks, "producerTasks is null");
         this.operatorInstanceId = operatorInstanceId;
 
         operatorContext.setInfoSupplier(exchangeDataSource::getInfo);
@@ -187,7 +197,20 @@ public class ExchangeOperator
         checkArgument(split.getCatalogHandle().equals(REMOTE_CATALOG_HANDLE), "split is not a remote split");
 
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-        exchangeDataSource.addInput(remoteSplit.getExchangeInput());
+        ExchangeInput input = remoteSplit.getExchangeInput();
+        if (input instanceof DirectExchangeInput directInput) {
+            // Remember the producer task so a blocked consumer can donate priority to it when it is
+            // co-located on this worker. Operators of this factory share the exchange, so any of
+            // them can be waiting on pages from this task.
+            producerTasks.add(directInput.getTaskId());
+        }
+        exchangeDataSource.addInput(input);
+    }
+
+    @Override
+    public List<TaskId> getBlockedProducerTasks()
+    {
+        return producerTasks.snapshot();
     }
 
     @Override
@@ -306,6 +329,30 @@ public class ExchangeOperator
         public synchronized boolean isNoMoreSplits()
         {
             return noMoreOperators && noMoreSplitsOperators.containsAll(allOperators);
+        }
+    }
+
+    /// The producer tasks of every direct-exchange input of one exchange, shared by the operators
+    /// reading it. Splits are spread across operators, but each operator reads pages from all of
+    /// them, so a blocked operator waits on every producer task, not only on those of its own splits.
+    @ThreadSafe
+    private static class ProducerTasks
+    {
+        @GuardedBy("this")
+        private final Set<TaskId> tasks = new LinkedHashSet<>();
+        // Rebuilt only when a new producer task appears, so reading it on every block does not copy
+        private volatile List<TaskId> snapshot = ImmutableList.of();
+
+        public synchronized void add(TaskId task)
+        {
+            if (tasks.add(task)) {
+                snapshot = ImmutableList.copyOf(tasks);
+            }
+        }
+
+        public List<TaskId> snapshot()
+        {
+            return snapshot;
         }
     }
 }

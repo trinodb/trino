@@ -22,6 +22,8 @@ import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
+import java.util.OptionalInt;
 
 import static io.trino.operator.WorkProcessor.ProcessState.blocked;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
@@ -101,6 +103,16 @@ public class WorkProcessorSourceOperatorAdapter
         }
 
         return pages.getBlockedFuture();
+    }
+
+    @Override
+    public List<Integer> getBlockedProducerPipelines()
+    {
+        if (!pages.isBlocked()) {
+            return List.of();
+        }
+        OptionalInt pipeline = pages.getBlockedProducerPipeline();
+        return pipeline.isPresent() ? List.of(pipeline.orElseThrow()) : List.of();
     }
 
     @Override

@@ -13,6 +13,7 @@
  */
 package io.trino.operator.exchange;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
@@ -20,6 +21,8 @@ import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
+
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -48,7 +51,7 @@ public class LocalExchangeSourceOperator
             checkState(!closed, "Factory is already closed");
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LocalExchangeSourceOperator.class.getSimpleName());
-            return new LocalExchangeSourceOperator(operatorContext, localExchange.getNextSource());
+            return new LocalExchangeSourceOperator(operatorContext, localExchange.getNextSource(), localExchange.getProducerPipelines());
         }
 
         @Override
@@ -67,13 +70,22 @@ public class LocalExchangeSourceOperator
 
     private final OperatorContext operatorContext;
     private final LocalExchangeSource source;
+    private final List<Integer> producerPipelines;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
-    public LocalExchangeSourceOperator(OperatorContext operatorContext, LocalExchangeSource source)
+    public LocalExchangeSourceOperator(OperatorContext operatorContext, LocalExchangeSource source, List<Integer> producerPipelines)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.source = requireNonNull(source, "source is null");
+        this.producerPipelines = ImmutableList.copyOf(requireNonNull(producerPipelines, "producerPipelines is null"));
         operatorContext.setInfoSupplier(source::getBufferInfo);
+    }
+
+    @Override
+    public List<Integer> getBlockedProducerPipelines()
+    {
+        // Only consulted while blocked (waiting for input from the producer pipelines).
+        return producerPipelines;
     }
 
     @Override
