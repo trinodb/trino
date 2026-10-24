@@ -163,18 +163,6 @@ public class ParquetWriterOptions
             return this;
         }
 
-        public Builder setMaxBloomFilterSize(DataSize maxBloomFilterSize)
-        {
-            this.maxBloomFilterSize = maxBloomFilterSize;
-            return this;
-        }
-
-        public Builder setBloomFilterFpp(double bloomFilterFpp)
-        {
-            this.bloomFilterFpp = bloomFilterFpp;
-            return this;
-        }
-
         public Builder setBloomFilterColumns(Set<String> columns)
         {
             this.bloomFilterColumns = columns;

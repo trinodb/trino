@@ -15,10 +15,8 @@ package io.trino.parquet;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.airlift.slice.Slice;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.reader.SimpleSliceInputStream;
-import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
 
@@ -33,16 +31,6 @@ import static org.apache.parquet.column.Encoding.RLE;
 public final class ParquetReaderUtils
 {
     private ParquetReaderUtils() {}
-
-    public static ByteBufferInputStream toInputStream(Slice slice)
-    {
-        return ByteBufferInputStream.wrap(slice.toByteBuffer());
-    }
-
-    public static ByteBufferInputStream toInputStream(DictionaryPage page)
-    {
-        return toInputStream(page.getSlice());
-    }
 
     /**
      * Reads an integer formatted in ULEB128 variable-width format described in

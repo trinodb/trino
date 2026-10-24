@@ -86,12 +86,6 @@ public final class BenchmarkParquetFormatUtils
                 pages.build());
     }
 
-    @SafeVarargs
-    public static <E extends TpchEntity> TestData createTpchDataSet(TpchTable<E> tpchTable, TpchColumn<E>... columns)
-    {
-        return createTpchDataSet(tpchTable, ImmutableList.copyOf(columns));
-    }
-
     public static <E extends TpchEntity> TestData createTpchDataSet(TpchTable<E> tpchTable, List<TpchColumn<E>> columns)
     {
         List<String> columnNames = columns.stream().map(TpchColumn::getColumnName).collect(toImmutableList());
