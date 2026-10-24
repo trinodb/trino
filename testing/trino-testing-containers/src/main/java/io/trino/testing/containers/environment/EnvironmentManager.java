@@ -161,7 +161,7 @@ public final class EnvironmentManager
         try {
             // Compatible environment already running? Reuse it.
             // This supports superclass-based environment reuse:
-            // if HiveKerberosKmsEnvironment is running, a request for HiveBasicEnvironment
+            // if HiveKerberosEnvironment is running, a request for HiveBasicEnvironment
             // can safely reuse it, but not vice-versa.
             if (currentEnvironment != null && environmentClass.isAssignableFrom(currentEnvironmentClass)) {
                 stats.updateAndGet(s -> s.withReuse());
@@ -224,20 +224,6 @@ public final class EnvironmentManager
         lock.lock();
         try {
             return currentEnvironment;
-        }
-        finally {
-            lock.unlock();
-        }
-    }
-
-    /**
-     * Returns the class of the currently running environment, or null if none.
-     */
-    public Class<? extends ProductTestEnvironment> currentClass()
-    {
-        lock.lock();
-        try {
-            return currentEnvironmentClass;
         }
         finally {
             lock.unlock();
