@@ -18,10 +18,19 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.CurrentCatalog;
+import io.trino.sql.tree.CurrentDate;
+import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentSchema;
+import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentTimestamp;
+import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.LocalTime;
+import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NullLiteral;
@@ -29,6 +38,7 @@ import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
@@ -42,6 +52,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -54,6 +65,10 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 final class TestColumnDefaultOptions
 {
     private static final NodeLocation LOCATION = new NodeLocation(1, 1);
+    private static final CurrentUser CURRENT_USER = new CurrentUser(LOCATION);
+    private static final CurrentCatalog CURRENT_CATALOG = new CurrentCatalog(LOCATION);
+    private static final CurrentSchema CURRENT_SCHEMA = new CurrentSchema(LOCATION);
+    private static final CurrentPath CURRENT_PATH = new CurrentPath(LOCATION);
 
     private final PlannerContext plannerContext;
 
@@ -328,6 +343,107 @@ final class TestColumnDefaultOptions
         assertInvalidDefaultColumnValue(createTimestampWithTimeZoneType(9), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9999999995 UTC"), "Value too large");
     }
 
+    @Test
+    void testCurrentDate()
+    {
+        assertDefaultColumnValue(DATE, new CurrentDate(LOCATION));
+
+        assertInvalidValueExpression(INTEGER, new CurrentDate(LOCATION), "line 1:1: 'current_date' is not a valid INTEGER literal");
+    }
+
+    @Test
+    void testCurrentTime()
+    {
+        assertDefaultColumnValue(createTimeWithTimeZoneType(3), new CurrentTime(LOCATION, Optional.empty()));
+        assertDefaultColumnValue(createTimeWithTimeZoneType(0), new CurrentTime(LOCATION, Optional.of(0)));
+        assertDefaultColumnValue(createTimeWithTimeZoneType(6), new CurrentTime(LOCATION, Optional.of(6)));
+
+        assertInvalidValueExpression(INTEGER, new CurrentTime(LOCATION, Optional.empty()), "line 1:1: 'current_time' is not a valid INTEGER literal");
+    }
+
+    @Test
+    void testCurrentTimestamp()
+    {
+        assertDefaultColumnValue(createTimestampWithTimeZoneType(3), new CurrentTimestamp(LOCATION, Optional.empty()));
+        assertDefaultColumnValue(createTimestampWithTimeZoneType(0), new CurrentTimestamp(LOCATION, Optional.of(0)));
+        assertDefaultColumnValue(createTimestampWithTimeZoneType(6), new CurrentTimestamp(LOCATION, Optional.of(6)));
+
+        assertInvalidValueExpression(INTEGER, new CurrentTimestamp(LOCATION, Optional.empty()), "line 1:1: 'current_timestamp' is not a valid INTEGER literal");
+    }
+
+    @Test
+    void testLocalTime()
+    {
+        assertDefaultColumnValue(createTimeType(3), new LocalTime(LOCATION));
+        assertDefaultColumnValue(createTimeType(0), new LocalTime(LOCATION, 0));
+        assertDefaultColumnValue(createTimeType(6), new LocalTime(LOCATION, 6));
+
+        assertInvalidValueExpression(INTEGER, new LocalTime(LOCATION), "line 1:1: 'localtime' is not a valid INTEGER literal");
+    }
+
+    @Test
+    void testLocalTimestamp()
+    {
+        assertDefaultColumnValue(createTimestampType(3), new LocalTimestamp(LOCATION));
+        assertDefaultColumnValue(createTimestampType(0), new LocalTimestamp(LOCATION, 0));
+        assertDefaultColumnValue(createTimestampType(6), new LocalTimestamp(LOCATION, 6));
+
+        assertInvalidValueExpression(INTEGER, new LocalTimestamp(LOCATION), "line 1:1: 'localtimestamp' is not a valid INTEGER literal");
+    }
+
+    @Test
+    void testCurrentUser()
+    {
+        assertDefaultColumnValue(VARCHAR, CURRENT_USER);
+        assertDefaultColumnValue(createVarcharType(128), CURRENT_USER);
+        assertDefaultColumnValue(createVarcharType(256), CURRENT_USER);
+        assertDefaultColumnValue(createCharType(128), CURRENT_USER);
+
+        assertInvalidValueExpression(createVarcharType(127), CURRENT_USER, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
+        assertInvalidValueExpression(createCharType(127), CURRENT_USER, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
+
+        assertInvalidValueExpression(INTEGER, CURRENT_USER, "line 1:1: 'CURRENT_USER' is not a valid INTEGER literal");
+    }
+
+    @Test
+    void testCurrentCatalog()
+    {
+        assertDefaultColumnValue(VARCHAR, CURRENT_CATALOG);
+        assertDefaultColumnValue(createVarcharType(128), CURRENT_CATALOG);
+        assertDefaultColumnValue(createCharType(128), CURRENT_CATALOG);
+
+        assertInvalidValueExpression(createVarcharType(127), CURRENT_CATALOG, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
+        assertInvalidValueExpression(createCharType(127), CURRENT_CATALOG, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
+
+        assertInvalidValueExpression(INTEGER, CURRENT_CATALOG, "line 1:1: 'CURRENT_CATALOG' is not a valid INTEGER literal");
+    }
+
+    @Test
+    void testCurrentSchema()
+    {
+        assertDefaultColumnValue(VARCHAR, CURRENT_SCHEMA);
+        assertDefaultColumnValue(createVarcharType(128), CURRENT_SCHEMA);
+        assertDefaultColumnValue(createCharType(128), CURRENT_SCHEMA);
+
+        assertInvalidValueExpression(createVarcharType(127), CURRENT_SCHEMA, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
+        assertInvalidValueExpression(createCharType(127), CURRENT_SCHEMA, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
+
+        assertInvalidValueExpression(INTEGER, CURRENT_SCHEMA, "line 1:1: 'CURRENT_SCHEMA' is not a valid INTEGER literal");
+    }
+
+    @Test
+    void testCurrentPath()
+    {
+        assertDefaultColumnValue(VARCHAR, CURRENT_PATH);
+        assertDefaultColumnValue(createVarcharType(1031), CURRENT_PATH);
+        assertDefaultColumnValue(createCharType(1031), CURRENT_PATH);
+
+        assertInvalidValueExpression(createVarcharType(1030), CURRENT_PATH, "CURRENT_PATH requires at least 1031 length");
+        assertInvalidValueExpression(createCharType(1030), CURRENT_PATH, "CURRENT_PATH requires at least 1031 length");
+
+        assertInvalidValueExpression(INTEGER, CURRENT_PATH, "line 1:1: 'CURRENT_PATH' is not a valid INTEGER literal");
+    }
+
     private void assertDefaultColumnValue(Type columnType, Expression expression)
     {
         analyzeDefaultColumnValue(TEST_SESSION, plannerContext, new AllowAllAccessControl(), Map.of(), WarningCollector.NOOP, columnType, expression);
@@ -339,5 +455,12 @@ final class TestColumnDefaultOptions
                 .hasErrorCode(INVALID_DEFAULT_COLUMN_VALUE)
                 .hasMessageMatching("line 1:1: .* is not a valid .* literal")
                 .hasStackTraceContaining(stackTrace);
+    }
+
+    private void assertInvalidValueExpression(Type columnType, Expression expression, String message)
+    {
+        assertTrinoExceptionThrownBy(() -> analyzeDefaultColumnValue(TEST_SESSION, plannerContext, new AllowAllAccessControl(), Map.of(), WarningCollector.NOOP, columnType, expression))
+                .hasErrorCode(INVALID_DEFAULT_COLUMN_VALUE)
+                .hasMessageMatching(message);
     }
 }
