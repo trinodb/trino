@@ -15,7 +15,6 @@ package io.trino.filesystem.hdfs;
 
 import io.trino.testing.containers.BaseTestContainer;
 import io.trino.testing.containers.PrintingLogConsumer;
-import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
 
@@ -24,7 +23,6 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
 
 import static com.google.common.base.StandardSystemProperty.USER_NAME;
 import static io.trino.testing.TestingProperties.getDockerImagesVersion;
@@ -123,27 +121,5 @@ public class KerberosHadoop
         catch (RuntimeException e) {
             System.err.printf("Failed to print KerberosHadoop diagnostic: %s%n%s%n", name, e);
         }
-    }
-
-    private static boolean isIncompleteExecution(Throwable failure)
-    {
-        for (Class<?> failureClass = failure.getClass(); failureClass != null; failureClass = failureClass.getSuperclass()) {
-            if (failureClass.getName().equals("org.opentest4j.IncompleteExecutionException")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public static AfterTestExecutionCallback printDiagnosticsOnFailure(Supplier<KerberosHadoop> hadoop)
-    {
-        return context -> context.getExecutionException()
-                .filter(failure -> !isIncompleteExecution(failure))
-                .ifPresent(_ -> {
-                    KerberosHadoop container = hadoop.get();
-                    if (container != null) {
-                        container.printDiagnostics();
-                    }
-                });
     }
 }
