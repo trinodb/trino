@@ -18,7 +18,6 @@ import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonPredicate;
-import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GroupBy;
@@ -65,11 +64,6 @@ public final class QueryUtil
     public static Identifier quotedIdentifier(String name)
     {
         return new Identifier(name, true);
-    }
-
-    public static Expression nameReference(String first, String... rest)
-    {
-        return DereferenceExpression.from(QualifiedName.of(first, rest));
     }
 
     public static SelectItem unaliasedName(String name)
