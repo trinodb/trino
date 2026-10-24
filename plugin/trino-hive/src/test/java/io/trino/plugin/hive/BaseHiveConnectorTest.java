@@ -4610,6 +4610,79 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testSymlinkManifestTable()
+            throws Exception
+    {
+        String tableName = "test_symlink_manifest_" + randomNameSuffix();
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location dataDir = Location.of("local:///data_" + UUID.randomUUID());
+        Location manifestDir = Location.of("local:///manifest_" + UUID.randomUUID());
+        fileSystem.createDirectory(dataDir);
+        fileSystem.createDirectory(manifestDir);
+        Location dataFile = dataDir.appendPath("text.text");
+        try (OutputStream out = fileSystem.newOutputFile(dataFile).create()) {
+            out.write("hello\u0001world\nbye\u0001world".getBytes(UTF_8));
+        }
+        try (OutputStream out = fileSystem.newOutputFile(manifestDir.appendPath("symlink.txt")).create()) {
+            out.write(dataFile.toString().getBytes(UTF_8));
+        }
+
+        try {
+            assertUpdate("CREATE TABLE %s (col1 varchar, col2 varchar) WITH (format = 'TEXTFILE', symlink_manifest = true, external_location = '%s')"
+                    .formatted(tableName, manifestDir));
+
+            assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                    .contains("symlink_manifest = true", "format = 'TEXTFILE'");
+            assertQuery("SELECT col1, col2 FROM " + tableName, "VALUES ('hello', 'world'), ('bye', 'world')");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            fileSystem.deleteDirectory(dataDir);
+            fileSystem.deleteDirectory(manifestDir);
+        }
+    }
+
+    @Test
+    public void testSymlinkManifestTableWriteNotSupported()
+            throws Exception
+    {
+        String tableName = "test_symlink_manifest_write_" + randomNameSuffix();
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location manifestDir = Location.of("local:///manifest_" + UUID.randomUUID());
+        fileSystem.createDirectory(manifestDir);
+
+        try {
+            assertUpdate("CREATE TABLE %s (col1 varchar, col2 varchar) WITH (format = 'TEXTFILE', symlink_manifest = true, external_location = '%s')"
+                    .formatted(tableName, manifestDir));
+
+            assertQueryFails("INSERT INTO " + tableName + " VALUES ('a', 'b')", ".*Inserting into Hive symlink tables is not supported");
+            assertQueryFails(
+                    "CREATE TABLE %s_ctas WITH (format = 'TEXTFILE', symlink_manifest = true, external_location = '%s') AS SELECT * FROM %s"
+                            .formatted(tableName, manifestDir, tableName),
+                    ".*CREATE TABLE AS is not supported when symlink_manifest is set");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            fileSystem.deleteDirectory(manifestDir);
+        }
+    }
+
+    @Test
+    public void testSymlinkManifestTableInvalidProperties()
+    {
+        String tableName = "test_symlink_manifest_invalid_" + randomNameSuffix();
+        assertQueryFails(
+                "CREATE TABLE %s (a bigint) WITH (symlink_manifest = true)".formatted(tableName),
+                ".*Table property symlink_manifest requires external_location to be set");
+        assertQueryFails(
+                "CREATE TABLE %s (a bigint) WITH (symlink_manifest = true, external_location = 'local:///unused', bucketed_by = ARRAY['a'], bucket_count = 2)".formatted(tableName),
+                ".*Bucketing is not supported when symlink_manifest is set");
+        assertQueryFails(
+                "CREATE TABLE %s (a bigint) WITH (symlink_manifest = true, external_location = 'local:///unused', transactional = true, format = 'ORC')".formatted(tableName),
+                ".*Transactional tables are not supported when symlink_manifest is set");
+    }
+
+    @Test
     public void testCreateExternalTableWithDataNotAllowed()
             throws IOException
     {

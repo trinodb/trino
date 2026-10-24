@@ -18,6 +18,7 @@ import io.trino.testing.containers.environment.ProductTest;
 import io.trino.testing.containers.environment.RequiresEnvironment;
 import io.trino.testing.services.junit.Flaky;
 import io.trino.tests.product.TestGroup;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -42,6 +43,44 @@ import static java.lang.String.format;
 @TestGroup.StorageFormats
 class TestAvroSymlinkInputFormat
 {
+    @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    void testTrinoCreatedSymlinkTable(HiveStorageFormatsEnvironment env)
+            throws Exception
+    {
+        String table = "test_trino_avro_symlink";
+        String tableRoot = env.getWarehouseDirectory() + '/' + table;
+        String dataDir = env.getWarehouseDirectory() + "/data_test_trino_avro_symlink";
+        HdfsClient hdfsClient = env.createHdfsClient();
+
+        env.executeTrinoUpdate("DROP TABLE IF EXISTS hive.default." + table);
+        try {
+            hdfsClient.createDirectory(tableRoot);
+            saveResourceOnHdfs(hdfsClient, "original_data.avro", dataDir + "/original_data.avro");
+            hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/original_data.avro", dataDir));
+
+            env.executeTrinoUpdate(
+                    """
+                    CREATE TABLE hive.default.%s (string_col varchar, int_col integer)
+                    WITH (format = 'AVRO', symlink_manifest = true, external_location = '%s')
+                    """.formatted(table, tableRoot));
+
+            // Hive must see the table as a regular symlink table
+            String hiveMetadata = env.executeHive("DESCRIBE FORMATTED " + table).rows().toString();
+            Assertions.assertThat(hiveMetadata).contains("org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat");
+            Assertions.assertThat(hiveMetadata).contains("org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat");
+            Assertions.assertThat(hiveMetadata).contains("org.apache.hadoop.hive.serde2.avro.AvroSerDe");
+
+            // Hive reads symlink targets only as text (SymlinkTextInputFormat hard-codes TextInputFormat), so only Trino can read Parquet/Avro targets
+            assertThat(env.executeTrino("SELECT * FROM hive.default." + table)).containsExactlyInOrder(row("someValue", 1));
+        }
+        finally {
+            env.executeTrinoUpdate("DROP TABLE IF EXISTS hive.default." + table);
+            hdfsClient.delete(tableRoot);
+            hdfsClient.delete(dataDir);
+        }
+    }
+
     @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testSymlinkTable(HiveStorageFormatsEnvironment env)

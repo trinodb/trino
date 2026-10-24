@@ -175,6 +175,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.hive.formats.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.metastore.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.metastore.HiveBasicStatistics.createZeroStatistics;
 import static io.trino.metastore.HiveType.HIVE_STRING;
@@ -189,6 +191,7 @@ import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
+import static io.trino.plugin.hive.BackgroundHiveSplitLoader.getSymlinkStorageFormat;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getPartitionList;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.find;
@@ -248,6 +251,7 @@ import static io.trino.plugin.hive.HiveTableProperties.SKIP_FOOTER_LINE_COUNT;
 import static io.trino.plugin.hive.HiveTableProperties.SKIP_HEADER_LINE_COUNT;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.SYMLINK_MANIFEST_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR;
 import static io.trino.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR_ESCAPE;
 import static io.trino.plugin.hive.HiveTableProperties.getAvroSchemaLiteral;
@@ -267,6 +271,7 @@ import static io.trino.plugin.hive.HiveTableProperties.getRegexPattern;
 import static io.trino.plugin.hive.HiveTableProperties.getSingleCharacterProperty;
 import static io.trino.plugin.hive.HiveTableProperties.isLastColumnTakesRest;
 import static io.trino.plugin.hive.HiveTableProperties.isRegexCaseInsensitive;
+import static io.trino.plugin.hive.HiveTableProperties.isSymlinkManifest;
 import static io.trino.plugin.hive.HiveTableProperties.isTransactional;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.HiveWritableTableHandle.BucketInfo.createBucketInfo;
@@ -705,8 +710,13 @@ public class HiveMetadata
 
         // Storage format property
         try {
-            HiveStorageFormat format = extractHiveStorageFormat(table);
-            properties.put(STORAGE_FORMAT_PROPERTY, format);
+            if (isSymlinkTable(table)) {
+                properties.put(SYMLINK_MANIFEST_PROPERTY, true);
+                properties.put(STORAGE_FORMAT_PROPERTY, getSymlinkStorageFormat(table.getStorage().getStorageFormat().getSerde()));
+            }
+            else {
+                properties.put(STORAGE_FORMAT_PROPERTY, extractHiveStorageFormat(table));
+            }
         }
         catch (TrinoException _) {
             // todo fail if format is not known
@@ -1086,6 +1096,11 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema literal is set");
         }
 
+        boolean symlinkManifest = isSymlinkManifest(tableMetadata.getProperties());
+        if (symlinkManifest) {
+            validateSymlinkManifestProperties(tableMetadata.getProperties(), bucketInfo, isTransactional);
+        }
+
         if (isTransactional) {
             metastore.checkSupportsHiveAcidTransactions();
         }
@@ -1132,6 +1147,7 @@ public class HiveMetadata
                 session.getUser(),
                 columnHandles,
                 hiveStorageFormat,
+                symlinkManifest,
                 partitionedBy,
                 bucketInfo,
                 tableProperties,
@@ -1466,6 +1482,7 @@ public class HiveMetadata
             String tableOwner,
             List<HiveColumnHandle> columnHandles,
             HiveStorageFormat hiveStorageFormat,
+            boolean symlinkManifest,
             List<String> partitionedBy,
             Optional<BucketInfo> bucketInfo,
             Map<String, String> additionalTableParameters,
@@ -1515,11 +1532,36 @@ public class HiveMetadata
                 .setParameters(tableParameters.buildOrThrow());
 
         tableBuilder.getStorageBuilder()
-                .setStorageFormat(hiveStorageFormat.toStorageFormat())
+                .setStorageFormat(symlinkManifest ? toSymlinkStorageFormat(hiveStorageFormat) : hiveStorageFormat.toStorageFormat())
                 .setBucketProperty(bucketInfo.map(info -> new HiveBucketProperty(info.bucketedBy(), info.bucketCount(), info.sortedBy())))
                 .setLocation(targetPath.map(Object::toString));
 
         return tableBuilder.build();
+    }
+
+    private static void validateSymlinkManifestProperties(Map<String, Object> tableProperties, Optional<BucketInfo> bucketInfo, boolean isTransactional)
+    {
+        if (getExternalLocation(tableProperties) == null) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Table property %s requires %s to be set", SYMLINK_MANIFEST_PROPERTY, EXTERNAL_LOCATION_PROPERTY));
+        }
+        if (bucketInfo.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Bucketing is not supported when %s is set", SYMLINK_MANIFEST_PROPERTY));
+        }
+        if (isTransactional) {
+            throw new TrinoException(NOT_SUPPORTED, format("Transactional tables are not supported when %s is set", SYMLINK_MANIFEST_PROPERTY));
+        }
+    }
+
+    // Symlink tables keep the SerDe of the data format, and read the data files listed in the manifests with it.
+    // The output format is the one Hive uses for symlink tables. Data cannot be written into such tables.
+    private static StorageFormat toSymlinkStorageFormat(HiveStorageFormat dataFormat)
+    {
+        return StorageFormat.create(dataFormat.getSerde(), SYMLINK_TEXT_INPUT_FORMAT_CLASS, HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS);
+    }
+
+    private static boolean isSymlinkTable(Table table)
+    {
+        return SYMLINK_TEXT_INPUT_FORMAT_CLASS.equals(table.getStorage().getStorageFormat().getInputFormat());
     }
 
     @Override
@@ -1784,6 +1826,10 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
 
+        if (isSymlinkManifest(tableMetadata.getProperties())) {
+            throw new TrinoException(NOT_SUPPORTED, format("CREATE TABLE AS is not supported when %s is set", SYMLINK_MANIFEST_PROPERTY));
+        }
+
         Optional<Location> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties()))
                 .map(HiveMetadata::getValidatedExternalLocation);
         if (!createsOfNonManagedTablesEnabled && externalLocation.isPresent()) {
@@ -1894,6 +1940,7 @@ public class HiveMetadata
                 handle.getTableOwner(),
                 handle.getInputColumns(),
                 handle.getTableStorageFormat(),
+                false,
                 handle.getPartitionedBy(),
                 handle.getBucketInfo(),
                 handle.getAdditionalTableParameters(),
@@ -2158,6 +2205,10 @@ public class HiveMetadata
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
+
+        if (isSymlinkTable(table)) {
+            throw new TrinoException(NOT_SUPPORTED, description + " Hive symlink tables is not supported");
+        }
 
         checkTableIsWritable(table, writesToNonManagedTablesEnabled);
 
