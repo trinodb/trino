@@ -409,8 +409,11 @@ public class IcebergSplitSource
     {
         FileScanTask wholeFileTask = fileScanIterator.next();
         boolean fileHasNoDeletions = wholeFileTask.deletes().isEmpty();
+        if (pruneFileScanTask(wholeFileTask, fileHasNoDeletions, dynamicFilterPredicate)) {
+            return ImmutableList.of();
+        }
         FileScanTaskWithContext fileScanTaskWithDomain = createFileScanTaskWithContext(wholeFileTask, this.predicatedColumnIds);
-        if (pruneFileScanTask(fileScanTaskWithDomain, fileHasNoDeletions, dynamicFilterPredicate)) {
+        if (needsDynamicFilterPruning(dynamicFilterPredicate) && !fileScanTaskWithDomain.fileStatisticsDomain().overlaps(dynamicFilterPredicate)) {
             return ImmutableList.of();
         }
 
@@ -449,9 +452,9 @@ public class IcebergSplitSource
         return ImmutableList.of(fileScanTaskWithDomain);
     }
 
-    private synchronized boolean pruneFileScanTask(FileScanTaskWithContext fileScanTaskWithDomain, boolean fileHasNoDeletions, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
+    private synchronized boolean pruneFileScanTask(FileScanTask wholeFileTask, boolean fileHasNoDeletions, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
     {
-        BaseFileScanTask fileScanTask = (BaseFileScanTask) fileScanTaskWithDomain.fileScanTask();
+        BaseFileScanTask fileScanTask = (BaseFileScanTask) wholeFileTask;
         if (fileHasNoDeletions &&
                 maxScannedFileSizeInBytes.isPresent() &&
                 fileScanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.orElseThrow()) {
@@ -486,19 +489,16 @@ public class IcebergSplitSource
 
         Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> getPartitionValues(identityPartitionColumns, partitionKeys));
 
-        if (!dynamicFilterPredicate.isAll() && !dynamicFilterPredicate.equals(pushedDownDynamicFilterPredicate)) {
-            if (!partitionMatchesPredicate(
-                    identityPartitionColumns,
-                    partitionValues,
-                    dynamicFilterPredicate)) {
-                return true;
-            }
-            if (!fileScanTaskWithDomain.fileStatisticsDomain().overlaps(dynamicFilterPredicate)) {
-                return true;
-            }
+        if (needsDynamicFilterPruning(dynamicFilterPredicate) && !partitionMatchesPredicate(identityPartitionColumns, partitionValues, dynamicFilterPredicate)) {
+            return true;
         }
 
         return !partitionConstraintMatcher.matches(identityPartitionColumns, partitionValues);
+    }
+
+    private synchronized boolean needsDynamicFilterPruning(TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
+    {
+        return !dynamicFilterPredicate.isAll() && !dynamicFilterPredicate.equals(pushedDownDynamicFilterPredicate);
     }
 
     private boolean noDataColumnsProjected(FileScanTask fileScanTask)
