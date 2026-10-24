@@ -28,11 +28,6 @@ public class Union
 {
     private final List<Relation> relations;
 
-    public Union(List<Relation> relations, boolean distinct, Optional<Corresponding> corresponding)
-    {
-        this(Optional.empty(), relations, distinct, corresponding);
-    }
-
     public Union(NodeLocation location, List<Relation> relations, boolean distinct, Optional<Corresponding> corresponding)
     {
         this(Optional.of(location), relations, distinct, corresponding);

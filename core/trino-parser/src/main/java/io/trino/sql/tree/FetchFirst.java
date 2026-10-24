@@ -29,27 +29,9 @@ public class FetchFirst
     private final boolean withTies;
 
     @Deprecated
-    public FetchFirst(Expression rowCount)
-    {
-        this(Optional.empty(), Optional.of(rowCount), false);
-    }
-
-    @Deprecated
-    public FetchFirst(Expression rowCount, boolean withTies)
-    {
-        this(Optional.empty(), Optional.of(rowCount), withTies);
-    }
-
-    @Deprecated
     public FetchFirst(Optional<Expression> rowCount)
     {
         this(Optional.empty(), rowCount, false);
-    }
-
-    @Deprecated
-    public FetchFirst(Optional<Expression> rowCount, boolean withTies)
-    {
-        this(Optional.empty(), rowCount, withTies);
     }
 
     @Deprecated
