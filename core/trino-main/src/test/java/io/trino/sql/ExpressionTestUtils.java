@@ -21,11 +21,6 @@ public final class ExpressionTestUtils
 {
     private ExpressionTestUtils() {}
 
-    public static void assertExpressionEquals(Expression actual, Expression expected)
-    {
-        assertExpressionEquals(actual, expected, new SymbolAliases());
-    }
-
     public static void assertExpressionEquals(Expression actual, Expression expected, SymbolAliases symbolAliases)
     {
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);

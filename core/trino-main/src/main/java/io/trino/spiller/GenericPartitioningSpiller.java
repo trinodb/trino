@@ -42,7 +42,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -112,12 +111,6 @@ public class GenericPartitioningSpiller
                 operatorName);
 
         return getSpiller(partition).getSpilledPages();
-    }
-
-    @Override
-    public synchronized void verifyAllPartitionsRead()
-    {
-        verify(spilledPartitions.isEmpty(), "Some partitions were spilled but not read: %s", spilledPartitions);
     }
 
     @Override

@@ -96,11 +96,6 @@ public final class BytecodeUtils
         return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
     }
 
-    public static BytecodeNode ifWasNullClearPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
-    {
-        return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), true);
-    }
-
     public static BytecodeNode handleNullValue(
             Scope scope,
             LabelNode label,

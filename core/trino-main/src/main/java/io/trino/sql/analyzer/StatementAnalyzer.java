@@ -3948,7 +3948,6 @@ class StatementAnalyzer
             List<ColumnSchema> updatedColumnSchemas = allColumns.stream()
                     .filter(column -> assignmentTargets.contains(column.getName()))
                     .collect(toImmutableList());
-            analysis.setUpdatedColumns(updatedColumnSchemas);
 
             Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, handle);
             List<ColumnHandle> updatedColumnHandles = updatedColumnSchemas.stream()

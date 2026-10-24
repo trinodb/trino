@@ -137,27 +137,6 @@ public final class GraphvizPrinter
 
     private GraphvizPrinter() {}
 
-    public static String printLogical(List<PlanFragment> fragments)
-    {
-        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
-        PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
-
-        StringBuilder output = new StringBuilder();
-        output.append("digraph logical_plan {\n");
-
-        for (PlanFragment fragment : fragments) {
-            printFragmentNodes(output, fragment, idGenerator);
-        }
-
-        for (PlanFragment fragment : fragments) {
-            fragment.getRoot().accept(new EdgePrinter(output, fragmentsById, idGenerator), null);
-        }
-
-        output.append("}\n");
-
-        return output.toString();
-    }
-
     public static String printDistributed(SubPlan plan)
     {
         List<PlanFragment> fragments = plan.getAllFragments();

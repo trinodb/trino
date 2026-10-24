@@ -13,7 +13,6 @@
  */
 package io.trino.sql.ir;
 
-import io.trino.spi.type.Type;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.type.CharVarcharCoercion;
 
@@ -52,10 +51,5 @@ public final class TestingIr
     public static Expression nullIf(SymbolAllocator allocator, Expression first, Expression second)
     {
         return IrExpressions.nullIf(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), CHAR_VARCHAR_COERCION, allocator, first, second);
-    }
-
-    public static Expression nullIf(SymbolAllocator allocator, Expression first, Expression second, Type comparisonType)
-    {
-        return IrExpressions.nullIf(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), CHAR_VARCHAR_COERCION, allocator, first, second, comparisonType);
     }
 }

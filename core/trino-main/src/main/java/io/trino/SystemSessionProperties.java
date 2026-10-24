@@ -1774,11 +1774,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
     }
 
-    public static boolean isDirectTrinoClientFaultTolerantExecutionEnabled(Session session)
-    {
-        return session.getSystemProperty(DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED, Boolean.class);
-    }
-
     public static int getQueryRetryAttempts(Session session)
     {
         return session.getSystemProperty(QUERY_RETRY_ATTEMPTS, Integer.class);

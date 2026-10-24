@@ -315,68 +315,6 @@ public class Long2LongOpenBigHashMap
         return oldValue;
     }
 
-    private long addToValue(final long pos, final long incr)
-    {
-        final long oldValue = value.get(pos);
-        value.set(pos, oldValue + incr);
-        return oldValue;
-    }
-
-    /**
-     * Adds an increment to value currently associated with a key.
-     *
-     * <p>
-     * Note that this method respects the {@linkplain #defaultReturnValue() default
-     * return value} semantics: when called with a key that does not currently
-     * appears in the map, the key will be associated with the default return value
-     * plus the given increment.
-     *
-     * @param k the key.
-     * @param incr the increment.
-     * @return the old value, or the {@linkplain #defaultReturnValue() default
-     *         return value} if no value was present for the given key.
-     */
-    public long addTo(final long k, final long incr)
-    {
-        long pos;
-        if (k == 0) {
-            if (containsNullKey) {
-                return addToValue(n, incr);
-            }
-            pos = n;
-            containsNullKey = true;
-        }
-        else {
-            final LongBigArray key = this.key;
-            // The starting point.
-            pos = HashCommon.mix(k) & mask;
-            long curr = key.get(pos);
-            if (!(curr == 0)) {
-                if (curr == k) {
-                    return addToValue(pos, incr);
-                }
-                pos = (pos + 1) & mask;
-                curr = key.get(pos);
-                while (!(curr == 0)) {
-                    if (curr == k) {
-                        return addToValue(pos, incr);
-                    }
-                    pos = (pos + 1) & mask;
-                    curr = key.get(pos);
-                }
-            }
-        }
-        key.set(pos, k);
-        value.set(pos, defRetValue + incr);
-        if (size++ >= maxFill) {
-            rehash(bigArraySize(size + 1, f));
-        }
-        if (ASSERTS) {
-            checkTable();
-        }
-        return defRetValue;
-    }
-
     /**
      * Shifts left entries with the specified hash code, starting at the specified
      * position, and empties the resulting free entry.

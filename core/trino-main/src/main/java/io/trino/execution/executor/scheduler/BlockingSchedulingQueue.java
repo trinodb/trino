@@ -161,15 +161,4 @@ final class BlockingSchedulingQueue<G, T>
             lock.unlock();
         }
     }
-
-    public int getRunnableCount()
-    {
-        lock.lock();
-        try {
-            return queue.getRunnableCount();
-        }
-        finally {
-            lock.unlock();
-        }
-    }
 }

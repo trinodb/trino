@@ -46,17 +46,4 @@ public final class TypeTestUtils
         }
         return builder.build();
     }
-
-    public static Page getHashPage(Page page, List<? extends Type> types, List<Integer> hashChannels)
-    {
-        ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
-        Block[] hashBlocks = new Block[hashChannels.size()];
-        int hashBlockIndex = 0;
-
-        for (int channel : hashChannels) {
-            hashTypes.add(types.get(channel));
-            hashBlocks[hashBlockIndex++] = page.getBlock(channel);
-        }
-        return page.appendColumn(getHashBlock(hashTypes.build(), hashBlocks));
-    }
 }

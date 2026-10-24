@@ -95,11 +95,6 @@ public class JoinGraph
         return filters;
     }
 
-    public PlanNodeId getRootId()
-    {
-        return rootId;
-    }
-
     public boolean isEmpty()
     {
         return nodes.isEmpty();

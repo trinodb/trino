@@ -211,11 +211,6 @@ public class PlanNodeSearcher
         return node;
     }
 
-    public PlanNode replaceFirst(PlanNode newPlanNode)
-    {
-        return replaceFirstRecursive(node, newPlanNode);
-    }
-
     private PlanNode replaceFirstRecursive(PlanNode node, PlanNode nodeToReplace)
     {
         node = lookup.resolve(node);

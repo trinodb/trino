@@ -257,14 +257,6 @@ final class SchedulingQueue<G, T>
         return task;
     }
 
-    public int getRunnableCount()
-    {
-        return runnableQueue.values().stream()
-                .map(groups::get)
-                .mapToInt(SchedulingGroup::runnableCount)
-                .sum();
-    }
-
     public State state(G group)
     {
         SchedulingGroup<T> info = groups.get(group);
