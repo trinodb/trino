@@ -625,6 +625,9 @@ public class HadoopContainer
                 done
             fi
 
+            # A load spike must not exclude the only DataNode in these test clusters (HDFS-13833).
+            sed -i 's|</configuration>|<property><name>dfs.namenode.redundancy.considerLoad</name><value>false</value></property></configuration>|' /opt/hadoop/etc/hadoop/hdfs-site.xml
+
             trap exit INT
 
             echo "Running services with supervisord"
