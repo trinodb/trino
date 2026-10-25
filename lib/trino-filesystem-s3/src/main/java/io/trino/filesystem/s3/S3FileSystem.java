@@ -25,7 +25,18 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
+import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
+import software.amazon.awssdk.awscore.retry.AwsRetryStrategy;
 import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.retries.StandardRetryStrategy;
+import software.amazon.awssdk.retries.api.AcquireInitialTokenRequest;
+import software.amazon.awssdk.retries.api.AcquireInitialTokenResponse;
+import software.amazon.awssdk.retries.api.RecordSuccessRequest;
+import software.amazon.awssdk.retries.api.RefreshRetryTokenRequest;
+import software.amazon.awssdk.retries.api.RefreshRetryTokenResponse;
+import software.amazon.awssdk.retries.api.RetryStrategy;
+import software.amazon.awssdk.retries.api.RetryToken;
+import software.amazon.awssdk.retries.api.TokenAcquisitionFailedException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -37,12 +48,14 @@ import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.OptionalObjectAttributes;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 import software.amazon.awssdk.services.s3.model.S3Error;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -208,8 +221,7 @@ final class S3FileSystem
                         .build();
 
                 try {
-                    DeleteObjectsResponse response = client.deleteObjects(request);
-                    for (S3Error error : response.errors()) {
+                    for (S3Error error : deleteObjects(request)) {
                         String filePath = "s3://%s/%s".formatted(bucket, error.key());
                         if (error.message() == null) {
                             // If the error message is null, we just use the error code
@@ -228,6 +240,67 @@ final class S3FileSystem
 
         if (!failures.isEmpty()) {
             throw new IOException("Failed to delete one or more files: " + failures);
+        }
+    }
+
+    private List<S3Error> deleteObjects(DeleteObjectsRequest request)
+            throws IOException
+    {
+        List<S3Error> failures = new ArrayList<>();
+        // Keep per-key retries independent of the client's adaptive rate limiter.
+        StandardRetryStrategy.Builder retryStrategyBuilder = AwsRetryStrategy.standardRetryStrategy().toBuilder();
+        client.serviceClientConfiguration().overrideConfiguration().retryStrategy()
+                .ifPresent(strategy -> retryStrategyBuilder.maxAttempts(strategy.maxAttempts()));
+        try (RetryStrategy retryStrategy = retryStrategyBuilder.build()) {
+            AcquireInitialTokenResponse initialToken = retryStrategy.acquireInitialToken(AcquireInitialTokenRequest.create(request.bucket()));
+            RetryToken token = initialToken.token();
+            Thread.sleep(initialToken.delay());
+
+            while (true) {
+                DeleteObjectsResponse response = client.deleteObjects(request);
+                List<S3Error> retryableErrors = new ArrayList<>();
+                for (S3Error error : response.errors()) {
+                    if ("InternalError".equals(error.code())) {
+                        retryableErrors.add(error);
+                    }
+                    else {
+                        failures.add(error);
+                    }
+                }
+                if (retryableErrors.isEmpty()) {
+                    retryStrategy.recordSuccess(RecordSuccessRequest.create(token));
+                    return failures;
+                }
+
+                // DeleteObjects reports per-key errors in an HTTP 200 response, outside the SDK's retry loop.
+                SdkException failure = S3Exception.builder()
+                        .statusCode(500)
+                        .awsErrorDetails(AwsErrorDetails.builder().errorCode("InternalError").build())
+                        .build();
+                RefreshRetryTokenResponse retry;
+                try {
+                    retry = retryStrategy.refreshRetryToken(RefreshRetryTokenRequest.builder().token(token).failure(failure).build());
+                }
+                catch (TokenAcquisitionFailedException _) {
+                    failures.addAll(retryableErrors);
+                    return failures;
+                }
+                token = retry.token();
+                Thread.sleep(retry.delay());
+
+                Set<String> retryKeys = retryableErrors.stream().map(S3Error::key).collect(toImmutableSet());
+                request = request.toBuilder()
+                        .delete(request.delete().toBuilder().objects(request.delete().objects().stream()
+                                .filter(object -> retryKeys.contains(object.key()))
+                                .toList()).build())
+                        .build();
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            InterruptedIOException failure = new InterruptedIOException("Interrupted while batch deleting files");
+            failure.initCause(e);
+            throw failure;
         }
     }
 
