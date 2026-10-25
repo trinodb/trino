@@ -133,6 +133,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final String SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Cannot set system session property .*";
     private static final String SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Cannot set catalog session property .*";
     private static final String EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE = "Cannot execute procedure .*";
+    private static final String EXECUTE_TABLE_PROCEDURE_ACCESS_DENIED_MESSAGE = "Cannot execute table procedure .*";
 
     protected abstract SystemAccessControl newFileBasedSystemAccessControl(Path configFile, Map<String, String> properties);
 
@@ -1408,6 +1409,19 @@ public abstract class BaseFileBasedSystemAccessControlTest
     }
 
     @Test
+    public void testUserSubstitutionInTableProcedureRules()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-user-substitution.json");
+
+        // {user} in the catalog field of table procedure rules
+        accessControl.checkCanExecuteTableProcedure(ALICE, new CatalogSchemaTableName("alice_catalog", "any", "any"), "some_table_procedure");
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteTableProcedure(ALICE, new CatalogSchemaTableName("sandbox", "any", "any"), "some_table_procedure"),
+                EXECUTE_TABLE_PROCEDURE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
     public void testUserSubstitutionInCatalogSessionPropertyRules()
             throws Exception
     {
@@ -1682,6 +1696,26 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertAccessDenied(
                 () -> accessControl.checkCanExecuteProcedure(ALICE, new CatalogSchemaRoutineName("alice-catalog", new SchemaRoutineName("procedure-schema", "some_procedure"))),
                 EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableProcedureRulesForCheckCanExecute()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
+
+        accessControl.checkCanExecuteTableProcedure(BOB, new CatalogSchemaTableName("alice-catalog", "bob-schema", "bob-table"), "some_table_procedure");
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteTableProcedure(BOB, new CatalogSchemaTableName("alice-catalog", "bob-schema", "bob-table"), "another_table_procedure"),
+                EXECUTE_TABLE_PROCEDURE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteTableProcedure(ALICE, new CatalogSchemaTableName("alice-catalog", "alice-schema", "alice-table"), "some_table_procedure"),
+                EXECUTE_TABLE_PROCEDURE_ACCESS_DENIED_MESSAGE);
+
+        // table procedures may modify data so they are denied unless catalog permissions allow (even though a matching rule grants EXECUTE)
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteTableProcedure(BOB, new CatalogSchemaTableName("specific-catalog", "specific-schema", "specific-table"), "some_table_procedure"),
+                EXECUTE_TABLE_PROCEDURE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
