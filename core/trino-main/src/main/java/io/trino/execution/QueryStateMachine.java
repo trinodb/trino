@@ -208,16 +208,15 @@ public class QueryStateMachine
     private final AtomicBoolean committed = new AtomicBoolean();
     private final AtomicBoolean consumed = new AtomicBoolean();
 
-    private final AtomicReference<FinalizationState> finalizationState = new AtomicReference<>(FinalizationState.OPEN);
+    private final Object finalizationLock = new Object();
+
+    @GuardedBy("finalizationLock")
+    private boolean commitStarted;
+
+    @GuardedBy("finalizationLock")
+    private boolean failureStarted;
 
     private final NodeVersion version;
-
-    private enum FinalizationState
-    {
-        OPEN,
-        COMMITTING,
-        FAILING,
-    }
 
     private QueryStateMachine(
             String query,
@@ -617,7 +616,7 @@ public class QueryStateMachine
                 errorCode,
                 stagesInfo,
                 finalInfo,
-                failureCause.get(),
+                state == FAILED ? failureCause.get() : null,
                 Optional.ofNullable(setCatalog.get()),
                 Optional.ofNullable(setSchema.get()),
                 Optional.ofNullable(setPath.get()),
@@ -1282,8 +1281,11 @@ public class QueryStateMachine
 
         Optional<TransactionInfo> transaction = session.getTransactionId().flatMap(transactionManager::getTransactionInfoIfExist);
         if (transaction.isPresent() && transaction.get().isAutoCommitContext()) {
-            if (!finalizationState.compareAndSet(FinalizationState.OPEN, FinalizationState.COMMITTING)) {
-                return true;
+            synchronized (finalizationLock) {
+                if (queryState.get().isDone() || failureStarted) {
+                    return true;
+                }
+                commitStarted = true;
             }
 
             ListenableFuture<Void> commitFuture;
@@ -1325,17 +1327,18 @@ public class QueryStateMachine
 
     private void transitionToFinishedIfReady()
     {
-        if (queryState.get().isDone()) {
-            return;
+        synchronized (finalizationLock) {
+            if (queryState.get().isDone() || failureStarted) {
+                return;
+            }
+
+            if (!committed.get() || !consumed.get()) {
+                return;
+            }
+
+            queryStateTimer.endQuery();
+            queryState.setIf(FINISHED, currentState -> !currentState.isDone());
         }
-
-        if (!committed.get() || !consumed.get()) {
-            return;
-        }
-
-        queryStateTimer.endQuery();
-
-        queryState.setIf(FINISHED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToCanceled()
@@ -1369,20 +1372,20 @@ public class QueryStateMachine
     {
         requireNonNull(throwable, "throwable is null");
 
-        FinalizationState expectedState = commitFailure
-                ? FinalizationState.COMMITTING
-                : FinalizationState.OPEN;
-        if (!finalizationState.compareAndSet(expectedState, FinalizationState.FAILING)) {
-            return false;
+        synchronized (finalizationLock) {
+            // Claim failure ownership before converting the exception.
+            if (queryState.get().isDone() ||
+                    commitStarted != commitFailure ||
+                    failureStarted) {
+                return false;
+            }
+            failureStarted = true;
         }
 
         queryStateTimer.endQuery();
 
-        // NOTE: The failure cause must be set before triggering the state change, so
-        // listeners can observe the exception. This is safe because the failure cause
-        // can only be observed if the transition to FAILED is successful.
+        // Publish failure information before exposing FAILED to listeners.
         failureCause.compareAndSet(null, toFailure(throwable));
-
         cleanupQueryQuietly();
 
         QueryState oldState = queryState.trySet(FAILED);
