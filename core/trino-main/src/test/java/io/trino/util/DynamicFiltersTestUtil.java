@@ -176,7 +176,7 @@ public final class DynamicFiltersTestUtil
             }
             TestingDynamicFilter that = (TestingDynamicFilter) o;
             return futuresLeft == that.futuresLeft
-                    && Objects.equals(isBlocked, that.isBlocked)
+                    && isBlocked == that.isBlocked
                     && Objects.equals(currentPredicate, that.currentPredicate);
         }
 
