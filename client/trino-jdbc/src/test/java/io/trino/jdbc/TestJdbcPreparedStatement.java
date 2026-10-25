@@ -52,6 +52,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.TimeZone;
 import java.util.stream.LongStream;
 
@@ -1067,6 +1068,54 @@ public class TestJdbcPreparedStatement
     }
 
     @Test
+    public void testConvertDateBeforeGregorianCutover()
+            throws SQLException
+    {
+        testConvertDateBeforeGregorianCutover(true);
+        testConvertDateBeforeGregorianCutover(false);
+    }
+
+    private void testConvertDateBeforeGregorianCutover(boolean explicitPrepare)
+            throws SQLException
+    {
+        // java.sql.Date uses the Julian calendar before 1582-10-15, while the server uses the proleptic Gregorian calendar
+        testConvertDate(LocalDate.of(0, 1, 1), explicitPrepare);
+        testConvertDate(LocalDate.of(999, 1, 1), explicitPrepare);
+        testConvertDate(LocalDate.of(1582, 10, 4), explicitPrepare);
+        testConvertDate(LocalDate.of(1582, 10, 15), explicitPrepare);
+        testConvertDate(LocalDate.of(1900, 1, 1), explicitPrepare);
+    }
+
+    private void testConvertDate(LocalDate date, boolean explicitPrepare)
+            throws SQLException
+    {
+        Date sqlDate = Date.valueOf(date);
+        java.util.Date javaDate = new java.util.Date(sqlDate.getTime());
+        Timestamp sqlTimestamp = Timestamp.valueOf(date.atTime(12, 34, 56));
+        String literal = format("DATE '%s'", date);
+
+        assertBind((ps, i) -> ps.setDate(i, sqlDate), explicitPrepare)
+                .resultsIn("date", literal)
+                .roundTripsAs(Types.DATE, sqlDate);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlDate), explicitPrepare)
+                .resultsIn("date", literal)
+                .roundTripsAs(Types.DATE, sqlDate);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlDate, Types.DATE), explicitPrepare)
+                .resultsIn("date", literal)
+                .roundTripsAs(Types.DATE, sqlDate);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.DATE), explicitPrepare)
+                .resultsIn("date", literal)
+                .roundTripsAs(Types.DATE, sqlDate);
+
+        assertBind((ps, i) -> ps.setObject(i, javaDate, Types.DATE), explicitPrepare)
+                .resultsIn("date", literal)
+                .roundTripsAs(Types.DATE, sqlDate);
+    }
+
+    @Test
     public void testConvertLocalDate()
             throws SQLException
     {
@@ -1431,6 +1480,85 @@ public class TestJdbcPreparedStatement
         assertBind((ps, i) -> ps.setObject(i, timestampWithMillisecond, Types.TIMESTAMP), explicitPrepare)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
                 .roundTripsAs(Types.TIMESTAMP, timestampWithMillisecond);
+    }
+
+    @Test
+    public void testConvertTimestampBeforeGregorianCutover()
+            throws SQLException
+    {
+        testConvertTimestampBeforeGregorianCutover(true);
+        testConvertTimestampBeforeGregorianCutover(false);
+    }
+
+    private void testConvertTimestampBeforeGregorianCutover(boolean explicitPrepare)
+            throws SQLException
+    {
+        // java.sql.Timestamp uses the Julian calendar before 1582-10-15, while the server uses the proleptic Gregorian calendar
+        testConvertTimestamp(LocalDateTime.of(0, 1, 1, 12, 34, 56), explicitPrepare);
+        testConvertTimestamp(LocalDateTime.of(999, 1, 1, 12, 34, 56), explicitPrepare);
+        testConvertTimestamp(LocalDateTime.of(1582, 10, 4, 12, 34, 56), explicitPrepare);
+        testConvertTimestamp(LocalDateTime.of(1582, 10, 15, 12, 34, 56), explicitPrepare);
+        testConvertTimestamp(LocalDateTime.of(1900, 1, 1, 12, 34, 56), explicitPrepare);
+
+        GregorianCalendar prolepticCalendar = new GregorianCalendar(TimeZone.getTimeZone(ZoneId.of("UTC")));
+        prolepticCalendar.setGregorianChange(new java.util.Date(Long.MIN_VALUE));
+        prolepticCalendar.clear();
+        prolepticCalendar.set(999, Calendar.JANUARY, 1, 12, 34, 56);
+        Timestamp prolepticTimestamp = new Timestamp(prolepticCalendar.getTimeInMillis());
+        assertBind((ps, i) -> ps.setTimestamp(i, prolepticTimestamp, prolepticCalendar), explicitPrepare)
+                .resultsIn("timestamp(3)", "TIMESTAMP '0999-01-01 12:34:56.000'");
+    }
+
+    @Test
+    public void testConvertJulianLeapDay()
+            throws SQLException
+    {
+        testConvertJulianLeapDay(true);
+        testConvertJulianLeapDay(false);
+    }
+
+    private void testConvertJulianLeapDay(boolean explicitPrepare)
+            throws SQLException
+    {
+        // 1500-02-29 exists in the Julian calendar used by java.sql.Date, but not in the proleptic Gregorian calendar
+        assertBind((ps, i) -> ps.setDate(i, Date.valueOf("1500-02-29")), explicitPrepare)
+                .isInvalid("Value cannot be represented in the proleptic Gregorian calendar: 1500-02-29");
+
+        assertBind((ps, i) -> ps.setTimestamp(i, Timestamp.valueOf("1500-02-29 12:34:56")), explicitPrepare)
+                .isInvalid("Value cannot be represented in the proleptic Gregorian calendar: 1500-02-29 12:34:56.0");
+    }
+
+    private void testConvertTimestamp(LocalDateTime dateTime, boolean explicitPrepare)
+            throws SQLException
+    {
+        Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
+        Date sqlDate = Date.valueOf(dateTime.toLocalDate());
+        java.util.Date javaDate = new java.util.Date(sqlTimestamp.getTime());
+        String literal = format("TIMESTAMP '%s %s.000'", dateTime.toLocalDate(), dateTime.toLocalTime());
+
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp), explicitPrepare)
+                .resultsIn("timestamp(3)", literal)
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance()), explicitPrepare)
+                .resultsIn("timestamp(3)", literal)
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp), explicitPrepare)
+                .resultsIn("timestamp(3)", literal)
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIMESTAMP), explicitPrepare)
+                .resultsIn("timestamp(3)", literal)
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setObject(i, javaDate, Types.TIMESTAMP), explicitPrepare)
+                .resultsIn("timestamp(3)", literal)
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlDate, Types.TIMESTAMP), explicitPrepare)
+                .resultsIn("timestamp(3)", format("TIMESTAMP '%s 00:00:00.000'", dateTime.toLocalDate()))
+                .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlDate.getTime()));
     }
 
     @Test
