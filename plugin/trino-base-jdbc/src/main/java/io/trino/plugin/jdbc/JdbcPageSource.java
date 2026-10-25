@@ -24,6 +24,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -71,6 +72,7 @@ public final class JdbcPageSource
     private final PreparedStatement statement;
     private final AtomicLong readTimeNanos = new AtomicLong(0);
     private final PageBuilder pageBuilder;
+    private final MemoryContext memoryContext;
     private CompletableFuture<ResultSet> resultSetFuture;
     @Nullable
     private ResultSet resultSet;
@@ -78,16 +80,23 @@ public final class JdbcPageSource
     private boolean closed;
     private long completedPositions;
 
-    public JdbcPageSource(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcPageSource(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles, MemoryContext memoryContext)
     {
-        this(jdbcClient, executor, session, split, table, columnHandles, TupleDomain.all());
+        this(jdbcClient, executor, session, split, table, columnHandles, TupleDomain.all(), memoryContext);
     }
 
-    JdbcPageSource(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles, TupleDomain<JdbcColumnHandle> dynamicFilter)
+    JdbcPageSource(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles, TupleDomain<JdbcColumnHandle> dynamicFilter, MemoryContext memoryContext)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.columnHandles = ImmutableList.copyOf(columnHandles);
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+
+        pageBuilder = new PageBuilder(columnHandles.stream()
+                .map(JdbcColumnHandle::getColumnType)
+                .collect(toImmutableList()));
+        // Report before the connection is opened, so that exceeding the memory limit leaks no resources
+        updateMemoryUsage();
 
         readFunctions = new ReadFunction[columnHandles.size()];
         booleanReadFunctions = new BooleanReadFunction[columnHandles.size()];
@@ -145,9 +154,6 @@ public final class JdbcPageSource
                         ((JdbcTableHandle) table).intersectedWithConstraint(pushedDown.transformKeys(ColumnHandle.class::cast)),
                         columnHandles);
             }
-            pageBuilder = new PageBuilder(columnHandles.stream()
-                    .map(JdbcColumnHandle::getColumnType)
-                    .collect(toImmutableList()));
             resultSetFuture = UNINITIALIZED_RESULT_SET_FUTURE;
         }
         catch (SQLException | RuntimeException e) {
@@ -248,13 +254,8 @@ public final class JdbcPageSource
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
+        updateMemoryUsage();
         return SourcePage.create(page);
-    }
-
-    @Override
-    public long getMemoryUsage()
-    {
-        return pageBuilder.getRetainedSizeInBytes();
     }
 
     @Override
@@ -305,6 +306,11 @@ public final class JdbcPageSource
             // ignore exception from close
         }
         resultSet = null;
+    }
+
+    private void updateMemoryUsage()
+    {
+        memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
     }
 
     private RuntimeException handleSqlException(Exception e)
