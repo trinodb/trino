@@ -65,6 +65,7 @@ import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpStatus.SERVICE_UNAVAILABLE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
+import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
@@ -89,6 +90,7 @@ public class TestHttpPageBufferClient
     private ScheduledExecutorService scheduler;
     private ExecutorService pageBufferClientCallbackExecutor;
 
+    private static final DataSize MAX_RESPONSE_CONTENT_LENGTH = DataSize.of(32, MEGABYTE);
     private static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 0, 0);
 
     @BeforeAll
@@ -130,6 +132,7 @@ public class TestHttpPageBufferClient
                 new TestingHttpClient(processor, scheduler),
                 DataIntegrityVerification.ABORT,
                 expectedMaxSize,
+                MAX_RESPONSE_CONTENT_LENGTH,
                 new Duration(1, MINUTES),
                 true,
                 TASK_ID,
@@ -218,6 +221,7 @@ public class TestHttpPageBufferClient
                 new TestingHttpClient(processor, scheduler),
                 DataIntegrityVerification.ABORT,
                 DataSize.of(10, MEGABYTE),
+                MAX_RESPONSE_CONTENT_LENGTH,
                 new Duration(1, MINUTES),
                 true,
                 TASK_ID,
@@ -262,6 +266,7 @@ public class TestHttpPageBufferClient
                 new TestingHttpClient(processor, scheduler),
                 DataIntegrityVerification.ABORT,
                 DataSize.of(10, MEGABYTE),
+                MAX_RESPONSE_CONTENT_LENGTH,
                 new Duration(1, MINUTES),
                 true,
                 TASK_ID,
@@ -335,6 +340,7 @@ public class TestHttpPageBufferClient
                 new TestingHttpClient(processor, scheduler),
                 DataIntegrityVerification.ABORT,
                 DataSize.of(10, MEGABYTE),
+                MAX_RESPONSE_CONTENT_LENGTH,
                 new Duration(1, MINUTES),
                 true,
                 TASK_ID,
@@ -393,6 +399,7 @@ public class TestHttpPageBufferClient
                 new TestingHttpClient(processor, scheduler),
                 DataIntegrityVerification.ABORT,
                 DataSize.of(10, MEGABYTE),
+                MAX_RESPONSE_CONTENT_LENGTH,
                 new Duration(30, SECONDS),
                 true,
                 TASK_ID,
@@ -467,6 +474,7 @@ public class TestHttpPageBufferClient
                         scheduler),
                 DataIntegrityVerification.ABORT,
                 maxSize,
+                MAX_RESPONSE_CONTENT_LENGTH,
                 new Duration(30, SECONDS),
                 true,
                 TASK_ID,
@@ -529,6 +537,7 @@ public class TestHttpPageBufferClient
                 new TestingHttpClient(processor, scheduler),
                 DataIntegrityVerification.ABORT,
                 maxSize,
+                MAX_RESPONSE_CONTENT_LENGTH,
                 new Duration(1, MINUTES),
                 true,
                 TASK_ID,
@@ -575,6 +584,7 @@ public class TestHttpPageBufferClient
                 new TestingHttpClient(processor, scheduler),
                 DataIntegrityVerification.ABORT,
                 DataSize.of(10, MEGABYTE),
+                MAX_RESPONSE_CONTENT_LENGTH,
                 new Duration(30, SECONDS),
                 true,
                 TASK_ID,
@@ -584,6 +594,42 @@ public class TestHttpPageBufferClient
                 pageBufferClientCallbackExecutor);
 
         // the first oversized response fails the client without a retry
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertThat(callback.getPages()).isEmpty();
+        assertThat(callback.getCompletedRequests()).isEqualTo(1);
+        assertThat(callback.getFailedBuffers()).isEqualTo(1);
+        assertThat(callback.getFailure()).isInstanceOf(PageTooLargeException.class);
+        assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
+    }
+
+    @Test
+    public void testPageExceedsResponseContentLength()
+            throws Exception
+    {
+        DataSize maxSize = DataSize.ofBytes(1024);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxSize);
+
+        CyclicBarrier requestComplete = new CyclicBarrier(2);
+        TestingClientCallback callback = new TestingClientCallback(requestComplete);
+
+        URI location = URI.create("http://localhost:8080");
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(processor, scheduler),
+                DataIntegrityVerification.ABORT,
+                maxSize,
+                maxSize,
+                new Duration(30, SECONDS),
+                true,
+                TASK_ID,
+                location,
+                callback,
+                scheduler,
+                pageBufferClientCallbackExecutor);
+
+        // a single page larger than the response content length limit fails the client without a retry
+        processor.addPage(location, new Page(createLongSequenceBlock(0, 100_000)));
         client.scheduleRequest();
         requestComplete.await(10, SECONDS);
         assertThat(callback.getPages()).isEmpty();
@@ -609,6 +655,7 @@ public class TestHttpPageBufferClient
                 new TestingHttpClient(new MockExchangeRequestProcessor(DataSize.of(10, MEGABYTE)), scheduler),
                 DataIntegrityVerification.ABORT,
                 DataSize.of(10, MEGABYTE),
+                MAX_RESPONSE_CONTENT_LENGTH,
                 new Duration(30, SECONDS),
                 true,
                 TASK_ID,
@@ -655,6 +702,7 @@ public class TestHttpPageBufferClient
                 new TestingHttpClient(processor, scheduler),
                 DataIntegrityVerification.ABORT,
                 DataSize.of(10, MEGABYTE),
+                MAX_RESPONSE_CONTENT_LENGTH,
                 new Duration(30, SECONDS),
                 true,
                 TASK_ID,
