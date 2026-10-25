@@ -177,7 +177,8 @@ public class SparkIcebergRestEnvironment
                         "--conf",
                         "spark.hive.server2.thrift.port=" + SparkIcebergContainer.SPARK_THRIFT_PORT,
                         "spark-internal")
-                .waitingFor(Wait.forListeningPort()
+                // The REST catalog's default namespace is created after the environment starts.
+                .waitingFor(Wait.forSuccessfulCommand("SPARK_BEELINE_MEMORY=256m timeout 30s /spark/bin/beeline -u jdbc:hive2://localhost:%s/spark_catalog.default -n hive -e 'SELECT 1'".formatted(SparkIcebergContainer.SPARK_THRIFT_PORT))
                         .withStartupTimeout(Duration.ofMinutes(3)));
     }
 

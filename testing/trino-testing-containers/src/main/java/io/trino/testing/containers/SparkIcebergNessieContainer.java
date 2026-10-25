@@ -92,7 +92,7 @@ public class SparkIcebergNessieContainer
                 "--conf",
                 "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
                 "spark-internal");
-        waitingFor(Wait.forListeningPort()
+        waitingFor(Wait.forSuccessfulCommand("SPARK_BEELINE_MEMORY=256m timeout 30s /spark/bin/beeline -u jdbc:hive2://localhost:%s -n hive -e 'SELECT 1'".formatted(SPARK_THRIFT_PORT))
                 .withStartupTimeout(Duration.ofMinutes(3)));
     }
 

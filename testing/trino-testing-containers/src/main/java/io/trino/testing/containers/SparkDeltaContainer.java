@@ -104,7 +104,7 @@ public class SparkDeltaContainer
                 Transferable.of(STARTUP_SCRIPT, 0755),
                 "/spark/conf/startup.sh");
         withCommand("/spark/conf/startup.sh");
-        waitingFor(Wait.forListeningPort()
+        waitingFor(Wait.forSuccessfulCommand("SPARK_BEELINE_MEMORY=256m timeout 30s /spark/bin/beeline -u jdbc:hive2://localhost:%s -n hive -e 'SELECT 1'".formatted(SPARK_THRIFT_PORT))
                 .withStartupTimeout(Duration.ofMinutes(3)));
     }
 
