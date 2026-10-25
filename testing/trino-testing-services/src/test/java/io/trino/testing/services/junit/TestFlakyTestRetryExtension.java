@@ -21,6 +21,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
@@ -30,6 +31,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 class TestFlakyTestRetryExtension
 {
     private int attempts;
+    private long lastAttemptNanos;
     private TestInfo originalTestInfo;
     private final List<String> attemptedValues = new ArrayList<>();
 
@@ -37,6 +39,7 @@ class TestFlakyTestRetryExtension
     @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
     void testRetryingWithArgument(TestInfo testInfo)
     {
+        assertRetryDelay(attempts);
         if (attempts == 0) {
             originalTestInfo = testInfo;
         }
@@ -53,10 +56,21 @@ class TestFlakyTestRetryExtension
     @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
     void testRetryingParameterized(String value)
     {
+        assertRetryDelay(attemptedValues.size());
         attemptedValues.add(value);
         if (attemptedValues.size() <= 2) {
             fail("I am trying hard to fail! value: " + value);
         }
         assertThat(attemptedValues).containsExactly(value, value, value);
+    }
+
+    private void assertRetryDelay(int previousAttempts)
+    {
+        long attemptNanos = System.nanoTime();
+        if (previousAttempts > 0) {
+            assertThat(attemptNanos - lastAttemptNanos)
+                    .isGreaterThanOrEqualTo(TimeUnit.SECONDS.toNanos(previousAttempts));
+        }
+        lastAttemptNanos = attemptNanos;
     }
 }
