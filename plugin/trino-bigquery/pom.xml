@@ -63,6 +63,17 @@
 
         <dependency>
             <groupId>com.google.api.grpc</groupId>
+            <artifactId>grpc-google-cloud-bigquerystorage-v1</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>listenablefuture</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.api.grpc</groupId>
             <artifactId>proto-google-cloud-bigquerystorage-v1</artifactId>
             <exclusions>
                 <exclusion>
@@ -197,7 +208,17 @@
 
         <dependency>
             <groupId>io.grpc</groupId>
+            <artifactId>grpc-inprocess</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.grpc</groupId>
             <artifactId>grpc-netty-shaded</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-stub</artifactId>
         </dependency>
 
         <dependency>
@@ -444,6 +465,18 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <!-- Used directly only by tests, but required at runtime -->
+                        <ignoredDependency>com.google.api.grpc:grpc-google-cloud-bigquerystorage-v1</ignoredDependency>
+                        <ignoredDependency>io.grpc:grpc-inprocess</ignoredDependency>
+                        <ignoredDependency>io.grpc:grpc-stub</ignoredDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
