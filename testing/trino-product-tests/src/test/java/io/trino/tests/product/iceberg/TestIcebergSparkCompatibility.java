@@ -1594,8 +1594,9 @@ class TestIcebergSparkCompatibility
         env.executeTrinoUpdate("CREATE TABLE " + trinoTableName + "(x INT, y UNKNOWN, z ROW(a INT, b UNKNOWN)) WITH (format_version = 3, format = '" + storageFormat.name() + "')");
         env.executeTrinoUpdate("INSERT INTO " + trinoTableName + " VALUES (1, NULL, ROW(10, NULL)), (2, NULL, NULL)");
 
-        assertThat(env.executeSpark("SELECT x, y, z.a, z.b FROM " + sparkTableName))
-                .containsOnly(row(1, null, 10, null), row(2, null, null, null));
+        // Hive JDBC does not support Spark's NULL result type, so project null checks instead.
+        assertThat(env.executeSpark("SELECT x, y IS NULL, z.a, z.b IS NULL, z IS NULL FROM " + sparkTableName))
+                .containsOnly(row(1, true, 10, true, false), row(2, true, null, true, true));
         assertThat(env.executeSpark("SELECT x FROM " + sparkTableName + " WHERE y IS NULL"))
                 .containsOnly(row(1), row(2));
 
