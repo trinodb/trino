@@ -417,6 +417,93 @@ public class TestQueryStateMachine
     }
 
     @Test
+    public void testFailureInformationIsNotExposedBeforeFailedState()
+            throws Exception
+    {
+        CountDownLatch cleanupStarted = new CountDownLatch(1);
+        CountDownLatch releaseCleanup = new CountDownLatch(1);
+        IllegalStateException failure = new IllegalStateException("external failure");
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .beforeQueryCleanup(() -> {
+                    cleanupStarted.countDown();
+                    checkState(
+                            awaitUninterruptibly(releaseCleanup, 30, SECONDS),
+                            "Timed out waiting to release cleanup");
+                })
+                .build();
+
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+
+        Future<Boolean> failureTransition = executor.submit(() -> stateMachine.transitionToFailed(failure));
+
+        try {
+            assertThat(cleanupStarted.await(30, SECONDS)).isTrue();
+            assertThat(stateMachine.getQueryState()).isEqualTo(RUNNING);
+
+            ResultQueryInfo resultInfo = stateMachine.getResultQueryInfo(stateMachine.getQueryState(), Optional.empty());
+            assertThat(resultInfo.state()).isEqualTo(RUNNING);
+            assertThat(resultInfo.failureInfo()).isNull();
+            assertThat(stateMachine.getFailureInfo()).isEmpty();
+        }
+        finally {
+            releaseCleanup.countDown();
+        }
+
+        assertThat(failureTransition.get(30, SECONDS)).isTrue();
+        assertFinalState(stateMachine, FAILED, failure);
+        assertThat(stateMachine.getResultQueryInfo(stateMachine.getQueryState(), Optional.empty()).failureInfo()).isNotNull();
+    }
+
+    @Test
+    public void testFailureClaimsOwnershipBeforeExceptionConversion()
+            throws Exception
+    {
+        CountDownLatch conversionStarted = new CountDownLatch(1);
+        CountDownLatch releaseConversion = new CountDownLatch(1);
+
+        IllegalStateException failure = new IllegalStateException("external failure")
+        {
+            @Override
+            public String getMessage()
+            {
+                conversionStarted.countDown();
+                checkState(
+                        awaitUninterruptibly(releaseConversion, 30, SECONDS),
+                        "Timed out waiting for exception conversion");
+                return super.getMessage();
+            }
+        };
+
+        BlockingCommitTransactionManager transactionManager =
+                new BlockingCommitTransactionManager(createTestTransactionManager());
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .withTransactionManager(transactionManager)
+                .build();
+
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+        stateMachine.resultsConsumed();
+
+        Future<Boolean> failureTransition =
+                executor.submit(() -> stateMachine.transitionToFailed(failure));
+
+        try {
+            assertThat(conversionStarted.await(30, SECONDS)).isTrue();
+            assertThat(stateMachine.getQueryState()).isEqualTo(RUNNING);
+
+            assertThat(stateMachine.transitionToFinishing()).isTrue();
+            assertThat(transactionManager.isCommitStarted()).isFalse();
+        }
+        finally {
+            releaseConversion.countDown();
+        }
+
+        assertThat(failureTransition.get(30, SECONDS)).isTrue();
+        assertFinalState(stateMachine, FAILED, failure);
+    }
+
+    @Test
     public void testExternalFailureBeforeCommitStartsPreventsCommit()
             throws Exception
     {
