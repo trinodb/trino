@@ -1,8 +1,0 @@
-<configuration>
-
-    <property>
-        <name>fs.azure.account.key.%ABFS_ACCOUNT%.dfs.core.windows.net</name>
-        <value>%ABFS_ACCESS_KEY%</value>
-    </property>
-
-</configuration>
