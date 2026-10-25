@@ -23,6 +23,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -60,6 +61,7 @@ public class TestThrottledAsyncQueue
     {
         // Make sure that the dequeuing is throttled even if we have enough elements in the queue
 
+        long startTimeNanos = System.nanoTime();
         ThrottledAsyncQueue<Integer> queue = new ThrottledAsyncQueue<>(3, 10, executor);
         assertThat(queue.offer(1).isDone()).isTrue();
         assertThat(queue.offer(2).isDone()).isTrue();
@@ -75,17 +77,21 @@ public class TestThrottledAsyncQueue
         assertThat(getFutureValue(future1)).isEqualTo(ImmutableList.of(1, 2));
         assertThat(queue.isFinished()).isFalse();
 
-        // we can only dequeue one more element before being throttled
         ListenableFuture<List<Integer>> future2 = queue.getBatchAsync(2);
-        assertThat(future2.isDone()).isFalse();
         assertThat(getFutureValue(future2)).isEqualTo(ImmutableList.of(3, 4));
         assertThat(queue.isFinished()).isFalse();
+        assertThat(Duration.ofNanos(System.nanoTime() - startTimeNanos))
+                .as("draining four elements with a limit of three per second")
+                .isGreaterThanOrEqualTo(Duration.ofMillis(600));
 
-        // we are now throttled, this future will not be immediate
         ListenableFuture<List<Integer>> future3 = queue.getBatchAsync(2);
-        assertThat(future3.isDone()).isFalse();
         assertThat(getFutureValue(future3)).isEqualTo(ImmutableList.of(5, 6));
         assertThat(queue.isFinished()).isTrue();
+
+        // An idle period can make an individual future immediately available. Check the total drain time instead.
+        assertThat(Duration.ofNanos(System.nanoTime() - startTimeNanos))
+                .as("draining six elements with a limit of three per second")
+                .isGreaterThanOrEqualTo(Duration.ofMillis(1200));
     }
 
     @Test
