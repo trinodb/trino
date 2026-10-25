@@ -1051,6 +1051,30 @@ public class TestSortedRangeSet
     }
 
     @Test
+    public void testJsonRejectsMalformedNullBounds()
+    {
+        JsonMapper mapper = createJsonMapper();
+
+        BlockBuilder interiorNull = BIGINT.createBlockBuilder(null, 4);
+        BIGINT.writeLong(interiorNull, 1);
+        interiorNull.appendNull();
+        BIGINT.writeLong(interiorNull, 3);
+        BIGINT.writeLong(interiorNull, 4);
+        ObjectNode interiorNullJson = mapper.valueToTree(SortedRangeSet.of(Range.range(BIGINT, 1L, true, 2L, true), Range.range(BIGINT, 3L, true, 4L, true)));
+        interiorNullJson.set("sortedRanges", mapper.valueToTree(interiorNull.build()));
+        interiorNullJson.set("inclusive", mapper.valueToTree(new boolean[] {true, false, true, true}));
+        assertThatThrownBy(() -> mapper.treeToValue(interiorNullJson, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("Invalid null value at position 1 of 4");
+
+        ObjectNode inclusiveNullJson = mapper.valueToTree(SortedRangeSet.all(BIGINT));
+        inclusiveNullJson.set("inclusive", mapper.valueToTree(new boolean[] {true, false}));
+        assertThatThrownBy(() -> mapper.treeToValue(inclusiveNullJson, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("Invalid inclusive marker for null value at position 0");
+    }
+
+    @Test
     public void testExpandRangesForDenseType()
     {
         for (Type type : Arrays.asList(BIGINT, INTEGER, SMALLINT, TINYINT, createDecimalType(2))) {

@@ -117,11 +117,13 @@ public final class SortedRangeSet
         requireNonNull(sortedRanges, "sortedRanges is null");
         checkArgument(inclusive.length % 2 == 0, "Malformed inclusive markers");
         checkArgument(inclusive.length == sortedRanges.getPositionCount(), "Size mismatch between inclusive markers and sortedRanges block: %s, %s", inclusive.length, sortedRanges.getPositionCount());
-        for (int position = 0; position < sortedRanges.getPositionCount(); position++) {
-            if (sortedRanges.isNull(position)) {
-                checkArgument(discreteSetMarker != DISCRETE, "Invalid null value at position %s of a discrete set", position);
-                checkArgument(!inclusive[position], "Invalid inclusive marker for null value at position %s", position);
-                checkArgument(position == 0 || position == sortedRanges.getPositionCount() - 1, "Invalid null value at position %s of %s", position, sortedRanges.getPositionCount());
+        if (sortedRanges.mayHaveNull()) {
+            for (int position = 0; position < sortedRanges.getPositionCount(); position++) {
+                if (sortedRanges.isNull(position)) {
+                    checkArgument(discreteSetMarker != DISCRETE, "Invalid null value at position %s of a discrete set", position);
+                    checkArgument(!inclusive[position], "Invalid inclusive marker for null value at position %s", position);
+                    checkArgument(position == 0 || position == sortedRanges.getPositionCount() - 1, "Invalid null value at position %s of %s", position, sortedRanges.getPositionCount());
+                }
             }
         }
         this.inclusive = inclusive;
