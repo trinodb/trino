@@ -60,6 +60,7 @@ public class DirectExchangeClient
     private final String selfAddress;
     private final DataIntegrityVerification dataIntegrityVerification;
     private final DataSize maxResponseSize;
+    private final DataSize maxResponseContentLength;
     private final int concurrentRequestMultiplier;
     private final Duration maxErrorDuration;
     private final boolean acknowledgePages;
@@ -104,6 +105,7 @@ public class DirectExchangeClient
             DataIntegrityVerification dataIntegrityVerification,
             DirectExchangeBuffer buffer,
             DataSize maxResponseSize,
+            DataSize maxResponseContentLength,
             int concurrentRequestMultiplier,
             Duration maxErrorDuration,
             boolean acknowledgePages,
@@ -117,6 +119,7 @@ public class DirectExchangeClient
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
         this.buffer = requireNonNull(buffer, "buffer is null");
         this.maxResponseSize = maxResponseSize;
+        this.maxResponseContentLength = requireNonNull(maxResponseContentLength, "maxResponseContentLength is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.maxErrorDuration = maxErrorDuration;
         this.acknowledgePages = acknowledgePages;
@@ -171,6 +174,7 @@ public class DirectExchangeClient
                 httpClient,
                 dataIntegrityVerification,
                 maxResponseSize,
+                maxResponseContentLength,
                 maxErrorDuration,
                 acknowledgePages,
                 taskId,
