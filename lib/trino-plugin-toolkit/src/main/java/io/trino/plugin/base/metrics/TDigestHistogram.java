@@ -21,6 +21,7 @@ import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.stats.TDigest;
 import io.trino.spi.metrics.Distribution;
 
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -61,17 +62,18 @@ public class TDigestHistogram
         return TDigest.copyOf(digest);
     }
 
+    // Base64 text in the same form Jackson writes for byte[], decoded in bulk by the JDK codec
     @JsonProperty(DIGEST_PROPERTY)
-    public synchronized byte[] serialize()
+    public synchronized String serialize()
     {
-        return digest.serialize().getBytes();
+        return Base64.getEncoder().encodeToString(digest.serialize().getBytes());
     }
 
     @JsonCreator
     @DoNotCall
-    public static TDigestHistogram deserialize(@JsonProperty(DIGEST_PROPERTY) byte[] digest)
+    public static TDigestHistogram deserialize(@JsonProperty(DIGEST_PROPERTY) String digest)
     {
-        return new TDigestHistogram(TDigest.deserialize(wrappedBuffer(digest)));
+        return new TDigestHistogram(TDigest.deserialize(wrappedBuffer(Base64.getDecoder().decode(digest))));
     }
 
     @Override
