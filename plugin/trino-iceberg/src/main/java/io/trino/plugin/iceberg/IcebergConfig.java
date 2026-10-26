@@ -76,6 +76,7 @@ public class IcebergConfig
     private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
+    private SketchAlgorithm ndvSketchAlgorithm = SketchAlgorithm.THETA;
     private boolean projectionPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
     private boolean addFilesProcedureEnabled;
@@ -278,6 +279,20 @@ public class IcebergConfig
     public IcebergConfig setCollectExtendedStatisticsOnWrite(boolean collectExtendedStatisticsOnWrite)
     {
         this.collectExtendedStatisticsOnWrite = collectExtendedStatisticsOnWrite;
+        return this;
+    }
+
+    @NotNull
+    public SketchAlgorithm getNdvSketchAlgorithm()
+    {
+        return ndvSketchAlgorithm;
+    }
+
+    @Config("iceberg.extended-statistics.ndv-sketch-algorithm")
+    @ConfigDescription("Algorithm used to compute number-of-distinct-values (NDV) column statistics sketches")
+    public IcebergConfig setNdvSketchAlgorithm(SketchAlgorithm ndvSketchAlgorithm)
+    {
+        this.ndvSketchAlgorithm = ndvSketchAlgorithm;
         return this;
     }
 
