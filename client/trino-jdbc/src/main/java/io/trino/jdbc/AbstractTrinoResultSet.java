@@ -88,8 +88,6 @@ import static java.util.Objects.requireNonNull;
 abstract class AbstractTrinoResultSet
         implements ResultSet
 {
-    private static final ZoneId SYSTEM_DEFAULT_ZONE_ID = ZoneId.systemDefault();
-
     private static final Pattern DATETIME_PATTERN = Pattern.compile("" +
             "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
             "( (?:(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
@@ -117,8 +115,6 @@ abstract class AbstractTrinoResultSet
     };
 
     private static final int MAX_DATETIME_PRECISION = 12;
-
-    private static final TimeZone CURRENT_JAVA_TIME_ZONE = TimeZone.getTimeZone(SYSTEM_DEFAULT_ZONE_ID);
 
     private static final int MILLISECONDS_PER_SECOND = 1000;
     private static final int MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
@@ -164,22 +160,22 @@ abstract class AbstractTrinoResultSet
                     })
                     .add("number", String.class, BigDecimal.class, value -> new BigDecimal(value))
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
-                    .add("date", String.class, Date.class, string -> parseDate(string, SYSTEM_DEFAULT_ZONE_ID))
+                    .add("date", String.class, Date.class, (type, string, defaultZone) -> parseDate(string, defaultZone))
                     .add("date", String.class, LocalDate.class, string -> LocalDate.parse(string))
-                    .add("time", String.class, Time.class, string -> parseTime(string, SYSTEM_DEFAULT_ZONE_ID))
+                    .add("time", String.class, Time.class, (type, string, defaultZone) -> parseTime(string, defaultZone))
                     .add("time with time zone", String.class, Time.class, AbstractTrinoResultSet::parseTimeWithTimeZone)
                     .add("timestamp", String.class, LocalDateTime.class, AbstractTrinoResultSet::parseTimestampAsLocalDateTime)
-                    .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, SYSTEM_DEFAULT_ZONE_ID))
+                    .add("timestamp", String.class, Timestamp.class, (type, string, defaultZone) -> parseTimestampAsSqlTimestamp(string, defaultZone))
                     .add("timestamp with time zone", String.class, Instant.class, AbstractTrinoResultSet::parseTimestampWithTimeZoneAsInstant)
                     .add("timestamp with time zone", String.class, Timestamp.class, AbstractTrinoResultSet::parseTimestampWithTimeZoneAsSqlTimestamp)
                     .add("timestamp with time zone", String.class, ZonedDateTime.class, AbstractTrinoResultSet::parseTimestampWithTimeZoneAsZonedDateTime)
                     .add("interval year to month", String.class, TrinoIntervalYearMonth.class, AbstractTrinoResultSet::parseIntervalYearMonth)
                     .add("interval day to second", String.class, TrinoIntervalDayTime.class, AbstractTrinoResultSet::parseIntervalDayTime)
-                    .add("array", List.class, List.class, (type, list) -> (List<?>) convertFromClientRepresentation(type, list))
-                    .add("map", Map.class, Map.class, (type, map) -> (Map<?, ?>) convertFromClientRepresentation(type, map))
-                    .add("row", io.trino.client.Row.class, Row.class, (type, clientRow) -> (Row) convertFromClientRepresentation(type, clientRow))
-                    .add("row", io.trino.client.Row.class, Map.class, (type, clientRow) -> {
-                        Row row = (Row) convertFromClientRepresentation(type, clientRow);
+                    .add("array", List.class, List.class, (type, list, defaultZone) -> (List<?>) convertFromClientRepresentation(type, list, defaultZone))
+                    .add("map", Map.class, Map.class, (type, map, defaultZone) -> (Map<?, ?>) convertFromClientRepresentation(type, map, defaultZone))
+                    .add("row", io.trino.client.Row.class, Row.class, (type, clientRow, defaultZone) -> (Row) convertFromClientRepresentation(type, clientRow, defaultZone))
+                    .add("row", io.trino.client.Row.class, Map.class, (type, clientRow, defaultZone) -> {
+                        Row row = (Row) convertFromClientRepresentation(type, clientRow, defaultZone);
                         List<RowField> fields = row.getFields();
                         Map<String, Object> result = Maps.newHashMapWithExpectedSize(fields.size());
                         for (RowField field : fields) {
@@ -208,6 +204,8 @@ abstract class AbstractTrinoResultSet
     private final AtomicLong currentRowNumber = new AtomicLong(); // Index into 'rows' of our current row (1-based)
     private final AtomicBoolean wasNull = new AtomicBoolean();
     private final Optional<Statement> statement;
+    // The JVM default zone can be changed at runtime; capture it once per result set
+    private final ZoneId defaultZone = ZoneId.systemDefault();
 
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -262,7 +260,7 @@ abstract class AbstractTrinoResultSet
         }
         ClientTypeSignature columnTypeSignature = columnInfo(columnIndex).getColumnTypeSignature();
         if (TYPE_CONVERSIONS.hasConversion(columnTypeSignature.getRawType(), String.class)) {
-            return TYPE_CONVERSIONS.convert(columnTypeSignature, value, String.class);
+            return TYPE_CONVERSIONS.convert(columnTypeSignature, value, String.class, defaultZone);
         }
         return value.toString();
     }
@@ -352,7 +350,7 @@ abstract class AbstractTrinoResultSet
     public Date getDate(int columnIndex)
             throws SQLException
     {
-        return getDate(columnIndex, SYSTEM_DEFAULT_ZONE_ID);
+        return getDate(columnIndex, defaultZone);
     }
 
     private Date getDate(int columnIndex, ZoneId localTimeZone)
@@ -391,10 +389,7 @@ abstract class AbstractTrinoResultSet
         // before the 20th century. For such dates we are falling back to using the more
         // expensive GregorianCalendar.
         Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthValue() - 1, localDate.getDayOfMonth());
-        TimeZone localJavaTimeZone = localTimeZone == SYSTEM_DEFAULT_ZONE_ID
-                ? CURRENT_JAVA_TIME_ZONE
-                : TimeZone.getTimeZone(localTimeZone);
-        calendar.setTimeZone(localJavaTimeZone);
+        calendar.setTimeZone(TimeZone.getTimeZone(localTimeZone));
 
         return new Date(calendar.getTimeInMillis());
     }
@@ -403,7 +398,7 @@ abstract class AbstractTrinoResultSet
     public Time getTime(int columnIndex)
             throws SQLException
     {
-        return getTime(columnIndex, SYSTEM_DEFAULT_ZONE_ID);
+        return getTime(columnIndex, defaultZone);
     }
 
     private Time getTime(int columnIndex, ZoneId localTimeZone)
@@ -440,7 +435,7 @@ abstract class AbstractTrinoResultSet
     public Timestamp getTimestamp(int columnIndex)
             throws SQLException
     {
-        return getTimestamp(columnIndex, SYSTEM_DEFAULT_ZONE_ID);
+        return getTimestamp(columnIndex, defaultZone);
     }
 
     private Timestamp getTimestamp(int columnIndex, ZoneId localTimeZone)
@@ -683,7 +678,7 @@ abstract class AbstractTrinoResultSet
     }
 
     @Nullable
-    private static Object convertFromClientRepresentation(ClientTypeSignature columnType, @Nullable Object value)
+    private static Object convertFromClientRepresentation(ClientTypeSignature columnType, @Nullable Object value, ZoneId defaultZone)
             throws SQLException
     {
         requireNonNull(columnType, "columnType is null");
@@ -698,7 +693,7 @@ abstract class AbstractTrinoResultSet
                 List<?> listValue = (List<?>) value;
                 List<Object> converted = Lists.newArrayListWithExpectedSize(listValue.size());
                 for (Object element : listValue) {
-                    converted.add(convertFromClientRepresentation(elementType, element));
+                    converted.add(convertFromClientRepresentation(elementType, element, defaultZone));
                 }
                 return unmodifiableList(converted);
             }
@@ -711,7 +706,7 @@ abstract class AbstractTrinoResultSet
                 Map<?, ?> mapValue = (Map<?, ?>) value;
                 Map<Object, Object> converted = Maps.newHashMapWithExpectedSize(mapValue.size());
                 for (Entry<?, ?> entry : mapValue.entrySet()) {
-                    converted.put(convertFromClientRepresentation(keyType, entry.getKey()), convertFromClientRepresentation(valueType, entry.getValue()));
+                    converted.put(convertFromClientRepresentation(keyType, entry.getKey(), defaultZone), convertFromClientRepresentation(valueType, entry.getValue(), defaultZone));
                 }
                 return unmodifiableMap(converted);
             }
@@ -727,7 +722,7 @@ abstract class AbstractTrinoResultSet
                     ClientTypeSignatureParameter clientTypeSignatureParameter = typeArguments.get(i);
                     verify(clientTypeSignatureParameter.getKind() == ClientTypeSignatureParameter.ParameterKind.NAMED_TYPE, "Not a NAMED_TYPE: %s", clientTypeSignatureParameter);
                     verify(field.getName().equals(clientTypeSignatureParameter.getName()), "Name mismatch: %s, %s", field, clientTypeSignatureParameter);
-                    Object converted = convertFromClientRepresentation(clientTypeSignatureParameter.getTypeSignature(), field.getValue());
+                    Object converted = convertFromClientRepresentation(clientTypeSignatureParameter.getTypeSignature(), field.getValue(), defaultZone);
                     builder.addField(field.getName(), converted);
                 }
                 return builder.build();
@@ -736,7 +731,7 @@ abstract class AbstractTrinoResultSet
 
         Class<?> defaultRepresentation = DEFAULT_OBJECT_REPRESENTATION.get(columnType.getRawType());
         if (defaultRepresentation != null) {
-            return TYPE_CONVERSIONS.convert(columnType, value, defaultRepresentation);
+            return TYPE_CONVERSIONS.convert(columnType, value, defaultRepresentation, defaultZone);
         }
 
         return value;
@@ -1366,7 +1361,7 @@ abstract class AbstractTrinoResultSet
         ClientTypeSignature columnTypeSignature = columnInfo.getColumnTypeSignature();
         String elementTypeName = getOnlyElement(columnTypeSignature.getArguments()).toString();
         int elementType = getOnlyElement(columnInfo.getColumnParameterTypes());
-        return new TrinoArray(elementTypeName, elementType, (List<?>) convertFromClientRepresentation(columnTypeSignature, value));
+        return new TrinoArray(elementTypeName, elementType, (List<?>) convertFromClientRepresentation(columnTypeSignature, value, defaultZone));
     }
 
     @Override
@@ -1868,7 +1863,7 @@ abstract class AbstractTrinoResultSet
         }
 
         try {
-            T converted = TYPE_CONVERSIONS.convert(columnTypeSignature, object, type);
+            T converted = TYPE_CONVERSIONS.convert(columnTypeSignature, object, type, defaultZone);
             boolean variantObjectRepresentation = type == Object.class &&
                     columnTypeSignature.getRawType().equals("variant");
             // VARIANT null is a non-SQL-null value whose Java object representation is null.

@@ -18,6 +18,7 @@ import com.google.common.collect.Table;
 import io.trino.client.ClientTypeSignature;
 
 import java.sql.SQLException;
+import java.time.ZoneId;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +34,7 @@ final class TypeConversions
     /**
      * @throws NoConversionRegisteredException when conversion is not registered
      */
-    public <T> T convert(ClientTypeSignature type, Object value, Class<T> target)
+    public <T> T convert(ClientTypeSignature type, Object value, Class<T> target, ZoneId defaultZone)
             throws SQLException
     {
         if (value == null) {
@@ -46,7 +47,7 @@ final class TypeConversions
         }
 
         @SuppressWarnings("unchecked")
-        T converted = (T) conversion.apply(type, value);
+        T converted = (T) conversion.apply(type, value, defaultZone);
         return converted;
     }
 
@@ -69,15 +70,15 @@ final class TypeConversions
         public <S, T> Builder add(String sourceRawType, Class<S> sourceClass, Class<T> target, SimpleTypeConversion<S, T> conversion)
         {
             requireNonNull(conversion, "conversion is null");
-            return add(sourceRawType, sourceClass, target, (type, value) -> conversion.apply(value));
+            return add(sourceRawType, sourceClass, target, (type, value, defaultZone) -> conversion.apply(value));
         }
 
         public <S, T> Builder add(String sourceRawType, Class<S> sourceClass, Class<T> target, TypeConversion<S, T> conversion)
         {
             requireNonNull(conversion, "conversion is null");
-            conversions.put(sourceRawType, target, (type, value) -> {
+            conversions.put(sourceRawType, target, (type, value, defaultZone) -> {
                 S valueAsSourceType = sourceClass.cast(value);
-                T result = conversion.apply(type, valueAsSourceType);
+                T result = conversion.apply(type, valueAsSourceType, defaultZone);
                 return target.cast(result);
             });
             return this;
@@ -95,7 +96,7 @@ final class TypeConversions
         /**
          * Convert a non-null value.
          */
-        T apply(ClientTypeSignature type, S value)
+        T apply(ClientTypeSignature type, S value, ZoneId defaultZone)
                 throws SQLException;
     }
 
