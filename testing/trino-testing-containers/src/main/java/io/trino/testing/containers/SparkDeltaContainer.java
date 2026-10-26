@@ -15,12 +15,12 @@ package io.trino.testing.containers;
 
 import io.trino.testing.TestingProperties;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
 
-import java.time.Duration;
 import java.util.Optional;
+
+import static io.trino.testing.containers.SparkContainers.sparkThriftServerWaitStrategy;
 
 /**
  * A reusable Spark container for Delta Lake product tests.
@@ -104,8 +104,7 @@ public class SparkDeltaContainer
                 Transferable.of(STARTUP_SCRIPT, 0755),
                 "/spark/conf/startup.sh");
         withCommand("/spark/conf/startup.sh");
-        waitingFor(Wait.forSuccessfulCommand("SPARK_BEELINE_MEMORY=256m timeout 30s /spark/bin/beeline -u jdbc:hive2://localhost:%s -n hive -e 'SELECT 1'".formatted(SPARK_THRIFT_PORT))
-                .withStartupTimeout(Duration.ofMinutes(3)));
+        waitingFor(sparkThriftServerWaitStrategy(SPARK_THRIFT_PORT));
     }
 
     public SparkDeltaContainer withS3Config(String endpoint, String accessKey, String secretKey, String region)

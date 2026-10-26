@@ -34,6 +34,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.Map;
 
+import static io.trino.testing.containers.SparkContainers.sparkThriftServerWaitStrategy;
 import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 import static java.util.Map.entry;
 
@@ -376,8 +377,7 @@ public class SparkIcebergJdbcCatalogEnvironment
                     "--conf",
                     "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
                     "spark-internal");
-            waitingFor(Wait.forSuccessfulCommand("SPARK_BEELINE_MEMORY=256m timeout 30s /spark/bin/beeline -u jdbc:hive2://localhost:%s -n hive -e 'SELECT 1'".formatted(SPARK_THRIFT_PORT))
-                    .withStartupTimeout(Duration.ofMinutes(3)));
+            waitingFor(sparkThriftServerWaitStrategy(SPARK_THRIFT_PORT));
         }
 
         /**

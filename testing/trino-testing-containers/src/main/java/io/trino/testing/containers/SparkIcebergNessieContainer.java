@@ -15,11 +15,10 @@ package io.trino.testing.containers;
 
 import io.trino.testing.TestingProperties;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
 
-import java.time.Duration;
+import static io.trino.testing.containers.SparkContainers.sparkThriftServerWaitStrategy;
 
 /**
  * A Spark container configured for Iceberg with Nessie catalog.
@@ -92,8 +91,7 @@ public class SparkIcebergNessieContainer
                 "--conf",
                 "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
                 "spark-internal");
-        waitingFor(Wait.forSuccessfulCommand("SPARK_BEELINE_MEMORY=256m timeout 30s /spark/bin/beeline -u jdbc:hive2://localhost:%s -n hive -e 'SELECT 1'".formatted(SPARK_THRIFT_PORT))
-                .withStartupTimeout(Duration.ofMinutes(3)));
+        waitingFor(sparkThriftServerWaitStrategy(SPARK_THRIFT_PORT));
     }
 
     /**

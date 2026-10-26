@@ -22,7 +22,6 @@ import io.trino.testing.containers.environment.QueryResult;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.trino.TrinoContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -32,9 +31,9 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.Duration;
 import java.util.Map;
 
+import static io.trino.testing.containers.SparkContainers.sparkThriftServerWaitStrategy;
 import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 
 /**
@@ -178,8 +177,7 @@ public class SparkIcebergRestEnvironment
                         "spark.hive.server2.thrift.port=" + SparkIcebergContainer.SPARK_THRIFT_PORT,
                         "spark-internal")
                 // The REST catalog's default namespace is created after the environment starts.
-                .waitingFor(Wait.forSuccessfulCommand("SPARK_BEELINE_MEMORY=256m timeout 30s /spark/bin/beeline -u jdbc:hive2://localhost:%s/spark_catalog.default -n hive -e 'SELECT 1'".formatted(SparkIcebergContainer.SPARK_THRIFT_PORT))
-                        .withStartupTimeout(Duration.ofMinutes(3)));
+                .waitingFor(sparkThriftServerWaitStrategy(SparkIcebergContainer.SPARK_THRIFT_PORT, "spark_catalog.default"));
     }
 
     // Spark JDBC methods
