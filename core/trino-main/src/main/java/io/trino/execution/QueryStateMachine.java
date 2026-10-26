@@ -1411,7 +1411,7 @@ public class QueryStateMachine
         }
         catch (RuntimeException | StackOverflowError conversionError) {
             // Do not let malformed exception metadata strand the query.
-            QUERY_STATE_LOG.warn("Failed to convert query failure; using a generic failure");
+            QUERY_STATE_LOG.warn(conversionError, "Failed to convert failure of query %s; using a generic failure", queryId);
             convertedFailure = toFailure(new TrinoException(
                     GENERIC_INTERNAL_ERROR,
                     "Failed to convert query failure"));
