@@ -32,6 +32,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -88,7 +89,8 @@ public class AvroPageSourceFactory
             Optional<AcidInfo> acidInfo,
             OptionalInt bucketNumber,
             boolean originalFile,
-            AcidTransaction transaction)
+            AcidTransaction transaction,
+            MemoryContext memoryContext)
     {
         if (!AVRO_SERDE_CLASS.equals(schema.serializationLibraryName())) {
             return Optional.empty();
@@ -111,7 +113,7 @@ public class AvroPageSourceFactory
             return Optional.of(new EmptyPageSource());
         }
 
-        return Optional.of(projectColumnDereferences(columns, baseColumns -> createPageSource(session, trinoFileSystem, inputFile, start, actualSplitSize, schema, baseColumns)));
+        return Optional.of(projectColumnDereferences(columns, baseColumns -> createPageSource(session, trinoFileSystem, inputFile, start, actualSplitSize, schema, baseColumns, memoryContext)));
     }
 
     private static AvroPageSource createPageSource(
@@ -121,7 +123,8 @@ public class AvroPageSourceFactory
             long start,
             long length,
             io.trino.plugin.hive.Schema schema,
-            List<HiveColumnHandle> columns)
+            List<HiveColumnHandle> columns,
+            MemoryContext memoryContext)
     {
         verify(columns.stream().allMatch(HiveColumnHandle::isBaseColumn), "All columns must be base columns");
         Schema tableSchema;
@@ -143,7 +146,7 @@ public class AvroPageSourceFactory
         int hiveTimestampPrecision = getTimestampPrecision(session).getPrecision();
 
         try {
-            return new AvroPageSource(inputFile, maskedSchema, new HiveAvroTypeBlockHandler(createTimestampType(hiveTimestampPrecision)), start, length);
+            return new AvroPageSource(inputFile, maskedSchema, new HiveAvroTypeBlockHandler(createTimestampType(hiveTimestampPrecision)), start, length, memoryContext);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
