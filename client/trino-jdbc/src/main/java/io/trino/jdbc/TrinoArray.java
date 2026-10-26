@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.client.ClientStandardTypes.BIGINT;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class TrinoArray
@@ -112,7 +113,7 @@ public class TrinoArray
         if (index < 1 || count < 0 || index - 1 > clientValues.length - count) {
             throw new SQLException("Index out of bounds");
         }
-        int arrayOffset = Ints.checkedCast(index - 1);
+        int arrayOffset = toIntExact(index - 1);
         List<Column> columns = ImmutableList.of(
                 new Column("INDEX", BIGINT, new ClientTypeSignature(BIGINT)),
                 new Column("VALUE", elementTypeSignature.toString(), elementTypeSignature));
