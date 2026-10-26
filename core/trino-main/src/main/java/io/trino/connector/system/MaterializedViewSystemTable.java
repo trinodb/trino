@@ -37,6 +37,8 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.sql.analyzer.MaterializedViewFreshnessChecker;
+import io.trino.sql.analyzer.StatementAnalyzerFactory;
 
 import java.util.Optional;
 import java.util.Set;
@@ -78,12 +80,14 @@ public class MaterializedViewSystemTable
 
     private final Metadata metadata;
     private final AccessControl accessControl;
+    private final MaterializedViewFreshnessChecker freshnessChecker;
 
     @Inject
-    public MaterializedViewSystemTable(Metadata metadata, AccessControl accessControl)
+    public MaterializedViewSystemTable(Metadata metadata, AccessControl accessControl, StatementAnalyzerFactory statementAnalyzerFactory)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.freshnessChecker = statementAnalyzerFactory.createMaterializedViewFreshnessChecker();
     }
 
     @Override
@@ -170,7 +174,7 @@ public class MaterializedViewSystemTable
 
             if (needFreshness) {
                 try {
-                    freshness = Optional.of(metadata.getMaterializedViewFreshness(session, name, false));
+                    freshness = Optional.of(freshnessChecker.getMaterializedViewFreshness(session, name, false));
                 }
                 catch (MaterializedViewNotFoundException e) {
                     // Ignore materialized view that was dropped during query execution (race condition)
