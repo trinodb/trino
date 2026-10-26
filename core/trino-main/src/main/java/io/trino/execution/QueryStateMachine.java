@@ -113,6 +113,8 @@ import static io.trino.execution.QueryState.TERMINAL_QUERY_STATES;
 import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.StagesInfo.getAllStages;
 import static io.trino.operator.RetryPolicy.TASK;
+import static io.trino.spi.StandardErrorCode.ABANDONED_QUERY;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_COMMITED;
@@ -1372,23 +1374,55 @@ public class QueryStateMachine
     {
         requireNonNull(throwable, "throwable is null");
 
+        boolean rejectedExternalFailure;
         synchronized (finalizationLock) {
-            // Claim failure ownership before converting the exception.
-            if (queryState.get().isDone() ||
-                    commitStarted != commitFailure ||
-                    failureStarted) {
+            if (queryState.get().isDone() || failureStarted) {
                 return false;
             }
-            failureStarted = true;
+
+            if (commitStarted && !commitFailure) {
+                // Release the consumption gate only after abandonment.
+                // A timed-out query may still have a client reading results.
+                if (throwable instanceof TrinoException trinoException &&
+                        trinoException.getErrorCode().equals(ABANDONED_QUERY.toErrorCode())) {
+                    consumed.set(true);
+                }
+                rejectedExternalFailure = true;
+            }
+            else {
+                if (commitStarted != commitFailure) {
+                    return false;
+                }
+                failureStarted = true;
+                rejectedExternalFailure = false;
+            }
+        }
+
+        if (rejectedExternalFailure) {
+            transitionToFinishedIfReady();
+            return false;
         }
 
         queryStateTimer.endQuery();
 
-        // Publish failure information before exposing FAILED to listeners.
-        failureCause.compareAndSet(null, toFailure(throwable));
-        cleanupQueryQuietly();
+        ExecutionFailureInfo convertedFailure;
+        try {
+            convertedFailure = toFailure(throwable);
+        }
+        catch (RuntimeException | StackOverflowError conversionError) {
+            // Do not let malformed exception metadata strand the query.
+            QUERY_STATE_LOG.warn("Failed to convert query failure; using a generic failure");
+            convertedFailure = toFailure(new TrinoException(
+                    GENERIC_INTERNAL_ERROR,
+                    "Failed to convert query failure"));
+        }
 
+        // Publish failure information before exposing FAILED to listeners.
+        failureCause.compareAndSet(null, convertedFailure);
+
+        // Cleanup may block in a connector. Publish the terminal state first.
         QueryState oldState = queryState.trySet(FAILED);
+        cleanupQueryQuietly();
         if (oldState.isDone()) {
             if (log) {
                 QUERY_STATE_LOG.debug(throwable, "Failure after query %s finished", queryId);
