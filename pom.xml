@@ -1993,6 +1993,11 @@
                         <groupId>org.apache.parquet</groupId>
                         <artifactId>parquet-hadoop</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <!-- Only needed by VariantJsonParser, which Trino does not use -->
+                        <groupId>org.apache.parquet</groupId>
+                        <artifactId>parquet-jackson</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
