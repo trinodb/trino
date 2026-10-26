@@ -18,6 +18,7 @@ import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
@@ -27,7 +28,6 @@ import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.cloud.storage.StorageRetryStrategy.getUniformStorageRetryStrategy;
@@ -41,6 +41,7 @@ import static java.util.Objects.requireNonNull;
 public class GcsStorageFactory
 {
     public static final String GCS_OAUTH_KEY = "gcs.oauth";
+
     private final GcsFileSystemConfig.AuthType authType;
     private final String projectId;
     private final Optional<String> endpoint;
@@ -127,7 +128,8 @@ public class GcsStorageFactory
                             .setInitialRetryDelayDuration(minBackoffDelay)
                             .setMaxRetryDelayDuration(maxBackoffDelay)
                             .build())
-                    .setHeaderProvider(() -> Map.of(USER_AGENT, StorageOptions.getLibraryName() + "/" + StorageOptions.version() + " " + applicationId))
+                    .setHeaderProvider(() -> ImmutableMap.of(
+                            USER_AGENT, StorageOptions.getLibraryName() + "/" + StorageOptions.version() + " " + applicationId))
                     .build()
                     .getService();
         }

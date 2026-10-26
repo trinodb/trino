@@ -23,6 +23,7 @@ import com.google.cloud.ServiceOptions;
 import com.google.cloud.http.HttpTransportOptions;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
@@ -76,7 +77,7 @@ final class TestGcsFileSystemBatchDelete
 
     private static GcsFileSystem fileSystem(Storage storage)
     {
-        return new GcsFileSystem(newDirectExecutorService(), storage, 1024, 1024, 100, 100, Optional.empty());
+        return new GcsFileSystem(newDirectExecutorService(), storage, 1024, 1024, 100, 100, Optional.empty(), ImmutableMap.of());
     }
 
     private static Storage createStorage()

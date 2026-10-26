@@ -16,6 +16,7 @@ package io.trino.filesystem.gcs;
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageException;
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemException;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,8 @@ final class TestGcsInput
                 new GcsLocation(Location.of("gs://bucket/key")),
                 storage,
                 OptionalLong.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
 
         assertThat(input.readTail(new byte[0], 0, 0)).isEqualTo(0);
     }
@@ -89,6 +91,7 @@ final class TestGcsInput
                 new GcsLocation(Location.of("gs://bucket/key")),
                 storage,
                 OptionalLong.of(10),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
     }
 }
