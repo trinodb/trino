@@ -125,7 +125,7 @@ jobs:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix:
         include:
-          - { java-version: 25.0.4, cache: 'true', cleanup-node: true }
+          - { java-version: 25.0.5, cache: 'true', cleanup-node: true }
           - { java-version: 27, cache: 'restore', cleanup-node: true }
           - { java-version: 28-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
