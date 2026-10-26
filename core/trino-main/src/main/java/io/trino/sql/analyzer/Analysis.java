@@ -269,6 +269,9 @@ public class Analysis
 
     private final Set<ViewHandle> referencedViewHandles = new LinkedHashSet<>();
 
+    // set when the analysis only collects the relations a materialized view query depends on
+    private Optional<MaterializedViewDependencyCollector> materializedViewDependencyCollector = Optional.empty();
+
     // row id field for update/delete queries
     private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
     private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
@@ -708,6 +711,20 @@ public class Analysis
     public void recordReferencedView(ViewHandle handle)
     {
         referencedViewHandles.add(handle);
+    }
+
+    /**
+     * Switches this analysis to collecting the relations a materialized view query depends on. In this mode
+     * materialized views are always expanded, regardless of their freshness.
+     */
+    public void setMaterializedViewDependencyCollector(MaterializedViewDependencyCollector collector)
+    {
+        materializedViewDependencyCollector = Optional.of(requireNonNull(collector, "collector is null"));
+    }
+
+    public Optional<MaterializedViewDependencyCollector> getMaterializedViewDependencyCollector()
+    {
+        return materializedViewDependencyCollector;
     }
 
     public void registerTable(
