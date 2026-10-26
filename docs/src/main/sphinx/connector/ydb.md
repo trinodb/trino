@@ -33,23 +33,32 @@ Schema creation, deletion, and renaming are not supported.
 
 ## Type mapping
 
-| YDB type | Trino type |
-| --- | --- |
-| `Bool` | `boolean` |
-| `Int8`, `Int16`, `Int32`, `Int64` | `tinyint`, `smallint`, `integer`, `bigint` |
-| `Uint8`, `Uint16`, `Uint32` | `smallint`, `integer`, `bigint` |
-| `Uint64` | `decimal(20,0)` |
-| `Float`, `Double` | `real`, `double` |
-| `Utf8`, `Text` | Unbounded `varchar` |
-| `String`, `Bytes` | `varbinary` |
-| `Decimal(p,s)` | `decimal(p,s)` |
-| `Date`, `Date32` | `date` |
-| `Datetime`, `Datetime64`, `Timestamp`, `Timestamp64` | `timestamp(6)` |
+:::{list-table} YDB to Trino type mapping
+:widths: 30, 70
+:header-rows: 1
+
+* - YDB type
+  - Trino type
+* - `Bool`
+  - `boolean`
+* - `Int8`, `Int16`, `Int32`, `Int64`
+  - `tinyint`, `smallint`, `integer`, `bigint`
+* - `Uint8`, `Uint16`, `Uint32`
+  - `smallint`, `integer`, `bigint`
+* - `Uint64`
+  - `decimal(20,0)`
+* - `Float`, `Double`
+  - `real`, `double`
+* - `Utf8`, `Text`
+  - Unbounded `varchar`
+* - `Decimal(p,s)`
+  - `decimal(p,s)`
+* - `Date`, `Date32`
+  - `date`
+:::
 
 Unsigned integers retain their numeric value, including the full `Uint64`
-range from `0` to `18446744073709551615`. Binary values are not decoded as
-UTF-8. Timestamp values use UTC rather than the coordinator's or worker's
-default time zone.
+range from `0` to `18446744073709551615`.
 
 YDB decimal NaN and infinity values cannot be represented by Trino decimals
 and fail when read. YDB decimal precision is limited to 35.
@@ -66,8 +75,8 @@ The `system.execute` native SQL procedure is also disabled.
 
 Joins, aggregations, scalar expressions, sorting, and limits are evaluated
 by Trino. Predicates use the JDBC connector's type-specific pushdown
-controllers; unsigned, floating-point, decimal, and legacy temporal values
-remain in Trino where native parameter or comparison semantics differ.
+controllers; unsigned, floating-point, and decimal values remain in Trino
+where native parameter or comparison semantics differ.
 
 The connector defaults the JDBC driver option `cacheConnectionsInDriver` to
 `false` because JDBC 2.4.1 can race cached context lookup against last-close

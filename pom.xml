@@ -2188,6 +2188,18 @@
                 <!-- This is under Confluent Community License and it should not be used with compile scope -->
                 <scope>test</scope>
             </dependency>
+
+            <dependency>
+                <groupId>tech.ydb.jdbc</groupId>
+                <artifactId>ydb-jdbc-driver</artifactId>
+                <version>2.4.1</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>javax.annotation</groupId>
+                        <artifactId>javax.annotation-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

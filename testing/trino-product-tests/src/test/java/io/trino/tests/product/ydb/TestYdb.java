@@ -40,18 +40,16 @@ class TestYdb
             nativeStatement.execute("CREATE TABLE nation (nationkey Int64, name Text, PRIMARY KEY (nationkey))");
             try {
                 try (PreparedStatement insert = nativeConnection.prepareStatement("UPSERT INTO nation (nationkey, name) VALUES (?, ?)")) {
-                    for (int key = 0; key < 25; key++) {
-                        insert.setLong(1, key);
-                        insert.setString(2, "nation_" + key);
-                        insert.addBatch();
-                    }
-                    insert.executeBatch();
+                    insert.setLong(1, 1);
+                    insert.setString(2, "nation_1");
+                    insert.execute();
                 }
                 try (Connection connection = env.createTrinoConnection();
                         Statement statement = connection.createStatement();
-                        ResultSet rows = statement.executeQuery("SELECT COUNT(*) FROM ydb.default.nation")) {
+                        ResultSet rows = statement.executeQuery("SELECT nationkey, name FROM ydb.default.nation")) {
                     assertThat(rows.next()).isTrue();
-                    assertThat(rows.getLong(1)).isEqualTo(25);
+                    assertThat(rows.getLong(1)).isEqualTo(1);
+                    assertThat(rows.getString(2)).isEqualTo("nation_1");
                     assertThat(rows.next()).isFalse();
                 }
             }

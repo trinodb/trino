@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.ydb;
 
-import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -21,7 +20,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.ResourceLock;
@@ -53,54 +51,54 @@ public class TestYdbConnectorTest
     @Test
     public void testDefaultSchema()
     {
-        assertThat(computeActual("SHOW CATALOGS").getOnlyColumnAsSet()).contains("local");
-        assertThat(computeActual("SHOW SCHEMAS FROM local").getOnlyColumnAsSet())
+        assertThat(computeActual("SHOW CATALOGS").getOnlyColumnAsSet()).contains("ydb");
+        assertThat(computeActual("SHOW SCHEMAS FROM ydb").getOnlyColumnAsSet())
                 .containsExactlyInAnyOrder("default", "information_schema");
-        assertThat(computeActual("SHOW TABLES FROM local.default").getOnlyColumnAsSet()).contains("orders");
-        assertQuerySucceeds("SELECT orderkey FROM local.default.orders LIMIT 1");
-        assertQueryFails("SELECT * FROM local.missing.orders", ".*Schema 'missing' does not exist");
-        assertQueryFails("SELECT * FROM local.\"%\".orders", ".*Schema '%' does not exist");
+        assertThat(computeActual("SHOW TABLES FROM ydb.default").getOnlyColumnAsSet()).contains("orders");
+        assertQuerySucceeds("SELECT orderkey FROM ydb.default.orders LIMIT 1");
+        assertQueryFails("SELECT * FROM ydb.missing.orders", ".*Schema 'missing' does not exist");
+        assertQueryFails("SELECT * FROM ydb.\"%\".orders", ".*Schema '%' does not exist");
     }
 
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_TABLE,
-                 SUPPORTS_INSERT,
-                 SUPPORTS_UPDATE,
-                 SUPPORTS_DELETE,
-                 SUPPORTS_MERGE,
-                 SUPPORTS_ADD_COLUMN,
-                 SUPPORTS_RENAME_TABLE,
-                 SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
-                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
-                 SUPPORTS_AGGREGATION_PUSHDOWN,
-                 SUPPORTS_TOPN_PUSHDOWN,
-                 SUPPORTS_LIMIT_PUSHDOWN,
-                 SUPPORTS_CREATE_VIEW,
-                 SUPPORTS_CREATE_SCHEMA,
-                 SUPPORTS_RENAME_SCHEMA,
-                 SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_ROW_TYPE,
-                 SUPPORTS_RENAME_COLUMN,
-                 SUPPORTS_TRUNCATE,
-                 SUPPORTS_COMMENT_ON_COLUMN,
-                 SUPPORTS_COMMENT_ON_TABLE,
-                 SUPPORTS_DROP_SCHEMA_CASCADE,
-                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
-                 SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
+            case SUPPORTS_ADD_COLUMN,
+                 SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_ADD_COLUMN_WITH_POSITION,
-                 SUPPORTS_CREATE_FEDERATED_MATERIALIZED_VIEW,
-                 SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                 SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_ARRAY,
-                 SUPPORTS_MAP_TYPE,
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_CREATE_FEDERATED_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_CREATE_TABLE,
+                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                 SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
+                 SUPPORTS_CREATE_VIEW,
                  SUPPORTS_DEFAULT_COLUMN_VALUE,
-                 SUPPORTS_SET_DEFAULT_COLUMN_VALUE,
+                 SUPPORTS_DELETE,
                  SUPPORTS_DROP_DEFAULT_COLUMN_VALUE,
-                 SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT -> false;
+                 SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_DROP_SCHEMA_CASCADE,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_MAP_TYPE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                 SUPPORTS_ROW_TYPE,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_SET_DEFAULT_COLUMN_VALUE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_TRUNCATE,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -122,7 +120,7 @@ public class TestYdbConnectorTest
                 || trinoTypeName.equals("time(6)")
                 || trinoTypeName.equals("timestamp(3) with time zone")
                 || trinoTypeName.equals("timestamp(6) with time zone")) {
-            // Нет time в YQL
+            // YQL has no time type
             return Optional.empty();
         }
         return Optional.of(dataMappingTestSetup);
@@ -140,18 +138,40 @@ public class TestYdbConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        // В YQL строки произвольной длины
-        return MaterializedResult.resultBuilder(this.getSession(), new Type[] {VarcharType.VARCHAR, VarcharType.VARCHAR, VarcharType.VARCHAR, VarcharType.VARCHAR}).row(new Object[] {"orderkey", "bigint", "", ""}).row(new Object[] {"custkey", "bigint", "", ""}).row(new Object[] {"orderstatus", "varchar", "", ""}).row(new Object[] {"totalprice", "double", "", ""}).row(new Object[] {"orderdate", "date", "", ""}).row(new Object[] {"orderpriority", "varchar", "", ""}).row(new Object[] {"clerk", "varchar", "", ""}).row(new Object[] {"shippriority", "integer", "", ""}).row(new Object[] {"comment", "varchar", "", ""}).build();
+        // YQL strings are unbounded, so all string columns map to varchar.
+        return MaterializedResult.resultBuilder(this.getSession(), VarcharType.VARCHAR, VarcharType.VARCHAR, VarcharType.VARCHAR, VarcharType.VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("clerk", "varchar", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar", "", "")
+                .build();
     }
 
     @Test
     @Override
     public void testShowCreateTable()
     {
-        // В YQL строки произвольной длины
+        // YQL strings are unbounded, so all string columns map to varchar.
         String catalog = this.getSession().getCatalog().orElseThrow();
         String schema = this.getSession().getSchema().orElseThrow();
-        Assertions.assertThat(this.computeScalar("SHOW CREATE TABLE orders")).isEqualTo(String.format("CREATE TABLE %s.%s.orders (\n   orderkey bigint,\n   custkey bigint,\n   orderstatus varchar,\n   totalprice double,\n   orderdate date,\n   orderpriority varchar,\n   clerk varchar,\n   shippriority integer,\n   comment varchar\n)", catalog, schema));
+        assertThat(this.computeScalar("SHOW CREATE TABLE orders")).isEqualTo(
+                """
+                CREATE TABLE %s.%s.orders (
+                   orderkey bigint,
+                   custkey bigint,
+                   orderstatus varchar,
+                   totalprice double,
+                   orderdate date,
+                   orderpriority varchar,
+                   clerk varchar,
+                   shippriority integer,
+                   comment varchar
+                )""".formatted(catalog, schema));
     }
 
     @Override

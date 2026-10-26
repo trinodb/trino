@@ -15,17 +15,15 @@ package io.trino.plugin.ydb;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
-import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
-import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
@@ -43,6 +41,7 @@ public class YdbClientModule
     @Override
     protected void configure()
     {
+        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(YdbClient.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder(), ConnectorAccessControl.class)
                 .setBinding()
                 .toInstance(new AllowAllAccessControl()
@@ -60,25 +59,12 @@ public class YdbClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public JdbcClient provideJdbcClient(
-            BaseJdbcConfig config,
-            ConnectionFactory connectionFactory,
-            QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping,
-            RemoteQueryModifier remoteQueryModifier)
-    {
-        return new YdbClient(config, connectionFactory, queryBuilder, identifierMapping, remoteQueryModifier);
-    }
-
-    @Provides
-    @Singleton
-    @ForBaseJdbc
     public static ConnectionFactory createConnectionFactory(
             BaseJdbcConfig config,
             CredentialProvider credentialProvider)
     {
-        // JDBC 2.4.1 can close a cached context between lookup and connection registration.
         Properties properties = new Properties();
+        // JDBC 2.4.1 can close a cached context between lookup and connection registration.
         properties.setProperty("cacheConnectionsInDriver", "false");
         // InListJdbcPrm bypasses the driver's native SDK-value binding path.
         properties.setProperty("replaceJdbcInByYqlList", "false");

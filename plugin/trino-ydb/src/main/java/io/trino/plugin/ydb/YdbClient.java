@@ -188,34 +188,35 @@ public class YdbClient
         if (primitiveMapping.isPresent()) {
             return primitiveMapping;
         }
-        if (typeHandle.jdbcType() != Types.DECIMAL) {
-            return getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(typeHandle) : Optional.empty();
-        }
 
-        String typeName = typeHandle.jdbcTypeName().orElse("Decimal");
-        int precision = typeHandle.columnSize().orElse(YDB_DEFAULT_DECIMAL_PRECISION);
-        int scale = typeHandle.decimalDigits().orElse(YDB_DEFAULT_DECIMAL_SCALE);
-        int start = typeName.indexOf('(');
-        int end = typeName.indexOf(')');
-        if (start >= 0 && end > start) {
-            String[] parts = typeName.substring(start + 1, end).split(",");
-            if (parts.length == 2) {
-                Integer typeNamePrecision = Ints.tryParse(parts[0].trim());
-                Integer typeNameScale = Ints.tryParse(parts[1].trim());
-                if (typeNamePrecision != null && typeNameScale != null) {
-                    precision = typeNamePrecision;
-                    scale = typeNameScale;
+        if (typeHandle.jdbcType() == Types.DECIMAL) {
+            String typeName = typeHandle.jdbcTypeName().orElse("Decimal");
+            int precision = typeHandle.columnSize().orElse(YDB_DEFAULT_DECIMAL_PRECISION);
+            int scale = typeHandle.decimalDigits().orElse(YDB_DEFAULT_DECIMAL_SCALE);
+            int start = typeName.indexOf('(');
+            int end = typeName.indexOf(')');
+            if (start >= 0 && end > start) {
+                String[] parts = typeName.substring(start + 1, end).split(",");
+                if (parts.length == 2) {
+                    Integer typeNamePrecision = Ints.tryParse(parts[0].trim());
+                    Integer typeNameScale = Ints.tryParse(parts[1].trim());
+                    if (typeNamePrecision != null && typeNameScale != null) {
+                        precision = typeNamePrecision;
+                        scale = typeNameScale;
+                    }
                 }
             }
+
+            DecimalType decimalType = createDecimalType(precision, max(scale, 0));
+            ColumnMapping decimalMapping = decimalColumnMapping(decimalType);
+            return Optional.of(ColumnMapping.mapping(
+                    decimalType,
+                    decimalMapping.getReadFunction(),
+                    decimalMapping.getWriteFunction(),
+                    DISABLE_PUSHDOWN));
         }
 
-        DecimalType decimalType = createDecimalType(precision, max(scale, 0));
-        ColumnMapping decimalMapping = decimalColumnMapping(decimalType);
-        return Optional.of(ColumnMapping.mapping(
-                decimalType,
-                decimalMapping.getReadFunction(),
-                decimalMapping.getWriteFunction(),
-                DISABLE_PUSHDOWN));
+        return getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(typeHandle) : Optional.empty();
     }
 
     private static ColumnMapping unboundedVarcharColumnMapping()

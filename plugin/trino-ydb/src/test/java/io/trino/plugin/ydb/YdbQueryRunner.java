@@ -15,10 +15,14 @@ package io.trino.plugin.ydb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Level;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
@@ -40,6 +44,11 @@ import static java.util.stream.IntStream.range;
 
 public final class YdbQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("tech.ydb", Level.OFF);
+    }
+
     public static final String DEFAULT_SCHEMA = YdbClient.DEFAULT_SCHEMA;
 
     private YdbQueryRunner() {}
@@ -51,15 +60,8 @@ public final class YdbQueryRunner
 
     static String buildJdbcUrl(YdbHelperExtension ydb)
     {
-        StringBuilder url = new StringBuilder("jdbc:ydb:");
-        url.append(ydb.useTls() ? "grpcs://" : "grpc://");
-        url.append(ydb.endpoint());
-        url.append(ydb.database());
-        url.append("?useQueryService=true&sessionPoolMaxSize=10&useDiscovery=false");
-        if (ydb.authToken() != null) {
-            url.append("&token=").append(ydb.authToken());
-        }
-        return url.toString();
+        return "jdbc:ydb:grpc://" + ydb.endpoint() + ydb.database()
+                + "?useQueryService=true&sessionPoolMaxSize=10&useDiscovery=false";
     }
 
     public static class Builder
@@ -72,7 +74,7 @@ public final class YdbQueryRunner
         private Builder(String jdbcUrl)
         {
             super(testSessionBuilder()
-                    .setCatalog("local")
+                    .setCatalog("ydb")
                     .setSchema(DEFAULT_SCHEMA)
                     .build());
             this.jdbcUrl = jdbcUrl;
@@ -100,7 +102,7 @@ public final class YdbQueryRunner
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
                 queryRunner.installPlugin(new YdbPlugin());
-                queryRunner.createCatalog("local", "ydb", ImmutableMap.copyOf(connectorProperties));
+                queryRunner.createCatalog("ydb", "ydb", ImmutableMap.copyOf(connectorProperties));
 
                 try (Connection connection = DriverManager.getConnection(jdbcUrl)) {
                     for (TpchTable<?> table : initialTables) {
@@ -169,5 +171,18 @@ public final class YdbQueryRunner
                 }
             }
         }
+    }
+
+    static void main()
+            throws Exception
+    {
+        QueryRunner queryRunner = builder(new YdbHelperExtension().failIfUnavailable())
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .setInitialTables(TpchTable.getTables())
+                .build();
+
+        Logger log = Logger.get(YdbQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
