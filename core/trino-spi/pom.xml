@@ -253,6 +253,11 @@
                                     <justification>Require a MemoryContext to replace polling through ConnectorPageSource.getMemoryUsage</justification>
                                 </item>
                                 <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <new>method io.trino.spi.connector.MaterializedViewFreshness io.trino.spi.connector.ConnectorMetadata::getMaterializedViewFreshness(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, boolean, io.trino.spi.connector.MaterializedViewDependencies)</new>
+                                    <justification>Revapi mistakes the new overload for a changed signature; the three-parameter method is retained</justification>
+                                </item>
+                                <item>
                                     <ignore>true</ignore>
                                     <code>java.method.removed</code>
                                     <old>method boolean io.trino.spi.connector.ConnectorMetadata::delegateMaterializedViewRefreshToConnector(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName)</old>
