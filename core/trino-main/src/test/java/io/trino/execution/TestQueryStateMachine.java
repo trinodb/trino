@@ -105,6 +105,8 @@ import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.spi.StandardErrorCode.ABANDONED_QUERY;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
@@ -417,7 +419,7 @@ public class TestQueryStateMachine
     }
 
     @Test
-    public void testFailureInformationIsNotExposedBeforeFailedState()
+    public void testFailureInformationPublishedBeforeCleanupCompletes()
             throws Exception
     {
         CountDownLatch cleanupStarted = new CountDownLatch(1);
@@ -439,12 +441,12 @@ public class TestQueryStateMachine
 
         try {
             assertThat(cleanupStarted.await(30, SECONDS)).isTrue();
-            assertThat(stateMachine.getQueryState()).isEqualTo(RUNNING);
+            assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
 
             ResultQueryInfo resultInfo = stateMachine.getResultQueryInfo(stateMachine.getQueryState(), Optional.empty());
-            assertThat(resultInfo.state()).isEqualTo(RUNNING);
-            assertThat(resultInfo.failureInfo()).isNull();
-            assertThat(stateMachine.getFailureInfo()).isEmpty();
+            assertThat(resultInfo.state()).isEqualTo(FAILED);
+            assertThat(resultInfo.failureInfo()).isNotNull();
+            assertThat(stateMachine.getFailureInfo()).isPresent();
         }
         finally {
             releaseCleanup.countDown();
@@ -501,6 +503,168 @@ public class TestQueryStateMachine
 
         assertThat(failureTransition.get(30, SECONDS)).isTrue();
         assertFinalState(stateMachine, FAILED, failure);
+    }
+
+    @Test
+    public void testAbandonmentDuringCommitDoesNotLeaveQueryFinishing()
+    {
+        BlockingCommitTransactionManager transactionManager =
+                new BlockingCommitTransactionManager(createTestTransactionManager());
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .withTransactionManager(transactionManager)
+                .build();
+
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
+        assertThat(transactionManager.isCommitStarted()).isTrue();
+
+        assertThat(stateMachine.transitionToFailed(
+                new TrinoException(ABANDONED_QUERY, "Query abandoned")))
+                .isFalse();
+
+        transactionManager.completeCommit();
+
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
+        assertFinalState(stateMachine, FINISHED);
+    }
+
+    @Test
+    public void testTimeLimitDuringCommitPreservesUnconsumedResults()
+    {
+        BlockingCommitTransactionManager transactionManager =
+                new BlockingCommitTransactionManager(createTestTransactionManager());
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .withTransactionManager(transactionManager)
+                .build();
+
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
+        assertThat(transactionManager.isCommitStarted()).isTrue();
+
+        assertThat(stateMachine.transitionToFailed(
+                new TrinoException(EXCEEDED_TIME_LIMIT, "Query timed out")))
+                .isFalse();
+
+        assertState(stateMachine, FINISHING);
+        transactionManager.completeCommit();
+
+        assertState(stateMachine, FINISHING);
+        stateMachine.resultsConsumed();
+        assertFinalState(stateMachine, FINISHED);
+    }
+
+    @Test
+    public void testTimeLimitAfterCommitPreservesUnconsumedResults()
+    {
+        BlockingCommitTransactionManager transactionManager =
+                new BlockingCommitTransactionManager(createTestTransactionManager());
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .withTransactionManager(transactionManager)
+                .build();
+
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
+
+        transactionManager.completeCommit();
+        assertState(stateMachine, FINISHING);
+
+        assertThat(stateMachine.transitionToFailed(
+                new TrinoException(EXCEEDED_TIME_LIMIT, "Query timed out")))
+                .isFalse();
+
+        assertState(stateMachine, FINISHING);
+        stateMachine.resultsConsumed();
+        assertFinalState(stateMachine, FINISHED);
+    }
+
+    @Test
+    public void testTimeoutFollowedByAbandonmentTerminatesAfterCommit()
+    {
+        BlockingCommitTransactionManager transactionManager =
+                new BlockingCommitTransactionManager(createTestTransactionManager());
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .withTransactionManager(transactionManager)
+                .build();
+
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
+
+        assertThat(stateMachine.transitionToFailed(
+                new TrinoException(EXCEEDED_TIME_LIMIT, "Query timed out")))
+                .isFalse();
+
+        transactionManager.completeCommit();
+        assertState(stateMachine, FINISHING);
+
+        assertThat(stateMachine.transitionToFailed(
+                new TrinoException(ABANDONED_QUERY, "Client abandoned query")))
+                .isFalse();
+
+        assertFinalState(stateMachine, FINISHED);
+    }
+
+    @Test
+    public void testFailureConversionExceptionDoesNotStrandQuery()
+    {
+        IllegalStateException failure = new IllegalStateException("original failure")
+        {
+            @Override
+            public String getMessage()
+            {
+                throw new IllegalStateException("Exception conversion failed");
+            }
+        };
+
+        QueryStateMachine stateMachine = createQueryStateMachine();
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+
+        assertThat(stateMachine.transitionToFailed(failure)).isTrue();
+        assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
+        assertThat(stateMachine.getFailureInfo()).isPresent();
+    }
+
+    @Test
+    public void testBlockedCleanupDoesNotPreventSecondaryFailure()
+            throws Exception
+    {
+        CountDownLatch cleanupStarted = new CountDownLatch(1);
+        CountDownLatch releaseCleanup = new CountDownLatch(1);
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .beforeQueryCleanup(() -> {
+                    cleanupStarted.countDown();
+                    checkState(
+                            awaitUninterruptibly(releaseCleanup, 30, SECONDS),
+                            "Timed out waiting for cleanup release");
+                })
+                .build();
+
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+
+        Future<Boolean> firstFailure = executor.submit(
+                () -> stateMachine.transitionToFailed(
+                        new IllegalStateException("first failure")));
+
+        try {
+            assertThat(cleanupStarted.await(30, SECONDS)).isTrue();
+
+            assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
+
+            // The first failure already established the terminal state.
+            assertThat(stateMachine.transitionToFailed(
+                    new IllegalStateException("secondary failure")))
+                    .isFalse();
+        }
+        finally {
+            releaseCleanup.countDown();
+        }
+
+        firstFailure.get(30, SECONDS);
+        assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
     }
 
     @Test
