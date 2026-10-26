@@ -747,6 +747,10 @@ public class TrinoRestCatalog
     @Override
     public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
+        if (!viewEndpointsEnabled) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot create views when iceberg.rest-catalog.view-endpoints-enabled is disabled");
+        }
+
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         definition.getOwner().ifPresent(owner -> properties.put(ICEBERG_VIEW_RUN_AS_OWNER, owner));
         definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
