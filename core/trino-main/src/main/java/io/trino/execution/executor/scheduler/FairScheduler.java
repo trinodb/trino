@@ -15,40 +15,49 @@ package io.trino.execution.executor.scheduler;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
+import com.google.common.collect.TreeMultiset;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 
-/**
- * <h2>Implementation nodes</h2>
- *
- * <ul>
- *     <li>The TaskControl state machine is only modified by the task executor
- * thread (i.e., from within {@link FairScheduler#runTask(Schedulable, TaskControl)} )}). Other threads
- * can indirectly affect what the task executor thread does by marking the task as ready or cancelled
- * and unblocking the task executor thread, which will then act on that information.</li>
- * </ul>
- */
+/// Implementation notes:
+///
+///   - The [TaskControl] state machine is only modified by the task executor thread (i.e. from
+///     within [#runTask]). Other threads can indirectly affect what the task executor thread does by
+///     marking the task as ready or cancelled and unblocking it, which will then act on that
+///     information.
+///   - There is no scheduler thread. Whichever thread makes a task runnable or frees a slot calls
+///     [#dispatch()], which hands free slots to runnable tasks in fair order. A slot is reserved
+///     under the queue lock only once a runnable task is present, so it is always held by a task;
+///     every release is followed by a dispatch, so no runnable task waits while a slot is free.
 @ThreadSafe
 public final class FairScheduler
         implements AutoCloseable
@@ -57,16 +66,23 @@ public final class FairScheduler
 
     public static final long QUANTUM_NANOS = TimeUnit.MILLISECONDS.toNanos(1000);
 
-    private final ExecutorService schedulerExecutor;
-    private final ThreadPoolExecutorMBean schedulerExecutorMBean;
     private final ListeningExecutorService taskExecutor;
     private final ThreadPoolExecutor executor; // instance underlying taskExecutor, for diagnostics
     private final ThreadPoolExecutorMBean executorMBean;
-    private final BlockingSchedulingQueue<Group, TaskControl> queue = new BlockingSchedulingQueue<>();
+    private final BlockingSchedulingQueue queue = new BlockingSchedulingQueue();
     private final Reservation<TaskControl> concurrencyControl;
     private final Ticker ticker;
 
-    private final Gate paused = new Gate(true);
+    private volatile boolean paused;
+
+    // Guards the producer donations below. Lock order: boostLock, then the queue's lock.
+    private final ReentrantLock boostLock = new ReentrantLock();
+
+    // Producer groups (whole pipelines) currently boosted, each mapped to the multiset of donor
+    // ranks of the tasks waiting on it: the boost applies to the group node so every driver in the
+    // pipeline runs sooner. The producer inherits the most urgent waiter's rank; cleared when empty.
+    @GuardedBy("boostLock")
+    private final Map<Group, TreeMultiset<Long>> pipelineBoostDonors = new HashMap<>();
 
     /// Prevents group creation and removal from racing with [#close()]. Submission only needs the
     /// volatile `closed` check: a task accepted while close is in progress either observes that its
@@ -87,9 +103,6 @@ public final class FairScheduler
 
         concurrencyControl = new Reservation<>(maxConcurrentTasks);
 
-        schedulerExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("fair-scheduler-%d"));
-        schedulerExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) schedulerExecutor);
-
         executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(), threadFactory);
         executorMBean = new ThreadPoolExecutorMBean(executor);
         taskExecutor = MoreExecutors.listeningDecorator(executor);
@@ -102,24 +115,18 @@ public final class FairScheduler
 
     public static FairScheduler newInstance(int maxConcurrentTasks, Ticker ticker)
     {
-        FairScheduler scheduler = new FairScheduler(maxConcurrentTasks, "fair-scheduler-runner-%d", ticker);
-        scheduler.start();
-        return scheduler;
-    }
-
-    public void start()
-    {
-        schedulerExecutor.submit(this::runScheduler);
+        return new FairScheduler(maxConcurrentTasks, "fair-scheduler-runner-%d", ticker);
     }
 
     public void pause()
     {
-        paused.close();
+        paused = true;
     }
 
     public void resume()
     {
-        paused.open();
+        paused = false;
+        dispatch();
     }
 
     @Override
@@ -139,7 +146,6 @@ public final class FairScheduler
             }
 
             taskExecutor.shutdownNow();
-            schedulerExecutor.shutdownNow();
         }
         finally {
             lifecycleLock.writeLock().unlock();
@@ -153,6 +159,24 @@ public final class FairScheduler
             checkArgument(!closed, "Already closed");
 
             Group group = new Group(name);
+            queue.startGroup(group);
+
+            return group;
+        }
+        finally {
+            lifecycleLock.readLock().unlock();
+        }
+    }
+
+    /// Create a group nested under `parent`. Fairness is enforced at every level: children of
+    /// `parent` share `parent`'s slice, and tasks within this group share this group's.
+    public Group createGroup(Group parent, String name)
+    {
+        lifecycleLock.readLock().lock();
+        try {
+            checkArgument(!closed, "Already closed");
+
+            Group group = new Group(parent, name);
             queue.startGroup(group);
 
             return group;
@@ -214,21 +238,23 @@ public final class FairScheduler
             // If the runner exited due to an exception in user code or
             // normally (not in response to an interruption during blocking or yield),
             // it must have had a semaphore permit reserved, so release it.
+            long delta = 0;
             if (task.getState() == TaskControl.State.RUNNING) {
+                delta = task.elapsed();
                 concurrencyControl.release(task);
             }
-            queue.finish(task.group(), task);
+            queue.finish(task.group(), task, delta);
             task.transitionToFinished();
+            dispatch();
         }
     }
 
     private boolean makeRunnableAndAwait(TaskControl task, long deltaWeight)
     {
-        if (!task.transitionToWaiting()) {
-            return false;
-        }
-
-        if (!queue.enqueue(task.group(), task, deltaWeight)) {
+        boolean enqueued = task.transitionToWaiting() && queue.enqueue(task.group(), task, deltaWeight);
+        // Dispatch even if the task was cancelled: a yield freed its slot without dispatching it.
+        dispatch();
+        if (!enqueued) {
             return false;
         }
 
@@ -245,13 +271,13 @@ public final class FairScheduler
             if (task.isReady()) {
                 // If the task was marked as ready (slot acquired) but then cancelled before
                 // awaitReady() was notified, we need to release the slot.
-                concurrencyControl.release(task);
+                release(task);
             }
             return false;
         }
 
         if (!task.transitionToRunning()) {
-            concurrencyControl.release(task);
+            release(task);
             return false;
         }
 
@@ -267,6 +293,8 @@ public final class FairScheduler
             return true;
         }
 
+        // Free the slot without dispatching it: makeRunnableAndAwait re-enqueues this task first, so
+        // it competes for the slot in fair order instead of handing it to whichever task was waiting.
         concurrencyControl.release(task);
 
         return makeRunnableAndAwait(task, delta);
@@ -274,45 +302,181 @@ public final class FairScheduler
 
     boolean block(TaskControl task, ListenableFuture<?> future)
     {
+        return blockUntil(task, future, () -> () -> {});
+    }
+
+    /// Block on `future`, donating priority to the producer groups in `producerPipelines` — e.g. the
+    /// build pipeline a probe waits on, or the co-located upstream tasks a consumer reads from over an
+    /// exchange — so their drivers run sooner. Donation is capped (see [#producersToBoost]) so a wide
+    /// fan-in does not do unbounded boost work under the scheduler lock on every block.
+    boolean blockOnProducerPipelines(TaskControl task, ListenableFuture<?> future, Collection<Group> producerPipelines)
+    {
+        return blockUntil(task, future, () -> {
+            List<Runnable> undo = new ArrayList<>();
+            // Unwind the boosts already applied if a later one throws, so a partial failure cannot
+            // leak a boost — blockUntil only guarantees the returned action runs, not this loop.
+            try {
+                for (Group producer : producersToBoost(producerPipelines)) {
+                    long rank = beginPipelineBoost(task, producer);
+                    undo.add(() -> endPipelineBoost(producer, rank));
+                }
+            }
+            catch (RuntimeException e) {
+                undo.forEach(Runnable::run);
+                throw e;
+            }
+            return () -> undo.forEach(Runnable::run);
+        });
+    }
+
+    /// The producer groups to actually boost for one block: all of them when a consumer names at most
+    /// a slot's worth, otherwise the slot-count that fair order defers most (highest virtual runtime).
+    /// Boosting is priority inheritance, so donating to a wide fan-in is safe, but a boost and an
+    /// unboost per producer under the scheduler lock on every block is not free; a producer already
+    /// near the front of fair order runs soon anyway, so the ones fair order defers most are worth it.
+    private List<Group> producersToBoost(Collection<Group> producerPipelines)
+    {
+        int limit = concurrencyControl.totalSlots();
+        if (producerPipelines.size() <= limit) {
+            return List.copyOf(producerPipelines);
+        }
+        return producerPipelines.stream()
+                .map(producer -> Map.entry(producer, queue.groupWeightOf(producer)))
+                .sorted(comparingLong((Map.Entry<Group, Long> entry) -> entry.getValue()).reversed())
+                .limit(limit)
+                .map(Map.Entry::getKey)
+                .collect(toImmutableList());
+    }
+
+    /// Release the task's slot and wait until `future` completes (or the task is cancelled or
+    /// interrupted). `beginBoost` runs only after the blocking precondition holds and the elapsed
+    /// quantum has been measured; it applies any priority donation and returns the action that
+    /// withdraws it, which always runs once the wait ends.
+    private boolean blockUntil(TaskControl task, ListenableFuture<?> future, Supplier<Runnable> beginBoost)
+    {
         checkState(task.getThread() == Thread.currentThread(), "block() may only be called from the task thread");
 
         long delta = task.elapsed();
 
+        // Free the slot, then apply the donation and charge the time this task used before
+        // dispatching it, so the next task, ideally a boosted producer, is chosen against up-to-date
+        // weights. Applying the donation only now — after the quantum is measured — means time spent
+        // waiting on boostLock is not charged as consumed quantum. The returned action withdraws the
+        // donation in the finally.
         concurrencyControl.release(task);
-
-        if (!task.transitionToBlocked()) {
-            return false;
+        Runnable onUnblocked;
+        try {
+            onUnblocked = beginBoost.get();
         }
-
-        if (!queue.block(task.group(), task, delta)) {
-            return false;
+        catch (RuntimeException e) {
+            dispatch();
+            throw e;
         }
+        try {
+            boolean blocked = task.transitionToBlocked() && queue.block(task.group(), task, delta);
+            dispatch();
+            if (!blocked) {
+                return false;
+            }
 
-        future.addListener(task::markUnblocked, MoreExecutors.directExecutor());
-        task.awaitUnblock();
+            // Register the unblock listener only after queue.block() has frozen the task out of the
+            // scheduling tree: a caller that observes listener registration (some tests do, as proof
+            // the task is frozen) must not be able to see the unblock hook before the freeze. Keep
+            // these two statements in this order.
+            future.addListener(task::markUnblocked, MoreExecutors.directExecutor());
+            task.awaitUnblock();
+        }
+        finally {
+            onUnblocked.run();
+        }
 
         return makeRunnableAndAwait(task, 0);
     }
 
-    private void runScheduler()
+    private long beginPipelineBoost(TaskControl consumer, Group producer)
     {
-        while (true) {
-            try {
-                paused.awaitOpen();
-                concurrencyControl.reserve();
-                TaskControl task = queue.dequeue(QUANTUM_NANOS);
+        boostLock.lock();
+        try {
+            long rank = queue.weightOf(consumer.group(), consumer);
+            TreeMultiset<Long> donors = pipelineBoostDonors.computeIfAbsent(producer, _ -> TreeMultiset.create());
+            donors.add(rank);
+            queue.boost(producer, donors.firstEntry().getElement());
+            return rank;
+        }
+        finally {
+            boostLock.unlock();
+        }
+    }
 
-                concurrencyControl.register(task);
-                if (!task.markReady()) {
-                    concurrencyControl.release(task);
-                }
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+    private void endPipelineBoost(Group producer, long rank)
+    {
+        boostLock.lock();
+        try {
+            TreeMultiset<Long> donors = pipelineBoostDonors.get(producer);
+            if (donors == null) {
                 return;
             }
-            catch (Exception e) {
-                LOG.error(e);
+            donors.remove(rank);
+            if (donors.isEmpty()) {
+                pipelineBoostDonors.remove(producer);
+                queue.unboost(producer);
+            }
+            else {
+                queue.boost(producer, donors.firstEntry().getElement());
+            }
+        }
+        finally {
+            boostLock.unlock();
+        }
+    }
+
+    @VisibleForTesting
+    public int pipelineBoostCount(Group pipeline)
+    {
+        boostLock.lock();
+        try {
+            TreeMultiset<Long> donors = pipelineBoostDonors.get(pipeline);
+            return donors == null ? 0 : donors.size();
+        }
+        finally {
+            boostLock.unlock();
+        }
+    }
+
+    /// The urgency rank a boosted pipeline currently carries — the most urgent (minimum) of its
+    /// donors' ranks — or [Long#MIN_VALUE] if it is not boosted.
+    @VisibleForTesting
+    public long pipelineBoostRank(Group pipeline)
+    {
+        boostLock.lock();
+        try {
+            TreeMultiset<Long> donors = pipelineBoostDonors.get(pipeline);
+            return donors == null || donors.isEmpty() ? Long.MIN_VALUE : donors.firstEntry().getElement();
+        }
+        finally {
+            boostLock.unlock();
+        }
+    }
+
+    private void release(TaskControl task)
+    {
+        concurrencyControl.release(task);
+        dispatch();
+    }
+
+    /// Hand free slots to runnable tasks in fair order, on the calling thread.
+    private void dispatch()
+    {
+        while (!paused) {
+            TaskControl task = queue.dequeue(QUANTUM_NANOS, concurrencyControl::tryReserve);
+            if (task == null) {
+                return;
+            }
+
+            concurrencyControl.register(task);
+            if (!task.markReady()) {
+                // cancelled before it could run
+                concurrencyControl.release(task);
             }
         }
     }
@@ -352,9 +516,6 @@ public final class FairScheduler
                 concurrencyControl.availableSlots()));
 
         builder.append("Reservations:\n");
-        if (concurrencyControl.totalSlots() - concurrencyControl.availableSlots() == 1) {
-            builder.append("    (pending)\n");
-        }
         concurrencyControl.reservations().forEach(reservation ->
                 builder.append("    ")
                         .append(reservation)
@@ -376,11 +537,6 @@ public final class FairScheduler
     //
     // STATS, exposed from ThreadPerDriverTaskExecutor
     //
-    public ThreadPoolExecutorMBean getSchedulerExecutor()
-    {
-        return schedulerExecutorMBean;
-    }
-
     public ThreadPoolExecutorMBean getTaskExecutor()
     {
         return executorMBean;

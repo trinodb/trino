@@ -19,7 +19,9 @@ import io.trino.operator.join.JoinOperatorFactory;
 import io.trino.operator.join.spilling.LookupJoinOperatorFactory;
 import io.trino.spi.Page;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -119,6 +121,16 @@ public class WorkProcessorOperatorAdapter
         }
 
         return pages.getBlockedFuture();
+    }
+
+    @Override
+    public List<Integer> getBlockedProducerPipelines()
+    {
+        if (!pages.isBlocked()) {
+            return List.of();
+        }
+        OptionalInt pipeline = pages.getBlockedProducerPipeline();
+        return pipeline.isPresent() ? List.of(pipeline.orElseThrow()) : List.of();
     }
 
     @Override
