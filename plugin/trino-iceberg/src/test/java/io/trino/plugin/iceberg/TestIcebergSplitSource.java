@@ -143,6 +143,21 @@ public class TestIcebergSplitSource
                     .getSessionProperties())
             .build();
 
+    private static final EncryptionManager NON_NATIVE_ENCRYPTION_MANAGER = new EncryptionManager()
+    {
+        @Override
+        public InputFile decrypt(EncryptedInputFile encrypted)
+        {
+            return encrypted.encryptedInputFile();
+        }
+
+        @Override
+        public EncryptedOutputFile encrypt(OutputFile rawOutput)
+        {
+            throw new UnsupportedOperationException();
+        }
+    };
+
     private TrinoFileSystemFactory fileSystemFactory;
     private TrinoCatalog catalog;
     private HiveMetastore metastore;
@@ -722,6 +737,16 @@ public class TestIcebergSplitSource
                 fileIo,
                 encryptionManager))
                 .hasMessageContaining("Reading encrypted non-Parquet file is not supported");
+
+        // Key metadata that does not resolve to a natively encrypted file must not be read as plaintext
+        assertThatThrownBy(() -> parquetFileDecryptionData(
+                FileFormat.PARQUET,
+                "memory:///test.parquet",
+                10,
+                keyMetadata,
+                fileIo,
+                NON_NATIVE_ENCRYPTION_MANAGER))
+                .hasMessageContaining("Reading file with non-native encryption is not supported");
 
         assertThat(parquetFileDecryptionData(
                 FileFormat.PARQUET,

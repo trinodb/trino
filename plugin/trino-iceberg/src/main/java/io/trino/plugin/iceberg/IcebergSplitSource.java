@@ -749,7 +749,7 @@ public class IcebergSplitSource
         InputFile inputFile = encryptionManager.decrypt(encryptedInputFile);
 
         if (!(inputFile instanceof NativeEncryptionInputFile nativeEncryptionInputFile)) {
-            return Optional.empty();
+            throw new TrinoException(NOT_SUPPORTED, "Reading file with non-native encryption is not supported: " + location);
         }
 
         NativeEncryptionKeyMetadata nativeKeyMetadata = nativeEncryptionInputFile.keyMetadata();
