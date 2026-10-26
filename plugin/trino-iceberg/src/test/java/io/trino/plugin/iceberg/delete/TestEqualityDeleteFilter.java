@@ -563,6 +563,7 @@ class TestEqualityDeleteFilter
                 sequenceNumber,
                 OptionalLong.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
