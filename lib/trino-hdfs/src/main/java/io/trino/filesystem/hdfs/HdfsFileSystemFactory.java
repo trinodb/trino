@@ -21,6 +21,8 @@ import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.spi.security.ConnectorIdentity;
 
+import java.util.function.Supplier;
+
 import static java.util.Objects.requireNonNull;
 
 public class HdfsFileSystemFactory
@@ -37,8 +39,8 @@ public class HdfsFileSystemFactory
     }
 
     @Override
-    public TrinoFileSystem create(ConnectorIdentity identity)
+    public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
     {
-        return new HdfsFileSystem(environment, new HdfsContext(identity), fileSystemStats);
+        return new HdfsFileSystem(environment, new HdfsContext(identitySupplier.get()), fileSystemStats);
     }
 }

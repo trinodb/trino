@@ -20,15 +20,15 @@ import java.util.function.Supplier;
 
 public interface TrinoFileSystemFactory
 {
-    TrinoFileSystem create(ConnectorIdentity identity);
+    TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier);
+
+    default TrinoFileSystem create(ConnectorIdentity identity)
+    {
+        return create(() -> identity);
+    }
 
     default TrinoFileSystem create(ConnectorSession session)
     {
         return create(session.getIdentity());
-    }
-
-    default TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
-    {
-        return create(identitySupplier.get());
     }
 }

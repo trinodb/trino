@@ -14,8 +14,6 @@
 package io.trino.filesystem.gcs;
 
 import com.google.auth.Credentials;
-import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.NoCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +26,6 @@ import java.net.URI;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
-import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,7 +40,7 @@ final class TestGcsStorageFactory
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
 
         try {
-            Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
+            Storage storage = storageFactory.create(() -> ConnectorIdentity.ofUser("test"));
             Credentials actualCredentials = storage.getOptions().getCredentials();
             assertThat(actualCredentials).isNotNull();
         }
@@ -64,13 +61,9 @@ final class TestGcsStorageFactory
                         EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "ya29.test-token"))
                 .build();
 
-        try (Storage storage = storageFactory.create(identity)) {
-            Credentials credentials = storage.getOptions().getCredentials();
-            assertThat(credentials).isInstanceOf(GoogleCredentials.class);
-            GoogleCredentials googleCredentials = (GoogleCredentials) credentials;
-            AccessToken accessToken = googleCredentials.getAccessToken();
-            assertThat(accessToken).isNotNull();
-            assertThat(accessToken.getTokenValue()).isEqualTo("ya29.test-token");
+        try (Storage storage = storageFactory.create(() -> identity)) {
+            assertThat(storage.getOptions().getCredentials().getRequestMetadata(URI.create("https://storage.googleapis.com")))
+                    .isEqualTo(ImmutableMap.of(AUTHORIZATION, ImmutableList.of("Bearer ya29.test-token")));
         }
     }
 
@@ -82,8 +75,8 @@ final class TestGcsStorageFactory
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
 
         try {
-            Storage first = storageFactory.create(ConnectorIdentity.ofUser("test"));
-            Storage second = storageFactory.create(ConnectorIdentity.ofUser("test"));
+            Storage first = storageFactory.create(() -> ConnectorIdentity.ofUser("test"));
+            Storage second = storageFactory.create(() -> ConnectorIdentity.ofUser("test"));
 
             assertThat(second).isSameAs(first);
         }
@@ -108,8 +101,8 @@ final class TestGcsStorageFactory
                         EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "ya29.second-token"))
                 .build();
 
-        try (Storage first = storageFactory.create(firstIdentity);
-                Storage second = storageFactory.create(secondIdentity)) {
+        try (Storage first = storageFactory.create(() -> firstIdentity);
+                Storage second = storageFactory.create(() -> secondIdentity)) {
             assertThat(second).isNotSameAs(first);
         }
     }
@@ -121,34 +114,9 @@ final class TestGcsStorageFactory
         GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.ACCESS_TOKEN);
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, (builder, _) -> builder.setCredentials(NoCredentials.getInstance()));
 
-        try (Storage first = storageFactory.create(ConnectorIdentity.ofUser("test"));
-                Storage second = storageFactory.create(ConnectorIdentity.ofUser("test"))) {
+        try (Storage first = storageFactory.create(() -> ConnectorIdentity.ofUser("test"));
+                Storage second = storageFactory.create(() -> ConnectorIdentity.ofUser("test"))) {
             assertThat(second).isNotSameAs(first);
-        }
-    }
-
-    @Test
-    void testVendedOAuthTokenWithExpiration()
-            throws Exception
-    {
-        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
-
-        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
-                .withExtraCredentials(ImmutableMap.of(
-                        EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "ya29.test-token",
-                        EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY, "1700000000000"))
-                .build();
-
-        try (Storage storage = storageFactory.create(identity)) {
-            Credentials credentials = storage.getOptions().getCredentials();
-            assertThat(credentials).isInstanceOf(GoogleCredentials.class);
-            GoogleCredentials googleCredentials = (GoogleCredentials) credentials;
-            AccessToken accessToken = googleCredentials.getAccessToken();
-            assertThat(accessToken).isNotNull();
-            assertThat(accessToken.getTokenValue()).isEqualTo("ya29.test-token");
-            assertThat(accessToken.getExpirationTime()).isNotNull();
-            assertThat(accessToken.getExpirationTime().getTime()).isEqualTo(1700000000000L);
         }
     }
 
@@ -167,7 +135,7 @@ final class TestGcsStorageFactory
                         EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY, "vended-project"))
                 .build();
 
-        try (Storage storage = storageFactory.create(identity)) {
+        try (Storage storage = storageFactory.create(() -> identity)) {
             assertThat(storage.getOptions().getProjectId()).isEqualTo("vended-project");
         }
     }
@@ -182,7 +150,7 @@ final class TestGcsStorageFactory
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
 
         try {
-            Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
+            Storage storage = storageFactory.create(() -> ConnectorIdentity.ofUser("test"));
             assertThat(storage.getOptions().getProjectId()).isEqualTo("static-project");
             assertThat(storage.getOptions().getCredentials()).isNotNull();
         }

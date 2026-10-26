@@ -59,7 +59,8 @@ final class TestIcebergRestCatalogFileSystemFactory
     void testS3VendedCredentials()
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             capturedIdentity.set(identity);
             return new MockTrinoFileSystem();
         };
@@ -85,7 +86,8 @@ final class TestIcebergRestCatalogFileSystemFactory
     void testGcsVendedCredentialsWithOAuthTokenOnly()
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             capturedIdentity.set(identity);
             return new MockTrinoFileSystem();
         };
@@ -109,7 +111,8 @@ final class TestIcebergRestCatalogFileSystemFactory
     void testGcsVendedCredentialsWithAllProperties()
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             capturedIdentity.set(identity);
             return new MockTrinoFileSystem();
         };
@@ -136,7 +139,8 @@ final class TestIcebergRestCatalogFileSystemFactory
     void testGcsVendedCredentialsDisabled()
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             capturedIdentity.set(identity);
             return null;
         };
@@ -171,7 +175,8 @@ final class TestIcebergRestCatalogFileSystemFactory
     void testAzureVendedCredentialsWithSingleAccount()
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             capturedIdentity.set(identity);
             return new MockTrinoFileSystem();
         };
@@ -193,7 +198,8 @@ final class TestIcebergRestCatalogFileSystemFactory
     void testAzureVendedCredentialsWithMultipleAccounts()
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             capturedIdentity.set(identity);
             return new MockTrinoFileSystem();
         };
@@ -217,7 +223,8 @@ final class TestIcebergRestCatalogFileSystemFactory
     void testAzureVendedCredentialsWithExpiration()
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             capturedIdentity.set(identity);
             return new MockTrinoFileSystem();
         };
@@ -238,7 +245,8 @@ final class TestIcebergRestCatalogFileSystemFactory
     void testAzureVendedCredentialsDisabled()
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             capturedIdentity.set(identity);
             return new MockTrinoFileSystem();
         };
@@ -260,7 +268,8 @@ final class TestIcebergRestCatalogFileSystemFactory
     void testS3StorageCredentialsSinglePrefix()
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             capturedIdentity.set(identity);
             return new MockTrinoFileSystem();
         };
@@ -286,7 +295,8 @@ final class TestIcebergRestCatalogFileSystemFactory
     void testS3StorageCredentialsSinglePrefixIcebergTableCredentials()
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             capturedIdentity.set(identity);
             return new MockTrinoFileSystem();
         };
@@ -313,7 +323,8 @@ final class TestIcebergRestCatalogFileSystemFactory
         AtomicReference<ConnectorIdentity> capturedIdentityA = new AtomicReference<>();
         AtomicReference<ConnectorIdentity> capturedIdentityB = new AtomicReference<>();
         AtomicReference<ConnectorIdentity> capturedIdentityRoot = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             switch (identity.getExtraCredentials().getOrDefault(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "")) {
                 case "key-a" -> capturedIdentityA.set(identity);
                 case "key-b" -> capturedIdentityB.set(identity);
@@ -363,7 +374,8 @@ final class TestIcebergRestCatalogFileSystemFactory
         AtomicReference<ConnectorIdentity> capturedIdentityB = new AtomicReference<>();
         AtomicReference<ConnectorIdentity> capturedIdentityRoot = new AtomicReference<>();
         List<Collection<Location>> deletedFilesCollections = new ArrayList<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             switch (identity.getExtraCredentials().getOrDefault(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "")) {
                 case "key-a" -> capturedIdentityA.set(identity);
                 case "key-b" -> capturedIdentityB.set(identity);
@@ -464,7 +476,8 @@ final class TestIcebergRestCatalogFileSystemFactory
     void testGcsStorageCredentialsSinglePrefix()
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             capturedIdentity.set(identity);
             return new MockTrinoFileSystem();
         };
@@ -487,7 +500,8 @@ final class TestIcebergRestCatalogFileSystemFactory
     {
         AtomicReference<ConnectorIdentity> capturedIdentityA = new AtomicReference<>();
         AtomicReference<ConnectorIdentity> capturedIdentityB = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
+        TrinoFileSystemFactory delegate = identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
             if (identity.getExtraCredentials().getOrDefault(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "").equals("ya29.token-a")) {
                 capturedIdentityA.set(identity);
             }

@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 
 public interface DeltaLakeFileSystemFactory
         extends TrinoFileSystemFactory
@@ -29,6 +30,18 @@ public interface DeltaLakeFileSystemFactory
      * For external table create/write using location
      */
     TrinoFileSystem create(ConnectorSession session, String tableLocation);
+
+    /**
+     * @deprecated Use {@link #create(ConnectorSession, Optional)} or {@link #create(ConnectorSession, String)}
+     *         instead. The new methods can potentially support vending credentials and may pass more information
+     *         when creating {@link TrinoFileSystem} in the future.
+     */
+    @Deprecated
+    @Override
+    default TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * @deprecated Use {@link #create(ConnectorSession, Optional)} or {@link #create(ConnectorSession, String)}

@@ -15,6 +15,7 @@ package io.trino.filesystem.azure;
 
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,7 +25,7 @@ final class TestAzureAuthSasToken
     @Test
     void testMissingSasTokenThrowsException()
     {
-        AzureAuthSasToken auth = new AzureAuthSasToken(ImmutableMap.of("account1", "sas-token-1"));
+        AzureAuthSasToken auth = new AzureAuthSasToken(ImmutableMap.of("account1", "sas-token-1"), () -> ConnectorIdentity.ofUser("test"));
 
         assertThatThrownBy(() -> auth.setAuth("nonexistent", new BlobContainerClientBuilder()))
                 .isInstanceOf(IllegalStateException.class)

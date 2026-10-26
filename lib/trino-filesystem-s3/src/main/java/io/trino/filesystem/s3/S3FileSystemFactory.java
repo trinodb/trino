@@ -55,12 +55,6 @@ public final class S3FileSystemFactory
     }
 
     @Override
-    public TrinoFileSystem create(ConnectorIdentity identity)
-    {
-        return new S3FileSystem(uploadExecutor, client, preSigner, context.withCredentials(identity));
-    }
-
-    @Override
     public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
     {
         return new S3FileSystem(uploadExecutor, client, preSigner, context.withCredentials(identitySupplier));

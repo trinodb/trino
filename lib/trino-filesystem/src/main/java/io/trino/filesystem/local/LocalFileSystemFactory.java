@@ -19,6 +19,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.nio.file.Path;
+import java.util.function.Supplier;
 
 /**
  * A hierarchical file system for testing.
@@ -40,7 +41,7 @@ public class LocalFileSystemFactory
     }
 
     @Override
-    public TrinoFileSystem create(ConnectorIdentity identity)
+    public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
     {
         return fileSystem;
     }

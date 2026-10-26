@@ -22,7 +22,6 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.io.IOException;
@@ -33,25 +32,18 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 
 final class SwitchingFileSystem
         implements TrinoFileSystem
 {
-    private final Optional<ConnectorSession> session;
-    private final Optional<Supplier<ConnectorIdentity>> identitySupplier;
+    private final Supplier<ConnectorIdentity> identitySupplier;
     private final Function<Location, TrinoFileSystemFactory> loader;
 
-    public SwitchingFileSystem(
-            Optional<ConnectorSession> session,
-            Optional<Supplier<ConnectorIdentity>> identitySupplier,
-            Function<Location, TrinoFileSystemFactory> loader)
+    public SwitchingFileSystem(Supplier<ConnectorIdentity> identitySupplier, Function<Location, TrinoFileSystemFactory> loader)
     {
-        checkArgument(session.isPresent() != identitySupplier.isPresent(), "exactly one of session and identity must be present");
-        this.session = session;
-        this.identitySupplier = identitySupplier;
+        this.identitySupplier = requireNonNull(identitySupplier, "identitySupplier is null");
         this.loader = requireNonNull(loader, "loader is null");
     }
 
@@ -204,7 +196,6 @@ final class SwitchingFileSystem
 
     private TrinoFileSystem createFileSystem(TrinoFileSystemFactory factory)
     {
-        return session.map(factory::create).orElseGet(() ->
-                factory.create(identitySupplier.orElseThrow()));
+        return factory.create(identitySupplier);
     }
 }

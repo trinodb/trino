@@ -38,7 +38,6 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -113,7 +112,7 @@ final class TestAzureFileSystemCredentialsRefresh
                 (_, next) -> next.process(),
                 uploadExecutor,
                 new TracingOptions(),
-                new AzureAuthSasToken(ImmutableMap.of(ACCOUNT, sasToken("initial")), Optional.of(identitySupplier)),
+                new AzureAuthSasToken(ImmutableMap.of(ACCOUNT, sasToken("initial")), identitySupplier),
                 "core.windows.net",
                 DataSize.of(4, MEGABYTE),
                 WRITE_BLOCK_SIZE,

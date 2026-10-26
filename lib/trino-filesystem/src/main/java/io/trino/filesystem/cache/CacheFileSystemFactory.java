@@ -39,12 +39,6 @@ public final class CacheFileSystemFactory
     }
 
     @Override
-    public TrinoFileSystem create(ConnectorIdentity identity)
-    {
-        return new CacheFileSystem(delegate.create(identity), cache, keyProvider);
-    }
-
-    @Override
     public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
     {
         return new CacheFileSystem(delegate.create(identitySupplier), cache, keyProvider);

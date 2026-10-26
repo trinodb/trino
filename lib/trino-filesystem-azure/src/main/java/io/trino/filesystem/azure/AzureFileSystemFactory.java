@@ -34,7 +34,6 @@ import reactor.netty.resources.ConnectionProvider;
 
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
@@ -146,22 +145,15 @@ public class AzureFileSystemFactory
     }
 
     @Override
-    public TrinoFileSystem create(ConnectorIdentity identity)
-    {
-        AzureAuth effectiveAuth = getEffectiveAuth(identity, Optional.empty());
-        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
-    }
-
-    @Override
     public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
     {
-        AzureAuth effectiveAuth = getEffectiveAuth(identitySupplier.get(), Optional.of(identitySupplier));
+        AzureAuth effectiveAuth = getEffectiveAuth(identitySupplier);
         return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
     }
 
-    private AzureAuth getEffectiveAuth(ConnectorIdentity identity, Optional<Supplier<ConnectorIdentity>> identitySupplier)
+    private AzureAuth getEffectiveAuth(Supplier<ConnectorIdentity> identitySupplier)
     {
-        Map<String, String> sasTokens = identity.getExtraCredentials().entrySet().stream()
+        Map<String, String> sasTokens = identitySupplier.get().getExtraCredentials().entrySet().stream()
                 .filter(e -> e.getKey().startsWith(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX))
                 .collect(toImmutableMap(e -> e.getKey().substring(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX.length()), Entry::getValue));
         if (!sasTokens.isEmpty()) {

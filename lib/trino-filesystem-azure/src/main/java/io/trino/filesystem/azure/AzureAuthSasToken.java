@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -31,14 +30,9 @@ public final class AzureAuthSasToken
         implements AzureAuth
 {
     private final Map<String, String> sasTokens;
-    private final Optional<Supplier<ConnectorIdentity>> identitySupplier;
+    private final Supplier<ConnectorIdentity> identitySupplier;
 
-    public AzureAuthSasToken(Map<String, String> sasTokens)
-    {
-        this(sasTokens, Optional.empty());
-    }
-
-    public AzureAuthSasToken(Map<String, String> sasTokens, Optional<Supplier<ConnectorIdentity>> identitySupplier)
+    public AzureAuthSasToken(Map<String, String> sasTokens, Supplier<ConnectorIdentity> identitySupplier)
     {
         this.sasTokens = ImmutableMap.copyOf(sasTokens);
         this.identitySupplier = requireNonNull(identitySupplier, "identitySupplier is null");
@@ -47,26 +41,16 @@ public final class AzureAuthSasToken
     @Override
     public void setAuth(String storageAccount, BlobContainerClientBuilder builder)
     {
-        if (identitySupplier.isPresent()) {
-            installCredentialRefresher(storageAccount, builder, identitySupplier.get());
-        }
-        else {
-            builder.sasToken(sasToken(storageAccount));
-        }
+        installCredentialRefresher(storageAccount, builder);
     }
 
     @Override
     public void setAuth(String storageAccount, DataLakeServiceClientBuilder builder)
     {
-        if (identitySupplier.isPresent()) {
-            installCredentialRefresher(storageAccount, builder, identitySupplier.get());
-        }
-        else {
-            builder.sasToken(sasToken(storageAccount));
-        }
+        installCredentialRefresher(storageAccount, builder);
     }
 
-    private <T extends HttpTrait<T> & AzureSasCredentialTrait<T>> void installCredentialRefresher(String storageAccount, T builder, Supplier<ConnectorIdentity> identitySupplier)
+    private <T extends HttpTrait<T> & AzureSasCredentialTrait<T>> void installCredentialRefresher(String storageAccount, T builder)
     {
         AzureSasCredential credential = new AzureSasCredential(sasToken(storageAccount));
         builder.credential(credential);

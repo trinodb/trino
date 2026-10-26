@@ -14,9 +14,6 @@
 package io.trino.filesystem.gcs;
 
 import com.google.api.gax.retrying.RetrySettings;
-import com.google.auth.Credentials;
-import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.google.inject.Inject;
@@ -26,8 +23,6 @@ import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -35,7 +30,6 @@ import java.util.function.Supplier;
 import static com.google.cloud.storage.StorageRetryStrategy.getUniformStorageRetryStrategy;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType.ACCESS_TOKEN;
-import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
 import static java.util.Objects.requireNonNull;
@@ -70,29 +64,16 @@ public class GcsStorageFactory
         this.applicationId = config.getApplicationId();
     }
 
-    public Storage create(ConnectorIdentity identity)
-    {
-        return create(identity, Optional.empty());
-    }
-
     public Storage create(Supplier<ConnectorIdentity> identitySupplier)
     {
         ConnectorIdentity identity = identitySupplier.get();
-        if (!identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY)) {
-            return create(identity);
-        }
-        return create(identity, Optional.of(identitySupplier));
-    }
-
-    private Storage create(ConnectorIdentity identity, Optional<Supplier<ConnectorIdentity>> identitySupplier)
-    {
         if (isCacheable(identity)) {
             Storage storage = cachedStorage;
             if (storage == null) {
                 synchronized (this) {
                     storage = cachedStorage;
                     if (storage == null) {
-                        storage = createStorage(identity, Optional.empty());
+                        storage = createStorage(identity, identitySupplier);
                         cachedStorage = storage;
                     }
                 }
@@ -118,7 +99,7 @@ public class GcsStorageFactory
         return authType != ACCESS_TOKEN && !identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY);
     }
 
-    private Storage createStorage(ConnectorIdentity identity, Optional<Supplier<ConnectorIdentity>> identitySupplier)
+    private Storage createStorage(ConnectorIdentity identity, Supplier<ConnectorIdentity> identitySupplier)
     {
         try {
             StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
@@ -152,10 +133,10 @@ public class GcsStorageFactory
         }
     }
 
-    private boolean setOAuthCredentials(StorageOptions.Builder builder, ConnectorIdentity identity, Optional<Supplier<ConnectorIdentity>> identitySupplier)
+    private boolean setOAuthCredentials(StorageOptions.Builder builder, ConnectorIdentity identity, Supplier<ConnectorIdentity> identitySupplier)
     {
         if (identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY)) {
-            builder.setCredentials(oauthCredentials(identity.getExtraCredentials(), identitySupplier));
+            builder.setCredentials(new IdentityOAuthCredentials(identitySupplier));
 
             String effectiveProjectId = identity.getExtraCredentials().getOrDefault(EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY, projectId);
             if (effectiveProjectId != null) {
@@ -164,23 +145,5 @@ public class GcsStorageFactory
             return true;
         }
         return false;
-    }
-
-    private static Credentials oauthCredentials(Map<String, String> extraCredentials, Optional<Supplier<ConnectorIdentity>> identitySupplier)
-    {
-        if (identitySupplier.isPresent()) {
-            return new IdentityOAuthCredentials(identitySupplier.get());
-        }
-        return GoogleCredentials.create(toAccessToken(extraCredentials));
-    }
-
-    private static AccessToken toAccessToken(Map<String, String> extraCredentials)
-    {
-        String accessToken = extraCredentials.get(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY);
-        Optional<Date> expireAt = Optional.ofNullable(extraCredentials.get(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY))
-                .map(Long::parseLong)
-                .map(Instant::ofEpochMilli)
-                .map(Date::from);
-        return new AccessToken(accessToken, expireAt.orElse(null));
     }
 }

@@ -69,7 +69,7 @@ public abstract class AbstractTestGcsFileSystem
     {
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, gcsAuth);
         this.gcsFileSystemFactory = new GcsFileSystemFactory(config, storageFactory);
-        this.storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
+        this.storage = storageFactory.create(() -> ConnectorIdentity.ofUser("test"));
         String bucket = RemoteStorageHelper.generateBucketName();
         storage.create(BucketInfo.of(bucket));
         this.rootLocation = Location.of("gs://%s/".formatted(bucket));

@@ -59,12 +59,6 @@ public class GcsFileSystemFactory
     }
 
     @Override
-    public TrinoFileSystem create(ConnectorIdentity identity)
-    {
-        return new GcsFileSystem(executorService, storageFactory.create(identity), readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, endpoint);
-    }
-
-    @Override
     public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
     {
         return new GcsFileSystem(executorService, storageFactory.create(identitySupplier), readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, endpoint);

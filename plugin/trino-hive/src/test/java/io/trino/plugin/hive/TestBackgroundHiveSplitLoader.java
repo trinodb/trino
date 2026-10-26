@@ -84,6 +84,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -1448,7 +1449,7 @@ public class TestBackgroundHiveSplitLoader
             implements TrinoFileSystemFactory
     {
         @Override
-        public TrinoFileSystem create(ConnectorIdentity identity)
+        public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
         {
             return new TrinoFileSystem()
             {
