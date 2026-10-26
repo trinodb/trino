@@ -27,6 +27,7 @@ import org.testng.ITestResult;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -64,6 +65,7 @@ public class LogTestDurationListener
     private final ScheduledExecutorService scheduledExecutorService;
 
     private final Map<String, Long> started = new ConcurrentHashMap<>();
+    private final Map<String, Integer> activeClassInstances = new ConcurrentHashMap<>();
     private final AtomicLong lastChange = new AtomicLong(System.nanoTime());
     private final AtomicBoolean hangLogged = new AtomicBoolean();
     private final AtomicBoolean finished = new AtomicBoolean();
@@ -179,7 +181,7 @@ public class LogTestDurationListener
         }
 
         try {
-            beginTest(formatTestName(testClass));
+            beginClass(formatTestName(testClass));
         }
         catch (RuntimeException | Error e) {
             reportListenerFailure(LogTestDurationListener.class, "onBeforeClass: \n%s", getStackTraceAsString(e));
@@ -195,10 +197,11 @@ public class LogTestDurationListener
 
         try {
             String name = formatTestName(testClass);
-            Duration duration = endTest(name);
-            if (duration.compareTo(CLASS_LOGGING_THRESHOLD) > 0) {
-                LOG.warn("Tests from %s took %s", name, duration);
-            }
+            endClass(name).ifPresent(duration -> {
+                if (duration.compareTo(CLASS_LOGGING_THRESHOLD) > 0) {
+                    LOG.warn("Tests from %s took %s", name, duration);
+                }
+            });
         }
         catch (RuntimeException | Error e) {
             reportListenerFailure(LogTestDurationListener.class, "onAfterClass: \n%s", getStackTraceAsString(e));
@@ -239,12 +242,36 @@ public class LogTestDurationListener
         }
     }
 
+    private void beginClass(String name)
+    {
+        resetHangMonitor();
+        // Each @Factory instance of a class starts and finishes separately, and without
+        // TestNG grouping by instances those can overlap. The class is running from the first
+        // instance start until the last instance finish.
+        activeClassInstances.merge(name, 1, Integer::sum);
+        started.putIfAbsent(name, System.nanoTime());
+    }
+
+    /**
+     * @return class duration, or empty if other instances of the class are still running
+     */
+    private Optional<Duration> endClass(String name)
+    {
+        resetHangMonitor();
+        if (activeClassInstances.computeIfPresent(name, (_, instances) -> instances == 1 ? null : instances - 1) != null) {
+            return Optional.empty();
+        }
+        Long startTime = started.remove(name);
+        checkState(startTime != null, "There is no start record for test: %s", name);
+        return Optional.of(nanosSince(startTime));
+    }
+
     private void beginTest(String name)
     {
         resetHangMonitor();
         Long existingEntry = started.putIfAbsent(name, System.nanoTime());
-        // You can get concurrent tests with the same name when using @Factory.  Instead of adding complex support for
-        // having multiple running tests with the same name, we simply don't use @Factory.
+        // Test methods are expected to run sequentially, including those of different @Factory instances (e.g. when the
+        // test class is @Test(singleThreaded = true)). Concurrent invocations of the same method are not supported.
         checkState(existingEntry == null, "There already is a start record for test: %s", name);
     }
 
