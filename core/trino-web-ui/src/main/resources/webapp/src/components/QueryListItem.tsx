@@ -80,7 +80,10 @@ const stripQueryTextWhitespace = (queryText: string) => {
             if (i < maxLines - 1) {
                 formattedQueryText += '\n'
             } else {
-                formattedQueryText += '\n...'
+                const hasMoreNonBlankLines = lines.slice(i + 1).some((line) => line.trim().length > 0)
+                if (hasMoreNonBlankLines) {
+                    formattedQueryText += '\n...'
+                }
                 break
             }
         }
@@ -320,6 +323,12 @@ const QueryMemory = React.memo(function QueryMemory(props: {
 export const QueryListItem = React.memo(function QueryListItem(props: IQueryListItemProps) {
     const { queryInfo } = props
 
+    const preparedQueryPreview = queryInfo.preparedQueryPreview
+    const isPreparedQuery = preparedQueryPreview != null
+    const formattedPreparedQueryText = useMemo(
+        () => stripQueryTextWhitespace(preparedQueryPreview ?? ''),
+        [preparedQueryPreview]
+    )
     const formattedQueryText = useMemo(
         () => stripQueryTextWhitespace(queryInfo.queryTextPreview),
         [queryInfo.queryTextPreview]
@@ -367,7 +376,28 @@ export const QueryListItem = React.memo(function QueryListItem(props: IQueryList
                                 width: '100%',
                             }}
                         >
-                            <CodePreview code={formattedQueryText} height="158px" />
+                            <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+                                {isPreparedQuery ? (
+                                    <>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Typography variant="caption" color="text.secondary">
+                                                Prepared query
+                                            </Typography>
+                                            <CodePreview code={formattedPreparedQueryText} height="158px" />
+                                        </Box>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Typography variant="caption" color="text.secondary">
+                                                Query
+                                            </Typography>
+                                            <CodePreview code={formattedQueryText} height="158px" />
+                                        </Box>
+                                    </>
+                                ) : (
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <CodePreview code={formattedQueryText} height="158px" />
+                                    </Box>
+                                )}
+                            </Box>
                         </Grid>
                     </Grid>
                 </Stack>

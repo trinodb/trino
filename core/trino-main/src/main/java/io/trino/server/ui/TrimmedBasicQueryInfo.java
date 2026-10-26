@@ -14,6 +14,7 @@
 package io.trino.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.execution.QueryState;
 import io.trino.operator.RetryPolicy;
@@ -30,12 +31,14 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Character.isHighSurrogate;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TrimmedBasicQueryInfo
 {
-    private static final int MAX_QUERY_PREVIEW_LENGTH = 300;
+    @VisibleForTesting
+    static final int MAX_QUERY_PREVIEW_LENGTH = 300;
 
     private final QueryId queryId;
     private final String sessionUser;
@@ -48,7 +51,7 @@ public class TrimmedBasicQueryInfo
     private final URI self;
     private final String queryTextPreview;
     private final Optional<String> updateType;
-    private final Optional<String> preparedQuery;
+    private final Optional<String> preparedQueryPreview;
     private final BasicQueryStats queryStats;
     private final Optional<ErrorType> errorType;
     private final Optional<ErrorCode> errorCode;
@@ -70,20 +73,28 @@ public class TrimmedBasicQueryInfo
         this.errorCode = Optional.ofNullable(queryInfo.getErrorCode());
         this.scheduled = queryInfo.isScheduled();
         this.self = requireNonNull(queryInfo.getSelf(), "self is null");
-        String queryText = requireNonNull(queryInfo.getQuery(), "query is null");
-        if (queryText.length() <= MAX_QUERY_PREVIEW_LENGTH) {
-            this.queryTextPreview = queryText;
-        }
-        else {
-            this.queryTextPreview = queryText.substring(0, MAX_QUERY_PREVIEW_LENGTH - 1) + " ...";
-        }
+        this.queryTextPreview = truncateToPreview(requireNonNull(queryInfo.getQuery(), "query is null"));
         this.updateType = requireNonNull(queryInfo.getUpdateType(), "updateType is null");
-        this.preparedQuery = requireNonNull(queryInfo.getPreparedQuery(), "preparedQuery is null");
+        this.preparedQueryPreview = requireNonNull(queryInfo.getPreparedQuery(), "preparedQuery is null")
+                .map(TrimmedBasicQueryInfo::truncateToPreview);
         this.queryStats = requireNonNull(queryInfo.getQueryStats(), "queryStats is null");
         this.queryType = requireNonNull(queryInfo.getQueryType(), "queryType is null");
         this.retryPolicy = requireNonNull(queryInfo.getRetryPolicy(), "retryPolicy is null");
         this.clientTags = Optional.ofNullable(queryInfo.getSession().getClientTags());
         this.traceToken = requireNonNull(queryInfo.getSession().getTraceToken(), "traceToken is null");
+    }
+
+    @VisibleForTesting
+    static String truncateToPreview(String queryText)
+    {
+        if (queryText.length() <= MAX_QUERY_PREVIEW_LENGTH) {
+            return queryText;
+        }
+        int end = MAX_QUERY_PREVIEW_LENGTH - 1;
+        if (isHighSurrogate(queryText.charAt(end - 1))) {
+            end--;
+        }
+        return queryText.substring(0, end) + " ...";
     }
 
     @JsonProperty
@@ -153,9 +164,9 @@ public class TrimmedBasicQueryInfo
     }
 
     @JsonProperty
-    public Optional<String> getPreparedQuery()
+    public Optional<String> getPreparedQueryPreview()
     {
-        return preparedQuery;
+        return preparedQueryPreview;
     }
 
     @JsonProperty
