@@ -27,6 +27,7 @@ import io.trino.metadata.CatalogFunctionMetadata;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.InsertTableHandle;
 import io.trino.metadata.MaterializedViewDefinition;
+import io.trino.metadata.MaterializedViewDependencies;
 import io.trino.metadata.MergeHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
@@ -1599,6 +1600,15 @@ public class TracingMetadata
         Span span = startSpan("getMaterializedViewFreshness", name);
         try (var _ = scopedSpan(span)) {
             return delegate.getMaterializedViewFreshness(session, name, considerGracePeriod);
+        }
+    }
+
+    @Override
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name, boolean considerGracePeriod, MaterializedViewDependencies dependencies)
+    {
+        Span span = startSpan("getMaterializedViewFreshness", name);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getMaterializedViewFreshness(session, name, considerGracePeriod, dependencies);
         }
     }
 

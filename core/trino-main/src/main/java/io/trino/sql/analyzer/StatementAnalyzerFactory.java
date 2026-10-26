@@ -85,6 +85,11 @@ public class StatementAnalyzerFactory
                 tableProceduresPropertyManager);
     }
 
+    public MaterializedViewFreshnessChecker createMaterializedViewFreshnessChecker()
+    {
+        return new MaterializedViewFreshnessChecker(plannerContext.getMetadata(), this, sqlParser, groupProvider);
+    }
+
     public StatementAnalyzer createStatementAnalyzer(
             Analysis analysis,
             Session session,

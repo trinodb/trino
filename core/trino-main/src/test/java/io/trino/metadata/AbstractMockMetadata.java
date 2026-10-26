@@ -1081,6 +1081,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name, boolean considerGracePeriod, MaterializedViewDependencies dependencies)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void renameMaterializedView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName)
     {
         throw new UnsupportedOperationException();

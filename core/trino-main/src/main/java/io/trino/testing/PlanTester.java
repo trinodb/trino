@@ -514,7 +514,7 @@ public class PlanTester
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata, accessControl),
                 new TableCommentSystemTable(metadata, accessControl),
-                new MaterializedViewSystemTable(metadata, accessControl),
+                new MaterializedViewSystemTable(metadata, accessControl, statementAnalyzerFactory),
                 new SchemaPropertiesSystemTable(metadata, accessControl, schemaPropertyManager),
                 new TablePropertiesSystemTable(metadata, accessControl, tablePropertyManager),
                 new MaterializedViewPropertiesSystemTable(metadata, accessControl, materializedViewPropertyManager),

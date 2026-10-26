@@ -873,6 +873,13 @@ public interface Metadata
     MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name, boolean considerGracePeriod);
 
     /**
+     * Determine the freshness of a materialized view with the help of the relations its query depends on. Used when
+     * {@link MaterializedViewFreshness#requiresDependencies()} is set on the result of
+     * {@link #getMaterializedViewFreshness(Session, QualifiedObjectName, boolean)}.
+     */
+    MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name, boolean considerGracePeriod, MaterializedViewDependencies dependencies);
+
+    /**
      * Rename the specified materialized view.
      */
     void renameMaterializedView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
