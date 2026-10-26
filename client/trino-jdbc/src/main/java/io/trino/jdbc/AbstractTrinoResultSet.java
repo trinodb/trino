@@ -129,7 +129,7 @@ abstract class AbstractTrinoResultSet
     private static final long NANOSECONDS_PER_SECOND = 1_000_000_000;
     private static final int PICOSECONDS_PER_NANOSECOND = 1_000;
 
-    static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
+    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
 
     // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
     // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 year margin.

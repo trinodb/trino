@@ -52,6 +52,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.TimeZone;
 import java.util.stream.LongStream;
 
@@ -1064,6 +1065,54 @@ public class TestJdbcPreparedStatement
         assertBind((ps, i) -> ps.setObject(i, "2001-05-06", Types.DATE), explicitPrepare)
                 .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
+
+        // BEFORE JULIAN/GREGORIAN CUTOVER
+        LocalDate dateBeforeGregorianCutover = LocalDate.of(1410, 7, 15);
+        Date sqlDateBeforeGregorianCutover = Date.valueOf(dateBeforeGregorianCutover);
+        java.util.Date javaDateBeforeGregorianCutover = new java.util.Date(sqlDateBeforeGregorianCutover.getTime());
+        LocalDateTime dateTimeBeforeGregorianCutover = LocalDateTime.of(dateBeforeGregorianCutover, LocalTime.of(15, 54, 12));
+        Timestamp sqlTimestampBeforeGregorianCutover = Timestamp.valueOf(dateTimeBeforeGregorianCutover);
+
+        assertBind((ps, i) -> ps.setDate(i, sqlDateBeforeGregorianCutover), explicitPrepare)
+                .resultsIn("date", "DATE '1410-07-15'")
+                .roundTripsAs(Types.DATE, sqlDateBeforeGregorianCutover);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlDateBeforeGregorianCutover), explicitPrepare)
+                .resultsIn("date", "DATE '1410-07-15'")
+                .roundTripsAs(Types.DATE, sqlDateBeforeGregorianCutover);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlDateBeforeGregorianCutover, Types.DATE), explicitPrepare)
+                .resultsIn("date", "DATE '1410-07-15'")
+                .roundTripsAs(Types.DATE, sqlDateBeforeGregorianCutover);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestampBeforeGregorianCutover, Types.DATE), explicitPrepare)
+                .resultsIn("date", "DATE '1410-07-15'")
+                .roundTripsAs(Types.DATE, sqlDateBeforeGregorianCutover);
+
+        assertBind((ps, i) -> ps.setObject(i, javaDateBeforeGregorianCutover, Types.DATE), explicitPrepare)
+                .resultsIn("date", "DATE '1410-07-15'")
+                .roundTripsAs(Types.DATE, sqlDateBeforeGregorianCutover);
+
+        assertBind((ps, i) -> ps.setObject(i, dateBeforeGregorianCutover, Types.DATE), explicitPrepare)
+                .resultsIn("date", "DATE '1410-07-15'")
+                .roundTripsAs(Types.DATE, sqlDateBeforeGregorianCutover);
+
+        assertBind((ps, i) -> ps.setObject(i, dateTimeBeforeGregorianCutover, Types.DATE), explicitPrepare)
+                .resultsIn("date", "DATE '1410-07-15'")
+                .roundTripsAs(Types.DATE, sqlDateBeforeGregorianCutover);
+
+        // AROUND JULIAN/GREGORIAN CUTOVER, BEFORE STANDARD TIME ZONES, BEFORE COMMON ERA
+        for (String historicalDate : ImmutableList.of("1582-10-04", "1582-10-15", "1700-03-01", "1899-12-31", "-0001-03-01")) {
+            Date sqlHistoricalDate = Date.valueOf(LocalDate.parse(historicalDate));
+            assertBind((ps, i) -> ps.setDate(i, sqlHistoricalDate), explicitPrepare)
+                    .resultsIn("date", "DATE '" + historicalDate + "'")
+                    .roundTripsAs(Types.DATE, sqlHistoricalDate);
+        }
+
+        // JULIAN LEAP DAY
+        Date sqlDateWithJulianLeapDay = new Date(new GregorianCalendar(1500, Calendar.FEBRUARY, 29).getTimeInMillis());
+        assertBind((ps, i) -> ps.setDate(i, sqlDateWithJulianLeapDay), explicitPrepare)
+                .isInvalid("Cannot convert instance of java.sql.Date to local date-time: 1500-02-29");
     }
 
     @Test
@@ -1426,6 +1475,48 @@ public class TestJdbcPreparedStatement
         // NANOSECOND setObject(TIME) with java.sql.Timestamp
         assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithNanosecond, Types.TIME), explicitPrepare)
                 .resultsIn("time(9)", "TIME '12:34:56.123456789'")
+                .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
+
+        // BEFORE JULIAN/GREGORIAN CUTOVER
+        LocalDateTime dateTimeWithBeforeGregorianCutover = LocalDateTime.of(LocalDate.of(1410, 7, 15), timeWithMillisecond);
+        Timestamp sqlTimestampWithBeforeGregorianCutover = Timestamp.valueOf(dateTimeWithBeforeGregorianCutover);
+        Time sqlTimeWithBeforeGregorianCutover = new Time(sqlTimestampWithBeforeGregorianCutover.getTime());
+        java.util.Date javaDateWithBeforeGregorianCutover = new java.util.Date(sqlTimestampWithBeforeGregorianCutover.getTime());
+        Date sqlDateWithBeforeGregorianCutover = new Date(sqlTimestampWithBeforeGregorianCutover.getTime());
+
+        // BEFORE JULIAN/GREGORIAN CUTOVER setTime
+        assertBind((ps, i) -> ps.setTime(i, sqlTimeWithBeforeGregorianCutover), explicitPrepare)
+                .resultsIn("time(3)", "TIME '12:34:56.123'")
+                .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
+
+        // BEFORE JULIAN/GREGORIAN CUTOVER setObject with java.sql.Time
+        assertBind((ps, i) -> ps.setObject(i, sqlTimeWithBeforeGregorianCutover), explicitPrepare)
+                .resultsIn("time(3)", "TIME '12:34:56.123'")
+                .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
+
+        // BEFORE JULIAN/GREGORIAN CUTOVER setObject(TIME) with java.sql.Time
+        assertBind((ps, i) -> ps.setObject(i, sqlTimeWithBeforeGregorianCutover, Types.TIME), explicitPrepare)
+                .resultsIn("time(3)", "TIME '12:34:56.123'")
+                .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
+
+        // BEFORE JULIAN/GREGORIAN CUTOVER setObject(TIME) with java.time.LocalDateTime
+        assertBind((ps, i) -> ps.setObject(i, dateTimeWithBeforeGregorianCutover, Types.TIME), explicitPrepare)
+                .resultsIn("time(3)", "TIME '12:34:56.123'")
+                .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
+
+        // BEFORE JULIAN/GREGORIAN CUTOVER setObject(TIME) with java.sql.Timestamp
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithBeforeGregorianCutover, Types.TIME), explicitPrepare)
+                .resultsIn("time(3)", "TIME '12:34:56.123'")
+                .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
+
+        // BEFORE JULIAN/GREGORIAN CUTOVER setObject(TIME) with java.sql.Date
+        assertBind((ps, i) -> ps.setObject(i, sqlDateWithBeforeGregorianCutover, Types.TIME), explicitPrepare)
+                .resultsIn("time(3)", "TIME '12:34:56.123'")
+                .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
+
+        // BEFORE JULIAN/GREGORIAN CUTOVER setObject(TIME) with java.util.Date
+        assertBind((ps, i) -> ps.setObject(i, javaDateWithBeforeGregorianCutover, Types.TIME), explicitPrepare)
+                .resultsIn("time(3)", "TIME '12:34:56.123'")
                 .roundTripsAs(Types.TIME, sqlTimeWithMillisecond);
 
         // setObject(TIME) String
@@ -1864,6 +1955,109 @@ public class TestJdbcPreparedStatement
         assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithBeforeEpoch, Types.TIMESTAMP), explicitPrepare)
                 .resultsIn("timestamp(9)", "TIMESTAMP '1944-08-01 17:03:12.123456789'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeEpoch);
+
+        // BEFORE JULIAN/GREGORIAN CUTOVER
+        LocalDateTime dateTimeWithBeforeGregorianCutover = LocalDateTime.of(1410, 7, 15, 15, 54, 12, 123_456_789);
+        Date sqlDateWithBeforeGregorianCutover = Date.valueOf(dateTimeWithBeforeGregorianCutover.toLocalDate());
+        Time sqlTimeWithBeforeGregorianCutover = Time.valueOf(dateTimeWithBeforeGregorianCutover.toLocalTime());
+        Timestamp sqlTimestampWithBeforeGregorianCutover = Timestamp.valueOf(dateTimeWithBeforeGregorianCutover);
+        java.util.Date javaDateWithBeforeGregorianCutover = new java.util.Date(sqlTimestampWithBeforeGregorianCutover.getTime());
+
+        // setTimestamp
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithBeforeGregorianCutover), explicitPrepare)
+                .resultsIn("timestamp(9)", "TIMESTAMP '1410-07-15 15:54:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeGregorianCutover);
+
+        // setTimestamp with Calendar null
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithBeforeGregorianCutover, null), explicitPrepare)
+                .resultsIn("timestamp(9)", "TIMESTAMP '1410-07-15 15:54:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeGregorianCutover);
+
+        // setTimestamp with Calendar default
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithBeforeGregorianCutover, Calendar.getInstance()), explicitPrepare)
+                .resultsIn("timestamp(9)", "TIMESTAMP '1410-07-15 15:54:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeGregorianCutover);
+
+        // setTimestamp with Calendar other
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithBeforeGregorianCutover, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))), explicitPrepare)
+                .resultsIn("timestamp(9)", "TIMESTAMP '1410-07-15 22:54:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, Timestamp.valueOf("1410-07-15 22:54:12.123456789"));
+
+        // setObject with java.time.LocalDateTime
+        assertBind((ps, i) -> ps.setObject(i, dateTimeWithBeforeGregorianCutover), explicitPrepare)
+                .resultsIn("timestamp(9)", "TIMESTAMP '1410-07-15 15:54:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeGregorianCutover);
+
+        // setObject with java.sql.Timestamp
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithBeforeGregorianCutover), explicitPrepare)
+                .resultsIn("timestamp(9)", "TIMESTAMP '1410-07-15 15:54:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeGregorianCutover);
+
+        // setObject(TIMESTAMP) with java.sql.Date
+        assertBind((ps, i) -> ps.setObject(i, sqlDateWithBeforeGregorianCutover, Types.TIMESTAMP), explicitPrepare)
+                .resultsIn("timestamp(3)", "TIMESTAMP '1410-07-15 00:00:00.000'")
+                .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlDateWithBeforeGregorianCutover.getTime()));
+
+        // setObject(TIMESTAMP) with java.util.Date
+        assertBind((ps, i) -> ps.setObject(i, javaDateWithBeforeGregorianCutover, Types.TIMESTAMP), explicitPrepare)
+                .resultsIn("timestamp(3)", "TIMESTAMP '1410-07-15 15:54:12.123'")
+                .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlTimestampWithBeforeGregorianCutover.getTime()));
+
+        // setObject(TIMESTAMP) with java.sql.Time
+        assertBind((ps, i) -> ps.setObject(i, sqlTimeWithBeforeGregorianCutover, Types.TIMESTAMP), explicitPrepare)
+                .resultsIn("timestamp(3)", "TIMESTAMP '1970-01-01 15:54:12.000'")
+                .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlTimeWithBeforeGregorianCutover.getTime()));
+
+        // setObject(TIMESTAMP) with java.time.LocalDateTime
+        assertBind((ps, i) -> ps.setObject(i, dateTimeWithBeforeGregorianCutover, Types.TIMESTAMP), explicitPrepare)
+                .resultsIn("timestamp(9)", "TIMESTAMP '1410-07-15 15:54:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeGregorianCutover);
+
+        // setObject(TIMESTAMP) with java.sql.Timestamp
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithBeforeGregorianCutover, Types.TIMESTAMP), explicitPrepare)
+                .resultsIn("timestamp(9)", "TIMESTAMP '1410-07-15 15:54:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeGregorianCutover);
+
+        // BEFORE COMMON ERA
+        LocalDateTime dateTimeWithBeforeCommonEra = LocalDateTime.of(-1, 1, 15, 15, 54, 12, 123_456_789);
+        Timestamp sqlTimestampWithBeforeCommonEra = Timestamp.valueOf(dateTimeWithBeforeCommonEra);
+
+        // setTimestamp
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithBeforeCommonEra), explicitPrepare)
+                .resultsIn("timestamp(9)", "TIMESTAMP '-0001-01-15 15:54:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeCommonEra);
+
+        // setObject(TIMESTAMP) with java.sql.Timestamp
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithBeforeCommonEra, Types.TIMESTAMP), explicitPrepare)
+                .resultsIn("timestamp(9)", "TIMESTAMP '-0001-01-15 15:54:12.123456789'")
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestampWithBeforeCommonEra);
+
+        // setObject(TIME) with java.sql.Timestamp
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithBeforeCommonEra, Types.TIME), explicitPrepare)
+                .resultsIn("time(9)", "TIME '15:54:12.123456789'");
+
+        // setTimestamp with Calendar other
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithBeforeCommonEra, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))), explicitPrepare)
+                .resultsIn("timestamp(9)", "TIMESTAMP '-0001-01-15 22:54:12.123456789'");
+
+        // JULIAN LEAP DAY
+        Timestamp sqlTimestampWithJulianLeapDay = new Timestamp(new GregorianCalendar(1500, Calendar.FEBRUARY, 29, 15, 54, 12).getTimeInMillis());
+
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithJulianLeapDay), explicitPrepare)
+                .isInvalid("Cannot convert instance of java.sql.Timestamp to local date-time: 1500-02-29 15:54:12.0");
+
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestampWithJulianLeapDay, Calendar.getInstance()), explicitPrepare)
+                .isInvalid("Cannot convert instance of java.sql.Timestamp to local date-time: 1500-02-29 15:54:12.0");
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithJulianLeapDay, Types.DATE), explicitPrepare)
+                .isInvalid("Cannot convert instance of java.sql.Timestamp to local date-time: 1500-02-29 15:54:12.0");
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestampWithJulianLeapDay, Types.TIME), explicitPrepare)
+                .resultsIn("time(3)", "TIME '15:54:12.000'");
+
+        assertBind((ps, i) -> ps.setTime(i, new Time(sqlTimestampWithJulianLeapDay.getTime())), explicitPrepare)
+                .resultsIn("time(3)", "TIME '15:54:12.000'")
+                .roundTripsAs(Types.TIME, Time.valueOf("15:54:12"));
 
         assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56", Types.TIMESTAMP), explicitPrepare)
                 .resultsIn("timestamp(0)", "TIMESTAMP '2001-05-06 12:34:56'")

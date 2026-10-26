@@ -44,20 +44,22 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -65,7 +67,6 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
-import static io.trino.jdbc.AbstractTrinoResultSet.DATE_FORMATTER;
 import static io.trino.jdbc.ColumnInfo.setTypeInfo;
 import static io.trino.jdbc.ObjectCasts.castToBigDecimal;
 import static io.trino.jdbc.ObjectCasts.castToBigint;
@@ -315,7 +316,7 @@ public class TrinoPreparedStatement
     {
         requireNonNull(value, "value is null");
         if (value instanceof java.util.Date) {
-            return DATE_FORMATTER.print(((java.util.Date) value).getTime());
+            value = toLocalDateTime((java.util.Date) value, TimeZone.getDefault());
         }
         if (value instanceof LocalDate) {
             return ISO_LOCAL_DATE.format(((LocalDate) value));
@@ -355,13 +356,8 @@ public class TrinoPreparedStatement
     private String toTimeLiteral(Object value)
             throws SQLException
     {
-        if (value instanceof Timestamp) {
-            value = ((Timestamp) value).toLocalDateTime().toLocalTime();
-        }
         if (value instanceof java.util.Date) {
-            value = Instant.ofEpochMilli(((java.util.Date) value).getTime())
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalTime();
+            value = toLocalTime((java.util.Date) value, TimeZone.getDefault());
         }
         if (value instanceof LocalDateTime) {
             value = ((LocalDateTime) value).toLocalTime();
@@ -423,13 +419,8 @@ public class TrinoPreparedStatement
     private String toTimestampLiteral(Object value)
             throws SQLException
     {
-        if (value instanceof Timestamp) {
-            value = ((Timestamp) value).toLocalDateTime();
-        }
         if (value instanceof java.util.Date) {
-            value = Instant.ofEpochMilli(((java.util.Date) value).getTime())
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDateTime();
+            value = toLocalDateTime((java.util.Date) value, TimeZone.getDefault());
         }
         if (value instanceof LocalDateTime) {
             return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));
@@ -439,6 +430,45 @@ public class TrinoPreparedStatement
             return (String) value;
         }
         throw invalidConversion(value, "timestamp");
+    }
+
+    // Use java.util calendar and time zone rules, which differ from java.time for historical dates. Unlike Timestamp.toLocalDateTime(),
+    // retain the era and reject days that do not exist in the proleptic Gregorian calendar
+    private static LocalDateTime toLocalDateTime(java.util.Date value, TimeZone timeZone)
+            throws SQLException
+    {
+        GregorianCalendar calendar = toCalendar(value, timeZone);
+        int year = calendar.get(Calendar.YEAR);
+        if (calendar.get(Calendar.ERA) == GregorianCalendar.BC) {
+            year = 1 - year;
+        }
+        LocalDate date;
+        try {
+            date = LocalDate.of(year, calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH));
+        }
+        catch (DateTimeException e) {
+            throw new SQLException(format("Cannot convert instance of %s to local date-time: %s", value.getClass().getName(), value), e);
+        }
+        return LocalDateTime.of(date, toLocalTime(value, calendar));
+    }
+
+    // Unlike toLocalDateTime(), does not access the date fields, so a date that does not exist in the proleptic Gregorian calendar is not rejected
+    private static LocalTime toLocalTime(java.util.Date value, TimeZone timeZone)
+    {
+        return toLocalTime(value, toCalendar(value, timeZone));
+    }
+
+    private static LocalTime toLocalTime(java.util.Date value, GregorianCalendar calendar)
+    {
+        int nanoOfSecond = value instanceof Timestamp ? ((Timestamp) value).getNanos() : calendar.get(Calendar.MILLISECOND) * 1_000_000;
+        return LocalTime.of(calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), calendar.get(Calendar.SECOND), nanoOfSecond);
+    }
+
+    private static GregorianCalendar toCalendar(java.util.Date value, TimeZone timeZone)
+    {
+        GregorianCalendar calendar = new GregorianCalendar(timeZone);
+        calendar.setTimeInMillis(value.getTime());
+        return calendar;
     }
 
     private void setAsTimestampWithTimeZone(int parameterIndex, Object value)
@@ -473,11 +503,7 @@ public class TrinoPreparedStatement
             setTimestamp(parameterIndex, x);
         }
         else {
-            LocalDateTime dateTime = Instant.ofEpochMilli(x.getTime()) // epochMillis
-                    .plusNanos(x.getNanos() % 1_000_000) // nano of milli
-                    .atZone(cal.getTimeZone().toZoneId())
-                    .toLocalDateTime();
-            setAsTimestamp(parameterIndex, dateTime);
+            setAsTimestamp(parameterIndex, toLocalDateTime(x, cal.getTimeZone()));
         }
     }
 
