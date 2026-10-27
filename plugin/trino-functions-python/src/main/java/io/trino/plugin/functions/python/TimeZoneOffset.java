@@ -14,28 +14,30 @@
 package io.trino.plugin.functions.python;
 
 import io.trino.spi.type.TimeZoneKey;
-import org.joda.time.DateTimeZone;
+
+import java.time.Instant;
+import java.time.zone.ZoneRules;
 
 import static io.trino.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeys;
-import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_MINUTE;
+import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
 
 final class TimeZoneOffset
 {
     private TimeZoneOffset() {}
 
-    private static final DateTimeZone[] DATE_TIME_ZONES;
+    private static final ZoneRules[] ZONE_RULES;
     private static final short[] FIXED_ZONE_OFFSET;
     private static final short VARIABLE_ZONE = Short.MAX_VALUE;
 
     static {
-        DATE_TIME_ZONES = new DateTimeZone[MAX_TIME_ZONE_KEY + 1];
+        ZONE_RULES = new ZoneRules[MAX_TIME_ZONE_KEY + 1];
         FIXED_ZONE_OFFSET = new short[MAX_TIME_ZONE_KEY + 1];
         for (TimeZoneKey timeZoneKey : getTimeZoneKeys()) {
             short zoneKey = timeZoneKey.getKey();
-            DateTimeZone zone = DateTimeZone.forID(timeZoneKey.getId());
-            DATE_TIME_ZONES[zoneKey] = zone;
-            if (zone.isFixed() && ((zone.getOffset(0) % MILLISECONDS_PER_MINUTE) == 0)) {
+            ZoneRules zone = timeZoneKey.getZoneId().getRules();
+            ZONE_RULES[zoneKey] = zone;
+            if (zone.isFixedOffset()) {
                 FIXED_ZONE_OFFSET[zoneKey] = zoneOffsetMinutes(0, zone);
             }
             else {
@@ -47,15 +49,15 @@ final class TimeZoneOffset
     public static short zoneOffsetMinutes(long millis, short zoneKey)
     {
         if (FIXED_ZONE_OFFSET[zoneKey] == VARIABLE_ZONE) {
-            return zoneOffsetMinutes(millis, DATE_TIME_ZONES[zoneKey]);
+            return zoneOffsetMinutes(millis, ZONE_RULES[zoneKey]);
         }
         return FIXED_ZONE_OFFSET[zoneKey];
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
-    private static short zoneOffsetMinutes(long millis, DateTimeZone zone)
+    private static short zoneOffsetMinutes(long millis, ZoneRules zone)
     {
-        int value = zone.getOffset(millis) / MILLISECONDS_PER_MINUTE;
+        long value = zone.getOffset(Instant.ofEpochMilli(millis)).getTotalSeconds() / SECONDS_PER_MINUTE;
         if ((short) value != value) {
             throw new ArithmeticException("integer overflow");
         }
