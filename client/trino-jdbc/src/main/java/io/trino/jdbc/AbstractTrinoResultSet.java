@@ -169,8 +169,8 @@ abstract class AbstractTrinoResultSet
                     })
                     .add("number", String.class, BigDecimal.class, value -> new BigDecimal(value))
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
-                    .add("date", String.class, Date.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE))
-                    .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE).toLocalDate())
+                    .add("date", String.class, Date.class, string -> parseDate(string, CURRENT_TIME_ZONE))
+                    .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, CURRENT_TIME_ZONE).toLocalDate())
                     .add("time", String.class, Time.class, string -> parseTime(string, SYSTEM_DEFAULT_ZONE_ID))
                     .add("time with time zone", String.class, Time.class, AbstractTrinoResultSet::parseTimeWithTimeZone)
                     .add("timestamp", String.class, LocalDateTime.class, AbstractTrinoResultSet::parseTimestampAsLocalDateTime)
@@ -357,10 +357,10 @@ abstract class AbstractTrinoResultSet
     public Date getDate(int columnIndex)
             throws SQLException
     {
-        return getDate(columnIndex, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE);
+        return getDate(columnIndex, CURRENT_TIME_ZONE);
     }
 
-    private Date getDate(int columnIndex, DateTimeZone localTimeZone, TimeZone localJavaTimeZone)
+    private Date getDate(int columnIndex, DateTimeZone localTimeZone)
             throws SQLException
     {
         Object value = column(columnIndex);
@@ -369,14 +369,14 @@ abstract class AbstractTrinoResultSet
         }
 
         try {
-            return parseDate(String.valueOf(value), localTimeZone, localJavaTimeZone);
+            return parseDate(String.valueOf(value), localTimeZone);
         }
         catch (IllegalArgumentException e) {
             throw new SQLException("Expected value to be a date but is: " + value, e);
         }
     }
 
-    private static Date parseDate(String value, DateTimeZone localTimeZone, TimeZone localJavaTimeZone)
+    private static Date parseDate(String value, DateTimeZone localTimeZone)
     {
         LocalDate localDate = DATE_FORMATTER.parseLocalDate(value);
         long millis = localDate.toDateTimeAtStartOfDay(localTimeZone).getMillis();
@@ -392,6 +392,9 @@ abstract class AbstractTrinoResultSet
         // older dates, but it uses a slightly different algorithm and yields results that
         // are not compatible with java.sql.Date.
         Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
+        TimeZone localJavaTimeZone = localTimeZone == CURRENT_TIME_ZONE
+                ? CURRENT_JAVA_TIME_ZONE
+                : TimeZone.getTimeZone(ZoneId.of(localTimeZone.getID()));
         calendar.setTimeZone(localJavaTimeZone);
 
         return new Date(calendar.getTimeInMillis());
@@ -1406,7 +1409,7 @@ abstract class AbstractTrinoResultSet
     public Date getDate(int columnIndex, Calendar cal)
             throws SQLException
     {
-        return getDate(columnIndex, DateTimeZone.forTimeZone(cal.getTimeZone()), cal.getTimeZone());
+        return getDate(columnIndex, DateTimeZone.forTimeZone(cal.getTimeZone()));
     }
 
     @Override
