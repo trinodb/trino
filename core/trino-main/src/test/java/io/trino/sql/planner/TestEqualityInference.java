@@ -22,6 +22,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.FunctionType;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
@@ -347,7 +348,7 @@ public class TestEqualityInference
                         .addArgument(new FunctionType(ImmutableList.of(), BIGINT), new Lambda(ImmutableList.of(), new Reference(BIGINT, "b")))
                         .build(),
                 nullIf(emptySymbolAllocator(), new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)),
-                new In(new Reference(BIGINT, "b"), ImmutableList.of(new Constant(BIGINT, null))),
+                new In(new Reference(BIGINT, "b"), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, null)))),
                 new Case(ImmutableList.of(new WhenClause(IrExpressions.not(functionResolution.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "b"))), new Constant(UnknownType.UNKNOWN, null))), new Constant(UnknownType.UNKNOWN, null)),
                 new Match(new Reference(INTEGER, "b"), ImmutableList.of(equalityClause(number(1), new Constant(INTEGER, null))), new Constant(INTEGER, null)));
 

@@ -53,6 +53,7 @@ import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.type.SqlJsonPathType;
 import io.trino.type.TypeDescriptorDeserializer;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
 
 import java.util.ArrayList;
@@ -164,6 +165,7 @@ public final class TestingPlannerContext
                     new JsonQueryFunction(functionManager, metadata, typeManager)));
 
             JsonMapper jsonMapper = new JsonMapperProvider()
+                    .withKeyDeserializers(ImmutableMap.of(TypeDescriptor.class, new TypeDescriptorKeyDeserializer()))
                     .withJsonDeserializers(ImmutableMap.of(
                             Type.class, new TypeDeserializer(typeManager),
                             TypeDescriptor.class, new TypeDescriptorDeserializer(),
