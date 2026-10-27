@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.file;
 
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -56,7 +57,7 @@ public class FileMetastoreTableOperationsProvider
             Optional<String> location)
     {
         return new FileMetastoreTableOperations(
-                fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
+                fileIoFactory.create(((AbstractTrinoCatalog) catalog).measureFileSystem(fileSystemFactory.create(session)), isUseFileSizeFromMetadata(session)),
                 ((TrinoHiveCatalog) catalog).getMetastore(),
                 session,
                 database,

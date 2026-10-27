@@ -33,12 +33,14 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.metrics.MeasuredTrinoFileSystem;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.base.filter.UtcConstraintExtractor;
+import io.trino.plugin.base.metrics.ApiCallStats;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveCompressionCodec;
@@ -537,6 +539,7 @@ public class IcebergMetadata
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalog catalog;
     private final IcebergFileSystemFactory fileSystemFactory;
+    private final ApiCallStats fileSystemStats = new ApiCallStats();
     private final TableStatisticsReader tableStatisticsReader;
     private final TableStatisticsWriter tableStatisticsWriter;
     private final Optional<HiveMetastoreFactory> metastoreFactory;
@@ -1573,7 +1576,7 @@ public class IcebergMetadata
         Location location = Location.of(transaction.table().location());
         try {
             if (!skipEmptyLocationCheck(tableLocation, location)) {
-                TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(transaction.table().io()));
+                TrinoFileSystem fileSystem = createFileSystem(session, IcebergTableCredentials.forFileIO(transaction.table().io()));
                 if (!replace && fileSystem.listFiles(location).hasNext()) {
                     throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
                             "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
@@ -2552,7 +2555,7 @@ public class IcebergMetadata
         }
 
         Instant expiration = session.getStart().minusMillis(retention.toMillis());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(table.io()));
+        TrinoFileSystem fileSystem = createFileSystem(session, IcebergTableCredentials.forFileIO(table.io()));
         return removeOrphanFiles(
                 table,
                 fileSystem,
@@ -2575,7 +2578,7 @@ public class IcebergMetadata
         Table table = catalog.loadTable(session, executeHandle.schemaTableName());
         validateNotEncryptedForWrite(table);
         validateNoUnknownTypeForWrite(table);
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(table.io()));
+        TrinoFileSystem fileSystem = createFileSystem(session, IcebergTableCredentials.forFileIO(table.io()));
         long addedDataFiles = addFiles(
                 session,
                 fileSystem,
@@ -2594,7 +2597,7 @@ public class IcebergMetadata
         Table table = catalog.loadTable(session, executeHandle.schemaTableName());
         validateNotEncryptedForWrite(table);
         validateNoUnknownTypeForWrite(table);
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(table.io()));
+        TrinoFileSystem fileSystem = createFileSystem(session, IcebergTableCredentials.forFileIO(table.io()));
         long addedDataFiles = addFilesFromTable(
                 session,
                 fileSystem,
@@ -2651,7 +2654,12 @@ public class IcebergMetadata
     @Override
     public Metrics getMetrics(ConnectorSession session)
     {
-        return catalog.getMetrics();
+        return catalog.getMetrics().mergeWith(fileSystemStats.toMetrics("filesystem.metadata"));
+    }
+
+    private TrinoFileSystem createFileSystem(ConnectorSession session, IcebergTableCredentials tableCredentials)
+    {
+        return new MeasuredTrinoFileSystem(fileSystemFactory.create(session.getIdentity(), tableCredentials), fileSystemStats);
     }
 
     @Override

@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.snowflake;
 
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -60,7 +61,7 @@ public class SnowflakeIcebergTableOperationsProvider
     {
         return new SnowflakeIcebergTableOperations(
                 (TrinoSnowflakeCatalog) catalog,
-                fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
+                fileIoFactory.create(((AbstractTrinoCatalog) catalog).measureFileSystem(fileSystemFactory.create(session)), isUseFileSizeFromMetadata(session)),
                 session,
                 snowflakeDatabase,
                 database,
