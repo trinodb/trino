@@ -20,16 +20,25 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
 import java.io.IOException;
 
 import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.HIERARCHICAL;
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
+import static io.trino.testing.containers.FlociAzure.FLOCI_AZURE_CLIENT_ID;
+import static io.trino.testing.containers.FlociAzure.FLOCI_AZURE_CLIENT_SECRET;
+import static io.trino.testing.containers.FlociAzure.FLOCI_AZURE_HIERARCHICAL_ACCOUNT;
+import static io.trino.testing.containers.FlociAzure.FLOCI_AZURE_TENANT_ID;
 
 @TestInstance(Lifecycle.PER_CLASS)
-class TestAzureFileSystemGen2Hierarchical
-        extends AbstractTestAzureFileSystem
+public class TestAzureFileSystemOAuthHierarchicalFloci
+        extends AbstractTestAzureFileSystemFloci
 {
     @BeforeAll
     void setup()
             throws IOException
     {
-        initializeWithAccessKeyAndMultipartWrites(requireEnv("ABFS_HIERARCHICAL_ACCOUNT"), requireEnv("ABFS_HIERARCHICAL_ACCESS_KEY"), HIERARCHICAL);
+        initializeWithOAuth(
+                FLOCI_AZURE_HIERARCHICAL_ACCOUNT,
+                FLOCI_AZURE_TENANT_ID,
+                FLOCI_AZURE_CLIENT_ID,
+                FLOCI_AZURE_CLIENT_SECRET,
+                HIERARCHICAL,
+                true);
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.filesystem.azure;
 
 import com.azure.core.http.HttpClient;
+import com.azure.core.http.HttpHeaderName;
 import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.core.util.ClientOptions;
@@ -87,7 +88,9 @@ public class AzureFileSystem
     private final ExecutorService uploadExecutor;
     private final TracingOptions tracingOptions;
     private final AzureAuth azureAuth;
+    // endpoint validates user locations; serviceEndpoint optionally routes requests to a compatible backend.
     private final String endpoint;
+    private final Optional<URI> serviceEndpoint;
     private final int readBlockSizeBytes;
     private final long writeBlockSizeBytes;
     private final int maxWriteConcurrency;
@@ -101,6 +104,7 @@ public class AzureFileSystem
             TracingOptions tracingOptions,
             AzureAuth azureAuth,
             String endpoint,
+            Optional<URI> serviceEndpoint,
             DataSize readBlockSize,
             DataSize writeBlockSize,
             int maxWriteConcurrency,
@@ -113,6 +117,7 @@ public class AzureFileSystem
         this.tracingOptions = requireNonNull(tracingOptions, "tracingOptions is null");
         this.azureAuth = requireNonNull(azureAuth, "azureAuth is null");
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
+        this.serviceEndpoint = requireNonNull(serviceEndpoint, "serviceEndpoint is null");
         this.readBlockSizeBytes = toIntExact(readBlockSize.toBytes());
         this.writeBlockSizeBytes = writeBlockSize.toBytes();
         checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
@@ -695,7 +700,7 @@ public class AzureFileSystem
                 .httpClient(httpClient)
                 .addPolicy(concurrencyPolicy)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
-                .endpoint("https://%s.blob.%s".formatted(location.account(), validatedEndpoint(location)));
+                .endpoint(blobEndpoint(location));
 
         key.ifPresent(encryption -> builder.customerProvidedKey(blobCustomerProvidedKey(encryption)));
 
@@ -712,7 +717,10 @@ public class AzureFileSystem
                 .httpClient(httpClient)
                 .addPolicy(concurrencyPolicy)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
-                .endpoint("https://%s.dfs.%s".formatted(location.account(), validatedEndpoint(location)));
+                .endpoint(dataLakeEndpoint(location));
+        if (serviceEndpoint.isPresent()) {
+            builder.addPolicy(hostHeaderPolicy("%s.dfs.%s".formatted(location.account(), location.endpoint())));
+        }
         key.ifPresent(encryption -> builder.customerProvidedKey(lakeCustomerProvidedKey(encryption)));
         azureAuth.setAuth(location.account(), builder);
         DataLakeServiceClient client = builder.buildClient();
@@ -752,5 +760,38 @@ public class AzureFileSystem
     private static DataLakeDirectoryClient createDirectoryIfNotExists(DataLakeFileSystemClient fileSystemClient, String name)
     {
         return fileSystemClient.createDirectoryIfNotExists(name);
+    }
+
+    private String blobEndpoint(AzureLocation location)
+    {
+        String validatedEndpoint = validatedEndpoint(location);
+        return serviceEndpoint
+                .map(uri -> appendPath(uri, location.account()))
+                .orElseGet(() -> "https://%s.blob.%s".formatted(location.account(), validatedEndpoint));
+    }
+
+    private String dataLakeEndpoint(AzureLocation location)
+    {
+        String validatedEndpoint = validatedEndpoint(location);
+        return serviceEndpoint
+                .map(URI::toString)
+                .orElseGet(() -> "https://%s.dfs.%s".formatted(location.account(), validatedEndpoint));
+    }
+
+    private static String appendPath(URI endpoint, String path)
+    {
+        String endpointString = endpoint.toString();
+        if (endpointString.endsWith("/")) {
+            return endpointString + path;
+        }
+        return endpointString + "/" + path;
+    }
+
+    private static HttpPipelinePolicy hostHeaderPolicy(String host)
+    {
+        return (context, next) -> {
+            context.getHttpRequest().setHeader(HttpHeaderName.HOST, host);
+            return next.process();
+        };
     }
 }
