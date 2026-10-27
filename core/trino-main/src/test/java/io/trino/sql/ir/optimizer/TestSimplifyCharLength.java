@@ -42,6 +42,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimplifyCharLength
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(createTestTransactionManager(), PLANNER_CONTEXT);
     private static final ResolvedFunction CHAR_LENGTH = FUNCTIONS.resolveFunction("length", fromTypes(createCharType(5)));
     private static final ResolvedFunction VARCHAR_LENGTH = FUNCTIONS.resolveFunction("length", fromTypes(VARCHAR));
@@ -74,6 +76,6 @@ public class TestSimplifyCharLength
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SimplifyCharLength(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new SimplifyCharLength(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }

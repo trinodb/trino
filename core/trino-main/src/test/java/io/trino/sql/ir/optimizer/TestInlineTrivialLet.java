@@ -42,6 +42,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInlineTrivialLet
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     @Test
     void testConstantValue()
     {
@@ -110,6 +112,6 @@ public class TestInlineTrivialLet
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new InlineTrivialLet().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new InlineTrivialLet().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }

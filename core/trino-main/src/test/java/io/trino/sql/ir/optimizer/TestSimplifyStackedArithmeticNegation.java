@@ -27,12 +27,15 @@ import java.util.Optional;
 
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimplifyStackedArithmeticNegation
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     @Test
     void test()
     {
@@ -50,6 +53,6 @@ public class TestSimplifyStackedArithmeticNegation
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SimplifyStackedArithmeticNegation().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new SimplifyStackedArithmeticNegation().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }
