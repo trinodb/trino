@@ -958,9 +958,7 @@ public abstract class BaseTestJdbcResultSet
 
                 assertThat(rs.getObject(column)).isEqualTo(sqlDate);
                 assertThat(rs.getObject(column, Date.class)).isEqualTo(sqlDate);
-
-                // There are no days between 1582-10-05 and 1582-10-14
-                assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(LocalDate.of(1582, 10, 20));
+                assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(localDate);
 
                 assertThat(rs.getDate(column)).isEqualTo(sqlDate);
                 assertSqlExceptionThrownBy(() -> rs.getTime(column))
