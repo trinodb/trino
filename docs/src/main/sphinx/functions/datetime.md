@@ -534,8 +534,43 @@ SELECT date_parse('2022/10/20/05', '%Y/%m/%d/%H');
 
 ## Java date functions
 
-The functions in this section use a format string that is compatible with
-JodaTime's [DateTimeFormat] pattern format.
+(java-date-patterns)=
+### Date and time patterns
+
+The functions in this section use the following pattern letters. Repeating a
+letter sets the minimum number of digits for numeric fields. For text fields,
+three or fewer letters use an abbreviation and four or more use the full name.
+
+| Letter | Meaning | Example |
+| ------ | ------- | ------- |
+| `G` | Era | `AD` |
+| `C` | Century of era | `20` |
+| `Y` | Year of era | `2024` |
+| `y` | Year | `2024` |
+| `x` | ISO week year | `2024` |
+| `w` | ISO week of year | `27` |
+| `e` | Day of week, Monday = 1 | `1` |
+| `E` | Day of week name | `Monday` |
+| `D` | Day of year | `183` |
+| `M` | Month of year | `7`, `Jul`, `July` |
+| `d` | Day of month | `1` |
+| `a` | Half of day | `PM` |
+| `K` | Hour of half day, 0–11 | `1` |
+| `h` | Clock hour of half day, 1–12 | `1` |
+| `H` | Hour of day, 0–23 | `13` |
+| `k` | Clock hour of day, 1–24 | `13` |
+| `m` | Minute of hour | `5` |
+| `s` | Second of minute | `9` |
+| `S` | Fraction of second | `123` |
+| `z` | Time zone name | `PST` |
+| `Z` | Time zone offset or ID | `-0800`, `-08:00`, `America/Los_Angeles` |
+
+Use `Z` for an offset without a colon, `ZZ` for an offset with a colon, and
+`ZZZ` or more for a time zone ID. Long time zone names (`zzzz`) support
+formatting only. Two-letter years (`yy`, `YY`, `xx`) use a two-digit year.
+Enclose literal text in single quotes, and use two single quotes to print or
+parse a single quote. For example, `yyyy-MM-dd'T'HH:mm:ss` formats a timestamp
+as `2024-07-01T13:05:09`.
 
 :::{function} format_datetime(timestamp, format) -> varchar
 Formats `timestamp` as a string using `format`.
@@ -720,5 +755,4 @@ SELECT timezone(TIME '12:00:00+09:00'); -- +09:00
 ```
 :::
 
-[datetimeformat]: http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html
 [iso week]: https://wikipedia.org/wiki/ISO_week_date

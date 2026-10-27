@@ -60,10 +60,9 @@ special decoders using the `dataFormat` attribute of a field definition.
 
 - `iso8601` - Text based, parses a text field as an ISO 8601 timestamp.
 - `rfc2822` - Text based, parses a text field as an {rfc}`2822` timestamp.
-- `custom-date-time` - Text based, parses a text field according to Joda
-  format pattern specified via `formatHint` attribute. The format pattern
-  should conform to
-  <https://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html>.
+- `custom-date-time` - Text based, parses a text field using the
+  {ref}`date and time pattern <java-date-patterns>` specified by the
+  `formatHint` attribute.
 - `milliseconds-since-epoch` - Number-based, interprets a text or number as
   number of milliseconds since the epoch.
 - `seconds-since-epoch` - Number-based, interprets a text or number as number

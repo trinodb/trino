@@ -800,9 +800,8 @@ The following `dataFormats` are available for temporal data:
 
 - `iso8601`
 - `rfc2822`
-- `custom-date-time` - Formats temporal data according to
-  [Joda Time](https://www.joda.org/joda-time/key_format.html)
-  pattern given by `formatHint` field.
+- `custom-date-time` - Formats temporal data using the
+  {ref}`date and time pattern <java-date-patterns>` given by the `formatHint` field.
 - `milliseconds-since-epoch`
 - `seconds-since-epoch`
 
@@ -1251,9 +1250,8 @@ To convert values from JSON objects into Trino `DATE`, `TIME`, `TIME WITH TIME Z
 
 - `iso8601` - Text based, parses a text field as an ISO 8601 timestamp.
 - `rfc2822` - Text based, parses a text field as an {rfc}`2822` timestamp.
-- `custom-date-time` - Text based, parses a text field according to Joda format pattern
-  : specified via `formatHint` attribute. Format pattern should conform
-    to <https://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html>.
+- `custom-date-time` - Text based, parses a text field using the
+  {ref}`date and time pattern <java-date-patterns>` specified by the `formatHint` attribute.
 - `milliseconds-since-epoch` - Number-based; interprets a text or number as number of milliseconds since the epoch.
 - `seconds-since-epoch` - Number-based; interprets a text or number as number of milliseconds since the epoch.
 
