@@ -27,6 +27,7 @@ public enum KafkaErrorCode
     KAFKA_SCHEMA_ERROR(1, EXTERNAL),
     KAFKA_PRODUCER_ERROR(2, INTERNAL_ERROR),
     SCHEMA_REGISTRY_AMBIGUOUS_SUBJECT(3, EXTERNAL),
+    KAFKA_SCHEMA_REGISTRY_ERROR(4, EXTERNAL),
     /**/;
 
     private final ErrorCode errorCode;

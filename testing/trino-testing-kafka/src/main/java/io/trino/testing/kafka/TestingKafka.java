@@ -60,6 +60,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.time.temporal.ChronoUnit.MILLIS;
+import static java.util.Locale.ENGLISH;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public final class TestingKafka
@@ -76,6 +77,28 @@ public final class TestingKafka
 
     private static final DockerImageName KAFKA_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-kafka");
     private static final DockerImageName SCHEMA_REGISTRY_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-schema-registry");
+    private static final DockerImageName APICURIO_REGISTRY_IMAGE_NAME = DockerImageName.parse("apicurio/apicurio-registry:3.0.9");
+    private static final DockerImageName REDPANDA_IMAGE_NAME = DockerImageName.parse("redpandadata/redpanda:v25.2.10");
+    private static final int APICURIO_REGISTRY_PORT = 8080;
+    // selects the schema registry the tests run against, see SchemaRegistry
+    private static final String SCHEMA_REGISTRY_PROPERTY = "testing.kafka.schema-registry";
+
+    /**
+     * Schema registries that serve the Confluent schema registry REST API. The Confluent registry is
+     * the default; Apicurio and Redpanda keep schemas in their own storage instead of the test broker.
+     * Select one with {@code -Dtesting.kafka.schema-registry=apicurio} or {@code redpanda}.
+     */
+    public enum SchemaRegistry
+    {
+        CONFLUENT,
+        APICURIO,
+        REDPANDA;
+
+        public static SchemaRegistry fromSystemProperty()
+        {
+            return valueOf(System.getProperty(SCHEMA_REGISTRY_PROPERTY, CONFLUENT.name()).toUpperCase(ENGLISH));
+        }
+    }
 
     private enum SecurityMode
     {
@@ -88,6 +111,7 @@ public final class TestingKafka
     private final GenericContainer<?> kafka;
     private final GenericContainer<?> schemaRegistry;
     private final boolean withSchemaRegistry;
+    private final SchemaRegistry schemaRegistryType;
     private final SecurityMode securityMode;
     private final Closer closer = Closer.create();
     private boolean stopped;
@@ -132,6 +156,7 @@ public final class TestingKafka
     private TestingKafka(String confluentPlatformVersion, boolean withSchemaRegistry, SecurityMode securityMode)
     {
         this.withSchemaRegistry = withSchemaRegistry;
+        this.schemaRegistryType = SchemaRegistry.fromSystemProperty();
         this.securityMode = securityMode;
         network = Network.newNetwork();
         closer.register(network::close);
@@ -160,19 +185,7 @@ public final class TestingKafka
                             kafkaLogTemplate,
                             "/etc/confluent/docker/log4j.properties.template");
         }
-        schemaRegistry = new GenericContainer<>(SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion))
-                .withStartupAttempts(3)
-                .withNetwork(network)
-                .withNetworkAliases("schema-registry")
-                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9093")
-                .withEnv("SCHEMA_REGISTRY_HOST_NAME", "0.0.0.0")
-                .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)
-                .withEnv("SCHEMA_REGISTRY_HEAP_OPTS", "-Xmx1G")
-                .withExposedPorts(SCHEMA_REGISTRY_PORT)
-                .withCopyFileToContainer(
-                        schemaRegistryLogTemplate,
-                        "/etc/confluent/docker/log4j.properties.template")
-                .dependsOn(kafka);
+        schemaRegistry = createSchemaRegistry(schemaRegistryType, confluentPlatformVersion, schemaRegistryLogTemplate);
 
         configureSecurity();
 
@@ -353,6 +366,37 @@ public final class TestingKafka
         return new KafkaProducer<>(toProperties(properties));
     }
 
+    private GenericContainer<?> createSchemaRegistry(SchemaRegistry type, String confluentPlatformVersion, MountableFile logTemplate)
+    {
+        GenericContainer<?> container = switch (type) {
+            case CONFLUENT -> new GenericContainer<>(SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion))
+                    .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9093")
+                    .withEnv("SCHEMA_REGISTRY_HOST_NAME", "0.0.0.0")
+                    .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)
+                    .withEnv("SCHEMA_REGISTRY_HEAP_OPTS", "-Xmx1G")
+                    .withExposedPorts(SCHEMA_REGISTRY_PORT)
+                    .withCopyFileToContainer(
+                            logTemplate,
+                            "/etc/confluent/docker/log4j.properties.template");
+            // in-memory storage; the Confluent compatible API is served under /apis/ccompat/v7
+            case APICURIO -> new GenericContainer<>(APICURIO_REGISTRY_IMAGE_NAME)
+                    .withEnv("APICURIO_REST_DELETION_ARTIFACT_ENABLED", "true")
+                    .withEnv("APICURIO_REST_DELETION_ARTIFACT_VERSION_ENABLED", "true")
+                    .withExposedPorts(APICURIO_REGISTRY_PORT)
+                    .waitingFor(Wait.forHttp("/apis/ccompat/v7/subjects").forPort(APICURIO_REGISTRY_PORT));
+            // a single node whose built-in schema registry stores schemas in its own topic
+            case REDPANDA -> new GenericContainer<>(REDPANDA_IMAGE_NAME)
+                    .withCommand("redpanda", "start", "--mode", "dev-container", "--smp", "1", "--schema-registry-addr", "0.0.0.0:" + SCHEMA_REGISTRY_PORT)
+                    .withExposedPorts(SCHEMA_REGISTRY_PORT)
+                    .waitingFor(Wait.forHttp("/subjects").forPort(SCHEMA_REGISTRY_PORT));
+        };
+        return container
+                .withStartupAttempts(3)
+                .withNetwork(network)
+                .withNetworkAliases("schema-registry")
+                .dependsOn(kafka);
+    }
+
     private void configureSecurity()
     {
         switch (securityMode) {
@@ -374,7 +418,7 @@ public final class TestingKafka
                         .withCopyFileToContainer(forClasspathResource("kafka/ssl/secrets/broker1_truststore_creds"), "/etc/kafka/secrets/broker1_truststore_creds")
                         .withCopyFileToContainer(forClasspathResource("kafka/ssl/secrets/kafka.broker1.keystore"), "/etc/kafka/secrets/kafka.broker1.keystore")
                         .withCopyFileToContainer(forClasspathResource("kafka/ssl/secrets/kafka.broker1.truststore"), "/etc/kafka/secrets/kafka.broker1.truststore");
-                if (withSchemaRegistry) {
+                if (withSchemaRegistry && schemaRegistryType == SchemaRegistry.CONFLUENT) {
                     configureSchemaRegistrySsl();
                 }
                 clientKeystorePath = extractResourceToTempFile("kafka/ssl/secrets/kafka.client.keystore", ".keystore");
@@ -396,7 +440,7 @@ public final class TestingKafka
                                    user_admin="admin-secret";
                                 };
                                 """), "/tmp/kafka_server_jaas.conf");
-                if (withSchemaRegistry) {
+                if (withSchemaRegistry && schemaRegistryType == SchemaRegistry.CONFLUENT) {
                     configureSchemaRegistrySaslPlaintext();
                 }
             }
@@ -507,7 +551,15 @@ public final class TestingKafka
 
     public String getSchemaRegistryConnectString()
     {
-        return "http://" + schemaRegistry.getHost() + ":" + schemaRegistry.getMappedPort(SCHEMA_REGISTRY_PORT);
+        return switch (schemaRegistryType) {
+            case CONFLUENT, REDPANDA -> "http://" + schemaRegistry.getHost() + ":" + schemaRegistry.getMappedPort(SCHEMA_REGISTRY_PORT);
+            case APICURIO -> "http://" + schemaRegistry.getHost() + ":" + schemaRegistry.getMappedPort(APICURIO_REGISTRY_PORT) + "/apis/ccompat/v7";
+        };
+    }
+
+    public SchemaRegistry getSchemaRegistry()
+    {
+        return schemaRegistryType;
     }
 
     public Network getNetwork()

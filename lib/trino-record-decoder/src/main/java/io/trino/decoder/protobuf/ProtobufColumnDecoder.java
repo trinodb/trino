@@ -58,6 +58,12 @@ import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTR
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.decoder.protobuf.ProtobufFieldMapping.findReaderField;
+import static io.trino.decoder.protobuf.ProtobufFieldMapping.findWriterField;
+import static io.trino.decoder.protobuf.ProtobufFieldMapping.getReaderFieldType;
+import static io.trino.decoder.protobuf.ProtobufFieldMapping.getReaderType;
+import static io.trino.decoder.protobuf.ProtobufFieldMapping.toReaderValue;
+import static io.trino.decoder.protobuf.ProtobufValueProvider.isUnsetPresenceField;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.StandardTypes.JSON;
@@ -86,14 +92,16 @@ public class ProtobufColumnDecoder
     private final String columnName;
     private final TypeManager typeManager;
     private final DescriptorProvider descriptorProvider;
+    private final Optional<Descriptor> readerDescriptor;
     private final Type jsonType;
 
-    public ProtobufColumnDecoder(DecoderColumnHandle columnHandle, TypeManager typeManager, DescriptorProvider descriptorProvider)
+    public ProtobufColumnDecoder(DecoderColumnHandle columnHandle, TypeManager typeManager, DescriptorProvider descriptorProvider, Optional<Descriptor> readerDescriptor)
     {
         try {
             requireNonNull(columnHandle, "columnHandle is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.descriptorProvider = requireNonNull(descriptorProvider, "descriptorProvider is null");
+            this.readerDescriptor = requireNonNull(readerDescriptor, "readerDescriptor is null");
             this.jsonType = typeManager.getType(new TypeDescriptor(JSON));
             this.columnType = columnHandle.getType();
             this.columnMapping = columnHandle.getMapping();
@@ -145,35 +153,56 @@ public class ProtobufColumnDecoder
 
     public FieldValueProvider decodeField(DynamicMessage dynamicMessage)
     {
-        return new ProtobufValueProvider(locateField(dynamicMessage, columnMapping), columnType, columnName, typeManager);
+        LocatedValue located = locateField(dynamicMessage, columnMapping);
+        return new ProtobufValueProvider(located.value(), located.readerType(), columnType, columnName, typeManager);
     }
 
-    @Nullable
-    private Object locateField(DynamicMessage message, String columnMapping)
+    private LocatedValue locateField(DynamicMessage message, String columnMapping)
     {
         Object value = message;
         Optional<Descriptor> valueDescriptor = Optional.of(message.getDescriptorForType());
+        Optional<Descriptor> readerType = getReaderType(readerDescriptor, message.getDescriptorForType());
         for (String pathElement : Splitter.on('/').omitEmptyStrings().split(columnMapping)) {
-            if (valueDescriptor.filter(descriptor -> descriptor.findFieldByName(pathElement) != null).isEmpty()) {
+            Optional<FieldDescriptor> readerField = findReaderField(readerType, pathElement);
+            FieldDescriptor fieldDescriptor = null;
+            if (valueDescriptor.isPresent()) {
+                fieldDescriptor = findWriterField(valueDescriptor.get(), readerField, pathElement);
+            }
+            if (fieldDescriptor == null) {
                 // Search the message to see if this column is oneof type
                 Optional<OneofDescriptor> oneofDescriptor = message.getDescriptorForType().getOneofs().stream()
                         .filter(descriptor -> descriptor.getName().equals(columnMapping))
                         .findFirst();
 
-                return oneofDescriptor.map(descriptor -> createOneofJson(message, descriptor))
-                        .orElse(null);
+                return new LocatedValue(
+                        oneofDescriptor.map(descriptor -> createOneofJson(message, descriptor)).orElse(null),
+                        Optional.empty());
             }
 
-            FieldDescriptor fieldDescriptor = valueDescriptor.get().findFieldByName(pathElement);
-            value = ((DynamicMessage) value).getField(fieldDescriptor);
+            if (isUnsetPresenceField((DynamicMessage) value, fieldDescriptor)) {
+                return new LocatedValue(null, Optional.empty());
+            }
+            value = toReaderValue(readerField, fieldDescriptor, ((DynamicMessage) value).getField(fieldDescriptor));
             valueDescriptor = getDescriptor(fieldDescriptor);
+            readerType = getReaderFieldType(readerField);
         }
 
         if (valueDescriptor.isPresent() && valueDescriptor.get().getFullName().equals(ANY_TYPE_NAME)) {
-            return createAnyJson((Message) value, valueDescriptor.get());
+            return new LocatedValue(createAnyJson((Message) value, valueDescriptor.get()), Optional.empty());
         }
 
-        return value;
+        return new LocatedValue(value, readerType);
+    }
+
+    /**
+     * The value a column mapping selects in a message, with the reader type of the value when it is a message.
+     */
+    private record LocatedValue(@Nullable Object value, Optional<Descriptor> readerType)
+    {
+        private LocatedValue
+        {
+            requireNonNull(readerType, "readerType is null");
+        }
     }
 
     private static Optional<Descriptor> getDescriptor(FieldDescriptor fieldDescriptor)

@@ -67,11 +67,11 @@ class TestKafkaProtobufWritesSmokeTest
                         List.of("India", 314, 9223372036854775807L, 1234567890.123456789, 3.14f, false, "TWO", Timestamp.valueOf("0001-01-01 00:00:00.000001")));
             }
 
-            // Test null value insertion error
+            // a proto3 field that is not optional has no value for NULL
             assertThatThrownBy(() -> stmt.executeUpdate(
                     "INSERT INTO " + KAFKA_CATALOG + "." + KAFKA_SCHEMA + "." + ALL_DATATYPES_PROTOBUF_TABLE_NAME + " (h_varchar) VALUES ('Chennai')"))
                     .isInstanceOf(SQLException.class)
-                    .hasMessageContaining("Protobuf doesn't support serializing null values");
+                    .hasMessageContaining("NULL value not allowed for protobuf field 'schema.b_integer', which does not track presence; declare it optional to allow NULL");
         }
     }
 
