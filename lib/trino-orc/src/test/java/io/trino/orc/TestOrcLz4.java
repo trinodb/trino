@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SourcePage;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -34,6 +33,7 @@ import static io.trino.orc.metadata.CompressionKind.LZ4;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.nio.file.Files.readAllBytes;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrcLz4
@@ -62,7 +62,7 @@ public class TestOrcLz4
                 ImmutableList.of(BIGINT, INTEGER, BIGINT),
                 false,
                 OrcPredicate.TRUE,
-                DateTimeZone.UTC,
+                UTC,
                 newSimpleAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE,
                 RuntimeException::new)) {

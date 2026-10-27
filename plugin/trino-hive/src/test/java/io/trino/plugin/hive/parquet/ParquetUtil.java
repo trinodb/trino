@@ -28,12 +28,12 @@ import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
-import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -56,7 +56,7 @@ final class ParquetUtil
         return createPageSource(session, parquetFile, getBaseColumns(columnNames, columnTypes), TupleDomain.all());
     }
 
-    public static ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, List<String> columnNames, List<Type> columnTypes, DateTimeZone timeZone)
+    public static ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, List<String> columnNames, List<Type> columnTypes, ZoneId timeZone)
             throws IOException
     {
         return createPageSource(session, parquetFile, getBaseColumns(columnNames, columnTypes), TupleDomain.all(), new HiveConfig().setParquetTimeZone(timeZone.toString()));

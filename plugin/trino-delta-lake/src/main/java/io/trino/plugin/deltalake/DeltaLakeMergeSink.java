@@ -50,10 +50,10 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.format.CompressionCodec;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -111,7 +111,7 @@ public class DeltaLakeMergeSink
 
     private final TrinoFileSystem fileSystem;
     private final ConnectorSession session;
-    private final DateTimeZone parquetDateTimeZone;
+    private final ZoneId parquetDateTimeZone;
     private final String trinoVersion;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
     private final JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec;
@@ -146,7 +146,7 @@ public class DeltaLakeMergeSink
     public DeltaLakeMergeSink(
             DeltaLakeFileSystemFactory fileSystemFactory,
             ConnectorSession session,
-            DateTimeZone parquetDateTimeZone,
+            ZoneId parquetDateTimeZone,
             String trinoVersion,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,

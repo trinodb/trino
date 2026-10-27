@@ -19,8 +19,8 @@ import org.apache.hadoop.hive.serde2.io.ParquetHiveRecord;
 import org.apache.parquet.hadoop.api.WriteSupport;
 import org.apache.parquet.io.api.RecordConsumer;
 import org.apache.parquet.schema.MessageType;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.HashMap;
 
 import static java.util.Objects.requireNonNull;
@@ -35,9 +35,9 @@ class TestDataWritableWriteSupport
     private TestDataWritableWriter writer;
     private MessageType schema;
     private final boolean singleLevelArray;
-    private final DateTimeZone dateTimeZone;
+    private final ZoneId dateTimeZone;
 
-    public TestDataWritableWriteSupport(boolean singleLevelArray, DateTimeZone dateTimeZone)
+    public TestDataWritableWriteSupport(boolean singleLevelArray, ZoneId dateTimeZone)
     {
         this.singleLevelArray = singleLevelArray;
         this.dateTimeZone = requireNonNull(dateTimeZone, "dateTimeZone is null");

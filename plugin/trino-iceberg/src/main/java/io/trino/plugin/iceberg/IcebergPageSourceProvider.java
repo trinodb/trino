@@ -225,6 +225,7 @@ import static java.lang.Math.addExact;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
@@ -237,7 +238,6 @@ import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class IcebergPageSourceProvider
         implements ConnectorPageSourceProvider

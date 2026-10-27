@@ -30,8 +30,8 @@ import java.util.function.Function;
 import static io.trino.hive.formats.HiveFormatUtils.createTimestampParser;
 import static io.trino.hive.formats.HiveFormatUtils.formatHiveTimestamp;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TimestampEncoding
         implements TextColumnEncoding

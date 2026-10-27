@@ -30,8 +30,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.joda.time.DateTimeZone;
-import org.joda.time.chrono.ISOChronology;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -47,6 +45,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -54,6 +53,8 @@ import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.base.type.TimeZoneConversions.convertLocalToUtc;
+import static io.trino.plugin.base.type.TimeZoneConversions.convertUtcToLocal;
 import static io.trino.plugin.jdbc.PredicatePushdownController.CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
@@ -508,7 +509,7 @@ public final class StandardColumnMappings
              */
             long localMillis = resultSet.getDate(columnIndex).getTime();
             // Convert it to a ~midnight in UTC.
-            long utcMillis = ISOChronology.getInstance().getZone().getMillisKeepLocal(DateTimeZone.UTC, localMillis);
+            long utcMillis = convertUtcToLocal(ZoneId.systemDefault(), localMillis);
             // convert to days
             return MILLISECONDS.toDays(utcMillis);
         };
@@ -523,7 +524,7 @@ public final class StandardColumnMappings
         return LongWriteFunction.of(Types.DATE, (statement, index, value) -> {
             // convert to midnight in default time zone
             long millis = DAYS.toMillis(value);
-            statement.setDate(index, new Date(DateTimeZone.UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
+            statement.setDate(index, new Date(convertLocalToUtc(ZoneId.systemDefault(), millis)));
         });
     }
 

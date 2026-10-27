@@ -37,9 +37,9 @@ import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createPageSource;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestParquetCorruptionErrors
 {

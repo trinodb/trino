@@ -14,6 +14,7 @@
 package io.trino.hive.formats;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.base.time.DateTimeFormat;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -23,15 +24,9 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeFieldType;
-import org.joda.time.MutableDateTime;
-import org.joda.time.chrono.ISOChronology;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeParser;
-import org.joda.time.format.DateTimeParserBucket;
 
 import java.math.BigDecimal;
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -39,7 +34,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.format.SignStyle;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -55,6 +52,7 @@ import static java.lang.StrictMath.floorMod;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
+import static java.time.ZoneOffset.UTC;
 import static java.time.format.ResolverStyle.LENIENT;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
 import static java.time.temporal.ChronoField.HOUR_OF_DAY;
@@ -139,7 +137,7 @@ public final class HiveFormatUtils
 
     private static final String MILLIS_TIMESTAMP_FORMAT = "millis";
 
-    private static final DateTime STARTING_TIMESTAMP_VALUE = new DateTime(1970, 1, 1, 0, 0, 0, 0, ISOChronology.getInstanceUTC());
+    private static final Pattern MILLIS_TIMESTAMP_PATTERN = Pattern.compile("(-?\\d+)(\\.\\d+)?$");
 
     private HiveFormatUtils() {}
 
@@ -189,49 +187,47 @@ public final class HiveFormatUtils
             return value -> parseHiveTimestamp(null, value);
         }
 
-        DateTimeParser[] parsers = new DateTimeParser[timestampFormats.size()];
-        for (int i = 0; i < timestampFormats.size(); ++i) {
-            String formatString = timestampFormats.get(i);
-            if (formatString.equalsIgnoreCase(MILLIS_TIMESTAMP_FORMAT)) {
-                // Use milliseconds parser if pattern matches our special-case millis pattern string
-                parsers[i] = new MillisDateFormatParser();
+        List<Function<String, Long>> parsers = new ArrayList<>();
+        for (String format : timestampFormats) {
+            if (format.equalsIgnoreCase(MILLIS_TIMESTAMP_FORMAT)) {
+                // Custom formats have millisecond precision, including the special millis format.
+                parsers.add(value -> {
+                    Matcher matcher = MILLIS_TIMESTAMP_PATTERN.matcher(value);
+                    if (!matcher.matches()) {
+                        throw new IllegalArgumentException("Invalid millisecond timestamp: " + value);
+                    }
+                    return Long.parseLong(matcher.group(1));
+                });
             }
             else {
-                parsers[i] = DateTimeFormat.forPattern(formatString).getParser();
+                DateTimeFormat formatter = DateTimeFormat.forPattern(format);
+                parsers.add(value -> formatter.parse(value, UTC, Locale.getDefault(), 1970).toInstant().toEpochMilli());
             }
         }
-        org.joda.time.format.DateTimeFormatter dateTimeFormatter = new org.joda.time.format.DateTimeFormatterBuilder()
-                .append(null, parsers)
-                .toFormatter()
-                .withDefaultYear(1970);
-        return value -> parseHiveTimestamp(dateTimeFormatter, value);
+        return value -> parseHiveTimestamp(parsers, value);
     }
 
-    private static DecodedTimestamp parseHiveTimestamp(org.joda.time.format.DateTimeFormatter dateTimeFormatter, String value)
+    private static DecodedTimestamp parseHiveTimestamp(List<Function<String, Long>> parsers, String value)
     {
         value = value.trim();
-        if (dateTimeFormatter != null) {
-            try {
-                // This is how Hive performs a timestamp conversion
-                // reset value in case any date fields are missing from the date pattern
-                MutableDateTime dateTime = new MutableDateTime(STARTING_TIMESTAMP_VALUE, ISOChronology.getInstanceUTC());
-
-                // Using parseInto() avoids throwing exception when parsing,
-                // allowing fallback to default timestamp parsing if custom patterns fail.
-                int parsedLength = dateTimeFormatter.parseInto(dateTime, value, 0);
-                // Only accept parse results if we parsed the entire string
-                if (parsedLength == value.length()) {
-                    long millis = dateTime.getMillis();
+        if (parsers != null) {
+            for (Function<String, Long> parser : parsers) {
+                try {
+                    long millis = parser.apply(value);
                     long epochSeconds = floorDiv(millis, (long) MILLISECONDS_PER_SECOND);
                     long fractionalSecond = floorMod(millis, (long) MILLISECONDS_PER_SECOND);
                     int nanosOfSecond = toIntExact(fractionalSecond * (long) NANOSECONDS_PER_MILLISECOND);
                     return new DecodedTimestamp(epochSeconds, nanosOfSecond);
                 }
-            }
-            catch (Exception _) {
+                catch (RuntimeException e) {
+                    // The first complete pattern determines the fields. Invalid field values
+                    // fall back to the default Hive syntax rather than a different custom pattern.
+                    if (e.getCause() instanceof DateTimeException || e.getCause() instanceof ArithmeticException || e instanceof NumberFormatException) {
+                        break;
+                    }
+                }
             }
         }
-
         return parseTrimmedHiveTimestamp(value);
     }
 
@@ -328,46 +324,5 @@ public final class HiveFormatUtils
         SqlTimestamp objectValue = (SqlTimestamp) type.getObjectValue(block, position);
         LocalDateTime localDateTime = objectValue.toLocalDateTime();
         TIMESTAMP_FORMATTER.formatTo(localDateTime, builder);
-    }
-
-    private static class MillisDateFormatParser
-            implements DateTimeParser
-    {
-        private static final Pattern PATTERN = Pattern.compile("(-?\\d+)(\\.\\d+)?$");
-
-        private static final DateTimeFieldType[] DATE_TIME_FIELDS = {
-                DateTimeFieldType.year(),
-                DateTimeFieldType.monthOfYear(),
-                DateTimeFieldType.dayOfMonth(),
-                DateTimeFieldType.hourOfDay(),
-                DateTimeFieldType.minuteOfHour(),
-                DateTimeFieldType.secondOfMinute(),
-                DateTimeFieldType.millisOfSecond(),
-        };
-
-        @Override
-        public int estimateParsedLength()
-        {
-            return 13; // Shouldn't hit 14 digits until year 2286
-        }
-
-        @Override
-        public int parseInto(DateTimeParserBucket bucket, String text, int position)
-        {
-            text = text.substring(position);
-
-            Matcher matcher = PATTERN.matcher(text);
-            if (!matcher.matches()) {
-                return -1;
-            }
-
-            // Joda DateTime only has precision to millis, cut off any fractional portion
-            long millis = Long.parseLong(matcher.group(1));
-            DateTime dateTime = new DateTime(millis, ISOChronology.getInstanceUTC());
-            for (DateTimeFieldType field : DATE_TIME_FIELDS) {
-                bucket.saveField(field, dateTime.get(field));
-            }
-            return text.length();
-        }
     }
 }

@@ -57,7 +57,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -96,6 +95,7 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
 public class CheckpointEntryIterator
@@ -207,7 +207,7 @@ public class CheckpointEntryIterator
                 columns,
                 disjunctDomainsBuilder.build(), // OR-ed condition
                 true,
-                DateTimeZone.UTC,
+                UTC,
                 stats,
                 parquetReaderOptions,
                 Optional.empty(),

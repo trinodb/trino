@@ -58,8 +58,8 @@ import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type.Repetition;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -100,7 +100,7 @@ final class ParquetWriters
 
     private ParquetWriters() {}
 
-    static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType, Optional<DateTimeZone> parquetTimeZone)
+    static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType, Optional<ZoneId> parquetTimeZone)
     {
         if (BOOLEAN.equals(type)) {
             return new BooleanValueWriter(valuesWriter, parquetType);
@@ -186,7 +186,7 @@ final class ParquetWriters
             Map<List<String>, Type> trinoTypes,
             CompressionCodec compressionCodec,
             ParquetWriterOptions writerOptions,
-            Optional<DateTimeZone> parquetTimeZone)
+            Optional<ZoneId> parquetTimeZone)
     {
         TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(writerOptions, DEFAULT_DICTIONARY_PAGE_SIZE);
         WriteBuilder writeBuilder = new WriteBuilder(
@@ -210,7 +210,7 @@ final class ParquetWriters
         private final int maxPageSize;
         private final int pageValueCountLimit;
         private final Set<String> bloomFilterColumns;
-        private final Optional<DateTimeZone> parquetTimeZone;
+        private final Optional<ZoneId> parquetTimeZone;
         private final ImmutableList.Builder<ColumnWriter> builder = ImmutableList.builder();
         private final int maxBloomFilterSize;
         private final double bloomFilterFpp;
@@ -221,7 +221,7 @@ final class ParquetWriters
                 TrinoValuesWriterFactory valuesWriterFactory,
                 CompressionCodec compressionCodec,
                 ParquetWriterOptions writerOptions,
-                Optional<DateTimeZone> parquetTimeZone)
+                Optional<ZoneId> parquetTimeZone)
         {
             this.type = requireNonNull(messageType, "messageType is null");
             this.trinoTypes = requireNonNull(trinoTypes, "trinoTypes is null");

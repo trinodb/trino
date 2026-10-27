@@ -35,9 +35,9 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
-import org.joda.time.DateTimeZone;
 
 import java.nio.file.Path;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +77,7 @@ public final class HiveQueryRunner
     private static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
     private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
-    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    private static final ZoneId TIME_ZONE = ZoneId.of("America/Bahia_Banderas");
 
     public static QueryRunner create()
             throws Exception
@@ -250,11 +250,11 @@ public final class HiveQueryRunner
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
-                    assertThat(DateTimeZone.getDefault())
+                    assertThat(ZoneId.systemDefault())
                             .describedAs("Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments")
                             .isEqualTo(TIME_ZONE);
-                    hiveProperties.put("hive.rcfile.time-zone", TIME_ZONE.getID());
-                    hiveProperties.put("hive.parquet.time-zone", TIME_ZONE.getID());
+                    hiveProperties.put("hive.rcfile.time-zone", TIME_ZONE.getId());
+                    hiveProperties.put("hive.parquet.time-zone", TIME_ZONE.getId());
                 }
                 hiveProperties.put("hive.max-partitions-per-scan", "1000");
                 hiveProperties.put("hive.max-partitions-for-eager-load", "1000");

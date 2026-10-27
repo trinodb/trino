@@ -16,17 +16,20 @@ package io.trino.plugin.base.type;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
+
+import static io.trino.plugin.base.type.TimeZoneConversions.convertUtcToLocal;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.longTimestamp;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
+import static java.time.ZoneOffset.UTC;
 
 class LongTimestampEncoder
         extends AbstractTrinoTimestampEncoder<LongTimestamp>
 {
-    LongTimestampEncoder(TimestampType type, DateTimeZone timeZone)
+    LongTimestampEncoder(TimestampType type, ZoneId timeZone)
     {
         super(type, timeZone);
     }
@@ -42,8 +45,8 @@ class LongTimestampEncoder
     public LongTimestamp getTimestamp(DecodedTimestamp decodedTimestamp)
     {
         long adjustedSeconds = decodedTimestamp.epochSeconds();
-        if (timeZone != DateTimeZone.UTC) {
-            adjustedSeconds = timeZone.convertUTCToLocal(adjustedSeconds * MILLISECONDS_PER_SECOND) / MILLISECONDS_PER_SECOND;
+        if (!timeZone.normalized().equals(UTC)) {
+            adjustedSeconds = convertUtcToLocal(timeZone, adjustedSeconds * MILLISECONDS_PER_SECOND) / MILLISECONDS_PER_SECOND;
         }
         int precision = type.getPrecision();
         int nanosOfSecond = decodedTimestamp.nanosOfSecond();

@@ -34,8 +34,8 @@ import java.util.Optional;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.TestingColumnReader.getDictionaryPage;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestNestedColumnReader
         extends AbstractColumnReaderTest

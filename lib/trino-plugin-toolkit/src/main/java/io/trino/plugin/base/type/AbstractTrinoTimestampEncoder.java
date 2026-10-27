@@ -14,17 +14,18 @@
 package io.trino.plugin.base.type;
 
 import io.trino.spi.type.TimestampType;
-import org.joda.time.DateTimeZone;
+
+import java.time.ZoneId;
 
 import static java.util.Objects.requireNonNull;
 
 abstract class AbstractTrinoTimestampEncoder<T extends Comparable<T>>
         implements TrinoTimestampEncoder<T>
 {
-    protected final DateTimeZone timeZone;
+    protected final ZoneId timeZone;
     protected final TimestampType type;
 
-    AbstractTrinoTimestampEncoder(TimestampType type, DateTimeZone timeZone)
+    AbstractTrinoTimestampEncoder(TimestampType type, ZoneId timeZone)
     {
         this.type = requireNonNull(type, "type is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");

@@ -23,10 +23,10 @@ import org.apache.hadoop.util.Progressable;
 import org.apache.parquet.hadoop.DisabledMemoryManager;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
 import org.apache.parquet.schema.MessageType;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -48,7 +48,7 @@ public class TestingMapredParquetOutputFormat
 
     private final Optional<MessageType> schema;
 
-    public TestingMapredParquetOutputFormat(Optional<MessageType> schema, boolean singleLevelArray, DateTimeZone dateTimeZone)
+    public TestingMapredParquetOutputFormat(Optional<MessageType> schema, boolean singleLevelArray, ZoneId dateTimeZone)
     {
         super(new ParquetOutputFormat<>(new TestDataWritableWriteSupport(singleLevelArray, dateTimeZone)));
         this.schema = requireNonNull(schema, "schema is null");

@@ -48,16 +48,15 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.joda.time.Days;
-import org.joda.time.LocalDateTime;
-import org.joda.time.LocalTime;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
-import org.joda.time.format.DateTimeParser;
-import org.joda.time.format.DateTimePrinter;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
+import java.time.format.SignStyle;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -137,6 +136,15 @@ import static java.lang.Short.parseShort;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
+import static java.time.format.ResolverStyle.STRICT;
+import static java.time.temporal.ChronoField.DAY_OF_MONTH;
+import static java.time.temporal.ChronoField.HOUR_OF_DAY;
+import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
+import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
+import static java.time.temporal.ChronoField.YEAR;
 import static java.util.Locale.ENGLISH;
 
 public final class HiveUtil
@@ -148,9 +156,34 @@ public final class HiveUtil
     public static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
     public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
-    private static final LocalDateTime EPOCH_DAY = new LocalDateTime(1970, 1, 1, 0, 0);
-    public static final DateTimeFormatter HIVE_DATE_PARSER;
-    public static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
+    public static final DateTimeFormatter HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder()
+            .parseLenient()
+            .appendValue(YEAR, 1, 9, SignStyle.NORMAL)
+            .parseStrict()
+            .appendLiteral('-')
+            .appendValue(MONTH_OF_YEAR, 1, 2, SignStyle.NOT_NEGATIVE)
+            .appendLiteral('-')
+            .appendValue(DAY_OF_MONTH, 1, 2, SignStyle.NOT_NEGATIVE)
+            .optionalStart()
+            .appendLiteral(' ')
+            .appendValue(HOUR_OF_DAY, 1, 2, SignStyle.NOT_NEGATIVE)
+            .appendLiteral(':')
+            .appendValue(MINUTE_OF_HOUR, 1, 2, SignStyle.NOT_NEGATIVE)
+            .optionalStart()
+            .appendLiteral(':')
+            .appendValue(SECOND_OF_MINUTE, 1, 2, SignStyle.NOT_NEGATIVE)
+            .optionalStart()
+            .appendFraction(NANO_OF_SECOND, 1, 9, true)
+            .optionalEnd()
+            .optionalEnd()
+            .optionalEnd()
+            .parseDefaulting(HOUR_OF_DAY, 0)
+            .parseDefaulting(MINUTE_OF_HOUR, 0)
+            .parseDefaulting(SECOND_OF_MINUTE, 0)
+            .toFormatter(ENGLISH)
+            .withResolverStyle(STRICT);
+    public static final DateTimeFormatter HIVE_DATE_PARSER = HIVE_TIMESTAMP_PARSER;
+    private static final DateTimeFormatter HIVE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSSSSS").withZone(UTC);
 
     private static final String BIG_DECIMAL_POSTFIX = "BD";
 
@@ -163,20 +196,6 @@ public final class HiveUtil
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", location, start, length, t.getMessage());
     }
 
-    static {
-        DateTimeParser[] timestampWithoutTimeZoneParser = {
-                DateTimeFormat.forPattern("yyyy-M-d").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSSSSS").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSSSSSSS").getParser(),
-        };
-        DateTimePrinter timestampWithoutTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS").getPrinter();
-        HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
-        HIVE_DATE_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
-    }
-
     private HiveUtil() {}
 
     public static Optional<String> getInputFormatName(Map<String, String> schema)
@@ -186,16 +205,28 @@ public final class HiveUtil
 
     public static long parseHiveDate(String value)
     {
-        LocalDateTime date = HIVE_DATE_PARSER.parseLocalDateTime(value);
+        LocalDateTime date = parseHiveLocalDateTime(value);
         if (!date.toLocalTime().equals(LocalTime.MIDNIGHT)) {
             throw new IllegalArgumentException(format("The value should be a whole round date: '%s'", value));
         }
-        return Days.daysBetween(EPOCH_DAY, date).getDays();
+        return date.toLocalDate().toEpochDay();
     }
 
     public static long parseHiveTimestamp(String value)
     {
-        return HIVE_TIMESTAMP_PARSER.parseMillis(value) * MICROSECONDS_PER_MILLISECOND;
+        return parseHiveLocalDateTime(value).toInstant(UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+    }
+
+    private static LocalDateTime parseHiveLocalDateTime(String value)
+    {
+        try {
+            LocalDateTime dateTime = LocalDateTime.parse(value, HIVE_TIMESTAMP_PARSER);
+            // Hive partition values have historically been parsed at millisecond precision.
+            return dateTime.withNano(dateTime.getNano() / 1_000_000 * 1_000_000);
+        }
+        catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Invalid Hive timestamp: " + value, e);
+        }
     }
 
     public static String getSerializationLibraryName(Map<String, String> schema)
@@ -610,7 +641,7 @@ public final class HiveUtil
             columnValue = String.valueOf(fileSize);
         }
         else if (isFileModifiedTimeColumnHandle(columnHandle)) {
-            columnValue = HIVE_TIMESTAMP_PARSER.print(fileModifiedTime);
+            columnValue = HIVE_TIMESTAMP_FORMATTER.format(Instant.ofEpochMilli(fileModifiedTime));
         }
         else if (isPartitionColumnHandle(columnHandle)) {
             columnValue = partitionName;

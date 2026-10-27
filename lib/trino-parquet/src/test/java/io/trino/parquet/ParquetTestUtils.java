@@ -38,12 +38,12 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
-import org.joda.time.DateTimeZone;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,8 +70,8 @@ import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.block.MapBlock.fromKeyValueBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class ParquetTestUtils
 {
@@ -121,7 +121,7 @@ public class ParquetTestUtils
                 writerOptions,
                 compression,
                 "test-version",
-                Optional.of(DateTimeZone.getDefault()),
+                Optional.of(ZoneId.systemDefault()),
                 Optional.empty());
     }
 
@@ -182,7 +182,7 @@ public class ParquetTestUtils
             List<String> columnNames,
             TupleDomain<String> predicate,
             boolean forceSelectedPositionsPushdown,
-            DateTimeZone timeZone)
+            ZoneId timeZone)
             throws IOException
     {
         return createParquetReader(input, parquetMetadata, options, memoryContext, types, columnNames, predicate, forceSelectedPositionsPushdown, timeZone, exception -> {
@@ -200,7 +200,7 @@ public class ParquetTestUtils
             List<String> columnNames,
             TupleDomain<String> predicate,
             boolean forceSelectedPositionsPushdown,
-            DateTimeZone timeZone,
+            ZoneId timeZone,
             Function<Exception, RuntimeException> exceptionTransform)
             throws IOException
     {

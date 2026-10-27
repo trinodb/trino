@@ -19,14 +19,17 @@ import io.trino.plugin.base.type.DecodedTimestamp;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 
 import static io.trino.hive.formats.HiveFormatUtils.TIMESTAMP_FORMATS_KEY;
+import static io.trino.hive.formats.HiveFormatUtils.createTimestampParser;
 import static io.trino.hive.formats.HiveFormatUtils.getTimestampFormatsSchemaProperty;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveTimestamp;
 import static io.trino.hive.formats.HiveFormatsErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveFormatUtils
 {
@@ -38,6 +41,21 @@ public class TestHiveFormatUtils
         assertThat(parseHiveDate("+5881580-07-11")).isEqualTo(LocalDate.of(5881580, 7, 11));
         assertThat(parseHiveDate("-5877641-06-23")).isEqualTo(LocalDate.of(-5877641, 6, 23));
         assertThat(parseHiveDate("1986-01-33")).isEqualTo(LocalDate.of(1986, 2, 2));
+    }
+
+    @Test
+    public void testCustomTimestampPatterns()
+    {
+        assertThat(createTimestampParser(ImmutableList.of("HH")).apply("7")).isEqualTo(new DecodedTimestamp(25_200, 0));
+        assertThat(createTimestampParser(ImmutableList.of("MM-dd")).apply("02-28")).isEqualTo(new DecodedTimestamp(5_011_200, 0));
+        assertThat(createTimestampParser(ImmutableList.of("yyyy")).apply("2020")).isEqualTo(new DecodedTimestamp(1_577_836_800, 0));
+        assertThat(createTimestampParser(ImmutableList.of("millis")).apply("-123.456")).isEqualTo(new DecodedTimestamp(-1, 877_000_000));
+        assertThat(createTimestampParser(ImmutableList.of("yyyy-MM-dd HH:mm:ss.SSSSSSSSS")).apply("1969-12-31 23:59:59.999999999"))
+                .isEqualTo(new DecodedTimestamp(-1, 999_000_000));
+        assertThat(createTimestampParser(ImmutableList.of("MM/dd/yyyy")).apply("2020-05-10 12:34:56.123456789"))
+                .isEqualTo(new DecodedTimestamp(1_589_114_096, 123_456_789));
+        assertThatThrownBy(() -> createTimestampParser(ImmutableList.of("MM/dd/yyyy", "dd/MM/yyyy")).apply("13/05/2020"))
+                .isInstanceOf(DateTimeParseException.class);
     }
 
     @Test

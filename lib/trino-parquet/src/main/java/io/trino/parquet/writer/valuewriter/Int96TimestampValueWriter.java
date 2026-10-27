@@ -23,13 +23,14 @@ import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
-import org.joda.time.DateTimeZone;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetTimestampUtils.JULIAN_EPOCH_OFFSET_DAYS;
+import static io.trino.plugin.base.type.TimeZoneConversions.convertLocalToUtc;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -44,9 +45,9 @@ public class Int96TimestampValueWriter
         extends PrimitiveValueWriter
 {
     private final TimestampType timestampType;
-    private final DateTimeZone parquetTimeZone;
+    private final ZoneId parquetTimeZone;
 
-    public Int96TimestampValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType, DateTimeZone parquetTimeZone)
+    public Int96TimestampValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType, ZoneId parquetTimeZone)
     {
         super(parquetType, valuesWriter);
         requireNonNull(type, "type is null");
@@ -171,7 +172,7 @@ public class Int96TimestampValueWriter
 
     private void convertAndWriteToBuffer(long localEpochMillis, int nanosOfMillis, byte[] buffer)
     {
-        long epochMillis = parquetTimeZone.convertLocalToUTC(localEpochMillis, false);
+        long epochMillis = convertLocalToUtc(parquetTimeZone, localEpochMillis);
         long epochDay = floorDiv(epochMillis, MILLISECONDS_PER_DAY);
         int julianDay = JULIAN_EPOCH_OFFSET_DAYS + toIntExact(epochDay);
 

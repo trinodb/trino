@@ -55,8 +55,8 @@ import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
 import static java.util.regex.Pattern.DOTALL;
-import static org.joda.time.DateTimeZone.UTC;
 
 /**
  * Deserializer that is bug for bug compatible with Hive RegexSerde.

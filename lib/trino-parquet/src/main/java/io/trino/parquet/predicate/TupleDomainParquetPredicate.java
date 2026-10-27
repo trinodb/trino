@@ -54,10 +54,12 @@ import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
-import org.joda.time.DateTimeZone;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.zone.ZoneOffsetTransition;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -89,6 +91,7 @@ import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
@@ -97,9 +100,9 @@ public class TupleDomainParquetPredicate
 {
     private final TupleDomain<ColumnDescriptor> effectivePredicate;
     private final List<ColumnDescriptor> columns;
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
 
-    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<ColumnDescriptor> columns, DateTimeZone timeZone)
+    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<ColumnDescriptor> columns, ZoneId timeZone)
     {
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
@@ -284,7 +287,7 @@ public class TupleDomainParquetPredicate
      * @param timeZone current Parquet timezone
      * @return Converted Parquet filter or null if conversion not possible
      */
-    public Optional<FilterPredicate> toParquetFilter(DateTimeZone timeZone)
+    public Optional<FilterPredicate> toParquetFilter(ZoneId timeZone)
     {
         return Optional.ofNullable(convertToParquetFilter(timeZone));
     }
@@ -301,7 +304,7 @@ public class TupleDomainParquetPredicate
             long columnValuesCount,
             Statistics<?> statistics,
             ParquetDataSourceId id,
-            DateTimeZone timeZone)
+            ZoneId timeZone)
             throws ParquetCorruptionException
     {
         if (statistics == null || statistics.isEmpty()) {
@@ -344,7 +347,7 @@ public class TupleDomainParquetPredicate
             List<Object> minimums,
             List<Object> maximums,
             boolean hasNullValue,
-            DateTimeZone timeZone)
+            ZoneId timeZone)
     {
         checkArgument(minimums.size() == maximums.size(), "Expected minimums and maximums to have the same size");
 
@@ -477,7 +480,7 @@ public class TupleDomainParquetPredicate
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
                 // Match ColumnReaderFactory: adjusted-to-UTC values are shifted into the configured zone, others are read verbatim
-                DateTimeZone statisticsTimeZone = timestampTypeAnnotation.isAdjustedToUTC() ? timeZone : DateTimeZone.UTC;
+                ZoneId statisticsTimeZone = timestampTypeAnnotation.isAdjustedToUTC() ? timeZone : UTC;
                 TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder(timestampType, statisticsTimeZone);
 
                 SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
@@ -486,10 +489,10 @@ public class TupleDomainParquetPredicate
                     DecodedTimestamp max = decodeInt64Timestamp((long) maximums.get(i), timestampTypeAnnotation.getUnit());
 
                     // Local time is not monotonic across an offset decrease, so a range that straddles a transition cannot be expressed as [convert(min), convert(max)]
-                    if (!statisticsTimeZone.isFixed()) {
+                    if (!statisticsTimeZone.getRules().isFixedOffset()) {
                         long minEpochMillis = min.epochSeconds() * MILLISECONDS_PER_SECOND;
-                        long nextTransition = statisticsTimeZone.nextTransition(minEpochMillis);
-                        if (nextTransition != minEpochMillis && nextTransition <= max.epochSeconds() * MILLISECONDS_PER_SECOND) {
+                        ZoneOffsetTransition nextTransition = statisticsTimeZone.getRules().nextTransition(Instant.ofEpochMilli(minEpochMillis));
+                        if (nextTransition != null && !nextTransition.getInstant().isAfter(Instant.ofEpochMilli(max.epochSeconds() * MILLISECONDS_PER_SECOND))) {
                             return Domain.create(ValueSet.all(type), hasNullValue);
                         }
                     }
@@ -565,7 +568,7 @@ public class TupleDomainParquetPredicate
             ColumnIndex columnIndex,
             ParquetDataSourceId id,
             ColumnDescriptor descriptor,
-            DateTimeZone timeZone)
+            ZoneId timeZone)
             throws ParquetCorruptionException
     {
         if (columnIndex == null) {
@@ -621,10 +624,10 @@ public class TupleDomainParquetPredicate
     @VisibleForTesting
     public static Domain getDomain(Type type, DictionaryDescriptor dictionaryDescriptor)
     {
-        return getDomain(type, dictionaryDescriptor, DateTimeZone.getDefault());
+        return getDomain(type, dictionaryDescriptor, ZoneId.systemDefault());
     }
 
-    private static Domain getDomain(Type type, DictionaryDescriptor dictionaryDescriptor, DateTimeZone timeZone)
+    private static Domain getDomain(Type type, DictionaryDescriptor dictionaryDescriptor, ZoneId timeZone)
     {
         if (dictionaryDescriptor == null) {
             return Domain.all(type);
@@ -744,7 +747,7 @@ public class TupleDomainParquetPredicate
         return Optional.of(valueSet.getDiscreteSet());
     }
 
-    private FilterPredicate convertToParquetFilter(DateTimeZone timeZone)
+    private FilterPredicate convertToParquetFilter(ZoneId timeZone)
     {
         FilterPredicate filter = null;
 
@@ -786,9 +789,9 @@ public class TupleDomainParquetPredicate
     {
         private final ColumnDescriptor columnDescriptor;
         private final Domain columnDomain;
-        private final DateTimeZone timeZone;
+        private final ZoneId timeZone;
 
-        public DomainUserDefinedPredicate(ColumnDescriptor columnDescriptor, Domain domain, DateTimeZone timeZone)
+        public DomainUserDefinedPredicate(ColumnDescriptor columnDescriptor, Domain domain, ZoneId timeZone)
         {
             this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
             this.columnDomain = domain;

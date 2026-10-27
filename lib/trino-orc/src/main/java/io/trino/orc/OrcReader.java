@@ -36,10 +36,10 @@ import io.trino.orc.stream.OrcChunkLoader;
 import io.trino.orc.stream.OrcInputStream;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -58,11 +58,11 @@ import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.orc.metadata.PostScript.MAGIC;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcReader
 {
@@ -254,7 +254,7 @@ public class OrcReader
             List<Type> readTypes,
             boolean appendRowNumberColumn,
             OrcPredicate predicate,
-            DateTimeZone legacyFileTimeZone,
+            ZoneId legacyFileTimeZone,
             AggregatedMemoryContext memoryUsage,
             int initialBatchSize,
             Function<Exception, RuntimeException> exceptionTransform)
@@ -283,7 +283,7 @@ public class OrcReader
             OrcPredicate predicate,
             long offset,
             long length,
-            DateTimeZone legacyFileTimeZone,
+            ZoneId legacyFileTimeZone,
             AggregatedMemoryContext memoryUsage,
             int initialBatchSize,
             Function<Exception, RuntimeException> exceptionTransform,

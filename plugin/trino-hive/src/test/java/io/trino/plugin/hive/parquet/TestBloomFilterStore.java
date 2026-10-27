@@ -36,13 +36,13 @@ import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -65,6 +65,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static java.util.Objects.requireNonNull;
@@ -85,7 +86,6 @@ import static org.apache.parquet.hadoop.metadata.ColumnPath.fromDotString;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestBloomFilterStore
 {
@@ -293,7 +293,7 @@ public class TestBloomFilterStore
                 new Iterator<?>[] {testValues.iterator()},
                 Optional.empty(),
                 false,
-                DateTimeZone.getDefault());
+                ZoneId.systemDefault());
 
         TrinoInputFile inputFile = new LocalInputFile(tempFile.getFile());
         TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats());

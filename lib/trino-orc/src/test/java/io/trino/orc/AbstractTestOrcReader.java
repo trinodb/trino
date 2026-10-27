@@ -27,10 +27,10 @@ import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigInteger;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -90,7 +90,7 @@ public abstract class AbstractTestOrcReader
     {
         this.tester = tester;
 
-        assertThat(DateTimeZone.getDefault()).isEqualTo(HIVE_STORAGE_TIME_ZONE);
+        assertThat(ZoneId.systemDefault()).isEqualTo(HIVE_STORAGE_TIME_ZONE);
     }
 
     @Test

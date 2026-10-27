@@ -19,12 +19,12 @@ import io.airlift.slice.Slice;
 import io.trino.json.Json;
 import io.trino.json.JsonItemBuilder;
 import io.trino.json.JsonItems;
+import io.trino.plugin.base.type.TimeZoneConversions;
 import io.trino.server.PluginClassLoader;
 import io.trino.server.PluginManager;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.JsonType;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
@@ -58,7 +58,7 @@ public class TestJsonColumnMapping
                         StandardColumnMappings.class,
                         Json.class,
                         ImmutableList.class,
-                        DateTimeZone.class,
+                        TimeZoneConversions.class,
                         ObjectMapper.class,
                         ObjectMapper.class.getSuperclass())
                 .map(type -> type.getProtectionDomain().getCodeSource().getLocation())

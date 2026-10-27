@@ -59,7 +59,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.Varchars;
 import org.apache.avro.Schema;
 import org.apache.avro.io.Decoder;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -87,6 +86,7 @@ import static io.trino.hive.formats.avro.HiveAvroTypeManager.getHiveLogicalVarCh
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeBlockHandler.getLogicalTypeBuildingFunction;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.getAvroLogicalTypeSpiType;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.validateLogicalType;
+import static io.trino.plugin.base.type.TimeZoneConversions.convertUtcToLocal;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
@@ -416,10 +416,10 @@ public class HiveAvroTypeBlockHandler
         {
             long millisSinceEpochUTC = longDecoder.apply(decoder);
             if (hiveSessionTimestamp.isShort()) {
-                hiveSessionTimestamp.writeLong(builder, DateTimeZone.forTimeZone(TimeZone.getTimeZone(convertToTimezone.get())).convertUTCToLocal(millisSinceEpochUTC) * Timestamps.MICROSECONDS_PER_MILLISECOND);
+                hiveSessionTimestamp.writeLong(builder, convertUtcToLocal(convertToTimezone.get(), millisSinceEpochUTC) * Timestamps.MICROSECONDS_PER_MILLISECOND);
             }
             else {
-                LongTimestamp longTimestamp = new LongTimestamp(DateTimeZone.forTimeZone(TimeZone.getTimeZone(convertToTimezone.get())).convertUTCToLocal(millisSinceEpochUTC) * Timestamps.MICROSECONDS_PER_MILLISECOND, 0);
+                LongTimestamp longTimestamp = new LongTimestamp(convertUtcToLocal(convertToTimezone.get(), millisSinceEpochUTC) * Timestamps.MICROSECONDS_PER_MILLISECOND, 0);
                 hiveSessionTimestamp.writeObject(builder, longTimestamp);
             }
         }

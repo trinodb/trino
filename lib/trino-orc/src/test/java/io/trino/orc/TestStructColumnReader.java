@@ -49,9 +49,9 @@ import static io.trino.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 

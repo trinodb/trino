@@ -29,10 +29,10 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +40,7 @@ import java.util.Optional;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Iterables.transform;
+import static io.trino.plugin.base.type.TimeZoneConversions.convertUtcToLocal;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -64,11 +65,11 @@ public class TestTimestamp
     public void testTimestampBackedByInt64WithDifferentTimezone()
             throws Exception
     {
-        testTimestampBackedByInt64(DateTimeZone.forID("America/New_York"));
-        testTimestampBackedByInt64(DateTimeZone.forID("UTC"));
+        testTimestampBackedByInt64(ZoneId.of("America/New_York"));
+        testTimestampBackedByInt64(ZoneId.of("UTC"));
     }
 
-    private void testTimestampBackedByInt64(DateTimeZone dateTimeZone)
+    private void testTimestampBackedByInt64(ZoneId dateTimeZone)
             throws Exception
     {
         for (HiveTimestampPrecision timestamp : HiveTimestampPrecision.values()) {
@@ -90,7 +91,7 @@ public class TestTimestamp
         }
     }
 
-    private static void testRoundTrip(MessageType parquetSchema, Iterable<Long> writeValues, HiveTimestampPrecision timestamp, DateTimeZone dateTimeZone)
+    private static void testRoundTrip(MessageType parquetSchema, Iterable<Long> writeValues, HiveTimestampPrecision timestamp, ZoneId dateTimeZone)
             throws Exception
     {
         Iterable<SqlTimestamp> timestampReadValues = transform(writeValues, value -> {
@@ -100,14 +101,14 @@ public class TestTimestamp
             return switch (timestamp) {
                 case MILLISECONDS -> SqlTimestamp.fromMillis(
                         timestamp.getPrecision(),
-                        dateTimeZone.convertUTCToLocal(value));
+                        convertUtcToLocal(dateTimeZone, value));
                 case MICROSECONDS -> SqlTimestamp.newInstance(
                         timestamp.getPrecision(),
-                        (dateTimeZone.convertUTCToLocal(floorDiv(value, MICROSECONDS_PER_MILLISECOND)) * MICROSECONDS_PER_MILLISECOND)
+                        (convertUtcToLocal(dateTimeZone, floorDiv(value, MICROSECONDS_PER_MILLISECOND)) * MICROSECONDS_PER_MILLISECOND)
                                 + floorMod(value, MICROSECONDS_PER_MILLISECOND),
                         0);
                 case NANOSECONDS -> {
-                    long localMicros = dateTimeZone.convertUTCToLocal(floorDiv(value, NANOSECONDS_PER_MICROSECOND * MICROSECONDS_PER_MILLISECOND));
+                    long localMicros = convertUtcToLocal(dateTimeZone, floorDiv(value, NANOSECONDS_PER_MICROSECOND * MICROSECONDS_PER_MILLISECOND));
                     yield SqlTimestamp.newInstance(
                             timestamp.getPrecision(),
                             (localMicros * MICROSECONDS_PER_MILLISECOND) + floorMod(value, NANOSECONDS_PER_MILLISECOND) / MICROSECONDS_PER_MILLISECOND,
@@ -132,7 +133,7 @@ public class TestTimestamp
                     new Iterator<?>[] {writeValues.iterator()},
                     Optional.of(parquetSchema),
                     false,
-                    DateTimeZone.getDefault());
+                    ZoneId.systemDefault());
 
             ConnectorSession session = getHiveSession(new HiveConfig());
             testReadingAs(createTimestampType(timestamp.getPrecision()), session, tempFile, columnNames, timestampReadValues, dateTimeZone);
@@ -140,7 +141,7 @@ public class TestTimestamp
         }
     }
 
-    private static void testReadingAs(Type type, ConnectorSession session, ParquetTester.TempFile tempFile, List<String> columnNames, Iterable<?> expectedValues, DateTimeZone dateTimeZone)
+    private static void testReadingAs(Type type, ConnectorSession session, ParquetTester.TempFile tempFile, List<String> columnNames, Iterable<?> expectedValues, ZoneId dateTimeZone)
             throws IOException
     {
         Iterator<?> expected = expectedValues.iterator();

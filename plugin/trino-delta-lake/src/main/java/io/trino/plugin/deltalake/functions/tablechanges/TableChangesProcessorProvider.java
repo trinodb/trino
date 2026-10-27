@@ -27,8 +27,8 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -37,7 +37,7 @@ public class TableChangesProcessorProvider
         implements TableFunctionProcessorProvider
 {
     private final DeltaLakeFileSystemFactory fileSystemFactory;
-    private final DateTimeZone parquetDateTimeZone;
+    private final ZoneId parquetDateTimeZone;
     private final int domainCompactionThreshold;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final ParquetReaderOptions parquetReaderOptions;

@@ -103,9 +103,6 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -120,6 +117,9 @@ import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -200,6 +200,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.readAllBytes;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -224,7 +225,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.Offset.offset;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 // Failing on multiple threads because of org.apache.hadoop.hive.ql.io.parquet.write.ParquetRecordWriterWrapper
@@ -233,7 +233,7 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 @Execution(ExecutionMode.SAME_THREAD)
 public final class TestHiveFileFormats
 {
-    private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    private static final ZoneId HIVE_STORAGE_TIME_ZONE = ZoneId.of("America/Bahia_Banderas");
     private static final float EPSILON = 0.001f;
 
     private static final FileFormatDataSourceStats STATS = new FileFormatDataSourceStats();
@@ -1712,11 +1712,11 @@ public final class TestHiveFileFormats
     private static final long DATE_DAYS = HIVE_DATE.toEpochDay();
     private static final String DATE_STRING = HIVE_DATE.toString();
 
-    private static final DateTime TIMESTAMP_VALUE = new DateTime(2011, 5, 6, 7, 8, 9, 123, UTC);
+    private static final Instant TIMESTAMP_VALUE = ZonedDateTime.of(2011, 5, 6, 7, 8, 9, 123_000_000, UTC).toInstant();
     // micros are used for the expected value to simplify the testing of array, map, and row, but only millis are used
-    private static final long TIMESTAMP_MICROS_VALUE = TIMESTAMP_VALUE.getMillis() * MICROSECONDS_PER_MILLISECOND;
-    private static final String TIMESTAMP_STRING_VALUE = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").withZoneUTC().print(TIMESTAMP_VALUE.getMillis());
-    private static final Timestamp HIVE_TIMESTAMP = Timestamp.ofEpochMilli(TIMESTAMP_VALUE.getMillis());
+    private static final long TIMESTAMP_MICROS_VALUE = TIMESTAMP_VALUE.toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+    private static final String TIMESTAMP_STRING_VALUE = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS").withZone(UTC).format(TIMESTAMP_VALUE);
+    private static final Timestamp HIVE_TIMESTAMP = Timestamp.ofEpochMilli(TIMESTAMP_VALUE.toEpochMilli());
 
     private static final DecimalType DECIMAL_TYPE_2 = DecimalType.createDecimalType(2, 1);
     private static final DecimalType DECIMAL_TYPE_4 = DecimalType.createDecimalType(4, 2);

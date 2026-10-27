@@ -69,7 +69,6 @@ import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexFilter;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
-import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -190,7 +189,7 @@ public class ParquetReader
             boolean appendRowNumberColumn,
             List<RowGroupInfo> rowGroups,
             ParquetDataSource dataSource,
-            DateTimeZone timeZone,
+            ZoneId timeZone,
             AggregatedMemoryContext memoryContext,
             ParquetReaderOptions options,
             Function<Exception, RuntimeException> exceptionTransform,
@@ -221,7 +220,7 @@ public class ParquetReader
             boolean appendRowNumberColumn,
             List<RowGroupInfo> rowGroups,
             ParquetDataSource dataSource,
-            DateTimeZone timeZone,
+            ZoneId timeZone,
             AggregatedMemoryContext memoryContext,
             ParquetReaderOptions options,
             Function<Exception, RuntimeException> exceptionTransform,
@@ -238,7 +237,7 @@ public class ParquetReader
         this.primitiveFields = getPrimitiveFields(columnFields.stream().map(Column::field).collect(toImmutableList()));
         this.rowGroups = requireNonNull(rowGroups, "rowGroups is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
-        this.zoneId = requireNonNull(timeZone, "timeZone is null").toTimeZone().toZoneId();
+        this.zoneId = requireNonNull(timeZone, "timeZone is null");
         this.columnReaderFactory = new ColumnReaderFactory(timeZone, options);
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();

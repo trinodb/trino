@@ -44,8 +44,8 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.UUIDLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetEncoding.PLAIN;
@@ -76,6 +76,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MICROS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
@@ -90,10 +91,10 @@ public final class ColumnReaderFactory
 {
     private static final int PREFERRED_BIT_WIDTH = VectorShape.preferredShape().vectorBitSize();
 
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
     private final boolean vectorizedDecodingEnabled;
 
-    public ColumnReaderFactory(DateTimeZone timeZone, ParquetReaderOptions readerOptions)
+    public ColumnReaderFactory(ZoneId timeZone, ParquetReaderOptions readerOptions)
     {
         this.timeZone = requireNonNull(timeZone, "dateTimeZone is null");
         this.vectorizedDecodingEnabled = readerOptions.isVectorizedDecodingEnabled() && isVectorizedDecodingSupported();
@@ -207,7 +208,7 @@ public final class ColumnReaderFactory
             if (!(annotation instanceof TimestampLogicalTypeAnnotation timestampAnnotation)) {
                 throw unsupportedException(type, field);
             }
-            DateTimeZone readTimeZone = timestampAnnotation.isAdjustedToUTC() ? timeZone : DateTimeZone.UTC;
+            ZoneId readTimeZone = timestampAnnotation.isAdjustedToUTC() ? timeZone : UTC;
             if (timestampType.isShort()) {
                 return switch (timestampAnnotation.getUnit()) {
                     case MILLIS -> createColumnReader(field, encoding -> valueDecoders.getInt64TimestampMillisToShortTimestampDecoder(encoding, readTimeZone), LONG_ADAPTER, memoryContext);

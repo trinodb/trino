@@ -24,7 +24,6 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SourcePage;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -36,6 +35,7 @@ import java.util.Optional;
 import static io.trino.metastore.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestRcFilePageSource
@@ -54,7 +54,7 @@ final class TestRcFilePageSource
                 BIGINT.writeLong(columnA, i);
                 BIGINT.writeLong(columnB, i * 10L);
             }
-            BinaryColumnEncodingFactory encoding = new BinaryColumnEncodingFactory(DateTimeZone.UTC);
+            BinaryColumnEncodingFactory encoding = new BinaryColumnEncodingFactory(UTC);
             try (FileOutputStream outputStream = new FileOutputStream(file)) {
                 RcFileWriter writer = new RcFileWriter(
                         outputStream,

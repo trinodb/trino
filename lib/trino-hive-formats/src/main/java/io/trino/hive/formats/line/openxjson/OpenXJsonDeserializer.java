@@ -94,6 +94,7 @@ import static java.lang.StrictMath.floorDiv;
 import static java.lang.StrictMath.floorMod;
 import static java.lang.StrictMath.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 import static java.time.format.ResolverStyle.LENIENT;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
@@ -101,7 +102,6 @@ import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static java.time.temporal.ChronoField.YEAR;
 import static java.util.HexFormat.isHexDigit;
 import static java.util.Objects.requireNonNull;
-import static org.joda.time.DateTimeZone.UTC;
 
 public final class OpenXJsonDeserializer
         implements LineDeserializer

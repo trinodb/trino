@@ -30,7 +30,6 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import org.joda.time.DateTimeZone;
 
 import java.nio.file.Path;
 import java.time.ZoneId;
@@ -628,10 +627,9 @@ public class HiveConfig
         return this;
     }
 
-    public DateTimeZone getRcfileDateTimeZone()
+    public ZoneId getRcfileDateTimeZone()
     {
-        TimeZone timeZone = TimeZone.getTimeZone(ZoneId.of(rcfileTimeZone));
-        return DateTimeZone.forTimeZone(timeZone);
+        return ZoneId.of(rcfileTimeZone);
     }
 
     @NotNull
@@ -677,10 +675,9 @@ public class HiveConfig
         return this;
     }
 
-    public DateTimeZone getOrcLegacyDateTimeZone()
+    public ZoneId getOrcLegacyDateTimeZone()
     {
-        TimeZone timeZone = TimeZone.getTimeZone(ZoneId.of(orcLegacyTimeZone));
-        return DateTimeZone.forTimeZone(timeZone);
+        return ZoneId.of(orcLegacyTimeZone);
     }
 
     @NotNull
@@ -697,10 +694,9 @@ public class HiveConfig
         return this;
     }
 
-    public DateTimeZone getParquetDateTimeZone()
+    public ZoneId getParquetDateTimeZone()
     {
-        TimeZone timeZone = TimeZone.getTimeZone(ZoneId.of(parquetTimeZone));
-        return DateTimeZone.forTimeZone(timeZone);
+        return ZoneId.of(parquetTimeZone);
     }
 
     @NotNull

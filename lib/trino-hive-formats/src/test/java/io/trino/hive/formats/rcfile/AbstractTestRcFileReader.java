@@ -21,13 +21,13 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlVarbinary;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigInteger;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -75,7 +75,7 @@ public abstract class AbstractTestRcFileReader
     @BeforeAll
     public void setUp()
     {
-        assertThat(DateTimeZone.getDefault()).isEqualTo(RcFileTester.HIVE_STORAGE_TIME_ZONE);
+        assertThat(ZoneId.systemDefault()).isEqualTo(RcFileTester.HIVE_STORAGE_TIME_ZONE);
     }
 
     @Test

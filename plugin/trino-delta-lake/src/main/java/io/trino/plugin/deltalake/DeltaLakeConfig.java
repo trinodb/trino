@@ -29,8 +29,8 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -437,9 +437,9 @@ public class DeltaLakeConfig
         return this;
     }
 
-    public DateTimeZone getParquetDateTimeZone()
+    public ZoneId getParquetDateTimeZone()
     {
-        return DateTimeZone.forID(parquetTimeZone);
+        return ZoneId.of(parquetTimeZone);
     }
 
     @NotNull

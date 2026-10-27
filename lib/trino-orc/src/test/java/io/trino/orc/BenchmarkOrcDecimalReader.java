@@ -18,7 +18,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDecimal;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -52,6 +51,7 @@ import static io.trino.orc.OrcTester.writeOrcColumnHive;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static java.nio.file.Files.createTempDirectory;
+import static java.time.ZoneOffset.UTC;
 import static java.util.UUID.randomUUID;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -120,7 +120,7 @@ public class BenchmarkOrcDecimalReader
                     ImmutableList.of(DECIMAL_TYPE),
                     false,
                     OrcPredicate.TRUE,
-                    DateTimeZone.UTC, // arbitrary
+                    UTC, // arbitrary
                     newSimpleAggregatedMemoryContext(),
                     INITIAL_BATCH_SIZE,
                     RuntimeException::new);

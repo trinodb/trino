@@ -102,7 +102,7 @@ public final class TransactionLogParser
 {
     private static final Logger log = Logger.get(TransactionLogParser.class);
 
-    // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
+    // Before 1900, java.time are not consistent with java.sql.Date and java.util.Calendar
     // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 day margin.
     private static final LocalDate START_OF_MODERN_ERA_DATE = LocalDate.of(1900, 1, 2);
     public static final long START_OF_MODERN_ERA_EPOCH_DAY = START_OF_MODERN_ERA_DATE.toEpochDay();

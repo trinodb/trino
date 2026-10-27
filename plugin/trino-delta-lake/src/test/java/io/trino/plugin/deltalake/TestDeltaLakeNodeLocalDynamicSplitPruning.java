@@ -47,7 +47,6 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.parquet.format.CompressionCodec;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -70,6 +69,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -303,7 +303,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                 ParquetWriterOptions.builder().build(),
                 CompressionCodec.SNAPPY,
                 "test",
-                Optional.of(DateTimeZone.UTC),
+                Optional.of(UTC),
                 Optional.empty());
     }
 

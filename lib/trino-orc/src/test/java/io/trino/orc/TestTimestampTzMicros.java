@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.io.Resources.getResource;
@@ -26,6 +25,7 @@ import static com.google.common.io.Resources.toByteArray;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTimestampTzMicros
@@ -50,7 +50,7 @@ public class TestTimestampTzMicros
                 ImmutableList.of(timestampTzType, TimestampType.createTimestampType(6)),
                 false,
                 OrcPredicate.TRUE,
-                DateTimeZone.UTC,
+                UTC,
                 newSimpleAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE,
                 RuntimeException::new)) {

@@ -58,13 +58,13 @@ import static io.trino.parquet.reader.TestingColumnReader.DataPageVersion.V1;
 import static io.trino.parquet.reader.TestingColumnReader.getDictionaryPage;
 import static io.trino.parquet.reader.TestingValuesWriters.getValuesWriter;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static java.time.ZoneOffset.UTC;
 import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.joda.time.DateTimeZone.UTC;
 
 /**
  * The purpose of this class is to cover all code paths of FlatColumnReader with all supported data types.

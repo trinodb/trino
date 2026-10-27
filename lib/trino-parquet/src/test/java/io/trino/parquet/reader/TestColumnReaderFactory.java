@@ -22,10 +22,10 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static java.time.ZoneOffset.UTC;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestColumnReaderFactory
 {

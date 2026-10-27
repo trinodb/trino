@@ -65,10 +65,10 @@ import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -138,7 +138,7 @@ public class ParquetPageSourceFactory
     private final FileFormatDataSourceStats stats;
     private final Optional<FileDecryptionProperties> fileDecryptionProperties;
     private final ParquetReaderOptions options;
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
     private final int domainCompactionThreshold;
 
     @Inject
@@ -228,7 +228,7 @@ public class ParquetPageSourceFactory
             List<HiveColumnHandle> columns,
             List<TupleDomain<HiveColumnHandle>> disjunctTupleDomains,
             boolean useColumnNames,
-            DateTimeZone timeZone,
+            ZoneId timeZone,
             FileFormatDataSourceStats stats,
             ParquetReaderOptions options,
             Optional<ParquetWriteValidation> parquetWriteValidation,

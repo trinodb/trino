@@ -35,9 +35,9 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.spi.predicate.TupleDomain;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,7 +78,7 @@ public class TableChangesFunctionProcessor
     public TableChangesFunctionProcessor(
             ConnectorSession session,
             DeltaLakeFileSystemFactory fileSystemFactory,
-            DateTimeZone parquetDateTimeZone,
+            ZoneId parquetDateTimeZone,
             int domainCompactionThreshold,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             ParquetReaderOptions parquetReaderOptions,
@@ -168,7 +168,7 @@ public class TableChangesFunctionProcessor
     private static ConnectorPageSource createDeltaLakePageSource(
             ConnectorSession session,
             DeltaLakeFileSystemFactory fileSystemFactory,
-            DateTimeZone parquetDateTimeZone,
+            ZoneId parquetDateTimeZone,
             int domainCompactionThreshold,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             ParquetReaderOptions parquetReaderOptions,

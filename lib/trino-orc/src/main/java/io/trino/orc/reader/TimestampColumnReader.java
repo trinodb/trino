@@ -30,7 +30,6 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -46,6 +45,7 @@ import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.metadata.Stream.StreamKind.SECONDARY;
 import static io.trino.orc.reader.ReaderUtils.invalidStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.plugin.base.type.TimeZoneConversions.convertUtcToLocal;
 import static io.trino.spi.block.Bitmap.isSet;
 import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.block.Fixed12Block.encodeFixed12;
@@ -58,6 +58,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
@@ -67,8 +68,8 @@ import static io.trino.spi.type.Timestamps.roundDiv;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
-import static org.joda.time.DateTimeConstants.MILLIS_PER_SECOND;
 
 // see ORC encoding notes in TimestampColumnWriter
 
@@ -108,7 +109,7 @@ public class TimestampColumnReader
     private final TimestampKind timestampKind;
 
     private long baseTimestampInSeconds;
-    private DateTimeZone fileDateTimeZone;
+    private ZoneId fileTimeZone;
 
     private int readOffset;
     private int nextBatchSize;
@@ -278,7 +279,7 @@ public class TimestampColumnReader
     {
         baseTimestampInSeconds = ZonedDateTime.ofLocal(ORC_EPOCH, fileTimeZone, null).toEpochSecond();
 
-        fileDateTimeZone = DateTimeZone.forID(fileTimeZone.getId());
+        this.fileTimeZone = fileTimeZone;
 
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         secondsStreamSource = missingStreamSource(LongInputStream.class);
@@ -331,10 +332,9 @@ public class TimestampColumnReader
         return INSTANCE_SIZE;
     }
 
-    @SuppressWarnings("ObjectEquality")
     private boolean isFileUtc()
     {
-        return fileDateTimeZone == DateTimeZone.UTC;
+        return fileTimeZone.normalized().equals(UTC);
     }
 
     private int decodeNanos(long serialized)
@@ -382,20 +382,20 @@ public class TimestampColumnReader
         long seconds = secondsStream.next();
         long serializedNanos = nanosStream.next();
 
-        long millis = (seconds + baseTimestampInSeconds) * MILLIS_PER_SECOND;
+        long millis = (seconds + baseTimestampInSeconds) * MILLISECONDS_PER_SECOND;
         long nanos = decodeNanos(serializedNanos);
 
         if (nanos != 0) {
             // adjust for bad ORC rounding logic
             if (millis < 0) {
-                millis -= MILLIS_PER_SECOND;
+                millis -= MILLISECONDS_PER_SECOND;
             }
 
             millis += roundDiv(nanos, NANOSECONDS_PER_MILLISECOND);
         }
 
         if (!isFileUtc()) {
-            millis = fileDateTimeZone.convertUTCToLocal(millis);
+            millis = convertUtcToLocal(fileTimeZone, millis);
         }
 
         return millis * MICROSECONDS_PER_MILLISECOND;
@@ -446,7 +446,7 @@ public class TimestampColumnReader
         if (!isFileUtc()) {
             long millis = floorDiv(micros, MICROSECONDS_PER_MILLISECOND);
             int microsFraction = floorMod(micros, MICROSECONDS_PER_MILLISECOND);
-            millis = fileDateTimeZone.convertUTCToLocal(millis);
+            millis = convertUtcToLocal(fileTimeZone, millis);
             micros = (millis * MICROSECONDS_PER_MILLISECOND) + microsFraction;
         }
 
@@ -503,7 +503,7 @@ public class TimestampColumnReader
         if (!isFileUtc()) {
             long millis = floorDiv(micros, MICROSECONDS_PER_MILLISECOND);
             int microsFraction = floorMod(micros, MICROSECONDS_PER_MILLISECOND);
-            millis = fileDateTimeZone.convertUTCToLocal(millis);
+            millis = convertUtcToLocal(fileTimeZone, millis);
             micros = (millis * MICROSECONDS_PER_MILLISECOND) + microsFraction;
         }
 
@@ -540,13 +540,13 @@ public class TimestampColumnReader
         long seconds = secondsStream.next();
         long serializedNanos = nanosStream.next();
 
-        long millis = (seconds + BASE_INSTANT_IN_SECONDS) * MILLIS_PER_SECOND;
+        long millis = (seconds + BASE_INSTANT_IN_SECONDS) * MILLISECONDS_PER_SECOND;
         long nanos = decodeNanos(serializedNanos);
 
         if (nanos != 0) {
             // adjust for bad ORC rounding logic
             if (millis < 0) {
-                millis -= MILLIS_PER_SECOND;
+                millis -= MILLISECONDS_PER_SECOND;
             }
 
             millis += roundDiv(nanos, NANOSECONDS_PER_MILLISECOND);
@@ -585,14 +585,14 @@ public class TimestampColumnReader
         long seconds = secondsStream.next();
         long serializedNanos = nanosStream.next();
 
-        long millis = (seconds + BASE_INSTANT_IN_SECONDS) * MILLIS_PER_SECOND;
+        long millis = (seconds + BASE_INSTANT_IN_SECONDS) * MILLISECONDS_PER_SECOND;
         long nanos = decodeNanos(serializedNanos);
         int picosFraction = 0;
 
         if (nanos != 0) {
             // adjust for bad ORC rounding logic
             if (millis < 0) {
-                millis -= MILLIS_PER_SECOND;
+                millis -= MILLISECONDS_PER_SECOND;
             }
 
             // move millis part out of nanos
@@ -641,14 +641,14 @@ public class TimestampColumnReader
         long seconds = secondsStream.next();
         long serializedNanos = nanosStream.next();
 
-        long millis = (seconds + BASE_INSTANT_IN_SECONDS) * MILLIS_PER_SECOND;
+        long millis = (seconds + BASE_INSTANT_IN_SECONDS) * MILLISECONDS_PER_SECOND;
         long nanos = decodeNanos(serializedNanos);
         int picosFraction = 0;
 
         if (nanos != 0) {
             // adjust for bad ORC rounding logic
             if (millis < 0) {
-                millis -= MILLIS_PER_SECOND;
+                millis -= MILLISECONDS_PER_SECOND;
             }
 
             // move millis part out of nanos

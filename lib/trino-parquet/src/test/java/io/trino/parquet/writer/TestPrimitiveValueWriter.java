@@ -31,10 +31,10 @@ import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -63,6 +63,7 @@ import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToRawIntBits;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.nCopies;
 import static java.util.Collections.singletonList;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MICROS;
@@ -262,7 +263,7 @@ final class TestPrimitiveValueWriter
 
     private static TestCase int96TimestampTestCase(Type trinoType, Object... values)
     {
-        return new TestCase(trinoType, convertToParquetType(trinoType, false, true), Optional.of(DateTimeZone.UTC), Arrays.stream(values).collect(toImmutableList()));
+        return new TestCase(trinoType, convertToParquetType(trinoType, false, true), Optional.of(UTC), Arrays.stream(values).collect(toImmutableList()));
     }
 
     // types which ParquetSchemaConverter does not map, so the parquet type is spelled out
@@ -289,7 +290,7 @@ final class TestPrimitiveValueWriter
     // dictionarySize is 0 and dictionaryBytes empty when the writer is not dictionary encoded
     private record WriteResult(byte[] pageBytes, Statistics<?> statistics, int dictionarySize, byte[] dictionaryBytes) {}
 
-    private record TestCase(Type trinoType, PrimitiveType parquetType, Optional<DateTimeZone> parquetTimeZone, List<Object> values)
+    private record TestCase(Type trinoType, PrimitiveType parquetType, Optional<ZoneId> parquetTimeZone, List<Object> values)
     {
         @Override
         public String toString()

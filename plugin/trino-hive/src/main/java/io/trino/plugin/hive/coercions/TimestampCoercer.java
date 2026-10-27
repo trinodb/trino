@@ -60,7 +60,7 @@ public final class TimestampCoercer
             .withResolverStyle(STRICT)
             .withChronology(IsoChronology.INSTANCE);
 
-    // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
+    // Before 1900, java.time are not consistent with java.sql.Date and java.util.Calendar
     private static final long START_OF_MODERN_ERA_SECONDS = LocalDate.of(1900, 1, 1).toEpochDay() * SECONDS_PER_DAY;
 
     private TimestampCoercer() {}

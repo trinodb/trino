@@ -29,13 +29,12 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.PartitionField;
-import org.joda.time.DateTimeField;
-import org.joda.time.chrono.ISOChronology;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.LocalDate;
 import java.util.function.Function;
 import java.util.function.LongUnaryOperator;
 import java.util.function.ToLongFunction;
@@ -82,9 +81,6 @@ public final class PartitionTransforms
 
     private static final VarHandle LONG_HANDLE_BIG_ENDIAN =
             MethodHandles.byteArrayViewVarHandle(long[].class, BIG_ENDIAN);
-
-    private static final DateTimeField YEAR_FIELD = ISOChronology.getInstanceUTC().year();
-    private static final DateTimeField MONTH_FIELD = ISOChronology.getInstanceUTC().monthOfYear();
 
     private PartitionTransforms() {}
 
@@ -1040,14 +1036,14 @@ public final class PartitionTransforms
     @VisibleForTesting
     static long epochYear(long epochMilli)
     {
-        return YEAR_FIELD.get(epochMilli) - 1970L;
+        return LocalDate.ofEpochDay(floorDiv(epochMilli, MILLISECONDS_PER_DAY)).getYear() - 1970L;
     }
 
     @VisibleForTesting
     static long epochMonth(long epochMilli)
     {
         long year = epochYear(epochMilli);
-        int month = MONTH_FIELD.get(epochMilli) - 1;
+        int month = LocalDate.ofEpochDay(floorDiv(epochMilli, MILLISECONDS_PER_DAY)).getMonthValue() - 1;
         return (year * 12) + month;
     }
 

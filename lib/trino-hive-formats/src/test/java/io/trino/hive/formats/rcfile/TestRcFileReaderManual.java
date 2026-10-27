@@ -22,7 +22,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
 import io.trino.spi.block.Block;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -31,6 +30,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static java.time.ZoneOffset.UTC;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -237,7 +237,7 @@ public class TestRcFileReaderManual
 
         RcFileReader reader = new RcFileReader(
                 new MemoryInputFile(Location.of("memory:///test"), data),
-                new BinaryColumnEncodingFactory(DateTimeZone.UTC),
+                new BinaryColumnEncodingFactory(UTC),
                 ImmutableMap.of(0, SMALLINT),
                 offset,
                 length);

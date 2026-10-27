@@ -219,9 +219,9 @@ final class DateProjection
         String formatted = toPartitionLocationTemplateValue(formatValue(Instant.now()));
         if (columnType instanceof DateType) {
             try {
-                HIVE_DATE_PARSER.parseLocalDateTime(formatted);
+                LocalDateTime.parse(formatted, HIVE_DATE_PARSER);
             }
-            catch (IllegalArgumentException e) {
+            catch (DateTimeParseException e) {
                 throw new TrinoException(
                         NOT_SUPPORTED,
                         format("Writing to date partition projection column '%s' with format '%s' is not supported", columnName, dateFormatPattern));
@@ -230,9 +230,9 @@ final class DateProjection
 
         if (columnType instanceof TimestampType timestampType && timestampType.isShort()) {
             try {
-                HIVE_TIMESTAMP_PARSER.parseLocalDateTime(formatted);
+                LocalDateTime.parse(formatted, HIVE_TIMESTAMP_PARSER);
             }
-            catch (IllegalArgumentException e) {
+            catch (DateTimeParseException e) {
                 throw new TrinoException(
                         NOT_SUPPORTED,
                         format("Writing to date partition projection column '%s' with format '%s' is not supported", columnName, dateFormatPattern));

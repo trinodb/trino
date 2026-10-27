@@ -32,7 +32,6 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.joda.time.DateTimeZone;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
@@ -298,7 +297,7 @@ public final class EsriDeserializer
             else if (columnType instanceof TimestampType timestampType) {
                 Timestamp timestamp = parseTimestamp(parser);
                 DecodedTimestamp decodedTimestamp = createDecodedTimestamp(timestamp);
-                createTimestampEncoder(timestampType, DateTimeZone.UTC).write(decodedTimestamp, builder);
+                createTimestampEncoder(timestampType, UTC).write(decodedTimestamp, builder);
             }
             else if (columnType instanceof VarcharType varcharType) {
                 columnType.writeSlice(builder, truncateToLength(Slices.utf8Slice(parser.getText()), varcharType));

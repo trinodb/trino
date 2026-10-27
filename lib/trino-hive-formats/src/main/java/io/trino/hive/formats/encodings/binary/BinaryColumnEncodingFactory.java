@@ -23,8 +23,8 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.stream.Collectors;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -42,9 +42,9 @@ import static java.util.Objects.requireNonNull;
 public class BinaryColumnEncodingFactory
         implements ColumnEncodingFactory
 {
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
 
-    public BinaryColumnEncodingFactory(DateTimeZone timeZone)
+    public BinaryColumnEncodingFactory(ZoneId timeZone)
     {
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }

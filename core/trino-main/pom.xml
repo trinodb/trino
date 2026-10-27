@@ -268,13 +268,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-plugin-toolkit</artifactId>
-            <!-- The engine does not use the toolkit's Joda-based timestamp encoders. -->
-            <exclusions>
-                <exclusion>
-                    <groupId>joda-time</groupId>
-                    <artifactId>joda-time</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>

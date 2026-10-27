@@ -45,12 +45,13 @@ import org.apache.parquet.io.api.RecordConsumer;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.Type;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static io.trino.plugin.base.type.TimeZoneConversions.convertLocalToUtc;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -66,9 +67,9 @@ public class TestDataWritableWriter
     private final RecordConsumer recordConsumer;
     private final GroupType schema;
     private final boolean singleLevelArray;
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
 
-    public TestDataWritableWriter(RecordConsumer recordConsumer, GroupType schema, boolean singleLevelArray, DateTimeZone timeZone)
+    public TestDataWritableWriter(RecordConsumer recordConsumer, GroupType schema, boolean singleLevelArray, ZoneId timeZone)
     {
         this.recordConsumer = recordConsumer;
         this.schema = schema;
@@ -373,7 +374,7 @@ public class TestDataWritableWriter
             }
             case TIMESTAMP -> {
                 Timestamp ts = ((TimestampObjectInspector) inspector).getPrimitiveJavaObject(value);
-                ts = Timestamp.ofEpochMilli(timeZone.convertLocalToUTC(ts.toEpochMilli(), true), ts.getNanos());
+                ts = Timestamp.ofEpochMilli(convertLocalToUtc(timeZone, ts.toEpochMilli(), true), ts.getNanos());
                 recordConsumer.addBinary(NanoTimeUtils.getNanoTime(ts, false).toBinary());
             }
             case DECIMAL -> {

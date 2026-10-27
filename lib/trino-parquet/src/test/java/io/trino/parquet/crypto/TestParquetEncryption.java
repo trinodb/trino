@@ -69,12 +69,12 @@ import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempFile;
+import static java.time.ZoneOffset.UTC;
 import static org.apache.parquet.hadoop.ParquetFileWriter.Mode.OVERWRITE;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.SNAPPY;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 

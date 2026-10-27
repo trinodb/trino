@@ -71,9 +71,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.time.ZoneOffset.UTC;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 
 class TestOrcPredicates
 {

@@ -36,7 +36,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.schema.MessageType;
 import org.intellij.lang.annotations.Language;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -44,6 +43,7 @@ import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Files;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -600,7 +600,7 @@ public class TestParquetDecimalScaling
         jobConf.setEnum(WRITER_VERSION, writerVersion);
 
         try {
-            FileSinkOperator.RecordWriter recordWriter = new TestingMapredParquetOutputFormat(Optional.of(parquetSchema), true, DateTimeZone.getDefault())
+            FileSinkOperator.RecordWriter recordWriter = new TestingMapredParquetOutputFormat(Optional.of(parquetSchema), true, ZoneId.systemDefault())
                     .getHiveRecordWriter(
                             jobConf,
                             path,

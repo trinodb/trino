@@ -58,9 +58,9 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -70,7 +70,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -389,8 +388,7 @@ public final class MetastoreUtil
             return Decimals.toString((long) value, decimalType.getScale());
         }
         if (type instanceof DateType) {
-            DateTimeFormatter dateTimeFormatter = ISODateTimeFormat.date().withZoneUTC();
-            return dateTimeFormatter.print(TimeUnit.DAYS.toMillis((long) value));
+            return LocalDate.ofEpochDay((long) value).format(DateTimeFormatter.ISO_LOCAL_DATE);
         }
         if (type instanceof TimestampType) {
             // we throw on this type as we don't have timezone. Callers should not ask for this conversion type, but document for possible future work (?)

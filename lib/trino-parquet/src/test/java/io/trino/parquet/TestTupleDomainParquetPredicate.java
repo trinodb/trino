@@ -48,7 +48,6 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Types;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -57,6 +56,7 @@ import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -100,6 +100,7 @@ import static java.lang.Float.NaN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
 import static java.time.temporal.ChronoField.MICRO_OF_SECOND;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
@@ -116,7 +117,6 @@ import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestTupleDomainParquetPredicate
 {
@@ -604,7 +604,7 @@ public class TestTupleDomainParquetPredicate
     public void testTimestampInt64AdjustedToUtcUsesConfiguredTimeZoneForStatistics()
             throws ParquetCorruptionException
     {
-        DateTimeZone singapore = DateTimeZone.forID("Asia/Singapore"); // UTC+8, no DST transitions
+        ZoneId singapore = ZoneId.of("Asia/Singapore"); // UTC+8, no DST transitions
 
         PrimitiveType type = Types.required(INT64)
                 .as(LogicalTypeAnnotation.timestampType(true, TimeUnit.MICROS))
@@ -629,7 +629,7 @@ public class TestTupleDomainParquetPredicate
     public void testTimestampInt64AdjustedToUtcAcrossDstFallbackTransitionIsUnbounded()
             throws ParquetCorruptionException
     {
-        DateTimeZone newYork = DateTimeZone.forID("America/New_York");
+        ZoneId newYork = ZoneId.of("America/New_York");
 
         PrimitiveType type = Types.required(INT64)
                 .as(LogicalTypeAnnotation.timestampType(true, TimeUnit.MICROS))

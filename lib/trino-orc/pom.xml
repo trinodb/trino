@@ -90,11 +90,6 @@
         </dependency>
 
         <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.orc</groupId>
             <artifactId>orc-format</artifactId>
             <classifier>shaded-protobuf</classifier>

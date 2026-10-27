@@ -15,7 +15,8 @@ package io.trino.plugin.base.type;
 
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
-import org.joda.time.DateTimeZone;
+
+import java.time.ZoneId;
 
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
@@ -27,7 +28,7 @@ public final class TrinoTimestampEncoderFactory
 {
     private TrinoTimestampEncoderFactory() {}
 
-    public static TrinoTimestampEncoder<? extends Comparable<?>> createTimestampEncoder(TimestampType type, DateTimeZone timeZone)
+    public static TrinoTimestampEncoder<? extends Comparable<?>> createTimestampEncoder(TimestampType type, ZoneId timeZone)
     {
         requireNonNull(type, "type is null");
         requireNonNull(timeZone, "timeZoneKey is null");

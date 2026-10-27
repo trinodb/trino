@@ -37,7 +37,6 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.schema.Types;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -170,7 +169,7 @@ public class TestInt96Timestamp
                 false,
                 0);
         // Read and assert
-        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(DateTimeZone.UTC, ParquetReaderOptions.defaultOptions());
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, ParquetReaderOptions.defaultOptions());
         ColumnReader reader = columnReaderFactory.create(field, newSimpleAggregatedMemoryContext());
         PageReader pageReader = new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, List.of(dataPage).iterator(), false, false, Optional.empty(), -1, -1);
         reader.setPageReader(pageReader, Optional.empty());

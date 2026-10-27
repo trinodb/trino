@@ -20,7 +20,6 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.RowType;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -32,6 +31,7 @@ import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.createOrcReader;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrcWithoutRowGroupInfo
@@ -70,7 +70,7 @@ public class TestOrcWithoutRowGroupInfo
                 ImmutableList.of(INTEGER, BIGINT, INTEGER, BIGINT, BIGINT, rowType),
                 false,
                 orcPredicate,
-                DateTimeZone.UTC,
+                UTC,
                 newSimpleAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE,
                 RuntimeException::new);

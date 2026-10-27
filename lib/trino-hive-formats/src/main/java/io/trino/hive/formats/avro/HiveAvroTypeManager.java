@@ -23,10 +23,9 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 import org.apache.avro.Schema;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.Optional;
-import java.util.TimeZone;
 import java.util.function.BiFunction;
 
 import static io.trino.hive.formats.avro.AvroHiveConstants.CHAR_TYPE_LOGICAL_NAME;
@@ -34,6 +33,7 @@ import static io.trino.hive.formats.avro.AvroHiveConstants.VARCHAR_TYPE_LOGICAL_
 import static io.trino.hive.formats.avro.model.AvroLogicalType.DATE;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.DECIMAL;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.TIMESTAMP_MILLIS;
+import static io.trino.plugin.base.type.TimeZoneConversions.convertLocalToUtc;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -71,14 +71,14 @@ public class HiveAvroTypeManager
                         yield Optional.of((block, pos) -> {
                             long millis = roundDiv(timestampType.getLong(block, pos), Timestamps.MICROSECONDS_PER_MILLISECOND);
                             // see org.apache.hadoop.hive.serde2.avro.AvroSerializer.serializePrimitive
-                            return DateTimeZone.forTimeZone(TimeZone.getDefault()).convertLocalToUTC(millis, false);
+                            return convertLocalToUtc(ZoneId.systemDefault(), millis);
                         });
                     }
                     else {
                         yield Optional.of((block, pos) -> {
                             SqlTimestamp timestamp = (SqlTimestamp) timestampType.getObject(block, pos);
                             // see org.apache.hadoop.hive.serde2.avro.AvroSerializer.serializePrimitive
-                            return DateTimeZone.forTimeZone(TimeZone.getDefault()).convertLocalToUTC(timestamp.getMillis(), false);
+                            return convertLocalToUtc(ZoneId.systemDefault(), timestamp.getMillis());
                         });
                     }
                 }

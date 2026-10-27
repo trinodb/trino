@@ -76,7 +76,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
-import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.File;
@@ -84,6 +83,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.time.ZoneId;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -377,7 +377,7 @@ class ParquetTester
                                 getIterators(writeValues),
                                 parquetSchema,
                                 schemaOptions.isSingleLevelArray(),
-                                DateTimeZone.getDefault());
+                                ZoneId.systemDefault());
                         assertFileContents(
                                 session,
                                 tempFile.getFile(),
@@ -441,7 +441,7 @@ class ParquetTester
                     getIterators(writeValues),
                     parquetSchema,
                     false,
-                    DateTimeZone.getDefault());
+                    ZoneId.systemDefault());
 
             Iterator<?>[] expectedValues = getIterators(readValues);
             try (ConnectorPageSource pageSource = createPageSource(
@@ -521,7 +521,7 @@ class ParquetTester
             Iterator<?>[] valuesByField,
             Optional<MessageType> parquetSchema,
             boolean singleLevelArray,
-            DateTimeZone dateTimeZone)
+            ZoneId dateTimeZone)
             throws Exception
     {
         RecordWriter recordWriter = new TestingMapredParquetOutputFormat(parquetSchema, singleLevelArray, dateTimeZone)
@@ -675,7 +675,7 @@ class ParquetTester
                         .build(),
                 compressionCodec,
                 "test-version",
-                Optional.of(DateTimeZone.getDefault()),
+                Optional.of(ZoneId.systemDefault()),
                 Optional.of(new ParquetWriteValidationBuilder(types, columnNames)));
 
         PageBuilder pageBuilder = new PageBuilder(types);

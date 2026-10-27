@@ -41,10 +41,10 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.parquet.schema.MessageType;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigInteger;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -133,7 +133,7 @@ public abstract class AbstractTestParquetReader
     protected AbstractTestParquetReader(ParquetTester tester)
     {
         this.tester = tester;
-        assertThat(DateTimeZone.getDefault()).isEqualTo(DateTimeZone.forID("America/Bahia_Banderas"));
+        assertThat(ZoneId.systemDefault()).isEqualTo(ZoneId.of("America/Bahia_Banderas"));
 
         // Parquet has excessive logging at INFO level
         Logger.getLogger("org.apache.parquet.hadoop").setLevel(Level.WARNING);

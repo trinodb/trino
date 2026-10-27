@@ -40,7 +40,6 @@ import org.jdbi.v3.core.statement.ParsedSql;
 import org.jdbi.v3.core.statement.PreparedBatch;
 import org.jdbi.v3.core.statement.SqlParser;
 import org.jdbi.v3.core.statement.StatementContext;
-import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.math.BigDecimal;
@@ -51,6 +50,7 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -64,6 +64,7 @@ import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.JsonItems.toText;
 import static io.trino.operator.scalar.JsonFunctions.jsonParse;
+import static io.trino.plugin.base.type.TimeZoneConversions.convertLocalToUtc;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -453,7 +454,7 @@ public class H2QueryRunner
                     else if (DATE.equals(type)) {
                         long millisUtc = TimeUnit.DAYS.toMillis(cursor.getLong(column));
                         // H2 expects dates in to be millis at midnight in the JVM timezone
-                        long localMillis = DateTimeZone.UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millisUtc);
+                        long localMillis = convertLocalToUtc(ZoneId.systemDefault(), millisUtc);
                         batch.bind(column, new Date(localMillis));
                     }
                     else {

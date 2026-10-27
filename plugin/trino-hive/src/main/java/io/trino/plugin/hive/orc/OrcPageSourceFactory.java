@@ -56,10 +56,10 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -128,7 +128,7 @@ public class OrcPageSourceFactory
     private final OrcReaderOptions orcReaderOptions;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats stats;
-    private final DateTimeZone legacyTimeZone;
+    private final ZoneId legacyTimeZone;
     private final int domainCompactionThreshold;
 
     @Inject
@@ -149,7 +149,7 @@ public class OrcPageSourceFactory
             OrcReaderOptions orcReaderOptions,
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats,
-            DateTimeZone legacyTimeZone)
+            ZoneId legacyTimeZone)
     {
         this(orcReaderOptions, fileSystemFactory, stats, legacyTimeZone, 0);
     }
@@ -158,7 +158,7 @@ public class OrcPageSourceFactory
             OrcReaderOptions orcReaderOptions,
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats,
-            DateTimeZone legacyTimeZone,
+            ZoneId legacyTimeZone,
             int domainCompactionThreshold)
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
@@ -234,7 +234,7 @@ public class OrcPageSourceFactory
             boolean useOrcColumnNames,
             boolean isFullAcid,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone legacyFileTimeZone,
+            ZoneId legacyFileTimeZone,
             OrcReaderOptions options,
             Optional<AcidInfo> acidInfo,
             OptionalInt bucketNumber,

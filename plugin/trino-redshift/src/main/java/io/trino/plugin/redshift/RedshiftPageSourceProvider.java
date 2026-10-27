@@ -41,9 +41,9 @@ import io.trino.spi.connector.DynamicFilter;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,6 +56,7 @@ import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.parquet.metadata.PrunedBlockMetadata.createPrunedColumnsMetadata;
 import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_PARQUET_CURSOR_ERROR;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
 public class RedshiftPageSourceProvider
@@ -110,7 +111,7 @@ public class RedshiftPageSourceProvider
         MessageType fileSchema = parquetMetadata.getFileMetaData().getSchema();
         MessageColumnIO messageColumn = getColumnIO(fileSchema, fileSchema);
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        DateTimeZone timeZone = DateTimeZone.UTC;
+        ZoneId timeZone = UTC;
         List<Column> fields = fields(columns, messageColumn);
         long nextStart = 0;
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();

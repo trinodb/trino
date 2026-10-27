@@ -96,7 +96,7 @@ import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.fromFileP
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.joda.time.DateTimeZone.UTC;
+import static java.time.ZoneOffset.UTC;
 
 public final class IcebergTestUtils
 {

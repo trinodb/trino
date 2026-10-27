@@ -57,7 +57,6 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.MessageTypeParser;
 import org.apache.parquet.schema.Types;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -69,6 +68,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -103,6 +103,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.JsonType.JSON;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.parquet.hadoop.ParquetFileWriter.Mode.OVERWRITE;
@@ -115,7 +116,6 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestParquetReader
 {
@@ -929,7 +929,7 @@ public class TestParquetReader
             }
         }
 
-        DateTimeZone timeZone = DateTimeZone.forID("America/New_York");
+        ZoneId timeZone = ZoneId.of("America/New_York");
         List<Long> values = readTimestampValues(file, timeZone, TupleDomain.all());
         assertThat(values).hasSize(rowCount);
         for (long value : ImmutableSet.copyOf(values)) {
@@ -942,7 +942,7 @@ public class TestParquetReader
         }
     }
 
-    private static List<Long> readTimestampValues(Path file, DateTimeZone timeZone, TupleDomain<String> predicate)
+    private static List<Long> readTimestampValues(Path file, ZoneId timeZone, TupleDomain<String> predicate)
             throws IOException
     {
         ParquetDataSource dataSource = new FileParquetDataSource(file.toFile(), ParquetReaderOptions.defaultOptions());

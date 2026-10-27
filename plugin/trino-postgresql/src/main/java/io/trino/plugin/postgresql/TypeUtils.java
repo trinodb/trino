@@ -28,7 +28,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.joda.time.DateTimeZone;
 import org.postgresql.util.PGobject;
 
 import java.lang.reflect.Array;
@@ -41,8 +40,10 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.base.type.TimeZoneConversions.convertLocalToUtc;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -66,7 +67,6 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.DAYS;
-import static org.joda.time.DateTimeZone.UTC;
 
 final class TypeUtils
 {
@@ -195,7 +195,7 @@ final class TypeUtils
         if (DATE.equals(trinoType)) {
             // convert to midnight in default time zone
             long millis = DAYS.toMillis((long) trinoNative);
-            return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis));
+            return new Date(convertLocalToUtc(ZoneId.systemDefault(), millis));
         }
 
         if (trinoType instanceof TimestampType timestampType && timestampType.isShort()) {

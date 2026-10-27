@@ -46,7 +46,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.format.CompressionCodec;
-import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -72,6 +71,7 @@ import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECK
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -208,7 +208,7 @@ public class CheckpointWriter
                     parquetWriterOptions,
                     CompressionCodec.SNAPPY,
                     trinoVersion,
-                    Optional.of(DateTimeZone.UTC),
+                    Optional.of(UTC),
                     Optional.empty());
         }
 
