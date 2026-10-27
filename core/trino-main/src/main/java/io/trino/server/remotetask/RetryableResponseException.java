@@ -22,7 +22,7 @@ import static java.lang.String.format;
 /**
  * Response status that does not fail the task because the request is retried with backoff.
  */
-class RetryableResponseException
+public class RetryableResponseException
         extends RuntimeException
 {
     public RetryableResponseException(HttpStatus status, URI uri)

@@ -39,6 +39,7 @@ import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeUtil;
 import io.trino.server.remotetask.Backoff;
+import io.trino.server.remotetask.RetryableResponseException;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
 import jakarta.annotation.Nullable;
@@ -66,6 +67,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.HttpStatus.SERVICE_UNAVAILABLE;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
@@ -528,6 +530,11 @@ public final class HttpPageBufferClient
             {
                 assertNotHoldsLock(HttpPageBufferClient.this);
 
+                if (result != null && result.getStatusCode() == SERVICE_UNAVAILABLE.code()) {
+                    onFailure(new RetryableResponseException(SERVICE_UNAVAILABLE, location));
+                    return;
+                }
+
                 if (result != null && result.getStatusCode() != NO_CONTENT.code()) {
                     onFailure(new TrinoTransportException(
                             REMOTE_BUFFER_CLOSE_FAILED,
@@ -682,6 +689,12 @@ public final class HttpPageBufferClient
                             getNextToken(response, uri),
                             getComplete(response, uri),
                             getTaskFailed(response, uri));
+                }
+
+                // the remote node is not ready, e.g. still starting up, so retry with backoff
+                // like other transport errors, instead of failing the client
+                if (response.getStatusCode() == SERVICE_UNAVAILABLE.code()) {
+                    throw new RetryableResponseException(SERVICE_UNAVAILABLE, uri);
                 }
 
                 // otherwise we must have gotten an OK response, everything else is considered fatal
