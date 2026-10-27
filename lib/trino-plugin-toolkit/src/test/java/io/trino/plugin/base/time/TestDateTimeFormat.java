@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.util;
+package io.trino.plugin.base.time;
 
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -29,6 +30,40 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDateTimeFormat
 {
+    @Test
+    public void testCenturyWithEra()
+    {
+        assertThat(parse("G C YY-MM-dd HH:mm:ss", "BC 0 00-01-01 00:00:00").toLocalDate())
+                .isEqualTo(LocalDate.of(2000, 1, 1));
+        for (int year : new int[] {-2000, -1999, -100, -99, -1, 0, 1, 99, 100, 1999, 2000}) {
+            long millis = LocalDate.of(year, 1, 1).atStartOfDay().toInstant(UTC).toEpochMilli();
+            assertThat(DateTimeFormat.forPattern("C").format(millis, UTC, Locale.ENGLISH))
+                    .isEqualTo(Integer.toString(Math.abs(year) / 100));
+        }
+    }
+
+    @Test
+    public void testTimeFormatting()
+    {
+        LocalTime time = LocalTime.of(10, 20, 30, 123_000_000);
+        assertThat(DateTimeFormat.forPattern("HH:mm:ss.SSSSS Z ZZ ZZZ z").format(time, Locale.ENGLISH))
+                .isEqualTo("10:20:30.12300    ");
+        assertThat(DateTimeFormat.forPattern("yyyy MMMM MM EEEE a").format(time, Locale.ENGLISH))
+                .isEqualTo("\uFFFD\uFFFD\uFFFD\uFFFD \uFFFD \uFFFD\uFFFD \uFFFD AM");
+    }
+
+    @Test
+    public void testDefaultYear()
+    {
+        DateTimeFormat format = DateTimeFormat.forPattern("MM-dd");
+        assertThat(format.parse("02-28", UTC, Locale.ENGLISH, 1970).toLocalDate())
+                .isEqualTo(LocalDate.of(1970, 2, 28));
+        assertThat(format.parse("02-29", UTC, Locale.ENGLISH).toLocalDate())
+                .isEqualTo(LocalDate.of(2000, 2, 29));
+        assertThatThrownBy(() -> format.parse("02-29", UTC, Locale.ENGLISH, 1970))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     public void testNamedZones()
     {

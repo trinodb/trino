@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.util;
+package io.trino.plugin.base.time;
 
 import io.airlift.concurrent.ThreadLocalCache;
 import io.trino.spi.type.TimeZoneNotSupportedException;
@@ -22,6 +22,7 @@ import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Month;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -41,6 +42,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static io.trino.plugin.base.type.TimeZoneConversions.getOffsetFromLocalMillis;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
@@ -242,11 +244,33 @@ public final class DateTimeFormat
         }
     }
 
+    public String format(LocalTime time, Locale locale)
+    {
+        return format(time.toNanoOfDay() / 1_000_000, UTC, locale, true);
+    }
+
     public String format(long epochMillis, ZoneId zone, Locale locale)
+    {
+        return format(epochMillis, zone, locale, false);
+    }
+
+    private String format(long epochMillis, ZoneId zone, Locale locale, boolean timeOnly)
     {
         ZonedDateTime dateTime = Instant.ofEpochMilli(epochMillis).atZone(zone);
         StringBuilder result = new StringBuilder();
         for (Token token : tokens) {
+            if (timeOnly) {
+                switch (token.field()) {
+                    case HALFDAY, HOUR, CLOCK_HOUR, HALFDAY_HOUR, CLOCK_HALFDAY_HOUR, MINUTE, SECOND, FRACTION, LITERAL -> {}
+                    case OFFSET, ZONE_ID, SHORT_ZONE_NAME, LONG_ZONE_NAME -> {
+                        continue;
+                    }
+                    default -> {
+                        result.append("\uFFFD".repeat(token.text() ? 1 : token.width()));
+                        continue;
+                    }
+                }
+            }
             if (token.field() == Field.LITERAL) {
                 result.append(token.literal());
             }
@@ -297,6 +321,11 @@ public final class DateTimeFormat
     }
 
     public ZonedDateTime parse(String text, ZoneId defaultZone, Locale locale)
+    {
+        return parse(text, defaultZone, locale, 2000);
+    }
+
+    public ZonedDateTime parse(String text, ZoneId defaultZone, Locale locale, int defaultYear)
     {
         if (!parserSupported) {
             throw new UnsupportedOperationException("Parsing not supported");
@@ -413,14 +442,14 @@ public final class DateTimeFormat
         if (position != text.length()) {
             throw invalidFormat(text, position);
         }
-        return resolve(fields, parsedOffset == null ? zone : parsedOffset, text);
+        return resolve(fields, parsedOffset == null ? zone : parsedOffset, text, defaultYear);
     }
 
-    private static ZonedDateTime resolve(List<ParsedField> fields, ZoneId zone, String text)
+    private static ZonedDateTime resolve(List<ParsedField> fields, ZoneId zone, String text, int defaultYear)
     {
         fields.sort(Comparator.comparingInt(field -> field.field().sortOrder()));
         if (!fields.isEmpty() && fields.getFirst().field().ordinal() >= Field.MONTH.ordinal() && fields.getFirst().field().ordinal() <= Field.DAY_OF_WEEK.ordinal()) {
-            fields.addFirst(new ParsedField(Field.YEAR, 2000));
+            fields.addFirst(new ParsedField(Field.YEAR, defaultYear));
         }
         LocalDateTime dateTime = EPOCH;
         try {
@@ -514,7 +543,7 @@ public final class DateTimeFormat
     {
         try {
             long localMillis = dateTime.toInstant(UTC).toEpochMilli();
-            int offsetMillis = DateTimeZoneIndex.getOffsetFromLocalMillis(localMillis, zone);
+            int offsetMillis = getOffsetFromLocalMillis(zone, localMillis);
             Instant instant = Instant.ofEpochMilli(Math.subtractExact(localMillis, offsetMillis));
             if (zone.getRules().getOffset(instant).getTotalSeconds() * 1000 != offsetMillis) {
                 throw new IllegalArgumentException("Cannot parse \"" + text + "\": Illegal instant due to time zone offset transition (" + zone + ")");
@@ -575,7 +604,7 @@ public final class DateTimeFormat
     {
         return switch (field) {
             case ERA -> dateTime.getYear() <= 0 ? 0 : 1;
-            case CENTURY -> dateTime.getLong(ChronoField.YEAR_OF_ERA) / 100;
+            case CENTURY -> Math.abs((long) dateTime.getYear()) / 100;
             case YEAR -> dateTime.getYear();
             case YEAR_OF_ERA -> dateTime.getLong(ChronoField.YEAR_OF_ERA);
             case WEEK_YEAR -> dateTime.get(IsoFields.WEEK_BASED_YEAR);
@@ -697,7 +726,8 @@ public final class DateTimeFormat
         {
             TemporalField temporalField = switch (field) {
                 case ERA -> ChronoField.ERA;
-                case CENTURY, YEAR_OF_ERA -> ChronoField.YEAR_OF_ERA;
+                case CENTURY -> ChronoField.YEAR;
+                case YEAR_OF_ERA -> ChronoField.YEAR_OF_ERA;
                 case YEAR -> ChronoField.YEAR;
                 case WEEK_YEAR -> IsoFields.WEEK_BASED_YEAR;
                 case MONTH -> ChronoField.MONTH_OF_YEAR;
@@ -717,7 +747,10 @@ public final class DateTimeFormat
             };
             long adjustedValue = value;
             if (field == Field.CENTURY) {
-                adjustedValue = value * 100L + dateTime.get(ChronoField.YEAR_OF_ERA) % 100;
+                adjustedValue = value * 100L + Math.abs((long) dateTime.getYear()) % 100;
+                if (dateTime.getYear() < 0) {
+                    adjustedValue = -adjustedValue;
+                }
             }
             if (field == Field.WEEK) {
                 int weekYear = dateTime.get(IsoFields.WEEK_BASED_YEAR);

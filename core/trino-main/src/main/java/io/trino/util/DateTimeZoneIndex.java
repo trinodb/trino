@@ -14,6 +14,7 @@
 package io.trino.util;
 
 import io.airlift.log.Logger;
+import io.trino.plugin.base.type.TimeZoneConversions;
 import io.trino.spi.type.TimeZoneKey;
 
 import java.time.Instant;
@@ -97,25 +98,7 @@ public final class DateTimeZoneIndex
 
     public static int getOffsetFromLocalMillis(long localMillis, ZoneId zoneId)
     {
-        int initialOffset = getOffsetMillis(localMillis, zoneId);
-        long candidate = subtractExact(localMillis, initialOffset);
-        int adjustedOffset = getOffsetMillis(candidate, zoneId);
-        if (initialOffset != adjustedOffset) {
-            if (initialOffset < adjustedOffset && !nextTransition(candidate, zoneId).equals(nextTransition(subtractExact(localMillis, adjustedOffset), zoneId))) {
-                return initialOffset;
-            }
-        }
-        else if (initialOffset >= 0) {
-            ZoneOffsetTransition previous = zoneId.getRules().previousTransition(Instant.ofEpochMilli(candidate).plusNanos(1));
-            if (previous != null && previous.getInstant().isAfter(Instant.ofEpochMilli(Long.MIN_VALUE))) {
-                long beforeTransition = previous.getInstant().toEpochMilli() - 1;
-                int previousOffset = getOffsetMillis(beforeTransition, zoneId);
-                if (candidate - beforeTransition <= previousOffset - initialOffset) {
-                    return previousOffset;
-                }
-            }
-        }
-        return adjustedOffset;
+        return TimeZoneConversions.getOffsetFromLocalMillis(zoneId, localMillis);
     }
 
     public static long convertLocalToUtc(long localMillis, ZoneId zoneId, long originalInstant)

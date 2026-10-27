@@ -17,6 +17,7 @@ import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
+import io.trino.plugin.base.time.DateTimeFormat;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
@@ -30,7 +31,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.type.DateTimes;
 import io.trino.type.LongInterval;
-import io.trino.util.DateTimeFormat;
 import io.trino.util.DateTimeUtils;
 import io.trino.util.FastDate;
 
