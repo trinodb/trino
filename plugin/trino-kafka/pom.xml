@@ -146,13 +146,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.confluent</groupId>
-            <artifactId>kafka-protobuf-provider</artifactId>
-            <!-- This is under Confluent Community License and it should not be used with compile scope -->
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
             <scope>provided</scope>
@@ -175,19 +168,6 @@
             <groupId>at.yawk.lz4</groupId>
             <artifactId>lz4-java</artifactId>
             <scope>runtime</scope>
-        </dependency>
-
-        <!-- used by kafka-protobuf-provider -->
-        <dependency>
-            <groupId>com.google.api.grpc</groupId>
-            <artifactId>proto-google-common-protos</artifactId>
-            <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.protobuf</groupId>
-                    <artifactId>protobuf-java</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -249,6 +229,13 @@
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-protobuf-provider</artifactId>
+            <!-- This is under Confluent Community License and it should not be used with compile scope -->
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -398,12 +385,6 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-maven-plugin</artifactId>
                 <extensions>true</extensions>
-                <configuration>
-                    <allowedProvidedDependencies>
-                        <id>io.confluent:kafka-protobuf-provider</id>
-                        <id>io.confluent:kafka-protobuf-types</id>
-                    </allowedProvidedDependencies>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.basepom.maven</groupId>

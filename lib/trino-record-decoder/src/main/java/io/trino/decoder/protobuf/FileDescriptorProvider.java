@@ -16,16 +16,13 @@ package io.trino.decoder.protobuf;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
-import io.trino.spi.TrinoException;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.decoder.protobuf.ProtobufErrorCode.INVALID_PROTO_FILE;
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
 import static java.util.Objects.requireNonNull;
 
@@ -55,13 +52,8 @@ public class FileDescriptorProvider
 
     private Descriptor loadDescriptorFromType(String url)
     {
-        try {
-            Descriptor descriptor = ProtobufUtils.getFileDescriptor(getContents(url)).findMessageTypeByName(DEFAULT_MESSAGE);
-            checkState(descriptor != null, "Message %s not found", DEFAULT_MESSAGE);
-            return descriptor;
-        }
-        catch (Descriptors.DescriptorValidationException e) {
-            throw new TrinoException(INVALID_PROTO_FILE, "Unable to parse protobuf schema", e);
-        }
+        Descriptor descriptor = ProtobufUtils.getFileDescriptor(getContents(url)).findMessageTypeByName(DEFAULT_MESSAGE);
+        checkState(descriptor != null, "Message %s not found", DEFAULT_MESSAGE);
+        return descriptor;
     }
 }

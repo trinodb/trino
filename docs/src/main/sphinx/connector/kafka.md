@@ -34,22 +34,6 @@ To connect to Kafka, you need:
 - Network access from the Trino coordinator and workers to the Kafka nodes.
   Port 9092 is the default port.
 
-When using Protobuf decoder with the {ref}`Confluent table description
-supplier<confluent-table-description-supplier>`, the following additional steps
-must be taken:
-
-- Copy the `kafka-protobuf-provider` and `kafka-protobuf-types` JAR files
-  from [Confluent](https://packages.confluent.io/maven/io/confluent/) for
-  Confluent version 8.1.1 to the Kafka connector plugin directory (`<install
-  directory>/plugin/kafka`) on all nodes in the cluster.
-  The plugin directory depends on the {doc}`/installation` method.
-- By copying those JARs and using them, you agree to the terms of the [Confluent
-  Community License Agreement](https://github.com/confluentinc/schema-registry/blob/master/LICENSE-ConfluentCommunity)
-  under which Confluent makes them available.
-
-These steps are not required if you are not using Protobuf and Confluent table
-description supplier.
-
 ## Configuration
 
 To configure the Kafka connector, create a catalog properties file
@@ -395,15 +379,31 @@ table description supplier are:
 - Schema updates are detected automatically.
 - There is no need to define tables manually.
 - Some Protobuf specific types like `oneof` and `any` are supported and mapped to JSON.
-
-When using Protobuf decoder with the Confluent table description supplier, some
-additional steps are necessary. For details, refer to {ref}`kafka-requirements`.
+- Protobuf records are decoded with the schema they were written with, so a
+  topic can hold records written with different versions of its schema. A field
+  is identified by its field number, so a renamed field keeps its column, and
+  a field whose type changed to another type with the same encoding, such as
+  `int32` to `int64`, is read the way the latest schema reads it. Enum values
+  are identified by their number as well. Columns whose field a record's schema
+  does not define, or defines with an incompatible type, are `NULL`.
+- Protobuf schemas that reference other subjects are resolved through the
+  schema registry. Imports of the Google well-known types
+  (`google/protobuf/*.proto`), the Google common types (`google/type/*.proto`,
+  except `google/type/localized_text.proto`, which Confluent serializers
+  register as a reference like any other import) and the Confluent types
+  (`confluent/meta.proto` and `confluent/type/decimal.proto`) need no
+  reference. No additional JAR files are required.
 
 Set `kafka.table-description-supplier` to `CONFLUENT` to use the
 schema registry. You must also configure the additional properties in the following table:
 
 :::{note}
-Inserts are not supported, and the only data format supported is AVRO.
+The supported data formats are AVRO and PROTOBUF. Inserts are supported only for
+PROTOBUF tables with a value subject: rows are encoded with the schema that the
+table columns are taken from, the latest schema registered for the subject when
+the query starts, and written in the Confluent wire format. Records of
+a table without a key subject are written with a `null` key. `NULL` column
+values are handled as described for the [Protobuf encoder](kafka-protobuf-encoding).
 :::
 
 :::{list-table} Confluent table description supplier properties
@@ -506,6 +506,17 @@ used to resolve the subject name via the topic name. Note that a
 case-insensitive match must be done, as identifiers cannot contain upper case
 characters.
 
+A Protobuf schema can define more than one message. Each record is decoded
+with the message that the producer wrote, as identified by the message index
+in the record. The table columns are taken from the message whose fully
+qualified name is the subject name, as with the `RecordNameStrategy`, or
+follows `<topic name>-` in the subject name, as with the
+`TopicRecordNameStrategy`; this message can be nested in another one. For any
+other subject, such as one created with the `TopicNameStrategy`, the table
+columns are taken from the first message in the schema, and rows inserted into
+the table are written with that message. Use a record name strategy if
+producers write any other message.
+
 #### Protobuf-specific type handling in Confluent table description supplier
 
 When using the Confluent table description supplier, the following Protobuf
@@ -542,6 +553,17 @@ In the above example, if the Protobuf message has the
 `test_oneof_column` containing `string_column` set to a value `Trino`
 then the corresponding Trino row includes a column named
 `test_oneof_column` with the value `JSON '{"string_column": "Trino"}'`.
+
+##### optional
+
+A proto3 field declared with the `optional` keyword is mapped to a column of
+the field's type, like other fields. The column is `NULL` when the field is not
+set, while proto3 scalar fields without the `optional` keyword have their
+default value. Every other field that tracks presence is also `NULL` when it
+is not set: a proto2 `optional` or `required` field, even one with a declared
+default value, a member of a `oneof`, and a field of a message type, such as a
+`ROW` column or a `TIMESTAMP` column mapped from `google.protobuf.Timestamp`,
+as opposed to holding an empty message.
 
 (kafka-sql-inserts)=
 ## Kafka inserts
@@ -1051,6 +1073,14 @@ The following field attributes are supported:
 - `mapping` - slash-separated list of field names to select a field from the
   Protobuf schema. If the field specified in `mapping` does not exist in the
   original Protobuf schema, then a write operation fails.
+
+A `NULL` value leaves a field that tracks presence unset: a field declared
+`optional`, a member of a `oneof`, or a field of a message type. Reading the
+record back yields `NULL` for such a field. Other fields, including `repeated`
+and `map` fields and proto3 fields without the `optional` keyword, have no
+representation for `NULL`, and writing `NULL` to them fails, as does writing
+`NULL` to a proto2 `required` field. The same applies to `NULL` fields of
+a `ROW` value and to `NULL` elements of an `ARRAY` or `MAP` value.
 
 The following table lists supported Trino data types, which can be used in `type`
 for the equivalent Protobuf field type.

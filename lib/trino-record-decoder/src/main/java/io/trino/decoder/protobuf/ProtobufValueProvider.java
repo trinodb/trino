@@ -14,6 +14,7 @@
 package io.trino.decoder.protobuf;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
@@ -50,12 +51,17 @@ import jakarta.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
+import static io.trino.decoder.protobuf.ProtobufFieldMapping.findReaderField;
+import static io.trino.decoder.protobuf.ProtobufFieldMapping.findWriterField;
+import static io.trino.decoder.protobuf.ProtobufFieldMapping.getReaderFieldType;
+import static io.trino.decoder.protobuf.ProtobufFieldMapping.toReaderValue;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.StandardTypes.JSON;
@@ -74,13 +80,16 @@ public class ProtobufValueProvider
 {
     @Nullable
     private final Object value;
+    // the type of the value in the schema the column was derived from, when the value is a message
+    private final Optional<Descriptor> readerType;
     private final Type columnType;
     private final String columnName;
     private final Type jsonType;
 
-    public ProtobufValueProvider(@Nullable Object value, Type columnType, String columnName, TypeManager typeManager)
+    public ProtobufValueProvider(@Nullable Object value, Optional<Descriptor> readerType, Type columnType, String columnName, TypeManager typeManager)
     {
         this.value = value;
+        this.readerType = requireNonNull(readerType, "readerType is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jsonType = typeManager.getType(new TypeDescriptor(JSON));
@@ -141,7 +150,7 @@ public class ProtobufValueProvider
     @Override
     public Object getObject()
     {
-        return serializeObject(null, value, columnType, columnName);
+        return serializeObject(null, value, readerType, columnType, columnName);
     }
 
     private Slice getSlice(Object value, Type type, String columnName)
@@ -163,16 +172,16 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private Object serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
+    private Object serializeObject(BlockBuilder builder, Object value, Optional<Descriptor> readerType, Type type, String columnName)
     {
         if (type instanceof ArrayType arrayType) {
-            return serializeList(builder, value, arrayType, columnName);
+            return serializeList(builder, value, readerType, arrayType, columnName);
         }
         if (type instanceof MapType mapType) {
-            return serializeMap(builder, value, mapType, columnName);
+            return serializeMap(builder, value, readerType, mapType, columnName);
         }
         if (type instanceof RowType) {
-            return serializeRow(builder, value, type, columnName);
+            return serializeRow(builder, value, readerType, type, columnName);
         }
 
         if (type.equals(jsonType)) {
@@ -184,7 +193,7 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private Block serializeList(BlockBuilder parentBlockBuilder, @Nullable Object value, ArrayType type, String columnName)
+    private Block serializeList(BlockBuilder parentBlockBuilder, @Nullable Object value, Optional<Descriptor> readerType, ArrayType type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
@@ -196,7 +205,7 @@ public class ProtobufValueProvider
 
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, list.size());
         for (Object element : list) {
-            serializeObject(blockBuilder, element, elementType, columnName);
+            serializeObject(blockBuilder, element, readerType, elementType, columnName);
         }
         if (parentBlockBuilder != null) {
             type.writeObject(parentBlockBuilder, blockBuilder.build());
@@ -249,7 +258,7 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private SqlMap serializeMap(BlockBuilder parentBlockBuilder, @Nullable Object value, MapType type, String columnName)
+    private SqlMap serializeMap(BlockBuilder parentBlockBuilder, @Nullable Object value, Optional<Descriptor> readerType, MapType type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
@@ -262,26 +271,39 @@ public class ProtobufValueProvider
                 .collect(toImmutableList());
         Type keyType = type.getKeyType();
         Type valueType = type.getValueType();
+        // the reader type is the map entry message, whose key and value fields are numbers 1 and 2
+        Optional<FieldDescriptor> keyReaderField = readerType.map(entryType -> entryType.findFieldByNumber(1));
+        Optional<FieldDescriptor> valueReaderField = readerType.map(entryType -> entryType.findFieldByNumber(2));
 
         if (parentBlockBuilder != null) {
-            ((MapBlockBuilder) parentBlockBuilder).buildEntry((keyBuilder, valueBuilder) -> buildMap(columnName, dynamicMessages, keyType, valueType, keyBuilder, valueBuilder));
+            ((MapBlockBuilder) parentBlockBuilder).buildEntry((keyBuilder, valueBuilder) -> buildMap(columnName, dynamicMessages, keyReaderField, valueReaderField, keyType, valueType, keyBuilder, valueBuilder));
             return null;
         }
-        return buildMapValue(type, dynamicMessages.size(), (keyBuilder, valueBuilder) -> buildMap(columnName, dynamicMessages, keyType, valueType, keyBuilder, valueBuilder));
+        return buildMapValue(type, dynamicMessages.size(), (keyBuilder, valueBuilder) -> buildMap(columnName, dynamicMessages, keyReaderField, valueReaderField, keyType, valueType, keyBuilder, valueBuilder));
     }
 
-    private void buildMap(String columnName, Collection<DynamicMessage> dynamicMessages, Type keyType, Type valueType, BlockBuilder keyBuilder, BlockBuilder valueBuilder)
+    private void buildMap(
+            String columnName,
+            Collection<DynamicMessage> dynamicMessages,
+            Optional<FieldDescriptor> keyReaderField,
+            Optional<FieldDescriptor> valueReaderField,
+            Type keyType,
+            Type valueType,
+            BlockBuilder keyBuilder,
+            BlockBuilder valueBuilder)
     {
         for (DynamicMessage dynamicMessage : dynamicMessages) {
-            if (dynamicMessage.getField(dynamicMessage.getDescriptorForType().findFieldByNumber(1)) != null) {
-                serializeObject(keyBuilder, dynamicMessage.getField(getFieldDescriptor(dynamicMessage, 1)), keyType, columnName);
-                serializeObject(valueBuilder, dynamicMessage.getField(getFieldDescriptor(dynamicMessage, 2)), valueType, columnName);
+            FieldDescriptor keyField = getFieldDescriptor(dynamicMessage, 1);
+            FieldDescriptor valueField = getFieldDescriptor(dynamicMessage, 2);
+            if (dynamicMessage.getField(keyField) != null) {
+                serializeObject(keyBuilder, toReaderValue(keyReaderField, keyField, dynamicMessage.getField(keyField)), Optional.empty(), keyType, columnName);
+                serializeObject(valueBuilder, toReaderValue(valueReaderField, valueField, dynamicMessage.getField(valueField)), getReaderFieldType(valueReaderField), valueType, columnName);
             }
         }
     }
 
     @Nullable
-    private SqlRow serializeRow(BlockBuilder blockBuilder, @Nullable Object value, Type type, String columnName)
+    private SqlRow serializeRow(BlockBuilder blockBuilder, @Nullable Object value, Optional<Descriptor> readerType, Type type, String columnName)
     {
         if (value == null) {
             checkState(blockBuilder != null, "parent block builder is null");
@@ -291,23 +313,30 @@ public class ProtobufValueProvider
 
         RowType rowType = (RowType) type;
         if (blockBuilder == null) {
-            return buildRowValue(rowType, fieldBuilders -> buildRow(rowType, columnName, (DynamicMessage) value, fieldBuilders));
+            return buildRowValue(rowType, fieldBuilders -> buildRow(rowType, columnName, (DynamicMessage) value, readerType, fieldBuilders));
         }
-        ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> buildRow(rowType, columnName, (DynamicMessage) value, fieldBuilders));
+        ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> buildRow(rowType, columnName, (DynamicMessage) value, readerType, fieldBuilders));
         return null;
     }
 
-    private void buildRow(RowType rowType, String columnName, DynamicMessage record, List<BlockBuilder> fieldBuilders)
+    private void buildRow(RowType rowType, String columnName, DynamicMessage record, Optional<Descriptor> readerType, List<BlockBuilder> fieldBuilders)
     {
         List<RowType.Field> fields = rowType.getFields();
         for (int i = 0; i < fields.size(); i++) {
             Field field = fields.get(i);
             checkState(field.getName().isPresent(), "field name not found");
-            FieldDescriptor fieldDescriptor = getFieldDescriptor(record, field.getName().get());
-            checkState(fieldDescriptor != null, "Unknown Field %s", field.getName().get());
+            String fieldName = field.getName().get();
+            Optional<FieldDescriptor> readerField = findReaderField(readerType, fieldName);
+            FieldDescriptor fieldDescriptor = findWriterField(record.getDescriptorForType(), readerField, fieldName);
+            if (fieldDescriptor == null || isUnsetPresenceField(record, fieldDescriptor)) {
+                // the record was written with a schema that does not have this field, or the field is not set
+                fieldBuilders.get(i).appendNull();
+                continue;
+            }
             serializeObject(
                     fieldBuilders.get(i),
-                    record.getField(fieldDescriptor),
+                    toReaderValue(readerField, fieldDescriptor, record.getField(fieldDescriptor)),
+                    getReaderFieldType(readerField),
                     field.getType(),
                     columnName);
         }
@@ -335,13 +364,18 @@ public class ProtobufValueProvider
         return round(micros, MAX_SHORT_PRECISION - precision);
     }
 
-    private static FieldDescriptor getFieldDescriptor(DynamicMessage message, String name)
-    {
-        return message.getDescriptorForType().findFieldByName(name);
-    }
-
     private static FieldDescriptor getFieldDescriptor(DynamicMessage message, int index)
     {
         return message.getDescriptorForType().findFieldByNumber(index);
+    }
+
+    /**
+     * A field that tracks presence is {@code NULL} when it is not set, rather than the default value
+     * of its type: a field declared {@code optional} or {@code required}, a member of a {@code oneof}
+     * and a field of a message type, for which being unset differs from holding an empty message.
+     */
+    static boolean isUnsetPresenceField(DynamicMessage message, FieldDescriptor fieldDescriptor)
+    {
+        return fieldDescriptor.hasPresence() && !message.hasField(fieldDescriptor);
     }
 }

@@ -17,18 +17,17 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.protobuf.Descriptors.Descriptor;
-import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema;
-import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchemaProvider;
 import io.trino.decoder.protobuf.DescriptorProvider;
 import io.trino.spi.TrinoException;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.decoder.protobuf.ProtoFileDescriptorBuilder.buildFileDescriptor;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ConfluentDescriptorProvider
@@ -57,14 +56,10 @@ public class ConfluentDescriptorProvider
 
     private Descriptor loadDescriptorFromType(String url)
     {
-        try {
-            return ((ProtobufSchema) new ProtobufSchemaProvider()
-                    .parseSchema(getContents(url), List.of(), true)
-                    .orElseThrow())
-                    .toDescriptor();
+        List<Descriptor> messages = buildFileDescriptor("schema.proto", getContents(url), _ -> Optional.empty()).getMessageTypes();
+        if (messages.isEmpty()) {
+            throw new TrinoException(GENERIC_USER_ERROR, format("Protobuf schema at '%s' does not declare any message", url));
         }
-        catch (NoSuchElementException e) {
-            throw new TrinoException(GENERIC_USER_ERROR, "Failed to parse protobuf schema");
-        }
+        return messages.getFirst();
     }
 }

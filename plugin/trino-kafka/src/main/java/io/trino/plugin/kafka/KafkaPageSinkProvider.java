@@ -20,7 +20,7 @@ import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.plugin.kafka.encoder.KafkaFieldType;
 import io.trino.plugin.kafka.encoder.RowEncoder;
 import io.trino.plugin.kafka.encoder.RowEncoderSpec;
-import io.trino.spi.TrinoException;
+import io.trino.plugin.kafka.schema.ContentSchemaProvider;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -30,13 +30,9 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SCHEMA_ERROR;
 import static io.trino.plugin.kafka.encoder.KafkaFieldType.KEY;
 import static io.trino.plugin.kafka.encoder.KafkaFieldType.MESSAGE;
 import static java.lang.String.format;
@@ -47,12 +43,14 @@ public class KafkaPageSinkProvider
 {
     private final DispatchingRowEncoderFactory encoderFactory;
     private final KafkaProducerFactory producerFactory;
+    private final ContentSchemaProvider contentSchemaProvider;
 
     @Inject
-    public KafkaPageSinkProvider(DispatchingRowEncoderFactory encoderFactory, KafkaProducerFactory producerFactory)
+    public KafkaPageSinkProvider(DispatchingRowEncoderFactory encoderFactory, KafkaProducerFactory producerFactory, ContentSchemaProvider contentSchemaProvider)
     {
         this.encoderFactory = requireNonNull(encoderFactory, "encoderFactory is null");
         this.producerFactory = requireNonNull(producerFactory, "producerFactory is null");
+        this.contentSchemaProvider = requireNonNull(contentSchemaProvider, "contentSchemaProvider is null");
     }
 
     @Override
@@ -108,23 +106,11 @@ public class KafkaPageSinkProvider
                 session);
     }
 
-    private static RowEncoderSpec toRowEncoderSpec(KafkaTableHandle handle, List<EncoderColumnHandle> columns, KafkaFieldType kafkaFieldType)
+    private RowEncoderSpec toRowEncoderSpec(KafkaTableHandle handle, List<EncoderColumnHandle> columns, KafkaFieldType kafkaFieldType)
     {
         return switch (kafkaFieldType) {
-            case KEY -> new RowEncoderSpec(handle.keyDataFormat(), getDataSchema(handle.keyDataSchemaLocation()), columns, handle.topicName(), kafkaFieldType);
-            case MESSAGE -> new RowEncoderSpec(handle.messageDataFormat(), getDataSchema(handle.messageDataSchemaLocation()), columns, handle.topicName(), kafkaFieldType);
+            case KEY -> new RowEncoderSpec(handle.keyDataFormat(), contentSchemaProvider.getKey(handle), handle.keySubject(), columns, handle.topicName(), kafkaFieldType);
+            case MESSAGE -> new RowEncoderSpec(handle.messageDataFormat(), contentSchemaProvider.getMessage(handle), handle.messageSubject(), columns, handle.topicName(), kafkaFieldType);
         };
-    }
-
-    private static Optional<String> getDataSchema(Optional<String> dataSchemaLocation)
-    {
-        return dataSchemaLocation.map(location -> {
-            try {
-                return Files.readString(Path.of(location));
-            }
-            catch (IOException e) {
-                throw new TrinoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", location), e);
-            }
-        });
     }
 }

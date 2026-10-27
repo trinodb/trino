@@ -43,7 +43,8 @@ public class TestKafkaInternalFieldManager
                         null,
                         false,
                         false,
-                        true);
+                        true,
+                        Optional.of("Partition Id"));
 
         ColumnMetadata columnMetadata =
                 ColumnMetadata.builder()
@@ -56,6 +57,6 @@ public class TestKafkaInternalFieldManager
         assertThat(internalField.getInternalFieldId()).isEqualTo(PARTITION_ID_FIELD);
         assertThat(internalField.getColumnName()).isEqualTo("internal_field_name");
         assertThat(internalField.getColumnHandle(false)).isEqualTo(kafkaColumnHandle);
-        assertThat(internalField.getColumnMetadata(false)).isEqualTo(columnMetadata);
+        assertThat(internalField.getColumnHandle(false).getColumnMetadata()).isEqualTo(columnMetadata);
     }
 }

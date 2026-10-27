@@ -18,12 +18,13 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record RowEncoderSpec(String dataFormat, Optional<String> dataSchema, List<EncoderColumnHandle> columnHandles, String topic, KafkaFieldType kafkaFieldType)
+public record RowEncoderSpec(String dataFormat, Optional<String> dataSchema, Optional<String> subject, List<EncoderColumnHandle> columnHandles, String topic, KafkaFieldType kafkaFieldType)
 {
     public RowEncoderSpec
     {
         requireNonNull(dataFormat, "dataFormat is null");
         requireNonNull(dataSchema, "dataSchema is null");
+        requireNonNull(subject, "subject is null");
         requireNonNull(columnHandles, "columnHandles is null");
         requireNonNull(topic, "topic is null");
         requireNonNull(kafkaFieldType, "kafkaFieldType is null");

@@ -90,12 +90,12 @@ public class TestAvroConfluentRowDecoder
         mockSchemaRegistryClient.register(TOPIC + "-value", new AvroSchema(evolvedSchema));
 
         Set<DecoderColumnHandle> columnHandles = ImmutableSet.<DecoderColumnHandle>builder()
-                .add(new KafkaColumnHandle("col1", INTEGER, "col1", null, null, false, false, false))
-                .add(new KafkaColumnHandle("col2", VARCHAR, "col2", null, null, false, false, false))
-                .add(new KafkaColumnHandle("col3", INTEGER, "col3", null, null, false, false, false))
-                .add(new KafkaColumnHandle("col4", INTEGER, "col4", null, null, false, false, false))
-                .add(new KafkaColumnHandle("col5", VARBINARY, "col5", null, null, false, false, false))
-                .add(new KafkaColumnHandle("col6", BIGINT, "col6", null, null, false, false, false))
+                .add(new KafkaColumnHandle("col1", INTEGER, "col1", null, null, false, false, false, Optional.empty()))
+                .add(new KafkaColumnHandle("col2", VARCHAR, "col2", null, null, false, false, false, Optional.empty()))
+                .add(new KafkaColumnHandle("col3", INTEGER, "col3", null, null, false, false, false, Optional.empty()))
+                .add(new KafkaColumnHandle("col4", INTEGER, "col4", null, null, false, false, false, Optional.empty()))
+                .add(new KafkaColumnHandle("col5", VARBINARY, "col5", null, null, false, false, false, Optional.empty()))
+                .add(new KafkaColumnHandle("col6", BIGINT, "col6", null, null, false, false, false, Optional.empty()))
                 .build();
 
         RowDecoder rowDecoder = getRowDecoder(mockSchemaRegistryClient, columnHandles, evolvedSchema);
@@ -113,7 +113,7 @@ public class TestAvroConfluentRowDecoder
         MockSchemaRegistryClient mockSchemaRegistryClient = new MockSchemaRegistryClient();
         Schema schema = Schema.create(Schema.Type.LONG);
         mockSchemaRegistryClient.register(format("%s-key", TOPIC), new AvroSchema(schema));
-        Set<DecoderColumnHandle> columnHandles = ImmutableSet.of(new KafkaColumnHandle("col1", BIGINT, "col1", null, null, false, false, false));
+        Set<DecoderColumnHandle> columnHandles = ImmutableSet.of(new KafkaColumnHandle("col1", BIGINT, "col1", null, null, false, false, false, Optional.empty()));
         RowDecoder rowDecoder = getRowDecoder(mockSchemaRegistryClient, columnHandles, schema);
         testSingleValueRow(rowDecoder, 3L, schema, 1);
     }

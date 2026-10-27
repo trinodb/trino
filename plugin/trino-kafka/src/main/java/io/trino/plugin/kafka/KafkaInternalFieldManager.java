@@ -14,7 +14,6 @@
 package io.trino.plugin.kafka;
 
 import com.google.inject.Inject;
-import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -141,17 +140,8 @@ public class KafkaInternalFieldManager
                     null,
                     false,
                     hidden,
-                    true);
-        }
-
-        ColumnMetadata getColumnMetadata(boolean hidden)
-        {
-            return ColumnMetadata.builder()
-                    .setName(columnName)
-                    .setType(type)
-                    .setComment(Optional.ofNullable(comment))
-                    .setHidden(hidden)
-                    .build();
+                    true,
+                    Optional.of(comment));
         }
     }
 
