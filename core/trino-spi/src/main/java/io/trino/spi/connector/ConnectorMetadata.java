@@ -1064,6 +1064,15 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Whether the connector applies the security mode of views itself. If so, {@code getTableHandle} and {@code getView}
+     * receive the identity of the user running the query, not the owner of a SECURITY DEFINER view.
+     */
+    default boolean managesViewSecurity()
+    {
+        return false;
+    }
+
+    /**
      * Gets the view data for the specified view name. Returns {@link Optional#empty()} if {@code viewName}
      * relation does not or is not a view (e.g. is a table, or a materialized view).
      *

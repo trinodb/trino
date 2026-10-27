@@ -113,6 +113,8 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver;
     private final BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver;
+    private final boolean managesViewSecurity;
+    private final Consumer<ConnectorSession> sessionObserver;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final Function<SchemaTableName, Optional<String>> getComment;
     private final Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles;
@@ -175,6 +177,8 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver,
             BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver,
+            boolean managesViewSecurity,
+            Consumer<ConnectorSession> sessionObserver,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             Function<SchemaTableName, Optional<String>> getComment,
             Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles,
@@ -233,6 +237,8 @@ public class MockConnectorFactory
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getTableHandleObserver = requireNonNull(getTableHandleObserver, "getTableHandleObserver is null");
         this.getViewObserver = requireNonNull(getViewObserver, "getViewObserver is null");
+        this.managesViewSecurity = managesViewSecurity;
+        this.sessionObserver = requireNonNull(sessionObserver, "sessionObserver is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.getComment = requireNonNull(getComment, "getComment is null");
         this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
@@ -301,6 +307,8 @@ public class MockConnectorFactory
                 getTableHandle,
                 getTableHandleObserver,
                 getViewObserver,
+                managesViewSecurity,
+                sessionObserver,
                 getColumns,
                 getComment,
                 getColumnHandles,
@@ -458,6 +466,8 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle = defaultGetTableHandle();
         private BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver = (_, _) -> {};
         private BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver = (_, _) -> {};
+        private boolean managesViewSecurity;
+        private Consumer<ConnectorSession> sessionObserver = _ -> {};
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
         private boolean getColumnsSet;
         private Function<SchemaTableName, Optional<String>> getComment = _ -> Optional.empty();
@@ -592,6 +602,18 @@ public class MockConnectorFactory
         public Builder withGetTableHandleObserver(BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver)
         {
             this.getTableHandleObserver = requireNonNull(getTableHandleObserver, "getTableHandleObserver is null");
+            return this;
+        }
+
+        public Builder withManagesViewSecurity(boolean managesViewSecurity)
+        {
+            this.managesViewSecurity = managesViewSecurity;
+            return this;
+        }
+
+        public Builder withSessionObserver(Consumer<ConnectorSession> sessionObserver)
+        {
+            this.sessionObserver = requireNonNull(sessionObserver, "sessionObserver is null");
             return this;
         }
 
@@ -908,6 +930,8 @@ public class MockConnectorFactory
                     getTableHandle,
                     getTableHandleObserver,
                     getViewObserver,
+                    managesViewSecurity,
+                    sessionObserver,
                     getColumns,
                     getComment,
                     getColumnHandles,

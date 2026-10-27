@@ -159,6 +159,8 @@ public class MockConnector
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver;
     private final BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver;
+    private final boolean managesViewSecurity;
+    private final Consumer<ConnectorSession> sessionObserver;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final Function<SchemaTableName, Optional<String>> getComment;
     private final Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles;
@@ -217,6 +219,8 @@ public class MockConnector
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             BiConsumer<SchemaTableName, List<ReferencingView>> getTableHandleObserver,
             BiConsumer<SchemaTableName, List<ReferencingView>> getViewObserver,
+            boolean managesViewSecurity,
+            Consumer<ConnectorSession> sessionObserver,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             Function<SchemaTableName, Optional<String>> getComment,
             Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles,
@@ -274,6 +278,8 @@ public class MockConnector
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getTableHandleObserver = requireNonNull(getTableHandleObserver, "getTableHandleObserver is null");
         this.getViewObserver = requireNonNull(getViewObserver, "getViewObserver is null");
+        this.managesViewSecurity = managesViewSecurity;
+        this.sessionObserver = requireNonNull(sessionObserver, "sessionObserver is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.getComment = requireNonNull(getComment, "getComment is null");
         this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
@@ -561,6 +567,7 @@ public class MockConnector
         @Override
         public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion, List<ReferencingView> referencingViews)
         {
+            sessionObserver.accept(session);
             getTableHandleObserver.accept(tableName, referencingViews);
             return getTableHandle(session, tableName, startVersion, endVersion);
         }
@@ -578,6 +585,7 @@ public class MockConnector
         @Override
         public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
         {
+            sessionObserver.accept(session);
             MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
             return new ConnectorTableMetadata(
                     table.getTableName(),
@@ -590,6 +598,7 @@ public class MockConnector
         @Override
         public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
         {
+            sessionObserver.accept(session);
             MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
             return getTableStatistics.apply(table.getTableName());
         }
@@ -615,6 +624,7 @@ public class MockConnector
         @Override
         public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
         {
+            sessionObserver.accept(session);
             MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
             if (getColumnHandles.isPresent()) {
                 return getColumnHandles.get().apply(table.getTableName()).stream()
@@ -809,8 +819,15 @@ public class MockConnector
         }
 
         @Override
+        public boolean managesViewSecurity()
+        {
+            return managesViewSecurity;
+        }
+
+        @Override
         public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName, List<ReferencingView> referencingViews)
         {
+            sessionObserver.accept(session);
             getViewObserver.accept(viewName, referencingViews);
             return getView(session, viewName);
         }
