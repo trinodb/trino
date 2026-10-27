@@ -82,11 +82,6 @@
         </dependency>
 
         <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
             <scope>provided</scope>
@@ -490,10 +485,6 @@
                                 <relocation>
                                     <pattern>net.bytebuddy</pattern>
                                     <shadedPattern>${shadeBase}.net.bytebuddy</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.joda.time</pattern>
-                                    <shadedPattern>${shadeBase}.joda.time</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>okhttp3</pattern>

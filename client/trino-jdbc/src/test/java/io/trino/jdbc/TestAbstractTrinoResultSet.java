@@ -13,14 +13,44 @@
  */
 package io.trino.jdbc;
 
+import io.trino.client.ClientTypeSignature;
 import org.junit.jupiter.api.Test;
+
+import java.sql.Date;
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.GregorianCalendar;
+import java.util.List;
 
 import static io.trino.jdbc.AbstractTrinoResultSet.DEFAULT_OBJECT_REPRESENTATION;
 import static io.trino.jdbc.AbstractTrinoResultSet.TYPE_CONVERSIONS;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Fail.fail;
 
 public class TestAbstractTrinoResultSet
 {
+    @Test
+    public void testDateConversion()
+            throws Exception
+    {
+        ClientTypeSignature type = new ClientTypeSignature("date");
+        for (String value : List.of("1970-01-01", "2024-02-29", "12345-01-23", "+12345-01-23")) {
+            LocalDate date = LocalDate.parse(value.startsWith("12345") ? "+" + value : value);
+            assertThat(TYPE_CONVERSIONS.convert(type, value, Date.class).getTime())
+                    .isEqualTo(date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli());
+        }
+        for (String value : List.of("0001-01-01", "1582-10-04", "1582-10-10", "1582-10-15", "1899-12-31")) {
+            LocalDate date = LocalDate.parse(value);
+            GregorianCalendar calendar = new GregorianCalendar(date.getYear(), date.getMonthValue() - 1, date.getDayOfMonth());
+            assertThat(TYPE_CONVERSIONS.convert(type, value, Date.class).getTime())
+                    .isEqualTo(calendar.getTimeInMillis());
+        }
+        assertThatThrownBy(() -> TYPE_CONVERSIONS.convert(type, "2023-02-29", Date.class))
+                .isInstanceOf(DateTimeException.class);
+    }
+
     @Test
     public void testRepresentationImplemented()
     {
