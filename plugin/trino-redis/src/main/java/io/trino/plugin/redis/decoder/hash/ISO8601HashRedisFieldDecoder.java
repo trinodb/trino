@@ -15,13 +15,10 @@ package io.trino.plugin.redis.decoder.hash;
 
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
+import io.trino.plugin.base.time.DateTimeFormat;
 import io.trino.spi.type.Type;
-import org.joda.time.DateTime;
-import org.joda.time.chrono.ISOChronology;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
-import java.util.Locale;
+import java.time.ZonedDateTime;
 
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
@@ -32,16 +29,12 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class ISO8601HashRedisFieldDecoder
         extends HashRedisFieldDecoder
 {
-    private static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTimeParser()
-            .withLocale(Locale.ENGLISH)
-            .withChronology(ISOChronology.getInstanceUTC())
-            .withOffsetParsed();
-
     @Override
     public FieldValueProvider decode(String value, DecoderColumnHandle columnHandle)
     {
@@ -59,8 +52,8 @@ class ISO8601HashRedisFieldDecoder
         @Override
         public long getLong()
         {
-            DateTime dateTime = FORMATTER.parseDateTime(getSlice().toStringAscii());
-            long millis = dateTime.getMillis();
+            ZonedDateTime dateTime = DateTimeFormat.parseIsoTimestamp(getSlice().toStringAscii(), UTC);
+            long millis = dateTime.toInstant().toEpochMilli();
 
             Type type = columnHandle.getType();
             if (type.equals(DATE)) {
@@ -73,7 +66,7 @@ class ISO8601HashRedisFieldDecoder
                 return millis * PICOSECONDS_PER_MILLISECOND;
             }
             if (type.equals(TIMESTAMP_TZ_MILLIS) || type.equals(TIME_TZ_MILLIS)) {
-                return packDateTimeWithZone(millis, getTimeZoneKey(dateTime.getZone().getID()));
+                return packDateTimeWithZone(millis, getTimeZoneKey(dateTime.getZone().getId()));
             }
 
             throw new IllegalStateException("Unsupported type: " + type);
