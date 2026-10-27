@@ -19,5 +19,10 @@ import io.trino.spi.connector.ConnectorSession;
 
 public interface SchemaParser
 {
-    KafkaTopicFieldGroup parse(ConnectorSession session, String subject, ParsedSchema parsedSchema);
+    /**
+     * Maps the latest schema of a subject to the fields of a table.
+     *
+     * @param schemaId the registry id of {@code parsedSchema}
+     */
+    KafkaTopicFieldGroup parse(ConnectorSession session, String subject, int schemaId, ParsedSchema parsedSchema);
 }

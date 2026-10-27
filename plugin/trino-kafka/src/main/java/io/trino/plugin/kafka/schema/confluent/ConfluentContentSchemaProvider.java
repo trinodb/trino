@@ -24,7 +24,7 @@ import io.trino.spi.TrinoException;
 import java.io.IOException;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryDynamicMessageProvider.readerSchemaReference;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -46,10 +46,17 @@ public class ConfluentContentSchemaProvider
         if (subject.isEmpty()) {
             return Optional.empty();
         }
-        checkState(dataSchemaLocation.isEmpty(), "Unexpected parameter: dataSchemaLocation");
+        if (dataSchemaLocation.isPresent()) {
+            // a protobuf table refers to the registry schema its columns were derived from; the
+            // decoder fetches it from the registry, as its text alone does not compile when it has references
+            return dataSchemaLocation;
+        }
         try {
             SchemaMetadata schemaMetadata = schemaRegistryClient.getLatestSchemaMetadata(subject.get());
             ParsedSchema schema = schemaRegistryClient.getSchemaBySubjectAndId(subject.get(), schemaMetadata.getId());
+            if (schema instanceof ConfluentProtobufSchema protobufSchema) {
+                return Optional.of(readerSchemaReference(schemaMetadata.getId(), protobufSchema.getMessageDescriptor(subject.get())));
+            }
             return Optional.ofNullable(schema.rawSchema())
                     .map(Object::toString);
         }

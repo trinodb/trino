@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package io.trino.protobuf;
+
+message Header {
+  string name = 1;
+}
+
+enum Status {
+  UNKNOWN = 0;
+  SHIPPED = 1;
+}
+
+message Order {
+  int64 id = 1;
+  string customer = 2;
+  map<string, string> attributes = 3;
+  Status status = 4;
+
+  message Line {
+    string sku = 1;
+    int32 quantity = 2;
+
+    message Discount {
+      string code = 1;
+      double percent = 2;
+    }
+  }
+}
