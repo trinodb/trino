@@ -89,6 +89,11 @@
             <artifactId>trino-json</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
+        </dependency>
+
         <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
@@ -98,11 +103,6 @@
         <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
         </dependency>
 
         <dependency>

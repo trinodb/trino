@@ -17,12 +17,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
+import io.trino.plugin.base.time.DateTimeFormat;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
-import org.joda.time.chrono.ISOChronology;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Locale;
 import java.util.Set;
@@ -38,12 +36,13 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Custom date format decoder.
  * <p>
- * {@code formatHint} uses {@link org.joda.time.format.DateTimeFormatter} format.
+ * {@code formatHint} uses the legacy date/time pattern syntax.
  * <p>
  * Uses hardcoded UTC timezone and english locale.
  */
@@ -53,7 +52,7 @@ public class CustomDateTimeJsonFieldDecoder
     private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME_MILLIS, TIME_TZ_MILLIS, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS);
 
     private final DecoderColumnHandle columnHandle;
-    private final DateTimeFormatter formatter;
+    private final DateTimeFormat formatter;
 
     public CustomDateTimeJsonFieldDecoder(DecoderColumnHandle columnHandle)
     {
@@ -64,15 +63,12 @@ public class CustomDateTimeJsonFieldDecoder
 
         checkArgument(columnHandle.getFormatHint() != null, "format hint not defined for column '%s'", columnHandle.getName());
         try {
-            formatter = DateTimeFormat.forPattern(columnHandle.getFormatHint())
-                    .withLocale(Locale.ENGLISH)
-                    .withChronology(ISOChronology.getInstanceUTC())
-                    .withOffsetParsed();
+            formatter = DateTimeFormat.forPattern(columnHandle.getFormatHint());
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(
                     GENERIC_USER_ERROR,
-                    format("invalid Joda Time pattern '%s' passed as format hint for column '%s'", columnHandle.getFormatHint(), columnHandle.getName()));
+                    format("invalid date/time pattern '%s' passed as format hint for column '%s'", columnHandle.getFormatHint(), columnHandle.getName()));
         }
     }
 
@@ -85,9 +81,9 @@ public class CustomDateTimeJsonFieldDecoder
     public static class CustomDateTimeJsonValueProvider
             extends AbstractDateTimeJsonValueProvider
     {
-        private final DateTimeFormatter formatter;
+        private final DateTimeFormat formatter;
 
-        public CustomDateTimeJsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle, DateTimeFormatter formatter)
+        public CustomDateTimeJsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle, DateTimeFormat formatter)
         {
             super(value, columnHandle);
             this.formatter = formatter;
@@ -102,7 +98,7 @@ public class CustomDateTimeJsonFieldDecoder
                         format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
             }
             try {
-                return formatter.parseMillis(value.asText());
+                return formatter.parse(value.asText(), UTC, Locale.ENGLISH).toInstant().toEpochMilli();
             }
             catch (IllegalArgumentException e) {
                 throw new TrinoException(
@@ -116,7 +112,7 @@ public class CustomDateTimeJsonFieldDecoder
         {
             if (value.isValueNode()) {
                 try {
-                    return getTimeZoneKey(formatter.parseDateTime(value.asText()).getZone().getID());
+                    return getTimeZoneKey(formatter.parse(value.asText(), UTC, Locale.ENGLISH).getZone().getId());
                 }
                 catch (IllegalArgumentException e) {
                     throw new TrinoException(

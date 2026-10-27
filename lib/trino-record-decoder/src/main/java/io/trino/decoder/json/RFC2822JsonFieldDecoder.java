@@ -17,12 +17,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
+import io.trino.plugin.base.time.DateTimeFormat;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
-import org.joda.time.chrono.ISOChronology;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Locale;
 import java.util.Set;
@@ -33,6 +31,7 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -48,10 +47,7 @@ public class RFC2822JsonFieldDecoder
     /**
      * Todo - configurable time zones and locales.
      */
-    private static final DateTimeFormatter FORMATTER = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy")
-            .withLocale(Locale.ENGLISH)
-            .withChronology(ISOChronology.getInstanceUTC())
-            .withOffsetParsed();
+    private static final DateTimeFormat FORMATTER = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy");
 
     private final DecoderColumnHandle columnHandle;
 
@@ -82,7 +78,7 @@ public class RFC2822JsonFieldDecoder
         {
             if (value.isValueNode()) {
                 try {
-                    return FORMATTER.parseMillis(value.asText());
+                    return FORMATTER.parse(value.asText(), UTC, Locale.ENGLISH).toInstant().toEpochMilli();
                 }
                 catch (IllegalArgumentException e) {
                     throw new TrinoException(
@@ -100,7 +96,7 @@ public class RFC2822JsonFieldDecoder
         {
             if (value.isValueNode()) {
                 try {
-                    return getTimeZoneKey(FORMATTER.parseDateTime(value.asText()).getZone().getID());
+                    return getTimeZoneKey(FORMATTER.parse(value.asText(), UTC, Locale.ENGLISH).getZone().getId());
                 }
                 catch (IllegalArgumentException e) {
                     throw new TrinoException(
