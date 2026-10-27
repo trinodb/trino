@@ -379,6 +379,7 @@ abstract class AbstractTestHiveRoles
                 createAdminSession(),
                 revokeRoleFromRoleSql("grant_revoke_role_existing_1", "grant_revoke_role_existing_2"),
                 ".*?Role 'grant_revoke_role_existing_2' does not exist in catalog '.*'");
+        cleanup();
     }
 
     @Test
