@@ -47,7 +47,8 @@ public class TestKafkaInternalFieldManager
                         null,
                         false,
                         false,
-                        true);
+                        true,
+                        Optional.of("Partition Id"));
 
         ColumnMetadata columnMetadata =
                 ColumnMetadata.builder()
@@ -60,7 +61,7 @@ public class TestKafkaInternalFieldManager
         assertThat(internalField.getInternalFieldId()).isEqualTo(PARTITION_ID_FIELD);
         assertThat(internalField.getColumnName()).isEqualTo("internal_field_name");
         assertThat(internalField.getColumnHandle(false)).isEqualTo(kafkaColumnHandle);
-        assertThat(internalField.getColumnMetadata(false)).isEqualTo(columnMetadata);
+        assertThat(internalField.getColumnHandle(false).getColumnMetadata()).isEqualTo(columnMetadata);
     }
 
     @Test
@@ -71,7 +72,7 @@ public class TestKafkaInternalFieldManager
         KafkaInternalFieldManager.InternalField keyField = kafkaInternalFieldManager.getFieldById(KEY_FIELD);
 
         assertThat(keyField.getColumnHandle(false).getType()).isEqualTo(VARBINARY);
-        assertThat(keyField.getColumnMetadata(false).getType()).isEqualTo(VARBINARY);
+        assertThat(keyField.getColumnHandle(false).getColumnMetadata().getType()).isEqualTo(VARBINARY);
     }
 
     @Test
@@ -82,6 +83,6 @@ public class TestKafkaInternalFieldManager
         KafkaInternalFieldManager.InternalField messageField = kafkaInternalFieldManager.getFieldById(MESSAGE_FIELD);
 
         assertThat(messageField.getColumnHandle(false).getType()).isEqualTo(VARBINARY);
-        assertThat(messageField.getColumnMetadata(false).getType()).isEqualTo(VARBINARY);
+        assertThat(messageField.getColumnHandle(false).getColumnMetadata().getType()).isEqualTo(VARBINARY);
     }
 }
