@@ -26,6 +26,7 @@ import org.joda.time.MutablePeriod;
 import org.joda.time.Period;
 import org.joda.time.PeriodType;
 import org.joda.time.ReadWritablePeriod;
+import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 import org.joda.time.format.PeriodFormatter;
@@ -55,7 +56,7 @@ public final class DateTimeUtils
 {
     private DateTimeUtils() {}
 
-    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
+    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withChronology(ISOChronology.getInstanceUTC());
 
     public static int parseDate(Slice value)
     {
@@ -137,7 +138,7 @@ public final class DateTimeUtils
         long ymd = FastDate.ymdFromEpochDay(days);
         int year = (int) (ymd >> 32);
         if (year < 0 || year > 9999) {
-            return utf8Slice(DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(days)));
+            return utf8Slice(JodaDateTimeFormat.format(DATE_FORMATTER, TimeUnit.DAYS.toMillis(days)));
         }
         int month = (int) ((ymd >> 8) & 0xFF);
         int day = (int) (ymd & 0xFF);

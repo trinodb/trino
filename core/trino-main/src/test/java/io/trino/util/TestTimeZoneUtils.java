@@ -24,7 +24,6 @@ import java.util.TreeSet;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.trino.spi.type.TimeZoneKey.isUtcZoneId;
 import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static io.trino.util.DateTimeZoneIndex.unpackDateTimeZone;
@@ -43,11 +42,8 @@ public class TestTimeZoneUtils
                 continue;
             }
 
-            DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
             DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
-
-            assertDateTimeZoneEquals(zoneId, indexedZone);
-            assertTimeZone(zoneId, dateTimeZone);
+            assertTimeZone(zoneId, indexedZone);
         }
     }
 
@@ -57,7 +53,7 @@ public class TestTimeZoneUtils
         for (int offsetHours = -13; offsetHours < 14; offsetHours++) {
             for (int offsetMinutes = 0; offsetMinutes < 60; offsetMinutes++) {
                 DateTimeZone dateTimeZone = DateTimeZone.forOffsetHoursMinutes(offsetHours, offsetMinutes);
-                assertTimeZone(dateTimeZone.getID(), dateTimeZone);
+                assertTimeZone(dateTimeZone.getID(), getDateTimeZone(TimeZoneKey.getTimeZoneKey(dateTimeZone.getID())));
             }
         }
     }
@@ -79,19 +75,7 @@ public class TestTimeZoneUtils
                     unpackZoneKey(packWithZoneId)));
         }
         DateTimeZone unpackedZone = unpackDateTimeZone(packWithDateTime);
-        assertDateTimeZoneEquals(zoneId, unpackedZone);
-    }
-
-    public static void assertDateTimeZoneEquals(String zoneId, DateTimeZone actualTimeZone)
-    {
-        DateTimeZone expectedDateTimeZone;
-        if (isUtcZoneId(zoneId)) {
-            expectedDateTimeZone = DateTimeZone.UTC;
-        }
-        else {
-            expectedDateTimeZone = DateTimeZone.forID(zoneId);
-        }
-
-        assertThat(actualTimeZone).isEqualTo(expectedDateTimeZone);
+        assertThat(unpackedZone).isEqualTo(dateTimeZone);
+        assertThat(TimeZoneKey.getTimeZoneKey(zoneId)).isEqualTo(unpackZoneKey(packWithDateTime));
     }
 }

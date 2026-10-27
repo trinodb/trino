@@ -44,7 +44,10 @@ public final class DateTimeZoneIndex
         try {
             for (TimeZoneKey timeZoneKey : getTimeZoneKeys()) {
                 short zoneKey = timeZoneKey.getKey();
-                DateTimeZone dateTimeZone = DateTimeZone.forID(timeZoneKey.getId());
+                DateTimeZone dateTimeZone = DateTimeZone.UTC;
+                if (!timeZoneKey.equals(TimeZoneKey.UTC_KEY)) {
+                    dateTimeZone = new JdkDateTimeZone(timeZoneKey.getZoneId());
+                }
                 DATE_TIME_ZONES[zoneKey] = dateTimeZone;
                 CHRONOLOGIES[zoneKey] = ISOChronology.getInstance(dateTimeZone);
                 if (dateTimeZone.isFixed() && dateTimeZone.getOffset(0) % 60_000 == 0) {

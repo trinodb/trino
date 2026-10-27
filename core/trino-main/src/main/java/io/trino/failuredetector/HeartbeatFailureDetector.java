@@ -40,13 +40,13 @@ import io.trino.util.Failures;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import org.joda.time.DateTime;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -392,8 +392,8 @@ public class HeartbeatFailureDetector
         private final DecayCounter recentRequests = new DecayCounter(DecayConfig.oneMinute());
         private final DecayCounter recentFailures = new DecayCounter(DecayConfig.oneMinute());
         private final DecayCounter recentSuccesses = new DecayCounter(DecayConfig.oneMinute());
-        private final AtomicReference<DateTime> lastRequestTime = new AtomicReference<>();
-        private final AtomicReference<DateTime> lastResponseTime = new AtomicReference<>();
+        private final AtomicReference<Instant> lastRequestTime = new AtomicReference<>();
+        private final AtomicReference<Instant> lastResponseTime = new AtomicReference<>();
         private final AtomicReference<Exception> lastFailureException = new AtomicReference<>();
 
         @GuardedBy("this")
@@ -407,19 +407,19 @@ public class HeartbeatFailureDetector
         public void recordStart()
         {
             recentRequests.add(1);
-            lastRequestTime.set(new DateTime());
+            lastRequestTime.set(Instant.now());
         }
 
         public void recordSuccess()
         {
             recentSuccesses.add(1);
-            lastResponseTime.set(new DateTime());
+            lastResponseTime.set(Instant.now());
         }
 
         public void recordFailure(Exception exception)
         {
             recentFailures.add(1);
-            lastResponseTime.set(new DateTime());
+            lastResponseTime.set(Instant.now());
             lastFailureException.set(exception);
 
             Throwable cause = exception;
@@ -474,13 +474,13 @@ public class HeartbeatFailureDetector
         }
 
         @JsonProperty
-        public DateTime getLastRequestTime()
+        public Instant getLastRequestTime()
         {
             return lastRequestTime.get();
         }
 
         @JsonProperty
-        public DateTime getLastResponseTime()
+        public Instant getLastResponseTime()
         {
             return lastResponseTime.get();
         }

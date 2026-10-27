@@ -22,8 +22,8 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
+import io.trino.util.JodaDateTimeFormat;
 import org.joda.time.chrono.ISOChronology;
-import org.joda.time.format.DateTimeFormat;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -59,10 +59,11 @@ public final class FormatDateTime
     private static Slice format(ConnectorSession session, long epochMillis, ISOChronology chronology, Slice formatString)
     {
         try {
-            return utf8Slice(DateTimeFormat.forPattern(formatString.toStringUtf8())
-                    .withChronology(chronology)
-                    .withLocale(session.getLocale())
-                    .print(epochMillis));
+            return utf8Slice(JodaDateTimeFormat.format(
+                    JodaDateTimeFormat.forPattern(formatString.toStringUtf8())
+                            .withChronology(chronology)
+                            .withLocale(session.getLocale()),
+                    epochMillis));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);

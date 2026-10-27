@@ -32,12 +32,12 @@ import io.trino.type.DateTimes;
 import io.trino.type.LongInterval;
 import io.trino.util.DateTimeUtils;
 import io.trino.util.FastDate;
+import io.trino.util.JodaDateTimeFormat;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.Days;
 import org.joda.time.LocalDate;
 import org.joda.time.chrono.ISOChronology;
-import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.ISODateTimeFormat;
@@ -121,7 +121,7 @@ public final class DateTimeFunctions
         // It is ok for this method to use the Object interfaces because it is constant folded during
         // plan optimization
         LocalDate currentDate = new DateTime(session.getStart().toEpochMilli(), chronology).toLocalDate();
-        return Days.daysBetween(new LocalDate(1970, 1, 1), currentDate).getDays();
+        return Days.daysBetween(new LocalDate(1970, 1, 1, UTC_CHRONOLOGY), currentDate).getDays();
     }
 
     @Description("Current time zone")
@@ -253,7 +253,7 @@ public final class DateTimeFunctions
     {
         DateTimeFormatter formatter = ISODateTimeFormat.date()
                 .withChronology(UTC_CHRONOLOGY);
-        return utf8Slice(formatter.print(DAYS.toMillis(date)));
+        return utf8Slice(JodaDateTimeFormat.format(formatter, DAYS.toMillis(date)));
     }
 
     @ScalarFunction("from_iso8601_timestamp")
@@ -427,7 +427,7 @@ public final class DateTimeFunctions
     {
         try {
             return packDateTimeWithZone(parseDateTimeHelper(
-                    DateTimeFormat.forPattern(formatString.toStringUtf8())
+                    JodaDateTimeFormat.forPattern(formatString.toStringUtf8())
                             .withChronology(getChronology(session.getTimeZoneKey()))
                             .withOffsetParsed()
                             .withLocale(session.getLocale()),
@@ -441,7 +441,7 @@ public final class DateTimeFunctions
     private static DateTime parseDateTimeHelper(DateTimeFormatter formatter, String datetimeString)
     {
         try {
-            return formatter.parseDateTime(datetimeString);
+            return JodaDateTimeFormat.parse(formatter, datetimeString);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -454,7 +454,7 @@ public final class DateTimeFunctions
                 .withChronology(chronology)
                 .withLocale(locale);
 
-        return utf8Slice(formatter.print(timestamp));
+        return utf8Slice(JodaDateTimeFormat.format(formatter, timestamp));
     }
 
     @ScalarFunction
@@ -473,7 +473,7 @@ public final class DateTimeFunctions
         }
 
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
-                .withZoneUTC()
+                .withChronology(UTC_CHRONOLOGY)
                 .withLocale(session.getLocale());
 
         try {

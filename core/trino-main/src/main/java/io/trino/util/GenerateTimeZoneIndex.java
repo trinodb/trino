@@ -13,17 +13,10 @@
  */
 package io.trino.util;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.Sets;
-import org.joda.time.DateTimeZone;
-
-import java.util.Arrays;
-import java.util.TimeZone;
+import java.time.ZoneId;
 import java.util.TreeSet;
+import java.util.function.Predicate;
 
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Sets.filter;
-import static com.google.common.collect.Sets.intersection;
 import static io.trino.spi.type.TimeZoneKey.isUtcZoneId;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
@@ -41,10 +34,8 @@ public final class GenerateTimeZoneIndex
         System.out.println("#");
         System.out.println("# DO NOT REMOVE OR MODIFY EXISTING ENTRIES");
         System.out.println("#");
-        System.out.println("# This file contain the fixed numeric id of every supported time zone id.");
-        System.out.println("# Every zone id in this file must be supported by java.util.TimeZone and the");
-        System.out.println("# Joda time library.  This is because Trino uses both java.util.TimeZone and");
-        System.out.println("# the Joda time## for during execution.");
+        System.out.println("# This file contains the fixed numeric id of every supported time zone id.");
+        System.out.println("# Every zone id in this file must be supported by java.time.ZoneId.");
         System.out.println("#");
         System.out.println("# suppress inspection \"UnusedProperty\" for whole file");
 
@@ -79,10 +70,8 @@ public final class GenerateTimeZoneIndex
         // IANA regional zones: region/city
         //
 
-        TreeSet<String> jodaZones = new TreeSet<>(DateTimeZone.getAvailableIDs());
-        TreeSet<String> jdkZones = new TreeSet<>(Arrays.asList(TimeZone.getAvailableIDs()));
-
-        TreeSet<String> zoneIds = new TreeSet<>(filter(intersection(jodaZones, jdkZones), not(ignoredZone())));
+        TreeSet<String> zoneIds = new TreeSet<>(ZoneId.getAvailableZoneIds());
+        zoneIds.removeIf(ignoredZone());
 
         for (String zoneId : zoneIds) {
             if (zoneId.indexOf('/') < 0) {
@@ -105,17 +94,6 @@ public final class GenerateTimeZoneIndex
             System.out.println(zoneKey + " " + zoneId);
         }
 
-        System.out.println();
-        System.out.println("# Zones not supported in Java");
-        for (String invalidZone : filter(Sets.difference(jodaZones, jdkZones), not(ignoredZone()))) {
-            System.out.println("# " + invalidZone);
-        }
-
-        System.out.println();
-        System.out.println("# Zones not supported in Joda");
-        for (String invalidZone : filter(Sets.difference(jdkZones, jodaZones), not(ignoredZone()))) {
-            System.out.println("# " + invalidZone);
-        }
         Thread.sleep(1000);
     }
 
