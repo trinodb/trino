@@ -13,19 +13,17 @@
  */
 package io.trino.plugin.kafka.encoder.json.format;
 
+import io.trino.plugin.base.time.DateTimeFormat;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.LocalTime;
-import org.joda.time.chrono.ISOChronology;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -38,13 +36,13 @@ import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class CustomDateTimeFormatter
         implements JsonDateTimeFormatter
 {
-    private final DateTimeFormatter formatter;
+    private final DateTimeFormat formatter;
 
     public static boolean isSupportedType(Type type)
     {
@@ -57,9 +55,7 @@ public class CustomDateTimeFormatter
 
     public CustomDateTimeFormatter(Optional<String> pattern)
     {
-        this.formatter = DateTimeFormat.forPattern(getPattern(pattern))
-                .withLocale(Locale.ENGLISH)
-                .withChronology(ISOChronology.getInstanceUTC());
+        this.formatter = DateTimeFormat.forPattern(getPattern(pattern));
     }
 
     private static String getPattern(Optional<String> pattern)
@@ -70,34 +66,34 @@ public class CustomDateTimeFormatter
     @Override
     public String formatDate(SqlDate value)
     {
-        return formatter.withZoneUTC().print(new DateTime(DAYS.toMillis(value.getDays())));
+        return formatter.format(DAYS.toMillis(value.getDays()), UTC, Locale.ENGLISH);
     }
 
     @Override
     public String formatTime(SqlTime value, int precision)
     {
-        return formatter.withZoneUTC().print(LocalTime.fromMillisOfDay(getMillisOfDay(scalePicosToMillis(value.getPicos()))));
+        return formatter.format(LocalTime.ofNanoOfDay(getMillisOfDay(scalePicosToMillis(value.getPicos())) * 1_000_000), Locale.ENGLISH);
     }
 
     @Override
     public String formatTimeWithZone(SqlTimeWithTimeZone value)
     {
         int offsetMinutes = value.getOffsetMinutes();
-        DateTimeZone dateTimeZone = DateTimeZone.forOffsetHoursMinutes(offsetMinutes / 60, offsetMinutes % 60);
+        ZoneOffset zone = ZoneOffset.ofTotalSeconds(offsetMinutes * 60);
         long picos = value.getPicos() - (offsetMinutes * 60L * PICOSECONDS_PER_SECOND);
-        return formatter.withZone(dateTimeZone).print(new DateTime(scalePicosToMillis(picos), dateTimeZone));
+        return formatter.format(scalePicosToMillis(picos), zone, Locale.ENGLISH);
     }
 
     @Override
     public String formatTimestamp(SqlTimestamp value)
     {
-        return formatter.withZoneUTC().print(new DateTime(scaleEpochMicrosToMillis(value.getEpochMicros()), UTC));
+        return formatter.format(scaleEpochMicrosToMillis(value.getEpochMicros()), UTC, Locale.ENGLISH);
     }
 
     @Override
     public String formatTimestampWithZone(SqlTimestampWithTimeZone value)
     {
-        DateTimeZone dateTimeZone = DateTimeZone.forID(value.getTimeZoneKey().getId());
-        return formatter.withZone(dateTimeZone).print(new DateTime(value.getEpochMillis(), dateTimeZone));
+        ZoneId zone = value.getTimeZoneKey().getZoneId();
+        return formatter.format(value.getEpochMillis(), zone, Locale.ENGLISH);
     }
 }

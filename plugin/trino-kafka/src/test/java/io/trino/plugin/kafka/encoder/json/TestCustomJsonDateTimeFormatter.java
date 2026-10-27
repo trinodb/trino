@@ -71,6 +71,13 @@ public class TestCustomJsonDateTimeFormatter
     }
 
     @Test
+    public void testTimeWithDateAndZoneFields()
+    {
+        testTime(sqlTimeOf(3, 10, 20, 30, 123000000), "yyyy-MM-dd HH:mm:ss.SSS Z", 3, "\uFFFD\uFFFD\uFFFD\uFFFD-\uFFFD\uFFFD-\uFFFD\uFFFD 10:20:30.123 ");
+        testTime(sqlTimeOf(3, 10, 20, 30, 123000000), "MMM EEEE z", 3, "\uFFFD \uFFFD ");
+    }
+
+    @Test
     public void testCustomDateTimeFunctions()
     {
         testDate(sqlDateOf(2020, 8, 14), "yyyy-MM-dd", "2020-08-14");

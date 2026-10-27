@@ -13,27 +13,21 @@
  */
 package io.trino.plugin.kafka.encoder.json.format;
 
+import io.trino.plugin.base.time.DateTimeFormat;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.chrono.ISOChronology;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Locale;
 
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static org.joda.time.DateTimeZone.UTC;
+import static java.time.ZoneOffset.UTC;
 
 public class RFC2822DateTimeFormatter
         implements JsonDateTimeFormatter
 {
-    private static final DateTimeFormatter RFC_FORMATTER = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy")
-            .withLocale(Locale.ENGLISH)
-            .withChronology(ISOChronology.getInstanceUTC());
+    private static final DateTimeFormat RFC_FORMATTER = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy");
 
     public static boolean isSupportedType(Type type)
     {
@@ -44,13 +38,12 @@ public class RFC2822DateTimeFormatter
     @Override
     public String formatTimestamp(SqlTimestamp value)
     {
-        return RFC_FORMATTER.withZoneUTC().print(new DateTime(value.getMillis(), UTC));
+        return RFC_FORMATTER.format(value.getMillis(), UTC, Locale.ENGLISH);
     }
 
     @Override
     public String formatTimestampWithZone(SqlTimestampWithTimeZone value)
     {
-        DateTimeZone dateTimeZone = DateTimeZone.forID(value.getTimeZoneKey().getId());
-        return RFC_FORMATTER.withZone(dateTimeZone).print(new DateTime(value.getEpochMillis(), dateTimeZone));
+        return RFC_FORMATTER.format(value.getEpochMillis(), value.getTimeZoneKey().getZoneId(), Locale.ENGLISH);
     }
 }
