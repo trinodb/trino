@@ -28,6 +28,7 @@ import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
+import io.trino.server.remotetask.RetryableResponseException;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -60,6 +61,7 @@ import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.NOT_FOUND;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.HttpStatus.SERVICE_UNAVAILABLE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
@@ -70,6 +72,7 @@ import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.Failures.WORKER_NODE_ERROR;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -438,6 +441,123 @@ public class TestHttpPageBufferClient
     }
 
     @Test
+    public void testServiceUnavailableRetried()
+            throws Exception
+    {
+        TestingTicker ticker = new TestingTicker();
+        AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, SECONDS));
+        Page expectedPage = new Page(100);
+        DataSize maxSize = DataSize.of(10, MEGABYTE);
+        MockExchangeRequestProcessor delegate = new MockExchangeRequestProcessor(maxSize);
+        ServiceUnavailableProcessor processor = new ServiceUnavailableProcessor(delegate);
+        processor.setServiceUnavailable(true);
+
+        CyclicBarrier requestComplete = new CyclicBarrier(2);
+        TestingClientCallback callback = new TestingClientCallback(requestComplete);
+
+        URI location = URI.create("http://localhost:8080");
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(
+                        request -> {
+                            ticker.increment(tickerIncrement.get().toMillis(), MILLISECONDS);
+                            return processor.handle(request);
+                        },
+                        scheduler),
+                DataIntegrityVerification.ABORT,
+                maxSize,
+                new Duration(30, SECONDS),
+                true,
+                TASK_ID,
+                location,
+                callback,
+                scheduler,
+                ticker,
+                pageBufferClientCallbackExecutor);
+
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertThat(callback.getPages()).isEmpty();
+        assertThat(callback.getCompletedRequests()).isEqualTo(1);
+        assertThat(callback.getFailedBuffers()).isEqualTo(0);
+        assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
+
+        processor.setServiceUnavailable(false);
+        delegate.addPage(location, expectedPage);
+        callback.resetStats();
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertPageEquals(expectedPage, getOnlyElement(callback.getPages()));
+        assertThat(callback.getCompletedRequests()).isEqualTo(1);
+        assertThat(callback.getFailedBuffers()).isEqualTo(0);
+        assertStatus(client, location, "queued", 1, 2, 2, 1, "not scheduled");
+
+        processor.setServiceUnavailable(true);
+        callback.resetStats();
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        tickerIncrement.set(new Duration(30, SECONDS));
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertThat(callback.getFailedBuffers()).isEqualTo(0);
+
+        tickerIncrement.set(new Duration(31, SECONDS));
+        callback.resetStats();
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertThat(callback.getPages()).isEmpty();
+        assertThat(callback.getFailedBuffers()).isEqualTo(1);
+        assertThat(callback.getFailure()).isInstanceOf(PageTransportTimeoutException.class);
+        assertThat(callback.getFailure()).hasRootCauseInstanceOf(RetryableResponseException.class);
+    }
+
+    @Test
+    public void testServiceUnavailableOnDestroyRetried()
+            throws Exception
+    {
+        DataSize maxSize = DataSize.of(10, MEGABYTE);
+        MockExchangeRequestProcessor delegate = new MockExchangeRequestProcessor(maxSize);
+        ServiceUnavailableProcessor processor = new ServiceUnavailableProcessor(delegate);
+
+        CyclicBarrier requestComplete = new CyclicBarrier(2);
+        TestingClientCallback callback = new TestingClientCallback(requestComplete);
+
+        URI location = URI.create("http://localhost:8080");
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(processor, scheduler),
+                DataIntegrityVerification.ABORT,
+                maxSize,
+                new Duration(1, MINUTES),
+                true,
+                TASK_ID,
+                location,
+                callback,
+                scheduler,
+                pageBufferClientCallbackExecutor);
+
+        delegate.setComplete(location);
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertThat(callback.getCompletedRequests()).isEqualTo(1);
+
+        processor.setServiceUnavailable(true);
+        callback.resetStats();
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertThat(callback.getFinishedBuffers()).isEqualTo(0);
+        assertThat(callback.getFailedBuffers()).isEqualTo(0);
+
+        processor.setServiceUnavailable(false);
+        callback.resetStats();
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertThat(callback.getFinishedBuffers()).isEqualTo(1);
+        assertThat(callback.getFailedBuffers()).isEqualTo(0);
+        assertStatus(client, location, "closed", 0, 3, 3, 1, "not scheduled");
+    }
+
+    @Test
     public void testErrorCodes()
     {
         assertThat(new PageTooLargeException().getErrorCode()).isEqualTo(PAGE_TOO_LARGE.toErrorCode());
@@ -690,6 +810,33 @@ public class TestHttpPageBufferClient
             finally {
                 afterRequest.await(10, SECONDS);
             }
+        }
+    }
+
+    private static class ServiceUnavailableProcessor
+            implements TestingHttpClient.Processor
+    {
+        private final TestingHttpClient.Processor delegate;
+        private final AtomicBoolean serviceUnavailable = new AtomicBoolean();
+
+        private ServiceUnavailableProcessor(TestingHttpClient.Processor delegate)
+        {
+            this.delegate = delegate;
+        }
+
+        private void setServiceUnavailable(boolean serviceUnavailable)
+        {
+            this.serviceUnavailable.set(serviceUnavailable);
+        }
+
+        @Override
+        public Response handle(Request request)
+                throws Exception
+        {
+            if (serviceUnavailable.get()) {
+                return new TestingResponse(SERVICE_UNAVAILABLE, ImmutableListMultimap.of(CONTENT_TYPE, "text/plain"), "Trino server is still initializing".getBytes(UTF_8));
+            }
+            return delegate.handle(request);
         }
     }
 }
