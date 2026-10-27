@@ -165,7 +165,7 @@ abstract class AbstractTrinoResultSet
                     .add("number", String.class, BigDecimal.class, value -> new BigDecimal(value))
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
                     .add("date", String.class, Date.class, string -> parseDate(string, SYSTEM_DEFAULT_ZONE_ID))
-                    .add("date", String.class, LocalDate.class, string -> parseDate(string, SYSTEM_DEFAULT_ZONE_ID).toLocalDate())
+                    .add("date", String.class, LocalDate.class, string -> LocalDate.parse(string))
                     .add("time", String.class, Time.class, string -> parseTime(string, SYSTEM_DEFAULT_ZONE_ID))
                     .add("time with time zone", String.class, Time.class, AbstractTrinoResultSet::parseTimeWithTimeZone)
                     .add("timestamp", String.class, LocalDateTime.class, AbstractTrinoResultSet::parseTimestampAsLocalDateTime)
