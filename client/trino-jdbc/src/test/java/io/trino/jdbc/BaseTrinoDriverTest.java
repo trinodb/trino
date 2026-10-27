@@ -22,8 +22,6 @@ import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.type.TimeZoneKey;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -87,8 +85,8 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public abstract class BaseTrinoDriverTest
 {
-    private static final DateTimeZone ASIA_ORAL_ZONE = DateTimeZone.forID("Asia/Oral");
-    private static final GregorianCalendar ASIA_ORAL_CALENDAR = new GregorianCalendar(TimeZone.getTimeZone(ZoneId.of(ASIA_ORAL_ZONE.getID())));
+    private static final ZoneId ASIA_ORAL_ZONE = ZoneId.of("Asia/Oral");
+    private static final GregorianCalendar ASIA_ORAL_CALENDAR = new GregorianCalendar(TimeZone.getTimeZone(ASIA_ORAL_ZONE));
     private static final String TEST_CATALOG = "test_catalog";
 
     protected TestingTrinoServer server;
@@ -292,58 +290,58 @@ public abstract class BaseTrinoDriverTest
                         "")) {
                     assertThat(rs.next()).isTrue();
 
-                    assertThat(rs.getTime(1)).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5).getMillis()));
-                    assertThat(rs.getTime(1, ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5, ASIA_ORAL_ZONE).getMillis()));
-                    assertThat(rs.getObject(1)).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5).getMillis()));
-                    assertThat(rs.getTime("a")).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5).getMillis()));
-                    assertThat(rs.getTime("a", ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5, ASIA_ORAL_ZONE).getMillis()));
-                    assertThat(rs.getObject("a")).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5).getMillis()));
+                    assertThat(rs.getTime(1)).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.systemDefault()).toInstant().toEpochMilli()));
+                    assertThat(rs.getTime(1, ASIA_ORAL_CALENDAR)).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ASIA_ORAL_ZONE).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject(1)).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.systemDefault()).toInstant().toEpochMilli()));
+                    assertThat(rs.getTime("a")).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.systemDefault()).toInstant().toEpochMilli()));
+                    assertThat(rs.getTime("a", ASIA_ORAL_CALENDAR)).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ASIA_ORAL_ZONE).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject("a")).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.systemDefault()).toInstant().toEpochMilli()));
 
-                    assertThat(rs.getTime(2)).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getTime(2, ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getObject(2)).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getTime("b")).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getTime("b", ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getObject("b")).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
+                    assertThat(rs.getTime(2)).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)).toInstant().toEpochMilli()));
+                    assertThat(rs.getTime(2, ASIA_ORAL_CALENDAR)).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject(2)).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)).toInstant().toEpochMilli()));
+                    assertThat(rs.getTime("b")).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)).toInstant().toEpochMilli()));
+                    assertThat(rs.getTime("b", ASIA_ORAL_CALENDAR)).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject("b")).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)).toInstant().toEpochMilli()));
 
-                    assertThat(rs.getTime(3)).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
-                    assertThat(rs.getTime(3, ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
-                    assertThat(rs.getObject(3)).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
-                    assertThat(rs.getTime("c")).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
-                    assertThat(rs.getTime("c", ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
-                    assertThat(rs.getObject("c")).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
+                    assertThat(rs.getTime(3)).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 9, 10, 11, 0, ZoneOffset.ofHoursMinutes(2, 0)).toInstant().toEpochMilli()));
+                    assertThat(rs.getTime(3, ASIA_ORAL_CALENDAR)).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 9, 10, 11, 0, ZoneOffset.ofHoursMinutes(2, 0)).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject(3)).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 9, 10, 11, 0, ZoneOffset.ofHoursMinutes(2, 0)).toInstant().toEpochMilli()));
+                    assertThat(rs.getTime("c")).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 9, 10, 11, 0, ZoneOffset.ofHoursMinutes(2, 0)).toInstant().toEpochMilli()));
+                    assertThat(rs.getTime("c", ASIA_ORAL_CALENDAR)).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 9, 10, 11, 0, ZoneOffset.ofHoursMinutes(2, 0)).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject("c")).isEqualTo(new Time(ZonedDateTime.of(1970, 1, 1, 9, 10, 11, 0, ZoneOffset.ofHoursMinutes(2, 0)).toInstant().toEpochMilli()));
 
-                    assertThat(rs.getTimestamp(4)).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5).getMillis()));
-                    assertThat(rs.getTimestamp(4, ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, ASIA_ORAL_ZONE).getMillis()));
-                    assertThat(rs.getObject(4)).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5).getMillis()));
-                    assertThat(rs.getTimestamp("d")).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5).getMillis()));
-                    assertThat(rs.getTimestamp("d", ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, ASIA_ORAL_ZONE).getMillis()));
-                    assertThat(rs.getObject("d")).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5).getMillis()));
+                    assertThat(rs.getTimestamp(4)).isEqualTo(new Timestamp(ZonedDateTime.of(2001, 2, 3, 3, 4, 5, 0, ZoneId.systemDefault()).toInstant().toEpochMilli()));
+                    assertThat(rs.getTimestamp(4, ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(ZonedDateTime.of(2001, 2, 3, 3, 4, 5, 0, ASIA_ORAL_ZONE).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject(4)).isEqualTo(new Timestamp(ZonedDateTime.of(2001, 2, 3, 3, 4, 5, 0, ZoneId.systemDefault()).toInstant().toEpochMilli()));
+                    assertThat(rs.getTimestamp("d")).isEqualTo(new Timestamp(ZonedDateTime.of(2001, 2, 3, 3, 4, 5, 0, ZoneId.systemDefault()).toInstant().toEpochMilli()));
+                    assertThat(rs.getTimestamp("d", ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(ZonedDateTime.of(2001, 2, 3, 3, 4, 5, 0, ASIA_ORAL_ZONE).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject("d")).isEqualTo(new Timestamp(ZonedDateTime.of(2001, 2, 3, 3, 4, 5, 0, ZoneId.systemDefault()).toInstant().toEpochMilli()));
 
-                    assertThat(rs.getTimestamp(5)).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getTimestamp(5, ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getObject(5)).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
+                    assertThat(rs.getTimestamp(5)).isEqualTo(new Timestamp(ZonedDateTime.of(2004, 5, 6, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)).toInstant().toEpochMilli()));
+                    assertThat(rs.getTimestamp(5, ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(ZonedDateTime.of(2004, 5, 6, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject(5)).isEqualTo(new Timestamp(ZonedDateTime.of(2004, 5, 6, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)).toInstant().toEpochMilli()));
                     assertThat(rs.getObject(5, ZonedDateTime.class)).isEqualTo(ZonedDateTime.of(2004, 5, 6, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)));
-                    assertThat(rs.getTimestamp("e")).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getTimestamp("e", ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getObject("e")).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
+                    assertThat(rs.getTimestamp("e")).isEqualTo(new Timestamp(ZonedDateTime.of(2004, 5, 6, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)).toInstant().toEpochMilli()));
+                    assertThat(rs.getTimestamp("e", ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(ZonedDateTime.of(2004, 5, 6, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject("e")).isEqualTo(new Timestamp(ZonedDateTime.of(2004, 5, 6, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)).toInstant().toEpochMilli()));
                     assertThat(rs.getObject("e", ZonedDateTime.class)).isEqualTo(ZonedDateTime.of(2004, 5, 6, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)));
 
-                    assertThat(rs.getTimestamp(6)).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
-                    assertThat(rs.getTimestamp(6, ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
-                    assertThat(rs.getObject(6)).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
+                    assertThat(rs.getTimestamp(6)).isEqualTo(new Timestamp(ZonedDateTime.of(2007, 8, 9, 9, 10, 11, 0, ZoneId.of("Europe/Berlin")).toInstant().toEpochMilli()));
+                    assertThat(rs.getTimestamp(6, ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(ZonedDateTime.of(2007, 8, 9, 9, 10, 11, 0, ZoneId.of("Europe/Berlin")).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject(6)).isEqualTo(new Timestamp(ZonedDateTime.of(2007, 8, 9, 9, 10, 11, 0, ZoneId.of("Europe/Berlin")).toInstant().toEpochMilli()));
                     assertThat(rs.getObject(6, ZonedDateTime.class)).isEqualTo(ZonedDateTime.of(2007, 8, 9, 9, 10, 11, 0, ZoneId.of("Europe/Berlin")));
-                    assertThat(rs.getTimestamp("f")).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
-                    assertThat(rs.getTimestamp("f", ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
-                    assertThat(rs.getObject("f")).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
+                    assertThat(rs.getTimestamp("f")).isEqualTo(new Timestamp(ZonedDateTime.of(2007, 8, 9, 9, 10, 11, 0, ZoneId.of("Europe/Berlin")).toInstant().toEpochMilli()));
+                    assertThat(rs.getTimestamp("f", ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(ZonedDateTime.of(2007, 8, 9, 9, 10, 11, 0, ZoneId.of("Europe/Berlin")).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject("f")).isEqualTo(new Timestamp(ZonedDateTime.of(2007, 8, 9, 9, 10, 11, 0, ZoneId.of("Europe/Berlin")).toInstant().toEpochMilli()));
                     assertThat(rs.getObject("f", ZonedDateTime.class)).isEqualTo(ZonedDateTime.of(2007, 8, 9, 9, 10, 11, 0, ZoneId.of("Europe/Berlin")));
 
-                    assertThat(rs.getDate(7)).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
-                    assertThat(rs.getDate(7, ASIA_ORAL_CALENDAR)).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0, ASIA_ORAL_ZONE).getMillis()));
-                    assertThat(rs.getObject(7)).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
-                    assertThat(rs.getDate("g")).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
-                    assertThat(rs.getDate("g", ASIA_ORAL_CALENDAR)).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0, ASIA_ORAL_ZONE).getMillis()));
-                    assertThat(rs.getObject("g")).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
+                    assertThat(rs.getDate(7)).isEqualTo(new Date(ZonedDateTime.of(2013, 3, 22, 0, 0, 0, 0, ZoneId.systemDefault()).toInstant().toEpochMilli()));
+                    assertThat(rs.getDate(7, ASIA_ORAL_CALENDAR)).isEqualTo(new Date(ZonedDateTime.of(2013, 3, 22, 0, 0, 0, 0, ASIA_ORAL_ZONE).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject(7)).isEqualTo(new Date(ZonedDateTime.of(2013, 3, 22, 0, 0, 0, 0, ZoneId.systemDefault()).toInstant().toEpochMilli()));
+                    assertThat(rs.getDate("g")).isEqualTo(new Date(ZonedDateTime.of(2013, 3, 22, 0, 0, 0, 0, ZoneId.systemDefault()).toInstant().toEpochMilli()));
+                    assertThat(rs.getDate("g", ASIA_ORAL_CALENDAR)).isEqualTo(new Date(ZonedDateTime.of(2013, 3, 22, 0, 0, 0, 0, ASIA_ORAL_ZONE).toInstant().toEpochMilli()));
+                    assertThat(rs.getObject("g")).isEqualTo(new Date(ZonedDateTime.of(2013, 3, 22, 0, 0, 0, 0, ZoneId.systemDefault()).toInstant().toEpochMilli()));
 
                     assertThat(rs.getObject(8)).isEqualTo(new TrinoIntervalYearMonth(123, 11));
                     assertThat(rs.getObject("h")).isEqualTo(new TrinoIntervalYearMonth(123, 11));
@@ -675,7 +673,7 @@ public abstract class BaseTrinoDriverTest
             throws Exception
     {
         TimeZoneKey defaultZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
-        DateTimeZone defaultZone = DateTimeZone.forTimeZone(TimeZone.getDefault());
+        ZoneId defaultZone = TimeZone.getDefault().toZoneId();
         String sql = "SELECT current_timezone() zone, TIMESTAMP '2001-02-03 3:04:05' ts";
 
         try (Connection connection = createConnection()) {
@@ -683,7 +681,7 @@ public abstract class BaseTrinoDriverTest
                     ResultSet rs = statement.executeQuery(sql)) {
                 assertThat(rs.next()).isTrue();
                 assertThat(rs.getString("zone")).isEqualTo(defaultZoneKey.getId());
-                assertThat(rs.getTimestamp("ts")).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+                assertThat(rs.getTimestamp("ts")).isEqualTo(new Timestamp(ZonedDateTime.of(2001, 2, 3, 3, 4, 5, 0, defaultZone).toInstant().toEpochMilli()));
             }
 
             connection.unwrap(TrinoConnection.class).setTimeZoneId("UTC");
@@ -692,7 +690,7 @@ public abstract class BaseTrinoDriverTest
                 assertThat(rs.next()).isTrue();
                 assertThat(rs.getString("zone")).isEqualTo("UTC");
                 // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
-                assertThat(rs.getTimestamp("ts")).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+                assertThat(rs.getTimestamp("ts")).isEqualTo(new Timestamp(ZonedDateTime.of(2001, 2, 3, 3, 4, 5, 0, defaultZone).toInstant().toEpochMilli()));
             }
         }
 
@@ -702,7 +700,7 @@ public abstract class BaseTrinoDriverTest
                 assertThat(rs.next()).isTrue();
                 assertThat(rs.getString("zone")).isEqualTo("Asia/Kolkata");
                 // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
-                assertThat(rs.getTimestamp("ts")).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+                assertThat(rs.getTimestamp("ts")).isEqualTo(new Timestamp(ZonedDateTime.of(2001, 2, 3, 3, 4, 5, 0, defaultZone).toInstant().toEpochMilli()));
             }
         }
 
@@ -712,7 +710,7 @@ public abstract class BaseTrinoDriverTest
                 assertThat(rs.next()).isTrue();
                 assertThat(rs.getString("zone")).isEqualTo("+05:30");
                 // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
-                assertThat(rs.getTimestamp("ts")).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+                assertThat(rs.getTimestamp("ts")).isEqualTo(new Timestamp(ZonedDateTime.of(2001, 2, 3, 3, 4, 5, 0, defaultZone).toInstant().toEpochMilli()));
             }
         }
 
