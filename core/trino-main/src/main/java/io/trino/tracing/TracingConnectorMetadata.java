@@ -147,6 +147,12 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public boolean managesViewSecurity()
+    {
+        return delegate.managesViewSecurity();
+    }
+
+    @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion, List<ReferencingView> referencingViews)
     {
         Span span = startSpan("getTableHandle", tableName);
