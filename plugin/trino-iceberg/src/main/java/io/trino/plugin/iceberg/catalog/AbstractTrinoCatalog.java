@@ -18,7 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.metrics.MeasuredTrinoFileSystem;
+import io.trino.filesystem.metrics.MeasuredTrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
+import io.trino.plugin.base.metrics.ApiCallStats;
 import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
@@ -37,6 +40,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.MapType;
@@ -137,6 +141,7 @@ public abstract class AbstractTrinoCatalog
     protected final TypeManager typeManager;
     protected final IcebergTableOperationsProvider tableOperationsProvider;
     protected final TrinoFileSystemFactory fileSystemFactory;
+    private final ApiCallStats fileSystemStats = new ApiCallStats();
     protected final ForwardingFileIoFactory fileIoFactory;
 
     protected AbstractTrinoCatalog(
@@ -151,8 +156,19 @@ public abstract class AbstractTrinoCatalog
         this.useUniqueTableLocation = useUniqueTableLocation;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileSystemFactory = new MeasuredTrinoFileSystemFactory(requireNonNull(fileSystemFactory, "fileSystemFactory is null"), fileSystemStats);
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
+    }
+
+    public TrinoFileSystem measureFileSystem(TrinoFileSystem fileSystem)
+    {
+        return new MeasuredTrinoFileSystem(fileSystem, fileSystemStats);
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return fileSystemStats.toMetrics("filesystem.catalog");
     }
 
     @Override

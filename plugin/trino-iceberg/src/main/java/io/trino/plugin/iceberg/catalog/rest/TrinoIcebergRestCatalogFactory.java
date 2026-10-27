@@ -18,6 +18,8 @@ import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.trino.cache.EvictableCacheBuilder;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.metrics.MeasuredTrinoFileSystem;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -145,10 +147,18 @@ public class TrinoIcebergRestCatalogFactory
                             .withHeaders(RESTUtil.configHeaders(config))
                             .build(),
                     (context, config) -> {
-                        ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
-                                ? ((ConnectorIdentity) context.wrappedIdentity())
-                                : ConnectorIdentity.ofUser("fake");
-                        return fileIoFactory.create(fileSystemFactory.create(currentIdentity, config), true, config);
+                        if (context.wrappedIdentity() instanceof RestSessionIdentity sessionIdentity) {
+                            TrinoFileSystem fileSystem = fileSystemFactory.create(sessionIdentity.identity(), config);
+                            // Keep IcebergRestCatalogFileSystem unwrapped so ForwardingFileIo can set storage credentials
+                            if (fileSystem instanceof IcebergRestCatalogFileSystem restFileSystem) {
+                                restFileSystem.measuredWith(sessionIdentity.fileSystemStats());
+                            }
+                            else {
+                                fileSystem = new MeasuredTrinoFileSystem(fileSystem, sessionIdentity.fileSystemStats());
+                            }
+                            return fileIoFactory.create(fileSystem, true, config);
+                        }
+                        return fileIoFactory.create(fileSystemFactory.create(ConnectorIdentity.ofUser("fake"), config), true, config);
                     });
             try {
                 icebergCatalogInstance.initialize(catalogName.toString(), catalogPropertiesProvider.catalogProperties());
