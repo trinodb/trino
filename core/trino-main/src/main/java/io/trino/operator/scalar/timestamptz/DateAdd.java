@@ -23,14 +23,14 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 
-import static io.trino.operator.scalar.DateTimeFunctions.getTimestampField;
+import static io.trino.operator.scalar.TimestampField.forTimestamp;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.updateMillisUtc;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.Timestamps.round;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.unpackChronology;
+import static io.trino.util.DateTimeZoneIndex.getZoneId;
+import static io.trino.util.DateTimeZoneIndex.unpackZoneId;
 
 @Description("Add the specified amount of time to the given timestamp")
 @ScalarFunction("date_add")
@@ -49,7 +49,7 @@ public final class DateAdd
         try {
             long epochMillis = unpackMillisUtc(packedEpochMillis);
 
-            epochMillis = getTimestampField(unpackChronology(packedEpochMillis), unit).add(epochMillis, value);
+            epochMillis = forTimestamp(unit).add(epochMillis, value, unpackZoneId(packedEpochMillis));
             epochMillis = round(epochMillis, (int) (3 - precision));
 
             return updateMillisUtc(epochMillis, packedEpochMillis);
@@ -67,7 +67,7 @@ public final class DateAdd
             @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
         try {
-            long epochMillis = getTimestampField(getChronology(getTimeZoneKey(timestamp.getTimeZoneKey())), unit).add(timestamp.getEpochMillis(), value);
+            long epochMillis = forTimestamp(unit).add(timestamp.getEpochMillis(), value, getZoneId(getTimeZoneKey(timestamp.getTimeZoneKey())));
 
             return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, timestamp.getPicosOfMilli(), timestamp.getTimeZoneKey());
         }

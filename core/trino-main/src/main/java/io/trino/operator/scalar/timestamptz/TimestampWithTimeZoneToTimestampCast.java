@@ -29,7 +29,8 @@ import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.roundToNearest;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.type.DateTimes.toEpochMicros;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
+import static io.trino.util.DateTimeZoneIndex.convertUtcToLocal;
+import static io.trino.util.DateTimeZoneIndex.getZoneId;
 
 @ScalarOperator(CAST)
 public final class TimestampWithTimeZoneToTimestampCast
@@ -42,9 +43,7 @@ public final class TimestampWithTimeZoneToTimestampCast
             @LiteralParameter("targetPrecision") long targetPrecision,
             @SqlType("timestamp(sourcePrecision) with time zone") long timestamp)
     {
-        long epochMillis = getChronology(unpackZoneKey(timestamp))
-                .getZone()
-                .convertUTCToLocal(unpackMillisUtc(timestamp));
+        long epochMillis = convertUtcToLocal(unpackMillisUtc(timestamp), getZoneId(unpackZoneKey(timestamp)));
 
         return round(scaleEpochMillisToMicros(epochMillis), (int) (6 - targetPrecision));
     }
@@ -56,9 +55,7 @@ public final class TimestampWithTimeZoneToTimestampCast
             @SqlType("timestamp(sourcePrecision) with time zone") LongTimestampWithTimeZone timestamp)
     {
         // Extract
-        long epochMillis = getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))
-                .getZone()
-                .convertUTCToLocal(timestamp.getEpochMillis());
+        long epochMillis = convertUtcToLocal(timestamp.getEpochMillis(), getZoneId(getTimeZoneKey(timestamp.getTimeZoneKey())));
         int picosOfMilli = timestamp.getPicosOfMilli();
 
         // Convert to micros
@@ -80,9 +77,7 @@ public final class TimestampWithTimeZoneToTimestampCast
     @SqlType("timestamp(targetPrecision)")
     public static LongTimestamp shortToLong(@SqlType("timestamp(sourcePrecision) with time zone") long timestamp)
     {
-        long epochMillis = getChronology(unpackZoneKey(timestamp))
-                .getZone()
-                .convertUTCToLocal(unpackMillisUtc(timestamp));
+        long epochMillis = convertUtcToLocal(unpackMillisUtc(timestamp), getZoneId(unpackZoneKey(timestamp)));
 
         return new LongTimestamp(scaleEpochMillisToMicros(epochMillis), 0);
     }
@@ -94,9 +89,7 @@ public final class TimestampWithTimeZoneToTimestampCast
             @SqlType("timestamp(sourcePrecision) with time zone") LongTimestampWithTimeZone timestamp)
     {
         // Extract
-        long epochMillis = getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))
-                .getZone()
-                .convertUTCToLocal(timestamp.getEpochMillis());
+        long epochMillis = convertUtcToLocal(timestamp.getEpochMillis(), getZoneId(getTimeZoneKey(timestamp.getTimeZoneKey())));
         int picosOfMilli = timestamp.getPicosOfMilli();
 
         // Convert to micros

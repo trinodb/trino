@@ -19,9 +19,10 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
+import static java.lang.Math.floorMod;
 
 @Description("Millisecond of the second of the given timestamp")
 @ScalarFunction(value = "millisecond", neverFails = true)
@@ -33,7 +34,7 @@ public final class ExtractMillisecond
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("timestamp(p)") long timestamp)
     {
-        return ISOChronology.getInstanceUTC().millisOfSecond().get(scaleEpochMicrosToMillis(timestamp));
+        return floorMod(scaleEpochMicrosToMillis(timestamp), MILLISECONDS_PER_SECOND);
     }
 
     @LiteralParameters("p")

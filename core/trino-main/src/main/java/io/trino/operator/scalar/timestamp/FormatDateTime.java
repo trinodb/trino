@@ -23,13 +23,13 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
-import io.trino.util.JodaDateTimeFormat;
-import org.joda.time.chrono.ISOChronology;
+import io.trino.util.DateTimeFormat;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
+import static java.time.ZoneOffset.UTC;
 
 @Description("Formats the given time by the given format")
 @ScalarFunction("format_datetime")
@@ -48,14 +48,9 @@ public final class FormatDateTime
             // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
         }
-        ISOChronology chronology = ISOChronology.getInstanceUTC();
 
         try {
-            return utf8Slice(JodaDateTimeFormat.format(
-                    JodaDateTimeFormat.forPattern(formatString.toStringUtf8())
-                            .withChronology(chronology)
-                            .withLocale(session.getLocale()),
-                    timestamp));
+            return utf8Slice(DateTimeFormat.forPattern(formatString.toStringUtf8()).format(timestamp, UTC, session.getLocale()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -71,7 +66,7 @@ public final class FormatDateTime
     }
 
     /**
-     * Checks whether {@link JodaDateTimeFormat} pattern contains time zone-related field.
+     * Checks whether {@link DateTimeFormat} pattern contains time zone-related field.
      */
     private static boolean datetimeFormatSpecifiesZone(Slice formatString)
     {

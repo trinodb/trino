@@ -34,7 +34,8 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.rescale;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
+import static io.trino.util.DateTimeZoneIndex.convertUtcToLocal;
+import static io.trino.util.DateTimeZoneIndex.getZoneId;
 import static java.lang.Math.floorMod;
 
 @ScalarOperator(CAST)
@@ -51,9 +52,7 @@ public final class TimestampWithTimeZoneToTimeWithTimeZoneCast
         // source precision is <= 3
         // target precision is <= 9
         TimeZoneKey zoneKey = unpackZoneKey(packedTimestamp);
-        long epochMillis = getChronology(zoneKey)
-                .getZone()
-                .convertUTCToLocal(unpackMillisUtc(packedTimestamp));
+        long epochMillis = convertUtcToLocal(unpackMillisUtc(packedTimestamp), getZoneId(zoneKey));
 
         if (targetPrecision <= 3) {
             epochMillis = round(epochMillis, (int) (3 - targetPrecision));
@@ -73,9 +72,7 @@ public final class TimestampWithTimeZoneToTimeWithTimeZoneCast
         // source precision is > 3
         // target precision is <= 9
         TimeZoneKey zoneKey = getTimeZoneKey(timestamp.getTimeZoneKey());
-        long epochMillis = getChronology(zoneKey)
-                .getZone()
-                .convertUTCToLocal(timestamp.getEpochMillis());
+        long epochMillis = convertUtcToLocal(timestamp.getEpochMillis(), getZoneId(zoneKey));
 
         // combine epochMillis with picosOfMilli from the timestamp. We compute modulo 24 to avoid overflow when rescaling epocMilli to picoseconds
         long picos = rescale(floorMod(epochMillis, MILLISECONDS_PER_DAY), 3, 12) + timestamp.getPicosOfMilli();
@@ -94,9 +91,7 @@ public final class TimestampWithTimeZoneToTimeWithTimeZoneCast
         // source precision is <= 3
         // target precision is > 9
         TimeZoneKey zoneKey = unpackZoneKey(timestamp);
-        long epochMillis = getChronology(zoneKey)
-                .getZone()
-                .convertUTCToLocal(unpackMillisUtc(timestamp));
+        long epochMillis = convertUtcToLocal(unpackMillisUtc(timestamp), getZoneId(zoneKey));
 
         long millis = floorMod(epochMillis, MILLISECONDS_PER_DAY);
         return new LongTimeWithTimeZone(millis * PICOSECONDS_PER_MILLISECOND, DateTimes.getOffsetMinutes(Instant.ofEpochMilli(epochMillis), zoneKey));
@@ -111,9 +106,7 @@ public final class TimestampWithTimeZoneToTimeWithTimeZoneCast
         // source precision is > 3
         // target precision is > 9
         TimeZoneKey zoneKey = getTimeZoneKey(timestamp.getTimeZoneKey());
-        long epochMillis = getChronology(zoneKey)
-                .getZone()
-                .convertUTCToLocal(timestamp.getEpochMillis());
+        long epochMillis = convertUtcToLocal(timestamp.getEpochMillis(), getZoneId(zoneKey));
 
         // combine epochMillis with picosOfMilli from the timestamp. We compute modulo 24 to avoid overflow when rescaling epocMilli to picoseconds
         long picos = rescale(floorMod(epochMillis, MILLISECONDS_PER_DAY), 3, 12) + timestamp.getPicosOfMilli();

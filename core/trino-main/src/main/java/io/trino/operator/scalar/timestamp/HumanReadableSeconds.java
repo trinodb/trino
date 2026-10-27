@@ -27,15 +27,12 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
-import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
-import static org.joda.time.DateTimeConstants.SECONDS_PER_HOUR;
-import static org.joda.time.DateTimeConstants.SECONDS_PER_MINUTE;
 
 @ScalarFunction("human_readable_seconds")
 public final class HumanReadableSeconds
 {
     private static final int DAYS_IN_WEEK = 7;
-    private static final int SECONDS_IN_WEEK = SECONDS_PER_DAY * DAYS_IN_WEEK;
+    private static final long SECONDS_IN_WEEK = TimeUnit.DAYS.toSeconds(1) * DAYS_IN_WEEK;
     private static final String WEEK = "week";
     private static final String DAY = "day";
     private static final String HOUR = "hour";
@@ -58,13 +55,13 @@ public final class HumanReadableSeconds
         seconds = seconds % SECONDS_IN_WEEK;
 
         long days = TimeUnit.SECONDS.toDays(seconds);
-        seconds = seconds % SECONDS_PER_DAY;
+        seconds = seconds % TimeUnit.DAYS.toSeconds(1);
 
         long hours = TimeUnit.SECONDS.toHours(seconds);
-        seconds = seconds % SECONDS_PER_HOUR;
+        seconds = seconds % TimeUnit.HOURS.toSeconds(1);
 
         long minutes = TimeUnit.SECONDS.toMinutes(seconds);
-        seconds = seconds % SECONDS_PER_MINUTE;
+        seconds = seconds % TimeUnit.MINUTES.toSeconds(1);
 
         return getTimePeriods(weeks, days, hours, minutes, seconds);
     }

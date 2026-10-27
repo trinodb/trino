@@ -18,9 +18,8 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
-import org.joda.time.DateTimeField;
-import org.joda.time.chrono.ISOChronology;
 
+import java.time.LocalDate;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -29,8 +28,6 @@ import static io.trino.spi.function.OperatorType.SUBTRACT;
 
 public final class DateTimeOperators
 {
-    private static final DateTimeField MONTH_OF_YEAR_UTC = ISOChronology.getInstanceUTC().monthOfYear();
-
     private DateTimeOperators() {}
 
     @ScalarOperator(ADD)
@@ -38,8 +35,7 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.DATE)
     public static long datePlusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType("interval year(q) to month") long interval)
     {
-        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(date), interval);
-        return TimeUnit.MILLISECONDS.toDays(millis);
+        return LocalDate.ofEpochDay(date).plusMonths(interval).toEpochDay();
     }
 
     @ScalarOperator(ADD)

@@ -20,15 +20,16 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeZoneKey;
-import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.operator.scalar.TimestampField.DAY;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
+import static io.trino.util.DateTimeZoneIndex.convertUtcToLocal;
+import static io.trino.util.DateTimeZoneIndex.getZoneId;
 
 @ScalarOperator(CAST)
 @ScalarFunction("date")
@@ -55,11 +56,10 @@ public final class TimestampWithTimeZoneToDateCast
     private static long toDate(long epochMillis, TimeZoneKey zoneKey)
     {
         // round down the current timestamp to days
-        ISOChronology chronology = getChronology(zoneKey);
-        long date = chronology.dayOfYear().roundFloor(epochMillis);
+        long date = DAY.truncate(epochMillis, getZoneId(zoneKey));
         // date is currently midnight in timezone of the original value
         // convert to UTC
-        long millis = date + chronology.getZone().getOffset(date);
+        long millis = convertUtcToLocal(date, getZoneId(zoneKey));
         return TimeUnit.MILLISECONDS.toDays(millis);
     }
 }

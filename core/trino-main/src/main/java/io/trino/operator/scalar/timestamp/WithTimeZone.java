@@ -23,7 +23,6 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimeZoneNotSupportedException;
-import org.joda.time.DateTimeZone;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -32,9 +31,9 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.getMicrosOfMilli;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
-import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.trino.util.DateTimeZoneIndex.convertLocalToUtc;
+import static io.trino.util.DateTimeZoneIndex.getZoneId;
 import static java.lang.String.format;
-import static org.joda.time.DateTimeZone.UTC;
 
 @ScalarFunction("with_timezone")
 public final class WithTimeZone
@@ -54,8 +53,7 @@ public final class WithTimeZone
         catch (TimeZoneNotSupportedException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
         }
-        DateTimeZone toDateTimeZone = getDateTimeZone(toTimeZoneKey);
-        return packDateTimeWithZone(UTC.getMillisKeepLocal(toDateTimeZone, scaleEpochMicrosToMillis(timestamp)), toTimeZoneKey);
+        return packDateTimeWithZone(convertLocalToUtc(scaleEpochMicrosToMillis(timestamp), getZoneId(toTimeZoneKey), scaleEpochMicrosToMillis(timestamp)), toTimeZoneKey);
     }
 
     @LiteralParameters({"x", "p"})
@@ -84,10 +82,9 @@ public final class WithTimeZone
         catch (TimeZoneNotSupportedException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
         }
-        DateTimeZone toDateTimeZone = getDateTimeZone(toTimeZoneKey);
 
         long epochMillis = scaleEpochMicrosToMillis(epochMicros);
-        epochMillis = UTC.getMillisKeepLocal(toDateTimeZone, epochMillis);
+        epochMillis = convertLocalToUtc(epochMillis, getZoneId(toTimeZoneKey), epochMillis);
 
         int picosOfMilli = getMicrosOfMilli(epochMicros) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMilli, toTimeZoneKey);

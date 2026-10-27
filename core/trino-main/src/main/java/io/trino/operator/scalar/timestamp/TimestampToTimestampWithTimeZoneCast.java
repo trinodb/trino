@@ -34,7 +34,8 @@ import static io.trino.type.DateTimes.rescale;
 import static io.trino.type.DateTimes.roundToNearest;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.type.DateTimes.scaleFactor;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
+import static io.trino.util.DateTimeZoneIndex.convertLocalToUtc;
+import static io.trino.util.DateTimeZoneIndex.getZoneId;
 import static java.lang.Math.incrementExact;
 
 @ScalarOperator(CAST)
@@ -129,9 +130,7 @@ public final class TimestampToTimestampWithTimeZoneCast
     {
         // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
         // its UTC representation we need to shift the value by the offset of TZ.
-        epochMillis = getChronology(session.getTimeZoneKey())
-                .getZone()
-                .convertLocalToUTC(epochMillis, false);
+        epochMillis = convertLocalToUtc(epochMillis, getZoneId(session.getTimeZoneKey()));
 
         try {
             return packDateTimeWithZone(epochMillis, session.getTimeZoneKey());
@@ -145,9 +144,7 @@ public final class TimestampToTimestampWithTimeZoneCast
     {
         // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
         // its UTC representation we need to shift the value by the offset of TZ.
-        long epochMillis = getChronology(session.getTimeZoneKey())
-                .getZone()
-                .convertLocalToUTC(scaleEpochMicrosToMillis(epochMicros), false);
+        long epochMillis = convertLocalToUtc(scaleEpochMicrosToMillis(epochMicros), getZoneId(session.getTimeZoneKey()));
 
         int picoOfMilliFraction = getMicrosOfMilli(epochMicros) * PICOSECONDS_PER_MICROSECOND + picoOfMicroFraction;
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picoOfMilliFraction, session.getTimeZoneKey());

@@ -24,10 +24,9 @@ import io.trino.spi.type.StandardTypes;
 
 import static io.trino.operator.scalar.DateTimeFunctions.dateFormat;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.type.DateTimes.roundToEpochMillis;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @ScalarFunction
 @Description("Formats the given timestamp by the given format")
@@ -39,13 +38,13 @@ public final class DateFormat
     @SqlType(StandardTypes.VARCHAR)
     public static Slice format(ConnectorSession session, @SqlType("timestamp(p) with time zone") long packedEpochMillis, @SqlType("varchar(x)") Slice formatString)
     {
-        return dateFormat(unpackChronology(packedEpochMillis), session.getLocale(), unpackMillisUtc(packedEpochMillis), formatString);
+        return dateFormat(unpackZoneKey(packedEpochMillis).getZoneId(), session.getLocale(), unpackMillisUtc(packedEpochMillis), formatString);
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType(StandardTypes.VARCHAR)
     public static Slice format(ConnectorSession session, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp, @SqlType("varchar(x)") Slice formatString)
     {
-        return dateFormat(getChronology(getTimeZoneKey(timestamp.getTimeZoneKey())), session.getLocale(), roundToEpochMillis(timestamp), formatString);
+        return dateFormat(getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId(), session.getLocale(), roundToEpochMillis(timestamp), formatString);
     }
 }

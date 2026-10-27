@@ -22,16 +22,16 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
-import io.trino.util.JodaDateTimeFormat;
-import org.joda.time.chrono.ISOChronology;
+import io.trino.util.DateTimeFormat;
+
+import java.time.ZoneId;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.type.DateTimes.roundToEpochMillis;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Formats the given time by the given format")
 @ScalarFunction("format_datetime")
@@ -43,27 +43,23 @@ public final class FormatDateTime
     @SqlType(StandardTypes.VARCHAR)
     public static Slice format(ConnectorSession session, @SqlType("timestamp(p) with time zone") long packedEpochMillis, @SqlType("varchar(x)") Slice formatString)
     {
-        ISOChronology chronology = unpackChronology(packedEpochMillis);
+        ZoneId zoneId = unpackZoneKey(packedEpochMillis).getZoneId();
         long epochMillis = unpackMillisUtc(packedEpochMillis);
 
-        return format(session, epochMillis, chronology, formatString);
+        return format(session, epochMillis, zoneId, formatString);
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType(StandardTypes.VARCHAR)
     public static Slice format(ConnectorSession session, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp, @SqlType("varchar(x)") Slice formatString)
     {
-        return format(session, roundToEpochMillis(timestamp), getChronology(getTimeZoneKey(timestamp.getTimeZoneKey())), formatString);
+        return format(session, roundToEpochMillis(timestamp), getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId(), formatString);
     }
 
-    private static Slice format(ConnectorSession session, long epochMillis, ISOChronology chronology, Slice formatString)
+    private static Slice format(ConnectorSession session, long epochMillis, ZoneId zoneId, Slice formatString)
     {
         try {
-            return utf8Slice(JodaDateTimeFormat.format(
-                    JodaDateTimeFormat.forPattern(formatString.toStringUtf8())
-                            .withChronology(chronology)
-                            .withLocale(session.getLocale()),
-                    epochMillis));
+            return utf8Slice(DateTimeFormat.forPattern(formatString.toStringUtf8()).format(epochMillis, zoneId, session.getLocale()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);

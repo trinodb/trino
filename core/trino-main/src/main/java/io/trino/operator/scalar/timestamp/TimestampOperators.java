@@ -22,9 +22,8 @@ import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.type.LongInterval;
-import org.joda.time.DateTimeField;
-import org.joda.time.chrono.ISOChronology;
 
+import static io.trino.operator.scalar.TimestampField.MONTH;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -38,6 +37,7 @@ import static io.trino.type.IntervalArithmetic.subtractMicros;
 import static io.trino.type.IntervalDayTimeOperators.dateTimeDifference;
 import static java.lang.Math.addExact;
 import static java.lang.Math.subtractExact;
+import static java.time.ZoneOffset.UTC;
 
 public final class TimestampOperators
 {
@@ -184,8 +184,6 @@ public final class TimestampOperators
     {
         private TimestampPlusIntervalYearToMonth() {}
 
-        private static final DateTimeField MONTH_OF_YEAR_UTC = ISOChronology.getInstanceUTC().monthOfYear();
-
         @LiteralParameters({"p", "q"})
         @SqlType("timestamp(p)")
         public static long add(
@@ -194,7 +192,7 @@ public final class TimestampOperators
         {
             try {
                 long fractionMicros = getMicrosOfMilli(timestamp);
-                long result = MONTH_OF_YEAR_UTC.add(scaleEpochMicrosToMillis(timestamp), interval);
+                long result = MONTH.add(scaleEpochMicrosToMillis(timestamp), interval, UTC);
                 return addExact(scaleEpochMillisToMicros(result), fractionMicros);
             }
             catch (IllegalArgumentException | ArithmeticException e) {

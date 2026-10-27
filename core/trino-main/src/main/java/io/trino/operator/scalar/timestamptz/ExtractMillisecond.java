@@ -21,9 +21,8 @@ import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.unpackChronology;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static java.lang.Math.floorMod;
 
 @Description("Millisecond of the second of the given timestamp")
 @ScalarFunction("millisecond")
@@ -35,17 +34,13 @@ public final class ExtractMillisecond
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("timestamp(p) with time zone") long packedEpochMillis)
     {
-        return unpackChronology(packedEpochMillis)
-                .millisOfSecond()
-                .get(unpackMillisUtc(packedEpochMillis));
+        return floorMod(unpackMillisUtc(packedEpochMillis), MILLISECONDS_PER_SECOND);
     }
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
-        return getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))
-                .millisOfSecond()
-                .get(timestamp.getEpochMillis());
+        return floorMod(timestamp.getEpochMillis(), MILLISECONDS_PER_SECOND);
     }
 }

@@ -20,10 +20,10 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
-import static io.trino.operator.scalar.DateTimeFunctions.getTimestampField;
+import static io.trino.operator.scalar.TimestampField.forTimestamp;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
+import static java.time.ZoneOffset.UTC;
 
 @Description("Difference of the given times in the given unit")
 @ScalarFunction("date_diff")
@@ -41,7 +41,7 @@ public final class DateDiff
         long epochMillis1 = scaleEpochMicrosToMillis(timestamp1);
         long epochMillis2 = scaleEpochMicrosToMillis(timestamp2);
 
-        return getTimestampField(ISOChronology.getInstanceUTC(), unit).getDifferenceAsLong(epochMillis2, epochMillis1);
+        return forTimestamp(unit).difference(epochMillis2, epochMillis1, UTC);
     }
 
     @LiteralParameters({"x", "p"})

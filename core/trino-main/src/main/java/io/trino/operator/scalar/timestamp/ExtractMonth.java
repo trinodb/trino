@@ -19,9 +19,10 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
-import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.trino.operator.scalar.DateTimeFunctions.monthFromDate;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
+import static java.lang.Math.floorDiv;
 
 @Description("Month of the year of the given timestamp")
 @ScalarFunction(value = "month", neverFails = true)
@@ -33,7 +34,7 @@ public final class ExtractMonth
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("timestamp(p)") long timestamp)
     {
-        return ISOChronology.getInstanceUTC().monthOfYear().get(scaleEpochMicrosToMillis(timestamp));
+        return monthFromDate(floorDiv(timestamp, MICROSECONDS_PER_DAY));
     }
 
     @LiteralParameters("p")

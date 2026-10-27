@@ -19,11 +19,11 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
-import org.joda.time.chrono.ISOChronology;
 
-import static io.trino.operator.scalar.DateTimeFunctions.getTimestampField;
+import static io.trino.operator.scalar.TimestampField.forTimestamp;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
+import static java.time.ZoneOffset.UTC;
 
 @Description("Truncate to the specified precision in the session timezone")
 @ScalarFunction("date_trunc")
@@ -39,7 +39,7 @@ public final class DateTrunc
     {
         timestamp = scaleEpochMicrosToMillis(timestamp);
 
-        long result = getTimestampField(ISOChronology.getInstanceUTC(), unit).roundFloor(timestamp);
+        long result = forTimestamp(unit).truncate(timestamp, UTC);
 
         return scaleEpochMillisToMicros(result);
     }
@@ -52,7 +52,7 @@ public final class DateTrunc
     {
         long epochMillis = scaleEpochMicrosToMillis(timestamp.getEpochMicros());
 
-        long result = getTimestampField(ISOChronology.getInstanceUTC(), unit).roundFloor(epochMillis);
+        long result = forTimestamp(unit).truncate(epochMillis, UTC);
 
         // smallest unit of truncation is "millisecond", so the fraction is always 0
         return new LongTimestamp(scaleEpochMillisToMicros(result), 0);

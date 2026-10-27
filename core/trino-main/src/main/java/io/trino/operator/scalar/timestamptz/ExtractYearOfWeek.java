@@ -20,10 +20,12 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 
+import java.time.Instant;
+import java.time.temporal.IsoFields;
+
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Year of the ISO week of the given timestamp")
 @ScalarFunction(value = "year_of_week", alias = "yow")
@@ -35,17 +37,13 @@ public final class ExtractYearOfWeek
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("timestamp(p) with time zone") long packedEpochMillis)
     {
-        return unpackChronology(packedEpochMillis)
-                .weekyear()
-                .get(unpackMillisUtc(packedEpochMillis));
+        return Instant.ofEpochMilli(unpackMillisUtc(packedEpochMillis)).atZone(unpackZoneKey(packedEpochMillis).getZoneId()).get(IsoFields.WEEK_BASED_YEAR);
     }
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
-        return getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))
-                .weekyear()
-                .get(timestamp.getEpochMillis());
+        return Instant.ofEpochMilli(timestamp.getEpochMillis()).atZone(getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId()).get(IsoFields.WEEK_BASED_YEAR);
     }
 }

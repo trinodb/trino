@@ -19,42 +19,39 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
+
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
 
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.unpackChronology;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Description("Last day of the month of the given timestamp")
 @ScalarFunction("last_day_of_month")
 public final class LastDayOfMonth
 {
-    private static final int MILLISECONDS_IN_DAY = 24 * 3600 * 1000;
-
     private LastDayOfMonth() {}
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonth(@SqlType("timestamp(p) with time zone") long packedEpochMillis)
     {
-        return lastDayOfMonth(unpackChronology(packedEpochMillis), unpackMillisUtc(packedEpochMillis));
+        return lastDayOfMonth(unpackZoneKey(packedEpochMillis).getZoneId(), unpackMillisUtc(packedEpochMillis));
     }
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonth(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
-        return lastDayOfMonth(getChronology(getTimeZoneKey(timestamp.getTimeZoneKey())), timestamp.getEpochMillis());
+        return lastDayOfMonth(getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId(), timestamp.getEpochMillis());
     }
 
-    private static long lastDayOfMonth(ISOChronology chronology, long millis)
+    private static long lastDayOfMonth(ZoneId zoneId, long millis)
     {
-        // Calculate point in time corresponding to midnight (00:00) of first day of next month in the given zone.
-        millis = chronology.monthOfYear().roundCeiling(millis + 1);
-        // Convert to UTC and take the previous day
-        millis = chronology.getZone().convertUTCToLocal(millis) - MILLISECONDS_IN_DAY;
-        return MILLISECONDS.toDays(millis);
+        return Instant.ofEpochMilli(millis).atZone(zoneId).toLocalDate()
+                .with(TemporalAdjusters.lastDayOfMonth())
+                .toEpochDay();
     }
 }

@@ -30,29 +30,21 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.type.DateTimes;
 import io.trino.type.LongInterval;
+import io.trino.util.DateTimeFormat;
 import io.trino.util.DateTimeUtils;
 import io.trino.util.FastDate;
-import io.trino.util.JodaDateTimeFormat;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeField;
-import org.joda.time.Days;
-import org.joda.time.LocalDate;
-import org.joda.time.chrono.ISOChronology;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.math.BigInteger;
 import java.time.DateTimeException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAccessor;
 import java.util.Locale;
-import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -64,42 +56,21 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static java.lang.Math.abs;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class DateTimeFunctions
 {
-    private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE =
+    private static final ThreadLocalCache<Slice, DateTimeFormat> DATETIME_FORMATTER_CACHE =
             new ThreadLocalCache<>(100, DateTimeFunctions::createDateTimeFormatter);
-
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
-    private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
+    private static final ThreadLocalCache<Slice, DateTimeFormat> PATTERN_FORMATTER_CACHE =
+            new ThreadLocalCache<>(100, format -> DateTimeFormat.forPattern(format.toStringUtf8()));
+    private static final DateTimeFormat ISO_DATE_FORMAT = DateTimeFormat.forPattern("yyyy-MM-dd");
     private static final Slice ISO_8601_DATE_FORMAT = utf8Slice("%Y-%m-%d");
-    private static final DateTimeFieldProvider[] DATE_FIELDS = {
-            new DateTimeFieldProvider("day", ISOChronology::dayOfMonth),
-            new DateTimeFieldProvider("week", ISOChronology::weekOfWeekyear),
-            new DateTimeFieldProvider("month", ISOChronology::monthOfYear),
-            new DateTimeFieldProvider("quarter", QUARTER_OF_YEAR::getField),
-            new DateTimeFieldProvider("year", ISOChronology::year),
-    };
-    private static final DateTimeFieldProvider[] TIMESTAMP_FIELDS = {
-            new DateTimeFieldProvider("millisecond", ISOChronology::millisOfSecond),
-            new DateTimeFieldProvider("second", ISOChronology::secondOfMinute),
-            new DateTimeFieldProvider("minute", ISOChronology::minuteOfHour),
-            new DateTimeFieldProvider("hour", ISOChronology::hourOfDay),
-            new DateTimeFieldProvider("day", ISOChronology::dayOfMonth),
-            new DateTimeFieldProvider("week", ISOChronology::weekOfWeekyear),
-            new DateTimeFieldProvider("month", ISOChronology::monthOfYear),
-            new DateTimeFieldProvider("quarter", QUARTER_OF_YEAR::getField),
-            new DateTimeFieldProvider("year", ISOChronology::year),
-    };
 
     private DateTimeFunctions() {}
 
@@ -116,12 +87,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long currentDate(ConnectorSession session)
     {
-        ISOChronology chronology = getChronology(session.getTimeZoneKey());
-
-        // It is ok for this method to use the Object interfaces because it is constant folded during
-        // plan optimization
-        LocalDate currentDate = new DateTime(session.getStart().toEpochMilli(), chronology).toLocalDate();
-        return Days.daysBetween(new LocalDate(1970, 1, 1, UTC_CHRONOLOGY), currentDate).getDays();
+        return session.getStart().atZone(session.getTimeZoneKey().getZoneId()).toLocalDate().toEpochDay();
     }
 
     @Description("Current time zone")
@@ -251,9 +217,7 @@ public final class DateTimeFunctions
     // represented by 64bits timestamp is ~584944387 it may require up to 16 characters to represent a date.
     public static Slice toISO8601FromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        DateTimeFormatter formatter = ISODateTimeFormat.date()
-                .withChronology(UTC_CHRONOLOGY);
-        return utf8Slice(JodaDateTimeFormat.format(formatter, DAYS.toMillis(date)));
+        return utf8Slice(ISO_DATE_FORMAT.format(DAYS.toMillis(date), UTC, Locale.ENGLISH));
     }
 
     @ScalarFunction("from_iso8601_timestamp")
@@ -261,11 +225,9 @@ public final class DateTimeFunctions
     @SqlType("timestamp(3) with time zone")
     public static long fromISO8601Timestamp(ConnectorSession session, @SqlType("varchar(x)") Slice iso8601DateTime)
     {
-        DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()
-                .withChronology(getChronology(session.getTimeZoneKey()))
-                .withOffsetParsed();
         try {
-            return packDateTimeWithZone(parseDateTimeHelper(formatter, iso8601DateTime.toStringUtf8()));
+            ZonedDateTime dateTime = DateTimeFormat.parseIsoTimestamp(iso8601DateTime.toStringUtf8(), session.getTimeZoneKey().getZoneId());
+            return packDateTimeWithZone(dateTime.toInstant().toEpochMilli(), dateTime.getZone().getId());
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -277,7 +239,7 @@ public final class DateTimeFunctions
     @SqlType("timestamp(9) with time zone")
     public static LongTimestampWithTimeZone fromIso8601TimestampNanos(ConnectorSession session, @SqlType("varchar(x)") Slice iso8601DateTime)
     {
-        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ISO_DATE_TIME;
+        DateTimeFormatter formatter = DateTimeFormatter.ISO_DATE_TIME;
         String datetimeString = iso8601DateTime.toStringUtf8();
 
         TemporalAccessor parsedDatetime;
@@ -304,10 +266,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long fromISO8601Date(@SqlType("varchar(x)") Slice iso8601DateTime)
     {
-        DateTimeFormatter formatter = ISODateTimeFormat.dateElementParser()
-                .withChronology(UTC_CHRONOLOGY);
-        DateTime dateTime = parseDateTimeHelper(formatter, iso8601DateTime.toStringUtf8());
-        return MILLISECONDS.toDays(dateTime.getMillis());
+        try {
+            return DateTimeFormat.parseIsoDate(iso8601DateTime.toStringUtf8()).toEpochDay();
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     @Description("Truncate to the specified precision in the session timezone")
@@ -316,7 +280,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long truncateDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date)
     {
-        long millis = getDateField(UTC_CHRONOLOGY, unit).roundFloor(DAYS.toMillis(date));
+        long millis = TimestampField.forDate(unit).truncate(DAYS.toMillis(date), UTC);
         return MILLISECONDS.toDays(millis);
     }
 
@@ -327,7 +291,7 @@ public final class DateTimeFunctions
     public static long addFieldValueDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DATE) long date)
     {
         try {
-            long millis = getDateField(UTC_CHRONOLOGY, unit).add(DAYS.toMillis(date), value);
+            long millis = TimestampField.forDate(unit).add(DAYS.toMillis(date), value, UTC);
             return MILLISECONDS.toDays(millis);
         }
         catch (IllegalArgumentException | ArithmeticException e) {
@@ -341,82 +305,29 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long diffDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date1, @SqlType(StandardTypes.DATE) long date2)
     {
-        return getDateField(UTC_CHRONOLOGY, unit).getDifferenceAsLong(DAYS.toMillis(date2), DAYS.toMillis(date1));
-    }
-
-    /**
-     * Data tuple to store mapping between date time unit and date fraction extraction logic.
-     * This record is intended to be used for a specific use case only, raw bytes are used for performance reasons.
-     *
-     * @param unitBytes date time unit represented as ASCII bytes
-     * @param dateTimeFieldProvider callback to extract fraction of date
-     */
-    private record DateTimeFieldProvider(byte[] unitBytes, Function<ISOChronology, DateTimeField> dateTimeFieldProvider)
-    {
-        public DateTimeFieldProvider(String unit, Function<ISOChronology, DateTimeField> dateTimeFieldProvider)
-        {
-            this(unit.getBytes(US_ASCII), dateTimeFieldProvider);
-        }
-
-        public boolean match(Slice unit)
-        {
-            int length = unit.length();
-            if (length != unitBytes.length) {
-                return false;
-            }
-            for (int i = 0; i < length; i++) {
-                // Each lowercase letter has an ASCII code 0x20 more than the corresponding uppercase letter
-                if ((unit.getByteUnchecked(i) | 0x20) != unitBytes[i]) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        public DateTimeField apply(ISOChronology chronology)
-        {
-            return dateTimeFieldProvider.apply(chronology);
-        }
+        return TimestampField.forDate(unit).difference(DAYS.toMillis(date2), DAYS.toMillis(date1), UTC);
     }
 
     public static boolean isValidDateUnit(Slice unit)
     {
-        for (DateTimeFieldProvider dateField : DATE_FIELDS) {
-            if (dateField.match(unit)) {
-                return true;
-            }
+        try {
+            TimestampField.forDate(unit);
+            return true;
         }
-        return false;
-    }
-
-    private static DateTimeField getDateField(ISOChronology chronology, Slice unit)
-    {
-        for (DateTimeFieldProvider dateField : DATE_FIELDS) {
-            if (dateField.match(unit)) {
-                return dateField.apply(chronology);
-            }
+        catch (TrinoException e) {
+            return false;
         }
-        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unit.toStringUtf8() + "' is not a valid DATE field");
     }
 
     public static boolean isValidTimestampUnit(Slice unit)
     {
-        for (DateTimeFieldProvider timestampField : TIMESTAMP_FIELDS) {
-            if (timestampField.match(unit)) {
-                return true;
-            }
+        try {
+            TimestampField.forTimestamp(unit);
+            return true;
         }
-        return false;
-    }
-
-    public static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
-    {
-        for (DateTimeFieldProvider timestampField : TIMESTAMP_FIELDS) {
-            if (timestampField.match(unit)) {
-                return timestampField.apply(chronology);
-            }
+        catch (TrinoException e) {
+            return false;
         }
-        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unit.toStringUtf8() + "' is not a valid TIMESTAMP field");
     }
 
     @Description("Parses the specified date/time by the given format")
@@ -426,35 +337,18 @@ public final class DateTimeFunctions
     public static long parseDatetime(ConnectorSession session, @SqlType("varchar(x)") Slice datetime, @SqlType("varchar(y)") Slice formatString)
     {
         try {
-            return packDateTimeWithZone(parseDateTimeHelper(
-                    JodaDateTimeFormat.forPattern(formatString.toStringUtf8())
-                            .withChronology(getChronology(session.getTimeZoneKey()))
-                            .withOffsetParsed()
-                            .withLocale(session.getLocale()),
-                    datetime.toStringUtf8()));
+            ZonedDateTime dateTime = PATTERN_FORMATTER_CACHE.get(formatString)
+                    .parse(datetime.toStringUtf8(), session.getTimeZoneKey().getZoneId(), session.getLocale());
+            return packDateTimeWithZone(dateTime.toInstant().toEpochMilli(), dateTime.getZone().getId());
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 
-    private static DateTime parseDateTimeHelper(DateTimeFormatter formatter, String datetimeString)
+    public static Slice dateFormat(ZoneId zoneId, Locale locale, long timestamp, Slice formatString)
     {
-        try {
-            return JodaDateTimeFormat.parse(formatter, datetimeString);
-        }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
-        }
-    }
-
-    public static Slice dateFormat(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
-    {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
-                .withChronology(chronology)
-                .withLocale(locale);
-
-        return utf8Slice(JodaDateTimeFormat.format(formatter, timestamp));
+        return utf8Slice(DATETIME_FORMATTER_CACHE.get(formatString).format(timestamp, zoneId, locale));
     }
 
     @ScalarFunction
@@ -472,12 +366,12 @@ public final class DateTimeFunctions
             }
         }
 
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
-                .withChronology(UTC_CHRONOLOGY)
-                .withLocale(session.getLocale());
-
         try {
-            return scaleEpochMillisToMicros(formatter.parseMillis(dateTime.toStringUtf8()));
+            long millis = DATETIME_FORMATTER_CACHE.get(formatString)
+                    .parse(dateTime.toStringUtf8(), UTC, session.getLocale())
+                    .toInstant()
+                    .toEpochMilli();
+            return scaleEpochMillisToMicros(millis);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -559,154 +453,13 @@ public final class DateTimeFunctions
         return FastDate.yearOf((int) date);
     }
 
-    public static DateTimeFormatter createDateTimeFormatter(Slice format)
+    public static DateTimeFormat createDateTimeFormatter(Slice format)
     {
-        DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
-
-        String formatString = format.toStringUtf8();
-        boolean escaped = false;
-        for (int i = 0; i < formatString.length(); i++) {
-            char character = formatString.charAt(i);
-
-            if (escaped) {
-                switch (character) {
-                    case 'a' -> {
-                        // %a Abbreviated weekday name (Sun..Sat)
-                        builder.appendDayOfWeekShortText();
-                    }
-                    case 'b' -> {
-                        // %b Abbreviated month name (Jan..Dec)
-                        builder.appendMonthOfYearShortText();
-                    }
-                    case 'c' -> {
-                        // %c Month, numeric (0..12)
-                        builder.appendMonthOfYear(1);
-                    }
-                    case 'd' -> {
-                        // %d Day of the month, numeric (00..31)
-                        builder.appendDayOfMonth(2);
-                    }
-                    case 'e' -> {
-                        // %e Day of the month, numeric (0..31)
-                        builder.appendDayOfMonth(1);
-                    }
-                    case 'f' -> {
-                        // %f Microseconds (000000..999999)
-                        builder.appendFractionOfSecond(6, 9);
-                    }
-                    case 'H' -> {
-                        // %H Hour (00..23)
-                        builder.appendHourOfDay(2);
-                    }
-                    case 'h', 'I' -> {
-                        // %h Hour (01..12)
-                        // %I Hour (01..12)
-                        builder.appendClockhourOfHalfday(2);
-                    }
-                    case 'i' -> {
-                        // %i Minutes, numeric (00..59)
-                        builder.appendMinuteOfHour(2);
-                    }
-                    case 'j' -> {
-                        // %j Day of year (001..366)
-                        builder.appendDayOfYear(3);
-                    }
-                    case 'k' -> {
-                        // %k Hour (0..23)
-                        builder.appendHourOfDay(1);
-                    }
-                    case 'l' -> {
-                        // %l Hour (1..12)
-                        builder.appendClockhourOfHalfday(1);
-                    }
-                    case 'M' -> {
-                        // %M Month name (January..December)
-                        builder.appendMonthOfYearText();
-                    }
-                    case 'm' -> {
-                        // %m Month, numeric (00..12)
-                        builder.appendMonthOfYear(2);
-                    }
-                    case 'p' -> {
-                        // %p AM or PM
-                        builder.appendHalfdayOfDayText();
-                    }
-                    case 'r' -> {
-                        // %r Time, 12-hour (hh:mm:ss followed by AM or PM)
-                        builder.appendClockhourOfHalfday(2)
-                                .appendLiteral(':')
-                                .appendMinuteOfHour(2)
-                                .appendLiteral(':')
-                                .appendSecondOfMinute(2)
-                                .appendLiteral(' ')
-                                .appendHalfdayOfDayText();
-                    }
-                    case 'S', 's' -> {
-                        // %S Seconds (00..59)
-                        // %s Seconds (00..59)
-                        builder.appendSecondOfMinute(2);
-                    }
-                    case 'T' -> {
-                        // %T Time, 24-hour (hh:mm:ss)
-                        builder.appendHourOfDay(2)
-                                .appendLiteral(':')
-                                .appendMinuteOfHour(2)
-                                .appendLiteral(':')
-                                .appendSecondOfMinute(2);
-                    }
-                    case 'v' -> {
-                        // %v Week (01..53), where Monday is the first day of the week; used with %x
-                        builder.appendWeekOfWeekyear(2);
-                    }
-                    case 'x' -> {
-                        // %x Year for the week, where Monday is the first day of the week, numeric, four digits; used with %v
-                        builder.appendWeekyear(4, 4);
-                    }
-                    case 'W' -> {
-                        // %W Weekday name (Sunday..Saturday)
-                        builder.appendDayOfWeekText();
-                    }
-                    case 'Y' -> {
-                        // %Y Year, numeric, four digits
-                        builder.appendYear(4, 4);
-                    }
-                    case 'y' -> {
-                        // %y Year, numeric (two digits)
-                        builder.appendTwoDigitYear(PIVOT_YEAR);
-                    }
-                    case 'w', 'U', 'u', 'V', 'X', 'D' -> {
-                        // %w Day of the week (0=Sunday..6=Saturday)
-                        // %U Week (00..53), where Sunday is the first day of the week
-                        // %u Week (00..53), where Monday is the first day of the week
-                        // %V Week (01..53), where Sunday is the first day of the week; used with %X
-                        // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
-                        // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, ...)
-                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%%%s not supported in date format string", character));
-                    }
-                    case '%' -> {
-                        // %% A literal "%" character
-                        builder.appendLiteral('%');
-                    }
-                    default -> {
-                        // %<x> The literal character represented by <x>
-                        builder.appendLiteral(character);
-                    }
-                }
-                escaped = false;
-            }
-            else if (character == '%') {
-                escaped = true;
-            }
-            else {
-                builder.appendLiteral(character);
-            }
-        }
-
         try {
-            return builder.toFormatter();
+            return DateTimeFormat.forMysqlPattern(format.toStringUtf8());
         }
-        catch (UnsupportedOperationException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
         }
     }
 

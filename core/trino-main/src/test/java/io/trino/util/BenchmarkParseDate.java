@@ -14,8 +14,6 @@
 package io.trino.util;
 
 import io.airlift.slice.Slice;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -28,6 +26,7 @@ import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.RunnerException;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 
@@ -112,13 +111,13 @@ public class BenchmarkParseDate
 
     // CAST(date AS varchar) — int days → "YYYY-MM-DD".
 
-    private static final DateTimeFormatter JODA_DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
+    private static final DateTimeFormatter JDK_DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
     @Benchmark
-    public void printDateJoda(BenchmarkData data, Blackhole blackhole)
+    public void printDateJdk(BenchmarkData data, Blackhole blackhole)
     {
         for (int days : data.dayValues) {
-            blackhole.consume(JODA_DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(days)));
+            blackhole.consume(JDK_DATE_FORMATTER.format(LocalDate.ofEpochDay(days)));
         }
     }
 

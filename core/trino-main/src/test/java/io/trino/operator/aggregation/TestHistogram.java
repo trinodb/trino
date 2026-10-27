@@ -29,10 +29,9 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -60,7 +59,6 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static io.trino.util.StructuralTestUtil.sqlMapOf;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,7 +66,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHistogram
 {
     private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("UTC");
-    private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
     @Test
@@ -145,8 +142,8 @@ public class TestHistogram
                 ImmutableMap.of("a", 2L, "b", 1L),
                 createStringsBlock("a", "b", "a"));
 
-        long timestampWithTimeZone1 = packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
-        long timestampWithTimeZone2 = packDateTimeWithZone(new DateTime(2015, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
+        long timestampWithTimeZone1 = packDateTimeWithZone(0, TIME_ZONE_KEY);
+        long timestampWithTimeZone2 = packDateTimeWithZone(Instant.parse("2015-01-01T00:00:00Z").toEpochMilli(), TIME_ZONE_KEY);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "histogram",

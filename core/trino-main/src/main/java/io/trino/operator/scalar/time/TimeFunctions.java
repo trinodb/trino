@@ -35,7 +35,7 @@ import static io.trino.spi.type.Timestamps.SECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.HOURS_PER_DAY;
-import static org.joda.time.DateTimeConstants.MINUTES_PER_DAY;
+import static java.util.concurrent.TimeUnit.DAYS;
 
 public final class TimeFunctions
 {
@@ -104,7 +104,7 @@ public final class TimeFunctions
         long delta = switch (TimeField.match(unit)) {
             case MILLISECOND -> (value % MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND;
             case SECOND -> (value % SECONDS_PER_DAY) * PICOSECONDS_PER_SECOND;
-            case MINUTE -> (value % MINUTES_PER_DAY) * PICOSECONDS_PER_MINUTE;
+            case MINUTE -> (value % DAYS.toMinutes(1)) * PICOSECONDS_PER_MINUTE;
             case HOUR -> (value % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
         };
 

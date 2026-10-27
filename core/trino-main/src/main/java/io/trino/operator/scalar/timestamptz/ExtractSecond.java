@@ -20,10 +20,11 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 
+import java.time.Instant;
+
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Second of the minute of the given timestamp")
 @ScalarFunction("second")
@@ -35,17 +36,13 @@ public final class ExtractSecond
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("timestamp(p) with time zone") long packedEpochMillis)
     {
-        return unpackChronology(packedEpochMillis)
-                .secondOfMinute()
-                .get(unpackMillisUtc(packedEpochMillis));
+        return Instant.ofEpochMilli(unpackMillisUtc(packedEpochMillis)).atZone(unpackZoneKey(packedEpochMillis).getZoneId()).getSecond();
     }
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
-        return getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))
-                .secondOfMinute()
-                .get(timestamp.getEpochMillis());
+        return Instant.ofEpochMilli(timestamp.getEpochMillis()).atZone(getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId()).getSecond();
     }
 }

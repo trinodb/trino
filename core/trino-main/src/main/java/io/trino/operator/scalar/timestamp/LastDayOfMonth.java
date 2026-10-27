@@ -19,26 +19,22 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
-import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static io.trino.operator.scalar.DateTimeFunctions.lastDayOfMonthFromDate;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
+import static java.lang.Math.floorDiv;
 
 @Description("Last day of the month of the given timestamp")
 @ScalarFunction(value = "last_day_of_month", neverFails = true)
 public final class LastDayOfMonth
 {
-    private static final int MILLISECONDS_IN_DAY = 24 * 3600 * 1000;
-
     private LastDayOfMonth() {}
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonth(@SqlType("timestamp(p)") long timestamp)
     {
-        long epochMillis = scaleEpochMicrosToMillis(timestamp);
-        long millis = ISOChronology.getInstanceUTC().monthOfYear().roundCeiling(epochMillis + 1) - MILLISECONDS_IN_DAY;
-        return MILLISECONDS.toDays(millis);
+        return lastDayOfMonthFromDate(floorDiv(timestamp, MICROSECONDS_PER_DAY));
     }
 
     @LiteralParameters("p")

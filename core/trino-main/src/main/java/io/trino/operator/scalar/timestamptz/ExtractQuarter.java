@@ -20,11 +20,12 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 
-import static io.trino.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
+import java.time.Instant;
+import java.time.temporal.IsoFields;
+
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Quarter of the year of the given timestamp")
 @ScalarFunction("quarter")
@@ -36,13 +37,13 @@ public final class ExtractQuarter
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("timestamp(p) with time zone") long packedEpochMillis)
     {
-        return QUARTER_OF_YEAR.getField(unpackChronology(packedEpochMillis)).get(unpackMillisUtc(packedEpochMillis));
+        return Instant.ofEpochMilli(unpackMillisUtc(packedEpochMillis)).atZone(unpackZoneKey(packedEpochMillis).getZoneId()).get(IsoFields.QUARTER_OF_YEAR);
     }
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
-        return QUARTER_OF_YEAR.getField(getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))).get(timestamp.getEpochMillis());
+        return Instant.ofEpochMilli(timestamp.getEpochMillis()).atZone(getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId()).get(IsoFields.QUARTER_OF_YEAR);
     }
 }

@@ -21,10 +21,10 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
 import static io.trino.operator.scalar.DateTimeFunctions.dateFormat;
 import static io.trino.spi.type.Timestamps.epochMicrosToMillisWithRounding;
+import static java.time.ZoneOffset.UTC;
 
 @ScalarFunction
 @Description("Formats the given timestamp by the given format")
@@ -39,7 +39,7 @@ public final class DateFormat
         // TODO: currently, date formatting only supports up to millis, so round to that unit
         timestamp = epochMicrosToMillisWithRounding(timestamp);
 
-        return dateFormat(ISOChronology.getInstanceUTC(), session.getLocale(), timestamp, formatString);
+        return dateFormat(UTC, session.getLocale(), timestamp, formatString);
     }
 
     @LiteralParameters({"x", "p"})

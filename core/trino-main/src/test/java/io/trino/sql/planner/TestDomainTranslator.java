@@ -40,8 +40,6 @@ import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.type.LikePattern;
 import io.trino.type.LikePatternType;
 import io.trino.util.DateTimeUtils;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -49,10 +47,11 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -138,8 +137,8 @@ public class TestDomainTranslator
     private static final Symbol C_TIMESTAMP_TZ = new Symbol(TIMESTAMP_TZ_MILLIS, "c_timestamp_tz");
     private static final Symbol C_INTERVAL_DAY_TIME = new Symbol(INTERVAL_DAY_TIME, "c_interval_day_time");
 
-    private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
-    private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
+    private static final long TIMESTAMP_VALUE = Instant.parse("2013-03-30T01:05:00Z").toEpochMilli();
+    private static final long DATE_VALUE = LocalDate.of(2001, 1, 22).toEpochDay();
     private static final long COLOR_VALUE_1 = 1;
     private static final long COLOR_VALUE_2 = 2;
 

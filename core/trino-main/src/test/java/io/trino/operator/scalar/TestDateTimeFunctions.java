@@ -20,7 +20,6 @@ import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingSession;
 import io.trino.type.SqlIntervalDayTime;
-import org.joda.time.chrono.ISOChronology;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -30,7 +29,9 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.temporal.IsoFields;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -100,8 +101,8 @@ public class TestDateTimeFunctions
         TimeZoneKey montrealTimeZoneKey = getTimeZoneKey("America/Montreal");
         long timeIncrement = TimeUnit.MINUTES.toMillis(53);
         // We expect UTC millis later on so we have to use UTC chronology
-        for (long millis = ISOChronology.getInstanceUTC().getDateTimeMillis(2000, 6, 15, 0, 0, 0, 0);
-                millis < ISOChronology.getInstanceUTC().getDateTimeMillis(2016, 6, 15, 0, 0, 0, 0);
+        for (long millis = LocalDate.of(2000, 6, 15).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
+                millis < LocalDate.of(2016, 6, 15).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
                 millis += timeIncrement) {
             Instant instant = Instant.ofEpochMilli(millis);
             assertCurrentDateAtInstant(kievTimeZoneKey, instant);
@@ -428,18 +429,16 @@ public class TestDateTimeFunctions
 
     private static void assertDateFields(long date)
     {
-        ISOChronology chronology = ISOChronology.getInstanceUTC();
-        long millis = DAYS.toMillis(date);
+        LocalDate localDate = LocalDate.ofEpochDay(date);
         assertThat(DateTimeFunctions.dayOfWeekFromDate(date))
                 .as("day_of_week for epoch day %d", date)
-                .isEqualTo(chronology.dayOfWeek().get(millis));
+                .isEqualTo(localDate.getDayOfWeek().getValue());
         assertThat(DateTimeFunctions.weekFromDate(date))
                 .as("week for epoch day %d", date)
-                .isEqualTo(chronology.weekOfWeekyear().get(millis));
+                .isEqualTo(localDate.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR));
         assertThat(DateTimeFunctions.yearOfWeekFromDate(date))
                 .as("year_of_week for epoch day %d", date)
-                .isEqualTo(chronology.weekyear().get(millis));
-        LocalDate localDate = LocalDate.ofEpochDay(date);
+                .isEqualTo(localDate.get(IsoFields.WEEK_BASED_YEAR));
         assertThat(DateTimeFunctions.quarterFromDate(date))
                 .as("quarter for epoch day %d", date)
                 .isEqualTo(localDate.get(QUARTER_OF_YEAR));

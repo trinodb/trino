@@ -14,68 +14,39 @@
 package io.trino.util;
 
 import io.trino.spi.type.TimeZoneKey;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
-import java.time.ZoneId;
-import java.util.TreeSet;
+import java.time.Instant;
 
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
-import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
-import static io.trino.util.DateTimeZoneIndex.unpackDateTimeZone;
-import static java.lang.String.format;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeys;
+import static io.trino.util.DateTimeZoneIndex.getZoneId;
+import static io.trino.util.DateTimeZoneIndex.unpackZoneId;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Fail.fail;
 
 public class TestTimeZoneUtils
 {
     @Test
     public void testNamedZones()
     {
-        TreeSet<String> jdkZones = new TreeSet<>(ZoneId.getAvailableZoneIds());
-        for (String zoneId : jdkZones) {
-            if (zoneId.startsWith("Etc/") || zoneId.startsWith("GMT") || zoneId.startsWith("SystemV/")) {
-                continue;
-            }
-
-            DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
-            assertTimeZone(zoneId, indexedZone);
+        for (TimeZoneKey key : getTimeZoneKeys()) {
+            long packed = packDateTimeWithZone(42, key);
+            assertThat(unpackMillisUtc(packed)).isEqualTo(42);
+            assertThat(unpackZoneKey(packed)).isEqualTo(key);
+            assertThat(unpackZoneId(packed)).isEqualTo(key.getZoneId());
         }
     }
 
     @Test
     public void testOffsets()
     {
-        for (int offsetHours = -13; offsetHours < 14; offsetHours++) {
-            for (int offsetMinutes = 0; offsetMinutes < 60; offsetMinutes++) {
-                DateTimeZone dateTimeZone = DateTimeZone.forOffsetHoursMinutes(offsetHours, offsetMinutes);
-                assertTimeZone(dateTimeZone.getID(), getDateTimeZone(TimeZoneKey.getTimeZoneKey(dateTimeZone.getID())));
-            }
+        for (int offsetMinutes = -14 * 60; offsetMinutes <= 14 * 60; offsetMinutes++) {
+            TimeZoneKey key = getTimeZoneKeyForOffset(offsetMinutes);
+            assertThat(getZoneId(key).getRules().isFixedOffset()).isTrue();
+            assertThat(getZoneId(key).getRules().getOffset(Instant.EPOCH).getTotalSeconds()).isEqualTo(offsetMinutes * 60);
         }
-    }
-
-    public static void assertTimeZone(String zoneId, DateTimeZone dateTimeZone)
-    {
-        long packWithDateTime = packDateTimeWithZone(new DateTime(42, dateTimeZone));
-        long packWithZoneId = packDateTimeWithZone(42L, ZoneId.of(dateTimeZone.getID()).getId());
-        if (packWithDateTime != packWithZoneId) {
-            fail(format(
-                    "packWithDateTime and packWithZoneId differ for zone [%s] / [%s]: %s [%s %s] and %s [%s %s]",
-                    zoneId,
-                    dateTimeZone,
-                    packWithDateTime,
-                    unpackMillisUtc(packWithDateTime),
-                    unpackZoneKey(packWithDateTime),
-                    packWithZoneId,
-                    unpackMillisUtc(packWithZoneId),
-                    unpackZoneKey(packWithZoneId)));
-        }
-        DateTimeZone unpackedZone = unpackDateTimeZone(packWithDateTime);
-        assertThat(unpackedZone).isEqualTo(dateTimeZone);
-        assertThat(TimeZoneKey.getTimeZoneKey(zoneId)).isEqualTo(unpackZoneKey(packWithDateTime));
     }
 }

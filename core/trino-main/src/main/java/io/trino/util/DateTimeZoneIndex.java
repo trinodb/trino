@@ -14,44 +14,39 @@
 package io.trino.util;
 
 import io.airlift.log.Logger;
-import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.TimeZoneKey;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.chrono.ISOChronology;
+
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.zone.ZoneOffsetTransition;
+import java.time.zone.ZoneRules;
 
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeys;
+import static java.lang.Math.addExact;
+import static java.lang.Math.subtractExact;
 
 public final class DateTimeZoneIndex
 {
     private static final Logger log = Logger.get(DateTimeZoneIndex.class);
+    private static final int VARIABLE_ZONE = Integer.MAX_VALUE;
+    private static final ZoneId[] ZONE_IDS = new ZoneId[MAX_TIME_ZONE_KEY + 1];
+    private static final int[] FIXED_ZONE_OFFSET = new int[MAX_TIME_ZONE_KEY + 1];
 
     private DateTimeZoneIndex() {}
 
-    private static final DateTimeZone[] DATE_TIME_ZONES;
-    private static final ISOChronology[] CHRONOLOGIES;
-    private static final int[] FIXED_ZONE_OFFSET;
-
-    private static final int VARIABLE_ZONE = Integer.MAX_VALUE;
-
     static {
-        DATE_TIME_ZONES = new DateTimeZone[MAX_TIME_ZONE_KEY + 1];
-        CHRONOLOGIES = new ISOChronology[MAX_TIME_ZONE_KEY + 1];
-        FIXED_ZONE_OFFSET = new int[MAX_TIME_ZONE_KEY + 1];
         try {
             for (TimeZoneKey timeZoneKey : getTimeZoneKeys()) {
                 short zoneKey = timeZoneKey.getKey();
-                DateTimeZone dateTimeZone = DateTimeZone.UTC;
-                if (!timeZoneKey.equals(TimeZoneKey.UTC_KEY)) {
-                    dateTimeZone = new JdkDateTimeZone(timeZoneKey.getZoneId());
-                }
-                DATE_TIME_ZONES[zoneKey] = dateTimeZone;
-                CHRONOLOGIES[zoneKey] = ISOChronology.getInstance(dateTimeZone);
-                if (dateTimeZone.isFixed() && dateTimeZone.getOffset(0) % 60_000 == 0) {
-                    FIXED_ZONE_OFFSET[zoneKey] = dateTimeZone.getOffset(0) / 60_000;
+                ZoneId zoneId = timeZoneKey.getZoneId();
+                ZONE_IDS[zoneKey] = zoneId;
+                ZoneRules rules = zoneId.getRules();
+                int offsetSeconds = rules.getOffset(Instant.EPOCH).getTotalSeconds();
+                if (rules.isFixedOffset() && offsetSeconds % 60 == 0) {
+                    FIXED_ZONE_OFFSET[zoneKey] = offsetSeconds / 60;
                 }
                 else {
                     FIXED_ZONE_OFFSET[zoneKey] = VARIABLE_ZONE;
@@ -59,35 +54,87 @@ public final class DateTimeZoneIndex
             }
         }
         catch (Exception e) {
-            // log static initializer failure to ensure it's visible
+            // Log static initializer failure to ensure it is visible.
             log.error(e, "DateTimeZoneIndex initialization failed");
             throw e;
         }
     }
 
-    public static ISOChronology getChronology(TimeZoneKey zoneKey)
+    public static ZoneId getZoneId(TimeZoneKey zoneKey)
     {
-        return CHRONOLOGIES[zoneKey.getKey()];
+        return ZONE_IDS[zoneKey.getKey()];
     }
 
-    public static ISOChronology unpackChronology(long timestampWithTimeZone)
+    public static ZoneId unpackZoneId(long timestampWithTimeZone)
     {
-        return getChronology(unpackZoneKey(timestampWithTimeZone));
+        return getZoneId(unpackZoneKey(timestampWithTimeZone));
     }
 
-    public static DateTimeZone getDateTimeZone(TimeZoneKey zoneKey)
+    public static int getOffsetMillis(long epochMillis, ZoneId zoneId)
     {
-        return DATE_TIME_ZONES[zoneKey.getKey()];
+        return zoneId.getRules().getOffset(Instant.ofEpochMilli(epochMillis)).getTotalSeconds() * 1000;
     }
 
-    public static DateTimeZone unpackDateTimeZone(long dateTimeWithTimeZone)
+    public static long convertUtcToLocal(long epochMillis, ZoneId zoneId)
     {
-        return getDateTimeZone(unpackZoneKey(dateTimeWithTimeZone));
+        return addExact(epochMillis, getOffsetMillis(epochMillis, zoneId));
     }
 
-    public static long packDateTimeWithZone(DateTime dateTime)
+    public static long convertLocalToUtc(long localMillis, ZoneId zoneId)
     {
-        return DateTimeEncoding.packDateTimeWithZone(dateTime.getMillis(), dateTime.getZone().getID());
+        // Preserve the existing offset-estimation policy, including the choice of
+        // offset in historical overlaps where java.time's default can differ.
+        int initialOffset = getOffsetMillis(localMillis, zoneId);
+        long initialInstant = subtractExact(localMillis, initialOffset);
+        int offset = getOffsetMillis(initialInstant, zoneId);
+        if (initialOffset != offset && initialOffset < 0) {
+            if (!nextTransition(initialInstant, zoneId).equals(nextTransition(subtractExact(localMillis, offset), zoneId))) {
+                offset = initialOffset;
+            }
+        }
+        return subtractExact(localMillis, offset);
+    }
+
+    public static int getOffsetFromLocalMillis(long localMillis, ZoneId zoneId)
+    {
+        int initialOffset = getOffsetMillis(localMillis, zoneId);
+        long candidate = subtractExact(localMillis, initialOffset);
+        int adjustedOffset = getOffsetMillis(candidate, zoneId);
+        if (initialOffset != adjustedOffset) {
+            if (initialOffset < adjustedOffset && !nextTransition(candidate, zoneId).equals(nextTransition(subtractExact(localMillis, adjustedOffset), zoneId))) {
+                return initialOffset;
+            }
+        }
+        else if (initialOffset >= 0) {
+            ZoneOffsetTransition previous = zoneId.getRules().previousTransition(Instant.ofEpochMilli(candidate).plusNanos(1));
+            if (previous != null && previous.getInstant().isAfter(Instant.ofEpochMilli(Long.MIN_VALUE))) {
+                long beforeTransition = previous.getInstant().toEpochMilli() - 1;
+                int previousOffset = getOffsetMillis(beforeTransition, zoneId);
+                if (candidate - beforeTransition <= previousOffset - initialOffset) {
+                    return previousOffset;
+                }
+            }
+        }
+        return adjustedOffset;
+    }
+
+    public static long convertLocalToUtc(long localMillis, ZoneId zoneId, long originalInstant)
+    {
+        int originalOffset = getOffsetMillis(originalInstant, zoneId);
+        long candidate = subtractExact(localMillis, originalOffset);
+        if (getOffsetMillis(candidate, zoneId) == originalOffset) {
+            return candidate;
+        }
+        return convertLocalToUtc(localMillis, zoneId);
+    }
+
+    private static Instant nextTransition(long epochMillis, ZoneId zoneId)
+    {
+        ZoneOffsetTransition transition = zoneId.getRules().nextTransition(Instant.ofEpochMilli(epochMillis));
+        if (transition == null || transition.getInstant().isAfter(Instant.ofEpochMilli(Long.MAX_VALUE))) {
+            return Instant.MAX;
+        }
+        return transition.getInstant();
     }
 
     public static int extractZoneOffsetMinutes(long dateTimeWithTimeZone)
@@ -98,7 +145,7 @@ public final class DateTimeZoneIndex
     public static int extractZoneOffsetMinutes(long epochMillis, short zoneKey)
     {
         if (FIXED_ZONE_OFFSET[zoneKey] == VARIABLE_ZONE) {
-            return DATE_TIME_ZONES[zoneKey].getOffset(epochMillis) / 60_000;
+            return getOffsetMillis(epochMillis, ZONE_IDS[zoneKey]) / 60_000;
         }
         return FIXED_ZONE_OFFSET[zoneKey];
     }

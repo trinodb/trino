@@ -14,9 +14,6 @@
 package io.trino.util;
 
 import io.trino.operator.scalar.DateTimeFunctions;
-import io.trino.operator.scalar.QuarterOfYearDateTimeField;
-import org.joda.time.DateTimeField;
-import org.joda.time.chrono.ISOChronology;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -29,6 +26,8 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
 
 import java.time.LocalDate;
+import java.time.temporal.IsoFields;
+import java.time.temporal.TemporalAdjusters;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -45,14 +44,6 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 @Measurement(iterations = 10, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
 public class BenchmarkDateExtraction
 {
-    private static final ISOChronology UTC = ISOChronology.getInstanceUTC();
-    private static final DateTimeField YEAR = UTC.year();
-    private static final DateTimeField MONTH = UTC.monthOfYear();
-    private static final DateTimeField DAY = UTC.dayOfMonth();
-    private static final DateTimeField DAY_OF_YEAR = UTC.dayOfYear();
-    private static final DateTimeField QUARTER = QuarterOfYearDateTimeField.QUARTER_OF_YEAR.getField(UTC);
-    private static final long MILLIS_PER_DAY = 86_400_000L;
-
     @State(Thread)
     public static class BenchmarkData
     {
@@ -89,11 +80,11 @@ public class BenchmarkDateExtraction
     // ---- year ----
 
     @Benchmark
-    public long jodaYear(BenchmarkData data)
+    public long javaTimeYear(BenchmarkData data)
     {
         long sum = 0;
         for (int d : data.dates) {
-            sum += YEAR.get(d * MILLIS_PER_DAY);
+            sum += LocalDate.ofEpochDay(d).getYear();
         }
         return sum;
     }
@@ -111,11 +102,11 @@ public class BenchmarkDateExtraction
     // ---- month ----
 
     @Benchmark
-    public long jodaMonth(BenchmarkData data)
+    public long javaTimeMonth(BenchmarkData data)
     {
         long sum = 0;
         for (int d : data.dates) {
-            sum += MONTH.get(d * MILLIS_PER_DAY);
+            sum += LocalDate.ofEpochDay(d).getMonthValue();
         }
         return sum;
     }
@@ -133,11 +124,11 @@ public class BenchmarkDateExtraction
     // ---- day-of-month ----
 
     @Benchmark
-    public long jodaDay(BenchmarkData data)
+    public long javaTimeDay(BenchmarkData data)
     {
         long sum = 0;
         for (int d : data.dates) {
-            sum += DAY.get(d * MILLIS_PER_DAY);
+            sum += LocalDate.ofEpochDay(d).getDayOfMonth();
         }
         return sum;
     }
@@ -155,11 +146,11 @@ public class BenchmarkDateExtraction
     // ---- day-of-year ----
 
     @Benchmark
-    public long jodaDayOfYear(BenchmarkData data)
+    public long javaTimeDayOfYear(BenchmarkData data)
     {
         long sum = 0;
         for (int d : data.dates) {
-            sum += DAY_OF_YEAR.get(d * MILLIS_PER_DAY);
+            sum += LocalDate.ofEpochDay(d).getDayOfYear();
         }
         return sum;
     }
@@ -177,11 +168,11 @@ public class BenchmarkDateExtraction
     // ---- quarter ----
 
     @Benchmark
-    public long jodaQuarter(BenchmarkData data)
+    public long javaTimeQuarter(BenchmarkData data)
     {
         long sum = 0;
         for (int d : data.dates) {
-            sum += QUARTER.get(d * MILLIS_PER_DAY);
+            sum += LocalDate.ofEpochDay(d).get(IsoFields.QUARTER_OF_YEAR);
         }
         return sum;
     }
@@ -199,12 +190,11 @@ public class BenchmarkDateExtraction
     // ---- last_day_of_month ----
 
     @Benchmark
-    public long jodaLastDayOfMonth(BenchmarkData data)
+    public long javaTimeLastDayOfMonth(BenchmarkData data)
     {
         long sum = 0;
         for (int d : data.dates) {
-            long millis = UTC.monthOfYear().roundCeiling(d * MILLIS_PER_DAY + 1) - MILLIS_PER_DAY;
-            sum += millis / MILLIS_PER_DAY;
+            sum += LocalDate.ofEpochDay(d).with(TemporalAdjusters.lastDayOfMonth()).toEpochDay();
         }
         return sum;
     }
@@ -222,12 +212,12 @@ public class BenchmarkDateExtraction
     // ---- year+month+day combined (defeats DCE of unused fields) ----
 
     @Benchmark
-    public long jodaYmd(BenchmarkData data)
+    public long javaTimeYmd(BenchmarkData data)
     {
         long sum = 0;
         for (int d : data.dates) {
-            long ms = d * MILLIS_PER_DAY;
-            sum += YEAR.get(ms) + MONTH.get(ms) + DAY.get(ms);
+            LocalDate date = LocalDate.ofEpochDay(d);
+            sum += date.getYear() + date.getMonthValue() + date.getDayOfMonth();
         }
         return sum;
     }
@@ -244,11 +234,11 @@ public class BenchmarkDateExtraction
     }
 
     @Benchmark
-    public long jodaDayOfWeek(BenchmarkData data)
+    public long javaTimeDayOfWeek(BenchmarkData data)
     {
         long sum = 0;
         for (int d : data.dates) {
-            sum += UTC.dayOfWeek().get(d * MILLIS_PER_DAY);
+            sum += LocalDate.ofEpochDay(d).getDayOfWeek().getValue();
         }
         return sum;
     }
@@ -264,11 +254,11 @@ public class BenchmarkDateExtraction
     }
 
     @Benchmark
-    public long jodaWeek(BenchmarkData data)
+    public long javaTimeWeek(BenchmarkData data)
     {
         long sum = 0;
         for (int d : data.dates) {
-            sum += UTC.weekOfWeekyear().get(d * MILLIS_PER_DAY);
+            sum += LocalDate.ofEpochDay(d).get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
         }
         return sum;
     }
@@ -284,11 +274,11 @@ public class BenchmarkDateExtraction
     }
 
     @Benchmark
-    public long jodaYearOfWeek(BenchmarkData data)
+    public long javaTimeYearOfWeek(BenchmarkData data)
     {
         long sum = 0;
         for (int d : data.dates) {
-            sum += UTC.weekyear().get(d * MILLIS_PER_DAY);
+            sum += LocalDate.ofEpochDay(d).get(IsoFields.WEEK_BASED_YEAR);
         }
         return sum;
     }

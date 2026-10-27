@@ -21,26 +21,19 @@ import io.trino.spi.TrinoException;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
-import org.joda.time.DurationFieldType;
-import org.joda.time.MutablePeriod;
-import org.joda.time.Period;
-import org.joda.time.PeriodType;
-import org.joda.time.ReadWritablePeriod;
-import org.joda.time.chrono.ISOChronology;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
-import org.joda.time.format.PeriodFormatter;
-import org.joda.time.format.PeriodFormatterBuilder;
-import org.joda.time.format.PeriodParser;
 
 import java.time.DateTimeException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.SignStyle;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -51,12 +44,22 @@ import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.time.temporal.ChronoField.DAY_OF_MONTH;
+import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
+import static java.time.temporal.ChronoField.YEAR;
 
 public final class DateTimeUtils
 {
     private DateTimeUtils() {}
 
-    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withChronology(ISOChronology.getInstanceUTC());
+    private static final Pattern DATE_PATTERN = Pattern.compile("([+-]?[0-9]{1,9})-([0-9]{1,2})-([0-9]{1,2})");
+    private static final DateTimeFormatter DATE_PRINTER = new DateTimeFormatterBuilder()
+            .appendValue(YEAR, 4, 9, SignStyle.NORMAL)
+            .appendLiteral('-')
+            .appendValue(MONTH_OF_YEAR, 2)
+            .appendLiteral('-')
+            .appendValue(DAY_OF_MONTH, 2)
+            .toFormatter(Locale.ENGLISH);
 
     public static int parseDate(Slice value)
     {
@@ -71,8 +74,14 @@ public final class DateTimeUtils
         if (days.isPresent()) {
             return days.orElseThrow();
         }
-        // only the fallback formatter needs the value as a String
-        return toIntExact(TimeUnit.MILLISECONDS.toDays(DATE_FORMATTER.parseMillis(value.toStringUtf8())));
+        // Preserve the variable-width and signed years accepted by the legacy date parser.
+        String date = value.toStringUtf8();
+        Matcher matcher = DATE_PATTERN.matcher(date);
+        checkArgument(matcher.matches(), "Invalid date '%s'", date);
+        return toIntExact(LocalDate.of(
+                Integer.parseInt(matcher.group(1)),
+                Integer.parseInt(matcher.group(2)),
+                Integer.parseInt(matcher.group(3))).toEpochDay());
     }
 
     /**
@@ -138,7 +147,7 @@ public final class DateTimeUtils
         long ymd = FastDate.ymdFromEpochDay(days);
         int year = (int) (ymd >> 32);
         if (year < 0 || year > 9999) {
-            return utf8Slice(JodaDateTimeFormat.format(DATE_FORMATTER, TimeUnit.DAYS.toMillis(days)));
+            return utf8Slice(DATE_PRINTER.format(LocalDate.ofEpochDay(days)));
         }
         int month = (int) ((ymd >> 8) & 0xFF);
         int day = (int) (ymd & 0xFF);
@@ -157,35 +166,16 @@ public final class DateTimeUtils
     }
 
     private static final int PICOS_PER_MICRO = 1_000_000;
-    private static final int YEAR_FIELD = 0;
-    private static final int MONTH_FIELD = 1;
-    private static final int DAY_FIELD = 3;
-    private static final int HOUR_FIELD = 4;
-    private static final int MINUTE_FIELD = 5;
-    private static final int SECOND_FIELD = 6;
-
-    private static final PeriodFormatter INTERVAL_DAY_SECOND_FORMATTER = createPeriodFormatter(new IntervalField.Day(), new IntervalField.Second(Optional.empty()));
-    private static final PeriodFormatter INTERVAL_DAY_MINUTE_FORMATTER = createPeriodFormatter(new IntervalField.Day(), new IntervalField.Minute());
-    private static final PeriodFormatter INTERVAL_DAY_HOUR_FORMATTER = createPeriodFormatter(new IntervalField.Day(), new IntervalField.Hour());
-    private static final PeriodFormatter INTERVAL_DAY_FORMATTER = createPeriodFormatter(new IntervalField.Day(), new IntervalField.Day());
-
-    private static final PeriodFormatter INTERVAL_HOUR_SECOND_FORMATTER = createPeriodFormatter(new IntervalField.Hour(), new IntervalField.Second(Optional.empty()));
-    private static final PeriodFormatter INTERVAL_HOUR_MINUTE_FORMATTER = createPeriodFormatter(new IntervalField.Hour(), new IntervalField.Minute());
-    private static final PeriodFormatter INTERVAL_HOUR_FORMATTER = createPeriodFormatter(new IntervalField.Hour(), new IntervalField.Hour());
-
-    private static final PeriodFormatter INTERVAL_MINUTE_SECOND_FORMATTER = createPeriodFormatter(new IntervalField.Minute(), new IntervalField.Second(Optional.empty()));
-    private static final PeriodFormatter INTERVAL_MINUTE_FORMATTER = createPeriodFormatter(new IntervalField.Minute(), new IntervalField.Minute());
-
-    private static final PeriodFormatter INTERVAL_SECOND_FORMATTER = createPeriodFormatter(new IntervalField.Second(Optional.empty()), new IntervalField.Second(Optional.empty()));
-
-    private static final PeriodFormatter INTERVAL_YEAR_MONTH_FORMATTER = createPeriodFormatter(new IntervalField.Year(), new IntervalField.Month());
-    private static final PeriodFormatter INTERVAL_YEAR_FORMATTER = createPeriodFormatter(new IntervalField.Year(), new IntervalField.Year());
 
     private static long[] parseDayTimeIntervalToPicos(String value, IntervalField startField, Optional<IntervalField> endField, int fractionalPrecision)
     {
-        FormatterSpec spec = dayTimeFormatter(startField, endField);
+        int firstField = dayTimeFieldIndex(startField);
+        int lastField = dayTimeFieldIndex(endField.orElse(startField));
+        if (firstField < 0 || lastField < firstField) {
+            throw invalidQualifier(startField, endField.orElse(startField));
+        }
         try {
-            return parsePeriodToPicos(spec.formatter(), value, spec.fractionSeparators(), startField, fractionalPrecision);
+            return parsePeriodToPicos(value, firstField, lastField, fractionalPrecision);
         }
         catch (IllegalArgumentException e) {
             if (e.getCause() instanceof ArithmeticException) {
@@ -195,81 +185,49 @@ public final class DateTimeUtils
         }
     }
 
-    private record FormatterSpec(PeriodFormatter formatter, int fractionSeparators) {}
-
-    private static FormatterSpec dayTimeFormatter(IntervalField startField, Optional<IntervalField> endField)
+    private static int dayTimeFieldIndex(IntervalField field)
     {
-        if (startField instanceof IntervalField.Day && endField.isEmpty()) {
-            return new FormatterSpec(INTERVAL_DAY_FORMATTER, -1);
-        }
-        if (startField instanceof IntervalField.Day && endField.get() instanceof IntervalField.Second) {
-            return new FormatterSpec(INTERVAL_DAY_SECOND_FORMATTER, 3);
-        }
-        if (startField instanceof IntervalField.Day && endField.get() instanceof IntervalField.Minute) {
-            return new FormatterSpec(INTERVAL_DAY_MINUTE_FORMATTER, -1);
-        }
-        if (startField instanceof IntervalField.Day && endField.get() instanceof IntervalField.Hour) {
-            return new FormatterSpec(INTERVAL_DAY_HOUR_FORMATTER, -1);
-        }
-
-        if (startField instanceof IntervalField.Hour && endField.isEmpty()) {
-            return new FormatterSpec(INTERVAL_HOUR_FORMATTER, -1);
-        }
-        if (startField instanceof IntervalField.Hour && endField.get() instanceof IntervalField.Second) {
-            return new FormatterSpec(INTERVAL_HOUR_SECOND_FORMATTER, 2);
-        }
-        if (startField instanceof IntervalField.Hour && endField.get() instanceof IntervalField.Minute) {
-            return new FormatterSpec(INTERVAL_HOUR_MINUTE_FORMATTER, -1);
-        }
-
-        if (startField instanceof IntervalField.Minute && endField.isEmpty()) {
-            return new FormatterSpec(INTERVAL_MINUTE_FORMATTER, -1);
-        }
-        if (startField instanceof IntervalField.Minute && endField.get() instanceof IntervalField.Second) {
-            return new FormatterSpec(INTERVAL_MINUTE_SECOND_FORMATTER, 1);
-        }
-
-        if (startField instanceof IntervalField.Second && endField.isEmpty()) {
-            return new FormatterSpec(INTERVAL_SECOND_FORMATTER, 0);
-        }
-
-        throw invalidQualifier(startField, endField.orElse(startField));
+        return switch (field) {
+            case IntervalField.Day _ -> 0;
+            case IntervalField.Hour _ -> 1;
+            case IntervalField.Minute _ -> 2;
+            case IntervalField.Second _ -> 3;
+            default -> -1;
+        };
     }
 
     public static IntervalLiteral formatDayTimeInterval(Duration duration)
     {
         long millis = duration.toMillis();
         IntervalLiteral.Sign sign = millis < 0 ? NEGATIVE : POSITIVE;
-        Period period = new Period(Math.abs(millis)).normalizedStandard(PeriodType.dayTime());
-        // Always use INTERVAL DAY TO SECOND. The output is more verbose
-        // (e.g., "1 0:00:00" instead of "1"), but this avoids the need to
-        // determine the minimal field range and choose a specialized formatter.
-        String value = INTERVAL_DAY_SECOND_FORMATTER.print(period);
-
+        // Take each component's magnitude separately, since abs(Long.MIN_VALUE) overflows.
+        int days = toIntExact(Math.abs(millis / TimeUnit.DAYS.toMillis(1)));
+        long hours = Math.abs(millis / TimeUnit.HOURS.toMillis(1) % 24);
+        long minutes = Math.abs(millis / TimeUnit.MINUTES.toMillis(1) % 60);
+        long seconds = Math.abs(millis / TimeUnit.SECONDS.toMillis(1) % 60);
+        int fraction = (int) Math.abs(millis % 1_000);
+        String value = format(Locale.ENGLISH, "%d %d:%02d:%02d", days, hours, minutes, seconds);
+        if (fraction != 0) {
+            value += format(Locale.ENGLISH, ".%03d", fraction);
+        }
+        // Always use DAY TO SECOND, retaining zero-valued trailing fields.
         return new IntervalLiteral(value, sign, new CompositeIntervalQualifier(Optional.empty(), new IntervalField.Day(), new IntervalField.Second(Optional.empty())));
     }
 
-    /// Parses a day-time interval to microseconds. `fractionSeparators` is the number of field
-    /// separators (`:` or space) that must precede a fractional part for it to fall on the seconds
-    /// field — e.g. 3 for `DAY TO SECOND` (`D H:M:S.f`), 0 for `SECOND` — or `-1` when the qualifier
-    /// has no seconds field and so admits no fraction at all. A misplaced dot (`12.1` DAY TO SECOND)
-    /// is rejected rather than silently treated as a seconds fraction.
-    private static long[] parsePeriodToPicos(PeriodFormatter periodFormatter, String value, int fractionSeparators, IntervalField startField, int fractionalPrecision)
+    private static long[] parsePeriodToPicos(String value, int firstField, int lastField, int fractionalPrecision)
     {
         boolean negative = value.startsWith("-");
         if (negative) {
             value = value.substring(1);
         }
 
-        // Joda Period only has millisecond resolution, so parse the fractional seconds (picosecond
-        // precision) directly from the string and let Joda handle the whole-second fields.
         long fractionMicros = 0;
         int picosOfMicro = 0;
         int dot = value.indexOf('.');
         if (dot >= 0) {
             String integerPart = value.substring(0, dot);
             long separators = integerPart.chars().filter(character -> character == ':' || character == ' ').count();
-            if (fractionSeparators < 0 || separators != fractionSeparators) {
+            if (lastField != 3 || separators != lastField - firstField) {
                 throw new IllegalArgumentException("Invalid fractional value in interval: " + value);
             }
             long[] fraction = parseFractionToPicos(value.substring(dot + 1), fractionalPrecision, negative);
@@ -278,40 +236,10 @@ public final class DateTimeUtils
             value = integerPart;
         }
 
-        // The leading field may exceed Joda's int storage (for example a count of seconds). Parse it
-        // separately, leaving the existing formatter to validate the separators and trailing fields.
-        int leadingEnd = value.startsWith("+") ? 1 : 0;
-        while (leadingEnd < value.length() && value.charAt(leadingEnd) >= '0' && value.charAt(leadingEnd) <= '9') {
-            leadingEnd++;
-        }
-        checkArgument(leadingEnd > (value.startsWith("+") ? 1 : 0), "Missing interval leading field");
-        Period period = periodFormatter.parsePeriod("0" + value.substring(leadingEnd));
-        for (DurationFieldType type : period.getFieldTypes()) {
-            checkArgument(period.get(type) >= 0, "Period field %s is negative", type);
-        }
-        long leadingValue;
-        try {
-            leadingValue = Long.parseLong(value.substring(0, leadingEnd));
-        }
-        catch (NumberFormatException e) {
-            // The leading field contains only digits, so a parse failure is an overflow.
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Value out of range for an interval", e);
-        }
-
-        long[] fields = {
-                period.getValue(DAY_FIELD),
-                period.getValue(HOUR_FIELD),
-                period.getValue(MINUTE_FIELD),
-                period.getValue(SECOND_FIELD),
-        };
-        int leadingIndex = switch (startField) {
-            case IntervalField.Day _ -> 0;
-            case IntervalField.Hour _ -> 1;
-            case IntervalField.Minute _ -> 2;
-            case IntervalField.Second _ -> 3;
-            default -> throw new IllegalArgumentException("Not a day-time field: " + startField);
-        };
-        fields[leadingIndex] = leadingValue;
+        char firstSeparator = firstField == 0 ? ' ' : ':';
+        long[] parsed = parseFields(value, lastField - firstField + 1, firstSeparator, true, lastField == 3);
+        long[] fields = new long[4];
+        System.arraycopy(parsed, 0, fields, firstField, parsed.length);
         if (negative) {
             // Accumulate negative fields directly, since the magnitude of Long.MIN_VALUE is not a long.
             fractionMicros = -fractionMicros;
@@ -323,6 +251,88 @@ public final class DateTimeUtils
         long sign = negative ? -1 : 1;
         long micros = IntervalDayTime.toMicros(sign * fields[0], sign * fields[1], sign * fields[2], sign * fields[3], fractionMicros);
         return new long[] {micros, picosOfMicro};
+    }
+
+    /**
+     * Parses a prefix of the qualified fields, leaving omitted trailing fields zero.
+     * The leading day-time field can be a long; other fields retain the legacy int range.
+     */
+    private static long[] parseFields(String value, int fieldCount, char firstSeparator, boolean longLeadingField, boolean secondsField)
+    {
+        long[] fields = new long[fieldCount];
+        int position = 0;
+        int leadingEnd = 0;
+        for (int field = 0; field < fieldCount; field++) {
+            if (position == value.length()) {
+                // A consumed separator may be followed by an omitted final field.
+                checkArgument(field != 0 || !longLeadingField, "Missing interval leading field");
+                break;
+            }
+            int start = position;
+            boolean negativeField = value.charAt(position) == '-';
+            boolean positiveField = value.charAt(position) == '+';
+            // The legacy parser skips a leading '+' before expanding its numeric limit.
+            int maxDigits = positiveField ? 11 : 10;
+            if (value.charAt(position) == '+' || negativeField) {
+                position++;
+                checkArgument(position < value.length() && value.charAt(position) >= '0' && value.charAt(position) <= '9', "Missing interval field");
+            }
+            int digits = position;
+            while (position < value.length() && value.charAt(position) >= '0' && value.charAt(position) <= '9') {
+                position++;
+            }
+            int integerEnd = position;
+            int fractionDigits = 0;
+            if (secondsField && field + 1 == fieldCount && position < value.length() && value.charAt(position) == ',') {
+                // The legacy seconds parser accepted a decimal comma, but its millisecond
+                // component was not included in the interval value. Preserve that syntax.
+                checkArgument((field == 0 && longLeadingField) || integerEnd - digits < maxDigits, "Interval field exceeds numeric limit");
+                int fractionStart = ++position;
+                while (position < value.length() && value.charAt(position) >= '0' && value.charAt(position) <= '9') {
+                    position++;
+                }
+                fractionDigits = position - fractionStart;
+                if (negativeField) {
+                    for (int index = fractionStart; index < Math.min(position, fractionStart + 3); index++) {
+                        checkArgument(value.charAt(index) == '0', "Interval fraction is negative");
+                    }
+                }
+            }
+            checkArgument(integerEnd > digits || fractionDigits > 0, "Missing interval field");
+            if (field == 0 && longLeadingField) {
+                checkArgument(integerEnd > digits, "Missing interval leading field");
+                // Its integer part was replaced by a single zero before legacy validation.
+                checkArgument(fractionDigits <= 9, "Interval fraction exceeds nine digits");
+                leadingEnd = integerEnd;
+            }
+            else {
+                checkArgument(integerEnd - digits + fractionDigits <= maxDigits, "Interval field exceeds numeric limit");
+                if (integerEnd > digits) {
+                    int parsed = Integer.parseInt(value.substring(start, integerEnd));
+                    checkArgument(parsed >= 0, "Interval field is negative");
+                    fields[field] = parsed;
+                }
+            }
+            if (position == value.length()) {
+                break;
+            }
+            checkArgument(field + 1 < fieldCount, "Unexpected trailing interval field");
+            char separator = field == 0 ? firstSeparator : ':';
+            checkArgument(value.charAt(position) == separator, "Invalid interval separator");
+            position++;
+        }
+        if (longLeadingField) {
+            // Validate the trailing syntax first, as for the legacy parser, so malformed
+            // input cannot be classified as numeric overflow merely because its prefix is large.
+            try {
+                fields[0] = Long.parseLong(value.substring(0, leadingEnd));
+            }
+            catch (NumberFormatException e) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Value out of range for an interval", e);
+            }
+            checkArgument(fields[0] >= 0, "Interval field is negative");
+        }
+        return fields;
     }
 
     /// Rounds the complete input once to the requested precision, with ties toward positive infinity.
@@ -351,13 +361,20 @@ public final class DateTimeUtils
     public static long parseYearMonthInterval(String value, IntervalField startField, Optional<IntervalField> endField)
     {
         try {
-            if (startField instanceof IntervalField.Year && endField.isEmpty()) {
-                return parsePeriodMonths(value, INTERVAL_YEAR_FORMATTER);
+            if (startField instanceof IntervalField.Year && (endField.isEmpty() || endField.orElseThrow() instanceof IntervalField.Month)) {
+                boolean negative = value.startsWith("-");
+                String magnitude = value;
+                if (negative) {
+                    magnitude = value.substring(1);
+                }
+                long[] fields = parseFields(magnitude, endField.isPresent() ? 2 : 1, '-', false, false);
+                int sign = negative ? -1 : 1;
+                int months = 0;
+                if (fields.length == 2) {
+                    months = (int) fields[1];
+                }
+                return IntervalYearMonth.toMonths(sign * (int) fields[0], sign * months);
             }
-            if (startField instanceof IntervalField.Year && endField.get() instanceof IntervalField.Month) {
-                return parsePeriodMonths(value, INTERVAL_YEAR_MONTH_FORMATTER);
-            }
-
             if (startField instanceof IntervalField.Month && endField.isEmpty()) {
                 return Integer.parseInt(value);
             }
@@ -365,7 +382,6 @@ public final class DateTimeUtils
         catch (IllegalArgumentException e) {
             throw invalidInterval(e, value, startField, endField.orElse(startField));
         }
-
         throw invalidQualifier(startField, endField.orElse(startField));
     }
 
@@ -404,32 +420,6 @@ public final class DateTimeUtils
         };
     }
 
-    private static long parsePeriodMonths(String value, PeriodFormatter periodFormatter)
-    {
-        Period period = parsePeriod(periodFormatter, value);
-        return IntervalYearMonth.toMonths(
-                period.getValue(YEAR_FIELD),
-                period.getValue(MONTH_FIELD));
-    }
-
-    private static Period parsePeriod(PeriodFormatter periodFormatter, String value)
-    {
-        boolean negative = value.startsWith("-");
-        if (negative) {
-            value = value.substring(1);
-        }
-
-        Period period = periodFormatter.parsePeriod(value);
-        for (DurationFieldType type : period.getFieldTypes()) {
-            checkArgument(period.get(type) >= 0, "Period field %s is negative", type);
-        }
-
-        if (negative) {
-            period = period.negated();
-        }
-        return period;
-    }
-
     private static TrinoException invalidInterval(Throwable throwable, String value, IntervalField startField, IntervalField endField)
     {
         String message;
@@ -445,123 +435,5 @@ public final class DateTimeUtils
     private static TrinoException invalidQualifier(IntervalField startField, IntervalField endField)
     {
         throw new TrinoException(INVALID_LITERAL, "Invalid interval qualifier: " + startField + " TO " + endField);
-    }
-
-    private static PeriodFormatter createPeriodFormatter(IntervalField startField, IntervalField endField)
-    {
-        if (endField == null) {
-            endField = startField;
-        }
-
-        List<PeriodParser> parsers = new ArrayList<>();
-
-        PeriodFormatterBuilder builder = new PeriodFormatterBuilder()
-                // Ensures zero-valued fields are printed instead of omitted. This affects printing only, not parsing.
-                // Example for INTERVAL HOUR TO SECOND:
-                //   With printZeroIfSupported():    "2:00:45"
-                //   Without printZeroIfSupported(): "2::45"
-                .printZeroIfSupported();
-        switch (startField) {
-            case IntervalField.Year _:
-                builder.appendYears();
-                parsers.add(builder.toParser());
-                if (endField instanceof IntervalField.Year) {
-                    break;
-                }
-                builder.appendLiteral("-");
-                // fall through
-
-            case IntervalField.Month _:
-                builder.appendMonths();
-                parsers.add(builder.toParser());
-                if (!(endField instanceof IntervalField.Month)) {
-                    throw invalidQualifier(startField, endField);
-                }
-                break;
-
-            case IntervalField.Day _:
-                builder.appendDays();
-                parsers.add(builder.toParser());
-                if (endField instanceof IntervalField.Day) {
-                    break;
-                }
-                builder.appendLiteral(" ");
-                // fall through
-
-            case IntervalField.Hour _:
-                builder.appendHours();
-                parsers.add(builder.toParser());
-                if (endField instanceof IntervalField.Hour) {
-                    break;
-                }
-                builder.appendLiteral(":");
-                // Ensures fixed-width, zero-padded minutes. This affects printing only, not parsing.
-                // Applies to the next appended field (minutes).
-                // Example for INTERVAL HOUR TO MINUTE:
-                //   With minimumPrintedDigits(2): "2:05"
-                //   Without minimumPrintedDigits(2): "2:5"
-                builder.minimumPrintedDigits(2);
-                // fall through
-
-            case IntervalField.Minute _:
-                builder.appendMinutes();
-                parsers.add(builder.toParser());
-                if (endField instanceof IntervalField.Minute) {
-                    break;
-                }
-                builder.appendLiteral(":");
-                // Ensures fixed-width, zero-padded seconds. This affects printing only, not parsing.
-                // Applies to the next appended field (seconds).
-                // Example for INTERVAL HOUR TO SECOND:
-                //   With minimumPrintedDigits(2): "2:05:07"
-                //   Without minimumPrintedDigits(2): "2:05:7"
-                builder.minimumPrintedDigits(2);
-                // fall through
-
-            case IntervalField.Second _:
-                builder.appendSecondsWithOptionalMillis();
-                parsers.add(builder.toParser());
-                break;
-        }
-
-        return new PeriodFormatter(builder.toPrinter(), new OrderedPeriodParser(parsers));
-    }
-
-    private static class OrderedPeriodParser
-            implements PeriodParser
-    {
-        private final List<PeriodParser> parsers;
-
-        private OrderedPeriodParser(List<PeriodParser> parsers)
-        {
-            this.parsers = parsers;
-        }
-
-        @Override
-        public int parseInto(ReadWritablePeriod period, String text, int position, Locale locale)
-        {
-            int bestValidPos = position;
-            ReadWritablePeriod bestValidPeriod = null;
-
-            for (PeriodParser parser : parsers) {
-                ReadWritablePeriod parsedPeriod = new MutablePeriod();
-                int parsePos = parser.parseInto(parsedPeriod, text, position, locale);
-                if (parsePos >= position) {
-                    if (parsePos > bestValidPos) {
-                        bestValidPos = parsePos;
-                        bestValidPeriod = parsedPeriod;
-                        if (parsePos >= text.length()) {
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // Restore the state to the best valid parse.
-            if (bestValidPeriod != null) {
-                period.setPeriod(bestValidPeriod);
-            }
-            return bestValidPos;
-        }
     }
 }

@@ -19,9 +19,10 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
-import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.trino.operator.scalar.DateTimeFunctions.dayOfYearFromDate;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
+import static java.lang.Math.floorDiv;
 
 @Description("Day of the year of the given timestamp")
 @ScalarFunction(value = "day_of_year", alias = "doy", neverFails = true)
@@ -33,7 +34,7 @@ public final class ExtractDayOfYear
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("timestamp(p)") long timestamp)
     {
-        return ISOChronology.getInstanceUTC().dayOfYear().get(scaleEpochMicrosToMillis(timestamp));
+        return dayOfYearFromDate(floorDiv(timestamp, MICROSECONDS_PER_DAY));
     }
 
     @LiteralParameters("p")

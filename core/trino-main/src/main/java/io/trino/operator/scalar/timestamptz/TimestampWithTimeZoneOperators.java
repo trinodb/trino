@@ -23,6 +23,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.type.LongInterval;
 
+import static io.trino.operator.scalar.TimestampField.MONTH;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -36,8 +37,8 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.type.IntervalCasts.negatePicos;
 import static io.trino.type.IntervalDayTimeOperators.dateTimeDifference;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.unpackChronology;
+import static io.trino.util.DateTimeZoneIndex.getZoneId;
+import static io.trino.util.DateTimeZoneIndex.unpackZoneId;
 import static java.lang.Math.addExact;
 
 public final class TimestampWithTimeZoneOperators
@@ -210,7 +211,7 @@ public final class TimestampWithTimeZoneOperators
         {
             try {
                 long epochMillis = unpackMillisUtc(packedEpochMillis);
-                long result = unpackChronology(packedEpochMillis).monthOfYear().add(epochMillis, interval);
+                long result = MONTH.add(epochMillis, interval, unpackZoneId(packedEpochMillis));
 
                 return packDateTimeWithZone(result, unpackZoneKey(packedEpochMillis));
             }
@@ -227,7 +228,7 @@ public final class TimestampWithTimeZoneOperators
         {
             try {
                 long epochMillis = timestamp.getEpochMillis();
-                long result = getChronology(getTimeZoneKey(timestamp.getTimeZoneKey())).monthOfYear().add(epochMillis, interval);
+                long result = MONTH.add(epochMillis, interval, getZoneId(getTimeZoneKey(timestamp.getTimeZoneKey())));
 
                 return LongTimestampWithTimeZone.fromEpochMillisAndFraction(result, timestamp.getPicosOfMilli(), timestamp.getTimeZoneKey());
             }

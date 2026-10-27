@@ -19,9 +19,10 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
-import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.trino.operator.scalar.DateTimeFunctions.dayOfWeekFromDate;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
+import static java.lang.Math.floorDiv;
 
 @Description("Day of the week of the given timestamp")
 @ScalarFunction(value = "day_of_week", alias = "dow", neverFails = true)
@@ -33,7 +34,7 @@ public final class ExtractDayOfWeek
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("timestamp(p)") long timestamp)
     {
-        return ISOChronology.getInstanceUTC().dayOfWeek().get(scaleEpochMicrosToMillis(timestamp));
+        return dayOfWeekFromDate(floorDiv(timestamp, MICROSECONDS_PER_DAY));
     }
 
     @LiteralParameters("p")

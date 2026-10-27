@@ -44,7 +44,6 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.tree.Extract.Field;
 import io.trino.type.LikeFunctions;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -54,6 +53,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
@@ -90,7 +90,6 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -2557,14 +2556,14 @@ public class TestExpressionCompiler
     @Test
     public void testExtract()
     {
-        DateTime[] dateTimeValues = {
-                new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC),
-                new DateTime(1960, 1, 22, 3, 4, 5, 321, UTC),
-                new DateTime(1970, 1, 1, 0, 0, 0, 0, UTC),
+        Instant[] dateTimeValues = {
+                Instant.parse("2001-01-22T03:04:05.321Z"),
+                Instant.parse("1960-01-22T03:04:05.321Z"),
+                Instant.EPOCH,
                 null,
         };
 
-        for (DateTime left : dateTimeValues) {
+        for (Instant left : dateTimeValues) {
             for (Field field : Field.values()) {
                 if (field == TIMEZONE_MINUTE || field == TIMEZONE_HOUR) {
                     continue;
@@ -2572,7 +2571,7 @@ public class TestExpressionCompiler
                 Long expected;
                 Long micros;
                 if (left != null) {
-                    micros = left.getMillis() * MICROSECONDS_PER_MILLISECOND;
+                    micros = left.toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
                     expected = callExtractFunction(micros, field);
                 }
                 else {

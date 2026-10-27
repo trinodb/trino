@@ -16,14 +16,13 @@ package io.trino.type;
 import io.trino.Session;
 import io.trino.spi.type.SqlDate;
 import io.trino.sql.query.QueryAssertions;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.concurrent.TimeUnit;
+import java.time.LocalDate;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
@@ -41,8 +40,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -70,20 +69,20 @@ public class TestDate
     {
         assertThat(assertions.expression("DATE '2001-1-22'"))
                 .hasType(DATE)
-                .isEqualTo(toDate(new DateTime(2001, 1, 22, 0, 0, UTC)));
+                .isEqualTo(toDate(LocalDate.of(2001, 1, 22)));
 
         assertThat(assertions.expression("DATE '2013-02-02'"))
                 .hasType(DATE)
-                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+                .isEqualTo(toDate(LocalDate.of(2013, 2, 2)));
 
         // one digit for month or day
         assertThat(assertions.expression("DATE '2013-2-02'"))
                 .hasType(DATE)
-                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+                .isEqualTo(toDate(LocalDate.of(2013, 2, 2)));
 
         assertThat(assertions.expression("DATE '2013-02-2'"))
                 .hasType(DATE)
-                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+                .isEqualTo(toDate(LocalDate.of(2013, 2, 2)));
 
         // three digit for month or day
         assertTrinoExceptionThrownBy(assertions.expression("DATE '2013-02-002'")::evaluate)
@@ -97,11 +96,11 @@ public class TestDate
         // zero-padded year
         assertThat(assertions.expression("DATE '02013-02-02'"))
                 .hasType(DATE)
-                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+                .isEqualTo(toDate(LocalDate.of(2013, 2, 2)));
 
         assertThat(assertions.expression("DATE '0013-02-02'"))
                 .hasType(DATE)
-                .isEqualTo(toDate(new DateTime(13, 2, 2, 0, 0, 0, 0, UTC)));
+                .isEqualTo(toDate(LocalDate.of(13, 2, 2)));
 
         // invalid date
         assertTrinoExceptionThrownBy(assertions.expression("DATE '2013-02-29'")::evaluate)
@@ -111,11 +110,11 @@ public class TestDate
         // surrounding whitespace
         assertThat(assertions.expression("DATE '  2013-02-02  '"))
                 .hasType(DATE)
-                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+                .isEqualTo(toDate(LocalDate.of(2013, 2, 2)));
 
         assertThat(assertions.expression("DATE ' \t\n\u000B\f\r\u001C\u001D\u001E\u001F 2013-02-02 \t\n\u000B\f\n\u001C\u001D\u001E\u001F '"))
                 .hasType(DATE)
-                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+                .isEqualTo(toDate(LocalDate.of(2013, 2, 2)));
 
         // intra whitespace
         assertTrinoExceptionThrownBy(assertions.expression("DATE '2013 -02-02'")::evaluate)
@@ -138,16 +137,16 @@ public class TestDate
         // signed
         assertThat(assertions.expression("DATE '+2013-02-02'"))
                 .hasType(DATE)
-                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+                .isEqualTo(toDate(LocalDate.of(2013, 2, 2)));
 
         assertThat(assertions.expression("DATE '-2013-02-02'"))
                 .hasType(DATE)
-                .isEqualTo(toDate(new DateTime(-2013, 2, 2, 0, 0, 0, 0, UTC)));
+                .isEqualTo(toDate(LocalDate.of(-2013, 2, 2)));
 
         // signed with whitespace
         assertThat(assertions.expression("DATE ' +2013-02-02'"))
                 .hasType(DATE)
-                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+                .isEqualTo(toDate(LocalDate.of(2013, 2, 2)));
 
         assertTrinoExceptionThrownBy(assertions.expression("DATE '+ 2013-02-02'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
@@ -159,7 +158,7 @@ public class TestDate
 
         assertThat(assertions.expression("DATE ' -2013-02-02'"))
                 .hasType(DATE)
-                .isEqualTo(toDate(new DateTime(-2013, 2, 2, 0, 0, 0, 0, UTC)));
+                .isEqualTo(toDate(LocalDate.of(-2013, 2, 2)));
 
         assertTrinoExceptionThrownBy(assertions.expression("DATE '- 2013-02-02'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
@@ -770,8 +769,8 @@ public class TestDate
                 .hasMessage("Cannot add hour, minutes or seconds to a date");
     }
 
-    private static SqlDate toDate(DateTime dateTime)
+    private static SqlDate toDate(LocalDate date)
     {
-        return new SqlDate((int) TimeUnit.MILLISECONDS.toDays(dateTime.getMillis()));
+        return new SqlDate(toIntExact(date.toEpochDay()));
     }
 }

@@ -14,7 +14,7 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
-import io.trino.operator.scalar.DateTimeFunctions;
+import io.trino.operator.scalar.TimestampField;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
@@ -23,7 +23,6 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -32,6 +31,7 @@ import static io.trino.type.DateTimes.getMicrosOfMilli;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static java.lang.Math.addExact;
+import static java.time.ZoneOffset.UTC;
 
 @Description("Add the specified amount of time to the given timestamp")
 @ScalarFunction("date_add")
@@ -51,7 +51,7 @@ public final class DateAdd
             long epochMillis = scaleEpochMicrosToMillis(timestamp);
             int microsOfMilli = getMicrosOfMilli(timestamp);
 
-            epochMillis = DateTimeFunctions.getTimestampField(ISOChronology.getInstanceUTC(), unit).add(epochMillis, value);
+            epochMillis = TimestampField.forTimestamp(unit).add(epochMillis, value, UTC);
 
             if (precision <= 3) {
                 epochMillis = round(epochMillis, (int) (3 - precision));

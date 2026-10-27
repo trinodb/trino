@@ -16,8 +16,6 @@ package io.trino.operator.scalar;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
-import org.joda.time.DateTimeField;
-import org.joda.time.chrono.ISOChronology;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -35,7 +33,6 @@ import org.openjdk.jmh.runner.RunnerException;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.util.Locale.ENGLISH;
 
@@ -48,8 +45,6 @@ import static java.util.Locale.ENGLISH;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkDateTimeFunctions
 {
-    private static final ISOChronology ISO_CHRONOLOGY = ISOChronology.getInstanceUTC();
-
     @State(Scope.Thread)
     public static class BenchmarkData
     {
@@ -73,33 +68,33 @@ public class BenchmarkDateTimeFunctions
     }
 
     // Old implementation
-    public static DateTimeField getTimestampFieldOld(ISOChronology chronology, Slice unit)
+    public static TimestampField getTimestampFieldOld(Slice unit)
     {
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
         return switch (unitString) {
-            case "millisecond" -> chronology.millisOfSecond();
-            case "second" -> chronology.secondOfMinute();
-            case "minute" -> chronology.minuteOfHour();
-            case "hour" -> chronology.hourOfDay();
-            case "day" -> chronology.dayOfMonth();
-            case "week" -> chronology.weekOfWeekyear();
-            case "month" -> chronology.monthOfYear();
-            case "quarter" -> QUARTER_OF_YEAR.getField(chronology);
-            case "year" -> chronology.year();
+            case "millisecond" -> TimestampField.MILLISECOND;
+            case "second" -> TimestampField.SECOND;
+            case "minute" -> TimestampField.MINUTE;
+            case "hour" -> TimestampField.HOUR;
+            case "day" -> TimestampField.DAY;
+            case "week" -> TimestampField.WEEK;
+            case "month" -> TimestampField.MONTH;
+            case "quarter" -> TimestampField.QUARTER;
+            case "year" -> TimestampField.YEAR;
             default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIMESTAMP field");
         };
     }
 
     @Benchmark
-    public DateTimeField getTimestampFieldOld(BenchmarkData data)
+    public TimestampField getTimestampFieldOld(BenchmarkData data)
     {
-        return getTimestampFieldOld(ISO_CHRONOLOGY, data.getUnit());
+        return getTimestampFieldOld(data.getUnit());
     }
 
     @Benchmark
-    public DateTimeField getTimestampFieldNew(BenchmarkData data)
+    public TimestampField getTimestampFieldNew(BenchmarkData data)
     {
-        return DateTimeFunctions.getTimestampField(ISO_CHRONOLOGY, data.getUnit());
+        return TimestampField.forTimestamp(data.getUnit());
     }
 
     @Test

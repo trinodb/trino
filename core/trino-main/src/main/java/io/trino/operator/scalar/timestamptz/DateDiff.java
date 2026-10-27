@@ -20,13 +20,12 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
-import static io.trino.operator.scalar.DateTimeFunctions.getTimestampField;
+import static io.trino.operator.scalar.TimestampField.forTimestamp;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.unpackChronology;
+import static io.trino.util.DateTimeZoneIndex.getZoneId;
+import static io.trino.util.DateTimeZoneIndex.unpackZoneId;
 
 @Description("Difference of the given times in the given unit")
 @ScalarFunction("date_diff")
@@ -41,8 +40,7 @@ public final class DateDiff
             @SqlType("timestamp(p) with time zone") long packedEpochMillis1,
             @SqlType("timestamp(p) with time zone") long packedEpochMillis2)
     {
-        return getTimestampField(unpackChronology(packedEpochMillis1), unit)
-                .getDifferenceAsLong(unpackMillisUtc(packedEpochMillis2), unpackMillisUtc(packedEpochMillis1));
+        return forTimestamp(unit).difference(unpackMillisUtc(packedEpochMillis2), unpackMillisUtc(packedEpochMillis1), unpackZoneId(packedEpochMillis1));
     }
 
     @LiteralParameters({"x", "p"})
@@ -55,7 +53,6 @@ public final class DateDiff
         long epochMillis1 = timestamp1.getEpochMillis();
         long epochMillis2 = timestamp2.getEpochMillis();
 
-        ISOChronology chronology = getChronology(getTimeZoneKey(timestamp1.getTimeZoneKey()));
-        return getTimestampField(chronology, unit).getDifferenceAsLong(epochMillis2, epochMillis1);
+        return forTimestamp(unit).difference(epochMillis2, epochMillis1, getZoneId(getTimeZoneKey(timestamp1.getTimeZoneKey())));
     }
 }

@@ -19,13 +19,13 @@ import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
+import static io.trino.util.DateTimeZoneIndex.getOffsetMillis;
+import static io.trino.util.DateTimeZoneIndex.getZoneId;
 
 @ScalarOperator(CAST)
 public final class DateToTimestampWithTimeZoneCast
@@ -52,7 +52,6 @@ public final class DateToTimestampWithTimeZoneCast
 
         // date is encoded as milliseconds at midnight in UTC
         // convert to midnight in the session timezone
-        ISOChronology chronology = getChronology(session.getTimeZoneKey());
-        return epochMillis - chronology.getZone().getOffset(epochMillis);
+        return epochMillis - getOffsetMillis(epochMillis, getZoneId(session.getTimeZoneKey()));
     }
 }
