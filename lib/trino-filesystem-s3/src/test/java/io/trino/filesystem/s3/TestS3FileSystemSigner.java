@@ -55,6 +55,7 @@ final class TestS3FileSystemSigner
         AuthSchemeOption option = resolveSigV4(createAuthSchemeProvider(Aws4Signer));
         assertThat(option.signerProperty(AwsV4HttpSigner.DOUBLE_URL_ENCODE)).isTrue();
         assertThat(option.signerProperty(AwsV4HttpSigner.NORMALIZE_PATH)).isTrue();
+        assertThat(option.signerProperty(AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED)).isFalse();
     }
 
     @Test
