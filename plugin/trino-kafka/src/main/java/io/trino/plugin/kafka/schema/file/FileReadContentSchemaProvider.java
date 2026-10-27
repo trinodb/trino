@@ -24,7 +24,8 @@ import java.net.URI;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SCHEMA_ERROR;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 
@@ -42,7 +43,7 @@ public class FileReadContentSchemaProvider
             return Optional.of(new String(inputStream.readAllBytes(), UTF_8));
         }
         catch (IOException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Could not parse the Avro schema at: " + dataSchemaLocation, e);
+            throw new TrinoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", dataSchemaLocation.get()), e);
         }
     }
 

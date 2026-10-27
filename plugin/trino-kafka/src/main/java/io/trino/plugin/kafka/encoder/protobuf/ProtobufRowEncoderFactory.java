@@ -14,7 +14,6 @@
 package io.trino.plugin.kafka.encoder.protobuf;
 
 import com.google.protobuf.Descriptors.Descriptor;
-import com.google.protobuf.Descriptors.DescriptorValidationException;
 import io.trino.plugin.kafka.encoder.RowEncoder;
 import io.trino.plugin.kafka.encoder.RowEncoderFactory;
 import io.trino.plugin.kafka.encoder.RowEncoderSpec;
@@ -22,7 +21,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.decoder.protobuf.ProtobufErrorCode.INVALID_PROTO_FILE;
 import static io.trino.decoder.protobuf.ProtobufErrorCode.MESSAGE_NOT_FOUND;
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
 import static io.trino.decoder.protobuf.ProtobufUtils.getFileDescriptor;
@@ -36,15 +34,10 @@ public class ProtobufRowEncoderFactory
     {
         checkArgument(rowEncoderSpec.dataSchema().isPresent(), "dataSchema for Protobuf format is not present");
 
-        try {
-            Descriptor descriptor = getFileDescriptor(rowEncoderSpec.dataSchema().get()).findMessageTypeByName(DEFAULT_MESSAGE);
-            if (descriptor != null) {
-                return new ProtobufRowEncoder(descriptor, session, rowEncoderSpec.columnHandles());
-            }
+        Descriptor descriptor = getFileDescriptor(rowEncoderSpec.dataSchema().get()).findMessageTypeByName(DEFAULT_MESSAGE);
+        if (descriptor == null) {
+            throw new TrinoException(MESSAGE_NOT_FOUND, format("Message %s not found", DEFAULT_MESSAGE));
         }
-        catch (DescriptorValidationException descriptorValidationException) {
-            throw new TrinoException(INVALID_PROTO_FILE, "Unable to parse protobuf schema", descriptorValidationException);
-        }
-        throw new TrinoException(MESSAGE_NOT_FOUND, format("Message %s not found", DEFAULT_MESSAGE));
+        return new ProtobufRowEncoder(descriptor, session, rowEncoderSpec.columnHandles());
     }
 }

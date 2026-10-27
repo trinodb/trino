@@ -46,7 +46,7 @@ public class AvroSchemaParser
     }
 
     @Override
-    public KafkaTopicFieldGroup parse(ConnectorSession session, String subject, ParsedSchema parsedSchema)
+    public KafkaTopicFieldGroup parse(ConnectorSession session, String subject, int schemaId, ParsedSchema parsedSchema)
     {
         checkArgument(parsedSchema instanceof AvroSchema, "parsedSchema should be an instance of AvroSchema");
         Schema schema = ((AvroSchema) parsedSchema).rawSchema();
