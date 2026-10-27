@@ -364,6 +364,10 @@ public class TrinoRestCatalog
                     try {
                         return apiCallStats.measure("listViews", () -> restSessionCatalog.listViews(sessionContext, remoteNamespace), NoSuchNamespaceException.class);
                     }
+                    catch (ForbiddenException e) {
+                        // handled by listTableIdentifiers so that table-only roles can still list tables
+                        throw e;
+                    }
                     catch (RESTException e) {
                         throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list views", e);
                     }
@@ -908,7 +912,7 @@ public class TrinoRestCatalog
             TableIdentifier remoteView = toRemoteView(session, viewName, getCached);
             return Optional.of(apiCallStats.measure("loadView", () -> restSessionCatalog.loadView(sessionContext, remoteView), NoSuchViewException.class));
         }
-        catch (NoSuchViewException e) {
+        catch (NoSuchViewException | ForbiddenException e) {
             return Optional.empty();
         }
         catch (RESTException e) {
