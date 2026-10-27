@@ -86,6 +86,17 @@ final class TestS3FileSystemSigner
 
     @ParameterizedTest
     @ValueSource(strings = {"PutObject", "UploadPart"})
+    void testPayloadSigningForUploads(String operation)
+    {
+        S3FileSystemConfig config = new S3FileSystemConfig();
+        assertThat(resolveSigV4(createClientAuthSchemeProvider(config), operation).signerProperty(AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED)).isFalse();
+        assertThat(resolveSigV4(createClientAuthSchemeProvider(config.setSignerType(Aws4Signer)), operation).signerProperty(AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED)).isFalse();
+        assertThat(resolveSigV4(createClientAuthSchemeProvider(config.setSignerType(Aws4UnsignedPayloadSigner)), operation).signerProperty(AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED)).isFalse();
+        assertThat(resolveSigV4(createClientAuthSchemeProvider(config.setSignerType(Aws4SignedPayloadSigner)), operation).signerProperty(AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED)).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PutObject", "UploadPart"})
     void testChunkedEncodingDisabled(String operation)
     {
         S3FileSystemConfig config = new S3FileSystemConfig().setChunkedEncodingEnabled(false);
