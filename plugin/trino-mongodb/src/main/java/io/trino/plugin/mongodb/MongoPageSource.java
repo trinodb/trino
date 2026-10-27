@@ -47,7 +47,6 @@ import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
-import org.joda.time.chrono.ISOChronology;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -84,9 +83,11 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToIntBits;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
@@ -95,7 +96,6 @@ import static java.util.stream.Collectors.toList;
 public class MongoPageSource
         implements ConnectorPageSource
 {
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
     private static final int ROWS_PER_REQUEST = 1024;
 
     private final MongoCursor<Document> cursor;
@@ -207,7 +207,7 @@ public class MongoPageSource
                     type.writeLong(output, TimeUnit.MILLISECONDS.toDays(utcMillis));
                 }
                 else if (type.equals(TIME_MILLIS)) {
-                    long millis = UTC_CHRONOLOGY.millisOfDay().get(((Date) value).getTime());
+                    long millis = floorMod(((Date) value).getTime(), MILLISECONDS_PER_DAY);
                     type.writeLong(output, multiplyExact(millis, PICOSECONDS_PER_MILLISECOND));
                 }
                 else if (type.equals(TIMESTAMP_MILLIS)) {
