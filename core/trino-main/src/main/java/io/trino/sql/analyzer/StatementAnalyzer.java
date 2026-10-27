@@ -5564,7 +5564,7 @@ class StatementAnalyzer
                     viewAccessControl = accessControl;
                 }
 
-                Session viewSession = session.createViewSession(catalog, schema, identity, path);
+                Session viewSession = session.createViewSessionKeepingInvokerIdentity(catalog, schema, identity, path);
 
                 StatementAnalyzer analyzer = statementAnalyzerFactory
                         .withSpecializedAccessControl(viewAccessControl)
