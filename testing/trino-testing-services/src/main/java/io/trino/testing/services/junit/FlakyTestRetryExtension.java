@@ -86,16 +86,6 @@ public class FlakyTestRetryExtension
         Throwable lastFailure = null;
 
         for (int attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-            if (attempt > 1) {
-                try {
-                    SECONDS.sleep(attempt - 1);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw e;
-                }
-            }
-
             try {
                 if (attempt == 1) {
                     invocation.proceed();
@@ -128,6 +118,14 @@ public class FlakyTestRetryExtension
                             formatTestName(extensionContext),
                             attempt,
                             flaky.issue());
+                    try {
+                        SECONDS.sleep(attempt);
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throwable.addSuppressed(e);
+                        throw throwable;
+                    }
                 }
                 else {
                     log.error(
