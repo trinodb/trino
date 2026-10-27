@@ -2471,6 +2471,7 @@ abstract class BaseTestHiveOnDataLake
         hiveFlociDataLake.runOnHive("CREATE DATABASE %2$s LOCATION 's3a://%1$s/%2$s'".formatted(bucketName, schemaName));
         try {
             hiveFlociDataLake.runOnHive("CREATE TABLE " + schemaName + "." + icebergTableName + " TBLPROPERTIES ('table_type'='iceberg') AS SELECT 1 a");
+            assertUpdate("CALL system.flush_metadata_cache()");
 
             assertQueryFails("DROP SCHEMA " + schemaName + " CASCADE", "\\QCannot query Iceberg table '%s.%s'".formatted(schemaName, icebergTableName));
 
