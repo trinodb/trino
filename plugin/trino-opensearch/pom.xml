@@ -109,6 +109,13 @@
             <groupId>org.opensearch</groupId>
             <artifactId>opensearch</artifactId>
             <version>${dep.opensearch.version}</version>
+            <exclusions>
+                <!-- Joda is used by server compatibility APIs, not the REST client. -->
+                <exclusion>
+                    <groupId>joda-time</groupId>
+                    <artifactId>joda-time</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
