@@ -24,13 +24,11 @@ import static org.apache.iceberg.aws.AwsClientProperties.REFRESH_CREDENTIALS_END
 import static org.apache.iceberg.aws.s3.S3FileIOProperties.ACCESS_KEY_ID;
 import static org.apache.iceberg.aws.s3.S3FileIOProperties.SECRET_ACCESS_KEY;
 import static org.apache.iceberg.aws.s3.S3FileIOProperties.SESSION_TOKEN;
+import static org.apache.iceberg.aws.s3.S3FileIOProperties.SESSION_TOKEN_EXPIRES_AT_MS;
 
 final class S3VendedCredentialsProvider
         extends AbstractIcebergRestVendedCredentialsProvider<S3VendedCredentials>
 {
-    // Copy org.apache.iceberg.aws.s3.S3FileIOProperties.SESSION_TOKEN_EXPIRES_AT_MS because the apache/iceberg constant is package-private
-    static final String SESSION_TOKEN_EXPIRES_AT_MS = "s3.session-token-expires-at-ms";
-
     S3VendedCredentialsProvider(
             Map<String, String> catalogProperties,
             Map<String, String> fileIoProperties)
