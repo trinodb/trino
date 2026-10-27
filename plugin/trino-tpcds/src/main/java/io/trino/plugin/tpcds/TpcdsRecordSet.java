@@ -25,9 +25,9 @@ import io.trino.spi.type.Type;
 import io.trino.tpcds.Results;
 import io.trino.tpcds.column.Column;
 import io.trino.tpcds.column.ColumnType;
-import org.joda.time.LocalTime;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Iterator;
 import java.util.List;
 
@@ -135,7 +135,7 @@ public class TpcdsRecordSet
                 return LocalDate.parse(row.get(column.getPosition())).toEpochDay();
             }
             if (column.getType().getBase() == ColumnType.Base.TIME) {
-                return (long) LocalTime.parse(row.get(column.getPosition())).getMillisOfDay() * PICOSECONDS_PER_MILLISECOND;
+                return (LocalTime.parse(row.get(column.getPosition())).toNanoOfDay() / 1_000_000) * PICOSECONDS_PER_MILLISECOND;
             }
             if (column.getType().getBase() == ColumnType.Base.INTEGER) {
                 return parseInt(row.get(column.getPosition()));
