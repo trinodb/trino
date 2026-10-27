@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.SortingFileWriterConfig;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.PageIndexerFactory;
@@ -34,21 +36,21 @@ import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.type.TypeManager;
-import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.io.LocationProvider;
-import org.apache.iceberg.types.Types;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Maps.transformValues;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isSortedWritingEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.maxPartitionsPerWriter;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static java.util.Objects.requireNonNull;
@@ -66,6 +68,10 @@ public class IcebergPageSinkProvider
     private final DataSize targetMaxFileSize;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
+    private final CopyOnWriteFileRewriter copyOnWriteFileRewriter;
+    private final IcebergPageSourceProviderFactory pageSourceProviderFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
+    private final ExecutorService copyOnWriteRewriteExecutor;
 
     @Inject
     public IcebergPageSinkProvider(
@@ -76,7 +82,11 @@ public class IcebergPageSinkProvider
             SortingFileWriterConfig sortingFileWriterConfig,
             IcebergConfig icebergConfig,
             TypeManager typeManager,
-            PageSorter pageSorter)
+            PageSorter pageSorter,
+            CopyOnWriteFileRewriter copyOnWriteFileRewriter,
+            IcebergPageSourceProviderFactory pageSourceProviderFactory,
+            ForwardingFileIoFactory fileIoFactory,
+            @ForIcebergCopyOnWriteRewrite ExecutorService copyOnWriteRewriteExecutor)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
@@ -88,6 +98,10 @@ public class IcebergPageSinkProvider
         this.targetMaxFileSize = icebergConfig.getTargetMaxFileSize();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.copyOnWriteFileRewriter = requireNonNull(copyOnWriteFileRewriter, "copyOnWriteFileRewriter is null");
+        this.pageSourceProviderFactory = requireNonNull(pageSourceProviderFactory, "pageSourceProviderFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
+        this.copyOnWriteRewriteExecutor = requireNonNull(copyOnWriteRewriteExecutor, "copyOnWriteRewriteExecutor is null");
     }
 
     @Override
@@ -194,32 +208,40 @@ public class IcebergPageSinkProvider
         Map<Integer, PartitionSpec> partitionsSpecs = transformValues(tableHandle.partitionsSpecsAsJson(), json -> PartitionSpecParser.fromJson(schema, json));
 
         int formatVersion = merge.getTableHandle().getFormatVersion();
-
-        Schema outputSchema;
-        if (formatVersion >= 3) {
-            // Persist row IDs for updated rows; $last_updated_sequence_number is synthesized from file sequence number.
-            List<Types.NestedField> columns = new ArrayList<>(schema.columns());
-            columns.add(MetadataColumns.ROW_ID);
-            outputSchema = new Schema(columns);
-        }
-        else {
-            outputSchema = SchemaParser.fromJson(tableHandle.schemaAsJson());
-        }
+        // Row-lineage columns have fixed field IDs; only append what the base schema is missing,
+        // matching IcebergMergeSink.buildRewriteSchema so both agree on the same output schema.
+        Schema outputSchema = IcebergMergeSink.buildRewriteSchema(schema, formatVersion);
         IcebergTableCredentials icebergTableCredentials = tableCredentials.map(IcebergTableCredentials.class::cast).get();
+        Map<String, String> fileIoProperties = icebergTableCredentials.fileIoProperties();
         ConnectorPageSink pageSink = createPageSink(session, tableHandle, outputSchema, icebergTableCredentials);
+        boolean sortRewrites = isSortedWritingEnabled(session) && !tableHandle.sortFields().isEmpty();
+        int rewriteSortOrderId = sortRewrites ? tableHandle.sortOrderId() : SortOrder.unsorted().orderId();
+        List<TrinoSortField> rewriteSortFields = sortRewrites ? tableHandle.sortFields() : ImmutableList.of();
 
+        IcebergMergeSink.QueryMemoryLedger memoryLedger = new IcebergMergeSink.QueryMemoryLedger(memoryContext);
         return new IcebergMergeSink(
                 formatVersion,
                 locationProvider,
                 fileWriterFactory,
                 fileSystemFactory.create(session.getIdentity(), icebergTableCredentials),
+                fileIoFactory,
+                copyOnWriteRewriteExecutor,
                 jsonCodec,
                 session,
                 tableHandle.fileFormat(),
+                fileIoProperties,
                 tableHandle.storageProperties(),
+                outputSchema,
                 partitionsSpecs,
                 pageSink,
                 schema.columns().size(),
-                memoryContext);
+                memoryLedger,
+                rewriteSortOrderId,
+                merge.getRowLevelOperationMode(),
+                copyOnWriteFileRewriter,
+                pageSourceProviderFactory.createPageSourceProvider(memoryLedger.filterContext()),
+                merge.getBaseTableProperties(),
+                merge.getPreExistingDeletesByDataFile(),
+                rewriteSortFields);
     }
 }

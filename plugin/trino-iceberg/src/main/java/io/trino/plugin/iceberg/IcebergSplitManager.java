@@ -156,11 +156,12 @@ public class IcebergSplitManager
                 .filter(id -> schema.findField(id) != null) // Newly added column may not be found in current snapshot schema until new files are added
                 .collect(toImmutableSet());
 
-        return icebergTable.newScan()
+        Scan<?, FileScanTask, CombinedScanTask> scan = icebergTable.newScan()
                 .useSnapshot(toSnapshotId)
                 .project(TypeUtil.select(schema, projectedIds)) // Using Scan.project method because Scan.select throws an exception for nested variant
                 .planWith(executor)
                 .metricsReporter(metricsReporter);
+        return scan;
     }
 
     @Override

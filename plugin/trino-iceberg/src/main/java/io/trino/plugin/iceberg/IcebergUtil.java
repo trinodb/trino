@@ -64,11 +64,13 @@ import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.IcebergManifestUtils;
+import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotUpdate;
@@ -219,6 +221,8 @@ import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.GC_ENABLED;
 import static org.apache.iceberg.TableProperties.GC_ENABLED_DEFAULT;
+import static org.apache.iceberg.TableProperties.MERGE_ISOLATION_LEVEL;
+import static org.apache.iceberg.TableProperties.MERGE_MODE;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS;
@@ -1088,6 +1092,7 @@ public final class IcebergUtil
 
     public static void verifyExtraProperties(Set<String> basePropertyKeys, Map<String, String> extraProperties, Predicate<String> allowedExtraProperties)
     {
+        validateCopyOnWriteExtraProperties(extraProperties);
         Set<String> illegalExtraProperties = ImmutableSet.<String>builder()
                 .addAll(Sets.intersection(
                         ImmutableSet.<String>builder()
@@ -1098,7 +1103,7 @@ public final class IcebergUtil
                                 .build(),
                         extraProperties.keySet()))
                 .addAll(extraProperties.keySet().stream()
-                        .filter(name -> !allowedExtraProperties.test(name))
+                        .filter(name -> !isAlwaysAllowedExtraProperty(name) && !allowedExtraProperties.test(name))
                         .collect(toImmutableSet()))
                 .build();
 
@@ -1106,6 +1111,37 @@ public final class IcebergUtil
             throw new TrinoException(
                     INVALID_TABLE_PROPERTY,
                     format("Illegal keys in extra_properties: %s", illegalExtraProperties));
+        }
+    }
+
+    /**
+     * {@code write.merge.mode} and {@code write.merge.isolation-level} are interpreted by Trino, so they
+     * are accepted through {@code extra_properties} even when {@code iceberg.allowed-extra-properties} is empty.
+     */
+    private static boolean isAlwaysAllowedExtraProperty(String name)
+    {
+        return MERGE_MODE.equals(name) || MERGE_ISOLATION_LEVEL.equals(name);
+    }
+
+    private static void validateCopyOnWriteExtraProperties(Map<String, String> extraProperties)
+    {
+        String mergeMode = extraProperties.get(MERGE_MODE);
+        if (mergeMode != null) {
+            try {
+                RowLevelOperationMode.fromName(mergeMode);
+            }
+            catch (IllegalArgumentException e) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Invalid value for %s: %s".formatted(MERGE_MODE, mergeMode), e);
+            }
+        }
+        String isolationLevel = extraProperties.get(MERGE_ISOLATION_LEVEL);
+        if (isolationLevel != null) {
+            try {
+                IsolationLevel.fromName(isolationLevel);
+            }
+            catch (IllegalArgumentException e) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Invalid value for %s: %s".formatted(MERGE_ISOLATION_LEVEL, isolationLevel), e);
+            }
         }
     }
 
