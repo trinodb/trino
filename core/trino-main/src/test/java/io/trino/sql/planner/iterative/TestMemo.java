@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMemo
@@ -251,6 +252,28 @@ public class TestMemo
 
         assertThat(memo.getCost(yGroup)).isEqualTo(Optional.empty());
         assertThat(memo.getCost(xGroup)).isEqualTo(Optional.empty());
+    }
+
+    @Test
+    public void testEvictEffectivePredicatesFromAllAncestors()
+    {
+        Memo memo = new Memo(idAllocator, node(node(node()), node(node()), node()));
+        int root = memo.getRootGroup();
+        List<PlanNode> children = memo.getNode(root).getSources();
+        int left = ((GroupReference) children.get(0)).getGroupId();
+        int right = ((GroupReference) children.get(1)).getGroupId();
+        int unrelated = ((GroupReference) children.get(2)).getGroupId();
+        GroupReference shared = (GroupReference) memo.getNode(left).getSources().get(0);
+        memo.replace(right, node(shared), "share child");
+        for (int group : List.of(root, left, right, shared.getGroupId(), unrelated)) {
+            memo.storeEffectivePredicate(group, TRUE);
+        }
+
+        memo.replace(shared.getGroupId(), node(), "replace shared child");
+        for (int group : List.of(root, left, right, shared.getGroupId())) {
+            assertThat(memo.getEffectivePredicate(group)).isEmpty();
+        }
+        assertThat(memo.getEffectivePredicate(unrelated)).contains(TRUE);
     }
 
     private static void assertMatchesStructure(PlanNode actual, PlanNode expected)
