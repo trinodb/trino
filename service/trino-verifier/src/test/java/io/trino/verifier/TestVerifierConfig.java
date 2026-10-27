@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -45,7 +45,7 @@ public class TestVerifierConfig
                 .setControlQueryTypes(ImmutableSet.of(READ, CREATE, MODIFY))
                 .setTestQueryTypes(ImmutableSet.of(READ, CREATE, MODIFY))
                 .setSource(null)
-                .setRunId(new DateTime().toString("yyyy-MM-dd"))
+                .setRunId(LocalDate.now().toString())
                 .setEventClients(ImmutableSet.of("human-readable"))
                 .setThreadCount(10)
                 .setQueryDatabase(null)

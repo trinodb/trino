@@ -24,8 +24,8 @@ import io.trino.sql.tree.QualifiedName;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import org.joda.time.DateTime;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -46,7 +46,7 @@ public class VerifierConfig
     private Set<QueryType> controlQueryTypes = ImmutableSet.of(READ, CREATE, MODIFY);
     private Set<QueryType> testQueryTypes = ImmutableSet.of(READ, CREATE, MODIFY);
     private String source;
-    private String runId = new DateTime().toString("yyyy-MM-dd");
+    private String runId = LocalDate.now().toString();
     private Set<String> eventClients = ImmutableSet.of("human-readable");
     private int threadCount = 10;
     private String queryDatabase;
