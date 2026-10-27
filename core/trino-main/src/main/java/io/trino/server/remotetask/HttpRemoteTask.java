@@ -1008,7 +1008,9 @@ public final class HttpRemoteTask
                 }
 
                 try {
-                    checkArgument(result.hasValue(), "TaskInfo result did not contain JSON payload; payload=%s", result.getResponseBody());
+                    if (!result.hasValue()) {
+                        throw new IllegalArgumentException(format("TaskInfo result did not contain JSON payload; payload=%s", result.getResponseBody()));
+                    }
                     updateTaskInfo(result.getValue());
                 }
                 catch (Throwable e) {
