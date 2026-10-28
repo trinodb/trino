@@ -13,8 +13,10 @@
  */
 package io.trino.operator.aggregation;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndex.Factory;
 import io.trino.operator.PagesIndexOrdering;
@@ -22,27 +24,28 @@ import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import jakarta.annotation.Nullable;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Long.max;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class OrderedAccumulatorFactory
         implements AccumulatorFactory
 {
+    private static final DataSize MAX_BATCH_SIZE = DataSize.of(16, MEGABYTE);
+
     private final AccumulatorFactory delegate;
     private final List<Type> sourceTypes;
     private final List<Integer> argumentChannels;
@@ -50,6 +53,7 @@ public class OrderedAccumulatorFactory
     private final List<SortOrder> orderings;
 
     private final Factory pagesIndexFactory;
+    private final long maxBatchSizeInBytes;
 
     public OrderedAccumulatorFactory(
             AccumulatorFactory delegate,
@@ -59,6 +63,19 @@ public class OrderedAccumulatorFactory
             List<SortOrder> orderings,
             Factory pagesIndexFactory)
     {
+        this(delegate, sourceTypes, argumentChannels, orderByChannels, orderings, pagesIndexFactory, MAX_BATCH_SIZE);
+    }
+
+    @VisibleForTesting
+    public OrderedAccumulatorFactory(
+            AccumulatorFactory delegate,
+            List<Type> sourceTypes,
+            List<Integer> argumentChannels,
+            List<Integer> orderByChannels,
+            List<SortOrder> orderings,
+            Factory pagesIndexFactory,
+            DataSize maxBatchSize)
+    {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.sourceTypes = ImmutableList.copyOf(requireNonNull(sourceTypes, "sourceTypes is null"));
         this.argumentChannels = ImmutableList.copyOf(requireNonNull(argumentChannels, "argumentChannels is null"));
@@ -66,6 +83,7 @@ public class OrderedAccumulatorFactory
         this.orderings = ImmutableList.copyOf(requireNonNull(orderings, "orderings is null"));
         checkArgument(!orderByChannels.isEmpty(), "Order by channels is empty");
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
+        this.maxBatchSizeInBytes = maxBatchSize.toBytes();
     }
 
     @Override
@@ -90,8 +108,14 @@ public class OrderedAccumulatorFactory
     @Override
     public GroupedAccumulator createGroupedAccumulator(List<Supplier<Object>> lambdaProviders)
     {
-        GroupedAccumulator accumulator = delegate.createGroupedAccumulator(lambdaProviders);
-        return new OrderingGroupedAccumulator(accumulator, sourceTypes, argumentChannels, orderByChannels, orderings, pagesIndexFactory);
+        return new OrderingGroupedAccumulator(
+                () -> delegate.createGroupedAccumulator(lambdaProviders),
+                sourceTypes,
+                argumentChannels,
+                orderByChannels,
+                orderings,
+                pagesIndexFactory,
+                maxBatchSizeInBytes);
     }
 
     @Override
@@ -204,43 +228,61 @@ public class OrderedAccumulatorFactory
         }
     }
 
+    // Replays the sorted rows into a fresh delegate for each batch of consecutive groups, so the state of only one batch is live
     private static class OrderingGroupedAccumulator
             implements GroupedAccumulator
     {
-        private final GroupedAccumulator accumulator;
+        private final Supplier<GroupedAccumulator> accumulatorFactory;
         private final int[] argumentChannels;
+        private final long maxBatchSizeInBytes;
         private final PagesIndexOrdering pagesIndexOrdering;
         @Nullable
-        private PagesIndex pagesIndex; // null after prepareFinal() is called
-        private long groupCount;
+        private PagesIndex pagesIndex; // null after all sorted rows are replayed
+        @Nullable
+        private IntArrayList rowGroupIds = new IntArrayList(); // group id of each row in pagesIndex, null after prepareFinal()
+        @Nullable
+        private int[] groupStarts; // position of the first sorted row of each group, set by prepareFinal()
+        @Nullable
+        private UpdateMemory updateMemory; // set by prepareFinal()
+        @Nullable
+        private GroupedAccumulator batch; // state of the groups in [batchStart, batchEnd)
+        private int batchStart;
+        private int batchEnd;
+        private int groupCount;
 
         private OrderingGroupedAccumulator(
-                GroupedAccumulator accumulator,
+                Supplier<GroupedAccumulator> accumulatorFactory,
                 List<Type> aggregationSourceTypes,
                 List<Integer> argumentChannels,
                 List<Integer> orderByChannels,
                 List<SortOrder> orderings,
-                Factory pagesIndexFactory)
+                Factory pagesIndexFactory,
+                long maxBatchSizeInBytes)
         {
-            this.accumulator = requireNonNull(accumulator, "accumulator is null");
+            this.accumulatorFactory = requireNonNull(accumulatorFactory, "accumulatorFactory is null");
             this.argumentChannels = Ints.toArray(argumentChannels);
-            requireNonNull(aggregationSourceTypes, "aggregationSourceTypes is null");
-            List<Type> pageIndexTypes = new ArrayList<>(aggregationSourceTypes);
-            // Add group id column
-            pageIndexTypes.add(INTEGER);
-            this.pagesIndex = pagesIndexFactory.newPagesIndex(pageIndexTypes, 10_000);
+            this.maxBatchSizeInBytes = maxBatchSizeInBytes;
+            this.pagesIndex = pagesIndexFactory.newPagesIndex(aggregationSourceTypes, 10_000);
             requireNonNull(orderByChannels, "orderByChannels is null");
             requireNonNull(orderings, "orderings is null");
             this.pagesIndexOrdering = pagesIndex.createPagesIndexComparator(orderByChannels, orderings);
-            this.groupCount = 0;
         }
 
         @Override
         public long getEstimatedSize()
         {
-            long estimatedSize = accumulator.getEstimatedSize();
+            long estimatedSize = 0;
             if (pagesIndex != null) {
                 estimatedSize += pagesIndex.getEstimatedSize().toBytes();
+            }
+            if (rowGroupIds != null) {
+                estimatedSize += sizeOf(rowGroupIds.elements());
+            }
+            if (groupStarts != null) {
+                estimatedSize += sizeOf(groupStarts);
+            }
+            if (batch != null) {
+                estimatedSize += batch.getEstimatedSize();
             }
             return estimatedSize;
         }
@@ -249,21 +291,24 @@ public class OrderedAccumulatorFactory
         public void setGroupCount(int groupCount)
         {
             this.groupCount = max(this.groupCount, groupCount);
-            accumulator.setGroupCount(groupCount);
         }
 
         @Override
         public void addInput(int[] groupIds, Page page, AggregationMask mask)
         {
-            checkState(pagesIndex != null, "prepareFinal() already called");
+            checkState(updateMemory == null, "prepareFinal() already called");
             if (mask.isSelectNone()) {
                 return;
             }
-
-            // Add group id block
-            page = page.appendColumn(new IntArrayBlock(page.getPositionCount(), Optional.empty(), groupIds));
-
-            // mask page
+            if (mask.isSelectAll()) {
+                rowGroupIds.addElements(rowGroupIds.size(), groupIds, 0, page.getPositionCount());
+            }
+            else {
+                int[] selectedPositions = mask.getSelectedPositions();
+                for (int index = 0; index < mask.getSelectedPositionCount(); index++) {
+                    rowGroupIds.add(groupIds[selectedPositions[index]]);
+                }
+            }
             pagesIndex.addPage(mask.filterPage(page));
         }
 
@@ -282,36 +327,96 @@ public class OrderedAccumulatorFactory
         @Override
         public void evaluateFinal(int groupId, BlockBuilder output)
         {
-            accumulator.evaluateFinal(groupId, output);
+            checkState(updateMemory != null, "prepareFinal() not called");
+            checkArgument(groupId < groupCount, "groupId %s is not below group count %s", groupId, groupCount);
+            checkArgument(groupId >= batchStart, "groupId %s precedes the current batch starting at %s", groupId, batchStart);
+            while (groupId >= batchEnd) {
+                buildNextBatch();
+            }
+            batch.evaluateFinal(groupId - batchStart, output);
         }
 
         @Override
         public void prepareFinal(UpdateMemory updateMemory)
         {
-            checkState(pagesIndex != null, "prepareFinal() already called");
-            pagesIndex.sort(pagesIndexOrdering);
-            Iterator<Page> pagesIterator = pagesIndex.getSortedPages();
-            AggregationMask mask = AggregationMask.createSelectAll(0);
-            pagesIterator.forEachRemaining(page -> {
-                mask.reset(page.getPositionCount());
-                accumulator.addInput(
-                        extractGroupIds(page),
-                        page.getColumns(argumentChannels),
-                        mask);
-                // result ignored, prepareFinal cannot yield
-                updateMemory.update();
-            });
-            // release pagesIndex memory after transferring its contents into the accumulator
-            pagesIndex = null;
-            accumulator.prepareFinal(updateMemory);
+            checkState(this.updateMemory == null, "prepareFinal() already called");
+            this.updateMemory = requireNonNull(updateMemory, "updateMemory is null");
+            int positionCount = pagesIndex.getPositionCount();
+            int[] groupIds = rowGroupIds.elements();
+            groupStarts = new int[groupCount + 1];
+            for (int position = 0; position < positionCount; position++) {
+                groupStarts[groupIds[position] + 1]++;
+            }
+            for (int groupId = 0; groupId < groupCount; groupId++) {
+                groupStarts[groupId + 1] += groupStarts[groupId];
+            }
+            // move each row into the position range of its group in place
+            int[] nextPositions = Arrays.copyOf(groupStarts, groupCount);
+            for (int groupId = 0; groupId < groupCount; groupId++) {
+                int groupEnd = groupStarts[groupId + 1];
+                int position = nextPositions[groupId];
+                while (position < groupEnd) {
+                    int rowGroupId = groupIds[position];
+                    if (rowGroupId == groupId) {
+                        position++;
+                    }
+                    else {
+                        int target = nextPositions[rowGroupId]++;
+                        pagesIndex.swap(position, target);
+                        groupIds[position] = groupIds[target];
+                        groupIds[target] = rowGroupId;
+                    }
+                }
+            }
+            rowGroupIds = null;
+            for (int groupId = 0; groupId < groupCount; groupId++) {
+                if (groupStarts[groupId + 1] - groupStarts[groupId] > 1) {
+                    pagesIndex.sort(pagesIndexOrdering, groupStarts[groupId], groupStarts[groupId + 1]);
+                }
+            }
         }
 
-        private static int[] extractGroupIds(Page page)
+        private void buildNextBatch()
         {
-            // this works because getSortedPages copies data into new blocks
-            IntArrayBlock groupIdBlock = (IntArrayBlock) page.getBlock(page.getChannelCount() - 1);
-            verify(groupIdBlock.getRawValuesOffset() == 0);
-            return groupIdBlock.getRawValues();
+            batchStart = batchEnd;
+            batchEnd = groupCount;
+            batch = accumulatorFactory.get();
+            int position = groupStarts[batchStart];
+            int groupId = batchStart;
+            boolean full = false;
+            AggregationMask mask = AggregationMask.createSelectAll(0);
+            Iterator<Page> sortedPages = pagesIndex.getSortedPages(position, groupStarts[groupCount]);
+            while (sortedPages.hasNext()) {
+                Page page = sortedPages.next();
+                int[] groupIds = new int[page.getPositionCount()];
+                for (int index = 0; index < groupIds.length; index++) {
+                    while (groupStarts[groupId + 1] <= position) {
+                        groupId++;
+                    }
+                    groupIds[index] = groupId - batchStart;
+                    position++;
+                }
+                batch.setGroupCount(groupId - batchStart + 1);
+                mask.reset(groupIds.length);
+                batch.addInput(groupIds, page.getColumns(argumentChannels), mask);
+                if (!full && batch.getEstimatedSize() >= maxBatchSizeInBytes) {
+                    // the batch ends after the last group added, whose rows may continue after this page
+                    full = true;
+                    batchEnd = groupId + 1;
+                    sortedPages = pagesIndex.getSortedPages(position, groupStarts[batchEnd]);
+                }
+                if (full) {
+                    // result ignored, evaluateFinal cannot yield
+                    updateMemory.update();
+                }
+            }
+            if (batchEnd == groupCount) {
+                // release pagesIndex memory after replaying all of its rows
+                pagesIndex = null;
+                groupStarts = null;
+            }
+            batch.setGroupCount(batchEnd - batchStart);
+            batch.prepareFinal(updateMemory);
         }
     }
 }
