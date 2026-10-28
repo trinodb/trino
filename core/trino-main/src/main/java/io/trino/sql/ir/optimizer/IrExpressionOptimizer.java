@@ -167,6 +167,11 @@ public class IrExpressionOptimizer
 
     public Optional<Expression> process(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
+        // No rule rewrites a constant
+        if (expression instanceof Constant) {
+            return Optional.empty();
+        }
+
         boolean changed = false;
 
         boolean progress = true;
