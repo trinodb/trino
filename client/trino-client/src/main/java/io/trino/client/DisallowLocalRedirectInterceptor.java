@@ -37,6 +37,7 @@ public class DisallowLocalRedirectInterceptor
         if (response.isRedirect()) {
             String location = response.header("Location");
             if (!redirectAllowed(location)) {
+                response.close();
                 throw new ClientException(format("Following redirect to '%s' is disallowed", location));
             }
         }
