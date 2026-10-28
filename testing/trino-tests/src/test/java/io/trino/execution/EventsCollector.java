@@ -61,6 +61,16 @@ final class EventsCollector
         return queryEvents.computeIfAbsent(queryId, _ -> new QueryEvents());
     }
 
+    public synchronized void checkFailure()
+    {
+        try {
+            queryEvents.values().forEach(QueryEvents::checkFailure);
+        }
+        finally {
+            queryEvents.clear();
+        }
+    }
+
     @ThreadSafe
     public static class QueryEvents
     {
@@ -146,6 +156,7 @@ final class EventsCollector
             }
             RuntimeException exception = new RuntimeException("Event collection failed");
             failures.forEach(exception::addSuppressed);
+            throw exception;
         }
     }
 }
