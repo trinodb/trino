@@ -1196,6 +1196,7 @@ public abstract class BaseTrinoDriverTest
     {
         try (TrinoConnection connection = createConnection("blackhole", "blackhole").unwrap(TrinoConnection.class);
                 Statement statement = connection.createStatement()) {
+            assertThat(connection.getRoles()).isEqualTo(ImmutableMap.of());
             statement.execute("SET SESSION AUTHORIZATION john");
             assertThat(connection.getAuthorizationUser()).isEqualTo("john");
             statement.execute("SET ROLE ALL");
