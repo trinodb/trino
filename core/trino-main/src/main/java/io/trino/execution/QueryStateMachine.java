@@ -114,10 +114,13 @@ import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.StagesInfo.getAllStages;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.StandardErrorCode.ABANDONED_QUERY;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_COMMITED;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_COMMIT_OUTCOME_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.spi.connector.StandardWarningCode.SPOOLING_NOT_SUPPORTED;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
@@ -1375,12 +1378,23 @@ public class QueryStateMachine
         requireNonNull(throwable, "throwable is null");
 
         boolean rejectedExternalFailure;
+        boolean unknownCommitOutcome = false;
         synchronized (finalizationLock) {
             if (queryState.get().isDone() || failureStarted) {
                 return false;
             }
 
-            if (commitStarted && !commitFailure) {
+            if (commitStarted && !commitFailure && !committed.get() &&
+                    throwable instanceof TrinoException failure &&
+                    (failure.getErrorCode().equals(USER_CANCELED.toErrorCode()) ||
+                            failure.getErrorCode().equals(ABANDONED_QUERY.toErrorCode()) ||
+                            failure.getErrorCode().equals(EXCEEDED_TIME_LIMIT.toErrorCode()) ||
+                            failure.getErrorCode().equals(SERVER_SHUTTING_DOWN.toErrorCode()))) {
+                failureStarted = true;
+                unknownCommitOutcome = true;
+                rejectedExternalFailure = false;
+            }
+            else if (commitStarted && !commitFailure) {
                 // Release the consumption gate only after abandonment.
                 // A timed-out query may still have a client reading results.
                 if (throwable instanceof TrinoException trinoException &&
@@ -1401,6 +1415,13 @@ public class QueryStateMachine
         if (rejectedExternalFailure) {
             transitionToFinishedIfReady();
             return false;
+        }
+
+        if (unknownCommitOutcome) {
+            throwable = new TrinoException(
+                    TRANSACTION_COMMIT_OUTCOME_UNKNOWN,
+                    "Transaction commit outcome unknown; verify transaction effects before retrying",
+                    throwable);
         }
 
         queryStateTimer.endQuery();
@@ -1435,7 +1456,10 @@ public class QueryStateMachine
             if (log) {
                 QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
             }
-            session.getTransactionId().flatMap(transactionManager::getTransactionInfoIfExist).ifPresent(transaction -> {
+            Optional<TransactionInfo> transactionToAbort = unknownCommitOutcome
+                    ? Optional.empty()
+                    : session.getTransactionId().flatMap(transactionManager::getTransactionInfoIfExist);
+            transactionToAbort.ifPresent(transaction -> {
                 try {
                     if (transaction.isAutoCommitContext()) {
                         transactionManager.asyncAbort(transaction.getTransactionId());

@@ -108,6 +108,7 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.spi.StandardErrorCode.ABANDONED_QUERY;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_COMMIT_OUTCOME_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -419,6 +420,97 @@ public class TestQueryStateMachine
     }
 
     @Test
+    public void testCancellationRacingWithCommitCompletion()
+            throws Exception
+    {
+        for (int attempt = 0; attempt < 10; attempt++) {
+            BlockingCommitTransactionManager transactionManager =
+                    new BlockingCommitTransactionManager(createTestTransactionManager());
+
+            QueryStateMachine stateMachine = queryStateMachine()
+                    .withTransactionManager(transactionManager)
+                    .build();
+
+            assertThat(stateMachine.transitionToRunning()).isTrue();
+            stateMachine.resultsConsumed();
+            assertThat(stateMachine.transitionToFinishing()).isTrue();
+
+            CountDownLatch ready = new CountDownLatch(2);
+            CountDownLatch start = new CountDownLatch(1);
+
+            Future<Boolean> cancellation = executor.submit(() -> {
+                ready.countDown();
+                awaitUninterruptibly(start);
+                return stateMachine.transitionToCanceled();
+            });
+
+            Future<?> completion = executor.submit(() -> {
+                ready.countDown();
+                awaitUninterruptibly(start);
+                transactionManager.completeCommit();
+            });
+
+            try {
+                assertThat(ready.await(10, SECONDS)).isTrue();
+            }
+            finally {
+                start.countDown();
+            }
+
+            boolean canceled = cancellation.get(10, SECONDS);
+            completion.get(10, SECONDS);
+
+            tryGetFutureValue(stateMachine.getStateChange(FINISHING), 10, SECONDS);
+
+            QueryState finalState = stateMachine.getQueryState();
+            assertThat(finalState).isIn(FINISHED, FAILED);
+
+            if (finalState == FAILED) {
+                assertThat(canceled).isTrue();
+                assertThat(stateMachine.getQueryInfo(Optional.empty()).getErrorCode())
+                        .isEqualTo(TRANSACTION_COMMIT_OUTCOME_UNKNOWN.toErrorCode());
+            }
+            else {
+                assertThat(canceled).isFalse();
+            }
+        }
+    }
+
+    @Test
+    public void testUnknownCommitOutcomeDoesNotAbortTransaction()
+    {
+        AtomicBoolean abortAttempted = new AtomicBoolean();
+
+        BlockingCommitTransactionManager transactionManager =
+                new BlockingCommitTransactionManager(createTestTransactionManager())
+                {
+                    @Override
+                    public ListenableFuture<Void> asyncAbort(TransactionId transactionId)
+                    {
+                        abortAttempted.set(true);
+                        return super.asyncAbort(transactionId);
+                    }
+                };
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .withTransactionManager(transactionManager)
+                .build();
+
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
+        assertThat(transactionManager.isCommitCompletionPending()).isTrue();
+
+        assertThat(stateMachine.transitionToCanceled()).isTrue();
+        assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
+        assertThat(abortAttempted.get()).isFalse();
+
+        transactionManager.completeCommit();
+
+        assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
+        assertThat(abortAttempted.get()).isFalse();
+    }
+
+    @Test
     public void testFailureInformationPublishedBeforeCleanupCompletes()
             throws Exception
     {
@@ -521,16 +613,18 @@ public class TestQueryStateMachine
 
         assertThat(stateMachine.transitionToFailed(
                 new TrinoException(ABANDONED_QUERY, "Query abandoned")))
-                .isFalse();
+                .isTrue();
+
+        assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getErrorCode())
+                .isEqualTo(TRANSACTION_COMMIT_OUTCOME_UNKNOWN.toErrorCode());
 
         transactionManager.completeCommit();
-
-        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
-        assertFinalState(stateMachine, FINISHED);
+        assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
     }
 
     @Test
-    public void testTimeLimitDuringCommitPreservesUnconsumedResults()
+    public void testTimeLimitDuringCommitReportsUnknownOutcome()
     {
         BlockingCommitTransactionManager transactionManager =
                 new BlockingCommitTransactionManager(createTestTransactionManager());
@@ -545,14 +639,15 @@ public class TestQueryStateMachine
 
         assertThat(stateMachine.transitionToFailed(
                 new TrinoException(EXCEEDED_TIME_LIMIT, "Query timed out")))
-                .isFalse();
+                .isTrue();
 
-        assertState(stateMachine, FINISHING);
-        transactionManager.completeCommit();
+        assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getErrorCode())
+                .isEqualTo(TRANSACTION_COMMIT_OUTCOME_UNKNOWN.toErrorCode());
 
-        assertState(stateMachine, FINISHING);
+        transactionManager.failCommit(new IllegalStateException("Late commit failure"));
         stateMachine.resultsConsumed();
-        assertFinalState(stateMachine, FINISHED);
+        assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
     }
 
     @Test
@@ -593,12 +688,12 @@ public class TestQueryStateMachine
         assertThat(stateMachine.transitionToRunning()).isTrue();
         assertThat(stateMachine.transitionToFinishing()).isTrue();
 
+        transactionManager.completeCommit();
+        assertState(stateMachine, FINISHING);
+
         assertThat(stateMachine.transitionToFailed(
                 new TrinoException(EXCEEDED_TIME_LIMIT, "Query timed out")))
                 .isFalse();
-
-        transactionManager.completeCommit();
-        assertState(stateMachine, FINISHING);
 
         assertThat(stateMachine.transitionToFailed(
                 new TrinoException(ABANDONED_QUERY, "Client abandoned query")))
@@ -713,6 +808,38 @@ public class TestQueryStateMachine
     }
 
     @Test
+    public void testCommitFailureAfterCancellationDoesNotOverrideUnknownOutcome()
+    {
+        BlockingCommitTransactionManager transactionManager =
+                new BlockingCommitTransactionManager(createTestTransactionManager());
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .withTransactionManager(transactionManager)
+                .build();
+
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+        stateMachine.resultsConsumed();
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
+
+        assertThat(transactionManager.isCommitStarted()).isTrue();
+        assertThat(transactionManager.isCommitCompletionPending()).isTrue();
+
+        assertThat(stateMachine.transitionToCanceled()).isTrue();
+
+        assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getErrorCode())
+                .isEqualTo(TRANSACTION_COMMIT_OUTCOME_UNKNOWN.toErrorCode());
+
+        // The late result cannot change an already terminal query.
+        transactionManager.failCommit(
+                new IllegalStateException("late commit failure"));
+
+        assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getErrorCode())
+                .isEqualTo(TRANSACTION_COMMIT_OUTCOME_UNKNOWN.toErrorCode());
+    }
+
+    @Test
     public void testCommitFailureIsNotSuppressed()
     {
         TransactionManager delegate = createTestTransactionManager();
@@ -794,13 +921,15 @@ public class TestQueryStateMachine
 
         ListenableFuture<QueryState> stateChange = stateMachine.getStateChange(FINISHING);
 
-        assertThat(stateMachine.transitionToCanceled()).isFalse();
-        assertState(stateMachine, FINISHING);
+        assertThat(stateMachine.transitionToCanceled()).isTrue();
+        tryGetFutureValue(stateChange, 2, SECONDS);
+
+        assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getErrorCode())
+                .isEqualTo(TRANSACTION_COMMIT_OUTCOME_UNKNOWN.toErrorCode());
 
         transactionManager.completeCommit();
-
-        tryGetFutureValue(stateChange, 2, SECONDS);
-        assertFinalState(stateMachine, FINISHED);
+        assertThat(stateMachine.getQueryState()).isEqualTo(FAILED);
     }
 
     @Test
