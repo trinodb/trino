@@ -49,7 +49,9 @@ import java.util.Optional;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getExactColumnNames;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -189,6 +191,9 @@ public class RegisterTableProcedure
             }
             catch (IOException | RuntimeException e) {
                 throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Failed to access table location: " + tableLocation, e);
+            }
+            if (getExactColumnNames(metadataEntry).isEmpty()) {
+                throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Delta table %s has no columns".formatted(schemaTableName));
             }
 
             Table table = metadata.buildTable(

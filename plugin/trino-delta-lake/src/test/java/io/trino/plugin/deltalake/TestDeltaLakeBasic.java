@@ -4008,7 +4008,10 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_table_without_columns_" + randomNameSuffix();
-        Path transactionLogDirectory = catalogDir.resolve(tableName).resolve("_delta_log");
+        assertUpdate("CREATE TABLE " + tableName + " (a integer)");
+        Path transactionLogDirectory = Path.of(URI.create(getTableLocation(tableName))).resolve("_delta_log");
+        // Replace the schema with one that has no fields, as register_table rejects such a table
+        deleteRecursively(transactionLogDirectory, ALLOW_INSECURE);
         Files.createDirectories(transactionLogDirectory);
         String metadata =
                 """
@@ -4030,7 +4033,7 @@ public class TestDeltaLakeBasic
                     {"metadata":%s,"protocol":%s}
                     """.formatted(metadata, protocol));
         }
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, transactionLogDirectory.getParent().toUri()));
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '%s')".formatted(tableName));
 
         String expectedMessage = "Delta table tpch.%s has no columns".formatted(tableName);
         assertThat(query("SHOW COLUMNS FROM " + tableName)).failure()
