@@ -205,6 +205,10 @@ expires and is pruned.
 Maximum available time for the client to retrieve spooled segment using the
 pre-signed URI.
 
+Note: A pre-signed URI stops working when the credentials that signed it expire. With
+temporary credentials from S3 `IAM_ROLE` or `WEB_IDENTITY` authentication, the current
+implementation may only guarantee that the URI is usable for up to `30m`.
+
 ### `fs.segment.encryption`
 
 - **Type:** [](prop-type-boolean)
