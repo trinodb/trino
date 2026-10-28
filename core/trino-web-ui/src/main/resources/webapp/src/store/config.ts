@@ -22,8 +22,9 @@ export enum Theme {
 }
 
 export const DEFAULT_CONFIG = {
-    avatar: '',
     theme: Theme.Auto as Theme,
+    // Query list without the query text under each row: just the table
+    hideQueryText: false,
 }
 
 export type AppConfig = typeof DEFAULT_CONFIG

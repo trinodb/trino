@@ -25,11 +25,12 @@ export const LinearProgressWithLabel = (props: LinearProgressWithLabelProps) => 
 
     return (
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Box sx={{ pr: 2 }}>
-                <Chip size="small" label={title} color={color} />
+            {/* minWidth 0 lets long state names (e.g. INSUFFICIENT RESOURCES - ...) truncate on narrow screens */}
+            <Box sx={{ pr: 2, minWidth: 0 }}>
+                <Chip size="small" label={title} color={color} sx={{ maxWidth: '100%' }} />
             </Box>
             <>
-                <Box sx={{ width: '100%', mr: 1 }}>
+                <Box sx={{ width: '100%', minWidth: 48, mr: 1 }}>
                     <LinearProgress variant="determinate" color="secondary" value={value} />
                 </Box>
                 <Box sx={{ minWidth: 35 }}>

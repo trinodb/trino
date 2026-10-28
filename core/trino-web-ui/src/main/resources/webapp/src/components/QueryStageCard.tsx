@@ -53,6 +53,7 @@ import RemoveCircleRoundedIcon from '@mui/icons-material/RemoveCircleRounded'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { BarChart } from '@mui/x-charts/BarChart'
 import { Texts } from '../constant'
+import { useClusterStatsStore } from '../store'
 import { QueryStage, QueryTask, WorkerTaskInfo, workerTaskApi } from '../api/webapp/api'
 import { ApiResponse } from '../api/base'
 import {
@@ -678,7 +679,16 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
                                                     </Link>
                                                 </TableCell>
                                                 <TableCell component="th" scope="row">
-                                                    <StyledLink to={`/workers/${task.taskStatus.nodeId}`}>
+                                                    {/* Opens the nodes table on the dashboard with this node
+                                                        expanded */}
+                                                    <StyledLink
+                                                        to="/dashboard"
+                                                        onClick={() => {
+                                                            const nodes = useClusterStatsStore.getState()
+                                                            nodes.setExpandedNodeId(task.taskStatus.nodeId)
+                                                            nodes.setNodesOpen(true)
+                                                        }}
+                                                    >
                                                         {getHostname(task.taskStatus.self)}
                                                     </StyledLink>
                                                 </TableCell>
