@@ -18,6 +18,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LongArrayBlock;
 import org.junit.jupiter.api.Test;
@@ -25,7 +26,9 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.LongStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
@@ -84,22 +87,13 @@ public class TestOrderedAccumulatorFactory
         assertThat(accumulator.getEstimatedSize()).isLessThan(sizeAtUpdate.getFirst());
     }
 
-    // the non-grouped twin of the test above: the replay happens in evaluateFinal instead of prepareFinal
+    // prepareFinal reports memory while it replays the buffered rows into the delegate
     @Test
-    public void testEvaluateFinalReportsMemoryWhileReplaying()
+    public void testNonGroupedPrepareFinalReportsMemoryWhileReplaying()
     {
         TestingAggregationFunction arrayAgg = FUNCTION_RESOLUTION.getAggregateFunction("array_agg", fromTypes(BIGINT));
-        OrderedAccumulatorFactory factory = new OrderedAccumulatorFactory(
-                arrayAgg.getDistinctFactory(),
-                ImmutableList.of(BIGINT),
-                ImmutableList.of(0),      // argument channels
-                ImmutableList.of(0),      // order-by channels
-                ImmutableList.of(ASC_NULLS_LAST),
-                new PagesIndex.TestingFactory(false));
+        Accumulator accumulator = createValueOrderedFactory(arrayAgg).createAccumulator(ImmutableList.of());
 
-        Accumulator accumulator = factory.createAccumulator(ImmutableList.of());
-
-        // buffer enough distinct rows that getSortedPages yields multiple pages to replay
         int positionsPerPage = 100_000;
         for (int page = 0; page < 4; page++) {
             long[] values = new long[positionsPerPage];
@@ -110,7 +104,6 @@ public class TestOrderedAccumulatorFactory
                     new Page(new LongArrayBlock(positionsPerPage, Optional.empty(), values)),
                     AggregationMask.createSelectAll(positionsPerPage));
         }
-        // the delegate has seen no input yet, so this is what the buffered pages alone weigh
         long bufferedPagesSize = accumulator.getEstimatedSize();
 
         List<Long> sizeAtUpdate = new ArrayList<>();
@@ -118,17 +111,71 @@ public class TestOrderedAccumulatorFactory
             sizeAtUpdate.add(accumulator.getEstimatedSize());
             return true;
         };
-        BlockBuilder output = arrayAgg.getFinalType().createBlockBuilder(null, 1);
-        accumulator.evaluateFinal(output, updateMemory);
+        accumulator.prepareFinal(updateMemory);
 
-        // memory is reported repeatedly during the replay, not just once after it
         assertThat(sizeAtUpdate).hasSizeGreaterThan(1);
-        // the buffered pages and the delegate's growth are counted at the same moment
         assertThat(sizeAtUpdate.getFirst()).isGreaterThan(bufferedPagesSize);
-        // the delegate's growth is visible as the replay progresses
-        assertThat(sizeAtUpdate.getLast()).isGreaterThan(sizeAtUpdate.getFirst());
-        // the buffered pages and the delegate's hash are released once the output is produced
-        assertThat(accumulator.getEstimatedSize()).isLessThan(sizeAtUpdate.getLast());
-        assertThat(accumulator.getEstimatedSize()).isLessThan(sizeAtUpdate.getFirst());
+        // the last update reports the size after the buffered pages are released
+        assertThat(sizeAtUpdate.getLast())
+                .isEqualTo(accumulator.getEstimatedSize())
+                .isLessThan(bufferedPagesSize);
+    }
+
+    // prepareFinal resumes from the next sorted page after each yield
+    @Test
+    public void testNonGroupedPrepareFinalResumesAfterYield()
+    {
+        TestingAggregationFunction arrayAgg = FUNCTION_RESOLUTION.getAggregateFunction("array_agg", fromTypes(BIGINT));
+        Accumulator accumulator = createValueOrderedFactory(arrayAgg).createAccumulator(ImmutableList.of());
+
+        int positionsPerPage = 100_000;
+        int pageCount = 4;
+        long rows = (long) pageCount * positionsPerPage;
+        for (int page = 0; page < pageCount; page++) {
+            long[] values = new long[positionsPerPage];
+            for (int i = 0; i < positionsPerPage; i++) {
+                values[i] = rows - 1 - ((long) page * positionsPerPage) - i;
+            }
+            accumulator.addInput(
+                    new Page(new LongArrayBlock(positionsPerPage, Optional.empty(), values)),
+                    AggregationMask.createSelectAll(positionsPerPage));
+        }
+
+        int calls = 1;
+        while (!accumulator.prepareFinal(() -> false)) {
+            calls++;
+        }
+        assertThat(calls).isGreaterThan(1);
+
+        BlockBuilder output = arrayAgg.getFinalType().createBlockBuilder(null, 1);
+        accumulator.evaluateFinal(output);
+        Block values = (Block) arrayAgg.getFinalType().getObject(output.build(), 0);
+        assertThat(toValues(values)).isEqualTo(LongStream.range(0, rows).boxed().collect(toImmutableList()));
+    }
+
+    private static List<Long> toValues(Block block)
+    {
+        List<Long> values = new ArrayList<>();
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                values.add(null);
+            }
+            else {
+                values.add(BIGINT.getLong(block, position));
+            }
+        }
+        return values;
+    }
+
+    // array_agg(value ORDER BY value) over a page of (value)
+    private static OrderedAccumulatorFactory createValueOrderedFactory(TestingAggregationFunction arrayAgg)
+    {
+        return new OrderedAccumulatorFactory(
+                arrayAgg.getFactory(),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(0),      // argument channels
+                ImmutableList.of(0),      // order-by channels
+                ImmutableList.of(ASC_NULLS_LAST),
+                new PagesIndex.TestingFactory(false));
     }
 }

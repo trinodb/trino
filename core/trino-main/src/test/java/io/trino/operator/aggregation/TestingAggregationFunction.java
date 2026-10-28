@@ -99,6 +99,11 @@ public class TestingAggregationFunction
         return createAggregatorFactory(step, inputChannels, maskChannel, factory);
     }
 
+    public AccumulatorFactory getFactory()
+    {
+        return factory;
+    }
+
     public DistinctAccumulatorFactory getDistinctFactory()
     {
         return distinctFactory;

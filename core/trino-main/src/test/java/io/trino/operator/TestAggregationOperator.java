@@ -14,14 +14,25 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.stats.TestingGcMonitor;
+import io.airlift.units.DataSize;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
+import io.trino.memory.MemoryPool;
+import io.trino.memory.QueryContext;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
+import io.trino.operator.aggregation.AccumulatorFactory;
 import io.trino.operator.aggregation.AggregatorFactory;
+import io.trino.operator.aggregation.OrderedAccumulatorFactory;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
+import io.trino.spi.QueryId;
 import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.AfterEach;
@@ -29,19 +40,25 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBooleansBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.operator.OperatorAssertion.toPages;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -203,5 +220,90 @@ public class TestAggregationOperator
         }
 
         assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
+    }
+
+    @Test
+    public void testOrderedAggregationYieldsWhenMemoryIsBlocked()
+            throws Exception
+    {
+        TestingAggregationFunction arrayAgg = FUNCTION_RESOLUTION.getAggregateFunction("array_agg", fromTypes(BIGINT));
+        AccumulatorFactory distinctOrderedFactory = new OrderedAccumulatorFactory(
+                arrayAgg.getDistinctFactory(),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(0),
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST),
+                new PagesIndex.TestingFactory(false));
+        AggregatorFactory aggregatorFactory = new AggregatorFactory(
+                distinctOrderedFactory,
+                SINGLE,
+                arrayAgg.getIntermediateType(),
+                arrayAgg.getFinalType(),
+                ImmutableList.of(0),
+                OptionalInt.empty(),
+                false, // spillable
+                ImmutableList.of());
+
+        // all values distinct and in descending order
+        int positionsPerPage = 100_000;
+        int pageCount = 4;
+        long rows = (long) pageCount * positionsPerPage;
+        List<Page> input = new ArrayList<>();
+        for (int page = 0; page < pageCount; page++) {
+            long[] values = new long[positionsPerPage];
+            for (int i = 0; i < positionsPerPage; i++) {
+                values[i] = rows - 1 - ((long) page * positionsPerPage) - i;
+            }
+            input.add(new Page(new LongArrayBlock(positionsPerPage, Optional.empty(), values)));
+        }
+
+        TaskId otherTaskId = new TaskId(new StageId("other_query", 0), 0, 0);
+        MemoryPool memoryPool = new MemoryPool(DataSize.of(1, GIGABYTE));
+        QueryContext queryContext = new QueryContext(
+                new QueryId("test_query"),
+                DataSize.of(512, MEGABYTE),
+                memoryPool,
+                new TestingGcMonitor(),
+                executor,
+                scheduledExecutor,
+                scheduledExecutor,
+                DataSize.of(512, MEGABYTE),
+                new SpillSpaceTracker(DataSize.of(512, MEGABYTE)));
+        DriverContext driverContext = createTaskContext(queryContext, executor, TEST_SESSION)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+
+        OperatorFactory operatorFactory = new AggregationOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(aggregatorFactory, aggregatorFactory));
+
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            for (Page page : input) {
+                operator.addInput(page);
+            }
+            operator.finish();
+
+            // each aggregator yields while the memory pool is full
+            memoryPool.reserve(otherTaskId, "test", memoryPool.getFreeBytes());
+            int yields = 0;
+            Page output = operator.getOutput();
+            while (output == null) {
+                assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isFalse();
+                yields++;
+                output = operator.getOutput();
+            }
+            assertThat(yields).isGreaterThan(1);
+
+            memoryPool.free(otherTaskId, "test", memoryPool.getTaskMemoryReservations().get(otherTaskId));
+            assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isTrue();
+
+            assertThat(output.getPositionCount()).isEqualTo(1);
+            for (int channel = 0; channel < 2; channel++) {
+                Block values = (Block) arrayAgg.getFinalType().getObject(output.getBlock(channel), 0);
+                long[] actual = IntStream.range(0, values.getPositionCount())
+                        .mapToLong(position -> BIGINT.getLong(values, position))
+                        .toArray();
+                assertThat(actual).isEqualTo(LongStream.range(0, rows).toArray());
+            }
+            assertThat(operator.isFinished()).isTrue();
+        }
     }
 }

@@ -113,7 +113,9 @@ public class OrderedAccumulatorFactory
         private final int[] argumentChannels;
         private final PagesIndexOrdering pagesIndexOrdering;
         @Nullable
-        private PagesIndex pagesIndex; // null after evaluateFinal() is called
+        private PagesIndex pagesIndex; // null after prepareFinal() completes
+        @Nullable
+        private Iterator<Page> sortedPages; // set while prepareFinal() replays pagesIndex
 
         private OrderedAccumulator(
                 Accumulator accumulator,
@@ -150,7 +152,7 @@ public class OrderedAccumulatorFactory
         @Override
         public void addInput(Page page, AggregationMask mask)
         {
-            checkState(pagesIndex != null, "evaluateFinal() already called");
+            checkState(pagesIndex != null, "prepareFinal() already called");
             pagesIndex.addPage(mask.filterPage(page));
         }
 
@@ -167,21 +169,38 @@ public class OrderedAccumulatorFactory
         }
 
         @Override
-        public void evaluateFinal(BlockBuilder blockBuilder, UpdateMemory updateMemory)
+        public void evaluateFinal(BlockBuilder blockBuilder)
         {
-            checkState(pagesIndex != null, "evaluateFinal() already called");
-            pagesIndex.sort(pagesIndexOrdering);
-            Iterator<Page> pagesIterator = pagesIndex.getSortedPages();
-            AggregationMask mask = AggregationMask.createSelectAll(0);
-            pagesIterator.forEachRemaining(arguments -> {
-                mask.reset(arguments.getPositionCount());
-                accumulator.addInput(arguments.getColumns(argumentChannels), mask);
-                // result ignored, evaluateFinal cannot yield
-                updateMemory.update();
-            });
-            // release pagesIndex memory after transferring its contents into the accumulator
-            pagesIndex = null;
-            accumulator.evaluateFinal(blockBuilder, updateMemory);
+            accumulator.evaluateFinal(blockBuilder);
+        }
+
+        @Override
+        public boolean prepareFinal(UpdateMemory updateMemory)
+        {
+            if (pagesIndex != null) {
+                if (sortedPages == null) {
+                    pagesIndex.sort(pagesIndexOrdering);
+                    sortedPages = pagesIndex.getSortedPages();
+                }
+                AggregationMask mask = AggregationMask.createSelectAll(0);
+                while (sortedPages.hasNext()) {
+                    Page arguments = sortedPages.next();
+                    mask.reset(arguments.getPositionCount());
+                    accumulator.addInput(arguments.getColumns(argumentChannels), mask);
+                    // the last page is reported after pagesIndex is released
+                    if (sortedPages.hasNext() && !updateMemory.update()) {
+                        // resume from the next sorted page on the next call
+                        return false;
+                    }
+                }
+                // release pagesIndex memory after transferring its contents into the accumulator
+                pagesIndex = null;
+                sortedPages = null;
+                if (!updateMemory.update()) {
+                    return false;
+                }
+            }
+            return accumulator.prepareFinal(updateMemory);
         }
     }
 
