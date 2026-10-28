@@ -65,6 +65,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
+import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
@@ -674,7 +675,7 @@ public final class HttpPageBufferClient
             try {
                 // no content means no content was created within the wait period, but query is still ok
                 // if job is finished, complete is set in the response
-                if (response.getStatusCode() == HttpStatus.NO_CONTENT.code()) {
+                if (response.getStatusCode() == NO_CONTENT.code()) {
                     return createEmptyPagesResponse(
                             getTaskInstanceId(response, uri),
                             getToken(response, uri),
@@ -684,7 +685,7 @@ public final class HttpPageBufferClient
                 }
 
                 // otherwise we must have gotten an OK response, everything else is considered fatal
-                if (response.getStatusCode() != HttpStatus.OK.code()) {
+                if (response.getStatusCode() != OK.code()) {
                     StringBuilder body = new StringBuilder();
                     try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getInputStream(), UTF_8))) {
                         // Get up to 1000 lines for debugging
