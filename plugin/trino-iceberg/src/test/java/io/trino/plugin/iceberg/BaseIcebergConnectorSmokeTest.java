@@ -541,7 +541,7 @@ public abstract class BaseIcebergConnectorSmokeTest
             throws Exception
     {
         String tableName = "test_drop_table_with_missing_metadata_file_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+        assertUpdate("CREATE TABLE " + tableName + " WITH (gc_enabled = true) AS SELECT 1 x, 'INDIA' y", 1);
 
         Location metadataLocation = Location.of(getMetadataLocation(tableName));
         Location tableLocation = Location.of(getTableLocation(tableName));
@@ -565,7 +565,7 @@ public abstract class BaseIcebergConnectorSmokeTest
             throws Exception
     {
         String tableName = "test_drop_table_with_missing_snapshot_file_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+        assertUpdate("CREATE TABLE " + tableName + " WITH (gc_enabled = true) AS SELECT 1 x, 'INDIA' y", 1);
 
         String metadataLocation = getMetadataLocation(tableName);
         TableMetadata tableMetadata = TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystem), metadataLocation);
@@ -591,7 +591,7 @@ public abstract class BaseIcebergConnectorSmokeTest
             throws Exception
     {
         String tableName = "test_drop_table_with_missing_manifest_list_file_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+        assertUpdate("CREATE TABLE " + tableName + " WITH (gc_enabled = true) AS SELECT 1 x, 'INDIA' y", 1);
 
         String metadataLocation = getMetadataLocation(tableName);
         FileIO fileIo = FILE_IO_FACTORY.create(fileSystem);
@@ -618,7 +618,7 @@ public abstract class BaseIcebergConnectorSmokeTest
             throws Exception
     {
         String tableName = "test_drop_table_with_missing_data_file_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+        assertUpdate("CREATE TABLE " + tableName + " WITH (gc_enabled = true) AS SELECT 1 x, 'INDIA' y", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'POLAND')", 1);
 
         Location tableLocation = Location.of(getTableLocation(tableName));
