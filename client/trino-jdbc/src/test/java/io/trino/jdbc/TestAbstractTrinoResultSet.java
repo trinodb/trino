@@ -121,7 +121,11 @@ public class TestAbstractTrinoResultSet
                     "NaN",
                     "+Infinity",
                     "-Infinity")) {
-                assertNumericOverflow(value, targetType, getter);
+                try (ResultSet result = numericResult(value)) {
+                    assertThatThrownBy(() -> getter.get(result))
+                            .isInstanceOf(SQLException.class)
+                            .hasMessage("Value is not a number: " + value);
+                }
             }
             for (Object value : ImmutableList.of(12.75, 12.75f, new BigDecimal("12.75"), "12.75")) {
                 assertNumericValue(value, 12, getter);

@@ -1984,8 +1984,11 @@ abstract class AbstractTrinoResultSet
         }
         else if (number instanceof Float || number instanceof Double) {
             double doubleValue = number.doubleValue();
+            if (!Double.isFinite(doubleValue)) {
+                throw new SQLException("Value is not a number: " + value);
+            }
             // Long.MAX_VALUE rounds to 2^63 as a double, so the upper bound must be exclusive.
-            outOfRange = !Double.isFinite(doubleValue) || doubleValue < minimum || maximum < doubleValue || doubleValue >= 0x1.0p63;
+            outOfRange = doubleValue < minimum || maximum < doubleValue || doubleValue >= 0x1.0p63;
         }
         else {
             long longValue = number.longValue();

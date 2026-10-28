@@ -305,10 +305,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "REAL 'NaN'", Types.REAL, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Float.NaN);
-                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
-                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
-                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
-                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessage("Value is not a number: NaN");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessage("Value is not a number: NaN");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessage("Value is not a number: NaN");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: NaN");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: NaN");
                 assertThat(rs.getFloat(column)).isNaN();
                 assertThat(rs.getDouble(column)).isNaN();
@@ -318,10 +318,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "REAL '-Infinity'", Types.REAL, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Float.NEGATIVE_INFINITY);
-                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
-                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
-                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
-                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessage("Value is not a number: -Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessage("Value is not a number: -Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessage("Value is not a number: -Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: -Infinity");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: -Infinity");
                 assertThat(rs.getFloat(column)).isEqualTo(Float.NEGATIVE_INFINITY);
                 assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
@@ -369,10 +369,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "DOUBLE 'NaN'", Types.DOUBLE, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Double.NaN);
-                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
-                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
-                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
-                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessage("Value is not a number: NaN");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessage("Value is not a number: NaN");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessage("Value is not a number: NaN");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: NaN");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: NaN");
                 assertThat(rs.getFloat(column)).isNaN();
                 assertThat(rs.getDouble(column)).isNaN();
@@ -382,10 +382,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "DOUBLE '-Infinity'", Types.DOUBLE, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Double.NEGATIVE_INFINITY);
-                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
-                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
-                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
-                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessage("Value is not a number: -Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessage("Value is not a number: -Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessage("Value is not a number: -Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: -Infinity");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: -Infinity");
                 assertThat(rs.getFloat(column)).isEqualTo(Float.NEGATIVE_INFINITY);
                 assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
@@ -534,10 +534,10 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "NUMBER 'NaN'", Types.OTHER, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Double.NaN);
                 assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: NaN");
-                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
-                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
-                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
-                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessage("Value is not a number: NaN");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessage("Value is not a number: NaN");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessage("Value is not a number: NaN");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: NaN");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: NaN");
                 assertThat(rs.getFloat(column)).isNaN();
                 assertThat(rs.getDouble(column)).isNaN();
@@ -547,10 +547,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "NUMBER '+Infinity'", Types.OTHER, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Double.POSITIVE_INFINITY);
-                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
-                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
-                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
-                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessage("Value is not a number: +Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessage("Value is not a number: +Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessage("Value is not a number: +Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: +Infinity");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: +Infinity");
                 assertThat(rs.getFloat(column)).isEqualTo(Float.POSITIVE_INFINITY);
                 assertThat(rs.getDouble(column)).isEqualTo(Double.POSITIVE_INFINITY);
@@ -560,10 +560,10 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "NUMBER '-Infinity'", Types.OTHER, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Double.NEGATIVE_INFINITY);
-                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessageStartingWith("Numeric overflow converting to byte: ");
-                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessageStartingWith("Numeric overflow converting to short: ");
-                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessageStartingWith("Numeric overflow converting to int: ");
-                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Numeric overflow converting to long: ");
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessage("Value is not a number: -Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessage("Value is not a number: -Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessage("Value is not a number: -Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: -Infinity");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: -Infinity");
                 assertThat(rs.getFloat(column)).isEqualTo(Float.NEGATIVE_INFINITY);
                 assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
