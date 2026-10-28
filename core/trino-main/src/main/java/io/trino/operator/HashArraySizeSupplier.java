@@ -14,15 +14,29 @@
 package io.trino.operator;
 
 import io.trino.Session;
+import io.trino.spi.TrinoException;
 import it.unimi.dsi.fastutil.HashCommon;
 
 import static io.trino.SystemSessionProperties.isIncrementalHashArrayLoadFactorEnabled;
+import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 
 public interface HashArraySizeSupplier
 {
     static HashArraySizeSupplier defaultHashArraySizeSupplier()
     {
-        return expectedCount -> HashCommon.arraySize(expectedCount, 0.75f);
+        return expectedCount -> calculateHashArraySize(expectedCount, 0.75f);
+    }
+
+    static int calculateHashArraySize(int expectedCount, float loadFactor)
+    {
+        // HashCommon.arraySize limits array to 1 << 30 slots.
+        int maxCount = HashCommon.maxFill(1 << 30, loadFactor);
+        if (expectedCount > maxCount) {
+            throw new TrinoException(
+                    GENERIC_INSUFFICIENT_RESOURCES,
+                    "Size of join hash table can not exceed %s entries".formatted(maxCount));
+        }
+        return HashCommon.arraySize(expectedCount, loadFactor);
     }
 
     static HashArraySizeSupplier incrementalLoadFactorHashArraySizeSupplier(Session session)

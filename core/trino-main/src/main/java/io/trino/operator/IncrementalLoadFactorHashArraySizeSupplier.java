@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import it.unimi.dsi.fastutil.HashCommon;
+import static io.trino.operator.HashArraySizeSupplier.calculateHashArraySize;
 
 /**
  * Hash array size supplier that uses larger load factors for larger arrays
@@ -38,11 +38,11 @@ public class IncrementalLoadFactorHashArraySizeSupplier
     public int getHashArraySize(int expectedCount)
     {
         if (expectedCount <= THRESHOLD_25 * multiplier) {
-            return HashCommon.arraySize(expectedCount, 0.25f);
+            return calculateHashArraySize(expectedCount, 0.25f);
         }
         if (expectedCount <= THRESHOLD_50 * multiplier) {
-            return HashCommon.arraySize(expectedCount, 0.50f);
+            return calculateHashArraySize(expectedCount, 0.50f);
         }
-        return HashCommon.arraySize(expectedCount, 0.75f);
+        return calculateHashArraySize(expectedCount, 0.75f);
     }
 }
