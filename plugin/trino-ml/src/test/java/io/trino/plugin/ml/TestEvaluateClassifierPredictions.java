@@ -46,7 +46,8 @@ public class TestEvaluateClassifierPredictions
         Aggregator aggregator = aggregation.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator(new AggregationMetrics());
         aggregator.processPage(getPage());
         BlockBuilder finalOut = VARCHAR.createBlockBuilder(null, 1);
-        aggregator.evaluate(finalOut, UpdateMemory.NOOP);
+        aggregator.prepareFinal(UpdateMemory.NOOP);
+        aggregator.evaluate(finalOut);
         Block block = finalOut.build();
 
         String output = VARCHAR.getSlice(block, 0).toStringUtf8();

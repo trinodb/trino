@@ -87,7 +87,8 @@ public class TestLearnAggregations
     {
         aggregator.processPage(getPage());
         BlockBuilder finalOut = aggregator.getType().createBlockBuilder(null, 1);
-        aggregator.evaluate(finalOut, UpdateMemory.NOOP);
+        aggregator.prepareFinal(UpdateMemory.NOOP);
+        aggregator.evaluate(finalOut);
         Block block = finalOut.build();
         Slice slice = aggregator.getType().getSlice(block, 0);
         Model deserialized = ModelUtils.deserialize(slice);

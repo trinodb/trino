@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.aggregation.Aggregator;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.builder.HashAggregationBuilder;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
@@ -555,7 +556,9 @@ public class HashAggregationOperator
             }
 
             for (AggregatorFactory aggregatorFactory : aggregatorFactories) {
-                aggregatorFactory.createAggregator(aggregationMetrics).evaluate(output.getBlockBuilder(channel), UpdateMemory.NOOP);
+                Aggregator aggregator = aggregatorFactory.createAggregator(aggregationMetrics);
+                aggregator.prepareFinal(UpdateMemory.NOOP);
+                aggregator.evaluate(output.getBlockBuilder(channel));
                 channel++;
             }
         }
