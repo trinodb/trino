@@ -49,8 +49,9 @@ public class LocalExchangeMemoryReservation
         if (closed) {
             return;
         }
-        ListenableFuture<Void> future = memoryContext.setBytes(reservedBytes + bytesAdded);
+        // track the reported bytes even when the memory pool rejects the reservation
         reservedBytes += bytesAdded;
+        ListenableFuture<Void> future = memoryContext.setBytes(reservedBytes);
         // keep waiting on a pending future until the pool frees memory, even if the reservation shrinks
         if (!future.isDone()) {
             memoryFuture = future;

@@ -15,6 +15,7 @@ package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.trino.ExceededMemoryLimitException;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.TaskContext;
@@ -31,6 +32,7 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -113,6 +115,29 @@ public class TestLocalExchangeMemoryReservation
         otherMemoryContext.setBytes(0);
         assertThat(memoryFuture.isDone()).isTrue();
         assertThat(reservation.getMemoryFuture().isDone()).isTrue();
+
+        reservation.close();
+        assertThat(taskContext.getQueryContext().getMemoryPool().getReservedBytes()).isEqualTo(0);
+    }
+
+    @Test
+    public void testReleaseAfterExceededMemoryLimit()
+    {
+        TaskContext taskContext = TestingTaskContext.builder(directExecutor(), scheduledExecutor, testSessionBuilder().build())
+                .setQueryMaxMemory(DataSize.ofBytes(1000))
+                .build();
+        LocalExchangeMemoryReservation reservation = new LocalExchangeMemoryReservation(taskContext.aggregateUserMemoryContext().newLocalMemoryContext("test"));
+        LocalExchangeMemoryManager memoryManager = new LocalExchangeMemoryManager(10_000, reservation, 50);
+
+        memoryManager.updateMemoryUsage(500);
+        assertThat(taskContext.getQueryContext().getMemoryPool().getReservedBytes()).isEqualTo(550);
+
+        assertThatThrownBy(() -> memoryManager.updateMemoryUsage(1000))
+                .isInstanceOf(ExceededMemoryLimitException.class);
+        assertThat(taskContext.getQueryContext().getMemoryPool().getReservedBytes()).isEqualTo(550);
+
+        memoryManager.updateMemoryUsage(-1500);
+        assertThat(taskContext.getQueryContext().getMemoryPool().getReservedBytes()).isEqualTo(50);
 
         reservation.close();
         assertThat(taskContext.getQueryContext().getMemoryPool().getReservedBytes()).isEqualTo(0);
