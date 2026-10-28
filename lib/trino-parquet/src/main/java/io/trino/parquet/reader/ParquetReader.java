@@ -1287,7 +1287,7 @@ public class ParquetReader
             columnChunk = columnReader.readPrimitive();
         }
 
-        updateMaxBytesPerCell(field.getId(), columnChunk);
+        updateMaxBytesPerCell(field, columnChunk);
         return columnChunk;
     }
 
@@ -1299,20 +1299,28 @@ public class ParquetReader
                 selectedPositions.positions(),
                 selectedPositions.positionsOffset(),
                 selectedPositions.positionCount());
-        updateMaxBytesPerCell(field.getId(), columnChunk);
+        updateMaxBytesPerCell(field, columnChunk);
         return columnChunk;
     }
 
-    private void updateMaxBytesPerCell(int fieldId, ColumnChunk columnChunk)
+    private void updateMaxBytesPerCell(PrimitiveField field, ColumnChunk columnChunk)
     {
-        if (columnChunk.getMaxBlockPositionCount() == 0) {
+        // A leaf under a repeated field holds many values per row, so its size is spread over the rows in the batch
+        int rowCount;
+        if (field.getRepetitionLevel() > 0) {
+            rowCount = batchSize;
+        }
+        else {
+            rowCount = columnChunk.getMaxBlockPositionCount();
+        }
+        if (rowCount == 0) {
             return;
         }
-        double previousBytesPerCell = maxBytesPerCell.getOrDefault(fieldId, 0.0);
-        double bytesPerCell = max(previousBytesPerCell, ((double) columnChunk.getMaxBlockSize()) / columnChunk.getMaxBlockPositionCount());
+        double previousBytesPerCell = maxBytesPerCell.getOrDefault(field.getId(), 0.0);
+        double bytesPerCell = max(previousBytesPerCell, ((double) columnChunk.getMaxBlockSize()) / rowCount);
 
         if (bytesPerCell != previousBytesPerCell) {
-            maxBytesPerCell.put(fieldId, bytesPerCell);
+            maxBytesPerCell.put(field.getId(), bytesPerCell);
             maxCombinedBytesPerRow = max(0, maxCombinedBytesPerRow + bytesPerCell - previousBytesPerCell);
             maxBatchSize = maxCombinedBytesPerRow == 0
                     ? options.getMaxReadBlockRowCount()
