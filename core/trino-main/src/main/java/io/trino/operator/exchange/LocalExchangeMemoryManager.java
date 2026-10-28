@@ -69,7 +69,16 @@ public class LocalExchangeMemoryManager
         long bufferedBytes = this.bufferedBytes.addAndGet(bytesAdded);
         long reportedBytes = this.reportedBytes;
         if (bufferedBytes > reportedBytes || bufferedBytes < reportedBytes - 2 * reportStepBytes) {
-            reportMemoryUsage();
+            try {
+                reportMemoryUsage();
+            }
+            catch (RuntimeException e) {
+                // a page rejected by the memory pool is never buffered
+                if (bytesAdded > 0) {
+                    this.bufferedBytes.addAndGet(-bytesAdded);
+                }
+                throw e;
+            }
         }
         // detect the transition from above to below the full boundary
         if (bufferedBytes <= maxBufferedBytes && (bufferedBytes - bytesAdded) > maxBufferedBytes) {
@@ -94,9 +103,10 @@ public class LocalExchangeMemoryManager
         if (bufferedBytes <= reportedBytes && bufferedBytes >= reportedBytes - 2 * reportStepBytes) {
             return;
         }
-        long previousReportedBytes = reportedBytes;
-        reportedBytes = bufferedBytes + reportStepBytes;
-        memoryReservation.updateMemoryUsage(reportedBytes - previousReportedBytes);
+        long newReportedBytes = bufferedBytes + reportStepBytes;
+        // publish the reported bytes only after the reservation accepts them
+        memoryReservation.updateMemoryUsage(newReportedBytes - reportedBytes);
+        reportedBytes = newReportedBytes;
     }
 
     public ListenableFuture<Void> getNotFullFuture()
