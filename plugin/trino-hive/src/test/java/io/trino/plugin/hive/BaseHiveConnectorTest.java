@@ -4275,27 +4275,28 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testWriterTaskCountLimitUnpartitioned()
     {
-        testLimitWriterTasks(2, 2, true, true, false, DataSize.of(1, MEGABYTE));
-        testLimitWriterTasks(2, 2, false, true, false, DataSize.of(1, MEGABYTE));
-        testLimitWriterTasks(2, 3, false, false, false, DataSize.of(1, MEGABYTE));
+        testLimitWriterTasks(2, true, true, false, DataSize.of(1, MEGABYTE)).isEqualTo(2L);
+        testLimitWriterTasks(2, false, true, false, DataSize.of(1, MEGABYTE)).isEqualTo(2L);
+        testLimitWriterTasks(2, false, false, false, DataSize.of(1, MEGABYTE)).isEqualTo(3L);
     }
 
     @Test
     public void testWriterTaskCountLimitPartitionedScaleWritersDisabled()
     {
-        testLimitWriterTasks(2, 2, false, true, true, DataSize.of(1, MEGABYTE));
+        testLimitWriterTasks(2, false, true, true, DataSize.of(1, MEGABYTE)).isEqualTo(2L);
     }
 
     @Test
     public void testWriterTaskCountLimitPartitionedScaleWritersEnabled()
     {
-        testLimitWriterTasks(2, 4, true, true, true, DataSize.of(1, MEGABYTE));
+        // Each source task rebalances independently, so one or both partitions scale to the second writer task
+        testLimitWriterTasks(2, true, true, true, DataSize.of(1, MEGABYTE)).isBetween(3L, 4L);
         // Since we track page size for scaling writer instead of actual compressed output file size, we need to have a
         // larger threshold for writerScalingMinDataProcessed. This way we can ensure that the writer scaling is not triggered.
-        testLimitWriterTasks(2, 2, true, true, true, DataSize.of(2, GIGABYTE));
+        testLimitWriterTasks(2, true, true, true, DataSize.of(2, GIGABYTE)).isEqualTo(2L);
     }
 
-    private void testLimitWriterTasks(int maxWriterTasks, int expectedFilesCount, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned, DataSize writerScalingMinDataProcessed)
+    private AbstractLongAssert<?> testLimitWriterTasks(int maxWriterTasks, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned, DataSize writerScalingMinDataProcessed)
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(SCALE_WRITERS, Boolean.toString(scaleWritersEnabled))
@@ -4315,8 +4316,7 @@ public abstract class BaseHiveConnectorTest
                 partitioned ? ", partitioned_by = ARRAY['part_key']" : "");
         try {
             assertUpdate(session, createTableSql, (long) computeActual("SELECT count(*) FROM tpch.sf3.orders").getOnlyValue());
-            long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM %s".formatted(tableName));
-            assertThat(files).isEqualTo(expectedFilesCount);
+            return assertThat((long) computeScalar("SELECT count(DISTINCT \"$path\") FROM %s".formatted(tableName)));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS %s".formatted(tableName));
