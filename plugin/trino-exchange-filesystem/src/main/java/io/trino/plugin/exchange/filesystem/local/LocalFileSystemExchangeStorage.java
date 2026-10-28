@@ -38,6 +38,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -111,15 +112,34 @@ public class LocalFileSystemExchangeStorage
     @Override
     public ListenableFuture<Void> deleteFiles(List<URI> files)
     {
-        for (URI file : files) {
-            try {
+        try {
+            for (URI file : files) {
                 Files.deleteIfExists(Path.of(file.getPath()));
             }
-            catch (IOException | RuntimeException e) {
-                return immediateFailedFuture(e);
+            for (URI file : files) {
+                Path markerPath = Path.of(file.getPath());
+                if (markerPath.getFileName().toString().equals(CommitManifest.FILE_NAME)) {
+                    Path attemptDirectory = markerPath.getParent();
+                    deleteDirectoryIfEmpty(attemptDirectory);
+                    deleteDirectoryIfEmpty(attemptDirectory.getParent());
+                }
             }
         }
+        catch (IOException | RuntimeException e) {
+            return immediateFailedFuture(e);
+        }
         return immediateVoidFuture();
+    }
+
+    private static void deleteDirectoryIfEmpty(Path directory)
+            throws IOException
+    {
+        try {
+            Files.deleteIfExists(directory);
+        }
+        catch (DirectoryNotEmptyException _) {
+            // Preserve files that were not recorded in the manifest.
+        }
     }
 
     @Override

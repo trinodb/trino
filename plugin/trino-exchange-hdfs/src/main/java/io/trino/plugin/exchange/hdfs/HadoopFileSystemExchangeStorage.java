@@ -36,6 +36,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -108,15 +109,36 @@ public class HadoopFileSystemExchangeStorage
     @Override
     public ListenableFuture<Void> deleteFiles(List<URI> files)
     {
-        for (URI file : files) {
-            try {
+        try {
+            for (URI file : files) {
                 fileSystem.delete(new Path(file), false);
             }
-            catch (IOException | RuntimeException e) {
-                return immediateFailedFuture(e);
+            for (URI file : files) {
+                Path markerPath = new Path(file);
+                if (markerPath.getName().equals(CommitManifest.FILE_NAME)) {
+                    Path attemptDirectory = markerPath.getParent();
+                    deleteDirectoryIfEmpty(attemptDirectory);
+                    deleteDirectoryIfEmpty(attemptDirectory.getParent());
+                }
             }
         }
+        catch (IOException | RuntimeException e) {
+            return immediateFailedFuture(e);
+        }
         return immediateVoidFuture();
+    }
+
+    private void deleteDirectoryIfEmpty(Path directory)
+            throws IOException
+    {
+        try {
+            if (fileSystem.listStatus(directory).length == 0) {
+                fileSystem.delete(directory, false);
+            }
+        }
+        catch (FileNotFoundException _) {
+            // The directory may have been removed by another cleanup operation.
+        }
     }
 
     @Override

@@ -994,7 +994,12 @@ public class S3FileSystemExchangeStorage
         @Override
         public FileStatus getFileStatus()
         {
-            return new FileStatus("s3://" + bucketName + PATH_SEPARATOR + key, size);
+            try {
+                return new FileStatus(new URI("s3", bucketName, PATH_SEPARATOR + key, null, null).toString(), size);
+            }
+            catch (URISyntaxException e) {
+                throw new IllegalArgumentException(e);
+            }
         }
 
         private ListenableFuture<CreateMultipartUploadResponse> createMultipartUpload()

@@ -68,6 +68,9 @@ class TestFileSystemExchangeCommitManifest
         for (URI file : storage.deletedFiles) {
             assertThat(Path.of(file)).doesNotExist();
         }
+        assertThat(Path.of(instance.getOutputDirectory())).doesNotExist();
+        assertThat(Path.of(instance.getOutputDirectory().resolve("../"))).doesNotExist();
+        assertThat(temporaryDirectory).isDirectory();
     }
 
     @Test
@@ -91,6 +94,37 @@ class TestFileSystemExchangeCommitManifest
         assertThat(storage.deletedDirectories).containsExactly(uncommitted.getOutputDirectory());
         assertThat(Path.of(uncommitted.getOutputDirectory())).doesNotExist();
         assertThat(storage.deletedFiles).hasSize(3);
+        assertThat(Path.of(uncommitted.getOutputDirectory().resolve("../"))).doesNotExist();
+    }
+
+    @Test
+    void testManifestCleanupPreservesUnlistedFiles(@TempDir Path temporaryDirectory)
+            throws Exception
+    {
+        var storage = new LocalFileSystemExchangeStorage();
+        for (String unlistedPath : ImmutableList.of("0/unlisted.data", "1/unlisted.data")) {
+            Path partitionDirectory = Files.createTempDirectory(temporaryDirectory, "partition");
+            Path attemptDirectory = Files.createDirectory(partitionDirectory.resolve("0"));
+            Path unlistedFile = partitionDirectory.resolve(unlistedPath);
+            Files.createDirectories(unlistedFile.getParent());
+            Files.writeString(unlistedFile, "keep");
+            Path dataFile = Files.createFile(attemptDirectory.resolve("0_0.data"));
+            Path markerFile = Files.createFile(attemptDirectory.resolve(CommitManifest.FILE_NAME));
+
+            getFutureValue(storage.deleteFiles(ImmutableList.of(dataFile.toUri(), markerFile.toUri())));
+            assertThat(dataFile).doesNotExist();
+            assertThat(markerFile).doesNotExist();
+            assertThat(unlistedFile).hasContent("keep");
+            assertThat(partitionDirectory).isDirectory();
+            if (unlistedFile.getParent().equals(attemptDirectory)) {
+                assertThat(attemptDirectory).isDirectory();
+            }
+            else {
+                assertThat(attemptDirectory).doesNotExist();
+            }
+            getFutureValue(storage.deleteFiles(ImmutableList.of(dataFile.toUri(), markerFile.toUri())));
+            assertThat(unlistedFile).hasContent("keep");
+        }
     }
 
     @Test

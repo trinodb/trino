@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -35,6 +36,26 @@ import static software.amazon.awssdk.services.s3.model.StorageClass.STANDARD_IA;
 
 class TestS3CommitManifest
 {
+    @Test
+    void testManifestFilePathEncoding()
+            throws IOException, URISyntaxException
+    {
+        var config = new ExchangeS3Config()
+                .setS3AwsAccessKey("test-access-key")
+                .setS3AwsSecretKey("test-secret-key")
+                .setS3Region("us-east-1");
+        try (var storage = new S3FileSystemExchangeStorage(new S3FileSystemExchangeStorageStats(), config, AWS)) {
+            for (String bucket : ImmutableList.of("bucket", "bucket_with_underscores")) {
+                for (String key : ImmutableList.of("exchange/0_0.data", "exchange with spaces/0_0.data", "exchange#?%/0_0.data")) {
+                    URI file = new URI("s3", bucket, "/" + key, null, null);
+                    var writer = storage.createExchangeStorageWriter(file);
+                    assertThat(writer.getFileStatus().getFilePath()).isEqualTo(file.toString());
+                    assertThat(URI.create(writer.getFileStatus().getFilePath()).getPath()).isEqualTo("/" + key);
+                }
+            }
+        }
+    }
+
     @Test
     void testManifestRoundTripAndUploadSettings()
             throws IOException
