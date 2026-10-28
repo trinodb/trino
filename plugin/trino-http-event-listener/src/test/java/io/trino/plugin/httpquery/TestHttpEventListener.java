@@ -66,6 +66,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.units.Duration.valueOf;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
 import static java.time.Duration.ofSeconds;
@@ -348,6 +349,19 @@ final class TestHttpEventListener
                 .satisfiesAnyOf(
                         request -> assertThat(request).isNull(),
                         request -> assertThat(request.getHandshake()).isNull());
+    }
+
+    @Test
+    void testRetryDelayIsCappedAtMaximum()
+    {
+        var eventListener = (HttpEventListener) createEventListener(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.connect-retry-delay", "10s",
+                "http-event-listener.connect-max-delay", "2s"));
+
+        assertThat(eventListener.nextDelay(valueOf("0s"))).isEqualTo(valueOf("2s"));
+        assertThat(eventListener.nextDelay(valueOf("500ms"))).isEqualTo(valueOf("1s"));
+        assertThat(eventListener.nextDelay(valueOf("2s"))).isEqualTo(valueOf("2s"));
     }
 
     @Test
