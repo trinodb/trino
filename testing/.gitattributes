@@ -1,0 +1,2 @@
+# .avro files are binary but git miscategorizes some of them
+*.avro binary
