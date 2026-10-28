@@ -20,6 +20,7 @@ import io.trino.spi.type.RowType;
 import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.planner.Symbol;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -129,6 +130,12 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitSecureExpression(SecureExpression node, Void context)
+        {
+            return SecureExpression.REDACTED;
+        }
+
+        @Override
         protected String visitLambda(Lambda node, Void context)
         {
             return "(" +
@@ -179,11 +186,28 @@ public final class ExpressionFormatter
         @Override
         protected String visitLogical(Logical node, Void context)
         {
-            return "(" +
-                    node.terms().stream()
-                            .map(term -> process(term, context))
-                            .collect(joining(" " + node.operator().toString() + " ")) +
-                    ")";
+            // Secure terms print as one marker: their number depends on how the policy relates to the query
+            List<String> terms = new ArrayList<>();
+            boolean secure = false;
+            for (Expression term : node.terms()) {
+                if (isSecure(term)) {
+                    if (secure) {
+                        continue;
+                    }
+                    secure = true;
+                }
+                terms.add(process(term, context));
+            }
+            if (terms.size() == 1) {
+                return terms.getFirst();
+            }
+            return "(" + String.join(" " + node.operator() + " ", terms) + ")";
+        }
+
+        private static boolean isSecure(Expression expression)
+        {
+            return expression instanceof SecureExpression ||
+                    (expression instanceof Logical logical && logical.terms().stream().allMatch(Formatter::isSecure));
         }
 
         @Override

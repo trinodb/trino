@@ -136,9 +136,9 @@ public class QueryExplainer
         return switch (planType) {
             case LOGICAL -> {
                 setDeprecatedTypeLogicalWarning(warningCollector);
-                yield PlanPrinter.graphvizDistributedPlan(getDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector));
+                yield PlanPrinter.graphvizDistributedPlan(getDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext.getMetadata(), session);
             }
-            case DISTRIBUTED -> PlanPrinter.graphvizDistributedPlan(getDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector));
+            case DISTRIBUTED -> PlanPrinter.graphvizDistributedPlan(getDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext.getMetadata(), session);
             default -> throw new IllegalArgumentException("Unhandled plan type: " + planType);
         };
     }

@@ -107,6 +107,11 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitSecureExpression(SecureExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitExpression(Expression node, C context)
     {
         return null;

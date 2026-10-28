@@ -35,6 +35,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.util.DisjointSet;
@@ -143,6 +144,13 @@ public class FilterStatsCalculator
         protected PlanNodeStatsEstimate visitExpression(Expression node, Void context)
         {
             return PlanNodeStatsEstimate.unknown();
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitSecureExpression(SecureExpression node, Void context)
+        {
+            // Semantically identical to the wrapped expression
+            return process(node.expression(), context);
         }
 
         @Override

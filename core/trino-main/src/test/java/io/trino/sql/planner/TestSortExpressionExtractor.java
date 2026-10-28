@@ -23,6 +23,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -57,6 +58,11 @@ public class TestSortExpressionExtractor
         assertGetSortExpression(
                 comparison(GREATER_THAN, new Reference(BIGINT, "p1"), new Reference(BIGINT, "b1")),
                 "b1");
+
+        Expression secureComparison = new SecureExpression(comparison(GREATER_THAN, new Reference(BIGINT, "p1"), new Reference(BIGINT, "b1")));
+        assertNoSortExpression(secureComparison);
+        Expression publicComparison = comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "b2"), new Reference(BIGINT, "p1"));
+        assertGetSortExpression(new Logical(AND, ImmutableList.of(secureComparison, publicComparison)), "b2", publicComparison);
 
         assertGetSortExpression(
                 comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "b2"), new Reference(BIGINT, "p1")),

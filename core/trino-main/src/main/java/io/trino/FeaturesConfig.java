@@ -123,6 +123,7 @@ public class FeaturesConfig
     private boolean incrementalHashArrayLoadFactorEnabled = true;
 
     private boolean hideInaccessibleColumns;
+    private boolean secureExpressionRedactionEnabled;
     private boolean forceSpillingJoin;
 
     private boolean columnarFilterEvaluationEnabled = true;
@@ -493,6 +494,19 @@ public class FeaturesConfig
     public FeaturesConfig setHideInaccessibleColumns(boolean hideInaccessibleColumns)
     {
         this.hideInaccessibleColumns = hideInaccessibleColumns;
+        return this;
+    }
+
+    public boolean isSecureExpressionRedactionEnabled()
+    {
+        return secureExpressionRedactionEnabled;
+    }
+
+    @Config("secure-expression-redaction-enabled")
+    @ConfigDescription("Redact secure access-control row filters and column masks from observable query details")
+    public FeaturesConfig setSecureExpressionRedactionEnabled(boolean secureExpressionRedactionEnabled)
+    {
+        this.secureExpressionRedactionEnabled = secureExpressionRedactionEnabled;
         return this;
     }
 

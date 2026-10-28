@@ -136,6 +136,34 @@ global property `hide-inaccessible-columns` configured in
 hide-inaccessible-columns = true
 ```
 
+Row filters and column masks are visible in query plans, `EXPLAIN` output,
+query statistics, and error messages. An access control implementation can mark
+an expression as secure with `ViewExpression.Builder.secure(true)`. With the
+global property `secure-expression-redaction-enabled` configured in
+{ref}`config-properties`, Trino replaces secure expressions with `[REDACTED]` in
+these details while still applying them:
+
+```properties
+secure-expression-redaction-enabled = true
+```
+
+Redaction preserves the plan's operator structure and ordinary expressions.
+Policy expressions remain protected after constant folding, and statistics
+withhold value ranges that can reflect policy bounds through joins or set
+operations. The optimizer can still derive constraints for partition pruning.
+If a user's predicate is combined with a policy constraint on the same column,
+the combined constraint is redacted because its values cannot be attributed
+safely to either source.
+
+Diagnostic messages for secure expressions use `DEBUG` level in
+`io.trino.sql.ir.SecureExpressions`, `io.trino.sql.analyzer.StatementAnalyzer`,
+and `io.trino.sql.gen.columnar.ColumnarFilterCompiler`. They include exception
+classes and, where available, error code and location. Exception messages are
+omitted because they can contain policy text and protected values. An
+administrator can investigate the full error by evaluating the policy
+expression as an ordinary query in a controlled environment, with access to
+the required data and without reapplying the failing policy.
+
 (security-inside-cluster)=
 ## Securing inside the cluster
 

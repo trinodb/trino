@@ -25,6 +25,8 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 
 import java.util.Map;
@@ -103,12 +105,43 @@ public class InternalConnectorExpressionEvaluator
                         // optimizer.process returns Optional.empty() when no change was made; use original as fallback
                         Expression result = optimizer.process(irExpression, session, new SymbolAllocator(columnBindings.keySet()), columnBindings)
                                 .orElse(irExpression);
-                        if (!(result instanceof Constant constant)) {
-                            return new EvaluationResult.NoResult();
-                        }
-                        return new EvaluationResult.Value(constant.value());
+                        return evaluationResult(result);
                     },
                     new EvaluationResult.NoResult());
         }
+    }
+
+    // A secure expression keeps its marker around a folded constant, so read through the marker and through
+    // logical operators whose remaining terms are constants
+    private static EvaluationResult evaluationResult(Expression expression)
+    {
+        return switch (expression) {
+            case Constant constant -> new EvaluationResult.Value(constant.value());
+            case SecureExpression secure -> evaluationResult(secure.expression());
+            case Logical logical -> evaluationResult(logical);
+            default -> new EvaluationResult.NoResult();
+        };
+    }
+
+    private static EvaluationResult evaluationResult(Logical logical)
+    {
+        // AND is false as soon as one term is false and OR is true as soon as one term is true; otherwise every term must be known
+        boolean shortCircuit = logical.operator() == Logical.Operator.OR;
+        boolean nullTerm = false;
+        boolean unknownTerm = false;
+        for (Expression term : logical.terms()) {
+            switch (evaluationResult(term)) {
+                case EvaluationResult.Value(Object value) when Boolean.valueOf(shortCircuit).equals(value) -> {
+                    return new EvaluationResult.Value(shortCircuit);
+                }
+                case EvaluationResult.Value(Object value) when value == null -> nullTerm = true;
+                case EvaluationResult.Value _ -> {}
+                case EvaluationResult.NoResult _ -> unknownTerm = true;
+            }
+        }
+        if (unknownTerm) {
+            return new EvaluationResult.NoResult();
+        }
+        return new EvaluationResult.Value(nullTerm ? null : !shortCircuit);
     }
 }
