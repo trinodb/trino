@@ -113,11 +113,6 @@ public class FlakyTestRetryExtension
                 }
 
                 if (attempt <= MAX_RETRIES) {
-                    log.warn(throwable,
-                            "Test %s attempt %d failed (issue: %s), retrying...",
-                            formatTestName(extensionContext),
-                            attempt,
-                            flaky.issue());
                     try {
                         SECONDS.sleep(attempt);
                     }
@@ -126,6 +121,11 @@ public class FlakyTestRetryExtension
                         throwable.addSuppressed(e);
                         throw throwable;
                     }
+                    log.warn(throwable,
+                            "Test %s attempt %d failed (issue: %s), retrying...",
+                            formatTestName(extensionContext),
+                            attempt,
+                            flaky.issue());
                 }
                 else {
                     log.error(
