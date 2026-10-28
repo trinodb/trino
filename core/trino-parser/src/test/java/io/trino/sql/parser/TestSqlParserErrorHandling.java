@@ -204,7 +204,7 @@ public class TestSqlParserErrorHandling
                         "line 1:32: mismatched input '<EOF>'. Expecting: <string>"),
                 Arguments.of(
                         "SELECT * FROM t FOR TIMESTAMP ",
-                        "line 1:31: mismatched input '<EOF>'. Expecting: 'AS'"),
+                        "line 1:31: mismatched input '<EOF>'. Expecting: 'AS', 'FROM'"),
                 Arguments.of(
                         "SELECT * FROM t FOR TIMESTAMP AS OF TIMESTAMP WHERE",
                         "line 1:52: mismatched input '<EOF>'. Expecting: <expression>"),
