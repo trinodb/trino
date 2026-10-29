@@ -37,6 +37,7 @@ import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtoco
 import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriter.CheckpointFileWriter;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -96,12 +97,13 @@ public class CheckpointWriterManager
             FileFormatDataSourceStats fileFormatDataSourceStats,
             JsonCodec<LastCheckpoint> lastCheckpointCodec,
             DeltaLakeConfig deltaLakeConfig,
+            ParquetWriterConfig parquetWriterConfig,
             @ForDeltaLakeMetadata ExecutorService executorService)
     {
         this(typeManager,
                 checkpointSchemaManager,
                 fileSystemFactory,
-                new CheckpointWriter(typeManager, checkpointSchemaManager, nodeVersion.toString()),
+                new CheckpointWriter(typeManager, checkpointSchemaManager, nodeVersion.toString(), parquetWriterConfig),
                 transactionLogAccess,
                 fileFormatDataSourceStats,
                 lastCheckpointCodec,
