@@ -14,6 +14,7 @@
 package io.trino.filesystem.azure;
 
 import com.azure.storage.blob.models.UserDelegationKey;
+import io.airlift.testing.TestingTicker;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
@@ -24,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -119,6 +121,32 @@ class TestAzureUserDelegationKeyCache
         assertThat(first.getSignedStart()).isEqualTo(START);
         assertThat(first.getSignedExpiry()).isEqualTo(START.plusDays(7));
         assertThat(cache.get(ENDPOINT, start.plusSeconds(1), start.plusHours(1), TestAzureUserDelegationKeyCache::key)).isSameAs(first);
+    }
+
+    @Test
+    void testReuseLimitDespiteCacheHits()
+    {
+        TestingTicker ticker = new TestingTicker();
+        AzureUserDelegationKeyCache cache = new AzureUserDelegationKeyCache(ticker);
+        UserDelegationKey first = cache.get(ENDPOINT, START, START.plusHours(1), TestAzureUserDelegationKeyCache::key);
+        for (int minute = 1; minute < 5; minute++) {
+            ticker.increment(1, MINUTES);
+            assertThat(cache.get(ENDPOINT, START.plusMinutes(minute), START.plusHours(1), TestAzureUserDelegationKeyCache::key)).isSameAs(first);
+        }
+        ticker.increment(1, MINUTES);
+        UserDelegationKey replacement = cache.get(ENDPOINT, START.plusMinutes(5), START.plusHours(1), TestAzureUserDelegationKeyCache::key);
+        assertThat(replacement).isNotSameAs(first);
+        assertThat(cache.get(ENDPOINT, START.plusMinutes(6), START.plusHours(1), TestAzureUserDelegationKeyCache::key)).isSameAs(replacement);
+    }
+
+    @Test
+    void testFractionalStartSevenDayRequest()
+    {
+        AzureUserDelegationKeyCache cache = new AzureUserDelegationKeyCache();
+        OffsetDateTime start = START.plusNanos(123_456_789);
+        UserDelegationKey key = cache.get(ENDPOINT, start, start.plusDays(7), TestAzureUserDelegationKeyCache::key);
+        assertThat(key.getSignedStart()).isEqualTo(START);
+        assertThat(key.getSignedExpiry()).isEqualTo(start.plusDays(7));
     }
 
     @Test

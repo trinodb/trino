@@ -14,6 +14,8 @@
 package io.trino.filesystem.azure;
 
 import com.azure.storage.blob.models.UserDelegationKey;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import io.trino.cache.NonEvictableLoadingCache;
@@ -23,17 +25,32 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static com.google.common.base.Ticker.systemTicker;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.time.temporal.ChronoUnit.SECONDS;
 
 final class AzureUserDelegationKeyCache
 {
     // Each cache belongs to one OAuth credential, and keys are scoped to the storage endpoint.
-    private final NonEvictableLoadingCache<String, CachedKey> keys = buildNonEvictableCache(
-            CacheBuilder.newBuilder()
-                    .maximumSize(1000)
-                    .expireAfterAccess(Duration.ofDays(7)),
-            CacheLoader.from(CachedKey::new));
+    private final NonEvictableLoadingCache<String, CachedKey> keys;
+
+    public AzureUserDelegationKeyCache()
+    {
+        this(systemTicker());
+    }
+
+    @VisibleForTesting
+    AzureUserDelegationKeyCache(Ticker ticker)
+    {
+        // Local signing cannot observe revocation failures seen by clients. Limit reuse even when
+        // a key's signed validity is longer, so revoked keys are eventually replaced.
+        keys = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .maximumSize(1000)
+                        .expireAfterWrite(Duration.ofMinutes(5))
+                        .ticker(ticker),
+                CacheLoader.from(CachedKey::new));
+    }
 
     public UserDelegationKey get(
             String endpoint,
