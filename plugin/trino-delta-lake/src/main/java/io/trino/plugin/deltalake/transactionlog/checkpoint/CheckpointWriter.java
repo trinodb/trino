@@ -34,6 +34,7 @@ import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -94,9 +95,11 @@ public class CheckpointWriter
     private final ParquetWriterOptions parquetWriterOptions;
 
     @Inject
-    public CheckpointWriter(TypeManager typeManager, CheckpointSchemaManager checkpointSchemaManager, NodeVersion nodeVersion)
+    public CheckpointWriter(TypeManager typeManager, CheckpointSchemaManager checkpointSchemaManager, NodeVersion nodeVersion, ParquetWriterConfig parquetWriterConfig)
     {
-        this(typeManager, checkpointSchemaManager, nodeVersion.toString(), ParquetWriterOptions.builder().build());
+        this(typeManager, checkpointSchemaManager, nodeVersion.toString(), ParquetWriterOptions.builder()
+                .setUseDeltaLengthByteArrayEncoding(parquetWriterConfig.isDeltaLengthByteArrayEncodingEnabled())
+                .build());
     }
 
     @VisibleForTesting
