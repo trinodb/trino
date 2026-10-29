@@ -121,6 +121,23 @@ implementation is used:
 * - `iceberg.target-max-file-size`
   - Target maximum size of written files; the actual size may be larger.
   - `1GB`
+* - `iceberg.sorted-writing-enabled`
+  - Enable sorted writing for tables with a specified sort order.
+  - `true`
+* - `iceberg.writer-sort-buffer-size`
+  - Size of the in-memory buffer used to sort rows when writing to sorted
+    tables. When the buffer is exceeded, rows are written to temporary files
+    that are merged afterwards.
+  - `64MB`
+* - `iceberg.max-open-sort-files`
+  - Maximum number of writer temporary files read in one pass while merging
+    sorted writes.
+  - `50`
+* - `iceberg.sorted-writing.local-staging-path`
+  - Local directory used for staging writes to sorted tables. The `${USER}`
+    placeholder creates a separate location for each user. Only the `file://`
+    and `local://` prefixes are supported.
+  -
 * - `iceberg.unique-table-location`
   - Use randomized, unique table locations.
   - `true`
