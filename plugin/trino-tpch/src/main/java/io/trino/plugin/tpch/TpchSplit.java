@@ -68,7 +68,8 @@ public class TpchSplit
     @Override
     public boolean isRemotelyAccessible()
     {
-        return false;
+        // A split without addresses is not pinned to a node, e.g. when its original worker has left the cluster
+        return addresses.isEmpty();
     }
 
     @JsonProperty
