@@ -17,10 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
+import io.trino.ExceededMemoryLimitException;
 import io.trino.Session;
 import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.DevNullOperator.DevNullOperatorFactory;
 import io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
 import io.trino.operator.TableFinishOperator.TableFinisher;
 import io.trino.operator.aggregation.TestingAggregationFunction;
@@ -46,7 +49,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
@@ -58,6 +63,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -162,6 +168,42 @@ public class TestTableFinishOperator
         assertThat(driverContext.getMemoryUsage())
                 .describedAs("memoryUsage")
                 .isEqualTo(0);
+    }
+
+    @Test
+    public void testFragmentsMemoryLimit()
+            throws Exception
+    {
+        TableExecuteContextManager tableExecuteContextManager = new TableExecuteContextManager();
+        TableFinishOperatorFactory operatorFactory = new TableFinishOperatorFactory(
+                0,
+                new PlanNodeId("node"),
+                new TestTableFinisher(),
+                new DevNullOperatorFactory(1, new PlanNodeId("test")),
+                new StatisticAggregationsDescriptor<>(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
+                tableExecuteContextManager,
+                true,
+                TEST_SESSION);
+        DriverContext driverContext = createTaskContext(scheduledExecutor, scheduledExecutor, TEST_SESSION, DataSize.of(1, MEGABYTE))
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+        tableExecuteContextManager.registerTableExecuteContextForQuery(driverContext.getPipelineContext().getTaskContext().getQueryContext().getQueryId());
+        try (TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(driverContext)) {
+            List<Type> inputTypes = ImmutableList.of(BIGINT, VARBINARY);
+
+            // Fragments sharing an input block are accounted by their own size
+            operator.addInput(rowPagesBuilder(inputTypes)
+                    .row(null, new byte[300_000])
+                    .row(null, new byte[300_000])
+                    .buildPage());
+            assertThat(driverContext.getMemoryUsage()).isEqualTo(2 * Slices.allocate(300_000).getRetainedSize());
+
+            assertThatThrownBy(() -> operator.addInput(rowPagesBuilder(inputTypes).row(null, new byte[500_000]).buildPage()))
+                    .isInstanceOf(ExceededMemoryLimitException.class)
+                    .hasMessageMatching("Query exceeded per-node memory limit of 1MB.*");
+        }
+
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
     }
 
     private static class TestTableFinisher
