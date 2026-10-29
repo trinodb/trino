@@ -21,8 +21,10 @@ import io.airlift.json.JsonCodec;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.ForDeltaLakeMetadata;
@@ -96,12 +98,19 @@ public class CheckpointWriterManager
             FileFormatDataSourceStats fileFormatDataSourceStats,
             JsonCodec<LastCheckpoint> lastCheckpointCodec,
             DeltaLakeConfig deltaLakeConfig,
+            ParquetWriterConfig parquetWriterConfig,
             @ForDeltaLakeMetadata ExecutorService executorService)
     {
         this(typeManager,
                 checkpointSchemaManager,
                 fileSystemFactory,
-                new CheckpointWriter(typeManager, checkpointSchemaManager, nodeVersion.toString()),
+                new CheckpointWriter(
+                        typeManager,
+                        checkpointSchemaManager,
+                        nodeVersion.toString(),
+                        ParquetWriterOptions.builder()
+                                .setUseDeltaLengthByteArrayEncoding(parquetWriterConfig.isDeltaLengthByteArrayEncodingEnabled())
+                                .build()),
                 transactionLogAccess,
                 fileFormatDataSourceStats,
                 lastCheckpointCodec,
