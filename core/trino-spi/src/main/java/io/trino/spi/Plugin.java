@@ -22,6 +22,7 @@ import io.trino.spi.exchange.ExchangeManagerFactory;
 import io.trino.spi.function.LanguageFunctionEngine;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
+import io.trino.spi.security.ExtraCredentialsProviderFactory;
 import io.trino.spi.security.GroupProviderFactory;
 import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
@@ -79,6 +80,11 @@ public interface Plugin
     }
 
     default Iterable<GroupProviderFactory> getGroupProviderFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<ExtraCredentialsProviderFactory> getExtraCredentialsProviderFactories()
     {
         return emptyList();
     }
