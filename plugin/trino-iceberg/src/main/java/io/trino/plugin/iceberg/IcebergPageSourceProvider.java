@@ -96,7 +96,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.MemoryContext;
-import io.trino.spi.connector.MemoryUsageReportingPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.predicate.Domain;
@@ -170,7 +169,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.geospatial.serde.JtsGeometrySerde.OGC_CRS84_SRID;
 import static io.trino.geospatial.serde.JtsGeometrySerde.wkbToEwkb;
 import static io.trino.memory.context.AggregatedMemoryContext.newAggregatedMemoryContext;
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.fullyProjectedLayout;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
@@ -734,8 +732,7 @@ public class IcebergPageSourceProvider
                     partitionKeys,
                     typeManager,
                     dataSequenceNumber,
-                    fileFirstRowId,
-                    memoryContext);
+                    fileFirstRowId);
         };
     }
 
@@ -1461,8 +1458,7 @@ public class IcebergPageSourceProvider
             Map<Integer, Optional<String>> partitionKeys,
             TypeManager typeManager,
             OptionalLong dataSequenceNumber,
-            OptionalLong fileFirstRowId,
-            AggregatedMemoryContext memoryContext)
+            OptionalLong fileFirstRowId)
     {
         InputFile file = new ForwardingInputFile(inputFile);
         OptionalLong fileModifiedTime = OptionalLong.empty();
@@ -1591,19 +1587,8 @@ public class IcebergPageSourceProvider
                     columnTypes.build(),
                     appendRowNumberColumn,
                     fileFirstRowId,
-                    dataSequenceNumber,
-                    newSimpleAggregatedMemoryContext());
+                    dataSequenceNumber);
             pageSource = transforms.build(pageSource);
-            pageSource = new MemoryUsageReportingPageSource(pageSource, new MemoryContext()
-            {
-                private final LocalMemoryContext localMemoryContext = memoryContext.newLocalMemoryContext(IcebergAvroPageSource.class.getSimpleName());
-
-                @Override
-                public void setBytes(long currentBytes)
-                {
-                    localMemoryContext.setBytes(currentBytes);
-                }
-            });
 
             return new ReaderPageSourceWithRowPositions(
                     pageSource,
