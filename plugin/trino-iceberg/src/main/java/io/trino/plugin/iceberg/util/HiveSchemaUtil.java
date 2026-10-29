@@ -44,7 +44,8 @@ public final class HiveSchemaUtil
             case FIXED, BINARY, GEOMETRY, GEOGRAPHY -> "binary";
             case DECIMAL -> "decimal(%s,%s)".formatted(((DecimalType) type).precision(), ((DecimalType) type).scale());
             case VARIANT -> "struct<metadata:binary,value:binary>";
-            case UNKNOWN -> "unknown";
+            // Older Hive metastores do not accept unknown. Iceberg metadata retains the original type.
+            case UNKNOWN -> "void";
             case LIST -> "array<%s>".formatted(convert(type.asListType().elementType()));
             case MAP -> "map<%s,%s>".formatted(convert(type.asMapType().keyType()), convert(type.asMapType().valueType()));
             case STRUCT -> "struct<%s>".formatted(type.asStructType().fields().stream()
