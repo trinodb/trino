@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.tls;
 
-import io.trino.testing.containers.TrinoTestImages;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.tests.product.utils.HostMappingDnsResolver;
 import org.testcontainers.containers.GenericContainer;
@@ -36,6 +35,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
+import static io.trino.testing.containers.TrinoTestImages.getDefaultTrinoImage;
 
 /**
  * Three-node TLS environment used by SuiteTls.
@@ -172,7 +172,7 @@ public class TlsEnvironment
     private GenericContainer<?> createTrinoContainer(String hostName, boolean coordinatorNode)
     {
         String fqdn = hostName + ".docker.cluster";
-        GenericContainer<?> container = configureTrinoContainer(new GenericContainer<>(DockerImageName.parse(TrinoTestImages.getDefaultTrinoImage())))
+        GenericContainer<?> container = configureTrinoContainer(new GenericContainer<>(DockerImageName.parse(getDefaultTrinoImage())))
                 .withNetwork(network)
                 .withNetworkAliases(hostName, fqdn)
                 .withCreateContainerCmdModifier(command -> command.withHostName(hostName))
