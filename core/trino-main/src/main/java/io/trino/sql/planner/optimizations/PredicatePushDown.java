@@ -20,16 +20,23 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.metadata.Metadata;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Booleans;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions.Comparison;
+import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.EffectivePredicateExtractor;
@@ -65,6 +72,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -83,8 +91,15 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.SystemSessionProperties.isPredicatePushdownUseTableProperties;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -495,8 +510,30 @@ public class PredicatePushDown
 
             // Create new projections for the new join clauses
             List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
+            Set<JoinNode.EquiJoinClause> identicalKeyClauses = new HashSet<>();
             ImmutableList.Builder<Expression> joinFilterBuilder = ImmutableList.builder();
             for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
+                Optional<List<JoinKey>> identicalKeys = identicalJoinKeys(conjunct, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols());
+                if (identicalKeys.isPresent()) {
+                    // The comparison stays in the join filter: it derives the NULL-allowed dynamic
+                    // filter on the compared columns, and lets a later pass find the keys it added.
+                    for (JoinKey key : identicalKeys.get()) {
+                        JoinNode.EquiJoinClause clause = existingKeyClause(node, key)
+                                .orElseGet(() -> {
+                                    Symbol leftSymbol = symbolAllocator.newSymbol(key.left());
+                                    leftProjections.put(leftSymbol, key.left());
+                                    Symbol rightSymbol = symbolAllocator.newSymbol(key.right());
+                                    rightProjections.put(rightSymbol, key.right());
+                                    return new JoinNode.EquiJoinClause(leftSymbol, rightSymbol);
+                                });
+                        if (!equiJoinClauses.contains(clause)) {
+                            equiJoinClauses.add(clause);
+                        }
+                        identicalKeyClauses.add(clause);
+                    }
+                    joinFilterBuilder.add(conjunct);
+                    continue;
+                }
                 if (joinEqualityExpression(conjunct, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols())) {
                     Comparison equality = matchComparison(conjunct);
 
@@ -514,7 +551,10 @@ public class PredicatePushDown
                         rightProjections.put(rightSymbol, rightExpression);
                     }
 
-                    equiJoinClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                    JoinNode.EquiJoinClause clause = new JoinNode.EquiJoinClause(leftSymbol, rightSymbol);
+                    if (!equiJoinClauses.contains(clause)) {
+                        equiJoinClauses.add(clause);
+                    }
                 }
                 else {
                     joinFilterBuilder.add(conjunct);
@@ -522,7 +562,12 @@ public class PredicatePushDown
             }
 
             List<Expression> joinFilter = joinFilterBuilder.build();
-            DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, joinFilter, session, idAllocator);
+            // The keys standing in for IS NOT DISTINCT FROM are derived values; the comparison kept in
+            // the join filter provides the dynamic filter on the compared columns instead.
+            List<JoinNode.EquiJoinClause> dynamicFilterClauses = equiJoinClauses.stream()
+                    .filter(clause -> !identicalKeyClauses.contains(clause))
+                    .collect(toImmutableList());
+            DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, dynamicFilterClauses, joinFilter, session, idAllocator);
             Map<DynamicFilterId, Symbol> dynamicFilters = dynamicFiltersResult.dynamicFilters();
             leftPredicate = combineConjuncts(leftPredicate, combineConjuncts(dynamicFiltersResult.predicates()));
 
@@ -1158,6 +1203,88 @@ public class PredicatePushDown
                             symbol -> new Constant(symbol.type(), null)));
 
             return optimizer.process(expression, session, symbolAllocator, inputs).orElse(expression);
+        }
+
+        /// Rewrites `l IS NOT DISTINCT FROM r` between the join sides into equi-join keys, so the
+        /// join executes as a hash join rather than a nested loop with a filter: `l IS NULL =
+        /// r IS NULL` matches NULL with NULL, and `coalesce(l, d) = coalesce(r, d)` matches the
+        /// non-NULL values (the constant `d` stands in for NULL and is disambiguated by the first
+        /// key). Only types whose equality agrees with `IS NOT DISTINCT FROM` on non-NULL values
+        /// qualify; floating-point types (NaN, signed zero) and structural types (nested NULLs) do
+        /// not.
+        private Optional<List<JoinKey>> identicalJoinKeys(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
+        {
+            if (!(matchComparison(expression) instanceof Comparison.Identical(Expression leftExpression, Expression rightExpression))
+                    || !(leftExpression instanceof Reference left)
+                    || !(rightExpression instanceof Reference right)) {
+                return Optional.empty();
+            }
+            Optional<Constant> stand = nullStandIn(left.type());
+            if (stand.isEmpty() || !left.type().equals(right.type())) {
+                return Optional.empty();
+            }
+            Reference leftReference;
+            Reference rightReference;
+            if (leftSymbols.contains(Symbol.from(left)) && rightSymbols.contains(Symbol.from(right))) {
+                leftReference = left;
+                rightReference = right;
+            }
+            else if (leftSymbols.contains(Symbol.from(right)) && rightSymbols.contains(Symbol.from(left))) {
+                leftReference = right;
+                rightReference = left;
+            }
+            else {
+                return Optional.empty();
+            }
+            return Optional.of(ImmutableList.of(
+                    new JoinKey(new IsNull(leftReference), new IsNull(rightReference)),
+                    new JoinKey(new Coalesce(leftReference, stand.get()), new Coalesce(rightReference, stand.get()))));
+        }
+
+        private record JoinKey(Expression left, Expression right) {}
+
+        /// The join's criterion for a key added by an earlier pass, if any: a criterion whose symbols
+        /// the sources define as the key's expressions.
+        private Optional<JoinNode.EquiJoinClause> existingKeyClause(JoinNode join, JoinKey key)
+        {
+            return join.getCriteria().stream()
+                    .filter(clause -> key.left().equals(definition(join.getLeft(), clause.getLeft()))
+                            && key.right().equals(definition(join.getRight(), clause.getRight())))
+                    .findFirst();
+        }
+
+        private static Expression definition(PlanNode source, Symbol symbol)
+        {
+            return PlanNodeSearcher.searchFrom(source)
+                    .whereIsInstanceOfAny(ProjectNode.class)
+                    .findAll().stream()
+                    .map(ProjectNode.class::cast)
+                    .map(project -> project.getAssignments().get(symbol))
+                    .filter(Objects::nonNull)
+                    .filter(expression -> !expression.equals(symbol.toSymbolReference()))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        private static Optional<Constant> nullStandIn(Type type)
+        {
+            Object value;
+            if (type.equals(BOOLEAN)) {
+                value = false;
+            }
+            else if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) || type.equals(DATE)) {
+                value = 0L;
+            }
+            else if (type instanceof DecimalType decimalType) {
+                value = decimalType.isShort() ? 0L : Int128.ZERO;
+            }
+            else if (type instanceof VarcharType || type instanceof CharType || type.equals(VARBINARY)) {
+                value = Slices.EMPTY_SLICE;
+            }
+            else {
+                return Optional.empty();
+            }
+            return Optional.of(new Constant(type, value));
         }
 
         private boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)

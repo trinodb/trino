@@ -22,16 +22,22 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.JoinNode;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
@@ -76,6 +82,7 @@ import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDynamicFilter
         extends BasePlanTest
@@ -385,19 +392,30 @@ public class TestDynamicFilter
     @Test
     public void testIsNotDistinctFromJoin()
     {
+        // planned as a hash join on a NULL indicator and a NULL-replaced value; the comparison stays
+        // in the join filter and derives a NULL-allowed dynamic filter on the compared column
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey IS NOT DISTINCT FROM o.orderkey",
-                anyTree(filter(
-                        comparison(IDENTICAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
+                anyTree(
                         join(INNER, builder -> builder
+                                .equiCriteria(ImmutableList.of(equiJoinClause("O_NULL", "L_NULL"), equiJoinClause("O_KEY", "L_KEY")))
+                                .filter(comparison(IDENTICAL, new Reference(BIGINT, "L_ORDERKEY"), new Reference(BIGINT, "O_ORDERKEY")))
                                 .addDynamicFilter("DF", "L_ORDERKEY")
                                 .left(
-                                        filter(
-                                                TRUE,
-                                                dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "O_ORDERKEY").nullAllowed(true)),
-                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                        project(
+                                                ImmutableMap.of(
+                                                        "O_NULL", expression(new IsNull(new Reference(BIGINT, "O_ORDERKEY"))),
+                                                        "O_KEY", expression(new Coalesce(new Reference(BIGINT, "O_ORDERKEY"), new Constant(BIGINT, 0L)))),
+                                                filter(
+                                                        TRUE,
+                                                        dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "O_ORDERKEY").nullAllowed(true)),
+                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))))
                                 .right(
-                                        exchange(
-                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
+                                        anyTree(
+                                                project(
+                                                        ImmutableMap.of(
+                                                                "L_NULL", expression(new IsNull(new Reference(BIGINT, "L_ORDERKEY"))),
+                                                                "L_KEY", expression(new Coalesce(new Reference(BIGINT, "L_ORDERKEY"), new Constant(BIGINT, 0L)))),
+                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
 
         // Dynamic filter is not supported for IS DISTINCT FROM
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey IS DISTINCT FROM o.orderkey",
@@ -423,20 +441,15 @@ public class TestDynamicFilter
     @Test
     public void testNotDistinctFromLeftJoin()
     {
-        // IS NOT DISTINCT FROM condition does not promote LEFT to INNER
-        assertPlan("SELECT 1 FROM (SELECT o.orderkey FROM nation n LEFT JOIN orders o ON n.nationkey = o.orderkey) o JOIN lineitem l ON o.orderkey IS NOT DISTINCT FROM l.orderkey",
-                anyTree(
-                        join(INNER, builder -> builder
-                                .left(
-                                        join(LEFT, leftJoinBuilder -> leftJoinBuilder
-                                                .equiCriteria("nationkey", "ORDERS_OK")
-                                                .left(tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))
-                                                .right(
-                                                        anyTree(
-                                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))))
-                                .right(
-                                        anyTree(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+        // IS NOT DISTINCT FROM condition does not promote LEFT to INNER; it plans as hash join keys
+        // (a NULL indicator and a NULL-replaced value) over the LEFT join's output
+        List<JoinNode> joins = PlanNodeSearcher.searchFrom(plan("SELECT 1 FROM (SELECT o.orderkey FROM nation n LEFT JOIN orders o ON n.nationkey = o.orderkey) o JOIN lineitem l ON o.orderkey IS NOT DISTINCT FROM l.orderkey").getRoot())
+                .whereIsInstanceOfAny(JoinNode.class)
+                .findAll().stream()
+                .map(JoinNode.class::cast)
+                .toList();
+        assertThat(joins).extracting(JoinNode::getType).containsExactly(INNER, LEFT);
+        assertThat(joins.getFirst().getCriteria()).hasSize(2);
 
         // equi condition promotes LEFT to INNER
         assertPlan("SELECT 1 FROM (SELECT o.orderkey FROM nation n LEFT JOIN orders o ON n.nationkey = o.orderkey) o JOIN lineitem l ON o.orderkey = l.orderkey",
