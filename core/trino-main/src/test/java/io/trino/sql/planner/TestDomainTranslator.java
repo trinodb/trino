@@ -25,6 +25,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
@@ -101,6 +102,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.Reals.toReal;
+import static io.trino.util.StructuralTestUtil.sqlRowOf;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ONE;
 import static java.math.BigDecimal.TWO;
@@ -951,6 +953,39 @@ public class TestDomainTranslator
         assertPredicateTranslates(
                 not(isDistinctFrom(C_COLOR, nullLiteral(COLOR))),
                 tupleDomain(C_COLOR, Domain.onlyNull(COLOR)));
+    }
+
+    @Test
+    public void testRowComparisons()
+    {
+        RowType rowType = RowType.anonymousRow(INTEGER, INTEGER);
+        Symbol row = new Symbol(rowType, "row");
+        Constant bound = new Constant(rowType, sqlRowOf(rowType, 10, 0));
+        RowType doubleRowType = RowType.anonymousRow(DOUBLE);
+        Symbol doubleRow = new Symbol(doubleRowType, "double_row");
+        Constant nan = new Constant(doubleRowType, sqlRowOf(doubleRowType, Double.NaN));
+        In in = new In(row.toSymbolReference(), List.of(bound));
+
+        // Row comparisons can be unknown for non-null rows, and identity also treats nested NaN differently from equality.
+        // Keep the original predicate when another column's domain is pushed down.
+        for (Expression predicate : List.of(
+                isDistinctFrom(row, new Constant(rowType, sqlRowOf(rowType, 50, 5))),
+                or(greaterThan(row, bound), lessThanOrEqual(row, bound)),
+                or(
+                        between(row, new Constant(rowType, sqlRowOf(rowType, 0, 0)), new Constant(rowType, sqlRowOf(rowType, 10, 5))),
+                        between(row, new Constant(rowType, sqlRowOf(rowType, 10, 3)), new Constant(rowType, sqlRowOf(rowType, 20, 0)))),
+                comparison(IDENTICAL, doubleRow.toSymbolReference(), nan),
+                isDistinctFrom(doubleRow, nan),
+                in,
+                not(in))) {
+            assertPredicateTranslates(
+                    and(predicate, equal(C_BIGINT, bigintLiteral(1))),
+                    tupleDomain(C_BIGINT, Domain.singleValue(BIGINT, 1L)),
+                    predicate);
+        }
+
+        assertPredicateTranslates(comparison(IDENTICAL, row.toSymbolReference(), nullLiteral(rowType)), tupleDomain(row, Domain.onlyNull(rowType)));
+        assertPredicateTranslates(isDistinctFrom(row, nullLiteral(rowType)), tupleDomain(row, Domain.notNull(rowType)));
     }
 
     @Test

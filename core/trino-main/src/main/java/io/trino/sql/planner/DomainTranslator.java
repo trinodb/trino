@@ -33,6 +33,7 @@ import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
@@ -799,6 +800,11 @@ public final class DomainTranslator
                     }
                 };
             }
+            if (type instanceof RowType) {
+                // Row comparisons can be unknown for non-null values, and nested NaN makes identity differ from equality.
+                // Domains cannot represent these semantics, so retain the original predicate.
+                return Optional.empty();
+            }
             if (type.isOrderable()) {
                 return extractOrderableDomain(comparisonOperator, type, value, complement)
                         .map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)), TRUE));
@@ -1008,6 +1014,9 @@ public final class DomainTranslator
             }
             Symbol symbol = Symbol.from(reference);
             Type type = reference.type();
+            if (type instanceof RowType) {
+                return Optional.empty();
+            }
             List<Object> inValues = new ArrayList<>(node.valueList().size());
             List<Expression> excludedExpressions = new ArrayList<>();
 
