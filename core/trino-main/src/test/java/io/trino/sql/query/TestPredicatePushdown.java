@@ -55,6 +55,33 @@ public class TestPredicatePushdown
     }
 
     @Test
+    public void testIsNotDistinctFromJoin()
+    {
+        // NULL matches NULL, and a NULL is distinct from the value standing in for it in the join keys
+        assertThat(assertions.query(
+                "SELECT a.id, b.id FROM (VALUES (1, 1), (2, CAST(NULL AS integer)), (3, 0), (4, 5)) a(id, k) " +
+                        "JOIN (VALUES (10, 1), (20, CAST(NULL AS integer)), (30, 0), (40, 0)) b(id, k) ON a.k IS NOT DISTINCT FROM b.k"))
+                .matches("VALUES (1, 10), (2, 20), (3, 30), (3, 40)");
+        assertThat(assertions.query(
+                "SELECT a.id, b.id FROM (VALUES (1, 'x'), (2, CAST(NULL AS varchar)), (3, ''), (4, 'y')) a(id, k) " +
+                        "LEFT JOIN (VALUES (10, ''), (20, CAST(NULL AS varchar)), (30, 'x')) b(id, k) ON a.k IS NOT DISTINCT FROM b.k"))
+                .matches("VALUES (1, 30), (2, 20), (3, 10), (4, CAST(NULL AS integer))");
+        assertThat(assertions.query(
+                "SELECT a.id, b.id FROM (VALUES (1, false), (2, CAST(NULL AS boolean))) a(id, k) " +
+                        "FULL JOIN (VALUES (10, false), (20, CAST(NULL AS boolean)), (30, true)) b(id, k) ON a.k IS NOT DISTINCT FROM b.k"))
+                .matches("VALUES (1, 10), (2, 20), (CAST(NULL AS integer), 30)");
+        assertThat(assertions.query(
+                "SELECT a.id, b.id FROM (VALUES (1, DECIMAL '0.00'), (2, CAST(NULL AS decimal(30, 2)))) a(id, k) " +
+                        "JOIN (VALUES (10, DECIMAL '0.00'), (20, CAST(NULL AS decimal(30, 2)))) b(id, k) ON a.k IS NOT DISTINCT FROM b.k"))
+                .matches("VALUES (1, 10), (2, 20)");
+        // floating-point keys keep IS NOT DISTINCT FROM semantics for NaN
+        assertThat(assertions.query(
+                "SELECT a.id, b.id FROM (VALUES (1, nan()), (2, CAST(NULL AS double)), (3, 1e0)) a(id, k) " +
+                        "JOIN (VALUES (10, nan()), (20, CAST(NULL AS double)), (30, 1e0)) b(id, k) ON a.k IS NOT DISTINCT FROM b.k"))
+                .matches("VALUES (1, 10), (2, 20), (3, 30)");
+    }
+
+    @Test
     public void testConditionalExpressionWithFailingExpression()
     {
         assertThat(assertions.query("" +
