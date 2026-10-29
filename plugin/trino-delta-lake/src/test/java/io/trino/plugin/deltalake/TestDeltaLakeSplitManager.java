@@ -35,6 +35,7 @@ import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriter;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReaderFactory;
@@ -227,9 +228,10 @@ public class TestDeltaLakeSplitManager
         TypeManager typeManager = context.getTypeManager();
 
         DeltaLakeFileSystemFactory fileSystemFactory = new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpTableCredentialsProvider());
+        CheckpointSchemaManager checkpointSchemaManager = new CheckpointSchemaManager(typeManager);
         TransactionLogAccess transactionLogAccess = new TransactionLogAccess(
                 typeManager,
-                new CheckpointSchemaManager(typeManager),
+                checkpointSchemaManager,
                 deltaLakeConfig,
                 new FileFormatDataSourceStats(),
                 fileSystemFactory,
@@ -250,9 +252,9 @@ public class TestDeltaLakeSplitManager
 
         CheckpointWriterManager checkpointWriterManager = new CheckpointWriterManager(
                 typeManager,
-                new CheckpointSchemaManager(typeManager),
+                checkpointSchemaManager,
                 new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpTableCredentialsProvider()),
-                new NodeVersion("test_version"),
+                new CheckpointWriter(typeManager, checkpointSchemaManager, new NodeVersion("test_version")),
                 transactionLogAccess,
                 new FileFormatDataSourceStats(),
                 jsonCodec(LastCheckpoint.class),

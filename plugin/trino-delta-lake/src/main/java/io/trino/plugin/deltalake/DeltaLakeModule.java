@@ -39,6 +39,7 @@ import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriter;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReaderFactory;
@@ -108,6 +109,7 @@ public class DeltaLakeModule
         jsonCodecBinder(binder).bindJsonCodec(ExtendedStatistics.class);
         binder.bind(CheckpointSchemaManager.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(LastCheckpoint.class);
+        binder.bind(CheckpointWriter.class).in(Scopes.SINGLETON);
         binder.bind(CheckpointWriterManager.class).in(Scopes.SINGLETON);
         binder.bind(TransactionLogAccess.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TransactionLogAccess.class)

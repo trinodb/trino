@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
+import com.google.inject.Inject;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.TrinoOutputStream;
 import io.trino.parquet.writer.ParquetSchemaConverter;
@@ -33,6 +34,7 @@ import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -91,9 +93,10 @@ public class CheckpointWriter
     private final String trinoVersion;
     private final ParquetWriterOptions parquetWriterOptions;
 
-    public CheckpointWriter(TypeManager typeManager, CheckpointSchemaManager checkpointSchemaManager, String trinoVersion)
+    @Inject
+    public CheckpointWriter(TypeManager typeManager, CheckpointSchemaManager checkpointSchemaManager, NodeVersion nodeVersion)
     {
-        this(typeManager, checkpointSchemaManager, trinoVersion, ParquetWriterOptions.builder().build());
+        this(typeManager, checkpointSchemaManager, nodeVersion.toString(), ParquetWriterOptions.builder().build());
     }
 
     @VisibleForTesting

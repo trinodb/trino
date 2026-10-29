@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
@@ -37,7 +36,6 @@ import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtoco
 import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriter.CheckpointFileWriter;
-import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -91,35 +89,12 @@ public class CheckpointWriterManager
             TypeManager typeManager,
             CheckpointSchemaManager checkpointSchemaManager,
             DeltaLakeFileSystemFactory fileSystemFactory,
-            NodeVersion nodeVersion,
-            TransactionLogAccess transactionLogAccess,
-            FileFormatDataSourceStats fileFormatDataSourceStats,
-            JsonCodec<LastCheckpoint> lastCheckpointCodec,
-            DeltaLakeConfig deltaLakeConfig,
-            @ForDeltaLakeMetadata ExecutorService executorService)
-    {
-        this(typeManager,
-                checkpointSchemaManager,
-                fileSystemFactory,
-                new CheckpointWriter(typeManager, checkpointSchemaManager, nodeVersion.toString()),
-                transactionLogAccess,
-                fileFormatDataSourceStats,
-                lastCheckpointCodec,
-                deltaLakeConfig,
-                executorService);
-    }
-
-    @VisibleForTesting
-    CheckpointWriterManager(
-            TypeManager typeManager,
-            CheckpointSchemaManager checkpointSchemaManager,
-            DeltaLakeFileSystemFactory fileSystemFactory,
             CheckpointWriter checkpointWriter,
             TransactionLogAccess transactionLogAccess,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             JsonCodec<LastCheckpoint> lastCheckpointCodec,
             DeltaLakeConfig deltaLakeConfig,
-            ExecutorService executorService)
+            @ForDeltaLakeMetadata ExecutorService executorService)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");

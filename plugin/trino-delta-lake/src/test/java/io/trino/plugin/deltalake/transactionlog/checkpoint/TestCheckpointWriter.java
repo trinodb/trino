@@ -36,6 +36,7 @@ import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.predicate.TupleDomain;
@@ -263,7 +264,7 @@ public class TestCheckpointWriter
                 ImmutableSet.of(addFileEntryJsonStats),
                 ImmutableSet.of(removeFileEntry));
 
-        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, new NodeVersion("test"));
 
         File targetFile = Files.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
@@ -418,7 +419,7 @@ public class TestCheckpointWriter
                 ImmutableSet.of(addFileEntryParquetStats),
                 ImmutableSet.of(removeFileEntry));
 
-        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, new NodeVersion("test"));
 
         File targetFile = Files.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
@@ -580,7 +581,7 @@ public class TestCheckpointWriter
                 ImmutableSet.of(addFileEntryJsonStats),
                 ImmutableSet.of(removeFileEntry));
 
-        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, new NodeVersion("test"));
 
         File targetFile = Files.createTempFile("testCheckpointWriteJsonReadParquet-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
@@ -650,7 +651,7 @@ public class TestCheckpointWriter
         Map<String, Type> columnTypeMapping = extractSchema(metadataEntry, protocolEntry, typeManager).stream()
                 .collect(toImmutableMap(DeltaLakeColumnMetadata::physicalName, DeltaLakeColumnMetadata::physicalColumnType));
 
-        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, new NodeVersion("test"));
         String checkpointPath = writeCheckpoint(writer, entries, directory.resolve("mixed_case.checkpoint.parquet"));
 
         DeltaLakeJsonFileStatistics statistics = toJsonStatistics(columnTypeMapping, readCheckpoint(checkpointPath, metadataEntry, protocolEntry, true));
@@ -718,7 +719,7 @@ public class TestCheckpointWriter
         Map<String, Object> expectedMaxValues = ImmutableMap.of("id", 2L, "row", ImmutableMap.of("s1", 2L));
         Map<String, Object> expectedNullCount = ImmutableMap.of("id", 0L, "row", ImmutableMap.of("s1", 3L));
 
-        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, new NodeVersion("test"));
         String firstCheckpointPath = writeCheckpoint(writer, entries, directory.resolve("first.checkpoint.parquet"));
 
         CheckpointEntries firstEntries = readCheckpoint(firstCheckpointPath, metadataEntry, protocolEntry, true);
@@ -755,7 +756,7 @@ public class TestCheckpointWriter
                         fileWithTightBounds("unknown.parquet", Optional.empty())),
                 ImmutableSet.of());
 
-        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, new NodeVersion("test"));
         String checkpointPath = directory.resolve("bounds.checkpoint.parquet").toUri().toString();
         writer.write(entries, createOutputFile(checkpointPath));
         Map<String, Optional<Boolean>> expectedTightBounds = ImmutableMap.of(
@@ -792,7 +793,7 @@ public class TestCheckpointWriter
         AddFileEntry secondAdd = fileWithTightBounds("second.parquet", Optional.empty());
         RemoveFileEntry removeFileEntry = new RemoveFileEntry("removed.parquet", ImmutableMap.of(), 1000, true, Optional.empty());
 
-        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, new NodeVersion("test"));
         String checkpointPath = directory.resolve("streamed.checkpoint.parquet").toUri().toString();
         try (CheckpointWriter.CheckpointFileWriter checkpointFileWriter = writer.createWriter(metadataEntry, protocolEntry, createOutputFile(checkpointPath))) {
             assertThat(checkpointFileWriter.getEntryCount()).isEqualTo(2);
@@ -911,7 +912,7 @@ public class TestCheckpointWriter
         CheckpointEntries entries = new CheckpointEntries(metadataEntry, protocolEntry, ImmutableSet.of(), ImmutableSet.of(addFileEntry), ImmutableSet.of());
 
         String targetPath = directory.resolve("checkpoint.parquet").toUri().toString();
-        new CheckpointWriter(typeManager, checkpointSchemaManager, "test").write(entries, createOutputFile(targetPath));
+        new CheckpointWriter(typeManager, checkpointSchemaManager, new NodeVersion("test")).write(entries, createOutputFile(targetPath));
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
         return (DeltaLakeParquetFileStatistics) getOnlyElement(readEntries.addFileEntries()).getStats().orElseThrow();
@@ -972,7 +973,7 @@ public class TestCheckpointWriter
                 ImmutableSet.of(addFileEntryParquetStats),
                 ImmutableSet.of());
 
-        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, new NodeVersion("test"));
 
         File targetFile = Files.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
@@ -1031,7 +1032,7 @@ public class TestCheckpointWriter
             targetFile.deleteOnExit();
             String targetPath = targetFile.toURI().toString();
             targetFile.delete();
-            new CheckpointWriter(typeManager, checkpointSchemaManager, "test").write(entries, createOutputFile(targetPath));
+            new CheckpointWriter(typeManager, checkpointSchemaManager, new NodeVersion("test")).write(entries, createOutputFile(targetPath));
 
             entries = readCheckpoint(targetPath, metadata, protocol, true);
             assertThat(entries.addFileEntries()).containsExactlyElementsOf(expected.addFileEntries());
