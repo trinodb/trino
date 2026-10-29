@@ -52,6 +52,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -98,6 +99,7 @@ public final class Session
     private final ProtocolHeaders protocolHeaders;
     private final Optional<Slice> exchangeEncryptionKey;
     private final Optional<String> queryDataEncoding;
+    private final Map<CatalogHandle, ConnectorSession> connectorSessions = new ConcurrentHashMap<>();
 
     public Session(
             QueryId queryId,
@@ -564,14 +566,16 @@ public final class Session
     {
         requireNonNull(catalogHandle, "catalogHandle is null");
 
-        String catalogName = catalogHandle.getCatalogName().toString();
-        return new FullConnectorSession(
-                this,
-                identity.toConnectorIdentity(catalogName),
-                catalogProperties.getOrDefault(catalogName, ImmutableMap.of()),
-                catalogHandle,
-                catalogName,
-                sessionPropertyManager);
+        return connectorSessions.computeIfAbsent(catalogHandle, handle -> {
+            String catalogName = handle.getCatalogName().toString();
+            return new FullConnectorSession(
+                    this,
+                    identity.toConnectorIdentity(catalogName),
+                    catalogProperties.getOrDefault(catalogName, ImmutableMap.of()),
+                    handle,
+                    catalogName,
+                    sessionPropertyManager);
+        });
     }
 
     public SessionRepresentation toSessionRepresentation()
