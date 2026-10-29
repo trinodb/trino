@@ -13,24 +13,33 @@
  */
 package io.trino.plugin.google.sheets;
 
+import static io.trino.plugin.google.sheets.SheetsClient.RANGE_SEPARATOR;
+import static java.util.Objects.requireNonNull;
+
+/**
+ * Splits a {@code <sheet id>#<range>} expression, as stored in the metadata sheet.
+ * <p>
+ * The range is optional, and the caller supplies the one to fall back to, because reading and appending
+ * need different defaults: a read is bounded by {@code gsheets.max-rows}, while an append uses the range
+ * only to select the table to append after, and so keeps its own fixed range.
+ */
 public class SheetsSheetIdAndRange
 {
-    // By default, loading up to 10k rows from the first tab of the sheet
-    private static final String DEFAULT_RANGE = "$1:$10000";
-    private static final String DELIMITER_HASH = "#";
-
     private final String sheetId;
     private final String range;
 
-    public SheetsSheetIdAndRange(String sheetExpression)
+    public SheetsSheetIdAndRange(String sheetExpression, String defaultRange)
     {
-        String[] tableOptions = sheetExpression.split(DELIMITER_HASH);
+        requireNonNull(sheetExpression, "sheetExpression is null");
+        requireNonNull(defaultRange, "defaultRange is null");
+
+        String[] tableOptions = sheetExpression.split(RANGE_SEPARATOR);
         this.sheetId = tableOptions[0];
         if (tableOptions.length > 1) {
             this.range = tableOptions[1];
         }
         else {
-            this.range = DEFAULT_RANGE;
+            this.range = defaultRange;
         }
     }
 

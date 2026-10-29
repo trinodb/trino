@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.api.client.googleapis.javanet.GoogleNetHttpTransport.newTrustedTransport;
@@ -57,6 +58,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_BAD_CREDENTIALS_ERROR;
+import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_EXCEEDED_ROW_LIMIT;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_INSERT_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_INVALID_TABLE_FORMAT;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_METASTORE_ERROR;
@@ -70,11 +72,19 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class SheetsClient
 {
-    public static final String DEFAULT_RANGE = "$1:$10000";
     public static final String RANGE_SEPARATOR = "#";
     private static final Logger log = Logger.get(SheetsClient.class);
 
     private static final int HTTP_TOO_MANY_REQUESTS = 429;
+    // A range without a sheet name refers to the first visible sheet, and column-only bounds cover every row of it.
+    // Google Sheets supports at most 18,278 columns, so ZZZ is the last column a sheet can have.
+    static final String ENTIRE_FIRST_SHEET_RANGE = "A:ZZZ";
+    // Search range for spreadsheets.values.append. It does not bound the write: the API picks the last table
+    // inside the range and appends after it, starting at that table's first column. Its exact value therefore
+    // decides which block an insert lands in on a sheet that holds more than one, so it is kept as it has
+    // always been. Both narrowing it to A1 and widening it to the whole sheet retarget existing inserts,
+    // so this is deliberately not derived from 'gsheets.max-rows'.
+    static final String APPEND_TABLE_SEARCH_RANGE = "$1:$10000";
 
     private static final String APPLICATION_NAME = "trino google sheets integration";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
@@ -88,20 +98,25 @@ public class SheetsClient
     private final LoadingCache<String, List<List<Object>>> sheetDataCache;
 
     private final Optional<String> metadataSheetId;
+    // Empty when the row limit is disabled
+    private final OptionalInt maxRows;
 
     private final Sheets sheetsService;
 
     @Inject
     public SheetsClient(SheetsConfig config)
     {
-        this.metadataSheetId = config.getMetadataSheetId();
+        this(config, createSheetsService(config));
+    }
 
-        try {
-            this.sheetsService = new Sheets.Builder(newTrustedTransport(), JSON_FACTORY, setTimeout(getCredentials(config), config)).setApplicationName(APPLICATION_NAME).build();
-        }
-        catch (GeneralSecurityException | IOException e) {
-            throw new TrinoException(SHEETS_BAD_CREDENTIALS_ERROR, e);
-        }
+    @VisibleForTesting
+    SheetsClient(SheetsConfig config, Sheets sheetsService)
+    {
+        this.metadataSheetId = config.getMetadataSheetId();
+        int maxRows = config.getMaxRows();
+        this.maxRows = maxRows == 0 ? OptionalInt.empty() : OptionalInt.of(maxRows);
+        this.sheetsService = requireNonNull(sheetsService, "sheetsService is null");
+
         long expiresAfterWriteMillis = config.getSheetsDataExpireAfterWrite().toMillis();
         long maxCacheSize = config.getSheetsDataMaxCacheSize();
 
@@ -216,7 +231,8 @@ public class SheetsClient
     public void insertIntoSheet(String sheetExpression, List<List<Object>> rows)
     {
         ValueRange body = new ValueRange().setValues(rows);
-        SheetsSheetIdAndRange sheetIdAndRange = new SheetsSheetIdAndRange(sheetExpression);
+        // 'gsheets.max-rows' is a read limit and has no meaning for appends, see APPEND_TABLE_SEARCH_RANGE
+        SheetsSheetIdAndRange sheetIdAndRange = new SheetsSheetIdAndRange(sheetExpression, APPEND_TABLE_SEARCH_RANGE);
         try {
             sheetsService.spreadsheets().values().append(sheetIdAndRange.getSheetId(), sheetIdAndRange.getRange(), body)
                     .setValueInputOption(INSERT_VALUE_OPTION)
@@ -274,6 +290,18 @@ public class SheetsClient
         return tableSheetMap.buildOrThrow();
     }
 
+    private static Sheets createSheetsService(SheetsConfig config)
+    {
+        try {
+            return new Sheets.Builder(newTrustedTransport(), JSON_FACTORY, setTimeout(getCredentials(config), config))
+                    .setApplicationName(APPLICATION_NAME)
+                    .build();
+        }
+        catch (GeneralSecurityException | IOException e) {
+            throw new TrinoException(SHEETS_BAD_CREDENTIALS_ERROR, e);
+        }
+    }
+
     private static Credential getCredentials(SheetsConfig sheetsConfig)
     {
         if (sheetsConfig.getCredentialsFilePath().isPresent()) {
@@ -308,17 +336,18 @@ public class SheetsClient
     private List<List<Object>> readAllValuesFromSheetExpression(String sheetExpression)
     {
         try {
-            // by default loading up to 10k rows from the first tab of the sheet
-            String defaultRange = DEFAULT_RANGE;
-            String[] tableOptions = sheetExpression.split(RANGE_SEPARATOR);
-            String sheetId = tableOptions[0];
-            if (tableOptions.length > 1) {
-                defaultRange = tableOptions[1];
-            }
-            log.debug("Accessing sheet id [%s] with range [%s]", sheetId, defaultRange);
-            List<List<Object>> values = sheetsService.spreadsheets().values().get(sheetId, defaultRange).execute().getValues();
+            SheetsSheetIdAndRange sheetIdAndRange = new SheetsSheetIdAndRange(sheetExpression, defaultRange(maxRows));
+            String sheetId = sheetIdAndRange.getSheetId();
+            String range = sheetIdAndRange.getRange();
+            log.debug("Accessing sheet id [%s] with range [%s]", sheetId, range);
+            List<List<Object>> values = sheetsService.spreadsheets().values().get(sheetId, range).execute().getValues();
             if (values == null) {
                 throw new TrinoException(SHEETS_INVALID_TABLE_FORMAT, "No non-empty cells found in sheet: " + sheetExpression);
+            }
+            if (maxRows.isPresent() && values.size() > maxRows.orElseThrow()) {
+                throw new TrinoException(
+                        SHEETS_EXCEEDED_ROW_LIMIT,
+                        "Sheet %s has more than %s rows. Specify a range with fewer rows or increase 'gsheets.max-rows'".formatted(sheetExpression, maxRows.orElseThrow()));
             }
             return values;
         }
@@ -329,7 +358,21 @@ public class SheetsClient
         }
     }
 
-    private HttpRequestInitializer setTimeout(HttpRequestInitializer requestInitializer, SheetsConfig config)
+    /**
+     * Range read when a sheet expression does not specify one. A range without a sheet name refers to the
+     * first visible sheet. One row more than the limit is requested, so that a sheet exceeding the limit is
+     * detected instead of being silently truncated.
+     */
+    @VisibleForTesting
+    static String defaultRange(OptionalInt maxRows)
+    {
+        if (maxRows.isEmpty()) {
+            return ENTIRE_FIRST_SHEET_RANGE;
+        }
+        return "$1:$" + (maxRows.orElseThrow() + 1L);
+    }
+
+    private static HttpRequestInitializer setTimeout(HttpRequestInitializer requestInitializer, SheetsConfig config)
     {
         requireNonNull(config.getConnectionTimeout(), "connectionTimeout is null");
         requireNonNull(config.getReadTimeout(), "readTimeout is null");

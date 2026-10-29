@@ -16,6 +16,8 @@ package io.trino.plugin.google.sheets;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,11 +40,24 @@ public class TestSheetsConnectorTableHandle
     @Test
     public void testRoundTripWithSheetTable()
     {
-        SheetsSheetTableHandle expected = new SheetsSheetTableHandle("sheetID", "$1:$10000");
+        SheetsSheetTableHandle expected = new SheetsSheetTableHandle("sheetID", Optional.of("Sheet1!A1:B10"));
 
         String json = sheetCodec.toJson(expected);
         SheetsSheetTableHandle actual = sheetCodec.fromJson(json);
 
         assertThat(actual).isEqualTo(expected);
+        assertThat(actual.getSheetExpression()).isEqualTo("sheetID#Sheet1!A1:B10");
+    }
+
+    @Test
+    public void testRoundTripWithSheetTableWithoutRange()
+    {
+        SheetsSheetTableHandle expected = new SheetsSheetTableHandle("sheetID", Optional.empty());
+
+        String json = sheetCodec.toJson(expected);
+        SheetsSheetTableHandle actual = sheetCodec.fromJson(json);
+
+        assertThat(actual).isEqualTo(expected);
+        assertThat(actual.getSheetExpression()).isEqualTo("sheetID");
     }
 }
