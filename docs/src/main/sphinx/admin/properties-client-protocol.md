@@ -194,16 +194,19 @@ example:
 - **Type:** [](prop-type-duration)
 - **Default value:** `12h`
 
-Maximum available time for the client to retrieve spooled segment before it
-expires and is pruned.
+Maximum available time, starting when the segment is created, for the client to
+retrieve a spooled segment before it expires and is pruned.
 
 ### `fs.segment.direct.ttl`
 
 - **Type:** [](prop-type-duration)
 - **Default value:** `1h`
 
-Maximum available time for the client to retrieve spooled segment using the
-pre-signed URI.
+Maximum available time for the client to retrieve a spooled segment using the
+pre-signed URI. The coordinator generates this URI when it sends the segment
+metadata to the client in `STORAGE` mode, or when it redirects a segment download
+in `COORDINATOR_STORAGE_REDIRECT` mode. This lifetime is capped by the segment's
+remaining retention time configured with `fs.segment.ttl`.
 
 ### `fs.segment.encryption`
 
