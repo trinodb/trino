@@ -805,6 +805,66 @@ The following procedures are available:
   Flush Hive metadata cache entries connected with selected partition.
   Procedure requires named parameters to be passed.
 
+#### Partition synchronization
+
+The `system.sync_partition_metadata` procedure compares the partitions registered
+in the metastore with the directories that exist under the table location on the
+file system. Use it when data is written to the file system by an external tool
+without creating the partitions in the metastore.
+
+The procedure walks the directory tree below the table location and reads the
+partition values from the path segments. Each segment must use the
+`partition_column=value` convention. For a table partitioned by `country` and
+`city`, located at `s3://example-bucket/customers/`, the file system layout
+could look like this:
+
+```
+s3://example-bucket/customers/
+└── country=DE/
+    └── city=berlin/
+```
+
+The partition column names in the paths must be lowercase, unless the optional
+`case_sensitive` argument is set to `false`. Directories outside the table
+location are ignored.
+
+Assuming no partition is registered in the metastore yet, the table returns no
+data. Register the directories as partitions with the `ADD` mode:
+
+```
+CALL system.sync_partition_metadata(
+    schema_name => 'example_web',
+    table_name => 'customers',
+    mode => 'ADD'
+);
+```
+
+Afterwards the partition is visible:
+
+```
+SHOW PARTITIONS FROM example_web.customers;
+```
+
+```
+ country | city
+---------+--------
+ DE      | berlin
+```
+
+When a partition directory is later removed from the file system by an external
+tool, the metastore entry remains. Run the procedure with the `FULL` mode to add
+the missing partitions and drop the stale ones in one call:
+
+```
+CALL system.sync_partition_metadata(
+    schema_name => 'example_web',
+    table_name => 'customers',
+    mode => 'FULL'
+);
+```
+
+The `ADD` and `DROP` modes only perform one direction of the synchronization.
+
 (hive-data-management)=
 ### Data management
 
