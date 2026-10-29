@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.DBRef;
 import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
+import com.mongodb.MongoTimeoutException;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -268,7 +269,7 @@ public class MongoSession
             Throwable cause = e.getCause();
             if (cause != null) {
                 throwIfInstanceOf(cause, TrinoException.class);
-                if (cause instanceof MongoCommandException) {
+                if (cause instanceof MongoCommandException || cause instanceof MongoTimeoutException) {
                     throw new TrinoException(MONGODB_CLUSTER_ERROR, cause);
                 }
             }
