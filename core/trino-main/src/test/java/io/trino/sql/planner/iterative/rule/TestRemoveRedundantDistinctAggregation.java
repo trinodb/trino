@@ -30,13 +30,17 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
@@ -57,6 +61,33 @@ public class TestRemoveRedundantDistinctAggregation
                                 Optional.empty(),
                                 SINGLE,
                                 values("value")));
+    }
+
+    @Test
+    public void testRemoveDistinctAggregationKeepsOutputs()
+    {
+        // the grouped aggregation also outputs an aggregate the distinct does not; the distinct's
+        // outputs are kept by projecting them out of the source
+        tester().assertThat(new RemoveRedundantDistinctAggregation())
+                .on(p -> {
+                    Symbol value = p.symbol("value", INTEGER);
+                    Symbol count = p.symbol("count", BIGINT);
+                    return p.aggregation(b -> b
+                            .singleGroupingSet(value)
+                            .source(p.aggregation(builder -> builder
+                                    .singleGroupingSet(value)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
+                                    .source(p.values(value)))));
+                })
+                .matches(
+                        strictProject(
+                                ImmutableMap.of("value", expression(new Reference(INTEGER, "value"))),
+                                aggregation(
+                                        singleGroupingSet("value"),
+                                        ImmutableMap.of(Optional.of("count"), aggregationFunction("count", ImmutableList.of())),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        values("value"))));
     }
 
     @Test
