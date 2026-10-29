@@ -77,6 +77,9 @@ public class IcebergTableHandle
     // ANALYZE only. Coordinator-only
     private final Optional<Boolean> forAnalyze;
 
+    // Branch the table was resolved through, if any. Coordinator-only
+    private final Optional<String> branch;
+
     @JsonCreator
     @DoNotCall // For JSON deserialization only
     public static IcebergTableHandle fromJsonForDeserializationOnly(
@@ -116,6 +119,7 @@ public class IcebergTableHandle
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -139,7 +143,8 @@ public class IcebergTableHandle
             boolean recordScannedFiles,
             Optional<DataSize> maxScannedFileSize,
             Set<IcebergColumnHandle> constraintColumns,
-            Optional<Boolean> forAnalyze)
+            Optional<Boolean> forAnalyze,
+            Optional<String> branch)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -165,6 +170,7 @@ public class IcebergTableHandle
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
         this.forAnalyze = requireNonNull(forAnalyze, "forAnalyze is null");
+        this.branch = requireNonNull(branch, "branch is null");
     }
 
     @JsonProperty
@@ -291,6 +297,11 @@ public class IcebergTableHandle
         return forAnalyze;
     }
 
+    public Optional<String> getBranch()
+    {
+        return branch;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -323,7 +334,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                branch);
     }
 
     public IcebergTableHandle forAnalyze()
@@ -348,7 +360,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                Optional.of(true));
+                Optional.of(true),
+                branch);
     }
 
     public IcebergTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
@@ -373,7 +386,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 Optional.of(maxScannedFileSize),
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                branch);
     }
 
     public IcebergTableHandle withTablePartitioning(Optional<IcebergTablePartitioning> requiredTablePartitioning)
@@ -398,7 +412,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                branch);
     }
 
     @Override
@@ -430,7 +445,8 @@ public class IcebergTableHandle
                 Objects.equals(storageProperties, that.storageProperties) &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
                 Objects.equals(constraintColumns, that.constraintColumns) &&
-                Objects.equals(forAnalyze, that.forAnalyze);
+                Objects.equals(forAnalyze, that.forAnalyze) &&
+                Objects.equals(branch, that.branch);
     }
 
     @Override
@@ -455,7 +471,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                branch);
     }
 
     @Override
@@ -463,6 +480,7 @@ public class IcebergTableHandle
     {
         StringBuilder builder = new StringBuilder(getSchemaTableNameWithType().toString());
         snapshotId.ifPresent(snapshotId -> builder.append("@").append(snapshotId));
+        branch.ifPresent(branch -> builder.append(" branch=").append(branch));
         if (enforcedPredicate.isNone()) {
             builder.append(" constraint=FALSE");
         }
