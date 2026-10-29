@@ -82,8 +82,10 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -217,6 +219,10 @@ public class QueryStateMachine
 
     @GuardedBy("finalizationLock")
     private boolean commitStarted;
+
+    @GuardedBy("finalizationLock")
+    @Nullable
+    private ListenableFuture<Void> commitFuture;
 
     @GuardedBy("finalizationLock")
     private boolean failureStarted;
@@ -1301,6 +1307,9 @@ public class QueryStateMachine
                 transitionToFailedDuringCommit(e);
                 return true;
             }
+            synchronized (finalizationLock) {
+                this.commitFuture = commitFuture;
+            }
             Futures.addCallback(commitFuture, new FutureCallback<>()
             {
                 @Override
@@ -1384,7 +1393,19 @@ public class QueryStateMachine
                 return false;
             }
 
-            if (commitStarted && !commitFailure && !committed.get() &&
+            // The future may have completed before its callback updates committed.
+            boolean commitOutcomeKnown = commitFuture != null && commitFuture.isDone();
+            if (commitStarted && !commitFailure && commitOutcomeKnown && !committed.get()) {
+                try {
+                    Futures.getDone(commitFuture);
+                    committed.set(true);
+                }
+                catch (ExecutionException | CancellationException ignored) {
+                    // The commit callback handles the completed failure.
+                }
+            }
+
+            if (commitStarted && !commitFailure && !commitOutcomeKnown && !committed.get() &&
                     throwable instanceof TrinoException failure &&
                     (failure.getErrorCode().equals(USER_CANCELED.toErrorCode()) ||
                             failure.getErrorCode().equals(ABANDONED_QUERY.toErrorCode()) ||
@@ -1453,9 +1474,6 @@ public class QueryStateMachine
         collectCatalogMetadataMetrics();
 
         try {
-            if (log) {
-                QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
-            }
             Optional<TransactionInfo> transactionToAbort = unknownCommitOutcome
                     ? Optional.empty()
                     : session.getTransactionId().flatMap(transactionManager::getTransactionInfoIfExist);
@@ -1475,6 +1493,9 @@ public class QueryStateMachine
                     }
                 }
             });
+            if (log) {
+                QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
+            }
         }
         finally {
             // if the query has not started, then there is no final query info to wait for
