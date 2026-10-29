@@ -21,14 +21,10 @@ import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
@@ -367,6 +363,10 @@ public class EffectivePredicateExtractor
                 builders.add(ImmutableList.builder());
             }
             List<ImmutableList.Builder<Object>> valuesBuilders = builders.build();
+            List<Predicate<Object>> equalToItself = node.getOutputSymbols().stream()
+                    .map(Symbol::type)
+                    .<Predicate<Object>>map(type -> DomainTranslator.isStructural(type) && type.isComparable() ? DomainTranslator.equalToItself(plannerContext.getTypeOperators(), type) : _ -> true)
+                    .collect(toImmutableList());
 
             for (Expression expression : node.getRows().get()) {
                 if (expression instanceof Row row) {
@@ -388,10 +388,10 @@ public class EffectivePredicateExtractor
                                 if (!type.isComparable() && !type.isOrderable()) {
                                     return TRUE;
                                 }
-                                if (hasNestedNulls(type, constant.value())) {
-                                    // A structural value containing a null element has three-valued equality (it is not
-                                    // even equal to itself), so it cannot be represented as an exact value in a Domain.
-                                    // Skip predicate extraction for it rather than producing an unsound predicate.
+                                if (!equalToItself.get(i).test(constant.value())) {
+                                    // A structural value containing a null or NaN element is not even equal to itself,
+                                    // so it cannot be represented as an exact value in a Domain. Skip predicate
+                                    // extraction for it rather than producing an unsound predicate.
                                     return TRUE;
                                 }
                                 if (isFloatingPointNaN(type, constant.value())) {
@@ -423,10 +423,10 @@ public class EffectivePredicateExtractor
                             if (!type.isComparable() && !type.isOrderable()) {
                                 return TRUE;
                             }
-                            if (hasNestedNulls(type, item)) {
-                                // A structural value containing a null element has three-valued equality (it is not
-                                // even equal to itself), so it cannot be represented as an exact value in a Domain.
-                                // Skip predicate extraction for it rather than producing an unsound predicate.
+                            if (!equalToItself.get(i).test(item)) {
+                                // A structural value containing a null or NaN element is not even equal to itself,
+                                // so it cannot be represented as an exact value in a Domain. Skip predicate
+                                // extraction for it rather than producing an unsound predicate.
                                 return TRUE;
                             }
                             if (isFloatingPointNaN(type, item)) {
@@ -471,62 +471,6 @@ public class EffectivePredicateExtractor
 
             // simplify to avoid a large expression if there are many rows in ValuesNode
             return domainTranslator.toPredicate(getCharVarcharCoercion(session), TupleDomain.withColumnDomains(domains.buildOrThrow()).simplify());
-        }
-
-        private boolean hasNestedNulls(Type type, Object value)
-        {
-            if (type instanceof RowType rowType) {
-                SqlRow sqlRow = (SqlRow) value;
-                int rawIndex = sqlRow.getRawIndex();
-                for (int i = 0; i < rowType.getFields().size(); i++) {
-                    Type elementType = rowType.getFields().get(i).getType();
-                    Block fieldBlock = sqlRow.getRawFieldBlock(i);
-                    if (fieldBlock.isNull(rawIndex) || elementHasNulls(elementType, fieldBlock, rawIndex)) {
-                        return true;
-                    }
-                }
-            }
-            else if (type instanceof ArrayType arrayType) {
-                Block container = (Block) value;
-                Type elementType = arrayType.getElementType();
-
-                for (int i = 0; i < container.getPositionCount(); i++) {
-                    if (container.isNull(i) || elementHasNulls(elementType, container, i)) {
-                        return true;
-                    }
-                }
-            }
-            else if (type instanceof MapType mapType) {
-                SqlMap sqlMap = (SqlMap) value;
-                Block valueBlock = sqlMap.getRawValueBlock();
-                int rawOffset = sqlMap.getRawOffset();
-                // map keys can neither be null nor contain nulls
-                for (int i = 0; i < sqlMap.getSize(); i++) {
-                    if (valueBlock.isNull(rawOffset + i) || elementHasNulls(mapType.getValueType(), valueBlock, rawOffset + i)) {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        private boolean elementHasNulls(Type elementType, Block container, int position)
-        {
-            if (elementType instanceof RowType rowType) {
-                SqlRow element = rowType.getObject(container, position);
-                return hasNestedNulls(elementType, element);
-            }
-            if (elementType instanceof ArrayType) {
-                Block element = (Block) elementType.getObject(container, position);
-                return hasNestedNulls(elementType, element);
-            }
-            if (elementType instanceof MapType) {
-                SqlMap element = (SqlMap) elementType.getObject(container, position);
-                return hasNestedNulls(elementType, element);
-            }
-
-            return false;
         }
 
         @SafeVarargs
