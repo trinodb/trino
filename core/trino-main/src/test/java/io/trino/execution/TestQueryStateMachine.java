@@ -17,6 +17,7 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -79,6 +80,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -474,6 +476,63 @@ public class TestQueryStateMachine
                 assertThat(canceled).isFalse();
             }
         }
+    }
+
+    @Test
+    public void testCancellationAfterCommitCompletesBeforeCallback()
+            throws Exception
+    {
+        CountDownLatch callbackRegistrationStarted = new CountDownLatch(1);
+        CountDownLatch releaseCallbackRegistration = new CountDownLatch(1);
+
+        BlockingCommitTransactionManager transactionManager =
+                new BlockingCommitTransactionManager(createTestTransactionManager())
+                {
+                    @Override
+                    public ListenableFuture<Void> asyncCommit(TransactionId transactionId)
+                    {
+                        ListenableFuture<Void> future = super.asyncCommit(transactionId);
+                        completeCommit();
+                        tryGetFutureValue(future, 10, SECONDS);
+                        checkState(future.isDone(), "Commit future did not complete");
+
+                        return new ForwardingListenableFuture.SimpleForwardingListenableFuture<>(future)
+                        {
+                            @Override
+                            public void addListener(Runnable listener, Executor listenerExecutor)
+                            {
+                                callbackRegistrationStarted.countDown();
+                                checkState(
+                                        awaitUninterruptibly(releaseCallbackRegistration, 30, SECONDS),
+                                        "Timed out waiting to register callback");
+                                super.addListener(listener, listenerExecutor);
+                            }
+                        };
+                    }
+                };
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .withTransactionManager(transactionManager)
+                .build();
+
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+
+        Future<Boolean> finishing = executor.submit(stateMachine::transitionToFinishing);
+
+        try {
+            assertThat(callbackRegistrationStarted.await(10, SECONDS)).isTrue();
+            assertThat(stateMachine.getQueryState()).isEqualTo(FINISHING);
+
+            // Commit succeeded, but its callback has not been registered yet.
+            assertThat(stateMachine.transitionToCanceled()).isFalse();
+            assertThat(stateMachine.getQueryState()).isEqualTo(FINISHED);
+        }
+        finally {
+            releaseCallbackRegistration.countDown();
+        }
+
+        assertThat(finishing.get(10, SECONDS)).isTrue();
+        assertFinalState(stateMachine, FINISHED);
     }
 
     @Test
