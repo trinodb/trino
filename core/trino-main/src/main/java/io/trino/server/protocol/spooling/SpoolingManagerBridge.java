@@ -35,8 +35,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.STORAGE;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.spool.SpooledLocation.coordinatorLocation;
 import static java.util.Base64.getUrlDecoder;
@@ -93,7 +95,10 @@ public class SpoolingManagerBridge
             throws IOException
     {
         return switch (delegate().location(handle)) {
-            case DirectLocation _ -> throw new IllegalStateException("Expected coordinator location but got direct one");
+            case DirectLocation directLocation -> {
+                checkState(retrievalMode == STORAGE, "Expected coordinator location but got direct one");
+                yield coordinatorLocation(toUri(secretKey, directLocation.identifier()), directLocation.headers());
+            }
             case CoordinatorLocation coordinatorLocation -> coordinatorLocation(toUri(secretKey, coordinatorLocation.identifier()), coordinatorLocation.headers());
         };
     }

@@ -22,7 +22,6 @@ import io.trino.server.ExternalUriInfo;
 import io.trino.server.protocol.QueryDataProducer;
 import io.trino.server.protocol.QueryResultRows;
 import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.spool.SpooledLocation.DirectLocation;
 import io.trino.spi.spool.SpoolingManager;
@@ -30,8 +29,10 @@ import jakarta.ws.rs.core.UriBuilder;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 import java.util.function.Consumer;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.ROW_OFFSET;
 import static io.trino.client.spooling.Segment.inlined;
@@ -63,25 +64,45 @@ public class SpoolingQueryDataProducer
         if (rows.isEmpty()) {
             return null;
         }
+        try {
+            List<SpooledMetadataBlock> metadata = rows.getPages().stream()
+                    .flatMap(page -> SpooledMetadataBlockSerde.deserialize(page).stream())
+                    .collect(toImmutableList());
+            long rowsCount = metadata.stream()
+                    .mapToLong(block -> block.attributes().get(ROWS_COUNT, Long.class))
+                    .sum();
+            long startOffset = currentOffset;
+            currentOffset += rowsCount;
+            // Query calls produce while holding its monitor. Storage access must wait until serialization.
+            return new LazyEncodedQueryData(rowsCount, () -> encode(uriInfo, metadata, startOffset, throwableConsumer));
+        }
+        catch (RuntimeException e) {
+            throwableConsumer.accept(new TrinoException(SERIALIZATION_ERROR, "Failed to serialize spooled segments", e));
+            return null;
+        }
+    }
+
+    private EncodedQueryData encode(ExternalUriInfo uriInfo, List<SpooledMetadataBlock> metadata, long offset, Consumer<TrinoException> throwableConsumer)
+    {
         EncodedQueryData.Builder builder = EncodedQueryData.builder(encoding);
         UriBuilder uriBuilder = spooledSegmentUriBuilder(uriInfo);
         try {
-            for (Page page : rows.getPages()) {
-                for (SpooledMetadataBlock metadataBlock : SpooledMetadataBlockSerde.deserialize(page)) {
-                    DataAttributes attributes = metadataBlock.attributes().toBuilder()
-                            .set(ROW_OFFSET, currentOffset)
-                            .build();
-                    switch (metadataBlock) {
-                        case SpooledMetadataBlock.Spooled spooled -> builder.withSegment(createSpooledSegment(uriBuilder, spooled, attributes));
-                        case SpooledMetadataBlock.Inlined inlined -> builder.withSegment(inlined(inlined.data().getBytes(), attributes));
-                    }
-                    currentOffset += attributes.get(ROWS_COUNT, Long.class);
+            for (SpooledMetadataBlock metadataBlock : metadata) {
+                DataAttributes attributes = metadataBlock.attributes().toBuilder()
+                        .set(ROW_OFFSET, offset)
+                        .build();
+                switch (metadataBlock) {
+                    case SpooledMetadataBlock.Spooled spooled -> builder.withSegment(createSpooledSegment(uriBuilder, spooled, attributes));
+                    case SpooledMetadataBlock.Inlined inlined -> builder.withSegment(inlined(inlined.data().getBytes(), attributes));
                 }
+                offset += attributes.get(ROWS_COUNT, Long.class);
             }
         }
         catch (IOException | RuntimeException e) {
-            throwableConsumer.accept(new TrinoException(SERIALIZATION_ERROR, "Failed to serialize spooled segments", e));
-            return null;
+            TrinoException exception = new TrinoException(SERIALIZATION_ERROR, "Failed to serialize spooled segments", e);
+            throwableConsumer.accept(exception);
+            // Fail the response rather than returning a successful response with missing rows.
+            throw exception;
         }
         return builder.build();
     }
