@@ -118,7 +118,7 @@ public class TestDeriveTableScanConstraintThroughProject
         ordersTableHandle = new TableHandle(
                 tester().getCurrentCatalogHandle(),
                 new TpchTableHandle("sf1", "orders", 1.0),
-                TpchTransactionHandle.INSTANCE);
+                new TpchTransactionHandle());
         orderStatusColumn = new TpchColumnHandle("orderstatus", STATUS_TYPE);
         tester().getPlanTester().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
         mockCatalogHandle = tester().getPlanTester().getCatalogHandle(MOCK_CATALOG);
