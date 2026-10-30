@@ -29,6 +29,7 @@ import java.util.regex.Pattern;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Int128Math.absExact;
+import static io.trino.spi.type.Int128Math.dividePositives;
 import static io.trino.spi.type.Int128Math.powerOfTen;
 import static java.lang.Math.abs;
 import static java.lang.Math.pow;
@@ -165,12 +166,93 @@ public final class Decimals
 
     public static String toString(long unscaledValue, int scale)
     {
-        return toString(Long.toString(unscaledValue), scale);
+        char[] buffer = new char[Math.max(19, scale + 1) + 2];
+        int start = formatDecimal(unscaledValue, scale, buffer);
+        return new String(buffer, start, buffer.length - start);
     }
 
     public static String toString(Int128 unscaledValue, int scale)
     {
-        return toString(unscaledValue.toString(), scale);
+        char[] buffer = new char[Math.max(39, scale + 1) + 2];
+        int start = formatDecimal(unscaledValue.getHigh(), unscaledValue.getLow(), scale, buffer);
+        return new String(buffer, start, buffer.length - start);
+    }
+
+    /**
+     * Writes a decimal at the end of the supplied buffer and returns its starting offset.
+     * The buffer must accommodate the unscaled digits, a leading zero when needed, decimal point, and sign.
+     */
+    public static int formatDecimal(long unscaledValue, int scale, char[] buffer)
+    {
+        boolean negative = unscaledValue < 0;
+        // Use a negative magnitude so Long.MIN_VALUE is representable.
+        long value = unscaledValue;
+        if (value > 0) {
+            value = -value;
+        }
+        int start = buffer.length;
+        do {
+            start--;
+            buffer[start] = (char) ('0' - value % 10);
+            value /= 10;
+        }
+        while (value != 0);
+        return formatDecimal(buffer, start, scale, negative);
+    }
+
+    /**
+     * Writes a signed 128-bit decimal at the end of the supplied buffer and returns its starting offset.
+     * The buffer must accommodate the unscaled digits, a leading zero when needed, decimal point, and sign.
+     */
+    public static int formatDecimal(long high, long low, int scale, char[] buffer)
+    {
+        boolean negative = high < 0;
+        int start = buffer.length;
+        if (high == Long.MIN_VALUE && low == 0) {
+            String magnitude = "170141183460469231731687303715884105728";
+            start -= magnitude.length();
+            magnitude.getChars(0, magnitude.length(), buffer, start);
+            return formatDecimal(buffer, start, scale, true);
+        }
+        if (negative) {
+            high = ~high + (low == 0 ? 1 : 0);
+            low = -low;
+        }
+        long[] quotient = new long[2];
+        do {
+            int digits = dividePositives(high, low, 1_000_000_000, quotient, 0);
+            high = quotient[0];
+            low = quotient[1];
+            int digitCount = 0;
+            do {
+                start--;
+                buffer[start] = (char) ('0' + digits % 10);
+                digits /= 10;
+                digitCount++;
+            }
+            while (digits != 0 || ((high != 0 || low != 0) && digitCount < 9));
+        }
+        while (high != 0 || low != 0);
+        return formatDecimal(buffer, start, scale, negative);
+    }
+
+    private static int formatDecimal(char[] buffer, int start, int scale, boolean negative)
+    {
+        while (buffer.length - start <= scale) {
+            start--;
+            buffer[start] = '0';
+        }
+        if (scale > 0) {
+            int integralDigits = buffer.length - start - scale;
+            System.arraycopy(buffer, start, buffer, start - 1, integralDigits);
+            start--;
+            buffer[buffer.length - scale - 1] = '.';
+        }
+        if (negative) {
+            start--;
+            buffer[start] = '-';
+        }
+        return start;
     }
 
     public static String toString(BigInteger unscaledValue, int scale)

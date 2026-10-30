@@ -16,6 +16,8 @@ package io.trino.spi.type;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.Random;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
@@ -26,6 +28,43 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestDecimals
 {
+    @Test
+    public void testFormatting()
+    {
+        Random random = new Random(0);
+        for (int scale : new int[] {0, 1, 18, 19, 38, 50}) {
+            for (long value : new long[] {Long.MIN_VALUE, -1, 0, 1, Long.MAX_VALUE, random.nextLong()}) {
+                String expected = new BigDecimal(BigInteger.valueOf(value), scale).toPlainString();
+                assertThat(Decimals.toString(value, scale)).isEqualTo(expected);
+                char[] buffer = new char[Math.max(19, scale + 1) + 2];
+                int start = Decimals.formatDecimal(value, scale, buffer);
+                assertThat(new String(buffer, start, buffer.length - start)).isEqualTo(expected);
+            }
+            for (int i = 0; i < 100; i++) {
+                long high = random.nextLong();
+                long low = random.nextLong();
+                if (i == 0) {
+                    high = Long.MIN_VALUE;
+                    low = 0;
+                }
+                if (i == 1) {
+                    high = Long.MAX_VALUE;
+                    low = -1;
+                }
+                if (i == 2) {
+                    high = 0;
+                    low = 0;
+                }
+                Int128 value = Int128.valueOf(high, low);
+                String expected = new BigDecimal(value.toBigInteger(), scale).toPlainString();
+                assertThat(Decimals.toString(value, scale)).isEqualTo(expected);
+                char[] buffer = new char[Math.max(39, scale + 1) + 2];
+                int start = Decimals.formatDecimal(high, low, scale, buffer);
+                assertThat(new String(buffer, start, buffer.length - start)).isEqualTo(expected);
+            }
+        }
+    }
+
     @Test
     public void testParse()
     {
