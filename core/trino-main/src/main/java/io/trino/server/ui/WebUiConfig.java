@@ -14,12 +14,14 @@
 package io.trino.server.ui;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
 public class WebUiConfig
 {
     private boolean enabled = true;
     private boolean previewEnabled = true;
     private boolean legacyEnabled;
+    private boolean queryEditorEnabled;
 
     public boolean isEnabled()
     {
@@ -40,6 +42,19 @@ public class WebUiConfig
     public boolean isLegacyUiAvailable()
     {
         return legacyEnabled || !previewEnabled;
+    }
+
+    public boolean isQueryEditorEnabled()
+    {
+        return queryEditorEnabled;
+    }
+
+    @Config("web-ui.query-editor.enabled")
+    @ConfigDescription("Enable SQL query execution from the Web UI query editor")
+    public WebUiConfig setQueryEditorEnabled(boolean queryEditorEnabled)
+    {
+        this.queryEditorEnabled = queryEditorEnabled;
+        return this;
     }
 
     @Config("web-ui.enabled")
