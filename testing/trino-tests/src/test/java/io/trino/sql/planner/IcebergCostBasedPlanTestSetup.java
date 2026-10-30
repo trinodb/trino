@@ -15,19 +15,18 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.common.reflect.ClassPath;
+import com.google.inject.Module;
 import io.airlift.log.Logger;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.Table;
 import io.trino.plugin.iceberg.IcebergConnector;
-import io.trino.plugin.iceberg.IcebergConnectorFactory;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.testing.containers.Floci;
-import io.trino.testing.containers.junit.ReportLeakedContainers;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -35,22 +34,23 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.io.MoreFiles.asByteSink;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
+import static io.trino.plugin.iceberg.IcebergConnectorFactory.createConnector;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FILE_EXTENSION;
 import static io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations.ICEBERG_METASTORE_STORAGE_FORMAT;
-import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
-import static io.trino.testing.containers.Floci.FLOCI_REGION;
-import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
+import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempDirectory;
+import static java.nio.file.Files.list;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
@@ -64,25 +64,16 @@ public class IcebergCostBasedPlanTestSetup
     // See more at https://github.com/apache/iceberg/issues/1617
     private static final String BUCKET_NAME = "starburst-benchmarks-data";
 
-    // The container needs to be shared, since bucket name cannot be reused between tests.
-    // The bucket name is used as a key in TrinoFileSystemCache which is managed in static manner.
-    @GuardedBy("sharedFlociLock")
-    private static Floci sharedFloci;
-    @GuardedBy("sharedFlociLock")
-    private static boolean sharedFlociClosed;
-    private static final Object sharedFlociLock = new Object();
-
-    private Floci floci;
-    private Path temporaryMetastoreDirectory;
+    private Path temporaryDirectory;
+    private Path bucketDirectory;
     private HiveMetastore hiveMetastore;
     private Map<String, String> connectorConfiguration;
 
     public ConnectorFactory createConnectorFactory()
     {
-        floci = getSharedContainer();
-
         try {
-            temporaryMetastoreDirectory = createTempDirectory("file-metastore");
+            temporaryDirectory = createTempDirectory("cost-based-plan");
+            bucketDirectory = createDirectories(temporaryDirectory.resolve("storage").resolve(BUCKET_NAME));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -90,24 +81,29 @@ public class IcebergCostBasedPlanTestSetup
 
         connectorConfiguration = ImmutableMap.<String, String>builder()
                 .put("iceberg.catalog.type", TESTING_FILE_METASTORE.name())
-                .put("hive.metastore.catalog.dir", temporaryMetastoreDirectory.toString())
-                .put("fs.s3.enabled", "true")
-                .put("fs.hadoop.enabled", "true")
-                .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
-                .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
-                .put("s3.region", FLOCI_REGION)
-                .put("s3.endpoint", floci.endpoint().toString())
-                .put("s3.path-style-access", "true")
+                .put("hive.metastore.catalog.dir", "local:///metastore")
+                .put("fs.native-local.enabled", "true")
+                .put("local.location", temporaryDirectory.toString())
                 .put("bootstrap.quiet", "true")
                 .buildOrThrow();
 
-        return new IcebergConnectorFactory()
+        // Serve the tables' S3 locations from the local copy of the bucket
+        Module storageModule = binder -> newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                .addBinding("s3").toInstance(new LocalS3FileSystemFactory(temporaryDirectory.resolve("storage")));
+
+        return new ConnectorFactory()
         {
+            @Override
+            public String getName()
+            {
+                return "iceberg";
+            }
+
             @Override
             public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
             {
                 checkArgument(config.isEmpty(), "Unexpected configuration %s", config);
-                Connector connector = super.create(catalogName, connectorConfiguration, context);
+                Connector connector = createConnector(catalogName, connectorConfiguration, context, storageModule, Optional.empty());
                 hiveMetastore = ((IcebergConnector) connector).getInjector()
                         .getInstance(HiveMetastoreFactory.class)
                         .createMetastore(Optional.empty());
@@ -132,14 +128,14 @@ public class IcebergCostBasedPlanTestSetup
         for (String tableName : tableNames) {
             String resourcePath = resourceDirectory + tableName;
             String targetPath = targetDirectory + tableName;
-            log.info("Copying resources for %s table from %s to %s in the container", tableName, resourcePath, targetPath);
-            floci.copyResources(resourcePath, BUCKET_NAME, targetPath);
+            log.info("Copying resources for %s table from %s to %s", tableName, resourcePath, targetPath);
+            copyResources(resourcePath, bucketDirectory.resolve(targetPath));
 
             String tableLocation = "s3://%s/%s".formatted(BUCKET_NAME, targetPath);
-            String metadataPath = floci.listObjects(BUCKET_NAME, targetPath + "/metadata/").stream()
-                    .filter(path -> path.endsWith(METADATA_FILE_EXTENSION))
+            String metadataFile = listFiles(bucketDirectory.resolve(targetPath).resolve("metadata")).stream()
+                    .filter(name -> name.endsWith(METADATA_FILE_EXTENSION))
                     .collect(onlyElement());
-            String metadataLocation = "s3://%s/%s".formatted(BUCKET_NAME, metadataPath);
+            String metadataLocation = "%s/metadata/%s".formatted(tableLocation, metadataFile);
 
             log.info("Registering table %s using metadata location %s", tableName, metadataLocation);
             hiveMetastore.createTable(
@@ -163,47 +159,38 @@ public class IcebergCostBasedPlanTestSetup
     public void cleanUp()
             throws Exception
     {
-        if (floci != null) {
-            // Don't stop container, as it's shared
-            synchronized (sharedFlociLock) {
-                verify(floci == sharedFloci);
-            }
-            floci = null;
-        }
-
-        if (temporaryMetastoreDirectory != null) {
-            deleteRecursively(temporaryMetastoreDirectory, ALLOW_INSECURE);
+        if (temporaryDirectory != null) {
+            deleteRecursively(temporaryDirectory, ALLOW_INSECURE);
         }
 
         hiveMetastore = null;
         connectorConfiguration = null;
     }
 
-    private static Floci getSharedContainer()
+    private static void copyResources(String resourcePath, Path target)
     {
-        synchronized (sharedFlociLock) {
-            if (sharedFloci == null) {
-                checkState(!sharedFlociClosed, "sharedFloci already closed");
-                Floci floci = new Floci();
-                floci.start();
-                floci.createBucket(BUCKET_NAME);
-                sharedFloci = floci;
-                Runtime.getRuntime().addShutdownHook(new Thread(IcebergCostBasedPlanTestSetup::disposeSharedResources));
-                // Disable ReportLeakedContainers for this container, as it is intentional that it stays after tests finish
-                ReportLeakedContainers.ignoreContainerId(sharedFloci.getContainerId());
+        try {
+            for (ClassPath.ResourceInfo resourceInfo : ClassPath.from(IcebergCostBasedPlanTestSetup.class.getClassLoader()).getResources()) {
+                String resourceName = resourceInfo.getResourceName();
+                if (resourceName.startsWith(resourcePath + "/")) {
+                    Path file = target.resolve(resourceName.substring(resourcePath.length() + 1));
+                    createDirectories(file.getParent());
+                    resourceInfo.asByteSource().copyTo(asByteSink(file));
+                }
             }
-            return sharedFloci;
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
-    private static void disposeSharedResources()
+    private static List<String> listFiles(Path directory)
     {
-        synchronized (sharedFlociLock) {
-            sharedFlociClosed = true;
-            if (sharedFloci != null) {
-                sharedFloci.stop();
-                sharedFloci = null;
-            }
+        try (Stream<Path> files = list(directory)) {
+            return files.map(file -> file.getFileName().toString()).toList();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }
