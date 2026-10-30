@@ -280,17 +280,32 @@ public class PinotGrpcDataFetcher
                 }
                 Server.ServerResponse response = responseIterator.next();
                 String responseType = response.getMetadataMap().get(MetadataKeys.RESPONSE_TYPE);
+                ByteBuffer buffer = response.getPayload().asReadOnlyByteBuffer();
                 if (responseType.equals(ResponseType.METADATA)) {
+                    // The server reports exceptions that affect the whole response, for example a requested segment it no longer hosts, in the metadata block
+                    if (buffer.hasRemaining()) {
+                        checkNoExceptions(readDataTable(buffer));
+                    }
                     return endOfData();
                 }
-                ByteBuffer buffer = response.getPayload().asReadOnlyByteBuffer();
-                DataTable dataTable;
+                DataTable dataTable = readDataTable(buffer);
+                checkNoExceptions(dataTable);
+
+                return new PinotDataTableWithSize(dataTable, buffer.remaining());
+            }
+
+            private static DataTable readDataTable(ByteBuffer buffer)
+            {
                 try {
-                    dataTable = DataTableFactory.getDataTable(buffer);
+                    return DataTableFactory.getDataTable(buffer);
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
+            }
+
+            private void checkNoExceptions(DataTable dataTable)
+            {
                 if (!dataTable.getExceptions().isEmpty()) {
                     List<String> exceptions = dataTable.getExceptions().entrySet().stream()
                             .map(entry -> format("Error code: %d Error message: %s", entry.getKey(), entry.getValue()))
@@ -298,8 +313,6 @@ public class PinotGrpcDataFetcher
 
                     throw new PinotException(PINOT_EXCEPTION, Optional.of(query), format("Encountered %d exceptions: %s", exceptions.size(), exceptions));
                 }
-
-                return new PinotDataTableWithSize(dataTable, buffer.remaining());
             }
         }
     }
