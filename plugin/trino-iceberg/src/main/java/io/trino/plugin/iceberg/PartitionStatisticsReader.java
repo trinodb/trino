@@ -16,14 +16,28 @@ package io.trino.plugin.iceberg;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.cache.NonEvictableCache;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.cache.ParquetFooterCache;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.FileFormat;
@@ -43,6 +57,7 @@ import org.apache.iceberg.expressions.Evaluator;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Projections;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.StructProjection;
 
@@ -51,6 +66,7 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,23 +76,33 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.plugin.iceberg.IcebergPageSink.getIcebergValue;
+import static io.trino.plugin.iceberg.IcebergPageSourceProvider.createParquetPageSource;
+import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.TableStatisticsReader.collectManifestStatistics;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.FileFormat.AVRO;
+import static org.apache.iceberg.FileFormat.PARQUET;
 
 /**
  * Computes row counts from Iceberg partition statistics files and snapshot summaries instead of walking every
- * data file entry. Only Avro files are read, files in other formats are ignored. Decoded partition statistics
- * files are cached up to an estimate of their retained size, and files that do not fit are not used.
+ * data file entry. Avro files are read with the Iceberg library and Parquet files with Trino's Parquet reader, files
+ * in other formats are ignored. Decoded partition statistics files are cached up to an estimate of their retained
+ * size, and files that do not fit are not used.
  */
 public final class PartitionStatisticsReader
 {
     private static final Logger log = Logger.get(PartitionStatisticsReader.class);
+    // the Iceberg library writes partition statistics files only in Avro and Parquet
+    private static final Set<FileFormat> READABLE_FORMATS = ImmutableSet.of(AVRO, PARQUET);
 
     // null fractions and data sizes are ratios, so a bounded sample of data files is enough to estimate them
     @VisibleForTesting
@@ -139,7 +165,7 @@ public final class PartitionStatisticsReader
      */
     static boolean isReadable(PartitionStatisticsFile file)
     {
-        return FileFormat.fromFileName(file.path()) == AVRO;
+        return READABLE_FORMATS.contains(FileFormat.fromFileName(file.path()));
     }
 
     /**
@@ -185,7 +211,7 @@ public final class PartitionStatisticsReader
      * Returns the number of live rows in the partitions of {@code file} that match {@code filter} and
      * {@code partitionFieldPredicate}, or empty if the answer cannot be derived.
      */
-    public OptionalLong filteredRowCount(Table table, PartitionStatisticsFile file, Expression filter, PartitionFieldPredicate partitionFieldPredicate, int formatVersion)
+    public OptionalLong filteredRowCount(Table table, PartitionStatisticsFile file, Expression filter, PartitionFieldPredicate partitionFieldPredicate, int formatVersion, TypeManager typeManager)
     {
         String path = file.path();
         try {
@@ -193,7 +219,7 @@ public final class PartitionStatisticsReader
             // the file path is unique per file and immutable, and the partition type the rows are read with changes when
             // the type of a partition source column changes, which does not add a snapshot
             CacheKey key = new CacheKey(path, partitionType);
-            Optional<CachedPartitionStatistics> loaded = loadPartitionStatistics(key, table, file);
+            Optional<CachedPartitionStatistics> loaded = loadPartitionStatistics(key, table, file, typeManager);
             if (loaded.isEmpty()) {
                 return OptionalLong.empty();
             }
@@ -262,7 +288,7 @@ public final class PartitionStatisticsReader
      * {@link #UNUSABLE_FILE_EXPIRATION}, so that a popular file is neither read on every planning call, nor ignored for
      * long after a transient failure.
      */
-    private Optional<CachedPartitionStatistics> loadPartitionStatistics(CacheKey key, Table table, PartitionStatisticsFile file)
+    private Optional<CachedPartitionStatistics> loadPartitionStatistics(CacheKey key, Table table, PartitionStatisticsFile file, TypeManager typeManager)
             throws ExecutionException
     {
         if (unusableFiles.getIfPresent(key) != null) {
@@ -270,7 +296,7 @@ public final class PartitionStatisticsReader
         }
         try {
             // single flight per key; a file that is too large or cannot be read is not cached here
-            return Optional.of(cache.get(key, () -> readPartitionStatistics(table, file, key.partitionType())
+            return Optional.of(cache.get(key, () -> readPartitionStatistics(table, file, key.partitionType(), typeManager)
                     .orElseThrow(() -> new FileTooLargeException(key.path()))));
         }
         catch (UncheckedExecutionException e) {
@@ -291,11 +317,11 @@ public final class PartitionStatisticsReader
      * Returns the rows of the file, or empty if their estimated retained size exceeds the maximum cache size,
      * in which case reading stops there.
      */
-    private Optional<CachedPartitionStatistics> readPartitionStatistics(Table table, PartitionStatisticsFile file, Types.StructType partitionType)
+    private Optional<CachedPartitionStatistics> readPartitionStatistics(Table table, PartitionStatisticsFile file, Types.StructType partitionType, TypeManager typeManager)
     {
         ImmutableList.Builder<PartitionStatisticsRow> rows = ImmutableList.builder();
         long estimatedBytes = 0;
-        try (CloseableIterable<StructLike> records = Avro.read(table.io().newInputFile(file.path(), file.fileSizeInBytes())).project(readSchema(partitionType)).createResolvingReader(InternalReader::create).build()) {
+        try (CloseableIterable<StructLike> records = readRecords(table.io().newInputFile(file.path(), file.fileSizeInBytes()), readSchema(partitionType), typeManager)) {
             for (StructLike record : records) {
                 // A partition without rows adds nothing to a row count. Incremental computation keeps a partition whose
                 // data files were all removed, with no rows, so a file can hold many of them.
@@ -329,6 +355,108 @@ public final class PartitionStatisticsReader
             throw new UncheckedIOException(e);
         }
         return Optional.of(new CachedPartitionStatistics(partitionType, rows.build(), estimatedBytes));
+    }
+
+    private static CloseableIterable<StructLike> readRecords(InputFile inputFile, Schema schema, TypeManager typeManager)
+    {
+        return switch (FileFormat.fromFileName(inputFile.location())) {
+            case AVRO -> Avro.read(inputFile).project(schema).createResolvingReader(InternalReader::create).build();
+            case PARQUET -> readParquet(inputFile, schema, typeManager);
+            default -> throw new IllegalArgumentException("Unsupported partition statistics file: " + inputFile.location());
+        };
+    }
+
+    /**
+     * Reads a Parquet file with Trino's Parquet reader into records holding Iceberg's internal representation of values,
+     * like the records the Avro reader returns. The Iceberg library's own Parquet reader needs {@code parquet-hadoop},
+     * which is not on the plugin class path.
+     */
+    private static CloseableIterable<StructLike> readParquet(InputFile inputFile, Schema schema, TypeManager typeManager)
+    {
+        if (!(inputFile instanceof ForwardingInputFile forwardingInputFile)) {
+            throw new IllegalArgumentException("Unsupported input file: " + inputFile);
+        }
+        TrinoInputFile file = forwardingInputFile.inputFile();
+        List<IcebergColumnHandle> columns = schema.columns().stream()
+                .map(field -> getColumnHandle(field, typeManager))
+                .collect(toImmutableList());
+        ConnectorPageSource pageSource;
+        try {
+            long length = file.length();
+            // the record count, partition and sequence number arguments describe a data file, and only metadata columns,
+            // which are not read, use them
+            pageSource = createParquetPageSource(
+                    file,
+                    0,
+                    length,
+                    length,
+                    0,
+                    0,
+                    "",
+                    schema,
+                    columns,
+                    ParquetReaderOptions.defaultOptions(),
+                    TupleDomain.all(),
+                    1,
+                    new FileFormatDataSourceStats(),
+                    ParquetFooterCache.noop(),
+                    Optional.empty(),
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    newSimpleAggregatedMemoryContext(),
+                    Optional.empty()).pageSource();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        Iterator<StructLike> records = new AbstractIterator<>()
+        {
+            private SourcePage page;
+            private int position;
+
+            @Override
+            protected StructLike computeNext()
+            {
+                while (page == null || position == page.getPositionCount()) {
+                    if (pageSource.isFinished()) {
+                        return endOfData();
+                    }
+                    page = pageSource.getNextSourcePage();
+                    position = 0;
+                }
+                GenericRecord record = GenericRecord.create(schema);
+                for (int field = 0; field < columns.size(); field++) {
+                    record.set(field, icebergValue(schema.columns().get(field).type(), columns.get(field).getType(), page.getBlock(field), position));
+                }
+                position++;
+                return record;
+            }
+        };
+        // iterated once, by readPartitionStatistics
+        return CloseableIterable.combine(() -> records, pageSource);
+    }
+
+    private static Object icebergValue(org.apache.iceberg.types.Type icebergType, Type type, Block block, int position)
+    {
+        if (block.isNull(position)) {
+            return null;
+        }
+        if (type instanceof RowType rowType) {
+            Types.StructType struct = icebergType.asStructType();
+            SqlRow row = rowType.getObject(block, position);
+            GenericRecord record = GenericRecord.create(struct);
+            for (int field = 0; field < struct.fields().size(); field++) {
+                record.set(field, icebergValue(struct.fields().get(field).type(), rowType.getFieldTypes().get(field), row.getRawFieldBlock(field), row.getRawIndex()));
+            }
+            return record;
+        }
+        if (type.equals(VARBINARY)) {
+            // a copy, so that the value does not retain the page; fixed values are ByteBuffers too
+            return ByteBuffer.wrap(VARBINARY.getSlice(block, position).getBytes());
+        }
+        return getIcebergValue(block, position, type);
     }
 
     /**

@@ -21,6 +21,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastore;
@@ -71,10 +72,12 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.ImmutableGenericPartitionStatisticsFile;
 import org.apache.iceberg.PartitionStatisticsFile;
 import org.apache.iceberg.PartitionStatsHandler;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.io.OutputFile;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
@@ -82,7 +85,10 @@ import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -98,6 +104,7 @@ import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransaction
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
@@ -343,6 +350,29 @@ public final class IcebergTestUtils
         checkState(FileFormat.fromFileName(file.path()) == format, "Unexpected partition statistics file %s", file.path());
         table.updatePartitionStatistics().setPartitionStatistics(file).commit();
         return file;
+    }
+
+    /**
+     * Registers a copy of {@code file} as the partition statistics file of the current snapshot of a table, in a file
+     * metastore whose catalog directory is the root of a local file system at {@code rootDirectory}.
+     */
+    public static void registerPartitionStatistics(Path rootDirectory, String schemaName, String tableName, Path file)
+            throws IOException
+    {
+        TrinoFileSystemFactory fileSystemFactory = new LocalFileSystemFactory(rootDirectory);
+        HiveMetastore metastore = createTestingFileHiveMetastore(fileSystemFactory, Location.of("local:///"));
+        BaseTable table = loadTable(tableName, metastore, fileSystemFactory, "catalog", schemaName);
+        OutputFile outputFile = table.io().newOutputFile(table.operations().metadataFileLocation(file.getFileName().toString()));
+        try (OutputStream output = outputFile.create()) {
+            Files.copy(file, output);
+        }
+        table.updatePartitionStatistics()
+                .setPartitionStatistics(ImmutableGenericPartitionStatisticsFile.builder()
+                        .snapshotId(table.currentSnapshot().snapshotId())
+                        .path(outputFile.location())
+                        .fileSizeInBytes(Files.size(file))
+                        .build())
+                .commit();
     }
 
     public static BaseTable loadTable(

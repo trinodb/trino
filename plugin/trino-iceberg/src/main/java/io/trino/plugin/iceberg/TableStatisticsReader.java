@@ -230,7 +230,7 @@ public final class TableStatisticsReader
                     rowCount.ifPresent(count -> log.debug("Using snapshot summary for row count of %s at snapshot %s: %s rows", icebergTable.name(), snapshotId, count));
                 }
                 if (rowCount.isEmpty()) {
-                    rowCount = partitionStatisticsReader.filteredRowCount(icebergTable, partitionStatisticsFile.get(), filter, partitionFieldPredicate, formatVersion);
+                    rowCount = partitionStatisticsReader.filteredRowCount(icebergTable, partitionStatisticsFile.get(), filter, partitionFieldPredicate, formatVersion, typeManager);
                 }
                 if (rowCount.isPresent()) {
                     Optional<IcebergStatistics> sample = Optional.empty();
