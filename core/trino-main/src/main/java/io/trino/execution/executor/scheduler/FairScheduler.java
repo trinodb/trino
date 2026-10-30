@@ -207,9 +207,6 @@ public final class FairScheduler
         try {
             runner.run(context);
         }
-        catch (Exception e) {
-            LOG.error(e);
-        }
         finally {
             // If the runner exited due to an exception in user code or
             // normally (not in response to an interruption during blocking or yield),

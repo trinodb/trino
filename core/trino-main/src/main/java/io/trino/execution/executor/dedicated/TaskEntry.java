@@ -175,10 +175,10 @@ class TaskEntry
     /// If this throws, the claim was not consumed and must be requeued via [#releaseLeafSplit].
     public void startLeafSplit(QueuedSplit split, Consumer<TaskEntry> doneCallback)
     {
-        submit(split.split())
-                .addListener(() -> {
-                    finishLeafSplit(split, doneCallback);
-                }, directExecutor());
+        ListenableFuture<Void> result = submit(split.split());
+        result.addListener(() -> {
+            finishLeafSplit(split, result, doneCallback);
+        }, directExecutor());
     }
 
     /// Requeue a claimed split that could not be started. Thread creation can fail temporarily on
@@ -200,7 +200,7 @@ class TaskEntry
         }
     }
 
-    private void finishLeafSplit(QueuedSplit split, Consumer<TaskEntry> doneCallback)
+    private void finishLeafSplit(QueuedSplit split, ListenableFuture<Void> result, Consumer<TaskEntry> doneCallback)
     {
         boolean close;
         synchronized (this) {
@@ -209,7 +209,7 @@ class TaskEntry
         }
 
         // Complete the future and notify the executor even when Driver.close() fails.
-        split.done().set(null);
+        split.done().setFuture(result);
         try {
             if (close) {
                 split.split().close();
