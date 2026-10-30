@@ -1444,7 +1444,10 @@ public class TestIcebergV2
                     TupleDomain.all(),
                     TupleDomain.all(),
                     ImmutableSet.of(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    new PartitionStatisticsReader(),
+                    false,
+                    0);
             assertThat(withNoFilter.getRowCount().getValue()).isEqualTo(4.0);
 
             TableStatistics withPartitionFilter = TableStatisticsReader.makeTableStatistics(
@@ -1455,7 +1458,10 @@ public class TestIcebergV2
                             IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(), Domain.singleValue(INTEGER, 10L))),
                     TupleDomain.all(),
                     ImmutableSet.of(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    new PartitionStatisticsReader(),
+                    false,
+                    0);
             assertThat(withPartitionFilter.getRowCount().getValue()).isEqualTo(3.0);
 
             IcebergColumnHandle column = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(1, "a")).columnType(INTEGER).build();
@@ -1467,7 +1473,10 @@ public class TestIcebergV2
                     TupleDomain.withColumnDomains(ImmutableMap.of(
                             column, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
                     ImmutableSet.of(column),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    new PartitionStatisticsReader(),
+                    false,
+                    0);
             assertThat(withUnenforcedFilter.getRowCount().getValue()).isEqualTo(2.0);
         }
     }
@@ -1488,7 +1497,10 @@ public class TestIcebergV2
                     TupleDomain.all(),
                     TupleDomain.all(),
                     ImmutableSet.of(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    new PartitionStatisticsReader(),
+                    false,
+                    0);
             assertThat(withNoProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
             assertThat(withNoProjectedColumns.getColumnStatistics()).isEmpty();
 
@@ -1500,7 +1512,10 @@ public class TestIcebergV2
                     TupleDomain.all(),
                     TupleDomain.all(),
                     ImmutableSet.of(column),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    new PartitionStatisticsReader(),
+                    false,
+                    0);
             assertThat(withProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
             assertThat(withProjectedColumns.getColumnStatistics()).containsOnlyKeys(column);
             assertThat(withProjectedColumns.getColumnStatistics().get(column))
@@ -1518,7 +1533,10 @@ public class TestIcebergV2
                     TupleDomain.withColumnDomains(ImmutableMap.of(
                             IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(), Domain.singleValue(INTEGER, 10L))),
                     ImmutableSet.of(column),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    new PartitionStatisticsReader(),
+                    false,
+                    0);
             assertThat(withPartitionFilterAndProjectedColumn.getRowCount().getValue()).isEqualTo(3.0);
             assertThat(withPartitionFilterAndProjectedColumn.getColumnStatistics()).containsOnlyKeys(column);
             assertThat(withPartitionFilterAndProjectedColumn.getColumnStatistics().get(column))
@@ -1580,7 +1598,10 @@ public class TestIcebergV2
                 TupleDomain.all(),
                 TupleDomain.all(),
                 projectedColumns,
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                new PartitionStatisticsReader(),
+                false,
+                0);
     }
 
     @Test

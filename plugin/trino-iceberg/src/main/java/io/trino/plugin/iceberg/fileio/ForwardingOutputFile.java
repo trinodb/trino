@@ -39,6 +39,11 @@ public class ForwardingOutputFile
         this.outputFile = fileSystem.newOutputFile(location);
     }
 
+    public TrinoOutputFile outputFile()
+    {
+        return outputFile;
+    }
+
     @Override
     public PositionOutputStream create()
     {

@@ -75,6 +75,9 @@ public class IcebergConfig
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
     private boolean tableStatisticsEnabled = true;
+    private boolean partitionStatisticsEnabled = true;
+    private int partitionStatisticsMinDataFiles = 10_000;
+    private boolean collectPartitionStatisticsOnWrite = true;
     private boolean collectExtendedStatisticsOnWrite = true;
     private boolean projectionPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
@@ -265,6 +268,46 @@ public class IcebergConfig
     public IcebergConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
     {
         this.tableStatisticsEnabled = tableStatisticsEnabled;
+        return this;
+    }
+
+    public boolean isPartitionStatisticsEnabled()
+    {
+        return partitionStatisticsEnabled;
+    }
+
+    @Config("iceberg.partition-statistics.enabled")
+    @ConfigDescription("Use partition statistics files and the snapshot summary for row count estimates instead of reading the metadata of every data file")
+    public IcebergConfig setPartitionStatisticsEnabled(boolean partitionStatisticsEnabled)
+    {
+        this.partitionStatisticsEnabled = partitionStatisticsEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getPartitionStatisticsMinDataFiles()
+    {
+        return partitionStatisticsMinDataFiles;
+    }
+
+    @Config("iceberg.partition-statistics.min-data-files")
+    @ConfigDescription("Minimum number of data files a scan would otherwise read metadata for before partition statistics are used; 0 means always")
+    public IcebergConfig setPartitionStatisticsMinDataFiles(int partitionStatisticsMinDataFiles)
+    {
+        this.partitionStatisticsMinDataFiles = partitionStatisticsMinDataFiles;
+        return this;
+    }
+
+    public boolean isCollectPartitionStatisticsOnWrite()
+    {
+        return collectPartitionStatisticsOnWrite;
+    }
+
+    @Config("iceberg.partition-statistics.collect-on-write")
+    @ConfigDescription("Update the partition statistics file of a table on write when the previous snapshot has one")
+    public IcebergConfig setCollectPartitionStatisticsOnWrite(boolean collectPartitionStatisticsOnWrite)
+    {
+        this.collectPartitionStatisticsOnWrite = collectPartitionStatisticsOnWrite;
         return this;
     }
 
