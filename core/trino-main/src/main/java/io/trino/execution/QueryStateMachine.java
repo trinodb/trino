@@ -82,8 +82,10 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -113,9 +115,14 @@ import static io.trino.execution.QueryState.TERMINAL_QUERY_STATES;
 import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.StagesInfo.getAllStages;
 import static io.trino.operator.RetryPolicy.TASK;
+import static io.trino.spi.StandardErrorCode.ABANDONED_QUERY;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_COMMITED;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_COMMIT_OUTCOME_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.spi.connector.StandardWarningCode.SPOOLING_NOT_SUPPORTED;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
@@ -207,6 +214,18 @@ public class QueryStateMachine
 
     private final AtomicBoolean committed = new AtomicBoolean();
     private final AtomicBoolean consumed = new AtomicBoolean();
+
+    private final Object finalizationLock = new Object();
+
+    @GuardedBy("finalizationLock")
+    private boolean commitStarted;
+
+    @GuardedBy("finalizationLock")
+    @Nullable
+    private ListenableFuture<Void> commitFuture;
+
+    @GuardedBy("finalizationLock")
+    private boolean failureStarted;
 
     private final NodeVersion version;
 
@@ -608,7 +627,7 @@ public class QueryStateMachine
                 errorCode,
                 stagesInfo,
                 finalInfo,
-                failureCause.get(),
+                state == FAILED ? failureCause.get() : null,
                 Optional.ofNullable(setCatalog.get()),
                 Optional.ofNullable(setSchema.get()),
                 Optional.ofNullable(setPath.get()),
@@ -1273,7 +1292,24 @@ public class QueryStateMachine
 
         Optional<TransactionInfo> transaction = session.getTransactionId().flatMap(transactionManager::getTransactionInfoIfExist);
         if (transaction.isPresent() && transaction.get().isAutoCommitContext()) {
-            ListenableFuture<Void> commitFuture = transactionManager.asyncCommit(transaction.get().getTransactionId());
+            synchronized (finalizationLock) {
+                if (queryState.get().isDone() || failureStarted) {
+                    return true;
+                }
+                commitStarted = true;
+            }
+
+            ListenableFuture<Void> commitFuture;
+            try {
+                commitFuture = transactionManager.asyncCommit(transaction.get().getTransactionId());
+            }
+            catch (RuntimeException e) {
+                transitionToFailedDuringCommit(e);
+                return true;
+            }
+            synchronized (finalizationLock) {
+                this.commitFuture = commitFuture;
+            }
             Futures.addCallback(commitFuture, new FutureCallback<>()
             {
                 @Override
@@ -1286,7 +1322,7 @@ public class QueryStateMachine
                 @Override
                 public void onFailure(Throwable throwable)
                 {
-                    transitionToFailed(throwable);
+                    transitionToFailedDuringCommit(throwable);
                 }
             }, directExecutor());
         }
@@ -1305,22 +1341,30 @@ public class QueryStateMachine
 
     private void transitionToFinishedIfReady()
     {
-        if (queryState.get().isDone()) {
-            return;
+        synchronized (finalizationLock) {
+            if (queryState.get().isDone() || failureStarted) {
+                return;
+            }
+
+            if (!committed.get() || !consumed.get()) {
+                return;
+            }
+
+            queryStateTimer.endQuery();
+            queryState.setIf(FINISHED, currentState -> !currentState.isDone());
         }
-
-        if (!committed.get() || !consumed.get()) {
-            return;
-        }
-
-        queryStateTimer.endQuery();
-
-        queryState.setIf(FINISHED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToCanceled()
     {
-        return transitionToFailed(new TrinoException(USER_CANCELED, "Query was canceled"), false);
+        consumed.set(true);
+
+        boolean canceled = transitionToFailed(
+                new TrinoException(USER_CANCELED, "Query was canceled"),
+                false);
+
+        transitionToFinishedIfReady();
+        return canceled;
     }
 
     public boolean transitionToFailed(Throwable throwable)
@@ -1328,19 +1372,99 @@ public class QueryStateMachine
         return transitionToFailed(throwable, true);
     }
 
+    private boolean transitionToFailedDuringCommit(Throwable throwable)
+    {
+        return transitionToFailed(throwable, true, true);
+    }
+
     private boolean transitionToFailed(Throwable throwable, boolean log)
     {
+        return transitionToFailed(throwable, log, false);
+    }
+
+    private boolean transitionToFailed(Throwable throwable, boolean log, boolean commitFailure)
+    {
+        requireNonNull(throwable, "throwable is null");
+
+        boolean rejectedExternalFailure;
+        boolean unknownCommitOutcome = false;
+        synchronized (finalizationLock) {
+            if (queryState.get().isDone() || failureStarted) {
+                return false;
+            }
+
+            // The future may have completed before its callback updates committed.
+            boolean commitOutcomeKnown = commitFuture != null && commitFuture.isDone();
+            if (commitStarted && !commitFailure && commitOutcomeKnown && !committed.get()) {
+                try {
+                    Futures.getDone(commitFuture);
+                    committed.set(true);
+                }
+                catch (ExecutionException | CancellationException ignored) {
+                    // The commit callback handles the completed failure.
+                }
+            }
+
+            if (commitStarted && !commitFailure && !commitOutcomeKnown && !committed.get() &&
+                    throwable instanceof TrinoException failure &&
+                    (failure.getErrorCode().equals(USER_CANCELED.toErrorCode()) ||
+                            failure.getErrorCode().equals(ABANDONED_QUERY.toErrorCode()) ||
+                            failure.getErrorCode().equals(EXCEEDED_TIME_LIMIT.toErrorCode()) ||
+                            failure.getErrorCode().equals(SERVER_SHUTTING_DOWN.toErrorCode()))) {
+                failureStarted = true;
+                unknownCommitOutcome = true;
+                rejectedExternalFailure = false;
+            }
+            else if (commitStarted && !commitFailure) {
+                // Release the consumption gate only after abandonment.
+                // A timed-out query may still have a client reading results.
+                if (throwable instanceof TrinoException trinoException &&
+                        trinoException.getErrorCode().equals(ABANDONED_QUERY.toErrorCode())) {
+                    consumed.set(true);
+                }
+                rejectedExternalFailure = true;
+            }
+            else {
+                if (commitStarted != commitFailure) {
+                    return false;
+                }
+                failureStarted = true;
+                rejectedExternalFailure = false;
+            }
+        }
+
+        if (rejectedExternalFailure) {
+            transitionToFinishedIfReady();
+            return false;
+        }
+
+        if (unknownCommitOutcome) {
+            throwable = new TrinoException(
+                    TRANSACTION_COMMIT_OUTCOME_UNKNOWN,
+                    "Transaction commit outcome unknown; verify transaction effects before retrying",
+                    throwable);
+        }
+
         queryStateTimer.endQuery();
 
-        // NOTE: The failure cause must be set before triggering the state change, so
-        // listeners can observe the exception. This is safe because the failure cause
-        // can only be observed if the transition to FAILED is successful.
-        requireNonNull(throwable, "throwable is null");
-        failureCause.compareAndSet(null, toFailure(throwable));
+        ExecutionFailureInfo convertedFailure;
+        try {
+            convertedFailure = toFailure(throwable);
+        }
+        catch (RuntimeException | StackOverflowError conversionError) {
+            // Do not let malformed exception metadata strand the query.
+            QUERY_STATE_LOG.warn(conversionError, "Failed to convert failure of query %s; using a generic failure", queryId);
+            convertedFailure = toFailure(new TrinoException(
+                    GENERIC_INTERNAL_ERROR,
+                    "Failed to convert query failure"));
+        }
 
-        cleanupQueryQuietly();
+        // Publish failure information before exposing FAILED to listeners.
+        failureCause.compareAndSet(null, convertedFailure);
 
+        // Cleanup may block in a connector. Publish the terminal state first.
         QueryState oldState = queryState.trySet(FAILED);
+        cleanupQueryQuietly();
         if (oldState.isDone()) {
             if (log) {
                 QUERY_STATE_LOG.debug(throwable, "Failure after query %s finished", queryId);
@@ -1350,10 +1474,10 @@ public class QueryStateMachine
         collectCatalogMetadataMetrics();
 
         try {
-            if (log) {
-                QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
-            }
-            session.getTransactionId().flatMap(transactionManager::getTransactionInfoIfExist).ifPresent(transaction -> {
+            Optional<TransactionInfo> transactionToAbort = unknownCommitOutcome
+                    ? Optional.empty()
+                    : session.getTransactionId().flatMap(transactionManager::getTransactionInfoIfExist);
+            transactionToAbort.ifPresent(transaction -> {
                 try {
                     if (transaction.isAutoCommitContext()) {
                         transactionManager.asyncAbort(transaction.getTransactionId());
@@ -1369,6 +1493,9 @@ public class QueryStateMachine
                     }
                 }
             });
+            if (log) {
+                QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
+            }
         }
         finally {
             // if the query has not started, then there is no final query info to wait for
