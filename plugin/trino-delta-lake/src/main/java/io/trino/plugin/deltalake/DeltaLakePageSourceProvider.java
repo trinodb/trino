@@ -460,7 +460,15 @@ public class DeltaLakePageSourceProvider
                         return page;
                     }
                 },
-                0);
+                0)
+        {
+            // Pages are generated without reading the file, so no input bytes are consumed
+            @Override
+            public long getCompletedBytes()
+            {
+                return 0;
+            }
+        };
     }
 
     private static Block createRowNumberBlock(long baseIndex, int size)
