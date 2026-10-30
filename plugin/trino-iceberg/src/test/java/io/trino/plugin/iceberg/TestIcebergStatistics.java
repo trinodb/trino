@@ -19,6 +19,8 @@ import com.google.common.math.IntMath;
 import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -28,6 +30,7 @@ import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.puffin.Puffin;
 import org.apache.iceberg.puffin.PuffinWriter;
+import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,6 +38,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
@@ -43,6 +49,8 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.EXPIRE_SNAPSHOTS_
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.loadTable;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_TABLE_PROCEDURE;
@@ -50,6 +58,7 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UP;
 import static java.util.stream.Collectors.joining;
@@ -1274,6 +1283,43 @@ public class TestIcebergStatistics
                   ('c2', null, 1.0, 0.0, null, null, null),
                   (null, null, null, null, 1.0, null, null)
                 """);
+    }
+
+    @Test
+    public void testToTableStatisticsScalesSample()
+    {
+        IcebergColumnHandle column = new IcebergColumnHandle(
+                new ColumnIdentity(1, "name", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()),
+                VARCHAR,
+                ImmutableList.of(),
+                VARCHAR,
+                true,
+                Optional.empty());
+        IcebergColumnHandle number = new IcebergColumnHandle(
+                new ColumnIdentity(2, "number", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()),
+                BIGINT,
+                ImmutableList.of(),
+                BIGINT,
+                true,
+                Optional.empty());
+        List<Types.NestedField> columns = ImmutableList.of(
+                Types.NestedField.optional(1, "name", Types.StringType.get()),
+                Types.NestedField.optional(2, "number", Types.LongType.get()));
+        IcebergStatistics sample = new IcebergStatistics(10, 1, 1000, Map.of(2, 1L), Map.of(2, 9L), Map.of(1, 5L), Map.of(), Map.of(1, 300L));
+
+        TableStatistics withRanges = TableStatisticsReader.toTableStatistics(TESTING_TYPE_MANAGER, columns, Set.of(column, number), 1000, Optional.of(sample), Map.of(), true);
+        ColumnStatistics stats = withRanges.getColumnStatistics().get(column);
+        assertThat(withRanges.getRowCount().getValue()).isEqualTo(1000.0);
+        assertThat(stats.getNullsFraction().getValue()).isEqualTo(0.5);
+        assertThat(stats.getDataSize().getValue()).isEqualTo((double) (long) (300 * 100 * 2.7));
+        assertThat(withRanges.getColumnStatistics().get(number).getRange()).isPresent();
+
+        TableStatistics withoutRanges = TableStatisticsReader.toTableStatistics(TESTING_TYPE_MANAGER, columns, Set.of(column, number), 1000, Optional.of(sample), Map.of(), false);
+        assertThat(withoutRanges.getColumnStatistics().get(number).getRange()).isEmpty();
+
+        TableStatistics emptySample = TableStatisticsReader.toTableStatistics(TESTING_TYPE_MANAGER, columns, Set.of(column, number), 1000, Optional.empty(), Map.of(), true);
+        assertThat(emptySample.getColumnStatistics().get(column).getNullsFraction().isUnknown()).isTrue();
+        assertThat(emptySample.getColumnStatistics().get(column).getDataSize().isUnknown()).isTrue();
     }
 
     private long getCurrentSnapshotId(String tableName)
