@@ -767,10 +767,16 @@ public class TupleDomainParquetPredicate
 
         // TODO: when min == max (i.e., singleton ranges, the construction of Domains can be done more efficiently
         // A complete dictionary establishes NaN membership, unlike min/max statistics.
-        if (type.equals(DOUBLE)) {
-            return Domain.create(ValueSet.copyOf(type, values), dictionaryDescriptor.isNullAllowed());
+        // Both skip the getDomain below and so repeat the guard it starts with, and a column failing the guard falls
+        // through to it, which leaves the domain unnarrowed
+        if (type.equals(DOUBLE) && canNarrowDomain(type, columnDescriptor.getPrimitiveType())) {
+            // ColumnReaderFactory widens a float column to double, and every float has an exact double, so these are
+            // the values the reader itself produces
+            return Domain.create(ValueSet.copyOf(type, values.stream()
+                    .map(value -> ((Number) value).doubleValue())
+                    .toList()), dictionaryDescriptor.isNullAllowed());
         }
-        if (type.equals(REAL)) {
+        if (type.equals(REAL) && canNarrowDomain(type, columnDescriptor.getPrimitiveType())) {
             return Domain.create(ValueSet.copyOf(type, values.stream()
                     .map(value -> (long) floatToRawIntBits((float) value))
                     .toList()), dictionaryDescriptor.isNullAllowed());

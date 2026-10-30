@@ -757,10 +757,13 @@ public class TestTupleDomainParquetPredicate
         float maximum = 40.3f;
 
         assertThat(getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(minimum, maximum), ID, UTC))
-                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false));
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false).union(singleValue(DOUBLE, Double.NaN)));
 
         assertThat(getDomain(DOUBLE, floatDictionaryDescriptor(minimum)))
                 .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) minimum, true)), true));
+        // the widened dictionary establishes NaN membership just as a double dictionary does
+        assertThat(getDomain(DOUBLE, floatDictionaryDescriptor(minimum, NaN)))
+                .isEqualTo(create(ValueSet.of(DOUBLE, (double) minimum, Double.NaN), true));
 
         ColumnIndex columnIndex = ColumnIndexBuilder.build(
                 Types.required(FLOAT).named("test_float"),
@@ -770,7 +773,7 @@ public class TestTupleDomainParquetPredicate
                 toFloatByteBufferList(minimum),
                 toFloatByteBufferList(maximum));
         assertThat(getDomain(DOUBLE, 200, columnIndex, ID, columnDescriptor, UTC))
-                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false));
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false).union(singleValue(DOUBLE, Double.NaN)));
 
         // a NaN bound is as unusable here as it is on a physical double column
         assertThat(getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(NaN, NaN), ID, UTC)).isEqualTo(notNull(DOUBLE));
@@ -788,6 +791,19 @@ public class TestTupleDomainParquetPredicate
 
         assertThat(getDomain(BOOLEAN, doubleDictionaryDescriptor(1, 2)))
                 .isEqualTo(all(BOOLEAN));
+
+        // The floating point types take a path of their own through the dictionary, which establishes NaN membership,
+        // and the guard covers it as well: a real over a double column would fail the cast, as would a real over a long
+        // one, which the reader accepts but reinterprets as float bits, and a double over a long column would be
+        // narrowed on values the reader refuses to read as double
+        assertThat(getDomain(REAL, doubleDictionaryDescriptor(1, 2)))
+                .isEqualTo(all(REAL));
+
+        assertThat(getDomain(REAL, longDictionaryDescriptor(1, 2)))
+                .isEqualTo(all(REAL));
+
+        assertThat(getDomain(DOUBLE, longDictionaryDescriptor(1, 2)))
+                .isEqualTo(all(DOUBLE));
     }
 
     /**
@@ -1483,6 +1499,21 @@ public class TestTupleDomainParquetPredicate
         }
         return new DictionaryDescriptor(
                 new ColumnDescriptor(new String[] {"dummy"}, new PrimitiveType(OPTIONAL, PrimitiveTypeName.DOUBLE, 0, "DoubleColumn"), 1, 1),
+                true,
+                Optional.of(new DictionaryPage(Slices.wrappedBuffer(buf.toByteArray()), values.length, PLAIN_DICTIONARY)));
+    }
+
+    private DictionaryDescriptor longDictionaryDescriptor(long... values)
+            throws Exception
+    {
+        ByteArrayOutputStream buf = new ByteArrayOutputStream();
+        try (LittleEndianDataOutputStream out = new LittleEndianDataOutputStream(buf)) {
+            for (long val : values) {
+                out.writeLong(val);
+            }
+        }
+        return new DictionaryDescriptor(
+                new ColumnDescriptor(new String[] {"dummy"}, new PrimitiveType(OPTIONAL, INT64, 0, "LongColumn"), 1, 1),
                 true,
                 Optional.of(new DictionaryPage(Slices.wrappedBuffer(buf.toByteArray()), values.length, PLAIN_DICTIONARY)));
     }
