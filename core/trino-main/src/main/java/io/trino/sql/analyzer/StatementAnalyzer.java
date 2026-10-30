@@ -73,6 +73,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.PointerType;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -297,6 +298,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -2417,7 +2419,7 @@ class StatementAnalyzer
                 return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.empty());
             }
 
-            RedirectionAwareView viewRedirection = metadata.getRedirectionAwareView(session, name);
+            RedirectionAwareView viewRedirection = metadata.getRedirectionAwareView(session, name, analysis.getReferencingViews());
             Optional<ViewDefinition> optionalView = viewRedirection.viewDefinition();
             if (optionalView.isPresent()) {
                 if (table.getQueryPeriod().isPresent() && !isBranchVersionReference(table)) {
@@ -2781,7 +2783,7 @@ class StatementAnalyzer
                     throw semanticException(NOT_SUPPORTED, table, "View contains inline function: %s", name);
                 }
 
-                analysis.registerTableForView(table, name, isMaterializedView);
+                analysis.registerTableForView(table, name, isMaterializedView, owner.isEmpty());
                 RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
                 analysis.unregisterTableForView();
 
@@ -5735,7 +5737,7 @@ class StatementAnalyzer
                     viewAccessControl = accessControl;
                 }
 
-                Session viewSession = session.createViewSession(catalog, schema, identity, path);
+                Session viewSession = session.createViewSessionKeepingInvokerIdentity(catalog, schema, identity, path);
 
                 StatementAnalyzer analyzer = statementAnalyzerFactory
                         .withSpecializedAccessControl(viewAccessControl)
@@ -5863,6 +5865,7 @@ class StatementAnalyzer
             verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, format("Row filter for '%s'", name));
 
             ExpressionAnalysis expressionAnalysis;
+            Deque<ReferencingView> suspendedViews = analysis.suspendReferencingViews();
             try {
                 Identity filterIdentity = filter.getSecurityIdentity()
                         .map(filterUser -> Identity.forUser(filterUser)
@@ -5884,6 +5887,7 @@ class StatementAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getRawMessage()), e);
             }
             finally {
+                analysis.resumeReferencingViews(suspendedViews);
                 analysis.unregisterTableForRowFiltering(name, currentIdentity);
             }
 
@@ -5986,6 +5990,7 @@ class StatementAnalyzer
 
             verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, format("Column mask for '%s.%s'", table.getName(), column));
 
+            Deque<ReferencingView> suspendedViews = analysis.suspendReferencingViews();
             try {
                 Identity maskIdentity = mask.getSecurityIdentity()
                         .map(maskUser -> Identity.forUser(maskUser)
@@ -6007,6 +6012,7 @@ class StatementAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getRawMessage()), e);
             }
             finally {
+                analysis.resumeReferencingViews(suspendedViews);
                 analysis.unregisterTableForColumnMasking(tableName, column, currentIdentity);
             }
 
@@ -6630,19 +6636,20 @@ class StatementAnalyzer
          */
         private RedirectionAwareTableHandle getTableHandle(Table table, QualifiedObjectName name, Optional<Scope> scope)
         {
+            List<ReferencingView> referencingViews = analysis.getReferencingViews();
             if (table.getQueryPeriod().isPresent()) {
                 verify(table.getBranch().isEmpty(), "branch must be empty");
                 Optional<TableVersion> startVersion = extractTableVersion(table, table.getQueryPeriod().get().getStart(), scope);
                 Optional<TableVersion> endVersion = extractTableVersion(table, table.getQueryPeriod().get().getEnd(), scope);
-                return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion);
+                return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion, referencingViews);
             }
             if (table.getBranch().isPresent()) {
                 verify(table.getQueryPeriod().isEmpty(), "query period must be empty");
                 String branch = table.getBranch().get().getValue();
                 Optional<TableVersion> endVersion = Optional.of(toTableVersion(branch));
-                return metadata.getRedirectionAwareTableHandle(session, name, Optional.empty(), endVersion);
+                return metadata.getRedirectionAwareTableHandle(session, name, Optional.empty(), endVersion, referencingViews);
             }
-            return metadata.getRedirectionAwareTableHandle(session, name, Optional.empty(), Optional.empty());
+            return metadata.getRedirectionAwareTableHandle(session, name, Optional.empty(), Optional.empty(), referencingViews);
         }
 
         /**

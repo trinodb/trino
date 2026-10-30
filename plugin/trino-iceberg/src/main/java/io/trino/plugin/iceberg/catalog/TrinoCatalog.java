@@ -22,6 +22,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -157,6 +158,15 @@ public interface TrinoCatalog
     BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName);
 
     /**
+     * Load an Iceberg table that is being read through the given views, outermost first.
+     * Catalogs that do not track the referencing views ignore them.
+     */
+    default BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName, List<ReferencingView> referencingViews)
+    {
+        return loadTable(session, schemaTableName);
+    }
+
+    /**
      * Bulk load column metadata. The returned map may contain fewer entries then asked for.
      */
     Map<SchemaTableName, List<ColumnMetadata>> tryGetColumnMetadata(ConnectorSession session, List<SchemaTableName> tables);
@@ -188,6 +198,22 @@ public interface TrinoCatalog
     Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace);
 
     Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName);
+
+    /**
+     * Whether the catalog applies the security mode of views itself, so it needs the identity of the invoker, not the view owner.
+     */
+    default boolean managesViewSecurity()
+    {
+        return false;
+    }
+
+    /**
+     * Catalogs that do not track the referencing views ignore them.
+     */
+    default Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName, List<ReferencingView> referencingViews)
+    {
+        return getView(session, viewName);
+    }
 
     default Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
     {
