@@ -279,6 +279,16 @@ final class TestFakerQueries
     }
 
     @Test
+    void testResolveFunctionRespectsSchemaName()
+    {
+        assertUpdate("CREATE SCHEMA faker.function_schema");
+        assertQueryFails(
+                "SELECT faker.function_schema.random_string('#{Name.first_name}')",
+                ".*Function 'faker.function_schema.random_string' not registered");
+        assertUpdate("DROP SCHEMA faker.function_schema");
+    }
+
+    @Test
     void testSelectRangeProperties()
     {
         // inclusive ranges that produce only 2 values
