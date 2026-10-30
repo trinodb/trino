@@ -1667,7 +1667,7 @@ public class ExpressionAnalyzer
             return setExpressionType(
                     node,
                     switch (node.getType()) {
-                        case String value when value.equalsIgnoreCase("CHAR") -> CharType.createCharType(node.getValue().length());
+                        case String value when value.equalsIgnoreCase("CHAR") -> CharType.createCharType(node.getValue().codePointCount(0, node.getValue().length()));
                         case String value when value.equalsIgnoreCase("TIME") -> processTimeLiteral(node);
                         case String value when value.equalsIgnoreCase("TIMESTAMP") -> processTimestampLiteral(node);
                         default -> {
