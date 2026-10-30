@@ -73,6 +73,7 @@ import static io.trino.type.JsonType.JSON;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestFilterStatsCalculator
 {
@@ -724,6 +725,24 @@ public class TestFilterStatsCalculator
         assertExpression(new In(new Constant(createVarcharType(1), Slices.utf8Slice("a")), ImmutableList.of(new Constant(createVarcharType(1), Slices.utf8Slice("b")), new Constant(createVarcharType(1), Slices.utf8Slice("c")), new Constant(createVarcharType(1), null)))).outputRowsCount(0);
         assertExpression(new In(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3)), ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), createVarcharType(3)), new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3))))).equalTo(standardInputStatistics);
         assertExpression(new In(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("c")), createVarcharType(3)), ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), createVarcharType(3)), new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3))))).outputRowsCount(0);
+    }
+
+    @Test
+    public void testInWithConstantValueAndConstantItem()
+    {
+        assertExpression(new In(new Constant(DOUBLE, 2.0), ImmutableList.of(new Reference(DOUBLE, "x"), new Constant(DOUBLE, 7.0))))
+                .outputRowsCount(18.75);
+        assertExpression(new In(new Constant(DOUBLE, null), ImmutableList.of(new Reference(DOUBLE, "x"), new Constant(DOUBLE, 7.0))))
+                .outputRowsCount(0);
+    }
+
+    @Test
+    public void testInWithConstantValueAndUnremovableConstantItem()
+    {
+        assertThatThrownBy(() -> assertExpression(new In(new Constant(DOUBLE, 2.0), ImmutableList.of(new Reference(DOUBLE, "x"), new Constant(DOUBLE, null)))))
+                .hasMessage("Literal-to-literal not supported here, should be eliminated earlier");
+        assertThatThrownBy(() -> assertExpression(new In(new Constant(BIGINT, 5L), ImmutableList.of(new Cast(new Reference(MEDIUM_VARCHAR_TYPE, "mediumVarchar"), BIGINT), new Constant(BIGINT, 5L)))))
+                .hasMessage("Literal-to-literal not supported here, should be eliminated earlier");
     }
 
     @Test
