@@ -818,7 +818,7 @@ partition values from the path segments. Each segment must use the
 `city`, located at `s3://example-bucket/customers/`, the file system layout
 could look like this:
 
-```
+```text
 s3://example-bucket/customers/
 └── country=DE/
     └── city=berlin/
@@ -842,7 +842,7 @@ CALL system.sync_partition_metadata(
 Afterwards the partition is visible:
 
 ```
-SHOW PARTITIONS FROM example_web.customers;
+SELECT * FROM example_web."customers$partitions";
 ```
 
 ```
@@ -864,6 +864,11 @@ CALL system.sync_partition_metadata(
 ```
 
 The `ADD` and `DROP` modes only perform one direction of the synchronization.
+
+With the default `case_sensitive => true`, `DROP` and `FULL` also remove
+metastore entries for partitions stored outside the table location if no
+corresponding partition directory exists under the table location. Their data is
+preserved, but those partitions are no longer visible through the table.
 
 (hive-data-management)=
 ### Data management
