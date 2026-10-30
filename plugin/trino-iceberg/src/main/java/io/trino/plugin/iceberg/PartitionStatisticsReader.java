@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
@@ -66,15 +67,19 @@ import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.FileFormat.AVRO;
+import static org.apache.iceberg.FileFormat.PARQUET;
 
 /**
  * Computes row counts from Iceberg partition statistics files and snapshot summaries instead of walking every
- * data file entry. Only Avro files are read, files in other formats are ignored. Decoded partition statistics
- * files are cached up to an estimate of their retained size, and files that do not fit are not used.
+ * data file entry. Avro and Parquet files are read through the Iceberg library, files in other formats are
+ * ignored. Decoded partition statistics files are cached up to an estimate of their retained size, and files that do
+ * not fit are not used.
  */
 public final class PartitionStatisticsReader
 {
     private static final Logger log = Logger.get(PartitionStatisticsReader.class);
+    // the library reads Parquet through the reader IcebergInternalData registers, and it has no ORC implementation
+    private static final Set<FileFormat> READABLE_FORMATS = ImmutableSet.of(AVRO, PARQUET);
 
     // null fractions and data sizes are ratios, so a bounded sample of data files is enough to estimate them
     @VisibleForTesting
@@ -130,7 +135,7 @@ public final class PartitionStatisticsReader
      */
     static boolean isReadable(PartitionStatisticsFile file)
     {
-        return FileFormat.fromFileName(file.path()) == AVRO;
+        return READABLE_FORMATS.contains(FileFormat.fromFileName(file.path()));
     }
 
     /**

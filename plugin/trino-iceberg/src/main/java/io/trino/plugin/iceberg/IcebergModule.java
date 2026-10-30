@@ -122,6 +122,7 @@ public class IcebergModule
         newExporter(binder).export(IcebergFileWriterFactory.class).withGeneratedName();
 
         binder.bind(IcebergEnvironmentContext.class).asEagerSingleton();
+        binder.bind(IcebergInternalData.class).asEagerSingleton();
 
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(RollbackToSnapshotProcedure.class).in(Scopes.SINGLETON);
