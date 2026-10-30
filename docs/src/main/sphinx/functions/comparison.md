@@ -348,6 +348,19 @@ WHERE regionkey IN (
 ORDER by nation.name;
 ```
 
+`IN` returns `true` when the value equals one of the values, and `null` when it
+equals none of them but its comparison with one of them is `null`. A row or
+array compares as `null` when its elements that are not unequal include a
+`NULL`:
+
+```sql
+SELECT 2 IN (SELECT * FROM (VALUES 1, NULL)); -- null
+
+SELECT (2, 7) IN (SELECT 2, NULL); -- null
+
+SELECT (2, 7) NOT IN (SELECT 3, NULL); -- true
+```
+
 (match-predicate)=
 ## Row matching: MATCH
 
