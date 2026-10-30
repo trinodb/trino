@@ -232,6 +232,11 @@ public final class TableStatisticsReader
                 snapshotId,
                 columnIds);
 
+        return toTableStatistics(columns, projectedColumns, summary, ndvs);
+    }
+
+    private static TableStatistics toTableStatistics(List<Types.NestedField> columns, Set<IcebergColumnHandle> projectedColumns, IcebergStatistics summary, Map<Integer, Long> ndvs)
+    {
         Map<Integer, org.apache.iceberg.types.Type> idToType = columns.stream()
                 .map(column -> Map.entry(column.fieldId(), column.type()))
                 .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
