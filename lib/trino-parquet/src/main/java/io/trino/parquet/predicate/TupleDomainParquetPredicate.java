@@ -53,6 +53,7 @@ import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.IntLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
@@ -354,6 +355,16 @@ public class TupleDomainParquetPredicate
             DateTimeZone timeZone)
     {
         checkArgument(minimums.size() == maximums.size(), "Expected minimums and maximums to have the same size");
+
+        // The bounds of an unsigned integer follow unsigned order, while the reader returns the stored bits as a signed value.
+        // Both orders agree unless the bounds straddle the sign bit, in which case the minimum reads as non-negative and the maximum as negative.
+        if (column.getPrimitiveType().getLogicalTypeAnnotation() instanceof IntLogicalTypeAnnotation integerAnnotation && !integerAnnotation.isSigned()) {
+            for (int i = 0; i < minimums.size(); i++) {
+                if (asLong(minimums.get(i)) >= 0 && asLong(maximums.get(i)) < 0) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
+            }
+        }
 
         if (type.equals(BOOLEAN)) {
             boolean hasTrueValues = minimums.stream().anyMatch(value -> (boolean) value) || maximums.stream().anyMatch(value -> (boolean) value);
