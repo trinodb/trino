@@ -14,9 +14,7 @@
 package io.trino.plugin.iceberg.delete;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.BlocksHash;
@@ -29,16 +27,15 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
@@ -105,9 +102,9 @@ public final class EqualityDeleteFilter
         }
     }
 
-    public static EqualityDeleteFilterBuilder builder(List<IcebergColumnHandle> deleteColumns, BlocksHashFactory blocksHashFactory)
+    public static EqualityDeleteFilterBuilder builder(List<IcebergColumnHandle> deleteColumns, BlocksHashFactory blocksHashFactory, Executor executor)
     {
-        return new FlatHashEqualityDeleteFilterBuilder(deleteColumns, blocksHashFactory);
+        return new FlatHashEqualityDeleteFilterBuilder(deleteColumns, blocksHashFactory, executor);
     }
 
     /**
@@ -182,9 +179,10 @@ public final class EqualityDeleteFilter
 
         private final List<IcebergColumnHandle> deleteColumns;
         private final EqualityDeleteIndex index;
-        private final Map<String, ListenableFutureTask<?>> loadingFiles = new ConcurrentHashMap<>();
+        private final Executor executor;
+        private final ReferenceCountedLoader<ConnectorPageSource> loader = new ReferenceCountedLoader<>();
 
-        private FlatHashEqualityDeleteFilterBuilder(List<IcebergColumnHandle> deleteColumns, BlocksHashFactory blocksHashFactory)
+        private FlatHashEqualityDeleteFilterBuilder(List<IcebergColumnHandle> deleteColumns, BlocksHashFactory blocksHashFactory, Executor executor)
         {
             this.deleteColumns = ImmutableList.copyOf(requireNonNull(deleteColumns, "deleteColumns is null"));
             List<Type> columnTypes = this.deleteColumns.stream()
@@ -192,39 +190,37 @@ public final class EqualityDeleteFilter
                     .collect(toImmutableList());
             BlocksHash blocksHash = requireNonNull(blocksHashFactory, "blocksHashFactory is null").create(columnTypes, CACHE_HASH_VALUES, EXPECTED_SIZE);
             this.index = new EqualityDeleteIndex(blocksHash, new LongArrayList(EXPECTED_SIZE));
+            this.executor = requireNonNull(executor, "executor is null");
         }
 
         @Override
-        public ListenableFuture<?> readEqualityDeletes(DeleteFile deleteFile, DeletePageSourceProvider deletePageSourceProvider)
+        public ListenableFuture<?> readEqualityDeletes(DeleteFile deleteFile, DeletePageSourceProvider deletePageSourceProvider, Executor decodeExecutor)
         {
-            // ensure only one thread loads the file
-            ListenableFutureTask<?> futureTask = loadingFiles.computeIfAbsent(
+            // a load is only dropped before its decode starts, so the index never holds a partially read delete file
+            return loader.load(
                     deleteFile.path(),
-                    _ -> ListenableFutureTask.create(() -> readEqualityDeletesInternal(deleteFile, deletePageSourceProvider), null));
-            futureTask.run();
-            return Futures.nonCancellationPropagating(futureTask);
+                    executor,
+                    () -> deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, TupleDomain.all()),
+                    decodeExecutor,
+                    pageSource -> readEqualityDeletesInternal(deleteFile, pageSource));
         }
 
-        private void readEqualityDeletesInternal(DeleteFile deleteFile, DeletePageSourceProvider deletePageSourceProvider)
+        private void readEqualityDeletesInternal(DeleteFile deleteFile, ConnectorPageSource pageSource)
         {
             long deleteSequenceNumber = deleteFile.dataSequenceNumber();
-            try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, TupleDomain.all())) {
-                while (!pageSource.isFinished()) {
-                    SourcePage page = pageSource.getNextSourcePage();
-                    if (page == null) {
-                        continue;
-                    }
-
-                    Block[] blocks = new Block[deleteColumns.size()];
-                    for (int i = 0; i < blocks.length; i++) {
-                        blocks[i] = page.getBlock(i);
-                    }
-
-                    index.insertPage(blocks, page.getPositionCount(), deleteSequenceNumber);
+            while (!pageSource.isFinished()) {
+                getFutureValue(pageSource.isBlocked());
+                SourcePage page = pageSource.getNextSourcePage();
+                if (page == null) {
+                    continue;
                 }
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
+
+                Block[] blocks = new Block[deleteColumns.size()];
+                for (int i = 0; i < blocks.length; i++) {
+                    blocks[i] = page.getBlock(i);
+                }
+
+                index.insertPage(blocks, page.getPositionCount(), deleteSequenceNumber);
             }
         }
 

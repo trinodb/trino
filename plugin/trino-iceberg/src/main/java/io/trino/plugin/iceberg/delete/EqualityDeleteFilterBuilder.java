@@ -16,10 +16,16 @@ package io.trino.plugin.iceberg.delete;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 
+import java.util.concurrent.Executor;
+
 @ThreadSafe
 public interface EqualityDeleteFilterBuilder
 {
-    ListenableFuture<?> readEqualityDeletes(DeleteFile deleteFile, DeletePageSourceProvider deletePageSourceProvider);
+    /**
+     * Loads the delete file into the filter, once per file however many splits ask for it. The file is opened on the
+     * delete loading pool and decoded on {@code decodeExecutor}, unless another caller decodes it first.
+     */
+    ListenableFuture<?> readEqualityDeletes(DeleteFile deleteFile, DeletePageSourceProvider deletePageSourceProvider, Executor decodeExecutor);
 
     /**
      * Builds the EqualityDeleteFilter.
