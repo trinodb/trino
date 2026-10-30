@@ -773,6 +773,9 @@ public class FakerMetadata
     @Override
     public Collection<FunctionMetadata> getFunctions(ConnectorSession session, SchemaFunctionName name)
     {
+        if (!name.schemaName().equals(SCHEMA_NAME)) {
+            return List.of();
+        }
         return functionBundle.getFunctions().stream()
                 .filter(function -> function.getCanonicalName().equals(name.functionName()))
                 .collect(toImmutableList());
