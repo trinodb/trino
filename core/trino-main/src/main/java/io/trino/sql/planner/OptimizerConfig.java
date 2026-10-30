@@ -93,6 +93,7 @@ public class OptimizerConfig
     private boolean forceSingleNodeOutput;
     private boolean useExactPartitioning;
     private boolean useCostBasedPartitioning = true;
+    private boolean maskedPageEnabled = true;
     private int pushFilterIntoValuesMaxRowCount = 100;
     // adaptive partial aggregation
     private boolean adaptivePartialAggregationEnabled = true;
@@ -809,6 +810,19 @@ public class OptimizerConfig
     public OptimizerConfig setUseCostBasedPartitioning(boolean useCostBasedPartitioning)
     {
         this.useCostBasedPartitioning = useCostBasedPartitioning;
+        return this;
+    }
+
+    public boolean isMaskedPageEnabled()
+    {
+        return maskedPageEnabled;
+    }
+
+    @Config("optimizer.masked-page-enabled")
+    @ConfigDescription("Enable late materialization by passing undecoded masked pages between operators, so a consumer such as partial TopN can defer decoding of columns it may not need")
+    public OptimizerConfig setMaskedPageEnabled(boolean maskedPageEnabled)
+    {
+        this.maskedPageEnabled = maskedPageEnabled;
         return this;
     }
 

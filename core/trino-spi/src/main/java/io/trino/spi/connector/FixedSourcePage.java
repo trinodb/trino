@@ -91,4 +91,10 @@ final class FixedSourcePage
     {
         page = page.getPositions(positions, offset, size);
     }
+
+    @Override
+    public void selectPositions(int offset, int size)
+    {
+        page = page.getRegion(offset, size);
+    }
 }

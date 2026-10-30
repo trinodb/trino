@@ -177,6 +177,13 @@ public class OperatorContext
         }
     }
 
+    void recordAddMaskedInput(OperationTimer operationTimer, long sizeInBytes, long positions)
+    {
+        operationTimer.recordOperationComplete(addInputTiming);
+        inputDataSize.getAndAdd(sizeInBytes);
+        inputPositions.getAndAdd(positions);
+    }
+
     /**
      * Record the amount of physical bytes that were read by an operator and
      * the time it took to read the data. This metric is valid only for source operators.
