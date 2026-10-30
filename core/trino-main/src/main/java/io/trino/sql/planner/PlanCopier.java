@@ -18,6 +18,7 @@ import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -31,7 +32,9 @@ import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
+import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
@@ -64,7 +67,16 @@ public final class PlanCopier
 
     public static NodeAndMappings copyPlan(PlanNode plan, List<Symbol> fields, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
-        PlanNode copy = SimplePlanRewriter.rewriteWith(new Copier(idAllocator, lookup), plan, null);
+        PlanNode copy = SimplePlanRewriter.rewriteWith(new Copier(idAllocator, lookup, false), plan, null);
+        return new UnaliasSymbolReferences().reallocateSymbols(copy, fields, symbolAllocator);
+    }
+
+    /// Like [#copyPlan], but also copies [AssignUniqueId] nodes. The copy assigns its own unique
+    /// ids, which differ from those of the original plan, so the caller must not match rows of the
+    /// copy to rows of the original by them.
+    public static NodeAndMappings copyPlanAssigningNewUniqueIds(PlanNode plan, List<Symbol> fields, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    {
+        PlanNode copy = SimplePlanRewriter.rewriteWith(new Copier(idAllocator, lookup, true), plan, null);
         return new UnaliasSymbolReferences().reallocateSymbols(copy, fields, symbolAllocator);
     }
 
@@ -73,11 +85,22 @@ public final class PlanCopier
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Lookup lookup;
+        private final boolean assignNewUniqueIds;
 
-        private Copier(PlanNodeIdAllocator idAllocator, Lookup lookup)
+        private Copier(PlanNodeIdAllocator idAllocator, Lookup lookup, boolean assignNewUniqueIds)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.lookup = requireNonNull(lookup, "lookup is null");
+            this.assignNewUniqueIds = assignNewUniqueIds;
+        }
+
+        @Override
+        public PlanNode visitAssignUniqueId(AssignUniqueId node, RewriteContext<Void> context)
+        {
+            if (!assignNewUniqueIds) {
+                return visitPlan(node, context);
+            }
+            return new AssignUniqueId(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getIdColumn());
         }
 
         @Override
@@ -155,6 +178,32 @@ public final class PlanCopier
         public PlanNode visitValues(ValuesNode node, RewriteContext<Void> context)
         {
             return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), node.getRowCount(), node.getRows());
+        }
+
+        @Override
+        public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Void> context)
+        {
+            return new SemiJoinNode(
+                    idAllocator.getNextId(),
+                    context.rewrite(node.getSource()),
+                    context.rewrite(node.getFilteringSource()),
+                    node.getSourceJoinSymbol(),
+                    node.getFilteringSourceJoinSymbol(),
+                    node.getSemiJoinOutput(),
+                    node.getDistributionType(),
+                    node.getDynamicFilterId());
+        }
+
+        @Override
+        public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
+        {
+            return new RowNumberNode(
+                    idAllocator.getNextId(),
+                    context.rewrite(node.getSource()),
+                    node.getPartitionBy(),
+                    node.isOrderSensitive(),
+                    node.getRowNumberSymbol(),
+                    node.getMaxRowCountPerPartition());
         }
 
         @Override
