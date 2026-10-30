@@ -2302,7 +2302,7 @@ public abstract class BaseConnectorTest
         // verify new name in the system.metadata.materialized_views
         assertQuery(
                 session,
-                "SELECT catalog_name, schema_name FROM system.metadata.materialized_views WHERE name = '" + renamedMaterializedView + "'",
+                "SELECT catalog_name, schema_name FROM system.metadata.materialized_views WHERE catalog_name = '" + originalMaterializedView.catalogName() + "' AND name = '" + renamedMaterializedView + "'",
                 format("VALUES ('%s', '%s')", originalMaterializedView.catalogName(), originalMaterializedView.schemaName()));
         assertQueryReturnsEmptyResult(session, listMaterializedViewsSql("name = '" + originalMaterializedView.objectName() + "'"));
 
