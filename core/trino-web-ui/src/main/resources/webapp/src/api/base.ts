@@ -19,8 +19,33 @@ export interface ApiResponse<T> {
     data?: T
 }
 
+const UNAUTHENTICATED = 401
+const REAUTHENTICATION_TIMESTAMP_KEY = 'trino.ui.reauthentication.timestamp'
+const REAUTHENTICATION_COOLDOWN_MS = 10_000
+
+const reauthenticate = () => {
+    const lastReauthentication = Number(sessionStorage.getItem(REAUTHENTICATION_TIMESTAMP_KEY) ?? 0)
+    if (Date.now() - lastReauthentication < REAUTHENTICATION_COOLDOWN_MS) {
+        return
+    }
+    sessionStorage.setItem(REAUTHENTICATION_TIMESTAMP_KEY, Date.now().toString())
+    window.location.reload()
+}
+
 export class ClientApi {
     axiosInstance: AxiosInstance = axios.create()
+
+    constructor() {
+        this.axiosInstance.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                if (axios.isAxiosError(error) && error.response?.status === UNAUTHENTICATED) {
+                    reauthenticate()
+                }
+                return Promise.reject(error)
+            }
+        )
+    }
 
     paramsToQueryString = (params: Record<string, string>): string => {
         let queryString = ''
