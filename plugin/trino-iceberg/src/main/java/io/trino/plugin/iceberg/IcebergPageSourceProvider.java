@@ -62,8 +62,9 @@ import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
+import io.trino.plugin.iceberg.delete.DeleteManager.SerializedDeletionVector;
 import io.trino.plugin.iceberg.delete.DeletionVector;
-import io.trino.plugin.iceberg.delete.PageFilter;
+import io.trino.plugin.iceberg.delete.ThreadlessExecutor;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
@@ -148,6 +149,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.function.ObjLongConsumer;
 import java.util.function.Supplier;
@@ -156,7 +158,6 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -260,11 +261,13 @@ public class IcebergPageSourceProvider
     private final ParquetFooterCache parquetFooterCache;
     private final BlocksHashFactory blocksHashFactory;
     private final EncryptionManagerFactory encryptionManagerFactory;
-    private final MemoryContext sharedMemoryContext;
+    private final AggregatedMemoryContext providerMemoryContext;
+    private final LocalMemoryContext deleteFilterCacheMemoryContext;
     private final int domainCompactionThreshold;
     private final DeleteManager unpartitionedTableDeleteManager;
     private final Map<Integer, Function<PartitionData, PartitionKey>> partitionKeyFactories = new ConcurrentHashMap<>();
     private final Map<PartitionKey, DeleteManager> partitionedDeleteManagers = new ConcurrentHashMap<>();
+    private final Executor deleteLoadingExecutor;
 
     public IcebergPageSourceProvider(
             IcebergFileSystemFactory fileSystemFactory,
@@ -277,7 +280,8 @@ public class IcebergPageSourceProvider
             BlocksHashFactory blocksHashFactory,
             EncryptionManagerFactory encryptionManagerFactory,
             MemoryContext sharedMemoryContext,
-            int domainCompactionThreshold)
+            int domainCompactionThreshold,
+            Executor deleteLoadingExecutor)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -288,10 +292,12 @@ public class IcebergPageSourceProvider
         this.parquetFooterCache = requireNonNull(parquetFooterCache, "parquetFooterCache is null");
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
-        this.sharedMemoryContext = requireNonNull(sharedMemoryContext, "sharedMemoryContext is null");
+        this.deleteLoadingExecutor = requireNonNull(deleteLoadingExecutor, "deleteLoadingExecutor is null");
+        this.providerMemoryContext = newAggregatedMemoryContext(requireNonNull(sharedMemoryContext, "sharedMemoryContext is null"));
+        this.deleteFilterCacheMemoryContext = providerMemoryContext.newLocalMemoryContext("EqualityDeleteFilterCache");
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
-        this.unpartitionedTableDeleteManager = new DeleteManager(typeManager, blocksHashFactory, this::reportDeleteFilterMemoryUsage);
+        this.unpartitionedTableDeleteManager = new DeleteManager(typeManager, blocksHashFactory, this::reportDeleteFilterMemoryUsage, deleteLoadingExecutor);
     }
 
     @Override
@@ -449,37 +455,34 @@ public class IcebergPageSourceProvider
 
         ConnectorPageSource pageSource = readerPageSourceWithRowPositions.pageSource();
 
-        // filter out deleted rows
-        if (!deletes.isEmpty()) {
-            Supplier<Optional<PageFilter>> deletePredicate = memoize(() -> {
-                LocalMemoryContext deletionVectorMemoryContext = memoryContext.newLocalMemoryContext(DeletionVector.class.getSimpleName());
-                Optional<PageFilter> pageFilter = getDeleteManager(partitionSpec, partitionData)
-                        .getDeletePageFilter(
-                                path,
-                                dataSequenceNumber,
-                                deletes,
-                                requiredColumns,
-                                tableSchema,
-                                readerPageSourceWithRowPositions.startRowPosition(),
-                                readerPageSourceWithRowPositions.endRowPosition(),
-                                deleteFile -> readDeletionVector(fileSystem, deleteFile, memoryContext),
-                                (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain, memoryContext.newAggregatedMemoryContext()),
-                                deletionVectorMemoryContext::setBytes);
-                return pageFilter;
-            });
+        // No need to load deletes if empty or all data rows are pruned so no pages will be produced
+        if (!deletes.isEmpty() && !readerPageSourceWithRowPositions.allRowsPruned()) {
+            LocalMemoryContext deletionVectorMemoryContext = memoryContext.newLocalMemoryContext(DeletionVector.class.getSimpleName());
+            ThreadlessExecutor decodeExecutor = new ThreadlessExecutor();
+            pageSource = new AsyncFilteredPageSource(
+                    pageSource,
+                    decodeExecutor,
+                    memoryContext.newLocalMemoryContext(AsyncFilteredPageSource.class.getSimpleName()),
+                    getDeleteManager(partitionSpec, partitionData).createDeletePageFilter(
+                            path,
+                            dataSequenceNumber,
+                            deletes,
+                            requiredColumns,
+                            tableSchema,
+                            readerPageSourceWithRowPositions.startRowPosition(),
+                            readerPageSourceWithRowPositions.endRowPosition(),
+                            deleteFile -> readDeletionVector(fileSystem, deleteFile, memoryContext),
+                            (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain, memoryContext.newAggregatedMemoryContext()),
+                            // Equality delete loads are shared across splits and can outlive the split that started them,
+                            // so the page source is accounted to providerMemoryContext rather than the split's memoryContext
+                            (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain, providerMemoryContext.newAggregatedMemoryContext()),
+                            decodeExecutor,
+                            deletionVectorMemoryContext::setBytes));
             pageSource = TransformConnectorPageSource.create(pageSource, page -> {
-                try {
-                    Optional<PageFilter> pageFilter = deletePredicate.get();
-                    pageFilter.ifPresent(filter -> filter.applyFilter(page));
-                    if (icebergColumns.size() == page.getChannelCount()) {
-                        return page;
-                    }
-                    return new PrefixColumnsSourcePage(page, icebergColumns.size());
+                if (icebergColumns.size() == page.getChannelCount()) {
+                    return page;
                 }
-                catch (RuntimeException e) {
-                    throwIfInstanceOf(e, TrinoException.class);
-                    throw new TrinoException(ICEBERG_BAD_DATA, e);
-                }
+                return new PrefixColumnsSourcePage(page, icebergColumns.size());
             });
         }
         return pageSource;
@@ -491,7 +494,7 @@ public class IcebergPageSourceProvider
      */
     private synchronized void reportDeleteFilterMemoryUsage()
     {
-        sharedMemoryContext.setBytes(unpartitionedTableDeleteManager.getEstimatedSizeInBytes() +
+        deleteFilterCacheMemoryContext.setBytes(unpartitionedTableDeleteManager.getEstimatedSizeInBytes() +
                 partitionedDeleteManagers.values().stream()
                         .mapToLong(DeleteManager::getEstimatedSizeInBytes)
                         .sum());
@@ -514,7 +517,7 @@ public class IcebergPageSourceProvider
                         })
                 .apply(partitionData);
 
-        return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager, blocksHashFactory, this::reportDeleteFilterMemoryUsage));
+        return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager, blocksHashFactory, this::reportDeleteFilterMemoryUsage, deleteLoadingExecutor));
     }
 
     private record PartitionKey(int specId, StructLikeWrapper partitionData) {}
@@ -586,23 +589,21 @@ public class IcebergPageSourceProvider
         return requiredColumns.build();
     }
 
-    private static DeletionVector readDeletionVector(TrinoFileSystem fileSystem, DeleteFile delete, AggregatedMemoryContext memoryContext)
+    private static SerializedDeletionVector readDeletionVector(TrinoFileSystem fileSystem, DeleteFile delete, AggregatedMemoryContext memoryContext)
     {
         verify(delete.isDeletionVector(), "Not a deletion vector: %s", delete);
         TrinoInputFile trinoInputFile = fileSystem.newInputFile(Location.of(delete.path()), delete.fileSizeInBytes());
-        LocalMemoryContext readBufferMemoryContext = memoryContext.newLocalMemoryContext(DeletionVector.class.getSimpleName());
+        Slice slice;
         try (TrinoInput trinoInput = trinoInputFile.newInput()) {
-            int contentSize = toIntExact(delete.contentSizeInBytes().orElseThrow());
-            readBufferMemoryContext.setBytes(contentSize);
-            Slice slice = trinoInput.readFully(delete.contentOffset().orElseThrow(), contentSize);
-            return DeletionVector.builder().deserialize(slice).build().orElseThrow();
+            slice = trinoInput.readFully(delete.contentOffset().orElseThrow(), toIntExact(delete.contentSizeInBytes().orElseThrow()));
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "Failed to read deletion vector file: " + delete.path(), e);
         }
-        finally {
-            readBufferMemoryContext.close();
-        }
+        // accounted until the vector is deserialized on the thread reading the split
+        LocalMemoryContext readBufferMemoryContext = memoryContext.newLocalMemoryContext(DeletionVector.class.getSimpleName());
+        readBufferMemoryContext.setBytes(slice.length());
+        return new SerializedDeletionVector(slice, readBufferMemoryContext::close);
     }
 
     public ConnectorPageSource openDeleteFile(
@@ -962,7 +963,8 @@ public class IcebergPageSourceProvider
             return new ReaderPageSourceWithRowPositions(
                     pageSource,
                     recordReader.getStartRowPosition(),
-                    recordReader.getEndRowPosition());
+                    recordReader.getEndRowPosition(),
+                    recordReader.getStartRowPosition().isEmpty());
         }
         catch (IOException | RuntimeException e) {
             if (orcDataSource != null) {
@@ -1341,7 +1343,8 @@ public class IcebergPageSourceProvider
             return new ReaderPageSourceWithRowPositions(
                     pageSource,
                     startRowPosition,
-                    endRowPosition);
+                    endRowPosition,
+                    rowGroups.isEmpty());
         }
         catch (IOException | RuntimeException e) {
             try {
@@ -1590,10 +1593,12 @@ public class IcebergPageSourceProvider
                     dataSequenceNumber);
             pageSource = transforms.build(pageSource);
 
+            // Avro does not prune blocks, so its row positions are unknown rather than empty
             return new ReaderPageSourceWithRowPositions(
                     pageSource,
                     OptionalLong.empty(),
-                    OptionalLong.empty());
+                    OptionalLong.empty(),
+                    false);
         }
         catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, e);
@@ -1981,16 +1986,21 @@ public class IcebergPageSourceProvider
         throw new IllegalArgumentException("Unsupported geospatial type: " + type);
     }
 
+    /**
+     * @param allRowsPruned the reader pruned every row group or stripe of the split, so the page source produces no pages
+     */
     public record ReaderPageSourceWithRowPositions(
             ConnectorPageSource pageSource,
             OptionalLong startRowPosition,
-            OptionalLong endRowPosition)
+            OptionalLong endRowPosition,
+            boolean allRowsPruned)
     {
         public ReaderPageSourceWithRowPositions
         {
             requireNonNull(pageSource, "pageSource is null");
             requireNonNull(startRowPosition, "startRowPosition is null");
             requireNonNull(endRowPosition, "endRowPosition is null");
+            checkArgument(!allRowsPruned || startRowPosition.isEmpty(), "row positions must be empty when all rows are pruned");
         }
     }
 
