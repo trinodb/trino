@@ -21,6 +21,9 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.AbortableInputStream;
 import software.amazon.awssdk.http.ExecutableHttpRequest;
@@ -96,12 +99,13 @@ class TestS3FileSystemDelete
     void testRetryOnlyFailedFiles(RetryMode retryMode)
             throws IOException
     {
+        AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("access", "secret"));
         try (TestingS3Client client = new TestingS3Client(
                 retryMode,
                 3,
                 response(error("retry", "InternalError", "Please try again")),
                 response())) {
-            fileSystem(client).deleteFiles(List.of(location("deleted"), location("retry")));
+            fileSystem(client, Optional.of(credentialsProvider)).deleteFiles(List.of(location("deleted"), location("retry")));
 
             assertThat(client.requests).hasSize(2);
             assertThat(keys(client.requests.getFirst())).containsExactlyInAnyOrder("deleted", "retry");
@@ -110,6 +114,24 @@ class TestS3FileSystemDelete
             assertThat(client.requests.getLast().bucket()).isEqualTo("bucket");
             assertThat(client.requests.getLast().requestPayer()).isEqualTo(REQUESTER);
             assertThat(client.requests.getLast().checksumAlgorithm()).isEqualTo(CRC32_C);
+            assertCredentialProvider(client.requests.getFirst(), credentialsProvider);
+            assertCredentialProvider(client.requests.getLast(), credentialsProvider);
+        }
+    }
+
+    @Test
+    void testRetryMultipleFailedFiles()
+            throws IOException
+    {
+        try (TestingS3Client client = new TestingS3Client(
+                3,
+                response(error("retry-first", "InternalError", "Please try again"), error("retry-second", "InternalError", "Please try again")),
+                response())) {
+            fileSystem(client).deleteFiles(List.of(location("deleted"), location("retry-first"), location("retry-second")));
+
+            assertThat(client.requests).hasSize(2);
+            assertThat(keys(client.requests.getFirst())).containsExactlyInAnyOrder("deleted", "retry-first", "retry-second");
+            assertThat(keys(client.requests.getLast())).containsExactlyInAnyOrder("retry-first", "retry-second");
         }
     }
 
@@ -232,6 +254,11 @@ class TestS3FileSystemDelete
 
     private S3FileSystem fileSystem(S3Client client)
     {
+        return fileSystem(client, Optional.empty());
+    }
+
+    private S3FileSystem fileSystem(S3Client client, Optional<AwsCredentialsProvider> credentialsProviderOverride)
+    {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setRequesterPays(true)
                 .setChecksumAlgorithm(CRC32C);
@@ -239,11 +266,17 @@ class TestS3FileSystemDelete
                 toIntExact(config.getStreamingPartSize().toBytes()),
                 config.isRequesterPays(),
                 S3Context.S3SseContext.of(config.getSseType(), config.getSseKmsKeyId(), config.getSseCustomerKey()),
-                Optional.empty(),
+                credentialsProviderOverride,
                 config.getStorageClass(),
                 config.getCannedAcl(),
                 config.getChecksumAlgorithm());
         return new S3FileSystem(directExecutor(), client, preSigner, context);
+    }
+
+    private static void assertCredentialProvider(DeleteObjectsRequest request, AwsCredentialsProvider credentialsProvider)
+    {
+        assertThat(request.overrideConfiguration())
+                .hasValueSatisfying(configuration -> assertThat(configuration.credentialsProvider()).contains(credentialsProvider));
     }
 
     private static Location location(String key)
