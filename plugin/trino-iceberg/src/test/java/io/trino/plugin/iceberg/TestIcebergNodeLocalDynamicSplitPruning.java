@@ -75,6 +75,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.orc.metadata.CompressionKind.NONE;
@@ -590,7 +591,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 ParquetFooterCache.noop(),
                 blocksHashFactory,
                 icebergConfig,
-                ENCRYPTION_MANAGER_FACTORY);
+                ENCRYPTION_MANAGER_FACTORY,
+                newDirectExecutorService());
         return factory.createPageSourceProvider(MemoryContext.NO_LIMIT).createPageSource(
                 transaction,
                 getSession(icebergConfig),
