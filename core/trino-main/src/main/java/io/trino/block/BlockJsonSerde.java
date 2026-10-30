@@ -13,26 +13,29 @@
  */
 package io.trino.block;
 
-import com.fasterxml.jackson.core.Base64Variants;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.json.UTF8JsonGenerator;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.google.inject.Inject;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Base64;
 
+import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static io.trino.block.BlockSerdeUtil.readBlock;
 import static io.trino.block.BlockSerdeUtil.writeBlock;
 import static java.lang.Math.toIntExact;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 
 public final class BlockJsonSerde
@@ -56,8 +59,14 @@ public final class BlockJsonSerde
         {
             SliceOutput output = new DynamicSliceOutput(toIntExact(blockEncodingSerde.estimatedWriteSize(block)));
             writeBlock(blockEncodingSerde, output, block);
-            Slice slice = output.slice();
-            jsonGenerator.writeBinary(Base64Variants.MIME_NO_LINEFEEDS, slice.byteArray(), slice.byteArrayOffset(), slice.length());
+            ByteBuffer base64 = Base64.getEncoder().encode(output.slice().toByteBuffer());
+            // base64 text needs no JSON escaping, so a UTF-8 generator copies it as is
+            if (jsonGenerator instanceof UTF8JsonGenerator) {
+                jsonGenerator.writeRawUTF8String(base64.array(), base64.arrayOffset(), base64.remaining());
+            }
+            else {
+                jsonGenerator.writeString(new String(base64.array(), base64.arrayOffset(), base64.remaining(), US_ASCII));
+            }
         }
     }
 
@@ -76,7 +85,10 @@ public final class BlockJsonSerde
         public Block deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException
         {
-            byte[] decoded = Base64Variants.MIME_NO_LINEFEEDS.decode(context.readValue(parser, String.class));
+            if (parser.currentToken() != VALUE_STRING) {
+                return (Block) context.handleUnexpectedToken(Block.class, parser);
+            }
+            byte[] decoded = Base64.getDecoder().decode(parser.getText());
             return readBlock(blockEncodingSerde, Slices.wrappedBuffer(decoded));
         }
     }
