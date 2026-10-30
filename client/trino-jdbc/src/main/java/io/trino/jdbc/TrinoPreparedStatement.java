@@ -575,6 +575,8 @@ public class TrinoPreparedStatement
                 return;
             case Types.CHAR:
             case Types.NCHAR:
+                setParameter(parameterIndex, formatLiteral("CHAR", x.toString()));
+                return;
             case Types.VARCHAR:
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
