@@ -193,7 +193,7 @@ public final class TableStatisticsReader
         // Decode small manifest sets inline to avoid bottlenecking small scans on resource contention in the shared planning pool
         if (filteredManifests.size() < INLINE_MANIFEST_DECODE_THRESHOLD) {
             for (ManifestFile manifestFile : filteredManifests) {
-                collectManifestStatistics(icebergStatisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionDomain, pathDomain);
+                collectManifestStatistics(icebergStatisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionDomain, pathDomain, Integer.MAX_VALUE);
             }
         }
         else {
@@ -203,7 +203,7 @@ public final class TableStatisticsReader
             List<Callable<Void>> tasks = filteredManifests.stream()
                     .map(manifestFile -> (Callable<Void>) () -> {
                         IcebergStatistics.Builder statisticsBuilder = new IcebergStatistics.Builder(columns, columnTypes, typeManager);
-                        collectManifestStatistics(statisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionDomain, pathDomain);
+                        collectManifestStatistics(statisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionDomain, pathDomain, Integer.MAX_VALUE);
                         synchronized (icebergStatisticsBuilder) {
                             icebergStatisticsBuilder.merge(statisticsBuilder);
                         }
@@ -232,26 +232,41 @@ public final class TableStatisticsReader
                 snapshotId,
                 columnIds);
 
+        return toTableStatistics(typeManager, columns, projectedColumns, summary.recordCount(), Optional.of(summary), ndvs, true);
+    }
+
+    static TableStatistics toTableStatistics(
+            TypeManager typeManager,
+            List<Types.NestedField> columns,
+            Set<IcebergColumnHandle> projectedColumns,
+            long rowCount,
+            Optional<IcebergStatistics> sample,
+            Map<Integer, Long> ndvs,
+            boolean includeRanges)
+    {
         Map<Integer, org.apache.iceberg.types.Type> idToType = columns.stream()
                 .map(column -> Map.entry(column.fieldId(), column.type()))
                 .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
-        double recordCount = summary.recordCount();
         for (IcebergColumnHandle columnHandle : projectedColumns) {
             int fieldId = columnHandle.getId();
             ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
-            Long nullCount = summary.nullCounts().get(fieldId);
+            Long nullCount = sample.map(statistics -> statistics.nullCounts().get(fieldId)).orElse(null);
             if (nullCount != null) {
-                columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
+                columnBuilder.setNullsFraction(Estimate.of(nullCount / (double) sample.orElseThrow().recordCount()));
             }
             if (idToType.get(columnHandle.getId()) instanceof Types.FixedType fixedType) {
                 long columnSize = fixedType.length();
                 columnBuilder.setDataSize(Estimate.of(columnSize));
             }
-            else if (summary.columnSizes() != null) {
-                Long columnSize = summary.columnSizes().get(fieldId);
+            else if (sample.isPresent() && sample.get().columnSizes() != null) {
+                Long columnSize = sample.get().columnSizes().get(fieldId);
                 if (columnSize != null) {
+                    if (rowCount != sample.get().recordCount()) {
+                        // the sample covers only part of the table, extrapolate
+                        columnSize = (long) (columnSize * (double) rowCount / sample.get().recordCount());
+                    }
                     // columnSize is the size on disk and Trino column stats is size in memory.
                     // The relation between the two is type and data dependent.
                     // However, Trino currently does not use data size statistics for fixed-width types
@@ -274,10 +289,12 @@ public final class TableStatisticsReader
                     }
                 }
             }
-            Object min = summary.minValues().get(fieldId);
-            Object max = summary.maxValues().get(fieldId);
-            if (min != null && max != null) {
-                columnBuilder.setRange(DoubleRange.from(columnHandle.getType(), min, max));
+            if (includeRanges && sample.isPresent()) {
+                Object min = sample.get().minValues().get(fieldId);
+                Object max = sample.get().maxValues().get(fieldId);
+                if (min != null && max != null) {
+                    columnBuilder.setRange(DoubleRange.from(columnHandle.getType(), min, max));
+                }
             }
             columnBuilder.setDistinctValuesCount(
                     Optional.ofNullable(ndvs.get(fieldId))
@@ -285,7 +302,7 @@ public final class TableStatisticsReader
                             .orElseGet(Estimate::unknown));
             columnHandleBuilder.put(columnHandle, columnBuilder.build());
         }
-        return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.buildOrThrow());
+        return new TableStatistics(Estimate.of(rowCount), columnHandleBuilder.buildOrThrow());
     }
 
     public static Map<Integer, Long> readNdvs(Table icebergTable, long snapshotId, Set<Integer> columnIds)
@@ -375,8 +392,10 @@ public final class TableStatisticsReader
             Expression filter,
             Set<Integer> columnIds,
             Domain partitionDomain,
-            Domain pathDomain)
+            Domain pathDomain,
+            int dataFileLimit)
     {
+        int acceptedDataFiles = 0;
         try (CloseableIterable<DataFile> dataFiles = readManifest(icebergTable, manifestFile, filter, columnIds)) {
             for (DataFile dataFile : dataFiles) {
                 PartitionSpec spec = icebergTable.specs().get(dataFile.specId());
@@ -389,6 +408,10 @@ public final class TableStatisticsReader
 
                 // Filtering by $file_modified_time is skipped to avoid making filesystem calls on each matched data file
                 statisticsBuilder.acceptDataFile(dataFile, spec);
+                acceptedDataFiles++;
+                if (acceptedDataFiles >= dataFileLimit) {
+                    break;
+                }
             }
         }
         catch (IOException e) {
