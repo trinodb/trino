@@ -190,7 +190,6 @@
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.2</dep.avro.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
-        <dep.clickhouse.version>0.10.0</dep.clickhouse.version>
         <dep.confluent.version>8.1.1</dep.confluent.version>
         <dep.datasketches.version>9.0.0</dep.datasketches.version>
         <dep.derby.version>10.17.1.0</dep.derby.version>
@@ -372,42 +371,6 @@
                 <groupId>com.clearspring.analytics</groupId>
                 <artifactId>stream</artifactId>
                 <version>2.9.8</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.clickhouse</groupId>
-                <artifactId>clickhouse-client</artifactId>
-                <version>${dep.clickhouse.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.clickhouse</groupId>
-                <artifactId>clickhouse-data</artifactId>
-                <version>${dep.clickhouse.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.clickhouse</groupId>
-                <artifactId>client-v2</artifactId>
-                <version>${dep.clickhouse.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.google.guava</groupId>
-                        <artifactId>listenablefuture</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.clickhouse</groupId>
-                <artifactId>jdbc-v2</artifactId>
-                <version>${dep.clickhouse.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.google.guava</groupId>
-                        <artifactId>listenablefuture</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
