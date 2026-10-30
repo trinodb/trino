@@ -14,25 +14,45 @@
     <name>${project.artifactId}</name>
     <description>Trino - ClickHouse connector</description>
 
+    <properties>
+        <dep.clickhouse.version>0.10.0</dep.clickhouse.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-client</artifactId>
+            <version>${dep.clickhouse.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-data</artifactId>
+            <version>${dep.clickhouse.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.clickhouse</groupId>
             <artifactId>client-v2</artifactId>
+            <version>${dep.clickhouse.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>listenablefuture</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>com.clickhouse</groupId>
             <artifactId>jdbc-v2</artifactId>
+            <version>${dep.clickhouse.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>listenablefuture</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
