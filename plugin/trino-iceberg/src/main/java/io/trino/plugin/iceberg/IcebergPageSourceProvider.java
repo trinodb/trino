@@ -771,7 +771,15 @@ public class IcebergPageSourceProvider
                     }
                 },
                 maxPage.getRetainedSizeInBytes(),
-                memoryContext);
+                memoryContext)
+        {
+            // Pages are generated from partition values without reading the file, so no input bytes are consumed
+            @Override
+            public long getCompletedBytes()
+            {
+                return 0;
+            }
+        };
     }
 
     private static ReaderPageSourceWithRowPositions createOrcPageSource(
