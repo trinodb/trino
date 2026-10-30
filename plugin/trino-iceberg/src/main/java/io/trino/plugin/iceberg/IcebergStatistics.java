@@ -25,13 +25,16 @@ import org.apache.iceberg.types.Types;
 
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
@@ -49,7 +52,8 @@ public record IcebergStatistics(
         Map<Integer, Object> maxValues,
         Map<Integer, Long> nullCounts,
         Map<Integer, Long> nanCounts,
-        Map<Integer, Long> columnSizes)
+        Map<Integer, Long> columnSizes,
+        Map<Integer, Long> nestedColumnSizes)
 {
     public IcebergStatistics
     {
@@ -58,6 +62,7 @@ public record IcebergStatistics(
         nullCounts = ImmutableMap.copyOf(requireNonNull(nullCounts, "nullCounts is null"));
         nanCounts = ImmutableMap.copyOf(requireNonNull(nanCounts, "nanCounts is null"));
         columnSizes = ImmutableMap.copyOf(requireNonNull(columnSizes, "columnSizes is null"));
+        nestedColumnSizes = ImmutableMap.copyOf(requireNonNull(nestedColumnSizes, "nestedColumnSizes is null"));
     }
 
     public static class Builder
@@ -73,6 +78,8 @@ public record IcebergStatistics(
         private final Map<Integer, Long> nullCounts = new HashMap<>();
         private final Map<Integer, Long> nanCounts = new HashMap<>();
         private final Map<Integer, Long> columnSizes = new HashMap<>();
+        private final Map<Integer, Long> nestedColumnSizes = new HashMap<>();
+        private final Set<Integer> unknownNestedColumnSizes = new HashSet<>();
 
         public Builder(
                 List<Types.NestedField> columns,
@@ -149,6 +156,8 @@ public record IcebergStatistics(
             mergeLongStatistics(nullCounts, other.nullCounts);
             mergeLongStatistics(nanCounts, other.nanCounts);
             mergeLongStatistics(columnSizes, other.columnSizes);
+            mergeLongStatistics(nestedColumnSizes, other.nestedColumnSizes);
+            unknownNestedColumnSizes.addAll(other.unknownNestedColumnSizes);
             other.columnStatistics.forEach((fieldId, statistics) -> {
                 ColumnStatistics existing = columnStatistics.get(fieldId);
                 if (existing == null) {
@@ -179,7 +188,19 @@ public record IcebergStatistics(
                     maxValues.buildOrThrow(),
                     ImmutableMap.copyOf(nullCounts),
                     ImmutableMap.copyOf(nanCounts),
-                    ImmutableMap.copyOf(columnSizes));
+                    ImmutableMap.copyOf(columnSizes),
+                    nestedColumnSizes.entrySet().stream()
+                            .filter(entry -> !unknownNestedColumnSizes.contains(entry.getKey()))
+                            .collect(toImmutableMap(Entry::getKey, Entry::getValue)));
+        }
+
+        public void acceptNestedColumnSize(int fieldId, OptionalLong size)
+        {
+            if (size.isEmpty()) {
+                unknownNestedColumnSizes.add(fieldId);
+                return;
+            }
+            nestedColumnSizes.merge(fieldId, size.getAsLong(), Long::sum);
         }
 
         private void updateMinMaxStats(
