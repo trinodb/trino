@@ -2509,8 +2509,9 @@ before re-analyzing.
 If the scanned snapshot of a table has an Iceberg partition statistics file, the
 connector estimates the row count from that file instead of reading the metadata
 of every data file. Such a file is written, for example, by the Spark
-`compute_partition_stats` procedure. Partition statistics files in the Avro
-format are read, and files in other formats are ignored.
+`compute_partition_stats` procedure. Partition statistics files in the Avro and
+Parquet formats are read, and files in other formats, including ORC, are
+ignored.
 
 Without a predicate, the row count comes from the snapshot summary, unless the
 table has format version 3 and the snapshot has position deletes. Otherwise, the

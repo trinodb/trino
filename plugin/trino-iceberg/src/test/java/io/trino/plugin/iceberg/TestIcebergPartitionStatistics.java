@@ -34,9 +34,11 @@ import io.trino.testing.QueryRunner;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.GenericManifestFile;
+import org.apache.iceberg.ImmutableGenericPartitionStatisticsFile;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionStatistics;
+import org.apache.iceberg.PartitionStatisticsFile;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.data.GenericRecord;
@@ -79,6 +81,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.iceberg.FileFormat.AVRO;
+import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -86,6 +89,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestIcebergPartitionStatistics
         extends AbstractTestQueryFramework
 {
+    // the formats partition statistics files are read in
+    private static final Object[][] PARTITION_STATISTICS_FORMATS = {{AVRO}, {PARQUET}};
+
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
 
@@ -155,8 +161,9 @@ public class TestIcebergPartitionStatistics
         return manifest;
     }
 
-    @Test
-    public void testPartitionStatisticsRowCountMatchesExpected()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsRowCountMatchesExpected(FileFormat format)
             throws Exception
     {
         String table = "test_ps_row_count_" + randomNameSuffix();
@@ -173,7 +180,7 @@ public class TestIcebergPartitionStatistics
         assertThat(filters.stream().map(filter -> showStatsRowCount("SELECT * FROM " + table + " " + filter)).collect(toImmutableList()))
                 .containsExactly(6.0, 3.0, 3.0, 2.0);
 
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         List<Double> expected = filters.stream()
                 .map(filter -> ((Number) computeScalar("SELECT count(*) FROM " + table + " " + filter)).doubleValue())
@@ -185,8 +192,8 @@ public class TestIcebergPartitionStatistics
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {2, 3})
-    public void testPartitionStatisticsPositionDeletes(int formatVersion)
+    @MethodSource("formatVersionsAndFormats")
+    public void testPartitionStatisticsPositionDeletes(int formatVersion, FileFormat format)
             throws Exception
     {
         String table = "test_ps_pos_deletes_" + randomNameSuffix();
@@ -198,7 +205,7 @@ public class TestIcebergPartitionStatistics
         assertThat(showStatsRowCount("SELECT * FROM " + table + " WHERE part = 1")).isEqualTo(2.0);
         assertThat(showStatsRowCount("SELECT * FROM " + table + " WHERE part IN (1, 2)")).isEqualTo(4.0);
 
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         // deletion vectors are subtracted; position delete files are not, as they can outlive the data files they reference
         long deletedRows = formatVersion >= 3 ? 1 : 0;
@@ -209,8 +216,9 @@ public class TestIcebergPartitionStatistics
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test
-    public void testPartitionStatisticsAfterUpgradeToFormatVersion3()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsAfterUpgradeToFormatVersion3(FileFormat format)
             throws Exception
     {
         String table = "test_ps_upgraded_" + randomNameSuffix();
@@ -221,7 +229,7 @@ public class TestIcebergPartitionStatistics
         assertUpdate("ALTER TABLE " + table + " SET PROPERTIES format_version = 3");
         // a deletion vector in part 2
         assertUpdate("DELETE FROM " + table + " WHERE id = 3", 1);
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         // only the partition whose position deletes are all deletion vectors is reduced
         assertThat(filteredRowCount(table, Expressions.equal("part", 1), Domain.all(VARCHAR))).hasValue(2);
@@ -233,8 +241,9 @@ public class TestIcebergPartitionStatistics
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test
-    public void testPartitionStatisticsPartitionTypeChangeReloads()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsPartitionTypeChangeReloads(FileFormat format)
             throws Exception
     {
         String table = "test_ps_type_change_" + randomNameSuffix();
@@ -242,7 +251,7 @@ public class TestIcebergPartitionStatistics
         assertUpdate("CREATE TABLE " + table + " (id integer, part integer) WITH (format_version = 3, partitioning = ARRAY['part'])");
         assertUpdate("INSERT INTO " + table + " VALUES (1, 1), (2, 1), (3, 2)", 3);
         assertUpdate("DELETE FROM " + table + " WHERE id = 1", 1);
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         // the reader caches the rows, read with the integer partition type
         PartitionStatisticsReader reader = new PartitionStatisticsReader();
@@ -259,13 +268,14 @@ public class TestIcebergPartitionStatistics
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test
-    public void testPartitionStatisticsCacheIsBounded()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsCacheIsBounded(FileFormat format)
             throws Exception
     {
         String table = "test_ps_cache_bound_" + randomNameSuffix();
         createPartitionedTable(table);
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         assertThat(filteredRowCount(new PartitionStatisticsReader(), table, Expressions.equal("part", 1), Domain.all(VARCHAR))).hasValue(2);
         // a file whose rows do not fit in the cache is not used
@@ -273,17 +283,18 @@ public class TestIcebergPartitionStatistics
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test
-    public void testPartitionStatisticsSkipsPartitionsWithoutRows()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsSkipsPartitionsWithoutRows(FileFormat format)
             throws Exception
     {
         String table = "test_ps_partition_without_rows_" + randomNameSuffix();
         createPartitionedTable(table);
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
         // removes the data files of part 2, as another engine would; the library continues from the file above, and keeps
         // part 2, without rows
         loadIcebergTable(table).newDelete().deleteFromRowFilter(Expressions.equal("part", 2)).commit();
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
         assertThat(partitionRowCounts(table, loadIcebergTable(table).currentSnapshot().snapshotId())).isEqualTo(ImmutableMap.of(1, 2L, 2, 0L));
 
         // room for one row of an integer partition, estimated at 148 bytes, so that the file is used only without part 2
@@ -291,8 +302,9 @@ public class TestIcebergPartitionStatistics
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test
-    public void testPartitionStatisticsWithSpecEvolution()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsWithSpecEvolution(FileFormat format)
             throws Exception
     {
         String table = "test_ps_spec_evolution_" + randomNameSuffix();
@@ -305,22 +317,23 @@ public class TestIcebergPartitionStatistics
         // the manifest walk ignores the deletion vector
         assertThat(showStatsRowCount("SELECT * FROM " + table + " WHERE part = 1")).isEqualTo(3.0);
 
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         assertThat(showStatsRowCount("SELECT * FROM " + table + " WHERE part = 1")).isEqualTo(2.0);
         assertThat(filteredRowCount(table, Expressions.equal("part", 1), Domain.all(VARCHAR))).hasValue(2);
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test
-    public void testPartitionStatisticsFileOlderThanCurrentSpec()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsFileOlderThanCurrentSpec(FileFormat format)
             throws Exception
     {
         String table = "test_ps_older_than_spec_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + table + " (id integer, part integer) WITH (format_version = 3, partitioning = ARRAY['part'])");
         assertUpdate("INSERT INTO " + table + " VALUES (1, 1), (2, 1), (3, 2)", 3);
         assertUpdate("DELETE FROM " + table + " WHERE id = 1", 1);
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         // no new snapshot: the file is for the current snapshot, but its partition struct lacks the new field
         assertUpdate("ALTER TABLE " + table + " SET PROPERTIES partitioning = ARRAY['part', 'bucket(id, 2)']");
@@ -333,7 +346,7 @@ public class TestIcebergPartitionStatistics
 
     @ParameterizedTest
     @MethodSource("partitionFieldReplacements")
-    public void testPartitionStatisticsAfterReplacingPartitionField(String partitioning, String column, int formatVersion)
+    public void testPartitionStatisticsAfterReplacingPartitionField(String partitioning, String column, int formatVersion, FileFormat format)
             throws Exception
     {
         String table = "test_ps_replaced_field_" + randomNameSuffix();
@@ -352,7 +365,7 @@ public class TestIcebergPartitionStatistics
         double walkForPartition = estimatedRowCount(table, partitionConstraint);
 
         assertUpdate("DELETE FROM " + table + " WHERE id = 5", 1);
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         // only deletion vectors are subtracted
         long deletedRows = formatVersion >= 3 ? 1 : 0;
@@ -368,16 +381,27 @@ public class TestIcebergPartitionStatistics
         assertUpdate("DROP TABLE " + table);
     }
 
+    public static Object[][] partitionStatisticsFormats()
+    {
+        return PARTITION_STATISTICS_FORMATS;
+    }
+
+    public static Object[][] formatVersionsAndFormats()
+    {
+        return cartesianProduct(new Object[][] {{2}, {3}}, PARTITION_STATISTICS_FORMATS);
+    }
+
     public static Object[][] partitionFieldReplacements()
     {
         return cartesianProduct(
                 new Object[][] {{"other", "other"}, {"bucket(id, 2)", "id"}},
-                new Object[][] {{2}, {3}});
+                new Object[][] {{2}, {3}},
+                PARTITION_STATISTICS_FORMATS);
     }
 
     @ParameterizedTest
     @MethodSource("partitionValues")
-    public void testPartitionStatisticsMatchPartitionValues(String type, String partitioning, String otherValue, String value, String sameValue, Object icebergValue)
+    public void testPartitionStatisticsMatchPartitionValues(String type, String partitioning, String otherValue, String value, String sameValue, Object icebergValue, FileFormat format)
             throws Exception
     {
         String table = "test_ps_partition_values_" + randomNameSuffix();
@@ -389,7 +413,7 @@ public class TestIcebergPartitionStatistics
         String partition = (String) computeScalar("SELECT \"$partition\" FROM " + table + " WHERE id = 3");
         long expected = (long) computeScalar("SELECT count(*) FROM " + table + " WHERE \"$partition\" = '" + partition + "'");
 
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         Expression predicate = icebergValue == null ? Expressions.isNull("col") : Expressions.equal("col", icebergValue);
         assertThat(filteredRowCount(table, predicate, Domain.all(VARCHAR))).hasValue(expected);
@@ -400,7 +424,7 @@ public class TestIcebergPartitionStatistics
     public static Object[][] partitionValues()
     {
         String timestampWithTimeZone = "timestamp(6) with time zone";
-        return new Object[][] {
+        return cartesianProduct(new Object[][] {
                 {"integer", "col", "1", "2", "2", 2},
                 {"boolean", "col", "false", "true", "true", true},
                 {"date", "col", "DATE '2024-01-14'", "DATE '2024-01-15'", "DATE '2024-01-15'", "2024-01-15"},
@@ -424,11 +448,12 @@ public class TestIcebergPartitionStatistics
                 {"date", "year(col)", "DATE '2023-06-01'", "DATE '2024-03-01'", "DATE '2024-12-31'", "2024-12-31"},
                 // a null partition value, matched by IS NULL
                 {"integer", "col", "1", "NULL", "NULL", null},
-        };
+        }, PARTITION_STATISTICS_FORMATS);
     }
 
-    @Test
-    public void testPartitionStatisticsIgnoredWithPathPredicate()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsIgnoredWithPathPredicate(FileFormat format)
             throws Exception
     {
         String table = "test_ps_path_" + randomNameSuffix();
@@ -439,20 +464,21 @@ public class TestIcebergPartitionStatistics
         // the manifest walk ignores the delete (4 rows); the partition statistics file would report 3
         assertThat(showStatsRowCount(query)).isEqualTo(4.0);
 
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         assertThat(showStatsRowCount(query)).isEqualTo(4.0);
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test
-    public void testPartitionStatisticsIgnoredForOlderSnapshot()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsIgnoredForOlderSnapshot(FileFormat format)
             throws Exception
     {
         String table = "test_ps_older_snapshot_" + randomNameSuffix();
         createPartitionedTable(table);
         assertUpdate("DELETE FROM " + table + " WHERE id = 1", 1);
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
         // from the file: the manifest walk would report 2
         assertThat(showStatsRowCount("SELECT * FROM " + table + " WHERE part = 1")).isEqualTo(1.0);
 
@@ -463,8 +489,9 @@ public class TestIcebergPartitionStatistics
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test
-    public void testPartitionStatisticsColumnShape()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsColumnShape(FileFormat format)
             throws Exception
     {
         String table = "test_ps_column_shape_" + randomNameSuffix();
@@ -473,7 +500,7 @@ public class TestIcebergPartitionStatistics
         assertUpdate("INSERT INTO " + table + " VALUES (20, 1, 'a'), (21, 1, NULL), (22, 1, 'ccc'), (23, 1, NULL)", 4);
         assertUpdate("DELETE FROM " + table + " WHERE id = 20", 1);
 
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         // called directly: SHOW STATS normalizes the statistics against the row count
         BaseTable loaded = loadIcebergTable(table);
@@ -538,15 +565,16 @@ public class TestIcebergPartitionStatistics
                 .recordCount();
     }
 
-    @Test
-    public void testPartitionStatisticsUnknownSpecFallsBack()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsUnknownSpecFallsBack(FileFormat format)
             throws Exception
     {
         String table = "test_ps_unknown_spec_" + randomNameSuffix();
         createPartitionedTable(table);
         assertUpdate("ALTER TABLE " + table + " SET PROPERTIES partitioning = ARRAY['part', 'bucket(id, 2)']");
         assertUpdate("INSERT INTO " + table + " VALUES (30, 1)", 1);
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         BaseTable loaded = loadIcebergTable(table);
         long snapshotId = loaded.currentSnapshot().snapshotId();
@@ -570,8 +598,9 @@ public class TestIcebergPartitionStatistics
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test
-    public void testPartitionStatisticsTimeTravelUsesSnapshotFile()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsTimeTravelUsesSnapshotFile(FileFormat format)
             throws Exception
     {
         String table = "test_ps_time_travel_" + randomNameSuffix();
@@ -579,9 +608,9 @@ public class TestIcebergPartitionStatistics
         assertUpdate("INSERT INTO " + table + " VALUES (1, 1), (2, 1), (3, 2)", 3);
         assertUpdate("DELETE FROM " + table + " WHERE id = 1", 1);
         long olderSnapshotId = loadIcebergTable(table).currentSnapshot().snapshotId();
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
         assertUpdate("INSERT INTO " + table + " VALUES (4, 1), (5, 1)", 2);
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
         assertThat(loadIcebergTable(table).partitionStatisticsFiles()).hasSize(2);
 
         // the older file, the manifest walk would report 2
@@ -590,14 +619,52 @@ public class TestIcebergPartitionStatistics
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test
-    public void testPartitionStatisticsUnreadableFileIsReadAgainLater()
+    @ParameterizedTest
+    @ValueSource(strings = {"stats", "orc"})
+    public void testPartitionStatisticsUnknownFormatFallsBack(String extension)
+            throws Exception
+    {
+        // ORC is unknown too, the Iceberg library has no ORC implementation for partition statistics files
+        String table = "test_ps_unknown_format_" + randomNameSuffix();
+        createPartitionedTable(table);
+        assertUpdate("DELETE FROM " + table + " WHERE id = 1", 1);
+        registerPartitionStatisticsWithExtension(table, extension);
+
+        assertThat(filteredRowCount(table, Expressions.equal("part", 1), Domain.all(VARCHAR))).isEmpty();
+        // the manifest walk, which ignores the deletion vector
+        assertThat(showStatsRowCount("SELECT * FROM " + table + " WHERE part = 1")).isEqualTo(2.0);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    // registers the partition statistics file of the current snapshot, written in Avro, under a name with another extension
+    private String registerPartitionStatisticsWithExtension(String table, String extension)
+            throws IOException
+    {
+        PartitionStatisticsFile avroFile = IcebergTestUtils.writePartitionStatistics(loadIcebergTable(table), AVRO);
+        Location location = Location.of(avroFile.path().replace(".avro", "." + extension));
+        TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
+        try (InputStream input = fileSystem.newInputFile(Location.of(avroFile.path())).newStream()) {
+            fileSystem.newOutputFile(location).createOrOverwrite(input.readAllBytes());
+        }
+        loadIcebergTable(table).updatePartitionStatistics()
+                .setPartitionStatistics(ImmutableGenericPartitionStatisticsFile.builder()
+                        .snapshotId(avroFile.snapshotId())
+                        .path(location.toString())
+                        .fileSizeInBytes(avroFile.fileSizeInBytes())
+                        .build())
+                .commit();
+        return location.toString();
+    }
+
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsUnreadableFileIsReadAgainLater(FileFormat format)
             throws Exception
     {
         String table = "test_ps_unreadable_" + randomNameSuffix();
         createPartitionedTable(table);
         assertUpdate("DELETE FROM " + table + " WHERE id = 1", 1);
-        Location location = Location.of(IcebergTestUtils.writePartitionStatistics(loadIcebergTable(table), AVRO).path());
+        Location location = Location.of(IcebergTestUtils.writePartitionStatistics(loadIcebergTable(table), format).path());
         TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
         byte[] content;
         try (InputStream input = fileSystem.newInputFile(location).newStream()) {
@@ -627,8 +694,9 @@ public class TestIcebergPartitionStatistics
                 ".*partition_statistics_min_data_files must be at least 0: -1");
     }
 
-    @Test
-    public void testPartitionStatisticsEmptySampleLeavesShapeUnknown()
+    @ParameterizedTest
+    @MethodSource("partitionStatisticsFormats")
+    public void testPartitionStatisticsEmptySampleLeavesShapeUnknown(FileFormat format)
             throws Exception
     {
         String table = "test_ps_empty_sample_" + randomNameSuffix();
@@ -636,7 +704,7 @@ public class TestIcebergPartitionStatistics
         assertUpdate("ALTER TABLE " + table + " ADD COLUMN name varchar");
         assertUpdate("INSERT INTO " + table + " VALUES (20, 1, 'a'), (21, 1, NULL)", 2);
         assertUpdate("DELETE FROM " + table + " WHERE id = 20", 1);
-        writePartitionStatistics(table);
+        writePartitionStatistics(table, format);
 
         // id = -1 is not excluded by partition pruning, but no data file in the sampled manifest matches. The manifest walk
         // prunes every data file by its bounds and reports 0 rows, the file reports the row count of the partitions.
@@ -724,13 +792,6 @@ public class TestIcebergPartitionStatistics
                         0)
                 .getRowCount()
                 .getValue();
-    }
-
-    // the library writes Avro, which is the only format read so far
-    private void writePartitionStatistics(String tableName)
-            throws IOException
-    {
-        writePartitionStatistics(tableName, AVRO);
     }
 
     private void writePartitionStatistics(String tableName, FileFormat format)

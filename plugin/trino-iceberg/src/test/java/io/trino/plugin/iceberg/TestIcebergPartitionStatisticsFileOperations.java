@@ -30,12 +30,15 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionStatisticsFile;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -59,6 +62,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.FileFormat.AVRO;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -255,31 +259,32 @@ public class TestIcebergPartitionStatisticsFileOperations
         assertUpdate("DROP TABLE test_stats_threshold");
     }
 
-    @Test
-    public void testShowStatsFilteredUsesPartitionStatistics()
+    @ParameterizedTest
+    @EnumSource(value = FileFormat.class, names = {"AVRO", "PARQUET"})
+    public void testShowStatsFilteredUsesPartitionStatistics(FileFormat format)
             throws Exception
     {
-        assertUpdate("CREATE TABLE test_stats_filtered (id integer, part integer) WITH (format_version = 3, partitioning = ARRAY['part'])");
-        assertUpdate("INSERT INTO test_stats_filtered VALUES (1, 1), (2, 1)", 2);
-        assertUpdate("INSERT INTO test_stats_filtered VALUES (3, 2)", 1);
-        assertUpdate("INSERT INTO test_stats_filtered VALUES (4, 3)", 1);
-        assertUpdate("DELETE FROM test_stats_filtered WHERE id = 2", 1);
-        writePartitionStatistics("test_stats_filtered");
+        String table = "test_stats_filtered_" + format.name().toLowerCase(ENGLISH);
+        assertUpdate("CREATE TABLE " + table + " (id integer, part integer) WITH (format_version = 3, partitioning = ARRAY['part'])");
+        assertUpdate("INSERT INTO " + table + " VALUES (1, 1), (2, 1)", 2);
+        assertUpdate("INSERT INTO " + table + " VALUES (3, 2)", 1);
+        assertUpdate("INSERT INTO " + table + " VALUES (4, 3)", 1);
+        assertUpdate("DELETE FROM " + table + " WHERE id = 2", 1);
+        writePartitionStatistics(table, format);
 
         // first filtered query reads the partition statistics file and one sampled manifest
-        assertFileSystemAccesses("SHOW STATS FOR (SELECT * FROM test_stats_filtered WHERE part = 1)", ImmutableMultiset.<FileOperation>builder()
+        assertFileSystemAccesses("SHOW STATS FOR (SELECT * FROM " + table + " WHERE part = 1)", ImmutableMultiset.<FileOperation>builder()
                 .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                 .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                 .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                 .add(new FileOperation(MANIFEST, "InputFile.newStream"))
-                .add(new FileOperation(PARTITION_STATS, "InputFile.length"))
-                .add(new FileOperation(PARTITION_STATS, "InputFile.newStream"))
+                .addAll(partitionStatisticsReads(format))
                 .build());
-        assertThat(showStatsRowCount("test_stats_filtered WHERE part = 1")).isEqualTo(1.0);
+        assertThat(showStatsRowCount(table + " WHERE part = 1")).isEqualTo(1.0);
 
         // $path predicates cannot be answered from partition statistics
         assertFileSystemAccesses(
-                "SHOW STATS FOR (SELECT * FROM test_stats_filtered WHERE \"$path\" IS NOT NULL)",
+                "SHOW STATS FOR (SELECT * FROM " + table + " WHERE \"$path\" IS NOT NULL)",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
@@ -288,7 +293,7 @@ public class TestIcebergPartitionStatisticsFileOperations
                         .build());
 
         // the parsed file is cached
-        assertFileSystemAccesses("SHOW STATS FOR (SELECT * FROM test_stats_filtered WHERE part = 2)", ImmutableMultiset.<FileOperation>builder()
+        assertFileSystemAccesses("SHOW STATS FOR (SELECT * FROM " + table + " WHERE part = 2)", ImmutableMultiset.<FileOperation>builder()
                 .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                 .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                 .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
@@ -297,13 +302,13 @@ public class TestIcebergPartitionStatisticsFileOperations
 
         // without projected columns, no manifest is sampled
         assertFileSystemAccesses(
-                "SHOW STATS FOR (SELECT 1 FROM test_stats_filtered WHERE part = 3)",
+                "SHOW STATS FOR (SELECT 1 FROM " + table + " WHERE part = 3)",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .build());
-        assertUpdate("DROP TABLE test_stats_filtered");
+        assertUpdate("DROP TABLE " + table);
     }
 
     @Test
@@ -414,8 +419,27 @@ public class TestIcebergPartitionStatisticsFileOperations
     private void writePartitionStatistics(String tableName)
             throws IOException
     {
-        // the library writes Avro, which is the only format read so far
-        IcebergTestUtils.writePartitionStatistics(loadTable(tableName, metastore, fileSystemFactory, "iceberg", "test_schema"), AVRO);
+        writePartitionStatistics(tableName, AVRO);
+    }
+
+    private void writePartitionStatistics(String tableName, FileFormat format)
+            throws IOException
+    {
+        IcebergTestUtils.writePartitionStatistics(loadTable(tableName, metastore, fileSystemFactory, "iceberg", "test_schema"), format);
+    }
+
+    // the library reads Avro files as a stream, and Parquet files with Trino's readers
+    private static Multiset<FileOperation> partitionStatisticsReads(FileFormat format)
+    {
+        return switch (format) {
+            case AVRO -> ImmutableMultiset.of(
+                    new FileOperation(PARTITION_STATS, "InputFile.length"),
+                    new FileOperation(PARTITION_STATS, "InputFile.newStream"));
+            case PARQUET -> ImmutableMultiset.of(
+                    new FileOperation(PARTITION_STATS, "InputFile.length"),
+                    new FileOperation(PARTITION_STATS, "InputFile.newInput"));
+            default -> throw new IllegalArgumentException("Unsupported format: " + format);
+        };
     }
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<FileOperation> expectedAccesses)

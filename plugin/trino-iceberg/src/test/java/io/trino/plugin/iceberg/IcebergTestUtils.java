@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.filesystem.FileEntry;
@@ -21,6 +22,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastore;
@@ -66,10 +68,23 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.ImmutableGenericPartitionStatisticsFile;
+import org.apache.iceberg.InternalData;
+import org.apache.iceberg.PartitionStatistics;
 import org.apache.iceberg.PartitionStatisticsFile;
 import org.apache.iceberg.PartitionStatsHandler;
+import org.apache.iceberg.Partitioning;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.data.parquet.InternalReader;
+import org.apache.iceberg.data.parquet.InternalWriter;
+import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.FileAppender;
+import org.apache.iceberg.io.InputFile;
+import org.apache.iceberg.io.OutputFile;
+import org.apache.iceberg.parquet.Parquet;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
@@ -77,7 +92,10 @@ import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -93,6 +111,7 @@ import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransaction
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
@@ -100,7 +119,9 @@ import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.fromFileP
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static org.apache.iceberg.FileFormat.AVRO;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
+import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.joda.time.DateTimeZone.UTC;
 
 public final class IcebergTestUtils
@@ -315,27 +336,102 @@ public final class IcebergTestUtils
 
     /**
      * Computes and registers a partition statistics file for the current snapshot of {@code table} with the Iceberg
-     * library. The library writes the table's default file format, which is Parquet for tables created by Trino, so
-     * the format is set through a view of the table.
+     * library. The library computes the statistics and writes them in Avro, its own format. Trino replaces the library's
+     * Parquet writer, so for Parquet the Avro file is rewritten with the library's built-in
+     * writers, which are what Spark writes with.
      */
     public static PartitionStatisticsFile writePartitionStatistics(BaseTable table, FileFormat format)
             throws IOException
     {
-        BaseTable withFormat = new BaseTable(table.operations(), table.name())
+        BaseTable avroTable = new BaseTable(table.operations(), table.name())
         {
             @Override
             public Map<String, String> properties()
             {
                 return ImmutableMap.<String, String>builder()
                         .putAll(super.properties())
-                        .put(DEFAULT_FILE_FORMAT, format.name())
+                        .put(DEFAULT_FILE_FORMAT, AVRO.name())
                         .buildKeepingLast();
             }
         };
-        PartitionStatisticsFile file = PartitionStatsHandler.computeAndWriteStatsFile(withFormat, table.currentSnapshot().snapshotId());
-        checkState(FileFormat.fromFileName(file.path()) == format, "Unexpected partition statistics file %s", file.path());
+        PartitionStatisticsFile file = PartitionStatsHandler.computeAndWriteStatsFile(avroTable, table.currentSnapshot().snapshotId());
+        checkState(FileFormat.fromFileName(file.path()) == AVRO, "Unexpected partition statistics file %s", file.path());
+        if (format != AVRO) {
+            Schema schema = PartitionStatistics.schema(Partitioning.partitionType(table), formatVersion(table));
+            List<StructLike> records = readWithLibrary(AVRO, table.io().newInputFile(file.path()), schema);
+            OutputFile outputFile = table.io().newOutputFile(format.addExtension(file.path().substring(0, file.path().length() - ".avro".length())));
+            writeWithLibrary(format, outputFile, schema, records);
+            table.io().deleteFile(file.path());
+            file = ImmutableGenericPartitionStatisticsFile.builder()
+                    .snapshotId(file.snapshotId())
+                    .path(outputFile.location())
+                    .fileSizeInBytes(outputFile.toInputFile().getLength())
+                    .build();
+        }
         table.updatePartitionStatistics().setPartitionStatistics(file).commit();
         return file;
+    }
+
+    /**
+     * Registers a copy of {@code file} as the partition statistics file of the current snapshot of a table, in a file
+     * metastore whose catalog directory is the root of a local file system at {@code rootDirectory}.
+     */
+    public static void registerPartitionStatistics(Path rootDirectory, String schemaName, String tableName, Path file)
+            throws IOException
+    {
+        TrinoFileSystemFactory fileSystemFactory = new LocalFileSystemFactory(rootDirectory);
+        HiveMetastore metastore = createTestingFileHiveMetastore(fileSystemFactory, Location.of("local:///"));
+        BaseTable table = loadTable(tableName, metastore, fileSystemFactory, "catalog", schemaName);
+        OutputFile outputFile = table.io().newOutputFile(table.operations().metadataFileLocation(file.getFileName().toString()));
+        try (OutputStream output = outputFile.create()) {
+            Files.copy(file, output);
+        }
+        table.updatePartitionStatistics()
+                .setPartitionStatistics(ImmutableGenericPartitionStatisticsFile.builder()
+                        .snapshotId(table.currentSnapshot().snapshotId())
+                        .path(outputFile.location())
+                        .fileSizeInBytes(Files.size(file))
+                        .build())
+                .commit();
+    }
+
+    /**
+     * Writes Iceberg internal data with the library's built-in writers, which Spark uses, instead of the ones Trino
+     * registers.
+     */
+    public static void writeWithLibrary(FileFormat format, OutputFile outputFile, Schema schema, List<StructLike> records)
+            throws IOException
+    {
+        switch (format) {
+            case AVRO -> {
+                try (FileAppender<StructLike> appender = InternalData.write(AVRO, outputFile).schema(schema).build()) {
+                    appender.addAll(records);
+                }
+            }
+            case PARQUET -> {
+                try (FileAppender<StructLike> appender = Parquet.write(outputFile).schema(schema).createWriterFunc(InternalWriter::createWriter).build()) {
+                    appender.addAll(records);
+                }
+            }
+            default -> throw new IllegalArgumentException("Unsupported format: " + format);
+        }
+    }
+
+    /**
+     * Reads Iceberg internal data with the library's built-in readers, see {@link #writeWithLibrary}, into records
+     * holding Iceberg's internal representation of values.
+     */
+    public static List<StructLike> readWithLibrary(FileFormat format, InputFile inputFile, Schema schema)
+            throws IOException
+    {
+        CloseableIterable<StructLike> records = switch (format) {
+            case AVRO -> InternalData.read(AVRO, inputFile).project(schema).build();
+            case PARQUET -> Parquet.read(inputFile).project(schema).createReaderFunc(InternalReader.readerFunction()).build();
+            default -> throw new IllegalArgumentException("Unsupported format: " + format);
+        };
+        try (records) {
+            return ImmutableList.copyOf(records);
+        }
     }
 
     public static BaseTable loadTable(
