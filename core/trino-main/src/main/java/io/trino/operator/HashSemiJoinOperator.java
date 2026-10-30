@@ -177,26 +177,14 @@ public class HashSemiJoinOperator
             BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(inputPage.getPositionCount());
 
             Block probeBlock = inputPage.getBlock(probeJoinChannel).copyRegion(0, inputPage.getPositionCount());
-            boolean probeMayHaveNull = probeBlock.mayHaveNull();
-
             // update hashing strategy to use probe cursor
             for (int position = 0; position < inputPage.getPositionCount(); position++) {
-                if (probeMayHaveNull && probeBlock.isNull(position)) {
-                    if (channelSet.isEmpty()) {
-                        BOOLEAN.writeBoolean(blockBuilder, false);
-                    }
-                    else {
-                        blockBuilder.appendNull();
-                    }
+                Boolean in = channelSet.in(probeBlock, position);
+                if (in == null) {
+                    blockBuilder.appendNull();
                 }
                 else {
-                    boolean contains = channelSet.contains(probeBlock, position);
-                    if (!contains && channelSet.containsNull()) {
-                        blockBuilder.appendNull();
-                    }
-                    else {
-                        BOOLEAN.writeBoolean(blockBuilder, contains);
-                    }
+                    BOOLEAN.writeBoolean(blockBuilder, in);
                 }
             }
             // add the new boolean column to the page

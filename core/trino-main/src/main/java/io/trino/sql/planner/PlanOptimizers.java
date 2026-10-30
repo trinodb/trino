@@ -563,7 +563,7 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new ImplementLimitWithTies(metadata), // must be run after DecorrelateUnnest
                                 new RemoveUnreferencedScalarApplyNodes(),
-                                new TransformCorrelatedInPredicateToJoin(metadata), // must be run after columnPruningOptimizer
+                                new TransformCorrelatedInPredicateToJoin(plannerContext), // must be run after columnPruningOptimizer
                                 new TransformCorrelatedScalarSubquery(metadata), // must be run after TransformCorrelatedAggregation rules
                                 new TransformCorrelatedJoinToJoin(plannerContext),
                                 new ImplementFilteredAggregations())),

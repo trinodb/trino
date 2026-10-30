@@ -1573,6 +1573,45 @@ public class TestSubqueries
     }
 
     @Test
+    public void testInPredicateWithNullElements()
+    {
+        // `v IN S` is `v = ANY S` (ISO/IEC 9075-2, 8.4): unknown when `v = s` is unknown for some `s`,
+        // which a row or array comparison is when elements that are not unequal include a null.
+        assertThat(assertions.query("SELECT (2, CAST(NULL AS integer)) IN (SELECT 2, CAST(NULL AS integer))"))
+                .matches("VALUES CAST(NULL AS boolean)");
+        assertThat(assertions.query("SELECT (2, CAST(NULL AS integer)) IN (SELECT 2, 5)"))
+                .matches("VALUES CAST(NULL AS boolean)");
+        assertThat(assertions.query("SELECT (2, CAST(NULL AS integer)) IN (SELECT 3, 5)"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT (1, 2) IN (SELECT 1, CAST(NULL AS integer))"))
+                .matches("VALUES CAST(NULL AS boolean)");
+        assertThat(assertions.query("SELECT (1, 2) IN (VALUES (1, 2), (1, CAST(NULL AS integer)))"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT (2, CAST(NULL AS integer)) IN (SELECT 2, CAST(NULL AS integer) WHERE false)"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT ARRAY[2, CAST(NULL AS integer)] IN (SELECT ARRAY[2, CAST(NULL AS integer)])"))
+                .matches("VALUES CAST(NULL AS boolean)");
+        assertThat(assertions.query("SELECT ARRAY[2, 3] IN (SELECT ARRAY[2, CAST(NULL AS integer)])"))
+                .matches("VALUES CAST(NULL AS boolean)");
+        assertThat(assertions.query("SELECT ARRAY[2, 3] IN (SELECT ARRAY[2, 3, CAST(NULL AS integer)])"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT (2, 7) NOT IN (SELECT 2, CAST(NULL AS integer))"))
+                .matches("VALUES CAST(NULL AS boolean)");
+        assertThat(assertions.query("SELECT x FROM (VALUES (2, 7), (3, 7)) t(x, y) WHERE (x, y) NOT IN (SELECT 2, CAST(NULL AS integer))"))
+                .matches("VALUES 3");
+        // correlated, with the same semantics
+        assertThat(assertions.query("SELECT (t.a, t.b) IN (SELECT x, y FROM (VALUES (2, 5)) u(x, y) WHERE u.x = t.a) FROM (VALUES (2, CAST(NULL AS integer))) t(a, b)"))
+                .matches("VALUES CAST(NULL AS boolean)");
+        assertThat(assertions.query("SELECT (t.a, t.b) IN (SELECT x, y FROM (VALUES (2, CAST(NULL AS integer))) u(x, y) WHERE u.x = t.a) FROM (VALUES (2, 7)) t(a, b)"))
+                .matches("VALUES CAST(NULL AS boolean)");
+        assertThat(assertions.query("SELECT (t.a, t.b) IN (SELECT x, y FROM (VALUES (2, 7), (2, CAST(NULL AS integer))) u(x, y) WHERE u.x = t.a) FROM (VALUES (2, 7)) t(a, b)"))
+                .matches("VALUES true");
+        // a row without null elements keeps the membership of its elements, as for NaN
+        assertThat(assertions.query("SELECT (nan(), 1) IN (SELECT nan(), 1)"))
+                .matches("VALUES true");
+    }
+
+    @Test
     public void testInPredicate()
     {
         assertThat(assertions.query(
