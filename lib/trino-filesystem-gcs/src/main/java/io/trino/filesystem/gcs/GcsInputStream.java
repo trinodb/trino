@@ -15,12 +15,15 @@ package io.trino.filesystem.gcs;
 
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.Storage;
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -34,11 +37,13 @@ public class GcsInputStream
         extends TrinoInputStream
 {
     private final GcsLocation location;
+    private final Storage storage;
     private final Blob blob;
     private final int readBlockSizeBytes;
     private final long fileSize;
     private final OptionalLong predeclaredLength;
     private final Optional<EncryptionKey> key;
+    private final Map<String, String> auditHeaders;
     private ReadChannel readChannel;
     // Used for read(). Similar to sun.nio.ch.ChannelInputStream
     private final ByteBuffer readBuffer = ByteBuffer.allocate(1);
@@ -46,15 +51,17 @@ public class GcsInputStream
     private long nextPosition;
     private boolean closed;
 
-    public GcsInputStream(GcsLocation location, Blob blob, int readBlockSizeBytes, OptionalLong predeclaredLength, Optional<EncryptionKey> key)
+    public GcsInputStream(GcsLocation location, Storage storage, Blob blob, int readBlockSizeBytes, OptionalLong predeclaredLength, Optional<EncryptionKey> key, Map<String, String> auditHeaders)
             throws IOException
     {
         this.location = requireNonNull(location, "location is null");
+        this.storage = requireNonNull(storage, "storage is null");
         this.blob = requireNonNull(blob, "blob is null");
         this.readBlockSizeBytes = readBlockSizeBytes;
         this.predeclaredLength = requireNonNull(predeclaredLength, "predeclaredLength is null");
         this.fileSize = predeclaredLength.orElse(blob.getSize());
         this.key = requireNonNull(key, "key is null");
+        this.auditHeaders = ImmutableMap.copyOf(auditHeaders);
         openStream();
     }
 
@@ -186,7 +193,7 @@ public class GcsInputStream
             throws IOException
     {
         try {
-            this.readChannel = getReadChannel(blob, location, 0L, readBlockSizeBytes, predeclaredLength, key);
+            this.readChannel = getReadChannel(storage, blob, location, 0L, readBlockSizeBytes, predeclaredLength, key, auditHeaders);
         }
         catch (RuntimeException e) {
             throw handleGcsException(e, "reading file", location);

@@ -19,6 +19,7 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobGetOption;
 import com.google.cloud.storage.StorageException;
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.encryption.EncryptionKey;
 
@@ -26,6 +27,7 @@ import java.io.EOFException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -46,14 +48,16 @@ final class GcsInput
     private final Storage storage;
     private final OptionalLong length;
     private final Optional<EncryptionKey> key;
+    private final Map<String, String> auditHeaders;
     private boolean closed;
 
-    public GcsInput(GcsLocation location, Storage storage, OptionalLong length, Optional<EncryptionKey> key)
+    public GcsInput(GcsLocation location, Storage storage, OptionalLong length, Optional<EncryptionKey> key, Map<String, String> auditHeaders)
     {
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
         this.length = requireNonNull(length, "length is null");
         this.key = requireNonNull(key, "key is null");
+        this.auditHeaders = ImmutableMap.copyOf(auditHeaders);
     }
 
     @Override
@@ -103,10 +107,10 @@ final class GcsInput
     {
         OptionalLong limit = readLimit(position, bufferLength, length);
         if (length.isPresent() && position < length.orElseThrow()) {
-            return getReadChannel(storage, BlobId.of(location.bucket(), location.path()), location, length.orElseThrow(), position, bufferLength, limit, key);
+            return getReadChannel(storage, BlobId.of(location.bucket(), location.path()), location, length.orElseThrow(), position, bufferLength, limit, key, auditHeaders);
         }
-        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
-        return getReadChannel(blob, location, position, bufferLength, limit, key);
+        Blob blob = getBlobOrThrow(storage, location, auditHeaders, blobGetOptions());
+        return getReadChannel(storage, blob, location, position, bufferLength, limit, key, auditHeaders);
     }
 
     private ReadChannel openTailReadChannel(int bufferLength)
@@ -115,9 +119,9 @@ final class GcsInput
         if (length.isPresent() && length.orElseThrow() > 0) {
             return openReadChannel(max(0, length.orElseThrow() - bufferLength), bufferLength);
         }
-        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
+        Blob blob = getBlobOrThrow(storage, location, auditHeaders, blobGetOptions());
         long offset = max(0, length.orElse(blob.getSize()) - bufferLength);
-        return getReadChannel(blob, location, offset, bufferLength, readLimit(offset, bufferLength, OptionalLong.of(blob.getSize())), key);
+        return getReadChannel(storage, blob, location, offset, bufferLength, readLimit(offset, bufferLength, OptionalLong.of(blob.getSize())), key, auditHeaders);
     }
 
     private IOException handleReadException(Exception exception)
