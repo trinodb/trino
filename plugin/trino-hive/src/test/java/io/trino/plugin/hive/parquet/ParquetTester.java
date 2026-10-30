@@ -490,9 +490,6 @@ class ParquetTester
                 continue;
             }
 
-            maxReadBlockSize.ifPresent(max ->
-                    assertThat(page.getPositionCount() == 1 || page.getSizeInBytes() <= max).isTrue());
-
             for (int field = 0; field < page.getChannelCount(); field++) {
                 Block block = page.getBlock(field);
                 for (int i = 0; i < block.getPositionCount(); i++) {
@@ -502,6 +499,10 @@ class ParquetTester
                     assertThat(actual).isEqualTo(expected);
                 }
             }
+
+            // The page is lazy and reports only the size of its loaded blocks
+            maxReadBlockSize.ifPresent(max ->
+                    assertThat(page.getPositionCount() == 1 || page.getSizeInBytes() <= max).isTrue());
         }
     }
 
