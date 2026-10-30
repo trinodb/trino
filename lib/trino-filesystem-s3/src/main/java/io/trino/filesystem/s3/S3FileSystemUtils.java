@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3AuthType;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -28,10 +29,25 @@ import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.Optional;
+
+import static java.lang.Math.toIntExact;
 
 final class S3FileSystemUtils
 {
+    // A pre-signed URI stops working when the temporary credentials that signed it expire, so the pre-signer
+    // must not sign with credentials that are about to expire. Credentials are refreshed automatically between
+    // `prefetchTime` and `staleTime` before expiration. In the AWS SDK `prefetchTime` defaults to 5 min and
+    // `staleTime` to 1 min, which means a segment presigned URI may be valid only 1 minute. We provide higher
+    // values to minimize the chances of URIs expiring before segments are fetched.
+    @VisibleForTesting
+    static final Duration PRE_SIGNER_SESSION_DURATION = Duration.ofHours(1);
+    @VisibleForTesting
+    static final Duration PRE_SIGNER_CREDENTIALS_STALE_TIME = Duration.ofMinutes(30);
+    @VisibleForTesting
+    static final Duration PRE_SIGNER_CREDENTIALS_PREFETCH_TIME = PRE_SIGNER_CREDENTIALS_STALE_TIME.plusMinutes(2);
+
     private S3FileSystemUtils() {}
 
     public static S3Presigner createS3PreSigner(S3FileSystemConfig config, S3Client s3Client)
@@ -56,21 +72,47 @@ final class S3FileSystemUtils
 
         switch (authType) {
             case ANONYMOUS -> s3.credentialsProvider(AnonymousCredentialsProvider.create());
-            case WEB_IDENTITY -> s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
-                    .asyncCredentialUpdateEnabled(true)
-                    .build());
-            case IAM_ROLE -> s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
-                    .refreshRequest(request -> request
-                            .roleArn(staticIamRole.orElseThrow())
-                            .roleSessionName(staticRoleSessionName)
-                            .externalId(externalId))
-                    .stsClient(createStsClient(config, staticCredentialsProvider))
-                    .asyncCredentialUpdateEnabled(true)
-                    .build());
+            case WEB_IDENTITY -> s3.credentialsProvider(createPreSignerWebIdentityCredentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()));
+            case IAM_ROLE -> s3.credentialsProvider(createPreSignerAssumeRoleCredentialsProvider(
+                    createStsClient(config, staticCredentialsProvider),
+                    staticIamRole.orElseThrow(),
+                    staticRoleSessionName,
+                    externalId));
             case DEFAULT -> staticCredentialsProvider.ifPresent(s3::credentialsProvider);
         }
 
         return s3.build();
+    }
+
+    /**
+     * The role and token file are read from {@code AWS_ROLE_ARN} and {@code AWS_WEB_IDENTITY_TOKEN_FILE}
+     * unless set on {@code provider}.
+     */
+    @VisibleForTesting
+    static WebIdentityTokenFileCredentialsProvider createPreSignerWebIdentityCredentialsProvider(WebIdentityTokenFileCredentialsProvider.Builder provider)
+    {
+        return provider
+                .asyncCredentialUpdateEnabled(true)
+                .roleSessionDuration(PRE_SIGNER_SESSION_DURATION)
+                .prefetchTime(PRE_SIGNER_CREDENTIALS_PREFETCH_TIME)
+                .staleTime(PRE_SIGNER_CREDENTIALS_STALE_TIME)
+                .build();
+    }
+
+    @VisibleForTesting
+    static StsAssumeRoleCredentialsProvider createPreSignerAssumeRoleCredentialsProvider(StsClient stsClient, String iamRole, String roleSessionName, String externalId)
+    {
+        return StsAssumeRoleCredentialsProvider.builder()
+                .refreshRequest(request -> request
+                        .roleArn(iamRole)
+                        .roleSessionName(roleSessionName)
+                        .externalId(externalId)
+                        .durationSeconds(toIntExact(PRE_SIGNER_SESSION_DURATION.toSeconds())))
+                .stsClient(stsClient)
+                .asyncCredentialUpdateEnabled(true)
+                .prefetchTime(PRE_SIGNER_CREDENTIALS_PREFETCH_TIME)
+                .staleTime(PRE_SIGNER_CREDENTIALS_STALE_TIME)
+                .build();
     }
 
     static StsClient createStsClient(S3FileSystemConfig config, Optional<AwsCredentialsProvider> credentialsProvider)
