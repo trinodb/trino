@@ -50,7 +50,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -62,6 +64,8 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.executor.TestingTaskMemory.NO_TASK_MEMORY;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -463,6 +467,33 @@ public class TestThreadPerDriverTaskExecutor
             assertEventually(new Duration(10, SECONDS), () -> assertThat(parkedTaskQueuedSplit.isStarted()).isTrue());
             executor.removeTask(parkedTask);
             executor.removeTask(otherTask);
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(60)
+    public void testLeafSplitsFinishingOnStartDoNotNestCompletions()
+            throws Exception
+    {
+        FairScheduler scheduler = FairScheduler.newInstance(8);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, Integer.MAX_VALUE, 16);
+        try {
+            for (int i = 0; i < 1000; i++) {
+                TaskHandle parkedTask = executor.addTask(new TaskId(new StageId("parked", 0), i, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
+                executor.enqueueSplits(parkedTask, false, ImmutableList.of(new AdmissionSplit(BlockedReason.OPERATOR, false)));
+            }
+            assertEventually(new Duration(10, SECONDS), () -> assertThat(executor.getBlockedSplits()).isEqualTo(1000));
+
+            AtomicInteger maxNesting = new AtomicInteger();
+            TaskHandle task = executor.addTask(new TaskId(new StageId("short", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
+            List<SplitRunner> splits = IntStream.range(0, 20_000)
+                    .mapToObj(_ -> (SplitRunner) new NestingRecordingSplitRunner(maxNesting))
+                    .collect(toImmutableList());
+            Futures.allAsList(executor.enqueueSplits(task, false, splits)).get(30, SECONDS);
+            assertThat(maxNesting.get()).isBetween(1, 2);
         }
         finally {
             executor.stop();
@@ -1226,6 +1257,29 @@ public class TestThreadPerDriverTaskExecutor
         public Span getPipelineSpan()
         {
             throw new RuntimeException("pipeline span failed");
+        }
+    }
+
+    private static class NestingRecordingSplitRunner
+            extends TestingSplitRunner
+    {
+        private final AtomicInteger maxNesting;
+
+        public NestingRecordingSplitRunner(AtomicInteger maxNesting)
+        {
+            super(ImmutableList.of(_ -> immediateVoidFuture()));
+            this.maxNesting = requireNonNull(maxNesting, "maxNesting is null");
+        }
+
+        @Override
+        public void close()
+        {
+            super.close();
+            // Count the leaf split completions on this thread's stack.
+            long nesting = StackWalker.getInstance().walk(frames -> frames
+                    .filter(frame -> frame.getClassName().equals(TaskEntry.class.getName()) && frame.getMethodName().equals("finishLeafSplit"))
+                    .count());
+            maxNesting.accumulateAndGet(toIntExact(nesting), Math::max);
         }
     }
 
