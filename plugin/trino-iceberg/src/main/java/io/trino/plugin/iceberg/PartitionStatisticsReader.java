@@ -85,7 +85,7 @@ public final class PartitionStatisticsReader
     @VisibleForTesting
     static final int SAMPLE_DATA_FILE_LIMIT = 1000;
 
-    private static final DataSize MAXIMUM_CACHE_SIZE = DataSize.of(64, MEGABYTE);
+    static final DataSize MAXIMUM_CACHE_SIZE = DataSize.of(64, MEGABYTE);
     private static final Duration CACHE_EXPIRATION = Duration.ofHours(1);
     // a file that cannot be used, for example after a transient read failure, is tried again after this time
     @VisibleForTesting

@@ -19,9 +19,12 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.filesystem.ForwardingTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.local.LocalFileSystem;
 import io.trino.metastore.HiveMetastore;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -31,6 +34,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.GenericManifestFile;
 import org.apache.iceberg.ImmutableGenericPartitionStatisticsFile;
@@ -38,17 +42,23 @@ import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionStatistics;
 import org.apache.iceberg.PartitionStatisticsFile;
+import org.apache.iceberg.PartitionStatsHandler;
 import org.apache.iceberg.Partitioning;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.StructLike;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableUtil;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Types;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -58,15 +68,31 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.collect.Streams.stream;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
@@ -75,12 +101,15 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.loadTable;
+import static io.trino.plugin.iceberg.PartitionStatisticsReader.findPartitionStatisticsFile;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createTempDirectory;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.iceberg.FileFormat.AVRO;
@@ -94,6 +123,12 @@ public class TestIcebergPartitionStatistics
     // the formats partition statistics files are read in
     private static final Object[][] PARTITION_STATISTICS_FORMATS = {{AVRO}, {PARQUET}};
 
+    // tests that set the hook hold this lock
+    private static final String BEFORE_FILE_WRITE = "beforeFileWrite";
+
+    // runs before each file of a table at a file:// location is written
+    private final AtomicReference<Consumer<Location>> beforeFileWrite = new AtomicReference<>(_ -> {});
+    private Path hookedRoot;
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
 
@@ -101,9 +136,22 @@ public class TestIcebergPartitionStatistics
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        hookedRoot = createTempDirectory("iceberg_partition_statistics_hooked");
+        TrinoFileSystemFactory hookedFileSystemFactory = _ -> new ForwardingTrinoFileSystem(new LocalFileSystem(hookedRoot))
+        {
+            @Override
+            public TrinoOutputFile newOutputFile(Location location)
+            {
+                beforeFileWrite.get().accept(location);
+                return super.newOutputFile(location);
+            }
+        };
         return IcebergQueryRunner.builder()
                 // tests that write a partition statistics file expect it to be used however few data files there are
                 .addIcebergProperty("iceberg.partition-statistics.min-data-files", "0")
+                .setAdditionalOverrideModule(binder -> newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                        .addBinding("file")
+                        .toInstance(hookedFileSystemFactory))
                 .build();
     }
 
@@ -112,6 +160,13 @@ public class TestIcebergPartitionStatistics
     {
         metastore = getHiveMetastore(getQueryRunner());
         fileSystemFactory = getFileSystemFactory(getQueryRunner());
+    }
+
+    @AfterAll
+    public void tearDown()
+            throws IOException
+    {
+        deleteRecursively(hookedRoot, ALLOW_INSECURE);
     }
 
     @Test
@@ -470,7 +525,7 @@ public class TestIcebergPartitionStatistics
         // from the file: the manifest walk would report 2
         assertThat(showStatsRowCount("SELECT * FROM " + table + " WHERE part = 1")).isEqualTo(1.0);
 
-        assertUpdate("INSERT INTO " + table + " VALUES (10, 1), (11, 1)", 2);
+        assertUpdate(withoutPartitionStatisticsUpdateOnWrite(), "INSERT INTO " + table + " VALUES (10, 1), (11, 1)", 2);
 
         // the file is for the previous snapshot, so the manifest walk answers, and ignores the deletion vector
         assertThat(showStatsRowCount("SELECT * FROM " + table + " WHERE part = 1")).isEqualTo(4.0);
@@ -597,7 +652,7 @@ public class TestIcebergPartitionStatistics
         assertUpdate("DELETE FROM " + table + " WHERE id = 1", 1);
         long olderSnapshotId = loadIcebergTable(table).currentSnapshot().snapshotId();
         writePartitionStatistics(table, format);
-        assertUpdate("INSERT INTO " + table + " VALUES (4, 1), (5, 1)", 2);
+        assertUpdate(withoutPartitionStatisticsUpdateOnWrite(), "INSERT INTO " + table + " VALUES (4, 1), (5, 1)", 2);
         writePartitionStatistics(table, format);
         assertThat(loadIcebergTable(table).partitionStatisticsFiles()).hasSize(2);
 
@@ -977,12 +1032,450 @@ public class TestIcebergPartitionStatistics
         assertUpdate(session, "ALTER TABLE " + table + " EXECUTE remove_orphan_files(retention_threshold => '0s')");
         assertThat(loadIcebergTable(table).io().newInputFile(path).exists()).isTrue();
 
-        // a new snapshot, so that the first one expires with its file
-        assertUpdate("INSERT INTO " + table + " VALUES (2, 2)", 1);
+        // a new snapshot without a file, so that the first one expires with its file
+        assertUpdate(withoutPartitionStatisticsUpdateOnWrite(), "INSERT INTO " + table + " VALUES (2, 2)", 1);
         assertUpdate(session, "ALTER TABLE " + table + " EXECUTE expire_snapshots(retention_threshold => '0s')");
         assertThat(loadIcebergTable(table).partitionStatisticsFiles()).isEmpty();
         assertThat(loadIcebergTable(table).io().newInputFile(path).exists()).isFalse();
         assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testPartitionStatisticsUpdatedOnInsert()
+    {
+        String table = "test_ps_update_insert_" + randomNameSuffix();
+        createTableWithPartitionStatistics(table);
+        int metadataVersions = metadataVersions(table);
+
+        assertUpdate("INSERT INTO " + table + " VALUES (5, 1), (6, 3)", 2);
+
+        // one commit for the insert, its extended statistics and its partition statistics file
+        assertThat(metadataVersions(table)).isEqualTo(metadataVersions + 1);
+        BaseTable loaded = loadIcebergTable(table);
+        assertThat(loaded.statisticsFiles()).extracting(StatisticsFile::snapshotId).contains(loaded.currentSnapshot().snapshotId());
+        assertPartitionStatisticsUpToDate(table);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testPartitionStatisticsUpdatedOnDelete()
+    {
+        String table = "test_ps_update_delete_" + randomNameSuffix();
+        createTableWithPartitionStatistics(table);
+
+        // a deletion vector
+        assertUpdate("DELETE FROM " + table + " WHERE id = 3", 1);
+
+        assertPartitionStatisticsUpToDate(table);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testPartitionStatisticsUpdatedOnMetadataDelete()
+    {
+        String table = "test_ps_update_metadata_delete_" + randomNameSuffix();
+        createTableWithPartitionStatistics(table);
+
+        // removes the data files of the partition, without writing delete files
+        assertUpdate("DELETE FROM " + table + " WHERE part = 2", 2);
+
+        BaseTable loaded = loadIcebergTable(table);
+        assertThat(loaded.currentSnapshot().addedDeleteFiles(loaded.io())).isEmpty();
+        assertThat(findPartitionStatisticsFile(loaded, loaded.currentSnapshot().snapshotId())).isPresent();
+        assertPartitionStatisticsUpToDate(table);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testPartitionStatisticsUpdatedOnTruncate()
+    {
+        String table = "test_ps_update_truncate_" + randomNameSuffix();
+        createTableWithPartitionStatistics(table);
+
+        assertUpdate("TRUNCATE TABLE " + table);
+
+        long snapshotId = loadIcebergTable(table).currentSnapshot().snapshotId();
+        // the partitions are kept, without rows
+        assertThat(partitionRowCounts(table, snapshotId)).isEqualTo(ImmutableMap.of(1, 0L, 2, 0L));
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testPartitionStatisticsUpdatedOnMerge()
+    {
+        String table = "test_ps_update_merge_" + randomNameSuffix();
+        createTableWithPartitionStatistics(table);
+
+        assertUpdate(
+                """
+                MERGE INTO %s t USING (VALUES (2, 1), (3, 2), (7, 3)) s(id, part) ON t.id = s.id
+                WHEN MATCHED AND s.id = 3 THEN DELETE
+                WHEN MATCHED THEN UPDATE SET id = t.id + 10
+                WHEN NOT MATCHED THEN INSERT VALUES (s.id, s.part)
+                """.formatted(table),
+                3);
+
+        assertPartitionStatisticsUpToDate(table);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testPartitionStatisticsUpdatedOnOptimize()
+    {
+        String table = "test_ps_update_optimize_" + randomNameSuffix();
+        createTableWithPartitionStatistics(table);
+        // a second data file in each partition, so that each is rewritten
+        assertUpdate("INSERT INTO " + table + " VALUES (5, 1), (6, 2)", 2);
+        long snapshotId = loadIcebergTable(table).currentSnapshot().snapshotId();
+
+        assertUpdate("ALTER TABLE " + table + " EXECUTE optimize");
+
+        assertThat(loadIcebergTable(table).currentSnapshot().snapshotId()).isNotEqualTo(snapshotId);
+        assertPartitionStatisticsUpToDate(table);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testPartitionStatisticsUpdateContinuesFromParquetPredecessor()
+            throws Exception
+    {
+        String table = "test_ps_update_parquet_predecessor_" + randomNameSuffix();
+        createPartitionedTable(table);
+        assertUpdate("DELETE FROM " + table + " WHERE id = 1", 1);
+        // written by the library's built-in Parquet writer, as by Spark
+        writePartitionStatistics(table, PARQUET);
+
+        assertUpdate("INSERT INTO " + table + " VALUES (5, 1), (6, 3)", 2);
+
+        assertPartitionStatisticsUpToDate(table);
+        BaseTable loaded = loadIcebergTable(table);
+        assertThat(findPartitionStatisticsFile(loaded, loaded.currentSnapshot().snapshotId()).orElseThrow().path()).endsWith(".parquet");
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testPartitionStatisticsUpdateSkipsOrcTables()
+            throws Exception
+    {
+        String table = "test_ps_update_orc_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + table + " (id integer, part integer) WITH (format = 'ORC', partitioning = ARRAY['part'])");
+        assertUpdate("INSERT INTO " + table + " VALUES (1, 1), (2, 2)", 2);
+        // registered by hand: compute_partition_stats rejects tables with the ORC file format
+        long snapshotId = IcebergTestUtils.writePartitionStatistics(loadIcebergTable(table), AVRO).snapshotId();
+
+        assertUpdate("INSERT INTO " + table + " VALUES (3, 1)", 1);
+
+        assertThat(loadIcebergTable(table).partitionStatisticsFiles()).extracting(PartitionStatisticsFile::snapshotId).containsExactly(snapshotId);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testPartitionStatisticsNotUpdatedWhenPredecessorIsMissing()
+            throws Exception
+    {
+        String table = "test_ps_update_missing_predecessor_" + randomNameSuffix();
+        createTableWithPartitionStatistics(table);
+        PartitionStatisticsFile file = getOnlyElement(loadIcebergTable(table).partitionStatisticsFiles());
+        fileSystemFactory.create(SESSION).deleteFile(Location.of(file.path()));
+
+        // the library would compute the file from all manifests instead, inside the commit
+        assertUpdate("INSERT INTO " + table + " VALUES (5, 1)", 1);
+
+        assertThat(loadIcebergTable(table).partitionStatisticsFiles()).extracting(PartitionStatisticsFile::snapshotId).containsExactly(file.snapshotId());
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testPartitionStatisticsNotUpdatedWhenPredecessorIsTooLarge()
+    {
+        String table = "test_ps_update_large_predecessor_" + randomNameSuffix();
+        createTableWithPartitionStatistics(table);
+        BaseTable loaded = loadIcebergTable(table);
+        PartitionStatisticsFile file = getOnlyElement(loaded.partitionStatisticsFiles());
+        // the same file, registered with a size that the reader would not use
+        loaded.updatePartitionStatistics()
+                .setPartitionStatistics(ImmutableGenericPartitionStatisticsFile.builder()
+                        .snapshotId(file.snapshotId())
+                        .path(file.path())
+                        .fileSizeInBytes(PartitionStatisticsReader.MAXIMUM_CACHE_SIZE.toBytes() + 1)
+                        .build())
+                .commit();
+
+        assertUpdate("INSERT INTO " + table + " VALUES (5, 1)", 1);
+
+        assertThat(loadIcebergTable(table).partitionStatisticsFiles()).extracting(PartitionStatisticsFile::snapshotId).containsExactly(file.snapshotId());
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testPartitionStatisticsNotUpdatedWhenDisabled()
+    {
+        String table = "test_ps_update_disabled_" + randomNameSuffix();
+        createTableWithPartitionStatistics(table);
+        long snapshotId = loadIcebergTable(table).currentSnapshot().snapshotId();
+
+        assertUpdate(withoutPartitionStatisticsUpdateOnWrite(), "INSERT INTO " + table + " VALUES (5, 1)", 1);
+
+        assertThat(loadIcebergTable(table).partitionStatisticsFiles()).extracting(PartitionStatisticsFile::snapshotId).containsExactly(snapshotId);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testPartitionStatisticsNotUpdatedWithoutPredecessor()
+    {
+        String table = "test_ps_update_no_predecessor_" + randomNameSuffix();
+        createPartitionedTable(table);
+        assertUpdate("INSERT INTO " + table + " VALUES (5, 1)", 1);
+        assertThat(loadIcebergTable(table).partitionStatisticsFiles()).isEmpty();
+
+        // only the file of the parent snapshot is continued, not an older one
+        assertUpdate("ALTER TABLE " + table + " EXECUTE compute_partition_stats");
+        long snapshotId = loadIcebergTable(table).currentSnapshot().snapshotId();
+        assertUpdate(withoutPartitionStatisticsUpdateOnWrite(), "INSERT INTO " + table + " VALUES (6, 1)", 1);
+        assertUpdate("INSERT INTO " + table + " VALUES (7, 1)", 1);
+
+        assertThat(loadIcebergTable(table).partitionStatisticsFiles()).extracting(PartitionStatisticsFile::snapshotId).containsExactly(snapshotId);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    @ResourceLock(BEFORE_FILE_WRITE)
+    public void testPartitionStatisticsUpdateRecomputedOnCommitRetry()
+    {
+        String table = "test_ps_update_retry_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + table + " (id integer, part integer) WITH (partitioning = ARRAY['part'], location = 'file:///" + table + "')");
+        assertUpdate("INSERT INTO " + table + " VALUES (1, 1), (2, 2)", 2);
+        assertUpdate("ALTER TABLE " + table + " EXECUTE compute_partition_stats");
+
+        // another engine commits while the insert writes its partition statistics file, so that the commit attempt of the
+        // insert fails, and the transaction retries it on the new parent
+        AtomicReference<Location> firstAttemptFile = new AtomicReference<>();
+        AtomicLong concurrentSnapshotId = new AtomicLong();
+        beforeFileWrite.set(location -> {
+            if (location.fileName().startsWith("partition-stats-") && firstAttemptFile.compareAndSet(null, location)) {
+                concurrentSnapshotId.set(commitConcurrentAppend(table, 2));
+            }
+        });
+        try {
+            assertUpdate("INSERT INTO " + table + " VALUES (3, 1)", 1);
+        }
+        finally {
+            beforeFileWrite.set(_ -> {});
+        }
+
+        BaseTable loaded = loadIcebergTable(table);
+        assertThat(loaded.currentSnapshot().parentId()).isEqualTo(concurrentSnapshotId.get());
+        // computed again from the file of the concurrent commit; the file of the failed attempt is deleted
+        assertThat(liveRowCounts(table, loaded.currentSnapshot().snapshotId())).isEqualTo(ImmutableMap.of(1, 2L, 2, 2L));
+        assertThat(loaded.partitionStatisticsFiles()).extracting(PartitionStatisticsFile::path).doesNotContain(firstAttemptFile.get().toString());
+        assertThat(loaded.io().newInputFile(firstAttemptFile.get().toString()).exists()).isFalse();
+        assertPartitionStatisticsUpToDate(table);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    @ResourceLock(BEFORE_FILE_WRITE)
+    public void testDropPartitionStatsRemovesFileOfConcurrentCommit()
+    {
+        String table = "test_drop_partition_stats_concurrent_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + table + " (id integer, part integer) WITH (partitioning = ARRAY['part'], location = 'file:///" + table + "')");
+        assertUpdate("INSERT INTO " + table + " VALUES (1, 1), (2, 2)", 2);
+        assertUpdate("ALTER TABLE " + table + " EXECUTE compute_partition_stats");
+
+        // another engine commits a snapshot with a partition statistics file while the procedure writes its metadata, so
+        // that the transaction of the procedure retries, removing only the file it saw
+        AtomicBoolean concurrentCommitDone = new AtomicBoolean();
+        beforeFileWrite.set(location -> {
+            if (location.fileName().endsWith(".metadata.json") && concurrentCommitDone.compareAndSet(false, true)) {
+                commitConcurrentAppend(table, 2);
+            }
+        });
+        try {
+            assertThat(query("ALTER TABLE " + table + " EXECUTE drop_partition_stats"))
+                    .matches("VALUES (VARCHAR 'removed_partition_statistics_count', BIGINT '2')");
+        }
+        finally {
+            beforeFileWrite.set(_ -> {});
+        }
+
+        assertThat(concurrentCommitDone).isTrue();
+        assertThat(loadIcebergTable(table).partitionStatisticsFiles()).isEmpty();
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    // commits, as another engine would, a copy of the data file of a partition that the current snapshot added, and the
+    // partition statistics file of the new snapshot
+    private long commitConcurrentAppend(String tableName, int partition)
+    {
+        BaseTable table = loadIcebergTable(tableName);
+        DataFile dataFile = stream(table.currentSnapshot().addedDataFiles(table.io()))
+                .filter(file -> file.partition().get(0, Integer.class) == partition)
+                .collect(onlyElement());
+        table.newFastAppend().appendFile(dataFile).commit();
+        long snapshotId = table.currentSnapshot().snapshotId();
+        try {
+            table.updatePartitionStatistics()
+                    .setPartitionStatistics(PartitionStatsHandler.computeAndWriteStatsFile(table, snapshotId))
+                    .commit();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return snapshotId;
+    }
+
+    @Test
+    public void testPartitionStatisticsNotUpdatedOnMetadataOnlyCommit()
+    {
+        String table = "test_ps_update_metadata_only_" + randomNameSuffix();
+        createTableWithPartitionStatistics(table);
+        // the parent of the current snapshot has a file, the current snapshot has none
+        assertUpdate(withoutPartitionStatisticsUpdateOnWrite(), "INSERT INTO " + table + " VALUES (5, 1)", 1);
+        BaseTable loaded = loadIcebergTable(table);
+        TableOperations operations = new PartitionStatisticsUpdatingTableOperations(loaded.operations(), loaded.name());
+        TableMetadata base = operations.current();
+
+        operations.commit(base, TableMetadata.buildFrom(base).setProperties(ImmutableMap.of("test_property", "value")).build());
+
+        // the commit does not add the current snapshot, so the snapshot does not get a file
+        BaseTable updated = loadIcebergTable(table);
+        assertThat(updated.properties()).containsEntry("test_property", "value");
+        assertThat(updated.partitionStatisticsFiles()).extracting(PartitionStatisticsFile::snapshotId)
+                .containsExactly(updated.currentSnapshot().parentId());
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    @ResourceLock(BEFORE_FILE_WRITE)
+    public void testPartitionStatisticsWriteSucceedsWhenUpdateFails()
+    {
+        String table = "test_ps_update_failure_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + table + " (id integer, part integer) WITH (partitioning = ARRAY['part'], location = 'file:///" + table + "')");
+        assertUpdate("INSERT INTO " + table + " VALUES (1, 1)", 1);
+        assertUpdate("ALTER TABLE " + table + " EXECUTE compute_partition_stats");
+        long snapshotId = loadIcebergTable(table).currentSnapshot().snapshotId();
+
+        List<String> warnings = new CopyOnWriteArrayList<>();
+        Handler handler = new Handler()
+        {
+            @Override
+            public void publish(LogRecord logRecord)
+            {
+                if (logRecord.getLevel() == Level.WARNING) {
+                    warnings.add(logRecord.getMessage());
+                }
+            }
+
+            @Override
+            public void flush() {}
+
+            @Override
+            public void close() {}
+        };
+        Logger logger = Logger.getLogger(PartitionStatisticsUpdatingTableOperations.class.getName());
+        logger.addHandler(handler);
+        beforeFileWrite.set(location -> {
+            if (location.fileName().startsWith("partition-stats-")) {
+                throw new UncheckedIOException(new IOException("Simulated failure writing " + location));
+            }
+        });
+        try {
+            assertUpdate("INSERT INTO " + table + " VALUES (2, 1)", 1);
+        }
+        finally {
+            beforeFileWrite.set(_ -> {});
+            logger.removeHandler(handler);
+        }
+
+        assertThat(warnings).singleElement().satisfies(warning -> assertThat(warning).startsWith("Failed to update partition statistics of "));
+        assertQuery("SELECT count(*) FROM " + table, "VALUES 2");
+        assertThat(loadIcebergTable(table).partitionStatisticsFiles()).extracting(PartitionStatisticsFile::snapshotId).containsExactly(snapshotId);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    @ResourceLock(BEFORE_FILE_WRITE)
+    public void testPartitionStatisticsUpdateContinuesFromConcurrentCommit()
+    {
+        String table = "test_ps_update_concurrent_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + table + " (id integer, part integer) WITH (partitioning = ARRAY['part'], location = 'file:///" + table + "')");
+        assertUpdate("INSERT INTO " + table + " VALUES (1, 1), (2, 2)", 2);
+        assertUpdate("ALTER TABLE " + table + " EXECUTE compute_partition_stats");
+        long startSnapshotId = loadIcebergTable(table).currentSnapshot().snapshotId();
+
+        // another engine commits after the insert started and before the insert commits, when it writes its manifest:
+        // the transaction of the insert re-applies its changes on the new parent before its first commit attempt
+        AtomicBoolean concurrentCommitDone = new AtomicBoolean();
+        AtomicLong concurrentSnapshotId = new AtomicLong();
+        beforeFileWrite.set(location -> {
+            if (location.fileName().endsWith("-m0.avro") && concurrentCommitDone.compareAndSet(false, true)) {
+                concurrentSnapshotId.set(commitConcurrentAppend(table, 2));
+            }
+        });
+        try {
+            assertUpdate("INSERT INTO " + table + " VALUES (3, 1)", 1);
+        }
+        finally {
+            beforeFileWrite.set(_ -> {});
+        }
+
+        BaseTable loaded = loadIcebergTable(table);
+        assertThat(concurrentSnapshotId.get()).isNotEqualTo(startSnapshotId);
+        assertThat(loaded.currentSnapshot().parentId()).isEqualTo(concurrentSnapshotId.get());
+        // the file of the insert counts the rows of both commits
+        assertThat(liveRowCounts(table, loaded.currentSnapshot().snapshotId())).isEqualTo(ImmutableMap.of(1, 2L, 2, 2L));
+        assertPartitionStatisticsUpToDate(table);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    // a format version 3 table whose current snapshot has a partition statistics file, and a deletion vector, which the file
+    // subtracts and the manifest walk does not, so that SHOW STATS tells them apart
+    private void createTableWithPartitionStatistics(String table)
+    {
+        createPartitionedTable(table);
+        assertUpdate("DELETE FROM " + table + " WHERE id = 1", 1);
+        assertUpdate("ALTER TABLE " + table + " EXECUTE compute_partition_stats");
+    }
+
+    // the partition statistics file of the current snapshot counts the rows of every partition, and SHOW STATS uses it
+    private void assertPartitionStatisticsUpToDate(String table)
+    {
+        long snapshotId = loadIcebergTable(table).currentSnapshot().snapshotId();
+        Map<Integer, Long> expected = computeActual("SELECT part, count(*) FROM " + table + " GROUP BY part").getMaterializedRows().stream()
+                .collect(toImmutableMap(row -> (Integer) row.getField(0), row -> (Long) row.getField(1)));
+        assertThat(liveRowCounts(table, snapshotId)).isEqualTo(expected);
+        expected.forEach((part, count) -> assertThat(showStatsRowCount("SELECT * FROM " + table + " WHERE part = " + part)).isEqualTo(count.doubleValue()));
+    }
+
+    private Session withoutPartitionStatisticsUpdateOnWrite()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "collect_partition_statistics_on_write", "false")
+                .build();
+    }
+
+    private int metadataVersions(String table)
+    {
+        return loadIcebergTable(table).operations().current().previousFiles().size();
+    }
+
+    // rows not deleted by deletion vectors of every partition (by its first column) that has any, in the partition statistics
+    // file of a snapshot
+    private Map<Integer, Long> liveRowCounts(String tableName, long snapshotId)
+    {
+        try (CloseableIterable<PartitionStatistics> statistics = loadIcebergTable(tableName).newPartitionStatisticsScan().useSnapshot(snapshotId).scan()) {
+            ImmutableMap.Builder<Integer, Long> counts = ImmutableMap.builder();
+            for (PartitionStatistics row : statistics) {
+                long liveRows = row.dataRecordCount() - requireNonNullElse(row.positionDeleteRecordCount(), 0L);
+                if (liveRows > 0) {
+                    counts.put(row.partition().get(0, Integer.class), liveRows);
+                }
+            }
+            return counts.buildOrThrow();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private void writePartitionStatistics(String tableName, FileFormat format)

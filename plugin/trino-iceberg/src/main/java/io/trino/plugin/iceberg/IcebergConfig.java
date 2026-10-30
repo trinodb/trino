@@ -77,6 +77,7 @@ public class IcebergConfig
     private boolean tableStatisticsEnabled = true;
     private boolean partitionStatisticsEnabled = true;
     private int partitionStatisticsMinDataFiles = 10_000;
+    private boolean collectPartitionStatisticsOnWrite = true;
     private boolean collectExtendedStatisticsOnWrite = true;
     private boolean projectionPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
@@ -294,6 +295,19 @@ public class IcebergConfig
     public IcebergConfig setPartitionStatisticsMinDataFiles(int partitionStatisticsMinDataFiles)
     {
         this.partitionStatisticsMinDataFiles = partitionStatisticsMinDataFiles;
+        return this;
+    }
+
+    public boolean isCollectPartitionStatisticsOnWrite()
+    {
+        return collectPartitionStatisticsOnWrite;
+    }
+
+    @Config("iceberg.partition-statistics.collect-on-write")
+    @ConfigDescription("Update the partition statistics file of a table on write when the previous snapshot has one")
+    public IcebergConfig setCollectPartitionStatisticsOnWrite(boolean collectPartitionStatisticsOnWrite)
+    {
+        this.collectPartitionStatisticsOnWrite = collectPartitionStatisticsOnWrite;
         return this;
     }
 

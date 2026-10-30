@@ -164,6 +164,12 @@ implementation is used:
     [catalog session property](/sql/set-session) is
     `partition_statistics_min_data_files` for session specific use.
   - `10000`
+* - `iceberg.partition-statistics.collect-on-write`
+  - Update the [partition statistics file](iceberg-partition-statistics) of a
+    table on write when the previous snapshot has one. The equivalent [catalog
+    session property](/sql/set-session) is
+    `collect_partition_statistics_on_write` for session specific use.
+  - `true`
 * - `iceberg.extended-statistics.collect-on-write`
   - Enable collection of extended statistics for write operations. The
     equivalent catalog session property is
@@ -2573,7 +2579,8 @@ before re-analyzing.
 If the scanned snapshot of a table has an Iceberg partition statistics file, the
 connector estimates the row count from that file instead of reading the metadata
 of every data file. Such a file is written by the {ref}`compute_partition_stats
-<compute-partition-stats>` command, or by the Spark procedure of the same name.
+<compute-partition-stats>` command, or by the Spark procedure of the same name,
+and Trino writes keep it current, as described at the end of this section.
 Partition statistics files in the Avro and Parquet formats are read, and files
 in other formats, including ORC, are ignored.
 
@@ -2602,6 +2609,26 @@ and keeps column minimum and maximum values. Set the
 `partition_statistics_enabled` catalog session property to `false` to disable
 the behavior for a session, or the minimum to `0` to use a partition statistics
 file whenever it is present.
+
+When the snapshot that a write commits on top of has a partition statistics file
+in the Avro or Parquet format, the connector writes a partition statistics file
+for the snapshot that the write adds, and commits it with the write. This
+applies to `INSERT`, `UPDATE`, `MERGE`, `DELETE`, `TRUNCATE`, and `OPTIMIZE`.
+The file is computed from the file of the previous snapshot and the changes of
+the write, in the file format of the table, and keeps the partitions whose rows
+were all removed, as described for {ref}`compute_partition_stats
+<compute-partition-stats>`. If another write commits first, the file is
+computed again from the file of that write. Tables with the ORC file format are
+skipped. So are writes whose previous file is missing, as the file would be
+computed from all manifests during the write, or larger than 64 MB, as the file
+would be too large to use for row count estimates. A failure to write the file
+does not fail the write. Other operations that add a snapshot do not write a
+file, such as `REFRESH MATERIALIZED VIEW` and the `optimize_manifests`,
+`add_files`, and `add_files_from_table` commands. After a snapshot without a
+file, later writes add none either, until the `compute_partition_stats` command
+runs again. Set the `iceberg.partition-statistics.collect-on-write` catalog
+configuration property or the `collect_partition_statistics_on_write` catalog
+session property to `false` to disable the update.
 
 (iceberg-table-redirection)=
 ### Table redirection

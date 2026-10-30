@@ -334,6 +334,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getQueryPartition
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isBucketExecutionEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectExtendedStatisticsOnWrite;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectPartitionStatisticsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isIncrementalRefreshEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isPartitionStatisticsEnabled;
@@ -505,6 +506,8 @@ public class IcebergMetadata
     private static final int TIMESTAMP_NANOS_SUPPORTED_MIN_VERSION = 3;
     private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 3;
     private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 3;
+    // rounds of drop_partition_stats, each removing the files a concurrent commit registered during the previous one
+    private static final int DROP_PARTITION_STATS_MAX_ROUNDS = 5;
     private static final String RETENTION_THRESHOLD = "retention_threshold";
     private static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
     public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.<String>builder()
@@ -1790,7 +1793,7 @@ public class IcebergMetadata
         }
 
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
-        Transaction transaction = newWriteTransaction();
+        Transaction transaction = newWriteTransactionUpdatingPartitionStatistics(session);
         stageInsert(session, transaction, table, fragments);
         stageStatistics(session, transaction, table, computedStatistics);
         commitWriteTransaction(transaction, "insert");
@@ -2339,7 +2342,7 @@ public class IcebergMetadata
     private Map<String, Long> finishOptimize(ConnectorSession session, IcebergTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.procedureHandle();
-        Transaction transaction = newWriteTransaction();
+        Transaction transaction = newWriteTransactionUpdatingPartitionStatistics(session);
         Table icebergTable = transaction.table();
 
         // files to be deleted
@@ -2552,15 +2555,28 @@ public class IcebergMetadata
         checkArgument(executeHandle.procedureHandle() instanceof IcebergDropPartitionStatsHandle, "Unexpected procedure handle %s", executeHandle.procedureHandle());
 
         try {
-            Transaction transaction = catalog.newTransaction(catalog.loadTable(session, executeHandle.schemaTableName()));
-            UpdatePartitionStatistics updatePartitionStatistics = transaction.updatePartitionStatistics();
-            List<PartitionStatisticsFile> partitionStatisticsFiles = transaction.table().partitionStatisticsFiles();
-            for (PartitionStatisticsFile partitionStatisticsFile : partitionStatisticsFiles) {
-                updatePartitionStatistics.removePartitionStatistics(partitionStatisticsFile.snapshotId());
+            long removed = 0;
+            for (int round = 1; ; round++) {
+                Transaction transaction = catalog.newTransaction(catalog.loadTable(session, executeHandle.schemaTableName()));
+                UpdatePartitionStatistics updatePartitionStatistics = transaction.updatePartitionStatistics();
+                List<PartitionStatisticsFile> partitionStatisticsFiles = transaction.table().partitionStatisticsFiles();
+                for (PartitionStatisticsFile partitionStatisticsFile : partitionStatisticsFiles) {
+                    updatePartitionStatistics.removePartitionStatistics(partitionStatisticsFile.snapshotId());
+                }
+                commitUpdate(updatePartitionStatistics, "drop partition stats");
+                commitTransaction(transaction, "drop partition stats");
+                removed += partitionStatisticsFiles.size();
+                // A retry after a concurrent commit removes only the files seen when the transaction started, so a file
+                // that commit registered is still in the committed metadata. Remove it in another round.
+                if (transaction.table().partitionStatisticsFiles().isEmpty()) {
+                    break;
+                }
+                if (round == DROP_PARTITION_STATS_MAX_ROUNDS) {
+                    log.warn("Partition statistics files of %s that concurrent commits registered remain after %s rounds", executeHandle.schemaTableName(), round);
+                    break;
+                }
             }
-            commitUpdate(updatePartitionStatistics, "drop partition stats");
-            commitTransaction(transaction, "drop partition stats");
-            return ImmutableMap.of("removed_partition_statistics_count", (long) partitionStatisticsFiles.size());
+            return ImmutableMap.of("removed_partition_statistics_count", removed);
         }
         catch (NotFoundException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, e);
@@ -3624,7 +3640,7 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
-        Transaction transaction = newWriteTransaction();
+        Transaction transaction = newWriteTransactionUpdatingPartitionStatistics(session);
         Table icebergTable = transaction.table();
 
         RowDelta rowDelta = transaction.newRowDelta();
@@ -3883,9 +3899,9 @@ public class IcebergMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
 
-        Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
+        BaseTable icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
 
-        DeleteFiles deleteFiles = icebergTable.newDelete()
+        DeleteFiles deleteFiles = updatingPartitionStatistics(session, icebergTable).newDelete()
                 .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
                 .scanManifestsWith(icebergScanExecutor);
         commitUpdate(deleteFiles, session, "delete");
@@ -3906,8 +3922,8 @@ public class IcebergMetadata
     public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = checkValidTableHandle(tableHandle);
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        DeleteFiles deleteFiles = icebergTable.newDelete()
+        BaseTable icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        DeleteFiles deleteFiles = updatingPartitionStatistics(session, icebergTable).newDelete()
                 .deleteFromRowFilter(alwaysTrue())
                 .scanManifestsWith(icebergScanExecutor);
         commitUpdate(deleteFiles, session, "truncate");
@@ -4779,6 +4795,24 @@ public class IcebergMetadata
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Write was already committed");
         }
         return IcebergTransactions.newTransaction(writeTable);
+    }
+
+    // a write transaction that also commits the partition statistics file of the snapshot it adds
+    private Transaction newWriteTransactionUpdatingPartitionStatistics(ConnectorSession session)
+    {
+        if (writeTable == null || !isCollectPartitionStatisticsOnWrite(session)) {
+            return newWriteTransaction();
+        }
+        return IcebergTransactions.newTransaction(writeTable, new PartitionStatisticsUpdatingTableOperations(writeTable.operations(), writeTable.name()));
+    }
+
+    // the table, whose snapshot updates also commit the partition statistics file of the snapshot they add
+    private static Table updatingPartitionStatistics(ConnectorSession session, BaseTable table)
+    {
+        if (!isCollectPartitionStatisticsOnWrite(session)) {
+            return table;
+        }
+        return new BaseTable(new PartitionStatisticsUpdatingTableOperations(table.operations(), table.name()), table.name(), table.reporter());
     }
 
     private void commitWriteTransaction(Transaction transaction, String operation)

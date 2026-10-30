@@ -97,6 +97,7 @@ public final class IcebergSessionProperties
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PARTITION_STATISTICS_ENABLED = "partition_statistics_enabled";
     private static final String PARTITION_STATISTICS_MIN_DATA_FILES = "partition_statistics_min_data_files";
+    private static final String COLLECT_PARTITION_STATISTICS_ON_WRITE = "collect_partition_statistics_on_write";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String IDLE_WRITER_MIN_FILE_SIZE = "idle_writer_min_file_size";
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE = "collect_extended_statistics_on_write";
@@ -334,6 +335,11 @@ public final class IcebergSessionProperties
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be at least 0: %s", PARTITION_STATISTICS_MIN_DATA_FILES, value));
                             }
                         },
+                        false))
+                .add(booleanProperty(
+                        COLLECT_PARTITION_STATISTICS_ON_WRITE,
+                        "Update the partition statistics file of a table on write when the previous snapshot has one",
+                        icebergConfig.isCollectPartitionStatisticsOnWrite(),
                         false))
                 .add(booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,
@@ -615,6 +621,11 @@ public final class IcebergSessionProperties
     public static int getPartitionStatisticsMinDataFiles(ConnectorSession session)
     {
         return session.getProperty(PARTITION_STATISTICS_MIN_DATA_FILES, Integer.class);
+    }
+
+    public static boolean isCollectPartitionStatisticsOnWrite(ConnectorSession session)
+    {
+        return session.getProperty(COLLECT_PARTITION_STATISTICS_ON_WRITE, Boolean.class);
     }
 
     public static boolean isCollectExtendedStatisticsOnWrite(ConnectorSession session)

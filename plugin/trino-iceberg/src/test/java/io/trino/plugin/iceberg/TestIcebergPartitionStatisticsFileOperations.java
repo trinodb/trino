@@ -323,7 +323,11 @@ public class TestIcebergPartitionStatisticsFileOperations
         assertUpdate("INSERT INTO " + table + " VALUES (3, 1)", 1);
         // the predecessor, written by the library's built-in writers in the given format
         writePartitionStatistics(table, predecessorFormat);
-        assertUpdate("INSERT INTO " + table + " VALUES (4, 3)", 1);
+        // not updated on write, so that the procedure computes the file
+        Session withoutUpdateOnWrite = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "collect_partition_statistics_on_write", "false")
+                .build();
+        assertUpdate(withoutUpdateOnWrite, "INSERT INTO " + table + " VALUES (4, 3)", 1);
 
         // a full computation would read all three manifests and no statistics file; this one reads the statistics
         // file of the parent snapshot and only the manifest of the new snapshot
@@ -341,6 +345,39 @@ public class TestIcebergPartitionStatisticsFileOperations
                         .addCopies(new FileOperation(PARTITION_STATS, "InputFile.length"), 2)
                         .build());
         assertThat(showStatsRowCount(table + " WHERE part = 1")).isEqualTo(2.0);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = FileFormat.class, names = {"AVRO", "PARQUET"})
+    public void testPartitionStatisticsUpdateOnInsertIsIncremental(FileFormat predecessorFormat)
+            throws Exception
+    {
+        String table = "test_update_on_insert_incremental_" + predecessorFormat.name().toLowerCase(ENGLISH);
+        assertUpdate("CREATE TABLE " + table + " (id integer, part integer) WITH (format_version = 2, partitioning = ARRAY['part'])");
+        assertUpdate("INSERT INTO " + table + " VALUES (1, 1), (2, 2)", 2);
+        assertUpdate("INSERT INTO " + table + " VALUES (3, 1)", 1);
+        // the predecessor, written by the library's built-in writers in the given format
+        writePartitionStatistics(table, predecessorFormat);
+
+        // a full computation would read both earlier manifests; this one reads the statistics file of the parent snapshot
+        // and only the manifest the insert adds
+        // the spans of the insert only
+        getDistributedQueryRunner().executeWithPlan(getSession(), "INSERT INTO " + table + " VALUES (4, 3)");
+        Multiset<FileOperation> reads = ImmutableMultiset.copyOf(Multisets.filter(
+                getOperations(getDistributedQueryRunner().getSpans()),
+                operation -> operation.operationType().startsWith("InputFile.") && (operation.fileType() == MANIFEST || operation.fileType() == PARTITION_STATS)));
+        assertMultisetsEqual(
+                reads,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        // the predecessor exists, and is read
+                        .add(new FileOperation(PARTITION_STATS, "InputFile.exists"))
+                        .add(new FileOperation(PARTITION_STATS, predecessorFormat == AVRO ? "InputFile.newStream" : "InputFile.newInput"))
+                        // the size of the predecessor and of the file written
+                        .addCopies(new FileOperation(PARTITION_STATS, "InputFile.length"), 2)
+                        .build());
+        assertThat(showStatsRowCount(table + " WHERE part = 3")).isEqualTo(1.0);
         assertUpdate("DROP TABLE " + table);
     }
 

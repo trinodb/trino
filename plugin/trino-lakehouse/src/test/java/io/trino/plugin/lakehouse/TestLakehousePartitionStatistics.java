@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.lakehouse;
 
+import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -111,7 +112,11 @@ final class TestLakehousePartitionStatistics
                 "(id integer, part integer) WITH (format = 'PARQUET', format_version = 2, partitioning = ARRAY['part'])")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 1), (2, 2)", 2);
             registerPartitionStatistics(rootDirectory, "tpch", table.getName(), Path.of(getResource("partition-stats/partition-stats.parquet").toURI()));
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 1)", 1);
+            // not updated on write, so that the procedure computes the file
+            Session withoutUpdateOnWrite = Session.builder(getSession())
+                    .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "collect_partition_statistics_on_write", "false")
+                    .build();
+            assertUpdate(withoutUpdateOnWrite, "INSERT INTO " + table.getName() + " VALUES (3, 1)", 1);
 
             assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE compute_partition_stats");
 
@@ -119,6 +124,26 @@ final class TestLakehousePartitionStatistics
             assertThat(partitionStatisticsFiles(table.getName())).hasSize(1);
             assertThat(showStatsRowCount(table.getName() + " WHERE part = 1")).isEqualTo(1001.0);
             assertThat(showStatsRowCount(table.getName() + " WHERE part = 2")).isEqualTo(2000.0);
+        }
+    }
+
+    @Test
+    void testPartitionStatisticsUpdatedOnInsert()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable(
+                "test_partition_statistics_update_on_insert",
+                "(id integer, part integer) WITH (format = 'PARQUET', format_version = 3, partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 1), (2, 1), (3, 2)", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 2", 1);
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE compute_partition_stats");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 1), (5, 3)", 2);
+
+            assertThat(partitionStatisticsFiles(table.getName())).hasSize(2).allSatisfy(file -> assertThat(file).endsWith(".parquet"));
+            // the file of the insert subtracts the deletion vector, the manifest walk would report 3
+            assertThat(showStatsRowCount(table.getName() + " WHERE part = 1")).isEqualTo(2.0);
+            assertThat(showStatsRowCount(table.getName() + " WHERE part = 3")).isEqualTo(1.0);
         }
     }
 
