@@ -34,6 +34,8 @@ import static io.trino.spi.block.Bitmap.setBits;
 import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static io.trino.spi.block.BlockUtil.calculateBlockResetBytes;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
+import static io.trino.spi.block.BlockUtil.checkValidArrayGrowth;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.checkIndex;
@@ -47,6 +49,7 @@ public class VariableWidthBlockBuilder
 
     private final BlockBuilderStatus blockBuilderStatus;
 
+    private boolean initialized;
     private final int initialEntryCount;
     private final int initialSliceOutputSize;
 
@@ -407,7 +410,17 @@ public class VariableWidthBlockBuilder
             return;
         }
 
-        int newSize = calculateNewArraySize(capacity, initialEntryCount);
+        int newSize;
+        if (initialized) {
+            newSize = calculateNewArraySize(capacity);
+        }
+        else {
+            checkValidArrayGrowth(capacity, initialEntryCount);
+            newSize = initialEntryCount;
+            initialized = true;
+        }
+        newSize = max(newSize, capacity);
+
         if (valueIsValid != null) {
             valueIsValid = Bitmap.ensureCapacity(valueIsValid, newSize);
         }

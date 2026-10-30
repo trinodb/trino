@@ -56,12 +56,7 @@ final class BlockUtil
         }
     }
 
-    static int calculateNewArraySize(int currentSize)
-    {
-        return calculateNewArraySize(currentSize, DEFAULT_CAPACITY);
-    }
-
-    static int calculateNewArraySize(int currentSize, int minimumSize)
+    static void checkValidArrayGrowth(int currentSize, int minimumSize)
     {
         if (currentSize < 0 || currentSize > MAX_ARRAY_SIZE || minimumSize < 0 || minimumSize > MAX_ARRAY_SIZE) {
             throw new IllegalArgumentException("Invalid currentSize or minimumSize");
@@ -69,6 +64,16 @@ final class BlockUtil
         if (currentSize == MAX_ARRAY_SIZE) {
             throw new IllegalArgumentException("Cannot grow array beyond size " + MAX_ARRAY_SIZE);
         }
+    }
+
+    static int calculateNewArraySize(int currentSize)
+    {
+        return calculateNewArraySize(currentSize, DEFAULT_CAPACITY);
+    }
+
+    static int calculateNewArraySize(int currentSize, int minimumSize)
+    {
+        checkValidArrayGrowth(currentSize, minimumSize);
 
         minimumSize = Math.max(minimumSize, DEFAULT_CAPACITY);
 
