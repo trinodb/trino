@@ -22,12 +22,12 @@ public class IcebergManifestUtils
 {
     private IcebergManifestUtils() {}
 
-    public static List<ManifestFile> read(FileIO fileIO, String manifestListLocation)
+    public static List<ManifestFile> read(FileIO fileIO, Snapshot snapshot)
     {
         // Avoid using snapshot.allManifests() when processing multiple snapshots,
         // as each Snapshot instance internally caches `org.apache.iceberg.BaseSnapshot.allManifests`
         // and leads to high memory usage
-        return ManifestLists.read(fileIO.newInputFile(manifestListLocation));
+        return ManifestLists.read(ManifestLists.newInputFile(fileIO, new BaseManifestListFile(snapshot.manifestListLocation(), snapshot.keyId())));
     }
 
     public static <F extends ContentFile<F>> CloseableIterable<ContentFile<F>> liveEntries(ManifestReader<F> manifestReader)
