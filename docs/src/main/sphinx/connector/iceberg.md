@@ -1145,6 +1145,70 @@ The output of the query has the following metrics:
   - The count of statistics files removed by drop_extended_stats.
 :::
 
+(compute-partition-stats)=
+##### compute_partition_stats
+
+The `compute_partition_stats` command computes the Iceberg partition statistics
+file of a snapshot of a partitioned table and registers it in the table
+metadata. The connector and other engines use it, as described in
+{ref}`iceberg-partition-statistics`. If the most recent previous snapshot with a
+partition statistics file has one in the Avro or Parquet format, the command
+continues from it and reads only the manifests added since, otherwise it reads
+all manifests. Trino writes the file in the table's default file format. Tables
+with the ORC file format are not supported, because the Iceberg library has no
+ORC implementation for partition statistics files. The command runs on the
+coordinator, and reads manifests with the worker thread pool of the Iceberg
+library.
+
+A file computed from a previous one keeps the partitions whose rows were all
+removed since, without rows, so the file grows with the number of partitions
+ever written. To compute the file from all manifests again, run
+{ref}`drop_partition_stats <drop-partition-stats>` and then
+`compute_partition_stats`.
+
+`compute_partition_stats` can be run as follows for the current snapshot:
+
+```sql
+ALTER TABLE test_table EXECUTE compute_partition_stats;
+```
+
+The optional `snapshot_id` parameter selects another snapshot of the table:
+
+```sql
+ALTER TABLE test_table EXECUTE compute_partition_stats(snapshot_id => 8954597067493422955);
+```
+
+The command does nothing if the snapshot already has a partition statistics
+file, or if the table has no snapshot. It fails for tables that are not
+partitioned, and for snapshots that do not exist. It returns no output.
+
+(drop-partition-stats)=
+##### drop_partition_stats
+
+The `drop_partition_stats` command removes all Iceberg partition statistics
+files from the table metadata, which returns row count estimates to the metadata
+of the data files. It does not remove the statistics collected by `ANALYZE`, and
+{ref}`drop_extended_stats <drop-extended-stats>` does not remove partition
+statistics files.
+
+`drop_partition_stats` can be run as follows:
+
+```sql
+ALTER TABLE test_table EXECUTE drop_partition_stats;
+```
+
+The output of the query has the following metrics:
+
+:::{list-table} Output
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `removed_partition_statistics_count`
+  - The count of partition statistics files removed by drop_partition_stats.
+:::
+
 (iceberg-alter-table-set-properties)=
 #### ALTER TABLE SET PROPERTIES
 
@@ -2313,14 +2377,14 @@ view is stale.
 
 You can perform physical maintenance of the storage table with {ref}`ALTER
 MATERIALIZED VIEW EXECUTE <alter-materialized-view-execute>`. The `optimize`,
-`optimize_manifests`, `expire_snapshots`, `remove_orphan_files`, and
-`drop_extended_stats` procedures are supported. The `rollback_to_snapshot`,
-`add_files`, and `add_files_from_table` procedures are rejected, because they
-would desynchronize the storage table from the materialized view. Running a
-procedure requires the privilege to execute that procedure against the
-materialized view. The procedure preserves the metadata used to determine
-freshness, so a subsequent `REFRESH MATERIALIZED VIEW` can still be
-incremental:
+`optimize_manifests`, `expire_snapshots`, `remove_orphan_files`,
+`drop_extended_stats`, `compute_partition_stats`, and `drop_partition_stats`
+procedures are supported. The `rollback_to_snapshot`, `add_files`, and
+`add_files_from_table` procedures are rejected, because they would desynchronize
+the storage table from the materialized view. Running a procedure requires the
+privilege to execute that procedure against the materialized view. The procedure
+preserves the metadata used to determine freshness, so a subsequent `REFRESH
+MATERIALIZED VIEW` can still be incremental:
 
 ```
 ALTER MATERIALIZED VIEW mv_name EXECUTE optimize
@@ -2508,10 +2572,10 @@ before re-analyzing.
 
 If the scanned snapshot of a table has an Iceberg partition statistics file, the
 connector estimates the row count from that file instead of reading the metadata
-of every data file. Such a file is written, for example, by the Spark
-`compute_partition_stats` procedure. Partition statistics files in the Avro and
-Parquet formats are read, and files in other formats, including ORC, are
-ignored.
+of every data file. Such a file is written by the {ref}`compute_partition_stats
+<compute-partition-stats>` command, or by the Spark procedure of the same name.
+Partition statistics files in the Avro and Parquet formats are read, and files
+in other formats, including ORC, are ignored.
 
 Without a predicate, the row count comes from the snapshot summary, unless the
 table has format version 3 and the snapshot has position deletes. Otherwise, the
@@ -2526,7 +2590,8 @@ for such predicates can be higher than with full metadata reads. Null fractions
 and data sizes are estimated from a sample of at most 1000 data files, and
 minimum and maximum values are not available. Predicates on the `$path` column
 still read the metadata of all data files. The `statistics_enabled` catalog
-session property still disables all statistics.
+session property still disables all statistics. To return to full metadata
+reads, run the {ref}`drop_partition_stats <drop-partition-stats>` command.
 
 This behavior is enabled by default and applies when the scan would otherwise
 read the metadata of at least `iceberg.partition-statistics.min-data-files` data

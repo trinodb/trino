@@ -64,6 +64,7 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.FileFormat.AVRO;
+import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Execution(ExecutionMode.SAME_THREAD)
@@ -308,6 +309,69 @@ public class TestIcebergPartitionStatisticsFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .build());
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = FileFormat.class, names = {"AVRO", "PARQUET"})
+    public void testComputePartitionStatsIsIncremental(FileFormat predecessorFormat)
+            throws Exception
+    {
+        String table = "test_compute_incremental_" + predecessorFormat.name().toLowerCase(ENGLISH);
+        assertUpdate("CREATE TABLE " + table + " (id integer, part integer) WITH (format_version = 2, partitioning = ARRAY['part'])");
+        assertUpdate("INSERT INTO " + table + " VALUES (1, 1), (2, 2)", 2);
+        assertUpdate("INSERT INTO " + table + " VALUES (3, 1)", 1);
+        // the predecessor, written by the library's built-in writers in the given format
+        writePartitionStatistics(table, predecessorFormat);
+        assertUpdate("INSERT INTO " + table + " VALUES (4, 3)", 1);
+
+        // a full computation would read all three manifests and no statistics file; this one reads the statistics
+        // file of the parent snapshot and only the manifest of the new snapshot
+        Multiset<FileOperation> before = getOperations(getDistributedQueryRunner().getSpans());
+        assertUpdate("ALTER TABLE " + table + " EXECUTE compute_partition_stats");
+        Multiset<FileOperation> reads = ImmutableMultiset.copyOf(Multisets.filter(
+                Multisets.difference(getOperations(getDistributedQueryRunner().getSpans()), before),
+                operation -> operation.operationType().startsWith("InputFile.") && (operation.fileType() == MANIFEST || operation.fileType() == PARTITION_STATS)));
+        assertMultisetsEqual(
+                reads,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(PARTITION_STATS, predecessorFormat == AVRO ? "InputFile.newStream" : "InputFile.newInput"))
+                        // the size of the predecessor and of the file written
+                        .addCopies(new FileOperation(PARTITION_STATS, "InputFile.length"), 2)
+                        .build());
+        assertThat(showStatsRowCount(table + " WHERE part = 1")).isEqualTo(2.0);
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
+    public void testDropPartitionStatsRestoresManifestReads()
+    {
+        String table = "test_drop_partition_stats_reads";
+        assertUpdate("CREATE TABLE " + table + " (id integer, part integer) WITH (format_version = 2, partitioning = ARRAY['part'])");
+        assertUpdate("INSERT INTO " + table + " VALUES (1, 1), (2, 2)", 2);
+        assertUpdate("INSERT INTO " + table + " VALUES (3, 1)", 1);
+        assertUpdate("INSERT INTO " + table + " VALUES (4, 3)", 1);
+        assertUpdate("ALTER TABLE " + table + " EXECUTE compute_partition_stats");
+
+        // with the file, written in the default table format, the partition statistics are read and one manifest is sampled
+        assertFileSystemAccesses("SHOW STATS FOR (SELECT * FROM " + table + " WHERE part = 1)", ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                .addAll(partitionStatisticsReads(PARQUET))
+                .build());
+
+        assertUpdate("ALTER TABLE " + table + " EXECUTE drop_partition_stats");
+
+        // without it, the manifests that may contain the partition are read: not that of the last insert
+        assertFileSystemAccesses("SHOW STATS FOR (SELECT * FROM " + table + " WHERE part = 1)", ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                .build());
         assertUpdate("DROP TABLE " + table);
     }
 
