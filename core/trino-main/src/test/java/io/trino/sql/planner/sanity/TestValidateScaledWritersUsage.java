@@ -52,6 +52,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_D
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -89,7 +90,8 @@ public class TestValidateScaledWritersUsage
         TableHandle nationTableHandle = new TableHandle(
                 catalog,
                 new TpchTableHandle("sf1", "nation", 1.0),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                TEST_RESOLVING_IDENTITY);
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         symbol = new Symbol(UNKNOWN, "nationkey");
         tableScanNode = planBuilder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle));

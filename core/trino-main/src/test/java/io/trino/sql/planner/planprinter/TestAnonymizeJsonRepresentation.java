@@ -61,6 +61,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.aggregation;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -172,7 +173,8 @@ public class TestAnonymizeJsonRepresentation
                         new TableHandle(
                                 queryRunner.getPlannerContext().getMetadata().getCatalogHandle(pb.getSession(), "tpch").orElseThrow(),
                                 new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
-                                TpchTransactionHandle.INSTANCE),
+                                TpchTransactionHandle.INSTANCE,
+                                TEST_RESOLVING_IDENTITY),
                         ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", BIGINT), pb.symbol("c", BIGINT), pb.symbol("d", BIGINT)),
                         ImmutableMap.of(
                                 pb.symbol("a", BIGINT), TEST_COLUMN_HANDLE_A,

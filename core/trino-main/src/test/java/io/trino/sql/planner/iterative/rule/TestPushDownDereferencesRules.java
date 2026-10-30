@@ -89,6 +89,7 @@ import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.type.JsonType.JSON;
 import static java.util.Collections.singletonList;
 
@@ -338,7 +339,8 @@ public class TestPushDownDereferencesRules
         TableHandle testTable = new TableHandle(
                 TEST_CATALOG_HANDLE,
                 new TpchTableHandle("sf1", "orders", 1.0),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                TEST_RESOLVING_IDENTITY);
 
         RowType nestedRowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("nested"), ROW_TYPE)));
         tester().assertThat(new ExtractDereferencesFromFilterAboveScan())

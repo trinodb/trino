@@ -45,6 +45,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 
 public class TestPushTopNThroughProject
         extends BaseRuleTest
@@ -126,7 +127,8 @@ public class TestPushTopNThroughProject
         TableHandle nationTableHandle = new TableHandle(
                 tester().getCurrentCatalogHandle(),
                 new TpchTableHandle("sf1", "nation", 1.0),
-                TpchTransactionHandle.INSTANCE);
+                TpchTransactionHandle.INSTANCE,
+                TEST_RESOLVING_IDENTITY);
 
         ColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
 
@@ -162,7 +164,8 @@ public class TestPushTopNThroughProject
         TableHandle nationTableHandle = new TableHandle(
                 tester().getCurrentCatalogHandle(),
                 new TpchTableHandle("sf1", "nation", 1.0),
-                TpchTransactionHandle.INSTANCE);
+                TpchTransactionHandle.INSTANCE,
+                TEST_RESOLVING_IDENTITY);
 
         ColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
 

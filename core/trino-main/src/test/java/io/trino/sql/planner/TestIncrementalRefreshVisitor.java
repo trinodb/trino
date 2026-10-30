@@ -43,6 +43,7 @@ import java.util.Optional;
 import static io.trino.spi.RefreshType.FULL;
 import static io.trino.spi.RefreshType.INCREMENTAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestIncrementalRefreshVisitor
@@ -133,7 +134,8 @@ class TestIncrementalRefreshVisitor
         TableHandle tableHandle = new TableHandle(
                 GlobalSystemConnector.CATALOG_HANDLE,
                 new SystemTableHandle("jdbc", "tables", TupleDomain.all()),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                TEST_RESOLVING_IDENTITY);
         return new TableScanNode(
                 new PlanNodeId("tableScan"),
                 tableHandle,

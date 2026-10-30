@@ -57,6 +57,7 @@ import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.BuiltinFunctionCallBuilder.resolve;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 
 public class TestRemoveRedundantPredicateAboveTableScan
         extends BaseRuleTest
@@ -78,13 +79,15 @@ public class TestRemoveRedundantPredicateAboveTableScan
         nationTableHandle = new TableHandle(
                 catalogHandle,
                 nation,
-                TpchTransactionHandle.INSTANCE);
+                TpchTransactionHandle.INSTANCE,
+                TEST_RESOLVING_IDENTITY);
 
         TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
                 catalogHandle,
                 orders,
-                TpchTransactionHandle.INSTANCE);
+                TpchTransactionHandle.INSTANCE,
+                TEST_RESOLVING_IDENTITY);
     }
 
     @Test
