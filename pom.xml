@@ -2191,12 +2191,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.rnorth.duct-tape</groupId>
-                <artifactId>duct-tape</artifactId>
-                <version>1.0.8</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.roaringbitmap</groupId>
                 <artifactId>RoaringBitmap</artifactId>
                 <version>1.6.25</version>
