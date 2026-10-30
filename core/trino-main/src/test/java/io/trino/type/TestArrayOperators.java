@@ -89,6 +89,7 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -4283,6 +4284,23 @@ public class TestArrayOperators
         assertThat(assertions.function("array_union", "ARRAY[1, NaN(), 3]", "ARRAY[1, NaN()]"))
                 .hasType(new ArrayType(DOUBLE))
                 .isEqualTo(ImmutableList.of(1.0, NaN, 3.0));
+
+        assertThat(assertions.function("array_union", "ARRAY[1, 2]", "ARRAY[2, 3]", "ARRAY[3, 4]"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(1, 2, 3, 4));
+
+        assertThat(assertions.function("array_union", "ARRAY[CAST(1 AS BIGINT), NULL]", "ARRAY[NULL, CAST(2 AS BIGINT)]", "ARRAY[CAST(2 AS BIGINT), CAST(3 AS BIGINT)]"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(asList(1L, null, 2L, 3L));
+
+        assertThat(assertions.function("array_union", "ARRAY['a', 'b']", "ARRAY['b']", "ARRAY['c', 'a']", "ARRAY[]"))
+                .hasType(new ArrayType(createVarcharType(1)))
+                .isEqualTo(ImmutableList.of("a", "b", "c"));
+
+        String[] arguments = range(0, 32).mapToObj(i -> "ARRAY[CAST(%d AS BIGINT), CAST(%d AS BIGINT)]".formatted(i, i + 1)).toArray(String[]::new);
+        assertThat(assertions.function("array_union", arguments))
+                .hasType(new ArrayType(BIGINT))
+                .matches("SEQUENCE(0, 32)");
     }
 
     @Test

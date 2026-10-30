@@ -90,8 +90,8 @@ Remove duplicate values from the array `x`.
 Returns an array of the elements in the intersection of `x` and `y`, without duplicates.
 :::
 
-:::{function} array_union(x, y) -> array
-Returns an array of the elements in the union of `x` and `y`, without duplicates.
+:::{function} array_union(array1, array2, ..., arrayN) -> array
+Returns an array of the elements in the union of `array1`, `array2`, `...`, `arrayN`, without duplicates.
 :::
 
 :::{function} array_except(x, y) -> array

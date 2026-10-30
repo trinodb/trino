@@ -570,7 +570,7 @@ public final class SystemFunctionBundle
                 .scalar(ArrayDistinctFunction.class)
                 .scalar(ArrayIntersectFunction.class)
                 .scalar(ArraysOverlapFunction.class)
-                .scalar(ArrayUnionFunction.class)
+                .function(new ArrayUnionFunction(blockTypeOperators))
                 .scalar(ArrayExceptFunction.class)
                 .scalar(ArraySliceFunction.class)
                 .scalar(ArrayTrimFunction.class)
