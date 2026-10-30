@@ -113,6 +113,7 @@ import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.intType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
@@ -286,6 +287,36 @@ public class TestTupleDomainParquetPredicate
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, TINYINT, 10, longColumnStats(2147483648L, 10), ID, UTC))
                 .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 TinyintColumn\": [min: 2147483648, max: 10, num_nulls: 0] [testFile]");
+    }
+
+    @Test
+    public void testUnsignedInteger()
+            throws ParquetCorruptionException
+    {
+        // A file orders the statistics of an unsigned column as unsigned, while the reader returns the stored bits as a signed value
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(INT32, intType(32, false), "UnsignedIntegerColumn");
+        assertThat(getDomain(columnDescriptor, BIGINT, 10, intColumnStats(0, 0), ID, UTC)).isEqualTo(singleValue(BIGINT, 0L));
+        assertThat(getDomain(columnDescriptor, BIGINT, 10, intColumnStats(0, 100), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(BIGINT, 0L, true, 100L, true)), false));
+        // 3000000000 and 4294967295 are read as -1294967296 and -1
+        assertThat(getDomain(columnDescriptor, BIGINT, 10, intColumnStats((int) 3000000000L, (int) 4294967295L), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(BIGINT, -1294967296L, true, -1L, true)), false));
+
+        // 0 and 4294967295 straddle the sign bit, so the values between them are read on both sides of zero
+        assertThat(getDomain(columnDescriptor, BIGINT, 10, intColumnStats(0, (int) 4294967295L), ID, UTC)).isEqualTo(notNull(BIGINT));
+        assertThat(getDomain(columnDescriptor, INTEGER, 10, intColumnStats(0, (int) 4294967295L), ID, UTC)).isEqualTo(notNull(INTEGER));
+        assertThat(getDomain(columnDescriptor, createDecimalType(10, 0), 10, intColumnStats(0, (int) 4294967295L), ID, UTC)).isEqualTo(notNull(createDecimalType(10, 0)));
+        // as do 0 and 18446744073709551615, stored as the bits of -1
+        ColumnDescriptor unsignedBigintDescriptor = createColumnDescriptor(INT64, intType(64, false), "UnsignedBigintColumn");
+        assertThat(getDomain(unsignedBigintDescriptor, BIGINT, 10, longColumnStats(0, -1), ID, UTC)).isEqualTo(notNull(BIGINT));
+
+        // bounds inverted in unsigned order too are corrupted
+        assertThatExceptionOfType(ParquetCorruptionException.class)
+                .isThrownBy(() -> getDomain(columnDescriptor, BIGINT, 10, intColumnStats(10, 5), ID, UTC))
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 UnsignedIntegerColumn (INTEGER(32,false))\": [min: 10, max: 5, num_nulls: 0] [testFile]");
+        // as are the bounds 1 and -1 in a signed column
+        ColumnDescriptor signedDescriptor = createColumnDescriptor(INT32, intType(32, true), "SignedIntegerColumn");
+        assertThatExceptionOfType(ParquetCorruptionException.class)
+                .isThrownBy(() -> getDomain(signedDescriptor, BIGINT, 10, intColumnStats(1, -1), ID, UTC))
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 SignedIntegerColumn (INTEGER(32,true))\": [min: 1, max: -1, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -931,6 +962,38 @@ public class TestTupleDomainParquetPredicate
                         true));
     }
 
+    @Test
+    public void testUnsignedIntegerColumnIndex()
+            throws Exception
+    {
+        PrimitiveType unsignedType = Types.required(INT32).as(intType(32, false)).named("test_uint32");
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, unsignedType, 0, 0);
+        // pages holding 1 to 2 and 3000000000 to 4294967295, which are read as -1294967296 to -1
+        ColumnIndex columnIndex = ColumnIndexBuilder.build(
+                unsignedType,
+                BoundaryOrder.ASCENDING,
+                asList(false, false),
+                asList(0L, 0L),
+                toIntByteBufferList(1, (int) 3000000000L),
+                toIntByteBufferList(2, (int) 4294967295L));
+        assertThat(getDomain(BIGINT, 200, columnIndex, ID, column, UTC))
+                .isEqualTo(Domain.create(
+                        ValueSet.ofRanges(
+                                range(BIGINT, -1294967296L, true, -1L, true),
+                                range(BIGINT, 1L, true, 2L, true)),
+                        false));
+
+        // the bounds of the second page straddle the sign bit, and the first page holds a null
+        columnIndex = ColumnIndexBuilder.build(
+                unsignedType,
+                BoundaryOrder.UNORDERED,
+                asList(false, false, false),
+                asList(1L, 0L, 0L),
+                toIntByteBufferList(1, 1, 3),
+                toIntByteBufferList(2, (int) 4294967295L, 4));
+        assertThat(getDomain(BIGINT, 200, columnIndex, ID, column, UTC)).isEqualTo(Domain.all(BIGINT));
+    }
+
     private ColumnDescriptor createColumnDescriptor(PrimitiveTypeName typeName, String columnName)
     {
         return new ColumnDescriptor(new String[] {}, new PrimitiveType(REQUIRED, typeName, columnName), 0, 0);
@@ -1064,6 +1127,15 @@ public class TestTupleDomainParquetPredicate
             else {
                 buffers.add(ByteBuffer.wrap(BytesUtils.longToBytes(value)));
             }
+        }
+        return buffers;
+    }
+
+    private static List<ByteBuffer> toIntByteBufferList(int... values)
+    {
+        List<ByteBuffer> buffers = new ArrayList<>(values.length);
+        for (int value : values) {
+            buffers.add(ByteBuffer.wrap(BytesUtils.intToBytes(value)));
         }
         return buffers;
     }

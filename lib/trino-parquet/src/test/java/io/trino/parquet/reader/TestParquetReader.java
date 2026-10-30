@@ -107,6 +107,7 @@ import static java.util.Collections.singletonList;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.parquet.hadoop.ParquetFileWriter.Mode.OVERWRITE;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.intType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.timestampType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
@@ -963,6 +964,40 @@ public class TestParquetReader
             }
         }
         return values.build();
+    }
+
+    @Test
+    public void testUnsignedIntegerStatisticsAcrossSignBit(@TempDir Path directory)
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .required(INT32).as(intType(32, false)).named("value")
+                .named("test");
+        File file = directory.resolve("unsigned.parquet").toFile();
+        try (ParquetWriter<Group> writer = ExampleParquetWriter.builder(new LocalOutputFile(file.toPath()))
+                .withType(schema)
+                .withWriteMode(OVERWRITE)
+                .withDictionaryEncoding(false)
+                .withPageRowCountLimit(2)
+                // the page row count limit is only enforced when the page size is checked, by default after 100 rows
+                .withMinRowCountForPageSizeCheck(1)
+                .build()) {
+            SimpleGroupFactory factory = new SimpleGroupFactory(schema);
+            for (long value : ImmutableList.of(1L, 2L, 3000000000L, 4294967295L, 3L, 3000000000L)) {
+                writer.write(factory.newGroup().append("value", (int) value));
+            }
+        }
+
+        // The bounds of the row group and of the third page straddle the sign bit, so they arrive inverted,
+        // while the bounds of the second page do not, so that page is still skipped
+        ImmutableList.Builder<Long> values = ImmutableList.builder();
+        try (ParquetReader reader = createFilteredParquetReader(file, ImmutableList.of(BIGINT), ImmutableList.of("value"), TupleDomain.withColumnDomains(ImmutableMap.of("value", Domain.singleValue(BIGINT, 1L))))) {
+            for (SourcePage page = reader.nextPage(); page != null; page = reader.nextPage()) {
+                values.addAll(blockValues(page.getBlock(0)));
+            }
+            assertThat(((Count<?>) reader.getMetrics().getMetrics().get(COLUMN_INDEX_ROWS_FILTERED)).getTotal()).isEqualTo(2);
+        }
+        assertThat(values.build()).hasSize(4).startsWith(1L, 2L, 3L);
     }
 
     private static List<Long> blockValues(Block block)
