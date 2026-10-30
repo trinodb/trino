@@ -155,6 +155,22 @@ public class TestFairScheduler
     }
 
     @Test
+    public void testRunnerFailureFailsFuture()
+    {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1)) {
+            Group group = scheduler.createGroup("G1");
+
+            ListenableFuture<Void> done = scheduler.submit(group, 1, _ -> {
+                throw new RuntimeException("runner failed");
+            });
+
+            assertThatThrownBy(done::get)
+                    .isInstanceOf(ExecutionException.class)
+                    .hasRootCauseMessage("runner failed");
+        }
+    }
+
+    @Test
     @Timeout(5)
     public void testYield()
             throws ExecutionException, InterruptedException

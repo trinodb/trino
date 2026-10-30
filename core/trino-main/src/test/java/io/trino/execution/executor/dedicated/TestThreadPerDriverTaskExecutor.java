@@ -30,6 +30,8 @@ import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.scheduler.FairScheduler;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -451,6 +453,29 @@ public class TestThreadPerDriverTaskExecutor
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @Timeout(10)
+    public void testSplitFailureFailsSplitFuture(boolean intermediate)
+    {
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(new TaskManagerConfig(), noopTracer(), testingVersionEmbedder());
+        executor.start();
+
+        try {
+            TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
+            TaskHandle task = executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            ListenableFuture<Void> splitDone = executor.enqueueSplits(task, intermediate, ImmutableList.of(new PipelineSpanFailingSplitRunner())).get(0);
+
+            assertThatThrownBy(splitDone::get)
+                    .isInstanceOf(ExecutionException.class)
+                    .hasRootCauseMessage("pipeline span failed");
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
     @Test
     @Timeout(10)
     public void testYielding()
@@ -541,7 +566,7 @@ public class TestThreadPerDriverTaskExecutor
         }
 
         @Override
-        public final Span getPipelineSpan()
+        public Span getPipelineSpan()
         {
             return Span.getInvalid();
         }
@@ -606,6 +631,21 @@ public class TestThreadPerDriverTaskExecutor
         {
             super.close();
             throw new RuntimeException("close failed");
+        }
+    }
+
+    private static class PipelineSpanFailingSplitRunner
+            extends TestingSplitRunner
+    {
+        public PipelineSpanFailingSplitRunner()
+        {
+            super(ImmutableList.of(_ -> Futures.immediateVoidFuture()));
+        }
+
+        @Override
+        public Span getPipelineSpan()
+        {
+            throw new RuntimeException("pipeline span failed");
         }
     }
 }
