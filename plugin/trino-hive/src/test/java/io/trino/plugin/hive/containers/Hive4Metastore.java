@@ -88,6 +88,16 @@ public class Hive4Metastore
         return URI.create("thrift://" + address.getHost() + ":" + address.getPort());
     }
 
+    /**
+     * Endpoint of a metastore started with {@code hive.metastore.server.thrift.transport.mode=http}.
+     */
+    public URI getHiveMetastoreHttpEndpoint(boolean https)
+    {
+        HostAndPort address = getMappedHostAndPortForExposedPort(HIVE_METASTORE_PORT);
+        String scheme = https ? "https" : "http";
+        return URI.create("%s://%s:%s/metastore".formatted(scheme, address.getHost(), address.getPort()));
+    }
+
     public URI getInternalHiveMetastoreEndpoint()
     {
         return URI.create("thrift://" + HOST_NAME + ":" + HIVE_METASTORE_PORT);

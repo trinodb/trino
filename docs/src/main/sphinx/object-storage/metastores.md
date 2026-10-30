@@ -113,14 +113,16 @@ properties:
     If a comma-separated list of URIs is provided, the first URI is used by
     default, and the rest of the URIs are fallback metastores. This property
     is required. Example: `thrift://192.0.2.3:9083` or
-    `thrift://192.0.2.3:9083,thrift://192.0.2.4:9083`
+    `thrift://192.0.2.3:9083,thrift://192.0.2.4:9083`. Use `http://` or
+    `https://` URIs to connect to a metastore that serves Thrift over HTTP, see
+    [](hive-thrift-metastore-http).
   -
 * - `hive.metastore.username`
   - The username Trino uses to access the Hive metastore.
   -
 * - `hive.metastore.authentication.type`
-  - Hive metastore authentication type. Possible values are `NONE` or
-    `KERBEROS`.
+  - Hive metastore authentication type. Possible values are `NONE`,
+    `KERBEROS`, or `BEARER`.
   - `NONE`
 * - `hive.metastore.thrift.client.connect-timeout`
   - Socket connect timeout for metastore client.
@@ -241,6 +243,53 @@ following conditions are met:
   on Iceberg 1.3 or later, and disabled Hive locks on commit.
 :::
 
+(hive-thrift-metastore-http)=
+### Thrift metastore over HTTP
+
+A Hive metastore configured with
+`hive.metastore.server.thrift.transport.mode=http` in `hive-site.xml` serves
+the Thrift API over HTTP or HTTPS instead of a Thrift socket. To connect to it,
+use `http://` or `https://` URIs in `hive.metastore.uri`, including the path of
+the metastore HTTP endpoint, for example
+`https://metastore.example.com:9083/metastore`. All URIs must use the same
+scheme.
+
+The `hive.metastore.thrift.*` properties apply to HTTP connections too,
+including timeouts and retries. For `https://` URIs, configure the trust store
+with `hive.metastore.thrift.client.ssl.trust-certificate` and
+`hive.metastore.thrift.client.ssl.trust-certificate-password` if the metastore
+certificate is not trusted by the JVM default trust store, and the client key
+with `hive.metastore.thrift.client.ssl.key` and
+`hive.metastore.thrift.client.ssl.key-password` if the metastore requires a
+client certificate. `https://` URIs do not require
+`hive.metastore.thrift.client.ssl.enabled`. Kerberos authentication, metastore
+impersonation, SOCKS proxies, and `hive.metastore.username` are not supported
+over HTTP.
+
+The metastore identifies the caller from HTTP headers. A metastore with JWT
+authentication expects a bearer token: set `hive.metastore.authentication.type`
+to `BEARER` and the token in `hive.metastore.http.client.bearer-token`. `BEARER`
+authentication requires `https://` URIs. Otherwise, the metastore expects the
+user name in the `x-actor-username` header, which you can set with
+`hive.metastore.http.client.additional-headers`.
+
+:::{list-table} Thrift metastore HTTP configuration properties
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `hive.metastore.http.client.additional-headers`
+  - Additional HTTP headers to send with every metastore request, as a
+    comma-separated list of `name:value` pairs. For example,
+    `x-actor-username:trino,header2:value2`. Escape a comma (`,`) or colon (`:`)
+    in a header name or value with a backslash (`\`).
+* - `hive.metastore.http.client.bearer-token`
+  - Bearer token sent in the `Authorization` header to authenticate with a
+    metastore using JWT authentication. Required when
+    `hive.metastore.authentication.type` is `BEARER`, and not allowed otherwise.
+:::
+
 (hive-thrift-metastore-authentication)=
 ### Thrift metastore authentication
 
@@ -258,12 +307,15 @@ properties:
   - Description
   - Default
 * - `hive.metastore.authentication.type`
-  - Hive metastore authentication type. One of `NONE` or `KERBEROS`. When using
-    the default value of `NONE`, Kerberos authentication is disabled, and no
-    other properties must be configured.
+  - Hive metastore authentication type. One of `NONE`, `KERBEROS`, or `BEARER`.
+    When using the default value of `NONE`, Kerberos authentication is
+    disabled, and no other properties must be configured.
 
     When set to `KERBEROS` the Hive connector connects to the Hive metastore
     Thrift service using SASL and authenticate using Kerberos.
+
+    When set to `BEARER` the Hive connector sends a bearer token to a metastore
+    that serves Thrift over HTTPS, see [](hive-thrift-metastore-http).
   - `NONE`
 * - `hive.metastore.thrift.impersonation.enabled`
   - Enable Hive metastore end user impersonation. See
