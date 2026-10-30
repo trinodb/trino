@@ -189,6 +189,55 @@ public class TestTupleDomainParquetPredicate
     }
 
     @Test
+    public void testBloomFilterOfIntegerColumn()
+            throws Exception
+    {
+        long realValue = floatToRawIntBits(1.5f);
+
+        // The filter holds hashes of the stored integers, so a lookup as anything but an integer of the same width must not prune
+        assertThat(matchesEmptyBloomFilter(INT32, BIGINT, 1L)).isTrue();
+        for (Type type : List.of(TINYINT, SMALLINT, INTEGER, DATE)) {
+            assertThat(matchesEmptyBloomFilter(INT64, type, 1L)).isTrue();
+        }
+        for (PrimitiveTypeName physicalType : List.of(INT32, INT64)) {
+            assertThat(matchesEmptyBloomFilter(physicalType, REAL, realValue)).isTrue();
+            assertThat(matchesEmptyBloomFilter(physicalType, DOUBLE, 1.5)).isTrue();
+            assertThat(matchesEmptyBloomFilter(physicalType, createUnboundedVarcharType(), utf8Slice("value"))).isTrue();
+        }
+
+        // while a lookup as an integer of the same width prunes
+        assertThat(matchesEmptyBloomFilter(INT64, BIGINT, 1L)).isFalse();
+        for (Type type : List.of(TINYINT, SMALLINT, INTEGER, DATE)) {
+            assertThat(matchesEmptyBloomFilter(INT32, type, 1L)).isFalse();
+        }
+
+        // and the filters of other columns are not affected
+        assertThat(matchesEmptyBloomFilter(FLOAT, REAL, realValue)).isFalse();
+        assertThat(matchesEmptyBloomFilter(PrimitiveTypeName.DOUBLE, DOUBLE, 1.5)).isFalse();
+        assertThat(matchesEmptyBloomFilter(BINARY, createUnboundedVarcharType(), utf8Slice("value"))).isFalse();
+    }
+
+    private static boolean matchesEmptyBloomFilter(PrimitiveTypeName physicalType, Type type, Object value)
+            throws Exception
+    {
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"column"}, Types.required(physicalType).named("column"), 0, 0);
+        BloomFilterStore store = new BloomFilterStore(
+                new TestingParquetDataSource(EMPTY_SLICE, ParquetReaderOptions.defaultOptions()),
+                new BlockMetadata(0, 10, List.of()),
+                Set.of(),
+                Optional.empty())
+        {
+            @Override
+            public Optional<BloomFilter> getBloomFilter(ColumnPath columnPath)
+            {
+                return Optional.of(new BlockSplitBloomFilter(1024));
+            }
+        };
+        TupleDomainParquetPredicate predicate = new TupleDomainParquetPredicate(withColumnDomains(ImmutableMap.of(column, singleValue(type, value))), List.of(column), UTC);
+        return predicate.matches(store, 256);
+    }
+
+    @Test
     public void testBoolean()
             throws ParquetCorruptionException
     {
@@ -307,6 +356,13 @@ public class TestTupleDomainParquetPredicate
         // as do 0 and 18446744073709551615, stored as the bits of -1
         ColumnDescriptor unsignedBigintDescriptor = createColumnDescriptor(INT64, intType(64, false), "UnsignedBigintColumn");
         assertThat(getDomain(unsignedBigintDescriptor, BIGINT, 10, longColumnStats(0, -1), ID, UTC)).isEqualTo(notNull(BIGINT));
+
+        // a decimal with a scale is left out, as the reader rescales its values but not these bounds
+        for (Type decimalType : List.of(createDecimalType(10, 1), createDecimalType(20, 1))) {
+            assertThatExceptionOfType(ParquetCorruptionException.class)
+                    .isThrownBy(() -> getDomain(columnDescriptor, decimalType, 10, intColumnStats(0, (int) 4294967295L), ID, UTC))
+                    .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 UnsignedIntegerColumn (INTEGER(32,false))\": [min: 0, max: -1, num_nulls: 0] [testFile]");
+        }
 
         // bounds inverted in unsigned order too are corrupted
         assertThatExceptionOfType(ParquetCorruptionException.class)
@@ -992,6 +1048,12 @@ public class TestTupleDomainParquetPredicate
                 toIntByteBufferList(1, 1, 3),
                 toIntByteBufferList(2, (int) 4294967295L, 4));
         assertThat(getDomain(BIGINT, 200, columnIndex, ID, column, UTC)).isEqualTo(Domain.all(BIGINT));
+
+        // a decimal with a scale is left out, as the reader rescales its values but not these bounds
+        ColumnIndex straddlingColumnIndex = columnIndex;
+        assertThatExceptionOfType(ParquetCorruptionException.class)
+                .isThrownBy(() -> getDomain(createDecimalType(10, 1), 200, straddlingColumnIndex, ID, column, UTC))
+                .withMessageContaining("Corrupted statistics");
     }
 
     private ColumnDescriptor createColumnDescriptor(PrimitiveTypeName typeName, String columnName)
