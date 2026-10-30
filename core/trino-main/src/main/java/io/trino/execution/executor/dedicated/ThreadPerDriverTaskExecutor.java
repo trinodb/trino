@@ -396,8 +396,9 @@ public class ThreadPerDriverTaskExecutor
         // Start the splits outside all locks. Thread creation is slow on an overloaded worker.
         for (int i = 0; i < claimed.size(); i++) {
             ClaimedLeafSplit split = claimed.get(i);
+            boolean finishedOnStart;
             try {
-                split.task().startLeafSplit(split.split(), leafSplitDoneCallback);
+                finishedOnStart = split.task().startLeafSplit(split.split(), leafSplitDoneCallback);
             }
             catch (Throwable e) {
                 // Claims before this one have listeners and remain running. Requeue this claim and
@@ -406,8 +407,22 @@ public class ThreadPerDriverTaskExecutor
                 schedulingFailureLogger.log(e);
                 return false;
             }
+            if (finishedOnStart) {
+                leafSplitFinishedOnStart();
+            }
         }
         return true;
+    }
+
+    // A scheduling pass refills the slot. Within a pass this only requests another iteration, so a
+    // chain of splits that finish on start loops in the pass instead of nesting completions.
+    private void leafSplitFinishedOnStart()
+    {
+        runningSplits.decrementAndGet();
+        synchronized (this) {
+            runningLeafDrivers--;
+        }
+        scheduleMoreLeafSplitsQuietly.run();
     }
 
     private void releaseClaims(List<ClaimedLeafSplit> claimed)

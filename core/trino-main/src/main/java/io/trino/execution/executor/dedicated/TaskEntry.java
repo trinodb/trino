@@ -37,6 +37,7 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -211,17 +212,24 @@ class TaskEntry
 
     /// Start a split claimed via [#claimLeafSplit()]. Must be called without holding a lock.
     /// If this throws, the claim was not consumed and must be requeued via [#releaseLeafSplit].
-    public void startLeafSplit(QueuedSplit split, Consumer<TaskEntry> doneCallback)
+    ///
+    /// @return true if the split finished before this method returned. The split then skips the
+    ///         done and target concurrency callbacks, and the caller accounts for it and schedules more
+    ///         splits, so splits that finish on start do not nest completions in the caller's stack.
+    public boolean startLeafSplit(QueuedSplit split, Consumer<TaskEntry> doneCallback)
     {
         AtomicLong scheduledNanos = new AtomicLong();
         LongConsumer quantumProcessed = nanos -> {
             scheduledNanos.addAndGet(nanos);
             splitProcessed(nanos);
         };
+        // The first of this method and the completion listener to clear it hands the callbacks to the other.
+        AtomicBoolean starting = new AtomicBoolean(true);
         ListenableFuture<Void> result = submit(split.split(), true, quantumProcessed);
         result.addListener(() -> {
-            finishLeafSplit(split, result, scheduledNanos.get(), doneCallback);
+            finishLeafSplit(split, result, scheduledNanos.get(), starting, doneCallback);
         }, directExecutor());
+        return !starting.compareAndSet(true, false);
     }
 
     /// Requeue a claimed split that could not be started. Thread creation can fail temporarily on
@@ -248,7 +256,7 @@ class TaskEntry
         }
     }
 
-    private void finishLeafSplit(QueuedSplit split, ListenableFuture<Void> result, long scheduledNanos, Consumer<TaskEntry> doneCallback)
+    private void finishLeafSplit(QueuedSplit split, ListenableFuture<Void> result, long scheduledNanos, AtomicBoolean starting, Consumer<TaskEntry> doneCallback)
     {
         boolean close;
         boolean targetIncreased;
@@ -268,9 +276,12 @@ class TaskEntry
             }
         }
         finally {
-            doneCallback.accept(this);
-            if (targetIncreased) {
-                targetConcurrencyIncreased.run();
+            // A split that finishes before startLeafSplit returns leaves the callbacks to its starter.
+            if (!starting.compareAndSet(true, false)) {
+                doneCallback.accept(this);
+                if (targetIncreased) {
+                    targetConcurrencyIncreased.run();
+                }
             }
         }
     }
