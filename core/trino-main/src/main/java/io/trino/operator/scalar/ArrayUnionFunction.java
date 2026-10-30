@@ -13,82 +13,139 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.Convention;
-import io.trino.spi.function.Description;
-import io.trino.spi.function.OperatorDependency;
-import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.SqlType;
-import io.trino.spi.function.TypeParameter;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
+import java.lang.invoke.MethodHandle;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.OperatorType.HASH_CODE;
-import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
+import static io.trino.util.Reflection.methodHandle;
+import static java.lang.invoke.MethodType.methodType;
+import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 
-@ScalarFunction(value = "array_union")
-@Description("Union elements of the two given arrays")
 public final class ArrayUnionFunction
+        extends SqlScalarFunction
 {
-    private ArrayUnionFunction() {}
+    private static final String FUNCTION_NAME = "array_union";
+    private static final String DESCRIPTION = "Union elements of the given arrays";
 
-    @TypeParameter("E")
-    @SqlType("array(E)")
-    public static Block union(
-            @TypeParameter("E") Type type,
-            @OperatorDependency(
-                    operator = IDENTICAL,
-                    argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
-            BlockPositionIsIdentical elementIdentical,
-            @OperatorDependency(
-                    operator = HASH_CODE,
-                    argumentTypes = "E",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
-            BlockPositionHashCode elementHashCode,
-            @SqlType("array(E)") Block leftArray,
-            @SqlType("array(E)") Block rightArray)
+    private static final MethodHandle METHOD_HANDLE = methodHandle(
+            ArrayUnionFunction.class,
+            "union",
+            Type.class,
+            BlockPositionIsIdentical.class,
+            BlockPositionHashCode.class,
+            Block[].class);
+
+    private final BlockTypeOperators blockTypeOperators;
+
+    public ArrayUnionFunction(BlockTypeOperators blockTypeOperators)
     {
-        BlockSet set = new BlockSet(
-                elementIdentical,
-                elementHashCode,
-                leftArray.getPositionCount() + rightArray.getPositionCount());
+        super(FunctionMetadata.scalarBuilder(FUNCTION_NAME)
+                .signature(Signature.builder()
+                        .typeVariable("E")
+                        .returnType(arrayType(typeVariable("E")))
+                        .argumentType(arrayType(typeVariable("E")))
+                        .variableArity()
+                        .build())
+                .description(DESCRIPTION)
+                .build());
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+    }
 
-        for (int i = 0; i < leftArray.getPositionCount(); i++) {
-            set.add(leftArray, i);
+    @Override
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    {
+        if (boundSignature.getArity() < 2) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments to %s".formatted(FUNCTION_NAME));
+        }
+        Type elementType = ((ArrayType)boundSignature.getReturnType()).getElementType();
+        BlockPositionIsIdentical elementIdentical = blockTypeOperators.getIdenticalOperator(elementType);
+        BlockPositionHashCode elementHashCode = blockTypeOperators.getHashCodeOperator(elementType);
+
+        MethodHandle methodHandle = METHOD_HANDLE
+                .bindTo(elementType)
+                .bindTo(elementIdentical)
+                .bindTo(elementHashCode)
+                .asVarargsCollector(Block[].class)
+                .asType(methodType(Block.class, nCopies(boundSignature.getArity(), Block.class)));
+
+        return new ChoicesSpecializedSqlScalarFunction(
+                boundSignature,
+                FAIL_ON_NULL,
+                nCopies(boundSignature.getArity(), NEVER_NULL),
+                methodHandle);
+    }
+
+    @UsedByGeneratedCode
+    public static Block union(
+            Type type,
+            BlockPositionIsIdentical elementIdentical,
+            BlockPositionHashCode elementHashCode,
+            Block... arrays)
+    {
+        if (type == BIGINT) {
+            return bigintUnion(arrays);
         }
 
-        for (int i = 0; i < rightArray.getPositionCount(); i++) {
-            set.add(rightArray, i);
+        int totalPositionCount = totalPositionCount(arrays);
+
+        BlockSet set = new BlockSet(elementIdentical, elementHashCode, totalPositionCount);
+        for (Block array : arrays) {
+            for (int i = 0; i < array.getPositionCount(); i++) {
+                set.add(array, i);
+            }
         }
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, set.size());
-        set.getAllWithSizeLimit(blockBuilder, "array_union", MAX_FUNCTION_MEMORY);
+        set.getAllWithSizeLimit(blockBuilder, FUNCTION_NAME, MAX_FUNCTION_MEMORY);
         return blockBuilder.build();
     }
 
-    @SqlType("array(bigint)")
-    public static Block bigintUnion(@SqlType("array(bigint)") Block leftArray, @SqlType("array(bigint)") Block rightArray)
+    private static Block bigintUnion(Block[] arrays)
     {
-        int leftArrayCount = leftArray.getPositionCount();
-        int rightArrayCount = rightArray.getPositionCount();
-        LongSet set = new LongOpenHashSet(leftArrayCount + rightArrayCount);
-        BlockBuilder distinctElementBlockBuilder = BIGINT.createFixedSizeBlockBuilder(leftArrayCount + rightArrayCount);
+        int expectedEntries = Math.min(totalPositionCount(arrays), 16);
+        LongSet set = new LongOpenHashSet(expectedEntries);
+        BlockBuilder distinctElementBlockBuilder = BIGINT.createBlockBuilder(null, expectedEntries);
         AtomicBoolean containsNull = new AtomicBoolean(false);
-        appendBigintArray(leftArray, containsNull, set, distinctElementBlockBuilder);
-        appendBigintArray(rightArray, containsNull, set, distinctElementBlockBuilder);
-
+        for (Block array : arrays) {
+            appendBigintArray(array, containsNull, set, distinctElementBlockBuilder);
+        }
         return distinctElementBlockBuilder.build();
+    }
+
+    private static int totalPositionCount(Block[] arrays)
+    {
+        long totalPositionCount = 0;
+        for (Block array : arrays) {
+            totalPositionCount += array.getPositionCount();
+        }
+        if (totalPositionCount > Integer.MAX_VALUE) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Total number of array elements exceeds " + Integer.MAX_VALUE);
+        }
+        return (int) totalPositionCount;
     }
 
     private static void appendBigintArray(Block array, AtomicBoolean containsNull, LongSet set, BlockBuilder blockBuilder)
