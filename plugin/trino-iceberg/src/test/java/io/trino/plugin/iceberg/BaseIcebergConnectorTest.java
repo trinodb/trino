@@ -6037,6 +6037,22 @@ public abstract class BaseIcebergConnectorTest
 
     protected abstract boolean supportsRowGroupStatistics(String typeName);
 
+    @Test
+    public void testPartitionOnlyScanPhysicalInputDataSize()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_partition_only_scan_input",
+                "WITH (partitioning = ARRAY['part']) AS SELECT x, x % 3 part FROM UNNEST(sequence(1, 10000)) t(x)")) {
+            // Reading only partition columns does not read data files
+            OperatorStats partitionOnlyStats = getOperatorStats(executeWithQueryId("SELECT DISTINCT part FROM " + table.getName()));
+            assertThat(partitionOnlyStats.getPhysicalInputPositions()).isEqualTo(10000);
+            assertThat(partitionOnlyStats.getPhysicalInputDataSize().toBytes()).isZero();
+
+            OperatorStats dataColumnStats = getOperatorStats(executeWithQueryId("SELECT DISTINCT x FROM " + table.getName()));
+            assertThat(dataColumnStats.getPhysicalInputDataSize().toBytes()).isPositive();
+        }
+    }
+
     private void verifySplitCount(String query, int expectedSplitCount)
     {
         MaterializedResultWithPlan selectAllPartitionsResult = getDistributedQueryRunner().executeWithPlan(getSession(), query);
