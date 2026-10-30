@@ -34,7 +34,7 @@ public class DeltaLakeMetastoreModule
             case THRIFT -> new DeltaLakeThriftMetastoreModule();
             case FILE -> new DeltaLakeFileMetastoreModule();
             case GLUE -> new DeltaLakeGlueMetastoreModule();
-            case BIGLAKE -> throw new TrinoException(NOT_SUPPORTED, "The BigLake metastore is not supported by the Delta Lake connector");
+            case LAKEHOUSE -> throw new TrinoException(NOT_SUPPORTED, "The Lakehouse runtime catalog is not supported by the Delta Lake connector");
         });
 
         install(new CachingHiveMetastoreModule());

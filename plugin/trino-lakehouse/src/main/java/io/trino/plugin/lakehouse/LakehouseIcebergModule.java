@@ -118,7 +118,7 @@ public class LakehouseIcebergModule
             case THRIFT -> new IcebergHiveMetastoreCatalogModule();
             case FILE -> new IcebergFileMetastoreCatalogModule();
             case GLUE -> new IcebergGlueCatalogModule();
-            case BIGLAKE -> throw new TrinoException(NOT_SUPPORTED, "The BigLake metastore is not supported by the Lakehouse connector for Iceberg tables");
+            case LAKEHOUSE -> throw new TrinoException(NOT_SUPPORTED, "The Lakehouse runtime catalog is not supported by the Lakehouse connector for Iceberg tables");
         });
 
         binder.install(new IcebergExecutorModule());

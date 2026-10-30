@@ -107,16 +107,16 @@ public class TestDeltaLakePlugin
     }
 
     @Test
-    public void testBigLakeMetastoreIsNotSupported()
+    public void testLakehouseMetastoreIsNotSupported()
     {
         ConnectorFactory factory = getConnectorFactory();
         assertThatThrownBy(() -> factory.create(
                 "test",
                 ImmutableMap.of(
-                        "hive.metastore", "biglake",
+                        "hive.metastore", "lakehouse",
                         "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
-                .hasMessageContaining("The BigLake metastore is not supported by the Delta Lake connector");
+                .hasMessageContaining("The Lakehouse runtime catalog is not supported by the Delta Lake connector");
     }
 
     @Test

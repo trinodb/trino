@@ -134,7 +134,7 @@ public class LakehouseDeltaModule
             case THRIFT -> new DeltaLakeThriftMetastoreModule();
             case FILE -> new DeltaLakeFileMetastoreModule();
             case GLUE -> new DeltaLakeGlueMetastoreModule();
-            case BIGLAKE -> throw new TrinoException(NOT_SUPPORTED, "The BigLake metastore is not supported by the Lakehouse connector for Delta Lake tables");
+            case LAKEHOUSE -> throw new TrinoException(NOT_SUPPORTED, "The Lakehouse runtime catalog is not supported by the Lakehouse connector for Delta Lake tables");
         });
 
         binder.install(new DeltaLakeExecutorModule());

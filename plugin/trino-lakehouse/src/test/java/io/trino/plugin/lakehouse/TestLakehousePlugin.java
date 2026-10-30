@@ -51,17 +51,17 @@ final class TestLakehousePlugin
     }
 
     @Test
-    void testBigLakeMetastoreIsNotSupported()
+    void testLakehouseMetastoreIsNotSupported()
     {
         Plugin plugin = new LakehousePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertThatThrownBy(() -> factory.create(
                 "test",
                 ImmutableMap.of(
-                        "hive.metastore", "biglake",
+                        "hive.metastore", "lakehouse",
                         "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
-                .hasMessageContaining("The BigLake metastore is not supported by the Lakehouse connector");
+                .hasMessageContaining("The Lakehouse runtime catalog is not supported by the Lakehouse connector");
     }
 
     private static void assertCreateConnector(Map<String, String> config)
