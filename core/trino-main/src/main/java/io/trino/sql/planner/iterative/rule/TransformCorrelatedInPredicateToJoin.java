@@ -20,7 +20,12 @@ import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperatorDeclaration;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Case;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -54,9 +59,11 @@ import java.util.Set;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Pattern.nonEmpty;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
@@ -95,10 +102,13 @@ public class TransformCorrelatedInPredicateToJoin
             .with(nonEmpty(correlation()));
 
     private final Metadata metadata;
+    private final TypeOperators typeOperators;
 
-    public TransformCorrelatedInPredicateToJoin(Metadata metadata)
+    public TransformCorrelatedInPredicateToJoin(PlannerContext plannerContext)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
+        this.typeOperators = plannerContext.getTypeOperators();
     }
 
     @Override
@@ -181,19 +191,24 @@ public class TransformCorrelatedInPredicateToJoin
         Symbol probeSideSymbol = inPredicate.value();
         Symbol buildSideSymbol = inPredicate.reference();
 
+        // `v IN S` is `v = ANY S`: true when `v = s` is true for some `s`, unknown when it is unknown for
+        // some `s`. Besides null values, a comparison of rows or arrays is unknown when it involves null
+        // elements, so for such types join the rows for which the comparison is not false.
+        Expression equal = comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference());
+        boolean equalityMayBeUnknown = equalityMayBeUnknown(probeSideSymbol.type());
         Expression joinExpression = and(
                 or(
                         new IsNull(probeSideSymbol.toSymbolReference()),
-                        comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
+                        equalityMayBeUnknown ? new Coalesce(equal, TRUE) : equal,
                         new IsNull(buildSideSymbol.toSymbolReference())),
                 correlationCondition);
 
         JoinNode leftOuterJoin = leftOuterJoin(idAllocator, probeSide, buildSide, joinExpression);
 
         Symbol matchConditionSymbol = symbolAllocator.newSymbol("matchConditionSymbol", BOOLEAN);
-        Expression matchCondition = and(
-                isNotNull(session, probeSideSymbol),
-                isNotNull(session, buildSideSymbol));
+        Expression matchCondition = equalityMayBeUnknown
+                ? new Coalesce(equal, FALSE)
+                : and(isNotNull(session, probeSideSymbol), isNotNull(session, buildSideSymbol));
 
         Symbol nullMatchConditionSymbol = symbolAllocator.newSymbol("nullMatchConditionSymbol", BOOLEAN);
         Expression nullMatchCondition = and(
@@ -273,6 +288,15 @@ public class TransformCorrelatedInPredicateToJoin
                 ComparisonOperator.GREATER_THAN,
                 symbol.toSymbolReference(),
                 bigint(value));
+    }
+
+    /// Whether `=` can be unknown for non-null values of the type, as for rows and arrays with null
+    /// elements.
+    private boolean equalityMayBeUnknown(Type type)
+    {
+        TypeOperatorDeclaration declaration = type.getTypeOperatorDeclaration(typeOperators);
+        return declaration == null || declaration.getEqualOperators().stream()
+                .anyMatch(method -> method.getCallingConvention().getReturnConvention() == NULLABLE_RETURN);
     }
 
     private Expression isNotNull(Session session, Symbol symbol)
