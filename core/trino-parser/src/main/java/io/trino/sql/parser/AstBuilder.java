@@ -2710,6 +2710,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitSessionFunction(SqlBaseParser.SessionFunctionContext context)
+    {
+        return visit(context.sessionFunctions());
+    }
+
+    @Override
     public Node visitCurrentDate(SqlBaseParser.CurrentDateContext context)
     {
         return new CurrentDate(getLocation(context));

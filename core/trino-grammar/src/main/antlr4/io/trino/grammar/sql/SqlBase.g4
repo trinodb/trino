@@ -262,51 +262,19 @@ columnDefinition
 
 defaultOption
     : literal
-    | currentDate
-    | currentTime
-    | currentTimestamp
-    | localTime
-    | localTimestamp
-    | currentUser
-    | currentCatalog
-    | currentSchema
-    | currentPath
+    | sessionFunctions
     ;
 
-currentDate
-    : CURRENT_DATE
-    ;
-
-currentTime
-    : CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?
-    ;
-
-currentTimestamp
-    : CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?
-    ;
-
-localTime
-    : LOCALTIME ('(' precision=INTEGER_VALUE ')')?
-    ;
-
-localTimestamp
-    : LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?
-    ;
-
-currentUser
-    : CURRENT_USER
-    ;
-
-currentCatalog
-    : CURRENT_CATALOG
-    ;
-
-currentSchema
-    : CURRENT_SCHEMA
-    ;
-
-currentPath
-    : CURRENT_PATH
+sessionFunctions
+    : CURRENT_DATE                                         #currentDate
+    | CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?      #currentTime
+    | CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')? #currentTimestamp
+    | LOCALTIME ('(' precision=INTEGER_VALUE ')')?         #localTime
+    | LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?    #localTimestamp
+    | CURRENT_USER                                         #currentUser
+    | CURRENT_CATALOG                                      #currentCatalog
+    | CURRENT_SCHEMA                                       #currentSchema
+    | CURRENT_PATH                                         #currentPath
     ;
 
 likeClause
@@ -724,15 +692,7 @@ primaryExpression
     | identifier                                                                          #columnReference
     | base=primaryExpression '.' fieldName=identifier                                     #dereference
     | base=primaryExpression '.' stringField=string                                       #stringLiteralDereference
-    | currentDate                                                                         #currentDates
-    | currentTime                                                                         #currentTimes
-    | currentTimestamp                                                                    #currentTimestamps
-    | localTime                                                                           #localTimes
-    | localTimestamp                                                                      #localTimestamps
-    | currentUser                                                                         #currentUsers
-    | currentCatalog                                                                      #currentCatalogs
-    | currentSchema                                                                       #currentSchemas
-    | currentPath                                                                         #currentPaths
+    | sessionFunctions                                                                    #sessionFunction
     | TRIM '(' (trimsSpecification? trimChar=valueExpression? FROM)?
         trimSource=valueExpression ')'                                                    #trim
     | TRIM '(' trimSource=valueExpression ',' trimChar=valueExpression ')'                #trim
