@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+reviews:
+  # CodeRabbit edits to PR descriptions are mostly noise and not useful,
+  # so disable the high-level summary altogether.
+  high_level_summary: false
