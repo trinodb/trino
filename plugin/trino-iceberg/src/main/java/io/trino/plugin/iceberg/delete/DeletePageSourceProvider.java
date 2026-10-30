@@ -22,4 +22,12 @@ import java.util.List;
 public interface DeletePageSourceProvider
 {
     ConnectorPageSource openDeletes(DeleteFile delete, List<IcebergColumnHandle> deleteColumns, TupleDomain<IcebergColumnHandle> tupleDomain);
+
+    /**
+     * Estimates the memory held by the page source returned by {@link #openDeletes} before any page is read.
+     */
+    default long estimateOpenedBytes(DeleteFile delete)
+    {
+        return delete.fileSizeInBytes();
+    }
 }
