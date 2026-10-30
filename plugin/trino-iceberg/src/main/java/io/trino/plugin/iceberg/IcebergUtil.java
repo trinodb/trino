@@ -1410,6 +1410,10 @@ public final class IcebergUtil
         };
     }
 
+    /**
+     * Caches the manifests on {@code snapshot}, so use {@link #loadAllManifestsFromManifestList} instead when
+     * iterating over many snapshots
+     */
     public static List<ManifestFile> loadAllManifestsFromSnapshot(Table icebergTable, @Nullable Snapshot snapshot)
     {
         if (snapshot == null) {
@@ -1441,12 +1445,16 @@ public final class IcebergUtil
      * Each BaseSnapshot object caches manifest files separately, so loading manifests from multiple distinct snapshots
      * results in O(num_snapshots^2) copies of the same manifest file metadata in memory
      */
-    public static List<ManifestFile> loadAllManifestsFromManifestList(Table icebergTable, String manifestListLocation)
+    public static List<ManifestFile> loadAllManifestsFromManifestList(Table icebergTable, Snapshot snapshot)
     {
-        try {
-            return IcebergManifestUtils.read(icebergTable.io(), manifestListLocation);
+        if (snapshot.manifestListLocation() == null) {
+            // This is to maintain support for V1 tables which have embedded manifest lists
+            return loadAllManifestsFromSnapshot(icebergTable, snapshot);
         }
-        catch (NotFoundException | UncheckedIOException e) {
+        try {
+            return IcebergManifestUtils.read(icebergTable.io(), snapshot);
+        }
+        catch (NotFoundException | UncheckedIOException | IllegalArgumentException | IllegalStateException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing manifest file for table %s".formatted(icebergTable.name()), e);
         }
     }

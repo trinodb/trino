@@ -14,6 +14,9 @@
 package io.trino.plugin.iceberg.encryption;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -149,6 +152,39 @@ abstract class BaseIcebergEncryptionFlociTest
             assertThat(computeActual("SELECT count(*), min(id), max(id), min(age), max(age) FROM " + tableName)
                     .getMaterializedRows().getFirst().getFields())
                     .containsExactly(100L, 0, 99, 0, 99);
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS tpch." + tableName);
+        }
+    }
+
+    @Test
+    void testRemoveOrphanFilesOnEncryptedTable()
+            throws Exception
+    {
+        String tableName = "enc_orphan_files_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+
+        createIcebergTable(schemaTableName, TABLE_SCHEMA);
+        try {
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+            setTableEncryptionKey(table, schemaTableName);
+            EncryptionManager encryptionManager = createEncryptionManager(kmsKeyId, kmsClient);
+            table.newFastAppend().appendFile(writeEncryptedDataFile(table, encryptionManager, createTestRecords(TABLE_SCHEMA, 100))).commit();
+            invalidateTableCache(schemaTableName);
+            assertThat(catalog.loadTable(SESSION, schemaTableName).currentSnapshot().keyId()).isNotNull();
+
+            TrinoFileSystem fileSystem = getFileSystemFactory(getQueryRunner()).create(SESSION);
+            Location orphanFile = Location.of(table.location()).appendPath("data/orphan.parquet");
+            fileSystem.newOutputFile(orphanFile).createOrOverwrite(new byte[123]);
+
+            Session session = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", "remove_orphan_files_min_retention", "0s")
+                    .build();
+            assertQuerySucceeds(session, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
+
+            assertThat(fileSystem.newInputFile(orphanFile).exists()).isFalse();
+            assertThat(computeActual("SELECT count(*) FROM " + tableName).getOnlyValue()).isEqualTo(100L);
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS tpch." + tableName);

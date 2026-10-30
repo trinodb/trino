@@ -48,7 +48,6 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergExceptions.isNotFoundException;
 import static io.trino.plugin.iceberg.IcebergUtil.fileName;
 import static io.trino.plugin.iceberg.IcebergUtil.loadAllManifestsFromManifestList;
-import static io.trino.plugin.iceberg.IcebergUtil.loadAllManifestsFromSnapshot;
 import static io.trino.plugin.iceberg.IcebergUtil.readerForManifest;
 import static org.apache.iceberg.ReachableFileUtil.metadataFileLocations;
 import static org.apache.iceberg.ReachableFileUtil.statisticsFilesLocations;
@@ -77,15 +76,10 @@ public final class RemoveOrphanFiles
 
         for (Snapshot snapshot : table.snapshots()) {
             String manifestListLocation = snapshot.manifestListLocation();
-            List<ManifestFile> allManifests;
             if (manifestListLocation != null) {
                 validFileNames.add(fileName(manifestListLocation));
-                allManifests = loadAllManifestsFromManifestList(table, manifestListLocation);
             }
-            else {
-                // This is to maintain support for V1 tables which have embedded manifest lists
-                allManifests = loadAllManifestsFromSnapshot(table, snapshot);
-            }
+            List<ManifestFile> allManifests = loadAllManifestsFromManifestList(table, snapshot);
 
             for (ManifestFile manifest : allManifests) {
                 if (!processedManifestFilePaths.add(manifest.path())) {
