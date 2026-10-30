@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.math.IntMath;
@@ -1274,6 +1275,122 @@ public class TestIcebergStatistics
                   ('c2', null, 1.0, 0.0, null, null, null),
                   (null, null, null, null, 1.0, null, null)
                 """);
+    }
+
+    @Test
+    public void testNestedColumnDataSize()
+            throws Exception
+    {
+        String tableName = "test_nested_column_data_size_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, r row(x integer, y varchar), a array(row(k varchar, v bigint)), m map(varchar, varchar))");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, ROW(1, 'one'), ARRAY[ROW('a', 1)], MAP(ARRAY['k1'], ARRAY['v1'])), " +
+                        "(2, ROW(2, 'two'), ARRAY[ROW('b', 2), ROW('c', 3)], MAP(ARRAY['k2', 'k3'], ARRAY['v2', 'v3']))",
+                2);
+
+        // Iceberg tracks column sizes only for leaf fields, so the data size of a nested column is derived from them.
+        // The estimated output size adds a null flag and an offset (1 + 4 bytes) per row for a variable width type.
+        long rowOverhead = 2 * (1 + Integer.BYTES);
+        assertThat(estimatedScanSize(tableName, "r")).isEqualTo(nestedDataSize(tableName, fixedWidthLeaf("r.x", Integer.BYTES), variableWidthLeaf("r.y")) + rowOverhead);
+        assertThat(estimatedScanSize(tableName, "a")).isEqualTo(nestedDataSize(tableName, variableWidthLeaf("a.element.k"), fixedWidthLeaf("a.element.v", Long.BYTES)) + rowOverhead);
+        assertThat(estimatedScanSize(tableName, "m")).isEqualTo(nestedDataSize(tableName, variableWidthLeaf("m.key"), variableWidthLeaf("m.value")) + rowOverhead);
+
+        // Each INSERT adds a manifest. With enough manifests, they are decoded in parallel and the statistics are merged
+        for (int i = 0; i < TableStatisticsReader.INLINE_MANIFEST_DECODE_THRESHOLD; i++) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, ROW(3, 'three'), ARRAY[ROW('d', 4)], MAP(ARRAY['k4'], ARRAY['v4']))", 1);
+        }
+        rowOverhead = (2 + TableStatisticsReader.INLINE_MANIFEST_DECODE_THRESHOLD) * (1 + Integer.BYTES);
+        assertThat(estimatedScanSize(tableName, "r")).isEqualTo(nestedDataSize(tableName, fixedWidthLeaf("r.x", Integer.BYTES), variableWidthLeaf("r.y")) + rowOverhead);
+        assertThat(estimatedScanSize(tableName, "a")).isEqualTo(nestedDataSize(tableName, variableWidthLeaf("a.element.k"), fixedWidthLeaf("a.element.v", Long.BYTES)) + rowOverhead);
+        assertThat(estimatedScanSize(tableName, "m")).isEqualTo(nestedDataSize(tableName, variableWidthLeaf("m.key"), variableWidthLeaf("m.value")) + rowOverhead);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNestedColumnDataSizeWithOrcFiles()
+            throws Exception
+    {
+        String tableName = "test_nested_column_data_size_orc_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (r row(x integer, y varchar)) WITH (format = 'ORC')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW(1, 'one')), ROW(ROW(2, 'two'))", 2);
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format = 'PARQUET'");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW(3, 'three'))", 1);
+
+        // ORC files have no column sizes, so a sum of the Parquet files only would underestimate the size.
+        // The data size is unknown and the default size per row is used.
+        assertThat(estimatedScanSize(tableName, "r")).isEqualTo(3 * (1 + 50 + Integer.BYTES));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNestedColumnDataSizeWithAddedField()
+            throws Exception
+    {
+        String tableName = "test_nested_column_data_size_added_field_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (r row(x integer, y varchar))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW(1, 'one')), ROW(ROW(2, 'two'))", 2);
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN r.z bigint");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW(3, 'three', 3))", 1);
+
+        // Older files have no statistics for the added field, which is still counted for the files that have it
+        assertThat(estimatedScanSize(tableName, "r")).isEqualTo(
+                nestedDataSize(tableName, fixedWidthLeaf("r.x", Integer.BYTES), variableWidthLeaf("r.y"), fixedWidthLeaf("r.z", Long.BYTES)) + 3 * (1 + Integer.BYTES));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNestedColumnDataSizeWithVariant()
+            throws Exception
+    {
+        String tableName = "test_nested_column_data_size_variant_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (r row(v variant, i integer), a array(variant)) WITH (format_version = 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (ROW(CAST(1 AS variant), 1), ARRAY[CAST('one' AS variant)]), (ROW(CAST(2 AS variant), 2), ARRAY[CAST('two' AS variant)])", 2);
+
+        // Writers record no size for variant fields, so the data size is unknown and the default size per row is used
+        assertThat(estimatedScanSize(tableName, "r")).isEqualTo(2 * (1 + 50 + Integer.BYTES));
+        assertThat(estimatedScanSize(tableName, "a")).isEqualTo(2 * (1 + 50 + Integer.BYTES));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private double estimatedScanSize(String tableName, String columnName)
+            throws Exception
+    {
+        String ioPlan = (String) computeScalar("EXPLAIN (TYPE IO, FORMAT JSON) SELECT %s FROM %s".formatted(columnName, tableName));
+        return JsonMapper.builder().build().readTree(ioPlan)
+                .get("inputTableColumnInfos").get(0)
+                .get("estimate").get("outputSizeInBytes").asDouble();
+    }
+
+    /**
+     * Expected data size of a nested column, computed per data file from the statistics of its leaf fields in {@code $files}.
+     */
+    private long nestedDataSize(String tableName, String... leafSizes)
+    {
+        long size = (long) computeScalar("SELECT sum(%s) FROM \"%s$files\"".formatted(String.join(" + ", leafSizes), tableName));
+        assertThat(size).isPositive();
+        return size;
+    }
+
+    private static String variableWidthLeaf(String name)
+    {
+        // a null flag and an offset per value, and the size on disk converted to the size in memory for varchar
+        return "%s * (1 + %s) + CAST(floor(%s * 2.7e0) AS bigint)".formatted(leafMetric(name, "value_count"), Integer.BYTES, leafMetric(name, "column_size"));
+    }
+
+    private static String fixedWidthLeaf(String name, int width)
+    {
+        // a null flag and the value per value
+        return "%s * (1 + %s)".formatted(leafMetric(name, "value_count"), width);
+    }
+
+    private static String leafMetric(String name, String metric)
+    {
+        return "coalesce(CAST(json_extract_scalar(readable_metrics, '$[\"%s\"].%s') AS bigint), 0)".formatted(name, metric);
     }
 
     private long getCurrentSnapshotId(String tableName)
