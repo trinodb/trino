@@ -56,6 +56,7 @@ import net.datafaker.Faker;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.net.Inet4Address;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
@@ -63,6 +64,7 @@ import java.util.List;
 import java.util.Random;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.math.LongMath.saturatedAdd;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -91,6 +93,7 @@ import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.ceilDiv;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
@@ -403,19 +406,19 @@ class FakerPageSource
         // check every type in order defined in StandardTypes
         if (BIGINT.equals(type)) {
             LongRange range = LongRange.of(genericRange);
-            return blockBuilder -> BIGINT.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return blockBuilder -> BIGINT.writeLong(blockBuilder, numberBetweenInclusive(range.low, range.high));
         }
         if (INTEGER.equals(type)) {
             IntRange range = IntRange.of(genericRange);
-            return blockBuilder -> INTEGER.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return blockBuilder -> INTEGER.writeLong(blockBuilder, numberBetweenInclusive(range.low, range.high));
         }
         if (SMALLINT.equals(type)) {
             IntRange range = IntRange.of(genericRange, Short.MIN_VALUE, Short.MAX_VALUE);
-            return blockBuilder -> SMALLINT.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return blockBuilder -> SMALLINT.writeLong(blockBuilder, numberBetweenInclusive(range.low, range.high));
         }
         if (TINYINT.equals(type)) {
             IntRange range = IntRange.of(genericRange, Byte.MIN_VALUE, Byte.MAX_VALUE);
-            return blockBuilder -> TINYINT.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return blockBuilder -> TINYINT.writeLong(blockBuilder, numberBetweenInclusive(range.low, range.high));
         }
         if (BOOLEAN.equals(type)) {
             if (!genericRange.isAll()) {
@@ -425,26 +428,27 @@ class FakerPageSource
         }
         if (DATE.equals(type)) {
             IntRange range = IntRange.of(genericRange);
-            return blockBuilder -> DATE.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return blockBuilder -> DATE.writeLong(blockBuilder, numberBetweenInclusive(range.low, range.high));
         }
         if (type instanceof DecimalType decimalType) {
             return decimalGenerator(genericRange, decimalType);
         }
         if (REAL.equals(type)) {
             FloatRange range = FloatRange.of(genericRange);
-            return blockBuilder -> REAL.writeLong(blockBuilder, floatToRawIntBits(range.low == range.high ? range.low : random.nextFloat(range.low, range.high)));
+            // the exclusive high bound of a range ending at the max value is infinite, and can't be sampled
+            float high = Math.min(range.high, Float.MAX_VALUE);
+            return blockBuilder -> REAL.writeLong(blockBuilder, floatToRawIntBits(range.low == high ? range.low : random.nextFloat(range.low, high)));
         }
         if (DOUBLE.equals(type)) {
             DoubleRange range = DoubleRange.of(genericRange);
-            return blockBuilder -> DOUBLE.writeDouble(blockBuilder, range.low == range.high ? range.low : random.nextDouble(range.low, range.high));
+            // the exclusive high bound of a range ending at the max value is infinite, and can't be sampled
+            double high = Math.min(range.high, Double.MAX_VALUE);
+            return blockBuilder -> DOUBLE.writeDouble(blockBuilder, range.low == high ? range.low : random.nextDouble(range.low, high));
         }
         // not supported: HYPER_LOG_LOG, QDIGEST, TDIGEST, P4_HYPER_LOG_LOG
         if (IntervalValues.isInterval(type)) {
             IntervalValues.Bounds bounds = IntervalValues.bounds(type, genericRange);
-            // Shift the sampling interval when its inclusive upper bound cannot be incremented.
-            return blockBuilder -> type.writeLong(blockBuilder, (bounds.high() == Long.MAX_VALUE
-                    ? numberBetween(bounds.low() - 1, bounds.high()) + 1
-                    : numberBetween(bounds.low(), bounds.high() + 1)) * bounds.quantum());
+            return blockBuilder -> type.writeLong(blockBuilder, numberBetweenInclusive(bounds.low(), bounds.high()) * bounds.quantum());
         }
         if (type instanceof TimestampType timestampType) {
             return timestampGenerator(genericRange, timestampType);
@@ -455,7 +459,7 @@ class FakerPageSource
         if (type instanceof TimeType timeType) {
             long factor = POWERS_OF_TEN[12 - timeType.getPrecision()];
             LongRange range = LongRange.of(genericRange, factor, 0, PICOSECONDS_PER_DAY);
-            return blockBuilder -> timeType.writeLong(blockBuilder, numberBetween(range.low, range.high) * factor);
+            return blockBuilder -> timeType.writeLong(blockBuilder, numberBetweenInclusive(range.low, range.high) * factor);
         }
         if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
             return timeWithTimeZoneGenerator(genericRange, timeWithTimeZoneType);
@@ -599,29 +603,29 @@ class FakerPageSource
         if (tzType.isShort()) {
             long factor = POWERS_OF_TEN[6 - tzType.getPrecision()];
             LongRange range = LongRange.of(genericRange, factor);
-            return blockBuilder -> tzType.writeLong(blockBuilder, numberBetween(range.low, range.high) * factor);
+            return blockBuilder -> tzType.writeLong(blockBuilder, numberBetweenInclusive(range.low, range.high) * factor);
         }
         LongTimestampRange range = LongTimestampRange.of(genericRange, tzType.getPrecision());
         if (tzType.getPrecision() <= 6) {
             return blockBuilder -> {
-                long epochMicros = numberBetween(range.low.getEpochMicros(), range.high.getEpochMicros());
+                long epochMicros = numberBetweenInclusive(range.low.getEpochMicros(), range.high.getEpochMicros());
                 tzType.writeObject(blockBuilder, new LongTimestamp(epochMicros * range.factor, 0));
             };
         }
         // numberBetween excludes the high bound
         int picosOfMicroHigh = (int) POWERS_OF_TEN[tzType.getPrecision() - 6];
         return blockBuilder -> {
-            long epochMicros = numberBetween(range.low.getEpochMicros(), range.high.getEpochMicros());
+            long epochMicros = numberBetweenInclusive(range.low.getEpochMicros(), range.high.getEpochMicros());
             int picosOfMicro;
             if (epochMicros == range.low.getEpochMicros()) {
                 picosOfMicro = numberBetween(
                         range.low.getPicosOfMicro(),
                         range.low.getEpochMicros() == range.high.getEpochMicros() ?
-                                range.high.getPicosOfMicro()
+                                range.high.getPicosOfMicro() + 1
                                 : picosOfMicroHigh);
             }
             else if (epochMicros == range.high.getEpochMicros()) {
-                picosOfMicro = numberBetween(0, range.high.getPicosOfMicro());
+                picosOfMicro = numberBetween(0, range.high.getPicosOfMicro() + 1);
             }
             else {
                 picosOfMicro = numberBetween(0, picosOfMicroHigh);
@@ -678,6 +682,9 @@ class FakerPageSource
         };
     }
 
+    /**
+     * Both bounds are inclusive, because an exclusive high bound overflows when the range ends at the max value.
+     */
     private record LongRange(long low, long high, long step)
     {
         static LongRange of(Range range)
@@ -702,23 +709,27 @@ class FakerPageSource
 
         static LongRange of(Range range, long factor, long defaultMin, long defaultMax, long step)
         {
+            // round the default min value up, so it doesn't fall below the min value of the type when multiplied by the factor
             return new LongRange(
-                    roundDiv((long) range.getLowValue().orElse(defaultMin), factor) + (!range.isLowUnbounded() && !range.isLowInclusive() ? 1 : 0),
-                    roundDiv((long) range.getHighValue().orElse(defaultMax), factor) + (!range.isHighUnbounded() && range.isHighInclusive() ? 1 : 0),
+                    ceilDiv((long) range.getLowValue().orElse(defaultMin), factor) + (!range.isLowUnbounded() && !range.isLowInclusive() ? 1 : 0),
+                    roundDiv((long) range.getHighValue().orElse(defaultMax), factor) - (range.isHighInclusive() ? 0 : 1),
                     step);
         }
 
         long at(long index)
         {
-            return Math.min(low + index * step, high - 1);
+            return Math.min(sequenceValue(low, index, step, 1), high);
         }
 
         long at(long index, long factor)
         {
-            return Math.min(low + roundDiv(index * step, factor), high - 1);
+            return Math.min(sequenceValue(low, index, step, factor), high);
         }
     }
 
+    /**
+     * Both bounds are inclusive, because an exclusive high bound overflows when the range ends at the max value.
+     */
     private record IntRange(int low, int high, long step)
     {
         static IntRange of(Range range)
@@ -740,18 +751,18 @@ class FakerPageSource
         {
             return new IntRange(
                     toIntExact((long) range.getLowValue().orElse(defaultMin)) + (!range.isLowUnbounded() && !range.isLowInclusive() ? 1 : 0),
-                    toIntExact((long) range.getHighValue().orElse(defaultMax)) + (!range.isHighUnbounded() && range.isHighInclusive() ? 1 : 0),
+                    toIntExact((long) range.getHighValue().orElse(defaultMax)) - (range.isHighInclusive() ? 0 : 1),
                     step);
         }
 
         long at(long index)
         {
-            return Math.min(low + index * step, high - 1);
+            return Math.min(sequenceValue(low, index, step, 1), high);
         }
 
         long at(long index, long factor)
         {
-            return Math.min(low + roundDiv(index * step, factor), high - 1);
+            return Math.min(sequenceValue(low, index, step, factor), high);
         }
     }
 
@@ -825,7 +836,7 @@ class FakerPageSource
 
         long at(long index)
         {
-            return Math.min(low + index * step, high - 1);
+            return Math.min(sequenceValue(low, index, step, 1), high - 1);
         }
     }
 
@@ -864,6 +875,9 @@ class FakerPageSource
         return Int128.valueOf(result);
     }
 
+    /**
+     * Both bounds are inclusive, because an exclusive high bound overflows when the range ends at the max value.
+     */
     private record LongTimestampRange(LongTimestamp low, LongTimestamp high, int factor, long step)
     {
         static LongTimestampRange of(Range range, int precision)
@@ -879,14 +893,14 @@ class FakerPageSource
             if (precision <= 6) {
                 factor = (int) POWERS_OF_TEN[6 - precision];
                 low = new LongTimestamp(roundDiv(low.getEpochMicros(), factor) + (!range.isLowUnbounded() && !range.isLowInclusive() ? 1 : 0), 0);
-                high = new LongTimestamp(roundDiv(high.getEpochMicros(), factor) + (!range.isHighUnbounded() && range.isHighInclusive() ? 1 : 0), 0);
+                high = new LongTimestamp(roundDiv(high.getEpochMicros(), factor) - (range.isHighInclusive() ? 0 : 1), 0);
                 return new LongTimestampRange(low, high, factor, step);
             }
             factor = (int) POWERS_OF_TEN[12 - precision];
             int unitsPerMicro = PICOSECONDS_PER_MICROSECOND / factor;
             // an unbounded bound keeps the extreme epoch value, so its fraction must not carry
             int lowPicosOfMicro = range.isLowUnbounded() ? 0 : roundDiv(low.getPicosOfMicro(), factor) + (range.isLowInclusive() ? 0 : 1);
-            int highPicosOfMicro = range.isHighUnbounded() ? unitsPerMicro - 1 : roundDiv(high.getPicosOfMicro(), factor) + (range.isHighInclusive() ? 1 : 0);
+            int highPicosOfMicro = range.isHighUnbounded() ? unitsPerMicro - 1 : roundDiv(high.getPicosOfMicro(), factor) - (range.isHighInclusive() ? 0 : 1);
             low = new LongTimestamp(
                     low.getEpochMicros() + floorDiv(lowPicosOfMicro, unitsPerMicro),
                     floorMod(lowPicosOfMicro, unitsPerMicro));
@@ -899,8 +913,7 @@ class FakerPageSource
         LongTimestamp at(long index, long stepFactor)
         {
             // TODO support nanosecond increments
-            // TODO handle exclusive high
-            long epochMicros = low.getEpochMicros() + roundDiv(index * step, stepFactor);
+            long epochMicros = sequenceValue(low.getEpochMicros(), index, step, stepFactor);
             return new LongTimestamp(step > 0 ? Math.min(epochMicros, high.getEpochMicros()) : Math.max(epochMicros, high.getEpochMicros()), 0);
         }
     }
@@ -928,7 +941,7 @@ class FakerPageSource
         long at(long index, long stepFactor)
         {
             // TODO support nanosecond increments
-            long millis = low + roundDiv(index * step, factor * stepFactor);
+            long millis = sequenceValue(low, index, step, factor * stepFactor);
             return packDateTimeWithZone((step > 0 ? Math.min(millis, high - 1) : Math.max(millis, high - 1)) * factor, defaultTZ);
         }
     }
@@ -975,7 +988,7 @@ class FakerPageSource
         {
             // TODO support nanosecond increments
             // TODO handle exclusive high
-            long millis = lowEpochMillis + roundDiv(index * step, stepFactor);
+            long millis = sequenceValue(lowEpochMillis, index, step, stepFactor);
             // highEpochMillis is exclusive when no picoseconds of it are included
             long lastEpochMillis = highPicosOfMilli > 0 ? highEpochMillis : highEpochMillis - 1;
             return fromEpochMillisAndFraction(step > 0 ? Math.min(millis, lastEpochMillis) : Math.max(millis, lastEpochMillis), 0, defaultTZ);
@@ -1004,7 +1017,7 @@ class FakerPageSource
 
         long at(long index)
         {
-            long nanos = low + roundDiv(index * step, factor);
+            long nanos = sequenceValue(low, index, step, factor);
             return packTimeWithTimeZone((step > 0 ? Math.min(nanos, high - 1) : Math.max(nanos, high - 1)) * factor, offsetMinutes);
         }
     }
@@ -1036,9 +1049,45 @@ class FakerPageSource
 
         LongTimeWithTimeZone at(long index)
         {
-            long picoseconds = low + roundDiv(index * step, factor);
+            long picoseconds = sequenceValue(low, index, step, factor);
             return new LongTimeWithTimeZone((step > 0 ? Math.min(picoseconds, high - 1) : Math.max(picoseconds, high - 1)) * factor, offsetMinutes);
         }
+    }
+
+    // low + index * step / factor overflows for long sequences with large steps, like a day in nanoseconds,
+    // so compute it exactly, and saturate the result, since callers limit it to the high bound anyway
+    private static long sequenceValue(long low, long index, long step, long factor)
+    {
+        long product = index * step;
+        if (Math.multiplyHigh(index, step) == product >> 63) {
+            return saturatedAdd(low, roundDiv(product, factor));
+        }
+        BigInteger value = new BigDecimal(BigInteger.valueOf(index).multiply(BigInteger.valueOf(step)))
+                .divide(BigDecimal.valueOf(factor), 0, RoundingMode.HALF_UP)
+                .toBigInteger()
+                .add(BigInteger.valueOf(low));
+        // both index and step are not negative, so the value can't be lower than low
+        return value.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+    }
+
+    private int numberBetweenInclusive(int min, int max)
+    {
+        if (max < Integer.MAX_VALUE) {
+            return numberBetween(min, max + 1);
+        }
+        return (int) numberBetweenInclusive((long) min, max);
+    }
+
+    private long numberBetweenInclusive(long min, long max)
+    {
+        if (max < Long.MAX_VALUE) {
+            return numberBetween(min, max + 1);
+        }
+        if (min == Long.MIN_VALUE) {
+            return random.nextLong();
+        }
+        // Shift the sampling interval when its inclusive upper bound cannot be incremented.
+        return numberBetween(min - 1, max) + 1;
     }
 
     private int numberBetween(int min, int max)
