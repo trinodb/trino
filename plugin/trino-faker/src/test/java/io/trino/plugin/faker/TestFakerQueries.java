@@ -236,6 +236,52 @@ final class TestFakerQueries
     }
 
     @Test
+    void testSelectTypedGenerator()
+    {
+        try (TestTable table = newTrinoTable("typed_generators",
+                """
+                (
+                    rnd_bigint BIGINT NOT NULL WITH (generator = '#{Number.digits ''5''}'),
+                    rnd_integer INTEGER NOT NULL WITH (generator = '#{Number.numberBetween ''1'',''10''}'),
+                    rnd_decimal DECIMAL(5,2) NOT NULL WITH (generator = '#{Commerce.price}'),
+                    rnd_boolean BOOLEAN NOT NULL WITH (generator = '#{Bool.bool}'),
+                    rnd_date DATE NOT NULL WITH (generator = '#{Date.birthday ''yyyy-MM-dd''}'),
+                    rnd_ipaddress IPADDRESS NOT NULL WITH (generator = '#{Internet.ipV4Address}'),
+                    rnd_uuid UUID NOT NULL WITH (generator = '#{Internet.uuid}')
+                )
+                """)) {
+            assertQuery(
+                    """
+                    SELECT
+                        min(rnd_bigint) >= 0 AND max(rnd_bigint) <= 99999,
+                        count(DISTINCT rnd_integer),
+                        min(rnd_integer),
+                        max(rnd_integer),
+                        min(rnd_decimal) >= 0 AND max(rnd_decimal) <= 100,
+                        count(DISTINCT rnd_boolean),
+                        min(rnd_date) > current_date - INTERVAL '100' YEAR AND max(rnd_date) < current_date - INTERVAL '10' YEAR,
+                        count(DISTINCT rnd_ipaddress),
+                        count(DISTINCT rnd_uuid)
+                    FROM %s
+                    """.formatted(table.getName()),
+                    "VALUES (true, 9, 1, 9, true, 2, true, 1000, 1000)");
+        }
+
+        assertQueryFails(
+                "CREATE TABLE invalid_generator_value (rnd_integer INTEGER WITH (generator = '#{Name.first_name}'))",
+                "The `generator` property of column `rnd_integer` produced `\\w+`, which is not a valid integer value");
+        assertQueryFails(
+                "CREATE TABLE out_of_range_generator_value (rnd_tinyint TINYINT WITH (generator = '#{Number.numberBetween ''1000'',''2000''}'))",
+                "The `generator` property of column `rnd_tinyint` produced `\\d+`, which is not a valid tinyint value");
+        assertQueryFails(
+                "CREATE TABLE structural_generator (rnd_row ROW(x VARCHAR) WITH (generator = '#{Name.first_name}'))",
+                "The `generator` property cannot be set for ROW, ARRAY, MAP, or JSON columns");
+        assertQueryFails(
+                "CREATE TABLE generator_with_min (rnd_integer INTEGER WITH (generator = '#{Number.numberBetween ''1'',''10''}', min = '1'))",
+                "The `generator` property cannot be set together with `min`, `max`, and `step` properties");
+    }
+
+    @Test
     void testSelectLocale()
             throws Exception
     {
