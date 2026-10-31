@@ -487,6 +487,10 @@ final class TestFakerQueries
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
+
+        assertQueryFails(
+                "CREATE TABLE empty_values (value bigint WITH (allowed_values = ARRAY[]))",
+                "The `allowed_values` property must contain at least one value");
     }
 
     @Test

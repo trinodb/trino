@@ -89,6 +89,9 @@ public record FakerColumnHandle(
         Object allowedValues = propertyValue(column, ALLOWED_VALUES_PROPERTY);
 
         if (allowedValues != null) {
+            if (((Collection<?>) allowedValues).isEmpty()) {
+                throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property must contain at least one value".formatted(ALLOWED_VALUES_PROPERTY));
+            }
             if (min != null || max != null || generator != null) {
                 throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property cannot be set together with `%s`, `%s`, and `%s` properties".formatted(ALLOWED_VALUES_PROPERTY, MIN_PROPERTY, MAX_PROPERTY, GENERATOR_PROPERTY));
             }
