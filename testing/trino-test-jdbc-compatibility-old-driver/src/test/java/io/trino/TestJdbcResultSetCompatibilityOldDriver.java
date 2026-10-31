@@ -40,12 +40,14 @@ public class TestJdbcResultSetCompatibilityOldDriver
 
     private TestingTrinoServer server;
 
+    @Override
     @BeforeAll
     public void setupServer()
     {
         server = TestingTrinoServer.builder().build();
     }
 
+    @Override
     @AfterAll
     public void tearDownServer()
     {
