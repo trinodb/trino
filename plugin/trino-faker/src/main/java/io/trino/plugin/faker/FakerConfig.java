@@ -28,6 +28,7 @@ public class FakerConfig
     private Locale locale = Locale.ENGLISH;
     private boolean sequenceDetectionEnabled = true;
     private boolean dictionaryDetectionEnabled = true;
+    private boolean generatorDetectionEnabled;
 
     @Max(1)
     @Min(0)
@@ -100,6 +101,22 @@ public class FakerConfig
     public FakerConfig setDictionaryDetectionEnabled(boolean value)
     {
         this.dictionaryDetectionEnabled = value;
+        return this;
+    }
+
+    public boolean isGeneratorDetectionEnabled()
+    {
+        return generatorDetectionEnabled;
+    }
+
+    @Config("faker.generator-detection-enabled")
+    @ConfigDescription(
+            """
+            If true, when creating a table, CHAR and VARCHAR columns with a recognized name, like email or city,
+            get the generator column property set to a matching Faker expression""")
+    public FakerConfig setGeneratorDetectionEnabled(boolean value)
+    {
+        this.generatorDetectionEnabled = value;
         return this;
     }
 }

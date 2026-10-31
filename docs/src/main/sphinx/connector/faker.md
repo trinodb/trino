@@ -65,6 +65,11 @@ The following table details all general configuration properties:
     number of distinct values are treated as dictionaries, and get
     the `allowed_values` column property populated with random values.
     Defaults to `true`.
+* - `faker.generator-detection-enabled`
+  - If true, when creating a table, `CHAR` and `VARCHAR` columns with a
+    recognized name, like `email` or `city`, get the `generator` column
+    property set, see [generator detection](faker-generator-detection).
+    Defaults to `false`.
 :::
 
 The following table details all supported schema properties. If they're not
@@ -90,6 +95,11 @@ set, values from corresponding configuration properties are used.
     number of distinct values are treated as dictionaries, and get
     the `allowed_values` column property populated with random values.
     Defaults to `true`.
+* - `generator_detection_enabled`
+  - If true, when creating a table, `CHAR` and `VARCHAR` columns with a
+    recognized name, like `email` or `city`, get the `generator` column
+    property set, see [generator detection](faker-generator-detection).
+    Defaults to `false`.
 :::
 
 The following table details all supported table properties. If they're not set,
@@ -115,6 +125,11 @@ values from corresponding schema properties are used.
     number of distinct values are treated as dictionaries, and get
     the `allowed_values` column property populated with random values.
     Defaults to `true`.
+* - `generator_detection_enabled`
+  - If true, when creating a table, `CHAR` and `VARCHAR` columns with a
+    recognized name, like `email` or `city`, get the `generator` column
+    property set, see [generator detection](faker-generator-detection).
+    Defaults to `false`.
 :::
 
 The following table details all supported column properties.
@@ -186,6 +201,84 @@ catalog to test a generator expression:
 ```sql
 SELECT generator.default.random_string('#{Name.first_name}');
 ```
+:::
+
+(faker-generator-detection)=
+### Generator detection
+
+When the `generator_detection_enabled` table or schema property, or the
+`faker.generator-detection-enabled` configuration property is set to `true`,
+Faker sets the `generator` column property for `CHAR` and `VARCHAR` columns
+with a recognized name. This applies to all tables created with
+[](/sql/create-table), including when using the `LIKE` clause, and with
+[](/sql/create-table-as). Detected generators are included in the output of
+`SHOW CREATE TABLE`. To change them, edit that output, and recreate the table.
+
+Column names are compared ignoring case, underscores, hyphens, and spaces, so
+`first_name`, `FirstName`, and `first-name` are all recognized. Columns with
+the `generator` or `allowed_values` property already set are not changed.
+Faker doesn't truncate generated values, so a bounded column only gets a
+generator if its length is at least the minimum length listed below.
+
+When creating a table using existing data, columns with a detected generator
+are excluded from dictionary detection, because generators produce more
+realistic values.
+
+:::{list-table} Recognized column names
+:widths: 40, 45, 15
+:header-rows: 1
+
+* - Column names
+  - Generator
+  - Minimum length
+* - `email`, `email_address`
+  - `#{Internet.emailAddress}`
+  - 60
+* - `first_name`, `given_name`
+  - `#{Name.first_name}`
+  - 30
+* - `last_name`, `family_name`, `surname`
+  - `#{Name.last_name}`
+  - 50
+* - `full_name`
+  - `#{Name.first_name} #{Name.last_name}`
+  - 60
+* - `username`
+  - `#{Internet.username}`
+  - 60
+* - `street_address`
+  - `#{Address.streetAddress}`
+  - 100
+* - `city`
+  - `#{Address.city}`
+  - 60
+* - `country`
+  - `#{Address.country}`
+  - 60
+* - `country_code`
+  - `#{Country.countryCode2}`
+  - 2
+* - `postal_code`, `postcode`, `zip`, `zip_code`
+  - `#{Address.zipCode}`
+  - 10
+* - `company`, `company_name`
+  - `#{Company.name}`
+  - 120
+* - `job_title`
+  - `#{Job.title}`
+  - 100
+* - `website`, `url`
+  - `https://#{Internet.domainName}`
+  - 150
+* - `currency`, `currency_code`
+  - `#{Currency.code}`
+  - 3
+* - `iban`
+  - `#{Finance.iban}`
+  - 34
+* - `ip_address`
+  - `#{Internet.ipV4Address}`
+  - 15
 :::
 
 ### Non-character types

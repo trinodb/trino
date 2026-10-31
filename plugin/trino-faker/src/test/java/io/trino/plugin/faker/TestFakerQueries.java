@@ -702,4 +702,93 @@ final class TestFakerQueries
             assertThat(createTable).containsPattern("boolean_array array\\(boolean\\) WITH \\(null_probability = 0E0\\)");
         }
     }
+
+    @Test
+    void testGeneratorDetection()
+    {
+        assertThat(showCreateTable("generator_detection", "(email VARCHAR, first_name VARCHAR(30), country_code CHAR(2), city VARCHAR(10), notes VARCHAR) WITH (generator_detection_enabled = true)"))
+                .contains(
+                        "email varchar WITH (generator = '#{Internet.emailAddress}')",
+                        "first_name varchar(30) WITH (generator = '#{Name.first_name}')",
+                        "country_code char(2) WITH (generator = '#{Country.countryCode2}')",
+                        "city varchar(10),",
+                        "notes varchar\n");
+        assertThat(showCreateTable("no_generator_detection", "(email VARCHAR)"))
+                .doesNotContain("generator =");
+    }
+
+    @Test
+    void testGeneratorDetectionLike()
+    {
+        try (TestTable source = newTrinoTable("like_source", "(email VARCHAR, city VARCHAR)")) {
+            assertThat(showCreateTable("like_generator_detection", "(LIKE %s) WITH (generator_detection_enabled = true)".formatted(source.getName())))
+                    .contains(
+                            "email varchar WITH (generator = '#{Internet.emailAddress}')",
+                            "city varchar WITH (generator = '#{Address.city}')");
+            assertThat(showCreateTable("like_no_generator_detection", "(LIKE %s)".formatted(source.getName())))
+                    .doesNotContain("generator =");
+        }
+    }
+
+    @Test
+    void testGeneratorDetectionCreateTableAsSelect()
+    {
+        String source = "SELECT CAST(email AS VARCHAR) AS email, CAST(city AS VARCHAR) AS city FROM (VALUES ('jane@example.com', 'Warsaw')) t(email, city)";
+        assertThat(showCreateTable("ctas_generator_detection", "WITH (generator_detection_enabled = true) AS " + source))
+                .contains(
+                        "email varchar WITH (generator = '#{Internet.emailAddress}', null_probability = 0E0)",
+                        "city varchar WITH (generator = '#{Address.city}', null_probability = 0E0)");
+        assertThat(showCreateTable("ctas_no_generator_detection", "AS " + source))
+                .doesNotContain("generator =");
+    }
+
+    @Test
+    void testGeneratorDetectionProperties()
+    {
+        getQueryRunner().createCatalog("faker_generator_detection", "faker", Map.of("faker.generator-detection-enabled", "true"));
+        assertUpdate("CREATE SCHEMA faker_generator_detection.disabled WITH (generator_detection_enabled = false)");
+        assertUpdate("CREATE SCHEMA faker.generator_detection_enabled WITH (generator_detection_enabled = true)");
+
+        assertThat(showCreateTable("faker_generator_detection.default.catalog_enabled", "(email VARCHAR)"))
+                .contains("generator =");
+        assertThat(showCreateTable("faker_generator_detection.default.table_disabled", "(email VARCHAR) WITH (generator_detection_enabled = false)"))
+                .doesNotContain("generator =");
+        assertThat(showCreateTable("faker_generator_detection.disabled.schema_disabled", "(email VARCHAR)"))
+                .doesNotContain("generator =");
+        assertThat(showCreateTable("faker_generator_detection.disabled.table_enabled", "(email VARCHAR) WITH (generator_detection_enabled = true)"))
+                .contains("generator =");
+        assertThat(showCreateTable("faker.generator_detection_enabled.schema_enabled", "(email VARCHAR)"))
+                .contains("generator =");
+        assertThat(showCreateTable("faker.generator_detection_enabled.table_disabled", "(email VARCHAR) WITH (generator_detection_enabled = false)"))
+                .doesNotContain("generator =");
+
+        assertUpdate("DROP SCHEMA faker_generator_detection.disabled");
+        assertUpdate("DROP SCHEMA faker.generator_detection_enabled");
+    }
+
+    @Test
+    void testGeneratorDetectionKeepsColumnProperties()
+    {
+        assertThat(showCreateTable("generator_detection_explicit", "(email VARCHAR WITH (generator = '#{Name.first_name}'), city VARCHAR WITH (allowed_values = ARRAY['Warsaw'])) WITH (generator_detection_enabled = true)"))
+                .contains(
+                        "email varchar WITH (generator = '#{Name.first_name}')",
+                        "city varchar WITH (allowed_values = ARRAY['Warsaw'])");
+    }
+
+    @Test
+    void testSelectDetectedGenerators()
+    {
+        try (TestTable table = newTrinoTable("detected_generators", "(email VARCHAR NOT NULL, country_code CHAR(2) NOT NULL, currency VARCHAR NOT NULL) WITH (generator_detection_enabled = true)")) {
+            assertQuery(
+                    "SELECT bool_and(strpos(email, '@') > 0), bool_and(regexp_like(country_code, '^[a-z]{2}$')), bool_and(regexp_like(currency, '^[A-Z]{3}$')) FROM " + table.getName(),
+                    "VALUES (true, true, true)");
+        }
+    }
+
+    private String showCreateTable(String tableName, String tableDefinition)
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, tableName, tableDefinition)) {
+            return (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+        }
+    }
 }
