@@ -465,6 +465,8 @@ final class TestFakerQueries
         List<TestDataType> testCases = ImmutableList.<TestDataType>builder()
                 .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_bigint)", "10"))
                 .add(new TestDataType("rnd_integer", "integer", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_integer)", "10"))
+                // after the last full step, the max value is generated, which table statistics also count
+                .add(new TestDataType("rnd_integer_step2", "integer", Map.of("min", "0", "max", "9", "step", "2"), "count(distinct rnd_integer_step2)", "6"))
                 .add(new TestDataType("rnd_smallint", "smallint", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_smallint)", "10"))
                 .add(new TestDataType("rnd_tinyint", "tinyint", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_tinyint)", "10"))
                 .add(new TestDataType("rnd_date", "date", Map.of("min", "2022-03-01", "max", "2022-03-10", "step", "1d"), "count(distinct rnd_date)", "10"))
@@ -500,6 +502,79 @@ final class TestFakerQueries
             try (TestTable table = newTrinoTable("step_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
+        }
+    }
+
+    @Test
+    void testTableStatistics()
+    {
+        String schema =
+                """
+                (
+                  bigint_range bigint NOT NULL WITH (min = '0', max = '9'),
+                  bigint_capped bigint NOT NULL WITH (min = '0', max = '1000'),
+                  bigint_full bigint NOT NULL WITH (min = '-9223372036854775808', max = '0'),
+                  integer_step integer NOT NULL WITH (min = '0', max = '9', step = '2'),
+                  smallint_step smallint NOT NULL WITH (min = '0', max = '10', step = '5'),
+                  tinyint_step tinyint NOT NULL WITH (min = '-5', max = '5', step = '1'),
+                  decimal_short decimal(5, 2) NOT NULL WITH (min = '0.00', max = '0.09'),
+                  decimal_long decimal(38, 0) NOT NULL WITH (min = '0', max = '9'),
+                  real_range real NOT NULL WITH (min = '0', max = '1'),
+                  double_range double NOT NULL WITH (min = '0', max = '1'),
+                  date_step date NOT NULL WITH (min = '2022-03-01', max = '2022-03-10', step = '1d'),
+                  date_partial_step date NOT NULL WITH (min = '2022-03-01', max = '2022-03-10', step = '12h'),
+                  timestamp_step timestamp(3) NOT NULL WITH (min = '2022-03-21 00:00:00.000', max = '2022-03-21 00:00:00.009', step = '1ms'),
+                  timestamp0_step timestamp(0) NOT NULL WITH (min = '2022-03-21 00:00:00', max = '2022-03-21 00:00:09', step = '2s'),
+                  timestamptz_step timestamp(3) with time zone NOT NULL WITH (min = '2022-03-21 00:00:00.000 +01:00', max = '2022-03-21 00:00:00.009 +01:00', step = '1ms'),
+                  time_step time(3) NOT NULL WITH (min = '01:02:03.456', max = '01:02:03.465', step = '1ms'),
+                  time12_step time(12) NOT NULL WITH (min = '01:02:03.000000000000', max = '01:02:03.000000009000', step = '1ns'),
+                  timetz_range time(3) with time zone NOT NULL WITH (min = '01:02:03.456 +01:00', max = '01:02:03.465 +01:00'),
+                  interval_day_step interval day(2) to second(3) NOT NULL WITH (min = '0.000', max = '0.009', step = '0.001'),
+                  interval_year_range interval year(9) to month NOT NULL WITH (min = '0', max = '9'),
+                  allowed bigint NOT NULL WITH (allowed_values = ARRAY['1', '2', '3']),
+                  unbounded bigint NOT NULL
+                ) WITH (default_limit = 100)
+                """;
+        try (TestTable table = newTrinoTable("statistics", schema)) {
+            assertQuery(
+                    "SHOW STATS FOR " + table.getName(),
+                    """
+                    VALUES
+                      ('bigint_range', NULL, 10, 0, NULL, '0', '9'),
+                      ('bigint_capped', NULL, 100, 0, NULL, '0', '1000'),
+                      ('bigint_full', NULL, 100, 0, NULL, '-9223372036854775808', '0'),
+                      ('integer_step', NULL, 6, 0, NULL, '0', '9'),
+                      ('smallint_step', NULL, 3, 0, NULL, '0', '10'),
+                      ('tinyint_step', NULL, 11, 0, NULL, '-5', '5'),
+                      ('decimal_short', NULL, 10, 0, NULL, '0.0', '0.09'),
+                      ('decimal_long', NULL, NULL, 0, NULL, '0.0', '9.0'),
+                      ('real_range', NULL, NULL, 0, NULL, '0.0', '1.0'),
+                      ('double_range', NULL, NULL, 0, NULL, '0.0', '1.0'),
+                      ('date_step', NULL, 10, 0, NULL, '2022-03-01', '2022-03-10'),
+                      ('date_partial_step', NULL, NULL, 0, NULL, '2022-03-01', '2022-03-10'),
+                      ('timestamp_step', NULL, 10, 0, NULL, '2022-03-21 00:00:00.000', '2022-03-21 00:00:00.009'),
+                      ('timestamp0_step', NULL, 6, 0, NULL, '2022-03-21 00:00:00', '2022-03-21 00:00:09'),
+                      ('timestamptz_step', NULL, 10, 0, NULL, '2022-03-20 23:00:00.000 UTC', '2022-03-20 23:00:00.009 UTC'),
+                      ('time_step', NULL, 10, 0, NULL, NULL, NULL),
+                      ('time12_step', NULL, 10, 0, NULL, NULL, NULL),
+                      ('timetz_range', NULL, NULL, 0, NULL, NULL, NULL),
+                      ('interval_day_step', NULL, 10, 0, NULL, NULL, NULL),
+                      ('interval_year_range', NULL, 10, 0, NULL, NULL, NULL),
+                      ('allowed', NULL, 3, 0, NULL, NULL, NULL),
+                      ('unbounded', NULL, NULL, 0, NULL, NULL, NULL),
+                      (NULL, NULL, NULL, NULL, 100, NULL, NULL)
+                    """);
+        }
+
+        try (TestTable table = newTrinoTable("statistics_capped", "(bigint_range bigint NOT NULL WITH (min = '0', max = '9'), allowed bigint NOT NULL WITH (allowed_values = ARRAY['1', '2', '3'])) WITH (default_limit = 2)")) {
+            assertQuery(
+                    "SHOW STATS FOR " + table.getName(),
+                    """
+                    VALUES
+                      ('bigint_range', NULL, 2, 0, NULL, '0', '9'),
+                      ('allowed', NULL, 2, 0, NULL, NULL, NULL),
+                      (NULL, NULL, NULL, NULL, 2, NULL, NULL)
+                    """);
         }
     }
 
