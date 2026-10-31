@@ -34,6 +34,7 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTra
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -190,6 +191,39 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
 
         assertQueryFails(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableNameNew, tableLocation),
                 ".*Metadata not found in transaction log for (.*)");
+
+        fileSystem.deleteDirectory(Location.of(tableLocation));
+        metastore().dropTable(schema, tableName, false);
+    }
+
+    @Test
+    public void testRegisterTableWithoutColumns()
+            throws Exception
+    {
+        String schema = getSession().getSchema().orElseThrow();
+        String tableName = "test_register_table_without_columns_" + randomNameSuffix();
+
+        assertQuerySucceeds("CREATE TABLE " + tableName + " (a INT)");
+
+        String tableLocation = getTableLocation(tableName);
+        String tableNameNew = "test_register_table_without_columns_new_" + randomNameSuffix();
+
+        // Replace the transaction log with a table whose schema has no fields
+        QueryRunner queryRunner = getQueryRunner();
+        TrinoFileSystem fileSystem = getConnectorService(queryRunner, TrinoFileSystemFactory.class)
+                .create(ConnectorIdentity.ofUser("test"));
+        fileSystem.deleteDirectory(Location.of(tableLocation));
+        fileSystem.newOutputFile(getTransactionLogJsonEntryPath(getTransactionLogDir(tableLocation), 0))
+                .createOrOverwrite(
+                        """
+                        {"commitInfo":{"timestamp":1716683236025,"operation":"CREATE TABLE"}}
+                        {"metaData":{"id":"3b653ec1-f12b-40c9-9e27-f05fa9941db3","format":{"provider":"parquet","options":{}},"schemaString":"{\\"type\\":\\"struct\\",\\"fields\\":[]}","partitionColumns":[],"configuration":{},"createdTime":1716683235880}}
+                        {"protocol":{"minReaderVersion":1,"minWriterVersion":2}}
+                        """.getBytes(UTF_8));
+
+        assertQueryFails(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableNameNew, tableLocation),
+                "Delta table %s.%s has no columns".formatted(schema, tableNameNew));
+        assertThat(getQueryRunner().tableExists(getSession(), tableNameNew)).isFalse();
 
         fileSystem.deleteDirectory(Location.of(tableLocation));
         metastore().dropTable(schema, tableName, false);
