@@ -124,10 +124,6 @@ class FakerPageSource
 
     private static final int ROWS_PER_PAGE = 4096;
 
-    private final Random random;
-    private final Faker faker;
-    private final SentenceGenerator sentenceGenerator;
-    private final BoundedSentenceGenerator boundedSentenceGenerator;
     private final long limit;
     private final List<Generator> generators;
     private long completedRows;
@@ -143,10 +139,8 @@ class FakerPageSource
             long rowOffset,
             long limit)
     {
-        this.faker = requireNonNull(faker, "faker is null");
-        this.random = requireNonNull(random, "random is null");
-        this.sentenceGenerator = () -> Slices.utf8Slice(faker.lorem().sentence(3 + random.nextInt(38)));
-        this.boundedSentenceGenerator = maxLength -> Slices.utf8Slice(faker.lorem().maxLengthSentence(maxLength));
+        requireNonNull(faker, "faker is null");
+        requireNonNull(random, "random is null");
         List<Type> types = requireNonNull(columns, "columns is null")
                 .stream()
                 .map(FakerColumnHandle::type)
@@ -155,14 +149,16 @@ class FakerPageSource
 
         this.generators = columns
                 .stream()
-                .map(column -> getGenerator(column, rowOffset))
+                .map(column -> getGenerator(column, rowOffset, random, faker))
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(types);
     }
 
     private Generator getGenerator(
             FakerColumnHandle column,
-            long rowOffset)
+            long rowOffset,
+            Random random,
+            Faker faker)
     {
         if (column.domain().getValues().isDiscreteSet()) {
             List<Object> values = column.domain().getValues().getDiscreteSet();
@@ -178,7 +174,7 @@ class FakerPageSource
             generator = sequenceGenerator(column, rowOffset);
         }
         else {
-            generator = randomValueGenerator(column);
+            generator = randomValueGenerator(column, random, faker);
         }
         if (column.nullProbability() == 0) {
             return generator;
@@ -351,19 +347,21 @@ class FakerPageSource
         throw new IllegalArgumentException("Unsupported type " + type);
     }
 
-    private Generator randomValueGenerator(FakerColumnHandle handle)
+    private Generator randomValueGenerator(FakerColumnHandle handle, Random random, Faker faker)
     {
         Type type = handle.type();
         if (type instanceof RowType rowType) {
             List<Generator> fieldGenerators = rowType.getFields().stream()
                     .map(field -> randomValueGenerator(new FakerColumnHandle(
-                            0,
-                            field.getName().orElse("unknown"),
-                            field.getType(),
-                            0,
-                            null,
-                            Domain.all(field.getType()),
-                            ValueSet.none(field.getType()))))
+                                    0,
+                                    field.getName().orElse("unknown"),
+                                    field.getType(),
+                                    0,
+                                    null,
+                                    Domain.all(field.getType()),
+                                    ValueSet.none(field.getType())),
+                            random,
+                            faker))
                     .collect(toImmutableList());
             return blockBuilder -> {
                 RowBlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
@@ -393,6 +391,8 @@ class FakerPageSource
             return blockBuilder -> type.writeSlice(blockBuilder, Slices.utf8Slice("null"));
         }
 
+        SentenceGenerator sentenceGenerator = () -> Slices.utf8Slice(faker.lorem().sentence(3 + random.nextInt(38)));
+        BoundedSentenceGenerator boundedSentenceGenerator = maxLength -> Slices.utf8Slice(faker.lorem().maxLengthSentence(maxLength));
         Range genericRange = handle.domain().getValues().getRanges().getSpan();
         if (handle.generator() != null) {
             if (!genericRange.isAll()) {
@@ -403,19 +403,19 @@ class FakerPageSource
         // check every type in order defined in StandardTypes
         if (BIGINT.equals(type)) {
             LongRange range = LongRange.of(genericRange);
-            return blockBuilder -> BIGINT.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return blockBuilder -> BIGINT.writeLong(blockBuilder, numberBetween(random, range.low, range.high));
         }
         if (INTEGER.equals(type)) {
             IntRange range = IntRange.of(genericRange);
-            return blockBuilder -> INTEGER.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return blockBuilder -> INTEGER.writeLong(blockBuilder, numberBetween(random, range.low, range.high));
         }
         if (SMALLINT.equals(type)) {
             IntRange range = IntRange.of(genericRange, Short.MIN_VALUE, Short.MAX_VALUE);
-            return blockBuilder -> SMALLINT.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return blockBuilder -> SMALLINT.writeLong(blockBuilder, numberBetween(random, range.low, range.high));
         }
         if (TINYINT.equals(type)) {
             IntRange range = IntRange.of(genericRange, Byte.MIN_VALUE, Byte.MAX_VALUE);
-            return blockBuilder -> TINYINT.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return blockBuilder -> TINYINT.writeLong(blockBuilder, numberBetween(random, range.low, range.high));
         }
         if (BOOLEAN.equals(type)) {
             if (!genericRange.isAll()) {
@@ -425,10 +425,10 @@ class FakerPageSource
         }
         if (DATE.equals(type)) {
             IntRange range = IntRange.of(genericRange);
-            return blockBuilder -> DATE.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return blockBuilder -> DATE.writeLong(blockBuilder, numberBetween(random, range.low, range.high));
         }
         if (type instanceof DecimalType decimalType) {
-            return decimalGenerator(genericRange, decimalType);
+            return decimalGenerator(genericRange, decimalType, random);
         }
         if (REAL.equals(type)) {
             FloatRange range = FloatRange.of(genericRange);
@@ -443,22 +443,22 @@ class FakerPageSource
             IntervalValues.Bounds bounds = IntervalValues.bounds(type, genericRange);
             // Shift the sampling interval when its inclusive upper bound cannot be incremented.
             return blockBuilder -> type.writeLong(blockBuilder, (bounds.high() == Long.MAX_VALUE
-                    ? numberBetween(bounds.low() - 1, bounds.high()) + 1
-                    : numberBetween(bounds.low(), bounds.high() + 1)) * bounds.quantum());
+                    ? numberBetween(random, bounds.low() - 1, bounds.high()) + 1
+                    : numberBetween(random, bounds.low(), bounds.high() + 1)) * bounds.quantum());
         }
         if (type instanceof TimestampType timestampType) {
-            return timestampGenerator(genericRange, timestampType);
+            return timestampGenerator(genericRange, timestampType, random);
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
-            return timestampWithTimeZoneGenerator(genericRange, timestampWithTimeZoneType);
+            return timestampWithTimeZoneGenerator(genericRange, timestampWithTimeZoneType, random);
         }
         if (type instanceof TimeType timeType) {
             long factor = POWERS_OF_TEN[12 - timeType.getPrecision()];
             LongRange range = LongRange.of(genericRange, factor, 0, PICOSECONDS_PER_DAY);
-            return blockBuilder -> timeType.writeLong(blockBuilder, numberBetween(range.low, range.high) * factor);
+            return blockBuilder -> timeType.writeLong(blockBuilder, numberBetween(random, range.low, range.high) * factor);
         }
         if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
-            return timeWithTimeZoneGenerator(genericRange, timeWithTimeZoneType);
+            return timeWithTimeZoneGenerator(genericRange, timeWithTimeZoneType, random);
         }
         if (type instanceof VarbinaryType varType) {
             if (!genericRange.isAll()) {
@@ -483,7 +483,7 @@ class FakerPageSource
             return blockBuilder -> charType.writeSlice(blockBuilder, boundedSentenceGenerator.get(charType.getLength()));
         }
         if (type.getBaseName().equals(StandardTypes.IPADDRESS)) {
-            return generateIpV4(type, genericRange);
+            return generateIpV4(type, genericRange, random);
         }
         // not supported: GEOMETRY
         if (type instanceof UuidType) {
@@ -581,11 +581,11 @@ class FakerPageSource
         throw new IllegalArgumentException("Unsupported type " + type);
     }
 
-    private Generator decimalGenerator(Range genericRange, DecimalType decimalType)
+    private Generator decimalGenerator(Range genericRange, DecimalType decimalType, Random random)
     {
         if (decimalType.isShort()) {
             ShortDecimalRange range = ShortDecimalRange.of(genericRange, decimalType.getPrecision());
-            return blockBuilder -> decimalType.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return blockBuilder -> decimalType.writeLong(blockBuilder, numberBetween(random, range.low, range.high));
         }
         Int128Range range = Int128Range.of(genericRange);
         BigInteger currentRange = BigInteger.valueOf(Long.MAX_VALUE);
@@ -594,48 +594,49 @@ class FakerPageSource
                 new BigInteger(63, random).multiply(desiredRange).divide(currentRange).add(range.low.toBigInteger())));
     }
 
-    private Generator timestampGenerator(Range genericRange, TimestampType tzType)
+    private Generator timestampGenerator(Range genericRange, TimestampType tzType, Random random)
     {
         if (tzType.isShort()) {
             long factor = POWERS_OF_TEN[6 - tzType.getPrecision()];
             LongRange range = LongRange.of(genericRange, factor);
-            return blockBuilder -> tzType.writeLong(blockBuilder, numberBetween(range.low, range.high) * factor);
+            return blockBuilder -> tzType.writeLong(blockBuilder, numberBetween(random, range.low, range.high) * factor);
         }
         LongTimestampRange range = LongTimestampRange.of(genericRange, tzType.getPrecision());
         if (tzType.getPrecision() <= 6) {
             return blockBuilder -> {
-                long epochMicros = numberBetween(range.low.getEpochMicros(), range.high.getEpochMicros());
+                long epochMicros = numberBetween(random, range.low.getEpochMicros(), range.high.getEpochMicros());
                 tzType.writeObject(blockBuilder, new LongTimestamp(epochMicros * range.factor, 0));
             };
         }
         // numberBetween excludes the high bound
         int picosOfMicroHigh = (int) POWERS_OF_TEN[tzType.getPrecision() - 6];
         return blockBuilder -> {
-            long epochMicros = numberBetween(range.low.getEpochMicros(), range.high.getEpochMicros());
+            long epochMicros = numberBetween(random, range.low.getEpochMicros(), range.high.getEpochMicros());
             int picosOfMicro;
             if (epochMicros == range.low.getEpochMicros()) {
                 picosOfMicro = numberBetween(
+                        random,
                         range.low.getPicosOfMicro(),
                         range.low.getEpochMicros() == range.high.getEpochMicros() ?
                                 range.high.getPicosOfMicro()
                                 : picosOfMicroHigh);
             }
             else if (epochMicros == range.high.getEpochMicros()) {
-                picosOfMicro = numberBetween(0, range.high.getPicosOfMicro());
+                picosOfMicro = numberBetween(random, 0, range.high.getPicosOfMicro());
             }
             else {
-                picosOfMicro = numberBetween(0, picosOfMicroHigh);
+                picosOfMicro = numberBetween(random, 0, picosOfMicroHigh);
             }
             tzType.writeObject(blockBuilder, new LongTimestamp(epochMicros, picosOfMicro * range.factor));
         };
     }
 
-    private Generator timestampWithTimeZoneGenerator(Range genericRange, TimestampWithTimeZoneType tzType)
+    private Generator timestampWithTimeZoneGenerator(Range genericRange, TimestampWithTimeZoneType tzType, Random random)
     {
         if (tzType.isShort()) {
             ShortTimestampWithTimeZoneRange range = ShortTimestampWithTimeZoneRange.of(genericRange, tzType.getPrecision());
             return blockBuilder -> {
-                long millis = numberBetween(range.low, range.high) * range.factor;
+                long millis = numberBetween(random, range.low, range.high) * range.factor;
                 tzType.writeLong(blockBuilder, packDateTimeWithZone(millis, range.defaultTZ));
             };
         }
@@ -643,37 +644,38 @@ class FakerPageSource
         // numberBetween excludes the high bound
         int picosOfMilliHigh = (int) POWERS_OF_TEN[tzType.getPrecision() - 3];
         return blockBuilder -> {
-            long millis = numberBetween(range.lowEpochMillis(), range.highEpochMillis());
+            long millis = numberBetween(random, range.lowEpochMillis(), range.highEpochMillis());
             int picosOfMilli;
             if (millis == range.lowEpochMillis()) {
                 picosOfMilli = numberBetween(
+                        random,
                         range.lowPicosOfMilli(),
                         range.lowEpochMillis() == range.highEpochMillis() ?
                                 range.highPicosOfMilli()
                                 : picosOfMilliHigh);
             }
             else if (millis == range.highEpochMillis()) {
-                picosOfMilli = numberBetween(0, range.highPicosOfMilli());
+                picosOfMilli = numberBetween(random, 0, range.highPicosOfMilli());
             }
             else {
-                picosOfMilli = numberBetween(0, picosOfMilliHigh);
+                picosOfMilli = numberBetween(random, 0, picosOfMilliHigh);
             }
             tzType.writeObject(blockBuilder, fromEpochMillisAndFraction(millis, picosOfMilli * range.factor, range.defaultTZ));
         };
     }
 
-    private Generator timeWithTimeZoneGenerator(Range genericRange, TimeWithTimeZoneType timeType)
+    private Generator timeWithTimeZoneGenerator(Range genericRange, TimeWithTimeZoneType timeType, Random random)
     {
         if (timeType.isShort()) {
             ShortTimeWithTimeZoneRange range = ShortTimeWithTimeZoneRange.of(genericRange, timeType.getPrecision());
             return blockBuilder -> {
-                long nanos = numberBetween(range.low, range.high) * range.factor;
+                long nanos = numberBetween(random, range.low, range.high) * range.factor;
                 timeType.writeLong(blockBuilder, packTimeWithTimeZone(nanos, range.offsetMinutes));
             };
         }
         LongTimeWithTimeZoneRange range = LongTimeWithTimeZoneRange.of(genericRange, timeType.getPrecision());
         return blockBuilder -> {
-            long picoseconds = numberBetween(range.low, range.high) * range.factor;
+            long picoseconds = numberBetween(random, range.low, range.high) * range.factor;
             timeType.writeObject(blockBuilder, new LongTimeWithTimeZone(picoseconds, range.offsetMinutes));
         };
     }
@@ -1041,7 +1043,7 @@ class FakerPageSource
         }
     }
 
-    private int numberBetween(int min, int max)
+    private int numberBetween(Random random, int min, int max)
     {
         if (min == max) {
             return min;
@@ -1053,10 +1055,10 @@ class FakerPageSource
             return random.nextInt(amplitude) + realMin;
         }
         // handle overflow
-        return (int) numberBetween(realMin, (long) realMax);
+        return (int) numberBetween(random, realMin, (long) realMax);
     }
 
-    private long numberBetween(long min, long max)
+    private long numberBetween(Random random, long min, long max)
     {
         if (min == max) {
             return min;
@@ -1075,7 +1077,7 @@ class FakerPageSource
         return bigMin.add(bigMax.subtract(bigMin).multiply(randomValue)).longValue();
     }
 
-    private Generator generateIpV4(Type type, Range range)
+    private Generator generateIpV4(Type type, Range range, Random random)
     {
         if (!range.isAll()) {
             throw new TrinoException(INVALID_ROW_FILTER, "Predicates for ipaddress columns are not supported");
