@@ -27,11 +27,14 @@ faker.locale=pl
 Create tables in the `default` schema, or create different schemas first. Tables
 in the catalog only exist as definition and do not hold actual data. Any query
 reading from tables returns random, but deterministic data. Every generated
-value only depends on its column, row number, and the `faker.locale` catalog
-property. As a result, repeated invocation of a query returns identical data,
-and different queries reading the same table, like self-joins, return matching
-rows, no matter which columns they read, or how they filter or limit the rows.
-See [](faker-usage) for more examples.
+value only depends on the `seed` table property, its column, row number, and
+the `faker.locale` catalog property. As a result, repeated invocation of a
+query returns identical data, and different queries reading the same table,
+like self-joins, return matching rows, no matter which columns they read, or
+how they filter or limit the rows. Some generator expressions, like
+`#{Date.birthday}`, depend on the current date or other sources outside of the
+table, so their values can change between queries. See [](faker-usage) for more
+examples.
 
 Schemas, tables, and views in a catalog are not persisted, and are stored in the
 memory of the coordinator only. They need to be recreated every time after
@@ -112,6 +115,14 @@ values from corresponding schema properties are used.
     number of distinct values are treated as dictionaries, and get
     the `allowed_values` column property populated with random values.
     Defaults to `true`.
+* - `seed`
+  - Seed for generating data in the table. Tables with the same seed, column
+    definitions, and `null_probability` property, in catalogs with the same
+    `faker.locale` property, return identical data. Tables without the
+    `null_probability` property use the one of their schema. Defaults to a
+    value derived from the schema and table name, so renaming a table without
+    this property changes its data, except for columns with the `step`
+    property and without nulls.
 :::
 
 The following table details all supported column properties.
