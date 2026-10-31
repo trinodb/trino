@@ -47,6 +47,7 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.time.ZoneOffset.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -76,6 +77,7 @@ public class TestSnowflakeTypeMapping
             throws Exception
     {
         return SnowflakeQueryRunner.builder()
+                .addConnectorProperty("connection-password", requiredNonEmptySystemProperty("snowflake.test.server.password"))
                 .addConnectorProperty("jdbc-types-mapped-to-varchar", "ARRAY")
                 .build();
     }
