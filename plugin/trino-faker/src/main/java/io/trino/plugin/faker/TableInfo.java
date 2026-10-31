@@ -40,8 +40,13 @@ public record TableInfo(List<ColumnInfo> columns, Map<String, Object> properties
 
     public ColumnInfo column(ColumnHandle handle)
     {
+        FakerColumnHandle columnHandle = (FakerColumnHandle) handle;
         return columns.stream()
-                .filter(column -> column.handle().equals(handle))
+                // the referenced column is resolved when reading the table, so the stored handles don't have it
+                .filter(column -> columnHandle.referencedColumn()
+                        .map(column.handle()::withReferencedColumn)
+                        .orElse(column.handle())
+                        .equals(columnHandle))
                 .findFirst()
                 .orElseThrow();
     }
