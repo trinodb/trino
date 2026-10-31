@@ -214,6 +214,8 @@ import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
+import static io.trino.plugin.iceberg.MergedBaseColumns.mergeBaseColumns;
+import static io.trino.plugin.iceberg.MergedBaseColumns.readSchema;
 import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -330,6 +332,7 @@ public class IcebergPageSourceProvider
                 .collect(toImmutableList());
         IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTable;
         Schema schema = SchemaParser.fromJson(tableHandle.getTableSchemaJson());
+        Map<Integer, IcebergColumnHandle> columnHandleIndex = tableHandle.getColumnHandleIndex();
         String partitionSpecJson = tableHandle.getPartitionSpecJsons().get(split.specId());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, partitionSpecJson);
         org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
@@ -340,6 +343,7 @@ public class IcebergPageSourceProvider
                 session,
                 icebergColumns,
                 schema,
+                columnHandleIndex,
                 partitionSpec,
                 PartitionData.fromBlocks(split.partitionValues(), partitionColumnTypes, typeManager),
                 split.deletes(),
@@ -364,6 +368,7 @@ public class IcebergPageSourceProvider
             ConnectorSession session,
             List<IcebergColumnHandle> icebergColumns,
             Schema tableSchema,
+            Map<Integer, IcebergColumnHandle> columnHandleIndex,
             PartitionSpec partitionSpec,
             PartitionData partitionData,
             List<DeleteFile> deletes,
@@ -418,7 +423,8 @@ public class IcebergPageSourceProvider
 
         List<IcebergColumnHandle> requiredColumns = new ArrayList<>(icebergColumns);
 
-        Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, deletes);
+        Map<Integer, IcebergColumnHandle> equalityDeleteColumns = getEqualityDeleteColumns(tableSchema, columnHandleIndex, deletes);
+        Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(equalityDeleteColumns, deletes);
         // compare by field id not handle; IcebergColumnHandle can differ when fields have comments
         Set<Integer> projectedIds = icebergColumns.stream()
                 .map(IcebergColumnHandle::getId)
@@ -428,6 +434,10 @@ public class IcebergPageSourceProvider
                 .forEach(requiredColumns::add);
 
         Optional<FileDecryptionProperties> parquetFileDecryptionProperties = createParquetFileDecryptionProperties(parquetFileDecryptionData, arePlaintextFilesAllowedForEncryptedTables(session));
+        // delete filter columns resolved from older schemas can disagree with the read schema on the type of a base column
+        boolean readsHistoricalSchema = equalityDeleteColumns.keySet().stream()
+                .anyMatch(fieldId -> tableSchema.findField(fieldId) == null);
+        MergedBaseColumns readColumns = readsHistoricalSchema ? mergeBaseColumns(requiredColumns) : MergedBaseColumns.identity(requiredColumns);
         ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions = createDataPageSource(
                 session,
                 inputFile,
@@ -439,7 +449,7 @@ public class IcebergPageSourceProvider
                 PartitionData.toJson(partitionData),
                 fileFormat,
                 tableSchema,
-                requiredColumns,
+                readColumns.readColumns(),
                 effectivePredicate,
                 nameMapping,
                 partition,
@@ -449,7 +459,7 @@ public class IcebergPageSourceProvider
                 memoryContext.newAggregatedMemoryContext(),
                 parquetFileDecryptionProperties);
 
-        ConnectorPageSource pageSource = readerPageSourceWithRowPositions.pageSource();
+        ConnectorPageSource pageSource = readColumns.reshape(readerPageSourceWithRowPositions.pageSource());
 
         // filter out deleted rows
         if (!deletes.isEmpty()) {
@@ -461,7 +471,7 @@ public class IcebergPageSourceProvider
                                 dataSequenceNumber,
                                 deletes,
                                 requiredColumns,
-                                tableSchema,
+                                equalityDeleteColumns,
                                 readerPageSourceWithRowPositions.startRowPosition(),
                                 readerPageSourceWithRowPositions.endRowPosition(),
                                 deleteFile -> readDeletionVector(fileSystem, deleteFile, memoryContext),
@@ -568,21 +578,51 @@ public class IcebergPageSourceProvider
                 .filter((handle, domain) -> !domain.contains(fileStatisticsDomain.getDomain(handle, domain.getType())));
     }
 
-    private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
+    /**
+     * Returns the equality delete key columns by field ID, projected from the table schema, or from an older schema
+     * when the field was dropped from the table schema.
+     */
+    private Map<Integer, IcebergColumnHandle> getEqualityDeleteColumns(Schema tableSchema, Map<Integer, IcebergColumnHandle> columnHandleIndex, List<DeleteFile> deletes)
+    {
+        Set<Integer> fieldIds = deletes.stream()
+                .filter(deleteFile -> deleteFile.content() == EQUALITY_DELETES)
+                .flatMap(deleteFile -> deleteFile.equalityFieldIds().stream())
+                .collect(toImmutableSet());
+        if (fieldIds.isEmpty()) {
+            return ImmutableMap.of();
+        }
+
+        Set<Integer> tableFieldIds = fieldIds.stream()
+                .filter(id -> tableSchema.findField(id) != null)
+                .collect(toImmutableSet());
+        ImmutableMap.Builder<Integer, IcebergColumnHandle> columns = ImmutableMap.builder();
+        if (!tableFieldIds.isEmpty()) {
+            getProjectedColumns(tableSchema, typeManager, tableFieldIds).forEach(column -> columns.put(column.getId(), column));
+        }
+        for (int fieldId : fieldIds) {
+            if (!tableFieldIds.contains(fieldId)) {
+                IcebergColumnHandle column = columnHandleIndex.get(fieldId);
+                if (column == null) {
+                    throw new TrinoException(ICEBERG_BAD_DATA, "Equality delete references field ID " + fieldId + " not found in column index");
+                }
+                columns.put(fieldId, column);
+            }
+        }
+        return columns.buildOrThrow();
+    }
+
+    private Set<IcebergColumnHandle> requiredColumnsForDeletes(Map<Integer, IcebergColumnHandle> equalityDeleteColumns, List<DeleteFile> deletes)
     {
         ImmutableSet.Builder<IcebergColumnHandle> requiredColumns = ImmutableSet.builder();
-        ImmutableSet.Builder<Integer> equalityFieldIds = ImmutableSet.builder();
         for (DeleteFile deleteFile : deletes) {
             if (deleteFile.content() == POSITION_DELETES) {
                 requiredColumns.add(getColumnHandle(ROW_POSITION, typeManager));
             }
             else if (deleteFile.content() == EQUALITY_DELETES) {
-                equalityFieldIds.addAll(deleteFile.equalityFieldIds());
+                deleteFile.equalityFieldIds().stream()
+                        .map(equalityDeleteColumns::get)
+                        .forEach(requiredColumns::add);
             }
-        }
-        Set<Integer> fieldIds = equalityFieldIds.build();
-        if (!fieldIds.isEmpty()) {
-            requiredColumns.addAll(getProjectedColumns(schema, typeManager, fieldIds));
         }
 
         return requiredColumns.build();
@@ -1492,6 +1532,7 @@ public class IcebergPageSourceProvider
             Map<Integer, Integer> baseColumnIdToOrdinal = new HashMap<>();
 
             int nextOrdinal = 0;
+            List<IcebergColumnHandle> dataBaseColumns = new ArrayList<>();
             for (IcebergColumnHandle column : columns) {
                 if (partitionKeys.containsKey(column.getId())) {
                     Type trinoType = column.getType();
@@ -1557,6 +1598,9 @@ public class IcebergPageSourceProvider
 
                         columnNames.add(getAvroColumnName(baseColumn));
                         columnTypes.add(getFileReadType(baseColumn.getType(), typeManager));
+                        if (!column.isRowIdColumn() && !column.isLastUpdatedSequenceNumberColumn()) {
+                            dataBaseColumns.add(baseColumn);
+                        }
                     }
 
                     if (column.isRowIdColumn() && fileFirstRowId.isPresent()) {
@@ -1585,7 +1629,8 @@ public class IcebergPageSourceProvider
                     file,
                     start,
                     length,
-                    fileSchema,
+                    // the file is projected through the schema, which must contain the fields of columns resolved from older schemas
+                    readSchema(fileSchema, dataBaseColumns),
                     applyNameMapping ? nameMapping : Optional.empty(),
                     columnNames.build(),
                     columnTypes.build(),

@@ -152,6 +152,7 @@ class TestIcebergPageSourceProvider
                 createSession(),
                 ImmutableList.of(regionkeyHandle, nameHandle),
                 tableSchema,
+                ImmutableMap.of(regionkeyIdentity.getId(), regionkeyHandle, nameIdentity.getId(), nameHandle),
                 PartitionSpec.unpartitioned(),
                 new PartitionData(new Object[] {}),
                 ImmutableList.of(equalityDelete),
