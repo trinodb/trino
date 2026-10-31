@@ -439,8 +439,53 @@ Inserts are not supported, and the only data format supported is AVRO.
   - The interval used for refreshing the list of subjects and the definition
     of the schema for the subject in the subject's cache.
   - `1s`
+* - `kafka.confluent-schema-registry.basic-auth.user`
+  - User name for HTTP basic authentication to the schema registry. Must be
+    set together with the password.
+  -
+* - `kafka.confluent-schema-registry.basic-auth.password`
+  - Password for HTTP basic authentication to the schema registry. Use an
+    `https` registry URL, so that the credentials are not sent in clear text.
+  -
+* - `kafka.confluent-schema-registry.ssl.keystore.location`
+  - Location of the key store file used to authenticate to the schema registry
+    with a client certificate.
+  -
+* - `kafka.confluent-schema-registry.ssl.keystore.password`
+  - Password for the key store file. Required when the key store location is
+    set.
+  -
+* - `kafka.confluent-schema-registry.ssl.keystore.type`
+  - File format of the key store file, `JKS` or `PKCS12`.
+  - `JKS`
+* - `kafka.confluent-schema-registry.ssl.truststore.location`
+  - Location of the trust store file used to verify the certificate of the
+    schema registry. When not set, the Java default trust store is used.
+  -
+* - `kafka.confluent-schema-registry.ssl.truststore.password`
+  - Password for the trust store file. Required when the trust store location
+    is set.
+  -
+* - `kafka.confluent-schema-registry.ssl.truststore.type`
+  - File format of the trust store file, `JKS` or `PKCS12`.
+  - `JKS`
+* - `kafka.confluent-schema-registry.ssl.key.password`
+  - Password of the private key in the key store file. Defaults to the key
+    store password.
+  -
+* - `kafka.confluent-schema-registry.ssl.endpoint-identification-algorithm`
+  - Endpoint identification algorithm used to validate the schema registry
+    host name against its certificate. Set to `disabled` to skip the
+    validation.
+  - `https`
 
 :::
+
+The `kafka.confluent-schema-registry.ssl.*` properties apply to schema registry
+URLs with the `https` scheme, such as `https://schema-registry.example.org:8081`.
+The configured key store and trust store files are loaded when the connector
+starts, even if all schema registry URLs use `http`, and a file that cannot be
+read as a key store or trust store prevents the connector from starting.
 
 #### Confluent subject to table name mapping
 
