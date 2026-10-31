@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static io.trino.plugin.faker.Distribution.UNIFORM;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -73,7 +74,7 @@ public class TestFakerPageSource
     @Test
     public void testOrderableTypeWithoutGenerator()
     {
-        FakerColumnHandle column = new FakerColumnHandle(0, "x", ORDERABLE_TYPE, 0, null, Domain.all(ORDERABLE_TYPE), ValueSet.none(ORDERABLE_TYPE), Optional.empty());
+        FakerColumnHandle column = new FakerColumnHandle(0, "x", ORDERABLE_TYPE, 0, null, Domain.all(ORDERABLE_TYPE), ValueSet.none(ORDERABLE_TYPE), Optional.empty(), UNIFORM, List.of());
         FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 1);
         assertThat(source.getNextSourcePage()).isNull();
         assertThat(source.getNextSourcePage().getBlock(0).isNull(0)).isTrue();
@@ -82,7 +83,7 @@ public class TestFakerPageSource
     @Test
     public void testInvalidGeneratedValue()
     {
-        FakerColumnHandle column = new FakerColumnHandle(0, "x", INTEGER, 0, "#{Name.first_name}", Domain.all(INTEGER), ValueSet.none(INTEGER), Optional.empty());
+        FakerColumnHandle column = new FakerColumnHandle(0, "x", INTEGER, 0, "#{Name.first_name}", Domain.all(INTEGER), ValueSet.none(INTEGER), Optional.empty(), UNIFORM, List.of());
         FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 1);
         assertThatThrownBy(source::getNextSourcePage)
                 .isInstanceOf(TrinoException.class)
@@ -93,9 +94,9 @@ public class TestFakerPageSource
     public void testSplitsDoNotChangeValues()
     {
         List<FakerColumnHandle> columns = List.of(
-                new FakerColumnHandle(0, "sequence", BIGINT, 0.5, null, Domain.all(BIGINT), ValueSet.of(BIGINT, 1L), Optional.empty()),
-                new FakerColumnHandle(1, "number", BIGINT, 0.5, null, Domain.all(BIGINT), ValueSet.none(BIGINT), Optional.empty()),
-                new FakerColumnHandle(2, "text", VARCHAR, 0.5, null, Domain.all(VARCHAR), ValueSet.none(VARCHAR), Optional.empty()));
+                new FakerColumnHandle(0, "sequence", BIGINT, 0.5, null, Domain.all(BIGINT), ValueSet.of(BIGINT, 1L), Optional.empty(), UNIFORM, List.of()),
+                new FakerColumnHandle(1, "number", BIGINT, 0.5, null, Domain.all(BIGINT), ValueSet.none(BIGINT), Optional.empty(), UNIFORM, List.of()),
+                new FakerColumnHandle(2, "text", VARCHAR, 0.5, null, Domain.all(VARCHAR), ValueSet.none(VARCHAR), Optional.empty(), UNIFORM, List.of()));
         List<List<Object>> singleSplit = generateRows(columns, 0, 5000);
         List<List<Object>> twoSplits = ImmutableList.<List<Object>>builder()
                 .addAll(generateRows(columns, 0, 1234))
@@ -106,7 +107,7 @@ public class TestFakerPageSource
 
     private static FakerColumnHandle column(Domain domain)
     {
-        return new FakerColumnHandle(0, "x", DOUBLE, 0, null, domain, ValueSet.none(DOUBLE), Optional.empty());
+        return new FakerColumnHandle(0, "x", DOUBLE, 0, null, domain, ValueSet.none(DOUBLE), Optional.empty(), UNIFORM, List.of());
     }
 
     private static List<List<Object>> generateRows(List<FakerColumnHandle> columns, long rowOffset, long limit)

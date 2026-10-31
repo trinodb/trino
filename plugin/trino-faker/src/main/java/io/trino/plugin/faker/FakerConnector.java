@@ -38,6 +38,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.DISTRIBUTION_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.REFERENCES_PROPERTY;
@@ -48,6 +49,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -237,6 +239,12 @@ public class FakerConnector
                 stringProperty(
                         REFERENCES_PROPERTY,
                         "Column of the same or another table, as table.column or schema.table.column, to generate only values existing in that column",
+                        null,
+                        false),
+                enumProperty(
+                        DISTRIBUTION_PROPERTY,
+                        "Distribution of generated values",
+                        Distribution.class,
                         null,
                         false));
     }
