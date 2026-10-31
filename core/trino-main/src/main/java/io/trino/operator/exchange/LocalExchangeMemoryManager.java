@@ -31,7 +31,8 @@ import static java.util.Objects.requireNonNull;
  * reservation is blocked on the memory pool. The reported bytes move to one
  * step above the buffered bytes only when the buffered bytes exceed them or
  * fall two steps below them, so adding and removing pages does not touch the
- * memory reservation shared with other managers between moves.
+ * memory reservation shared with other managers between moves. Only adding
+ * pages reports growth, so removing pages never fails on the memory limit.
  */
 @ThreadSafe
 public class LocalExchangeMemoryManager
@@ -68,8 +69,8 @@ public class LocalExchangeMemoryManager
     {
         long bufferedBytes = this.bufferedBytes.addAndGet(bytesAdded);
         long reportedBytes = this.reportedBytes;
-        if (bufferedBytes > reportedBytes || bufferedBytes < reportedBytes - 2 * reportStepBytes) {
-            reportMemoryUsage();
+        if ((bytesAdded > 0 && bufferedBytes > reportedBytes) || bufferedBytes < reportedBytes - 2 * reportStepBytes) {
+            reportMemoryUsage(bytesAdded > 0);
         }
         // detect the transition from above to below the full boundary
         if (bufferedBytes <= maxBufferedBytes && (bufferedBytes - bytesAdded) > maxBufferedBytes) {
@@ -87,10 +88,14 @@ public class LocalExchangeMemoryManager
         }
     }
 
-    private synchronized void reportMemoryUsage()
+    private synchronized void reportMemoryUsage(boolean reportGrowth)
     {
         // re-check since another thread may have reported
         long bufferedBytes = this.bufferedBytes.get();
+        // the thread that added the bytes reports the growth
+        if (bufferedBytes > reportedBytes && !reportGrowth) {
+            return;
+        }
         if (bufferedBytes <= reportedBytes && bufferedBytes >= reportedBytes - 2 * reportStepBytes) {
             return;
         }
