@@ -16,6 +16,7 @@ package io.trino.plugin.faker;
 import com.google.common.collect.ImmutableList;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.H2QueryRunner;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -28,12 +29,25 @@ import java.util.Map;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestFakerQueries
         extends AbstractTestQueryFramework
 {
+    private static final String DETERMINISM_TEST_COLUMNS =
+            """
+            (
+                id BIGINT NOT NULL WITH (min = '1', max = '1000', step = '1'),
+                a BIGINT NOT NULL,
+                b VARCHAR NOT NULL,
+                c DATE,
+                d VARCHAR NOT NULL WITH (generator = '#{Name.first_name}'),
+                e UUID NOT NULL
+            )
+            """;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -167,7 +181,7 @@ final class TestFakerQueries
     @Test
     void testSelectLimit()
     {
-        try (TestTable table = newTrinoTable("single_column", "(rnd_bigint bigint NOT NULL)")) {
+        try (TestTable table = newTrinoTable("single_column", "(rnd_bigint bigint NOT NULL) WITH (seed = 0)")) {
             assertQuery("SELECT count(rnd_bigint) FROM (SELECT rnd_bigint FROM %s LIMIT 5) a".formatted(table.getName()),
                     "VALUES (5)");
 
@@ -191,9 +205,9 @@ final class TestFakerQueries
                     """
                     SELECT to_hex(checksum(rnd_bigint))
                     FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), 3 * MAX_ROWS_PER_SPLIT);
-            assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
-            assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
-            assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
+            assertQuery(testQuery, "VALUES ('3C3F42CDB3F02DAF')");
+            assertQuery(testQuery, "VALUES ('3C3F42CDB3F02DAF')");
+            assertQuery(testQuery, "VALUES ('3C3F42CDB3F02DAF')");
 
             // there should be no overlap between data generated from different splits
             assertQuery(
@@ -203,6 +217,75 @@ final class TestFakerQueries
                     JOIN (SELECT rnd_bigint FROM %s LIMIT %d) b ON a.rnd_bigint = b.rnd_bigint""".formatted(table.getName(), 2 * MAX_ROWS_PER_SPLIT, table.getName(), 5 * MAX_ROWS_PER_SPLIT),
                     "VALUES (%d)".formatted(2 * MAX_ROWS_PER_SPLIT));
         }
+    }
+
+    @Test
+    void testSelectedColumnsDoNotChangeValues()
+    {
+        try (TestTable table = newTrinoTable("selected_columns", DETERMINISM_TEST_COLUMNS)) {
+            MaterializedResult allColumns = computeActual("SELECT id, a, b, c, d, e FROM " + table.getName());
+            assertEqualsIgnoreOrder(
+                    computeActual("SELECT id, b, c, e FROM " + table.getName()).getMaterializedRows(),
+                    allColumns.project("id", "b", "c", "e").getMaterializedRows());
+        }
+    }
+
+    @Test
+    void testFilterDoesNotChangeValues()
+    {
+        try (TestTable table = newTrinoTable("filter", DETERMINISM_TEST_COLUMNS)) {
+            MaterializedResult unfiltered = computeActual("SELECT id, b, c, d, e FROM " + table.getName());
+            MaterializedResult filtered = computeActual("SELECT id, b, c, d, e FROM %s WHERE a > 0".formatted(table.getName()));
+            assertThat(filtered.getRowCount()).isBetween(1, unfiltered.getRowCount() - 1);
+            assertThat(unfiltered.getMaterializedRows()).containsAll(filtered.getMaterializedRows());
+        }
+    }
+
+    @Test
+    void testLimitDoesNotChangeValues()
+    {
+        try (TestTable table = newTrinoTable("limit", DETERMINISM_TEST_COLUMNS)) {
+            assertEqualsIgnoreOrder(
+                    computeActual("SELECT * FROM %s LIMIT 10".formatted(table.getName())).getMaterializedRows(),
+                    computeActual("SELECT * FROM %s WHERE id <= 10".formatted(table.getName())).getMaterializedRows());
+        }
+    }
+
+    @Test
+    void testSeed()
+    {
+        try (TestTable first = newTrinoTable("seed_first", DETERMINISM_TEST_COLUMNS);
+                TestTable second = newTrinoTable("seed_second", DETERMINISM_TEST_COLUMNS);
+                TestTable firstWithSeed = newTrinoTable("seed_explicit_first", DETERMINISM_TEST_COLUMNS + " WITH (seed = 42)");
+                TestTable secondWithSeed = newTrinoTable("seed_explicit_second", DETERMINISM_TEST_COLUMNS + " WITH (seed = 42)")) {
+            assertQuery(countMatchingRows(first.getName(), second.getName()), "VALUES 0");
+            assertQuery(countMatchingRows(firstWithSeed.getName(), secondWithSeed.getName()), "VALUES 1000");
+        }
+
+        assertUpdate("CREATE TABLE recreated " + DETERMINISM_TEST_COLUMNS);
+        MaterializedResult rows = computeActual("SELECT * FROM recreated");
+        assertUpdate("DROP TABLE recreated");
+        assertUpdate("CREATE TABLE recreated " + DETERMINISM_TEST_COLUMNS);
+        assertEqualsIgnoreOrder(computeActual("SELECT * FROM recreated").getMaterializedRows(), rows.getMaterializedRows());
+        assertUpdate("DROP TABLE recreated");
+
+        // names that are equal when joined with a period
+        assertUpdate("CREATE SCHEMA \"seed.schema\"");
+        assertUpdate("CREATE SCHEMA seed");
+        assertUpdate("CREATE TABLE \"seed.schema\".tbl " + DETERMINISM_TEST_COLUMNS);
+        assertUpdate("CREATE TABLE seed.\"schema.tbl\" " + DETERMINISM_TEST_COLUMNS);
+        assertQuery(countMatchingRows("\"seed.schema\".tbl", "seed.\"schema.tbl\""), "VALUES 0");
+        assertUpdate("DROP SCHEMA \"seed.schema\" CASCADE");
+        assertUpdate("DROP SCHEMA seed CASCADE");
+    }
+
+    private static String countMatchingRows(String firstTable, String secondTable)
+    {
+        return """
+               SELECT count(*)
+               FROM %s x
+               JOIN %s y ON x.id = y.id AND x.a = y.a AND x.b = y.b AND x.d = y.d AND x.e = y.e
+               """.formatted(firstTable, secondTable);
     }
 
     @Test
@@ -230,8 +313,9 @@ final class TestFakerQueries
                     name VARCHAR NOT NULL WITH (generator = '#{Name.first_name} #{Name.last_name}'),
                     age_years INTEGER NOT NULL
                 )
+                WITH (seed = 0)
                 """)) {
-            assertQuery("SELECT name FROM " + table.getName() + " LIMIT 1", "VALUES ('Bev Runolfsson')");
+            assertQuery("SELECT name FROM " + table.getName() + " LIMIT 1", "VALUES ('Oscar Willms')");
         }
     }
 
@@ -248,13 +332,14 @@ final class TestFakerQueries
                             name VARCHAR NOT NULL WITH (generator = '#{Name.first_name} #{Name.last_name}'),
                             age_years INTEGER NOT NULL
                         )
+                        WITH (seed = 0)
                         """)) {
             QueryAssertions.assertQuery(
                     queryRunner,
                     getSession(),
                     "SELECT name FROM " + table.getName() + " LIMIT 1",
                     h2QueryRunner,
-                    "VALUES ('Klementyna Szczepanik')",
+                    "VALUES ('Arkady Pietrzak')",
                     false,
                     false);
         }

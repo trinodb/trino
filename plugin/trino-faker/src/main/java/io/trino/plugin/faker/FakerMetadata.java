@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
@@ -69,18 +70,17 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import net.datafaker.Faker;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 import java.util.stream.IntStream;
@@ -93,6 +93,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.filterKeys;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
@@ -136,8 +137,7 @@ public class FakerMetadata
     private final boolean isDictionaryDetectionEnabled;
     private final FunctionBundle functionBundle;
 
-    private final Random random;
-    private final Faker faker;
+    private final Locale locale;
 
     @GuardedBy("this")
     private final Map<SchemaTableName, TableInfo> tables = new HashMap<>();
@@ -153,8 +153,7 @@ public class FakerMetadata
         this.isSequenceDetectionEnabled = config.isSequenceDetectionEnabled();
         this.isDictionaryDetectionEnabled = config.isDictionaryDetectionEnabled();
         this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
-        this.random = new Random(1);
-        this.faker = new Faker(random);
+        this.locale = config.getLocale();
     }
 
     @Override
@@ -204,7 +203,17 @@ public class FakerMetadata
         }
         long schemaLimit = (long) schema.properties().getOrDefault(SchemaInfo.DEFAULT_LIMIT_PROPERTY, defaultLimit);
         long tableLimit = (long) tables.get(tableName).properties().getOrDefault(TableInfo.DEFAULT_LIMIT_PROPERTY, schemaLimit);
-        return new FakerTableHandle(tableName, tableLimit);
+        return new FakerTableHandle(tableName, tableLimit, seed(tableName, tableInfo));
+    }
+
+    private static long seed(SchemaTableName tableName, TableInfo tableInfo)
+    {
+        Long seed = (Long) tableInfo.properties().get(TableInfo.SEED_PROPERTY);
+        if (seed != null) {
+            return seed;
+        }
+        // hash the names separately, since joining them with a period makes some pairs of names equal
+        return XxHash64.hash(XxHash64.hash(utf8Slice(tableName.getSchemaName())), utf8Slice(tableName.getTableName()));
     }
 
     @Override
@@ -601,7 +610,7 @@ public class FakerMetadata
             return ImmutableMap.of();
         }
         ImmutableMap.Builder<String, List<Object>> columnValues = ImmutableMap.builder();
-        try (FakerPageSource pageSource = new FakerPageSource(faker, random, dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
+        try (FakerPageSource pageSource = new FakerPageSource(locale, seed(tableName, info), dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
             SourcePage page = null;
             while (page == null) {
                 page = pageSource.getNextSourcePage();
