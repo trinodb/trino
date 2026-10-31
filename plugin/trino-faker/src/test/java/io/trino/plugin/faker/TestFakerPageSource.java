@@ -52,7 +52,7 @@ public class TestFakerPageSource
     public void testNaNGeneration()
     {
         FakerColumnHandle column = column(Domain.singleValue(DOUBLE, Double.NaN));
-        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, List.of(column), 0, 1);
+        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 1);
         assertThat(source.getNextSourcePage()).isNull();
         assertThat(DOUBLE.getDouble(source.getNextSourcePage().getBlock(0), 0)).isNaN();
     }
@@ -63,7 +63,7 @@ public class TestFakerPageSource
         for (ValueSet values : List.of(
                 ValueSet.of(DOUBLE, Double.NaN).complement(),
                 ValueSet.ofRanges(Range.lessThan(DOUBLE, 1.0)).union(ValueSet.of(DOUBLE, Double.NaN)))) {
-            assertThatThrownBy(() -> new FakerPageSource(Locale.ENGLISH, List.of(column(Domain.create(values, false))), 0, 1))
+            assertThatThrownBy(() -> new FakerPageSource(Locale.ENGLISH, 0, List.of(column(Domain.create(values, false))), 0, 1))
                     .isInstanceOf(TrinoException.class)
                     .hasMessage("Non-discrete NaN constraints are not supported for generated columns");
         }
@@ -73,7 +73,7 @@ public class TestFakerPageSource
     public void testOrderableTypeWithoutGenerator()
     {
         FakerColumnHandle column = new FakerColumnHandle(0, "x", ORDERABLE_TYPE, 0, null, Domain.all(ORDERABLE_TYPE), ValueSet.none(ORDERABLE_TYPE));
-        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, List.of(column), 0, 1);
+        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 1);
         assertThat(source.getNextSourcePage()).isNull();
         assertThat(source.getNextSourcePage().getBlock(0).isNull(0)).isTrue();
     }
@@ -82,7 +82,7 @@ public class TestFakerPageSource
     public void testInvalidGeneratedValue()
     {
         FakerColumnHandle column = new FakerColumnHandle(0, "x", INTEGER, 0, "#{Name.first_name}", Domain.all(INTEGER), ValueSet.none(INTEGER));
-        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, List.of(column), 0, 1);
+        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 1);
         assertThatThrownBy(source::getNextSourcePage)
                 .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("The `generator` property of column `x` produced `\\w+`, which is not a valid integer value");
@@ -110,7 +110,7 @@ public class TestFakerPageSource
 
     private static List<List<Object>> generateRows(List<FakerColumnHandle> columns, long rowOffset, long limit)
     {
-        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, columns, rowOffset, limit);
+        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, columns, rowOffset, limit);
         ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
         while (!source.isFinished()) {
             SourcePage page = source.getNextSourcePage();
