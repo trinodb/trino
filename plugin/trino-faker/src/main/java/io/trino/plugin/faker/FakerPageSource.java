@@ -412,7 +412,11 @@ class FakerPageSource
             if (type instanceof CharType charType) {
                 return blockBuilder -> charType.writeSlice(blockBuilder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(faker.expression(handle.generator())), charType));
             }
-            return blockBuilder -> VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(faker.expression(handle.generator())));
+            if (type instanceof VarbinaryType) {
+                return blockBuilder -> VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(faker.expression(handle.generator())));
+            }
+            ObjectWriter writer = objectWriter(type);
+            return blockBuilder -> writer.accept(blockBuilder, handle.parseGeneratedValue(faker.expression(handle.generator())));
         }
         // check every type in order defined in StandardTypes
         if (BIGINT.equals(type)) {
