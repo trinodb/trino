@@ -611,7 +611,8 @@ public class FakerMetadata
             }
         });
         List<FakerColumnHandle> dictionaryColumns = distinctValues.entrySet().stream()
-                .filter(entry -> entry.getValue() <= MAX_DICTIONARY_SIZE)
+                // columns with only nulls have no values to build a dictionary from
+                .filter(entry -> entry.getValue() > 0 && entry.getValue() <= MAX_DICTIONARY_SIZE)
                 .map(entry -> columnHandles.get(entry.getKey()))
                 .filter(Objects::nonNull)
                 .filter(column -> isRangeType(column.type()))
