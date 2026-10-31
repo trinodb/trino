@@ -14,10 +14,10 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.MetadataColumns;
@@ -62,7 +62,7 @@ public class IcebergAvroPageSource
     private final Map<String, org.apache.iceberg.types.Type> icebergTypes;
     private final boolean appendRowNumberColumn;
     private final PageBuilder pageBuilder;
-    private final AggregatedMemoryContext memoryUsage;
+    private final MemoryContext memoryContext;
 
     private int rowId;
     private long readBytes;
@@ -79,12 +79,12 @@ public class IcebergAvroPageSource
             boolean appendRowNumberColumn,
             OptionalLong fileFirstRowId,
             OptionalLong dataSequenceNumber,
-            AggregatedMemoryContext memoryUsage)
+            MemoryContext memoryContext)
     {
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.appendRowNumberColumn = appendRowNumberColumn;
-        this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         checkArgument(
                 columnNames.size() == columnTypes.size(),
                 "names and types must correspond one-to-one-to-one");
@@ -158,16 +158,12 @@ public class IcebergAvroPageSource
         }
 
         Page page = pageBuilder.build();
+        // The page builder retains the blocks of the page until it is reset for the next page
+        memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
         readBytes += page.getSizeInBytes();
         readTimeNanos += System.nanoTime() - start;
 
         return SourcePage.create(page);
-    }
-
-    @Override
-    public long getMemoryUsage()
-    {
-        return memoryUsage.getBytes();
     }
 
     @Override
@@ -179,5 +175,6 @@ public class IcebergAvroPageSource
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        memoryContext.setBytes(0);
     }
 }
