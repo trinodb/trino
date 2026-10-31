@@ -659,8 +659,10 @@ public class AzureFileSystem
             return true;
         }
         catch (DataLakeStorageException e) {
-            // getAccessControl() is only supported on HNS-enabled accounts; flat namespace returns HierarchicalNamespaceNotEnabled
-            if ("HierarchicalNamespaceNotEnabled".equals(e.getErrorCode())) {
+            // getAccessControl() is only supported on HNS-enabled accounts. A flat namespace account returns
+            // HierarchicalNamespaceNotEnabled, or EndpointUnsupportedAccountFeatures when it has blob soft delete
+            // or blob storage events enabled, because the Data Lake endpoint then rejects every request
+            if ("HierarchicalNamespaceNotEnabled".equals(e.getErrorCode()) || "EndpointUnsupportedAccountFeatures".equals(e.getErrorCode())) {
                 return false;
             }
             // Path does not exist yet (e.g. creating a new nested directory), but the account supports HNS
