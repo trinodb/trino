@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.inject.Inject;
 import io.trino.FeaturesConfig;
+import io.trino.FullConnectorSession;
 import io.trino.cache.NonEvictableCache;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
@@ -61,10 +62,15 @@ import static java.util.Objects.requireNonNull;
 public class FunctionManager
 {
     private static final boolean ASSERTIONS_ENABLED = FunctionManager.class.desiredAssertionStatus();
+    private static final MethodHandle CATALOG_CONNECTOR_SESSION;
     private static final MethodHandle NEVER_FAILS_VIOLATED;
 
     static {
         try {
+            CATALOG_CONNECTOR_SESSION = MethodHandles.lookup().findStatic(
+                    FunctionManager.class,
+                    "getCatalogConnectorSession",
+                    MethodType.methodType(ConnectorSession.class, CatalogHandle.class, ConnectorSession.class));
             NEVER_FAILS_VIOLATED = MethodHandles.lookup().findStatic(
                     FunctionManager.class,
                     "neverFailsViolated",
@@ -129,11 +135,41 @@ public class FunctionManager
                     invocationConvention);
         }
 
+        if (!resolvedFunction.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)) {
+            scalarFunctionImplementation = bindCatalogConnectorSession(resolvedFunction.catalogHandle(), scalarFunctionImplementation);
+        }
         verifyMethodHandleSignature(resolvedFunction.signature(), scalarFunctionImplementation, invocationConvention);
         if (ASSERTIONS_ENABLED && resolvedFunction.neverFails()) {
             scalarFunctionImplementation = reportIfNeverFailsViolated(resolvedFunction, scalarFunctionImplementation);
         }
         return scalarFunctionImplementation;
+    }
+
+    private static ScalarFunctionImplementation bindCatalogConnectorSession(CatalogHandle catalogHandle, ScalarFunctionImplementation scalarFunctionImplementation)
+    {
+        MethodHandle target = scalarFunctionImplementation.getMethodHandle();
+        MethodHandle catalogConnectorSession = MethodHandles.insertArguments(CATALOG_CONNECTOR_SESSION, 0, catalogHandle);
+        for (int parameterIndex = 0; parameterIndex < target.type().parameterCount(); parameterIndex++) {
+            if (target.type().parameterType(parameterIndex).equals(ConnectorSession.class)) {
+                target = MethodHandles.filterArguments(target, parameterIndex, catalogConnectorSession);
+            }
+        }
+        if (target == scalarFunctionImplementation.getMethodHandle()) {
+            return scalarFunctionImplementation;
+        }
+        return ScalarFunctionImplementation.builder()
+                .methodHandle(target)
+                .instanceFactory(scalarFunctionImplementation.getInstanceFactory())
+                .lambdaInterfaces(scalarFunctionImplementation.getLambdaInterfaces())
+                .build();
+    }
+
+    private static ConnectorSession getCatalogConnectorSession(CatalogHandle catalogHandle, ConnectorSession connectorSession)
+    {
+        if (connectorSession instanceof FullConnectorSession fullConnectorSession) {
+            return fullConnectorSession.getSession().toConnectorSession(catalogHandle);
+        }
+        return connectorSession;
     }
 
     private static ScalarFunctionImplementation reportIfNeverFailsViolated(ResolvedFunction resolvedFunction, ScalarFunctionImplementation scalarFunctionImplementation)
