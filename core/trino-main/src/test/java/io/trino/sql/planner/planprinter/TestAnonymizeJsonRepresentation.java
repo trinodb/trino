@@ -172,7 +172,7 @@ public class TestAnonymizeJsonRepresentation
                         new TableHandle(
                                 queryRunner.getPlannerContext().getMetadata().getCatalogHandle(pb.getSession(), "tpch").orElseThrow(),
                                 new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
-                                TpchTransactionHandle.INSTANCE),
+                                new TpchTransactionHandle()),
                         ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", BIGINT), pb.symbol("c", BIGINT), pb.symbol("d", BIGINT)),
                         ImmutableMap.of(
                                 pb.symbol("a", BIGINT), TEST_COLUMN_HANDLE_A,
