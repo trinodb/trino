@@ -14,25 +14,71 @@
 package io.trino;
 
 import io.trino.jdbc.TestJdbcResultSet;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import io.trino.server.testing.TestingTrinoServer;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Optional;
+import java.util.Properties;
 
 import static io.trino.JdbcDriverCapabilities.testedVersion;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestJdbcResultSetCompatibilityOldDriver
         extends TestJdbcResultSet
 {
     private static final Optional<Integer> VERSION_UNDER_TEST = testedVersion();
 
+    private TestingTrinoServer server;
+
+    @Override
+    @BeforeAll
+    public void setupServer()
+    {
+        server = TestingTrinoServer.builder().build();
+    }
+
+    @Override
+    @AfterAll
+    public void tearDownServer()
+    {
+        if (server != null) {
+            try {
+                server.close();
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            finally {
+                server = null;
+            }
+        }
+    }
+
+    @Override
+    protected Connection createConnection()
+            throws SQLException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("user", "test");
+        return DriverManager.getConnection(format("jdbc:trino://%s", server.getAddress()), properties);
+    }
+
     @Test
     public void ensureProperTestVersionLoaded()
     {
-        if (VERSION_UNDER_TEST.isEmpty()) {
-            throw new SkipException("Information about JDBC version under test is missing");
-        }
+        Assumptions.assumeTrue(
+                VERSION_UNDER_TEST.isPresent(),
+                "Information about JDBC version under test is missing");
 
         assertThat(TestJdbcResultSet.class.getPackage().getImplementationVersion())
                 .isEqualTo(VERSION_UNDER_TEST.get().toString());
