@@ -116,7 +116,7 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_smallint", "smallint", "count(rnd_smallint)", "1000"))
                 .add(new TestDataType("rnd_tinyint", "tinyint", "count(rnd_tinyint)", "1000"))
                 .add(new TestDataType("rnd_boolean", "boolean", "count(distinct rnd_boolean)", "2"))
-                .add(new TestDataType("rnd_date", "date", "count(distinct rnd_date)", "1000"))
+                .add(new TestDataType("rnd_date", "date", "count(rnd_date)", "1000"))
                 .add(new TestDataType("rnd_decimal1", "decimal", "count(distinct rnd_decimal1)", "1000"))
                 .add(new TestDataType("rnd_decimal2", "decimal(18,5)", "count(distinct rnd_decimal2)", "1000"))
                 .add(new TestDataType("rnd_decimal3", "decimal(38,0)", "count(distinct rnd_decimal3)", "1000"))
@@ -438,6 +438,53 @@ final class TestFakerQueries
     }
 
     @Test
+    void testSelectDefaultTemporalRange()
+    {
+        // without min and max, values are generated from 1970-01-01 (inclusive) to 2100-01-01 (exclusive), in UTC
+        List<TestDataType> testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_date", "date", "year(min(rnd_date)) = 1970 AND year(max(rnd_date)) = 2099 AND count(distinct rnd_date) > 900", "true"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", "year(min(rnd_timestamp)) = 1970 AND year(max(rnd_timestamp)) = 2099", "true"))
+                .add(new TestDataType("rnd_timestamp0", "timestamp(0)", "year(min(rnd_timestamp0)) = 1970 AND year(max(rnd_timestamp0)) = 2099", "true"))
+                .add(new TestDataType("rnd_timestamp6", "timestamp(6)", "year(min(rnd_timestamp6)) = 1970 AND year(max(rnd_timestamp6)) = 2099", "true"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", "year(min(rnd_timestamp9)) = 1970 AND year(max(rnd_timestamp9)) = 2099", "true"))
+                .add(new TestDataType("rnd_timestamp12", "timestamp(12)", "year(min(rnd_timestamp12)) = 1970 AND year(max(rnd_timestamp12)) = 2099", "true"))
+                .add(new TestDataType("rnd_timestamptz", "timestamp with time zone", "year(min(rnd_timestamptz)) = 1970 AND year(max(rnd_timestamptz)) = 2099 AND bool_and(timezone_hour(rnd_timestamptz) = 0)", "true"))
+                .add(new TestDataType("rnd_timestamptz0", "timestamp(0) with time zone", "year(min(rnd_timestamptz0)) = 1970 AND year(max(rnd_timestamptz0)) = 2099 AND bool_and(timezone_hour(rnd_timestamptz0) = 0)", "true"))
+                .add(new TestDataType("rnd_timestamptz6", "timestamp(6) with time zone", "year(min(rnd_timestamptz6)) = 1970 AND year(max(rnd_timestamptz6)) = 2099 AND bool_and(timezone_hour(rnd_timestamptz6) = 0)", "true"))
+                .add(new TestDataType("rnd_timestamptz9", "timestamp(9) with time zone", "year(min(rnd_timestamptz9)) = 1970 AND year(max(rnd_timestamptz9)) = 2099 AND bool_and(timezone_hour(rnd_timestamptz9) = 0)", "true"))
+                .add(new TestDataType("rnd_timestamptz12", "timestamp(12) with time zone", "year(min(rnd_timestamptz12)) = 1970 AND year(max(rnd_timestamptz12)) = 2099 AND bool_and(timezone_hour(rnd_timestamptz12) = 0)", "true"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("default_range_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+
+        // with only one of min and max, the other bound defaults to the same window, unless it would make the range empty
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_date_min", "date", Map.of("min", "2050-01-01"), "min(rnd_date_min) >= DATE '2050-01-01' AND year(max(rnd_date_min)) = 2099", "true"))
+                .add(new TestDataType("rnd_date_max", "date", Map.of("max", "2000-01-01"), "year(min(rnd_date_max)) = 1970 AND max(rnd_date_max) <= DATE '2000-01-01'", "true"))
+                .add(new TestDataType("rnd_date_late_min", "date", Map.of("min", "2200-01-01"), "min(rnd_date_late_min) >= DATE '2200-01-01' AND year(max(rnd_date_late_min)) > 10000", "true"))
+                .add(new TestDataType("rnd_date_early_max", "date", Map.of("max", "1960-01-01"), "year(min(rnd_date_early_max)) < -10000 AND max(rnd_date_early_max) <= DATE '1960-01-01'", "true"))
+                .add(new TestDataType("rnd_timestamp_min", "timestamp", Map.of("min", "2050-01-01 00:00:00.000"), "min(rnd_timestamp_min) >= TIMESTAMP '2050-01-01 00:00:00.000' AND year(max(rnd_timestamp_min)) = 2099", "true"))
+                .add(new TestDataType("rnd_timestamp_late_min", "timestamp", Map.of("min", "2200-01-01 00:00:00.000"), "min(rnd_timestamp_late_min) >= TIMESTAMP '2200-01-01 00:00:00.000' AND year(max(rnd_timestamp_late_min)) > 10000", "true"))
+                .add(new TestDataType("rnd_timestamp9_max", "timestamp(9)", Map.of("max", "2000-01-01 00:00:00.000000000"), "year(min(rnd_timestamp9_max)) = 1970 AND max(rnd_timestamp9_max) <= TIMESTAMP '2000-01-01 00:00:00.000000000'", "true"))
+                .add(new TestDataType("rnd_timestamp9_early_max", "timestamp(9)", Map.of("max", "1960-01-01 00:00:00.000000000"), "year(min(rnd_timestamp9_early_max)) < -10000 AND max(rnd_timestamp9_early_max) <= TIMESTAMP '1960-01-01 00:00:00.000000000'", "true"))
+                .add(new TestDataType("rnd_timestamptz_min", "timestamp with time zone", Map.of("min", "2050-01-01 00:00:00.000 +01:00"), "min(rnd_timestamptz_min) >= TIMESTAMP '2050-01-01 00:00:00.000 +01:00' AND max(rnd_timestamptz_min) < TIMESTAMP '2100-01-01 00:00:00.000 UTC' AND bool_and(timezone_hour(rnd_timestamptz_min) = 1)", "true"))
+                .add(new TestDataType("rnd_timestamptz_early_max", "timestamp with time zone", Map.of("max", "1960-01-01 00:00:00.000 +01:00"), "year(min(rnd_timestamptz_early_max)) < -10000 AND max(rnd_timestamptz_early_max) <= TIMESTAMP '1960-01-01 00:00:00.000 +01:00'", "true"))
+                .add(new TestDataType("rnd_timestamptz9_max", "timestamp(9) with time zone", Map.of("max", "2000-01-01 00:00:00.000000000 +01:00"), "min(rnd_timestamptz9_max) >= TIMESTAMP '1970-01-01 00:00:00.000000000 UTC' AND max(rnd_timestamptz9_max) <= TIMESTAMP '2000-01-01 00:00:00.000000000 +01:00' AND bool_and(timezone_hour(rnd_timestamptz9_max) = 1)", "true"))
+                .add(new TestDataType("rnd_timestamptz9_late_min", "timestamp(9) with time zone", Map.of("min", "2200-01-01 00:00:00.000000000 +01:00"), "min(rnd_timestamptz9_late_min) >= TIMESTAMP '2200-01-01 00:00:00.000000000 +01:00' AND year(max(rnd_timestamptz9_late_min)) > 10000", "true"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("default_range_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+    }
+
+    @Test
     void testSelectValuesProperty()
     {
         // inclusive ranges that produce only 2 values
@@ -562,11 +609,18 @@ final class TestFakerQueries
             }
         }
 
-        // without a min low bound, sequences start at the min value of the type
+        // without a min low bound, sequences start at the min value of the type, or at 1970-01-01 for date and timestamp types, unless the max is earlier
         testCases = ImmutableList.<TestDataType>builder()
                 .add(new TestDataType("rnd_bigint", "bigint", Map.of("max", "0", "step", "1"), "min(rnd_bigint) = -9223372036854775808 AND max(rnd_bigint) < 0", "true"))
-                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("max", "2022-03-21 00:00:00.000", "step", "1s"), "year(min(rnd_timestamp)) < -290000 AND max(rnd_timestamp) < TIMESTAMP '2022-03-21 00:00:00.000'", "true"))
-                .add(new TestDataType("rnd_timestamp0", "timestamp(0)", Map.of("max", "2022-03-21 00:00:00", "step", "1s"), "year(min(rnd_timestamp0)) < -290000 AND max(rnd_timestamp0) < TIMESTAMP '2022-03-21 00:00:00'", "true"))
+                .add(new TestDataType("rnd_date", "date", Map.of("max", "2022-03-21", "step", "1d"), "min(rnd_date) = DATE '1970-01-01' AND max(rnd_date) < DATE '2022-03-21'", "true"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("max", "2022-03-21 00:00:00.000", "step", "1s"), "min(rnd_timestamp) = TIMESTAMP '1970-01-01 00:00:00.000' AND max(rnd_timestamp) < TIMESTAMP '2022-03-21 00:00:00.000'", "true"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("max", "2022-03-21 00:00:00.000000000", "step", "1s"), "min(rnd_timestamp9) = TIMESTAMP '1970-01-01 00:00:00.000000000' AND max(rnd_timestamp9) < TIMESTAMP '2022-03-21 00:00:00.000000000'", "true"))
+                .add(new TestDataType("rnd_timestamptz", "timestamp with time zone", Map.of("max", "2022-03-21 00:00:00.000 +01:00", "step", "1s"), "min(rnd_timestamptz) = TIMESTAMP '1970-01-01 00:00:00.000 UTC' AND max(rnd_timestamptz) < TIMESTAMP '2022-03-21 00:00:00.000 +01:00'", "true"))
+                .add(new TestDataType("rnd_timestamptz9", "timestamp(9) with time zone", Map.of("max", "2022-03-21 00:00:00.000000000 +01:00", "step", "1s"), "min(rnd_timestamptz9) = TIMESTAMP '1970-01-01 00:00:00.000000000 UTC' AND max(rnd_timestamptz9) < TIMESTAMP '2022-03-21 00:00:00.000000000 +01:00'", "true"))
+                // sequences don't stop at the default high bound, so they keep generating unique values
+                .add(new TestDataType("rnd_date_unbounded", "date", Map.of("step", "100d"), "min(rnd_date_unbounded) = DATE '1970-01-01' AND year(max(rnd_date_unbounded)) > 2100 AND count(distinct rnd_date_unbounded) = 1000", "true"))
+                .add(new TestDataType("rnd_timestamp_early", "timestamp", Map.of("max", "1960-01-01 00:00:00.000", "step", "1s"), "year(min(rnd_timestamp_early)) < -290000 AND max(rnd_timestamp_early) < TIMESTAMP '1960-01-01 00:00:00.000'", "true"))
+                .add(new TestDataType("rnd_timestamp0_early", "timestamp(0)", Map.of("max", "1960-01-01 00:00:00", "step", "1s"), "year(min(rnd_timestamp0_early)) < -290000 AND max(rnd_timestamp0_early) < TIMESTAMP '1960-01-01 00:00:00'", "true"))
                 .build();
 
         for (TestDataType testCase : testCases) {

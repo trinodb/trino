@@ -60,7 +60,9 @@ import java.math.RoundingMode;
 import java.net.Inet4Address;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -80,6 +82,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.LongTimestampWithTimeZone.fromEpochMillisAndFraction;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
@@ -126,6 +130,12 @@ class FakerPageSource
     };
 
     private static final int ROWS_PER_PAGE = 4096;
+
+    // Most systems that generated data is inserted into reject or mangle values far from the present, so temporal
+    // ranges without bounds default to this window, with an exclusive high bound. It's fixed, instead of relative to
+    // the current time, so generated data stays deterministic.
+    private static final long DEFAULT_LOW_EPOCH_DAY = LocalDate.of(1970, 1, 1).toEpochDay();
+    private static final long DEFAULT_HIGH_EPOCH_DAY = LocalDate.of(2100, 1, 1).toEpochDay();
 
     private final Random random;
     private final Faker faker;
@@ -296,7 +306,7 @@ class FakerPageSource
             return (blockBuilder, rowId) -> TINYINT.writeLong(blockBuilder, range.at(rowId));
         }
         if (DATE.equals(type)) {
-            IntRange range = IntRange.of(genericRange, (long) handle.step().getSingleValue());
+            IntRange range = IntRange.of(withDefaultTemporalLow(genericRange), (long) handle.step().getSingleValue());
             return (blockBuilder, rowId) -> DATE.writeLong(blockBuilder, range.at(rowId, NANOSECONDS_PER_DAY));
         }
         if (type instanceof DecimalType decimalType) {
@@ -323,18 +333,18 @@ class FakerPageSource
         if (type instanceof TimestampType timestampType) {
             if (timestampType.isShort()) {
                 long factor = POWERS_OF_TEN[6 - timestampType.getPrecision()];
-                LongRange range = LongRange.of(genericRange, factor, (long) handle.step().getSingleValue());
+                LongRange range = LongRange.of(withDefaultTemporalLow(genericRange), factor, (long) handle.step().getSingleValue());
                 return (blockBuilder, rowId) -> timestampType.writeLong(blockBuilder, range.at(rowId, factor * NANOSECONDS_PER_MICROSECOND) * factor);
             }
-            LongTimestampRange range = LongTimestampRange.of(genericRange, timestampType.getPrecision(), (long) handle.step().getSingleValue());
+            LongTimestampRange range = LongTimestampRange.of(withDefaultTemporalLow(genericRange), timestampType.getPrecision(), (long) handle.step().getSingleValue());
             return (blockBuilder, rowId) -> timestampType.writeObject(blockBuilder, range.at(rowId, NANOSECONDS_PER_MICROSECOND));
         }
         if (type instanceof TimestampWithTimeZoneType tzType) {
             if (tzType.isShort()) {
-                ShortTimestampWithTimeZoneRange range = ShortTimestampWithTimeZoneRange.of(genericRange, tzType.getPrecision(), (long) handle.step().getSingleValue());
+                ShortTimestampWithTimeZoneRange range = ShortTimestampWithTimeZoneRange.of(withDefaultTemporalLow(genericRange), tzType.getPrecision(), (long) handle.step().getSingleValue());
                 return (blockBuilder, rowId) -> tzType.writeLong(blockBuilder, range.at(rowId, NANOSECONDS_PER_MILLISECOND));
             }
-            LongTimestampWithTimeZoneRange range = LongTimestampWithTimeZoneRange.of(genericRange, tzType.getPrecision(), (long) handle.step().getSingleValue());
+            LongTimestampWithTimeZoneRange range = LongTimestampWithTimeZoneRange.of(withDefaultTemporalLow(genericRange), tzType.getPrecision(), (long) handle.step().getSingleValue());
             return (blockBuilder, rowId) -> tzType.writeObject(blockBuilder, range.at(rowId, NANOSECONDS_PER_MILLISECOND));
         }
         if (type instanceof TimeType timeType) {
@@ -427,7 +437,7 @@ class FakerPageSource
             return blockBuilder -> BOOLEAN.writeBoolean(blockBuilder, random.nextBoolean());
         }
         if (DATE.equals(type)) {
-            IntRange range = IntRange.of(genericRange);
+            IntRange range = IntRange.of(withDefaultTemporalBounds(genericRange));
             return blockBuilder -> DATE.writeLong(blockBuilder, numberBetweenInclusive(range.low, range.high));
         }
         if (type instanceof DecimalType decimalType) {
@@ -451,10 +461,10 @@ class FakerPageSource
             return blockBuilder -> type.writeLong(blockBuilder, numberBetweenInclusive(bounds.low(), bounds.high()) * bounds.quantum());
         }
         if (type instanceof TimestampType timestampType) {
-            return timestampGenerator(genericRange, timestampType);
+            return timestampGenerator(withDefaultTemporalBounds(genericRange), timestampType);
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
-            return timestampWithTimeZoneGenerator(genericRange, timestampWithTimeZoneType);
+            return timestampWithTimeZoneGenerator(withDefaultTemporalBounds(genericRange), timestampWithTimeZoneType);
         }
         if (type instanceof TimeType timeType) {
             long factor = POWERS_OF_TEN[12 - timeType.getPrecision()];
@@ -680,6 +690,52 @@ class FakerPageSource
             long picoseconds = numberBetween(range.low, range.high) * range.factor;
             timeType.writeObject(blockBuilder, new LongTimeWithTimeZone(picoseconds, range.offsetMinutes));
         };
+    }
+
+    private static Range withDefaultTemporalBounds(Range range)
+    {
+        return withDefaultTemporalHigh(withDefaultTemporalLow(range));
+    }
+
+    private static Range withDefaultTemporalLow(Range range)
+    {
+        if (!range.isLowUnbounded()) {
+            return range;
+        }
+        Range defaultRange = Range.greaterThanOrEqual(range.getType(), startOfDay(range.getType(), DEFAULT_LOW_EPOCH_DAY, range.getHighValue()));
+        // keep the min value of the type if the max is before the default window
+        return range.intersect(defaultRange).orElse(range);
+    }
+
+    private static Range withDefaultTemporalHigh(Range range)
+    {
+        if (!range.isHighUnbounded()) {
+            return range;
+        }
+        Range defaultRange = Range.lessThan(range.getType(), startOfDay(range.getType(), DEFAULT_HIGH_EPOCH_DAY, range.getLowValue()));
+        // keep the max value of the type if the min is after the default window
+        return range.intersect(defaultRange).orElse(range);
+    }
+
+    private static Object startOfDay(Type type, long epochDay, Optional<Object> otherBound)
+    {
+        if (DATE.equals(type)) {
+            return epochDay;
+        }
+        long epochMillis = epochDay * MILLISECONDS_PER_DAY;
+        if (type instanceof TimestampType timestampType) {
+            long epochMicros = epochMillis * MICROSECONDS_PER_MILLISECOND;
+            if (timestampType.isShort()) {
+                return epochMicros;
+            }
+            return new LongTimestamp(epochMicros, 0);
+        }
+        // the day starts in UTC, but uses the time zone of the other bound, because range helpers require both bounds to have the same time zone
+        if (((TimestampWithTimeZoneType) type).isShort()) {
+            return packDateTimeWithZone(epochMillis, otherBound.map(value -> unpackZoneKey((long) value)).orElse(TimeZoneKey.UTC_KEY));
+        }
+        short timeZoneKey = otherBound.map(value -> ((LongTimestampWithTimeZone) value).getTimeZoneKey()).orElse(TimeZoneKey.UTC_KEY.getKey());
+        return fromEpochMillisAndFraction(epochMillis, 0, timeZoneKey);
     }
 
     /**
