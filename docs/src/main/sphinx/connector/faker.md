@@ -145,8 +145,15 @@ The following table details all supported column properties.
   - List of allowed values. Cannot be set together with the `min`, or `max`
     properties.
 * - `step`
-  - If set, generate sequential values with this step. For date and time columns
-    set this to a duration. Cannot be set for character-based type columns.
+  - If set, generate sequential values with this step, which must be finite and
+    greater than zero. For date and time columns set this to a duration. Cannot
+    be set for character-based type columns.
+* - `distribution`
+  - Distribution of generated values, one of `uniform`, `normal`, or `zipf`.
+    Defaults to `uniform`. The `normal` and `zipf` values cannot be set
+    together with the `step` or `generator` properties, and the `normal` value
+    cannot be set together with the `allowed_values` property. See
+    [](faker-distribution).
 :::
 
 ### Character types
@@ -264,6 +271,42 @@ the default probability of 50%. It can be modified using the `null_probability`
 property set for a column, table, or schema. The default value of 0.5 can be
 also modified in the catalog configuration file, by using the
 `faker.null-probability` property.
+
+(faker-distribution)=
+### Value distribution
+
+By default, all values in a column are equally likely. To generate skewed data,
+like a few customers placing most of the orders, set the `distribution` column
+property:
+
+- `uniform` - every value is equally likely.
+- `normal` - values follow a normal distribution, also called a bell curve,
+  with the mean in the middle between `min` and `max`, and the standard
+  deviation equal to one sixth of that range. Requires finite `min` and `max`
+  properties, and is supported for numeric, `DATE`, and `TIMESTAMP` columns.
+- `zipf` - values follow a Zipf distribution, where the n-th value is n times
+  less likely than the first one. With the `allowed_values` property, values
+  are ranked in the order they are listed, and a value listed more than once
+  gets the combined frequency of all its ranks. Otherwise, values are ranked by
+  their distance from `min`, so `min` is the most frequent value. Without the
+  `allowed_values` property, this requires the `min` and `max` properties, and
+  is supported for `BIGINT`, `INTEGER`, `SMALLINT`, `TINYINT`, `DATE`, and
+  `TIMESTAMP` columns.
+
+For `TIMESTAMP` columns with a precision higher than 6, the distribution applies
+to whole microseconds, and fractions of a microsecond are uniform.
+
+The following example creates a table where the first few products appear in
+most orders, and order amounts cluster around 50:
+
+```sql
+CREATE TABLE generator.default.orders (
+  product_id INTEGER NOT NULL
+    WITH (min = '1', max = '10000', distribution = 'zipf'),
+  amount DECIMAL(8,2) NOT NULL
+    WITH (min = '0', max = '100', distribution = 'normal')
+);
+```
 
 (faker-type-mapping)=
 ## Type mapping

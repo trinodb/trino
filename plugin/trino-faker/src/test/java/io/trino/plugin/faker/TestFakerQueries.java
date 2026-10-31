@@ -14,6 +14,7 @@
 package io.trino.plugin.faker;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.H2QueryRunner;
 import io.trino.testing.QueryAssertions;
@@ -27,6 +28,7 @@ import java.util.Map;
 
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -339,6 +341,36 @@ final class TestFakerQueries
             }
         }
 
+        // inclusive ranges at the max high bound that produce only 2 values
+        // the max value of floating point types is never sampled, so they use wider ranges
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "9223372036854775806", "max", "9223372036854775807"), "count(distinct rnd_bigint)", "2"))
+                .add(new TestDataType("rnd_integer", "integer", Map.of("min", "2147483646", "max", "2147483647"), "count(distinct rnd_integer)", "2"))
+                .add(new TestDataType("rnd_smallint", "smallint", Map.of("min", "32766", "max", "32767"), "count(distinct rnd_smallint)", "2"))
+                .add(new TestDataType("rnd_tinyint", "tinyint", Map.of("min", "126", "max", "127"), "count(distinct rnd_tinyint)", "2"))
+                .add(new TestDataType("rnd_date", "date", Map.of("min", "5881580-07-10", "max", "5881580-07-11"), "count(distinct rnd_date)", "2"))
+                .add(new TestDataType("rnd_decimal1", "decimal", Map.of("min", "99999999999999999999999999999999999998", "max", "99999999999999999999999999999999999999"), "count(distinct rnd_decimal1)", "2"))
+                .add(new TestDataType("rnd_decimal2", "decimal(18,5)", Map.of("min", "9999999999999.99998", "max", "9999999999999.99999"), "count(distinct rnd_decimal2)", "2"))
+                .add(new TestDataType("rnd_real", "real", Map.of("min", "0.0", "max", "3.4028235E38"), "count(distinct rnd_real) > 1", "true"))
+                .add(new TestDataType("rnd_double", "double", Map.of("min", "0.0", "max", "1.7976931348623157E308"), "count(distinct rnd_double) > 1", "true"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("min", "294247-01-10 04:00:54.774", "max", "294247-01-10 04:00:54.775"), "count(distinct rnd_timestamp)", "2"))
+                .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("min", "294247-01-10 04:00:54.775806", "max", "294247-01-10 04:00:54.775807"), "count(distinct rnd_timestamp6)", "2"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("min", "294247-01-10 04:00:54.775807998", "max", "294247-01-10 04:00:54.775807999"), "count(distinct rnd_timestamp9)", "2"))
+                .add(new TestDataType("rnd_timestamp12", "timestamp(12)", Map.of("min", "294247-01-10 04:00:54.775807999998", "max", "294247-01-10 04:00:54.775807999999"), "count(distinct rnd_timestamp12)", "2"))
+                .add(new TestDataType("rnd_time", "time", Map.of("min", "23:59:59.998", "max", "23:59:59.999"), "count(distinct rnd_time)", "2"))
+                .add(new TestDataType("rnd_time12", "time(12)", Map.of("min", "23:59:59.999999999998", "max", "23:59:59.999999999999"), "count(distinct rnd_time12)", "2"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("range_top_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+                assertQuery(
+                        "SELECT count_if(%1$s < CAST('%2$s' AS %4$s) OR %1$s > CAST('%3$s' AS %4$s)) FROM %5$s".formatted(
+                                testCase.name(), testCase.properties().get("min"), testCase.properties().get("max"), testCase.type(), table.getName()),
+                        "VALUES 0");
+            }
+        }
+
         // inclusive range to get the min low bound
         testCases = ImmutableList.<TestDataType>builder()
                 .add(new TestDataType("rnd_bigint", "bigint", Map.of("max", "-9223372036854775808"), "count(distinct rnd_bigint)", "1"))
@@ -456,6 +488,10 @@ final class TestFakerQueries
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
+
+        assertQueryFails(
+                "CREATE TABLE empty_values (value bigint WITH (allowed_values = ARRAY[]))",
+                "The `allowed_values` property must contain at least one value");
     }
 
     @Test
@@ -501,6 +537,277 @@ final class TestFakerQueries
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
+
+        // small step in small ranges at the max high bound that produce only 10 unique values for 1000 rows
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "9223372036854775798", "max", "9223372036854775807", "step", "1"), "count(distinct rnd_bigint)", "10"))
+                .add(new TestDataType("rnd_integer", "integer", Map.of("min", "2147483638", "max", "2147483647", "step", "1"), "count(distinct rnd_integer)", "10"))
+                .add(new TestDataType("rnd_date", "date", Map.of("min", "5881580-07-02", "max", "5881580-07-11", "step", "1d"), "count(distinct rnd_date)", "10"))
+                .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("min", "294247-01-10 04:00:54.775798", "max", "294247-01-10 04:00:54.775807", "step", "1us"), "count(distinct rnd_timestamp6)", "10"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("min", "294247-01-10 04:00:54.775798000", "max", "294247-01-10 04:00:54.775807999", "step", "1us"), "count(distinct rnd_timestamp9)", "10"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("step_top_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+
+        // long sequences with steps large enough to overflow when multiplied by the row number
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_date", "date", Map.of("min", "2000-01-01", "step", "1d"), "count(distinct rnd_date) = 200000 AND min(rnd_date) = DATE '2000-01-01' AND max(rnd_date) = DATE '2000-01-01' + INTERVAL '199999' DAY", "true"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("min", "2000-01-01 00:00:00.000", "step", "1d"), "count(distinct rnd_timestamp) = 200000 AND min(rnd_timestamp) = TIMESTAMP '2000-01-01 00:00:00.000'", "true"))
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "0", "step", "100000000000000"), "count(distinct rnd_bigint) = 92235 AND min(rnd_bigint) = 0", "true"))
+                .add(new TestDataType("rnd_bigint_wide", "bigint", Map.of("min", "-9223372036854775808", "max", "9223372036854775807", "step", "9223372036854775807"), "count(distinct rnd_bigint_wide) = 4 AND max(rnd_bigint_wide) = 9223372036854775807", "true"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("step_long_" + testCase.name(), "(%s) WITH (default_limit = 200000)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+
+        // without a min low bound, sequences start at the min value of the type
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("max", "0", "step", "1"), "min(rnd_bigint) = -9223372036854775808 AND max(rnd_bigint) < 0", "true"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("max", "2022-03-21 00:00:00.000", "step", "1s"), "year(min(rnd_timestamp)) < -290000 AND max(rnd_timestamp) < TIMESTAMP '2022-03-21 00:00:00.000'", "true"))
+                .add(new TestDataType("rnd_timestamp0", "timestamp(0)", Map.of("max", "2022-03-21 00:00:00", "step", "1s"), "year(min(rnd_timestamp0)) < -290000 AND max(rnd_timestamp0) < TIMESTAMP '2022-03-21 00:00:00'", "true"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("step_bottom_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+    }
+
+    @Test
+    void testNonPositiveStepProperty()
+    {
+        // durations can't be negative, so only a zero step is tested for date and time types
+        List<String> columnSchemas = ImmutableList.of(
+                "bigint WITH (step = '-1')",
+                "bigint WITH (step = '0')",
+                "integer WITH (step = '-1')",
+                "smallint WITH (step = '-1')",
+                "tinyint WITH (step = '-1')",
+                "decimal(18,5) WITH (step = '-0.00001')",
+                "decimal(38,0) WITH (step = '-1')",
+                "decimal(38,0) WITH (step = '0')",
+                "real WITH (step = '-1.4E-45')",
+                "real WITH (step = '-0.0')",
+                "real WITH (step = 'NaN')",
+                "real WITH (step = 'Infinity')",
+                "double WITH (step = '-4.9E-324')",
+                "double WITH (step = '0.0')",
+                "double WITH (step = 'NaN')",
+                "double WITH (step = 'Infinity')",
+                "interval day(2) to second(3) WITH (step = '-0.001')",
+                "interval year(9) to month WITH (step = '0')",
+                "date WITH (step = '0d')",
+                "timestamp WITH (step = '0ms')",
+                "timestamp(9) WITH (step = '0ms')",
+                "timestamp with time zone WITH (step = '0ms')",
+                "timestamp(9) with time zone WITH (step = '0ms')",
+                "time WITH (step = '0ms')",
+                "time with time zone WITH (step = '0ms')",
+                "time(12) with time zone WITH (step = '0ms')");
+
+        for (String columnSchema : columnSchemas) {
+            assertThat(query("CREATE TABLE step_not_positive (value %s)".formatted(columnSchema)))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage("The `step` property must be greater than zero and finite");
+        }
+    }
+
+    @Test
+    void testNormalDistribution()
+    {
+        List<DistributionTestCase> testCases = ImmutableList.of(
+                new DistributionTestCase("bigint", "0", "1000"),
+                new DistributionTestCase("bigint", "-9223372036854775808", "9223372036854775807"),
+                new DistributionTestCase("integer", "-1000", "1000"),
+                new DistributionTestCase("smallint", "0", "100"),
+                new DistributionTestCase("tinyint", "-128", "127"),
+                new DistributionTestCase("decimal(10,2)", "0.00", "100.00"),
+                new DistributionTestCase("decimal(38,2)", "0.00", "100.00"),
+                new DistributionTestCase("decimal(38,0)", "-99999999999999999999999999999999999999", "99999999999999999999999999999999999999"),
+                new DistributionTestCase("real", "0.0", "1.0"),
+                new DistributionTestCase("double", "-1.0", "1.0"),
+                new DistributionTestCase("double", "-1.7976931348623157E308", "1.7976931348623157E308"),
+                new DistributionTestCase("date", "2020-01-01", "2020-12-31", "CAST(date_diff('day', DATE '1970-01-01', %s) AS double)"),
+                new DistributionTestCase("timestamp(0)", "2020-01-01 00:00:00", "2020-01-02 00:00:00", "CAST(date_diff('millisecond', TIMESTAMP '1970-01-01', %s) AS double)"),
+                new DistributionTestCase("timestamp(3)", "2020-01-01 00:00:00.000", "2020-01-02 00:00:00.000", "CAST(date_diff('millisecond', TIMESTAMP '1970-01-01', %s) AS double)"),
+                new DistributionTestCase("timestamp(6)", "2020-01-01 00:00:00.000000", "2020-01-02 00:00:00.000000", "CAST(date_diff('millisecond', TIMESTAMP '1970-01-01', %s) AS double)"),
+                new DistributionTestCase("timestamp(9)", "2020-01-01 00:00:00.000000000", "2020-01-02 00:00:00.000000000", "CAST(date_diff('millisecond', TIMESTAMP '1970-01-01', %s) AS double)"));
+
+        for (DistributionTestCase testCase : testCases) {
+            try (TestTable table = newTrinoTable("normal_distribution", "(%s) WITH (default_limit = 10000)".formatted(testCase.columnSchema("normal")))) {
+                // with a uniform distribution, the outer tenths of the range would have twice as many values as the middle one
+                assertQuery(
+                        """
+                        SELECT
+                            min(x) >= %1$s AND max(x) <= %2$s,
+                            count_if(position BETWEEN 0.45 AND 0.55) > 4 * count_if(position < 0.1 OR position > 0.9)
+                        FROM (SELECT x, %3$s AS position FROM %4$s)
+                        """.formatted(testCase.minValue(), testCase.maxValue(), testCase.position(), table.getName()),
+                        "VALUES (true, true)");
+            }
+        }
+    }
+
+    @Test
+    void testZipfDistribution()
+    {
+        List<DistributionTestCase> testCases = ImmutableList.of(
+                new DistributionTestCase("bigint", "0", "99"),
+                new DistributionTestCase("integer", "-50", "49"),
+                new DistributionTestCase("smallint", "0", "99"),
+                new DistributionTestCase("tinyint", "-128", "127"),
+                new DistributionTestCase("date", "2020-01-01", "2020-04-09"),
+                new DistributionTestCase("timestamp(0)", "2020-01-01 00:00:00", "2020-01-01 00:01:39"),
+                new DistributionTestCase("timestamp(3)", "2020-01-01 00:00:00.000", "2020-01-01 00:00:00.099"),
+                new DistributionTestCase("timestamp(6)", "2020-01-01 00:00:00.000000", "2020-01-01 00:00:00.000099"));
+
+        for (DistributionTestCase testCase : testCases) {
+            try (TestTable table = newTrinoTable("zipf_distribution", "(%s) WITH (default_limit = 10000)".formatted(testCase.columnSchema("zipf")))) {
+                assertQuery(
+                        """
+                        SELECT
+                            min(x) = %1$s AND max(x) <= %2$s,
+                            max_by(x, frequency) = %1$s,
+                            CAST(max(frequency) FILTER (WHERE rank = 1) AS double) / max(frequency) FILTER (WHERE rank = 2) BETWEEN 1.7 AND 2.3
+                        FROM (
+                            SELECT x, frequency, row_number() OVER (ORDER BY x) AS rank
+                            FROM (SELECT x, count(*) AS frequency FROM %3$s GROUP BY x))
+                        """.formatted(testCase.minValue(), testCase.maxValue(), table.getName()),
+                        "VALUES (true, true, true)");
+            }
+        }
+
+        // with too many values to compare their frequencies, only check that the min value is the most frequent
+        testCases = ImmutableList.of(
+                new DistributionTestCase("bigint", "-9223372036854775808", "9223372036854775807"),
+                new DistributionTestCase("bigint", "9223372036854775806", "9223372036854775807"),
+                new DistributionTestCase("integer", "-2147483648", "2147483647"),
+                new DistributionTestCase("date", "-5877641-06-23", "5881580-07-11"),
+                new DistributionTestCase("timestamp(6)", "1970-01-01 00:00:00.000000", "294247-01-10 04:00:54.775807"));
+
+        for (DistributionTestCase testCase : testCases) {
+            try (TestTable table = newTrinoTable("zipf_distribution", "(%s) WITH (default_limit = 10000)".formatted(testCase.columnSchema("zipf")))) {
+                assertQuery(
+                        """
+                        SELECT
+                            min(x) >= %1$s AND max(x) <= %2$s,
+                            max_by(x, frequency) = %1$s
+                        FROM (SELECT x, count(*) AS frequency FROM %3$s GROUP BY x)
+                        """.formatted(testCase.minValue(), testCase.maxValue(), table.getName()),
+                        "VALUES (true, true)");
+            }
+        }
+
+        // fractions of a microsecond are uniform, so no single value is the most frequent, and only the bounds can be checked
+        testCases = ImmutableList.of(
+                new DistributionTestCase("timestamp(9)", "2020-01-01 00:00:00.000000000", "2020-01-02 00:00:00.000000000"),
+                new DistributionTestCase("timestamp(12)", "2020-01-01 00:00:00.000000000000", "2020-01-01 00:00:00.000001000000"));
+
+        for (DistributionTestCase testCase : testCases) {
+            try (TestTable table = newTrinoTable("zipf_distribution", "(%s) WITH (default_limit = 10000)".formatted(testCase.columnSchema("zipf")))) {
+                assertQuery(
+                        "SELECT min(x) >= %s AND max(x) <= %s FROM %s".formatted(testCase.minValue(), testCase.maxValue(), table.getName()),
+                        "VALUES true");
+            }
+        }
+    }
+
+    @Test
+    void testZipfDistributionAllowedValues()
+    {
+        record TestCase(String type, String allowedValues, String mostFrequentValues) {}
+
+        // values are ranked in the order they are listed, not sorted
+
+        List<TestCase> testCases = ImmutableList.of(
+                new TestCase("bigint", "ARRAY['3', '1', '2', '5', '4']", "ARRAY[3, 1]"),
+                new TestCase("double", "ARRAY['0.5', 'NaN', '-1.0', '1.0', '0.0']", "ARRAY[0.5, nan()]"),
+                new TestCase("varchar", "ARRAY['gold', 'silver', 'bronze', 'iron', 'wood']", "ARRAY['gold', 'silver']"),
+                new TestCase("char(6)", "ARRAY['gold', 'silver', 'bronze', 'iron', 'wood']", "ARRAY[CAST('gold' AS char(6)), CAST('silver' AS char(6))]"),
+                new TestCase("boolean", "ARRAY['true', 'false']", "ARRAY[true, false]"),
+                new TestCase("uuid", "ARRAY['3ee49ede-0026-45e4-ba06-08404f794557', '1fc74d96-0216-449b-a145-455578a9eaa5']", "ARRAY[UUID '3ee49ede-0026-45e4-ba06-08404f794557', UUID '1fc74d96-0216-449b-a145-455578a9eaa5']"));
+
+        for (TestCase testCase : testCases) {
+            String columnSchema = "x %s NOT NULL WITH (allowed_values = %s, distribution = 'zipf')".formatted(testCase.type(), testCase.allowedValues());
+            try (TestTable table = newTrinoTable("zipf_allowed_values", "(%s) WITH (default_limit = 10000)".formatted(columnSchema))) {
+                // the first value is the most frequent, and twice as frequent as the second one
+                assertQuery(
+                        """
+                        SELECT
+                            array_agg(x ORDER BY frequency DESC)[1] IS NOT DISTINCT FROM (%1$s)[1],
+                            array_agg(x ORDER BY frequency DESC)[2] IS NOT DISTINCT FROM (%1$s)[2],
+                            CAST(max(frequency) AS double) / max_by(frequency, x IS NOT DISTINCT FROM (%1$s)[2]) BETWEEN 1.7 AND 2.3
+                        FROM (SELECT x, count(*) AS frequency FROM %2$s GROUP BY x)
+                        """.formatted(testCase.mostFrequentValues(), table.getName()),
+                        "VALUES (true, true, true)");
+            }
+        }
+
+        // values that are equal, but not identical, are ranked separately
+        testCases = ImmutableList.of(
+                new TestCase("double", "ARRAY['0.0', '-0.0', '1.0']", "'0E0,-0E0,1.0E0'"),
+                new TestCase("timestamp(3) with time zone", "ARRAY['2020-01-01 00:00:00.000 UTC', '2020-01-01 01:00:00.000 +01:00']", "'2020-01-01 00:00:00.000 UTC,2020-01-01 01:00:00.000 +01:00'"));
+
+        for (TestCase testCase : testCases) {
+            String columnSchema = "x %s NOT NULL WITH (allowed_values = %s, distribution = 'zipf')".formatted(testCase.type(), testCase.allowedValues());
+            try (TestTable table = newTrinoTable("zipf_allowed_values", "(%s) WITH (default_limit = 10000)".formatted(columnSchema))) {
+                assertQuery(
+                        "SELECT array_join(array_agg(value ORDER BY frequency DESC), ',') FROM (SELECT CAST(x AS varchar) AS value, count(*) AS frequency FROM %s GROUP BY 1)".formatted(table.getName()),
+                        "VALUES %s".formatted(testCase.mostFrequentValues()));
+            }
+        }
+    }
+
+    @Test
+    void testInvalidDistributionProperty()
+    {
+        assertThat(query("CREATE TABLE invalid_distribution (value bigint WITH (min = '0', max = '10', distribution = 'pareto'))"))
+                .failure()
+                .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                .hasMessageContaining("Invalid value [pareto]. Valid values: [UNIFORM, NORMAL, ZIPF]");
+
+        Map<String, String> columnSchemas = ImmutableMap.<String, String>builder()
+                .put("bigint WITH (distribution = 'normal')", "The `normal` distribution requires the `min` and `max` properties")
+                .put("bigint WITH (min = '0', distribution = 'normal')", "The `normal` distribution requires the `min` and `max` properties")
+                .put("bigint WITH (allowed_values = ARRAY['0', '1'], distribution = 'normal')", "The `normal` distribution cannot be used together with the `allowed_values` property")
+                .put("double WITH (min = '-Infinity', max = '0', distribution = 'normal')", "The `normal` distribution requires finite `min` and `max` values")
+                .put("real WITH (min = '0', max = 'Infinity', distribution = 'normal')", "The `normal` distribution requires finite `min` and `max` values")
+                .put("bigint WITH (max = '10', distribution = 'zipf')", "The `zipf` distribution requires the `min` and `max` properties, or the `allowed_values` property")
+                .put("bigint WITH (min = '0', max = '10', step = '1', distribution = 'zipf')", "The `zipf` distribution cannot be used together with the `step` or `generator` properties")
+                .put("date WITH (min = '2020-01-01', max = '2020-12-31', step = '1d', distribution = 'normal')", "The `normal` distribution cannot be used together with the `step` or `generator` properties")
+                .put("varchar WITH (generator = '#{Name.first_name}', distribution = 'zipf')", "The `zipf` distribution cannot be used together with the `step` or `generator` properties")
+                .put("varchar WITH (distribution = 'zipf')", "The `zipf` distribution can only be used for varchar columns together with the `allowed_values` property")
+                .put("varchar WITH (allowed_values = ARRAY['a', 'b'], distribution = 'normal')", "The `normal` distribution cannot be used for varchar columns")
+                .put("char(3) WITH (distribution = 'normal')", "The `normal` distribution cannot be used for char(3) columns")
+                .put("varbinary WITH (distribution = 'zipf')", "The `zipf` distribution can only be used for varbinary columns together with the `allowed_values` property")
+                .put("boolean WITH (distribution = 'normal')", "The `normal` distribution cannot be used for boolean columns")
+                .put("uuid WITH (distribution = 'zipf')", "The `zipf` distribution can only be used for uuid columns together with the `allowed_values` property")
+                .put("ipaddress WITH (distribution = 'normal')", "The `normal` distribution cannot be used for ipaddress columns")
+                .put("row(a bigint) WITH (distribution = 'normal')", "The `normal` distribution cannot be used for row(\"a\" bigint) columns")
+                .put("array(bigint) WITH (distribution = 'zipf')", "The `zipf` distribution can only be used for array(bigint) columns together with the `allowed_values` property")
+                .put("real WITH (min = '0.0', max = '1.0', distribution = 'zipf')", "The `zipf` distribution can only be used for real columns together with the `allowed_values` property")
+                .put("double WITH (min = '0.0', max = '1.0', distribution = 'zipf')", "The `zipf` distribution can only be used for double columns together with the `allowed_values` property")
+                .put("decimal(10,2) WITH (min = '0.00', max = '1.00', distribution = 'zipf')", "The `zipf` distribution can only be used for decimal(10,2) columns together with the `allowed_values` property")
+                .put("interval day to second WITH (min = '0', max = '1', distribution = 'normal')", "The `normal` distribution cannot be used for interval day(2) to second(6) columns")
+                .put("timestamp with time zone WITH (min = '2020-01-01 00:00:00.000 UTC', max = '2020-01-02 00:00:00.000 UTC', distribution = 'normal')", "The `normal` distribution cannot be used for timestamp(3) with time zone columns")
+                .put("time WITH (min = '00:00:00.000', max = '01:00:00.000', distribution = 'normal')", "The `normal` distribution cannot be used for time(3) columns")
+                .buildOrThrow();
+
+        for (Map.Entry<String, String> entry : columnSchemas.entrySet()) {
+            assertThat(query("CREATE TABLE invalid_distribution (value %s)".formatted(entry.getKey())))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage(entry.getValue());
+        }
     }
 
     private record TestDataType(String name, String type, Map<String, String> properties, String queryExpression, String expectedValue)
@@ -518,6 +825,38 @@ final class TestFakerQueries
                             entry.getKey().equals(ALLOWED_VALUES_PROPERTY) ? entry.getValue() : "'%s'".formatted(entry.getValue())))
                     .collect(joining(", "));
             return "%s %s NOT NULL%s".formatted(name, type, propertiesSchema.isEmpty() ? "" : " WITH (%s)".formatted(propertiesSchema));
+        }
+    }
+
+    private record DistributionTestCase(String type, String min, String max, String toDouble)
+    {
+        DistributionTestCase(String type, String min, String max)
+        {
+            this(type, min, max, "CAST(%s AS double)");
+        }
+
+        String columnSchema(String distribution)
+        {
+            return "x %s NOT NULL WITH (min = '%s', max = '%s', distribution = '%s')".formatted(type, min, max, distribution);
+        }
+
+        String minValue()
+        {
+            return "CAST('%s' AS %s)".formatted(min, type);
+        }
+
+        String maxValue()
+        {
+            return "CAST('%s' AS %s)".formatted(max, type);
+        }
+
+        String position()
+        {
+            // halve the values, so the span of the widest ranges doesn't overflow
+            return "(%2$s / 2 - %1$s / 2) / (%3$s / 2 - %1$s / 2)".formatted(
+                    toDouble.formatted(minValue()),
+                    toDouble.formatted("x"),
+                    toDouble.formatted(maxValue()));
         }
     }
 
