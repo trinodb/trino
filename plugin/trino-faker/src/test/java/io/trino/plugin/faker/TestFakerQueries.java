@@ -104,6 +104,9 @@ final class TestFakerQueries
         assertQueryFails(
                 "CREATE TABLE unsupported_interval (v interval second(2, 9))",
                 "Faker does not support day-time intervals with fractional precision greater than 6: interval second\\(2, 9\\)");
+        assertQueryFails(
+                "CREATE TABLE unsupported_nested_interval (v row(x array(map(varchar, interval second(2, 9)))))",
+                "Faker does not support day-time intervals with fractional precision greater than 6: interval second\\(2, 9\\)");
     }
 
     @Test
