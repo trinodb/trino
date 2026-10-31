@@ -376,13 +376,13 @@ class FakerPageSource
             };
         }
         if (type instanceof ArrayType arrayType) {
-            ArrayBlockBuilder arrayBlockBuilder = arrayType.createBlockBuilder(null, 0);
+            ArrayBlockBuilder arrayBlockBuilder = arrayType.createBlockBuilder(null, 1);
             arrayBlockBuilder.buildEntry(_ -> {});
             ArrayBlock emptyBlock = (ArrayBlock) arrayBlockBuilder.build();
             return blockBuilder -> blockBuilder.append(emptyBlock, 0);
         }
         if (type instanceof MapType mapType) {
-            MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 0);
+            MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
             mapBlockBuilder.buildEntry((_, _) -> {});
             MapBlock emptyBlock = (MapBlock) mapBlockBuilder.build();
             return blockBuilder -> blockBuilder.append(emptyBlock, 0);
