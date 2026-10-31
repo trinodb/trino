@@ -51,6 +51,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
+import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.Estimate;
@@ -628,14 +629,26 @@ public class FakerMetadata
         return new TableStatisticsMetadata(
                 tableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
-                        .flatMap(column -> Stream.of(
-                                new ColumnStatisticMetadata(column.getName(), MIN_VALUE),
-                                new ColumnStatisticMetadata(column.getName(), MAX_VALUE),
-                                new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES),
-                                new ColumnStatisticMetadata(column.getName(), NUMBER_OF_NON_NULL_VALUES)))
+                        .flatMap(column -> columnStatisticMetadata(column).stream())
                         .collect(toImmutableSet()),
                 Set.of(ROW_COUNT),
                 List.of());
+    }
+
+    private static List<ColumnStatisticMetadata> columnStatisticMetadata(ColumnMetadata column)
+    {
+        ImmutableList.Builder<ColumnStatisticType> statisticTypes = ImmutableList.builder();
+        if (column.getType().isOrderable()) {
+            statisticTypes.add(MIN_VALUE, MAX_VALUE);
+        }
+        // the number of distinct values is computed using approx_distinct, which only accepts comparable types
+        if (column.getType().isComparable()) {
+            statisticTypes.add(NUMBER_OF_DISTINCT_VALUES);
+        }
+        statisticTypes.add(NUMBER_OF_NON_NULL_VALUES);
+        return statisticTypes.build().stream()
+                .map(statisticType -> new ColumnStatisticMetadata(column.getName(), statisticType))
+                .collect(toImmutableList());
     }
 
     @Override
