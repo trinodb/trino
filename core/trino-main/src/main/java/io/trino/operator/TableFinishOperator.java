@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.spi.Page;
@@ -129,6 +130,7 @@ public class TableFinishOperator
     private long rowCount;
     private final AtomicReference<Optional<ConnectorOutputMetadata>> outputMetadata = new AtomicReference<>(Optional.empty());
     private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
+    private final LocalMemoryContext fragmentsMemoryContext;
     private final ImmutableList.Builder<ComputedStatistics> computedStatisticsBuilder = ImmutableList.builder();
 
     private final OperationTiming statisticsTiming = new OperationTiming();
@@ -153,6 +155,7 @@ public class TableFinishOperator
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.tableExecuteContext = requireNonNull(tableExecuteContext, "tableExecuteContext is null");
         this.outputRowCount = outputRowCount;
+        this.fragmentsMemoryContext = operatorContext.newLocalUserMemoryContext(TableFinishOperator.class.getSimpleName());
         operatorContext.setInfoSupplier(createTableFinishInfoSupplier(outputMetadata, statisticsTiming));
     }
 
@@ -207,14 +210,19 @@ public class TableFinishOperator
 
         Block rowCountBlock = page.getBlock(ROW_COUNT_CHANNEL);
         Block fragmentBlock = page.getBlock(FRAGMENT_CHANNEL);
+        long fragmentsRetainedSize = 0;
         for (int position = 0; position < page.getPositionCount(); position++) {
             if (!rowCountBlock.isNull(position)) {
                 rowCount += BIGINT.getLong(rowCountBlock, position);
             }
             if (!fragmentBlock.isNull(position)) {
-                fragmentBuilder.add(VARBINARY.getSlice(fragmentBlock, position));
+                // Copy so that the fragment retains only its own bytes instead of the whole input block
+                Slice fragment = VARBINARY.getSlice(fragmentBlock, position).copy();
+                fragmentBuilder.add(fragment);
+                fragmentsRetainedSize += fragment.getRetainedSize();
             }
         }
+        fragmentsMemoryContext.addBytes(fragmentsRetainedSize);
 
         extractStatisticsRows(page).ifPresent(statisticsPage -> {
             OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
@@ -378,6 +386,7 @@ public class TableFinishOperator
             throws Exception
     {
         AutoCloseableCloser closer = AutoCloseableCloser.create();
+        closer.register(fragmentsMemoryContext::close);
         closer.register(() -> statisticsAggregationOperator.getOperatorContext().destroy());
         closer.register(statisticsAggregationOperator);
         closer.close();
