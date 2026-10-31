@@ -1404,6 +1404,27 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(array.getBaseType()).isEqualTo(Types.ARRAY);
                 assertThat(array.getBaseTypeName()).isEqualTo("array(bigint)");
 
+                try (ResultSet arrayResultSet = array.getResultSet()) {
+                    assertThat(arrayResultSet.next()).isTrue();
+                    assertThat(arrayResultSet.getLong(1)).isEqualTo(1);
+                    assertThat(arrayResultSet.getArray(2)).isNull();
+                    assertThat(arrayResultSet.next()).isTrue();
+                    assertThat(arrayResultSet.getLong(1)).isEqualTo(2);
+                    Array innerArray = arrayResultSet.getArray(2);
+                    assertThat(innerArray.getArray()).isEqualTo(new Object[] {null, 1L, 2L});
+                    assertThat(innerArray.getBaseType()).isEqualTo(Types.BIGINT);
+                    try (ResultSet innerResultSet = innerArray.getResultSet(2, 2)) {
+                        assertThat(innerResultSet.next()).isTrue();
+                        assertThat(innerResultSet.getLong(1)).isEqualTo(2);
+                        assertThat(innerResultSet.getLong(2)).isEqualTo(1L);
+                        assertThat(innerResultSet.next()).isTrue();
+                        assertThat(innerResultSet.getLong(1)).isEqualTo(3);
+                        assertThat(innerResultSet.getLong(2)).isEqualTo(2L);
+                        assertThat(innerResultSet.next()).isFalse();
+                    }
+                    assertThat(arrayResultSet.next()).isFalse();
+                }
+
                 assertThat(rs.getObject(column, List.class)).isEqualTo(asList(null, asList(null, 1L, 2L)));
             });
 
@@ -1462,6 +1483,21 @@ public abstract class BaseTestJdbcResultSet
             assertThat(array.getArray()).isEqualTo(new Object[] {null, element});
             assertThat(array.getBaseType()).isEqualTo(elementSqlType);
             assertThat(array.getBaseTypeName()).isEqualTo(elementTypeName);
+
+            try (ResultSet arrayResultSet = array.getResultSet()) {
+                assertThat(arrayResultSet.getMetaData().getColumnType(1)).isEqualTo(Types.BIGINT);
+                assertThat(arrayResultSet.getMetaData().getColumnType(2)).isEqualTo(elementSqlType);
+                assertThat(arrayResultSet.next()).isTrue();
+                assertThat(arrayResultSet.getLong(1)).isEqualTo(1);
+                assertThat(arrayResultSet.getObject(2)).isNull();
+                assertThat(arrayResultSet.next()).isTrue();
+                assertThat(arrayResultSet.getLong(1)).isEqualTo(2);
+                assertThat(arrayResultSet.getObject(2)).isEqualTo(element);
+                assertThat(arrayResultSet.next()).isFalse();
+            }
+
+            assertSqlExceptionThrownBy(() -> rs.getArray(column).getResultSet(2, 2))
+                    .hasMessage("Index out of bounds");
 
             assertThat(rs.getObject(column, List.class)).isEqualTo(asList(null, element));
         });
