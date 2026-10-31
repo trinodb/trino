@@ -167,7 +167,7 @@ public class TestNoMemoryAwarePartitionMemoryEstimator
                 "ts",
                 new TableHandle(
                         GlobalSystemConnector.CATALOG_HANDLE,
-                        new SystemTableHandle("jdbc", "tables", TupleDomain.all()),
+                        new SystemTableHandle("jdbc", "tables", TupleDomain.all(), List.of()),
                         TestingTransactionHandle.create())));
         assertThat(estimator).isInstanceOf(NoMemoryPartitionMemoryEstimator.class);
         PartitionMemoryEstimator.MemoryRequirements noMemoryRequirements = new PartitionMemoryEstimator.MemoryRequirements(DataSize.ofBytes(0));
@@ -181,7 +181,7 @@ public class TestNoMemoryAwarePartitionMemoryEstimator
                 "ts",
                 new TableHandle(
                         GlobalSystemConnector.CATALOG_HANDLE,
-                        new SystemTableHandle("metadata", "blah", TupleDomain.all()),
+                        new SystemTableHandle("metadata", "blah", TupleDomain.all(), List.of()),
                         TestingTransactionHandle.create())));
         assertThat(estimator).isInstanceOf(NoMemoryPartitionMemoryEstimator.class);
         PartitionMemoryEstimator.MemoryRequirements noMemoryRequirements = new PartitionMemoryEstimator.MemoryRequirements(DataSize.ofBytes(0));
