@@ -66,6 +66,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -89,6 +90,7 @@ import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
@@ -397,6 +399,12 @@ class FakerPageSource
         if (handle.generator() != null) {
             if (!genericRange.isAll()) {
                 throw new TrinoException(INVALID_ROW_FILTER, "Predicates for columns with a generator expression are not supported");
+            }
+            if (type instanceof VarcharType varcharType) {
+                return blockBuilder -> varcharType.writeSlice(blockBuilder, truncateToLength(Slices.utf8Slice(faker.expression(handle.generator())), varcharType));
+            }
+            if (type instanceof CharType charType) {
+                return blockBuilder -> charType.writeSlice(blockBuilder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(faker.expression(handle.generator())), charType));
             }
             return blockBuilder -> VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(faker.expression(handle.generator())));
         }
