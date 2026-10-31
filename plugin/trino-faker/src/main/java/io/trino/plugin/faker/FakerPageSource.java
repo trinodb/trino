@@ -359,14 +359,7 @@ class FakerPageSource
         }
         if (type instanceof RowType rowType) {
             List<Generator> fieldGenerators = rowType.getFields().stream()
-                    .map(field -> randomValueGenerator(new FakerColumnHandle(
-                            0,
-                            field.getName().orElse("unknown"),
-                            field.getType(),
-                            0,
-                            null,
-                            Domain.all(field.getType()),
-                            ValueSet.none(field.getType()))))
+                    .map(field -> nestedValueGenerator(field.getType()))
                     .collect(toImmutableList());
             return blockBuilder -> {
                 RowBlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
@@ -600,6 +593,11 @@ class FakerPageSource
         }
 
         throw new IllegalArgumentException("Unsupported type " + type);
+    }
+
+    private Generator nestedValueGenerator(Type type)
+    {
+        return randomValueGenerator(new FakerColumnHandle(0, "nested", type, 0, null, Domain.all(type), ValueSet.none(type)));
     }
 
     private Generator decimalGenerator(Range genericRange, DecimalType decimalType)
