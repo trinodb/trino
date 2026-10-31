@@ -442,3 +442,38 @@ WITH (
    default_limit = 15000
 )
 ```
+
+### Related tables
+
+To generate tables related by a foreign key, generate the primary key as a
+sequence, by setting the `min` and `step` column properties. Limit the foreign
+key column to the range of the primary key values, by setting its `min` and
+`max`, or `allowed_values` column properties. Then every foreign key value
+exists in the referenced table:
+
+```sql
+CREATE TABLE generator.default.authors (
+  id INTEGER NOT NULL WITH (min = '1', step = '1'),
+  name VARCHAR NOT NULL WITH (generator = '#{Book.author}')
+)
+WITH (default_limit = 100);
+
+CREATE TABLE generator.default.books (
+  id INTEGER NOT NULL WITH (min = '1', step = '1'),
+  author_id INTEGER NOT NULL WITH (min = '1', max = '100'),
+  title VARCHAR NOT NULL WITH (generator = '#{Book.title}')
+)
+WITH (default_limit = 1000);
+```
+
+The `authors` table has 100 rows, so its `id` values range from 1 to 100, the
+same as the `author_id` values. When reading fewer rows from the `authors`
+table, for example using `LIMIT`, some books reference authors that don't
+exist.
+
+When creating tables using existing data, Faker usually sets these properties
+automatically for integer keys, because it detects sequences and uses the range
+of the existing foreign key values. For example, after copying the `customer`
+and `orders` tables from the TPC-H connector, every `custkey` value in
+`orders` exists in `customer`. This doesn't work for keys of other types, like
+`UUID` or `VARCHAR`, because Faker generates random values for them.
