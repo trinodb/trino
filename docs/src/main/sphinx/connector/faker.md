@@ -219,16 +219,15 @@ their data range, set the `min` and `max` column properties - see
 
 ### Unsupported types
 
-Faker does not support the following data types:
+Faker does not support `INTERVAL DAY TO SECOND` with a fractional-seconds
+precision greater than 6.
 
-- `INTERVAL DAY TO SECOND` with a fractional-seconds precision greater than 6
-- Geometry
-- HyperLogLog and all digest types
-
-Faker can create columns of the structural types `ARRAY` and `MAP`, and of the
-`JSON` type, but does not generate data for them. Every non-null `ARRAY` and
-`MAP` value is empty, and every non-null `JSON` value is the JSON `null`
-literal.
+Faker can create columns of the structural types `ARRAY` and `MAP`, of the
+`JSON` type, and of other types not listed above, like the geometry,
+HyperLogLog, and digest types, but does not generate data for them. Every
+non-null `ARRAY` and `MAP` value is empty, every non-null `JSON` value is the
+JSON `null` literal, and every value of other types is `null`, even in `NOT
+NULL` columns.
 
 To generate data using these complex types, data from column of primitive types
 can be combined, like in the following example:

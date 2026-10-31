@@ -99,6 +99,7 @@ import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.NULL_PROBABILITY_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
+import static io.trino.plugin.faker.FakerPageSource.hasGenerator;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -413,7 +414,7 @@ public class FakerMetadata
 
     private static boolean isRangeType(Type type)
     {
-        return !(type instanceof BooleanType ||
+        return hasGenerator(type) && !(type instanceof BooleanType ||
                 type instanceof HyperLogLogType ||
                 type instanceof QuantileDigestType ||
                 type.getBaseName().equals(StandardTypes.TDIGEST) ||
@@ -560,7 +561,8 @@ public class FakerMetadata
             properties.put(MAX_PROPERTY, Literal.format(column.type(), max));
         }
         if (nonNullValues.isPresent()) {
-            double nullProbability = 1 - (double) nonNullValues.get() / rowCount;
+            // columns of types without a generator only contain nulls
+            double nullProbability = hasGenerator(column.type()) ? 1 - (double) nonNullValues.get() / rowCount : 1;
             handle = handle.withNullProbability(nullProbability);
             properties.put(NULL_PROBABILITY_PROPERTY, nullProbability);
         }
@@ -840,7 +842,8 @@ public class FakerMetadata
                     columnStatistics.setDistinctValuesCount(Estimate.of(distinctValuesCount));
                 }
             }
-            columnStatistics.setNullsFraction(Estimate.of(columnInfo.handle().nullProbability()));
+            // columns of types without a generator only contain nulls
+            columnStatistics.setNullsFraction(Estimate.of(hasGenerator(columnInfo.type()) ? columnInfo.handle().nullProbability() : 1));
             tableStatisitics.setColumnStatistics(columnInfo.handle(), columnStatistics.build());
         });
         return tableStatisitics.build();

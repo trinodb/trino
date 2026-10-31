@@ -354,6 +354,9 @@ class FakerPageSource
     private Generator randomValueGenerator(FakerColumnHandle handle)
     {
         Type type = handle.type();
+        if (!hasGenerator(type)) {
+            return BlockBuilder::appendNull;
+        }
         if (type instanceof RowType rowType) {
             List<Generator> fieldGenerators = rowType.getFields().stream()
                     .map(field -> randomValueGenerator(new FakerColumnHandle(
@@ -491,6 +494,24 @@ class FakerPageSource
         }
 
         throw new IllegalArgumentException("Unsupported type " + type);
+    }
+
+    // there are no generators for other types, like HyperLogLog, digests, or types from other plugins, like geometries
+    static boolean hasGenerator(Type type)
+    {
+        return BIGINT.equals(type) || INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type) ||
+                BOOLEAN.equals(type) ||
+                DATE.equals(type) ||
+                type instanceof DecimalType ||
+                REAL.equals(type) || DOUBLE.equals(type) ||
+                IntervalValues.isInterval(type) ||
+                type instanceof TimestampType || type instanceof TimestampWithTimeZoneType ||
+                type instanceof TimeType || type instanceof TimeWithTimeZoneType ||
+                type instanceof VarbinaryType || type instanceof VarcharType || type instanceof CharType ||
+                type.getBaseName().equals(StandardTypes.IPADDRESS) ||
+                type instanceof UuidType ||
+                type instanceof RowType || type instanceof ArrayType || type instanceof MapType ||
+                type.getBaseName().equals(StandardTypes.JSON);
     }
 
     private ObjectWriter objectWriter(Type type)
