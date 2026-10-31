@@ -26,6 +26,7 @@ import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
@@ -62,10 +63,12 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Random;
 import java.util.random.RandomGenerator;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -182,7 +185,10 @@ class FakerPageSource
             throw new TrinoException(INVALID_ROW_FILTER, "Non-discrete NaN constraints are not supported for generated columns");
         }
         ColumnGenerator generator;
-        if (!column.step().isNone()) {
+        if (column.referencedColumn().isPresent()) {
+            generator = referencedValueGenerator(column, random);
+        }
+        else if (!column.step().isNone()) {
             generator = sequenceWriter(column);
         }
         else {
@@ -199,6 +205,31 @@ class FakerPageSource
             else {
                 generator.accept(blockBuilder, rowId);
             }
+        };
+    }
+
+    private ColumnGenerator referencedValueGenerator(FakerColumnHandle column, Random random)
+    {
+        ReferencedColumn referencedColumn = column.referencedColumn().orElseThrow();
+        ColumnGenerator referencedGenerator = seededColumnGenerator(referencedColumn.tableSeed(), referencedColumn.column());
+        long rowCount = referencedColumn.tableRowCount();
+        if (referencedColumn.column().nullProbability() == 0) {
+            return (blockBuilder, _) -> referencedGenerator.accept(blockBuilder, random.nextLong(rowCount));
+        }
+        BlockBuilder valueBuilder = referencedColumn.column().type().createBlockBuilder(null, 1);
+        return (blockBuilder, _) -> {
+            // skip referenced rows with nulls by checking the following rows, which ends even when all of them are null
+            long start = random.nextLong(rowCount);
+            for (long offset = 0; offset < rowCount; offset++) {
+                valueBuilder.resetTo(0);
+                referencedGenerator.accept(valueBuilder, (start + offset) % rowCount);
+                ValueBlock value = valueBuilder.buildValueBlock();
+                if (!value.isNull(0)) {
+                    blockBuilder.append(value, 0);
+                    return;
+                }
+            }
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "Column '%s' referenced by column '%s' only has null values".formatted(referencedColumn.column().name(), column.name()));
         };
     }
 
@@ -362,7 +393,8 @@ class FakerPageSource
                                     0,
                                     null,
                                     Domain.all(field.getType()),
-                                    ValueSet.none(field.getType())),
+                                    ValueSet.none(field.getType()),
+                                    Optional.empty()),
                             random,
                             faker))
                     .collect(toImmutableList());

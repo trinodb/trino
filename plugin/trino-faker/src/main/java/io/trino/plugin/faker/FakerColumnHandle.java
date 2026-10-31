@@ -30,6 +30,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import java.util.Collection;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
@@ -37,6 +38,7 @@ import static io.trino.plugin.faker.ColumnInfo.GENERATOR_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.NULL_PROBABILITY_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.REFERENCES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
 import static io.trino.plugin.faker.PropertyValues.propertyValue;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
@@ -51,7 +53,8 @@ public record FakerColumnHandle(
         double nullProbability,
         String generator,
         Domain domain,
-        ValueSet step)
+        ValueSet step,
+        Optional<ReferencedColumn> referencedColumn)
         implements ColumnHandle
 {
     public FakerColumnHandle
@@ -60,6 +63,7 @@ public record FakerColumnHandle(
         requireNonNull(type, "type is null");
         requireNonNull(domain, "domain is null");
         requireNonNull(step, "step is null");
+        requireNonNull(referencedColumn, "referencedColumn is null");
         checkState(step.isNone() || step.isSingleValue(), "step must be a single value");
     }
 
@@ -90,6 +94,11 @@ public record FakerColumnHandle(
             }
             domain = Domain.create(ValueSet.copyOf(column.getType(), (Collection<?>) allowedValues), false);
         }
+        ValueSet step = stepValue(column);
+
+        if (column.getProperties().containsKey(REFERENCES_PROPERTY) && (min != null || max != null || !step.isNone() || allowedValues != null || generator != null)) {
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property cannot be set together with `%s`, `%s`, `%s`, `%s`, and `%s` properties".formatted(REFERENCES_PROPERTY, MIN_PROPERTY, MAX_PROPERTY, STEP_PROPERTY, ALLOWED_VALUES_PROPERTY, GENERATOR_PROPERTY));
+        }
 
         return new FakerColumnHandle(
                 columnId,
@@ -98,7 +107,8 @@ public record FakerColumnHandle(
                 nullProbability,
                 generator,
                 domain,
-                stepValue(column));
+                step,
+                Optional.empty());
     }
 
     private static boolean isCharacterColumn(ColumnMetadata column)
@@ -140,16 +150,21 @@ public record FakerColumnHandle(
 
     public FakerColumnHandle withNullProbability(double nullProbability)
     {
-        return new FakerColumnHandle(columnIndex, name, type, nullProbability, generator, domain, step);
+        return new FakerColumnHandle(columnIndex, name, type, nullProbability, generator, domain, step, referencedColumn);
     }
 
     public FakerColumnHandle withDomain(Domain domain)
     {
-        return new FakerColumnHandle(columnIndex, name, type, nullProbability, generator, domain, step);
+        return new FakerColumnHandle(columnIndex, name, type, nullProbability, generator, domain, step, referencedColumn);
     }
 
     public FakerColumnHandle withStep(ValueSet step)
     {
-        return new FakerColumnHandle(columnIndex, name, type, nullProbability, generator, domain, step);
+        return new FakerColumnHandle(columnIndex, name, type, nullProbability, generator, domain, step, referencedColumn);
+    }
+
+    public FakerColumnHandle withReferencedColumn(ReferencedColumn referencedColumn)
+    {
+        return new FakerColumnHandle(columnIndex, name, type, nullProbability, generator, domain, step, Optional.of(referencedColumn));
     }
 }
