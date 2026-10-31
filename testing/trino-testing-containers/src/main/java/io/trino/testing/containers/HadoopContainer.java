@@ -74,8 +74,11 @@ public class HadoopContainer
     private final boolean kerberizedImage;
     private boolean lzoCodecEnabled;
     private boolean trinoProxyUserEnabled;
+    private AzureConfig azureConfig;
     private GcsConfig gcsConfig;
     private S3Config s3Config;
+
+    private record AzureConfig(String account, String accessKey) {}
 
     private record GcsConfig(String endpoint, String projectId) {}
 
@@ -382,9 +385,31 @@ public class HadoopContainer
                    <property>
                        <name>hadoop.proxyuser.root.users</name>
                        <value>*</value>
-                   </property>%s%s%s%s
+                   </property>%s%s%s%s%s
                </configuration>
-               """.formatted(hostName, HDFS_NAMENODE_PORT, lzoCodecConfig, s3ConfigXml, getGcsConfigXml(), trinoProxyUserConfig);
+               """.formatted(hostName, HDFS_NAMENODE_PORT, lzoCodecConfig, s3ConfigXml, getAzureConfigXml(), getGcsConfigXml(), trinoProxyUserConfig);
+    }
+
+    private String getAzureConfigXml()
+    {
+        if (azureConfig == null) {
+            return "";
+        }
+        return """
+               <!-- ABFS configuration for Hive Metastore -->
+               <property>
+                   <name>fs.azure.account.key.%s.dfs.core.windows.net</name>
+                   <value>%s</value>
+               </property>
+               <property>
+                   <name>fs.abfs.impl</name>
+                   <value>org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem</value>
+               </property>
+               <property>
+                   <name>fs.AbstractFileSystem.abfs.impl</name>
+                   <value>org.apache.hadoop.fs.azurebfs.Abfs</value>
+               </property>
+               """.formatted(azureConfig.account(), azureConfig.accessKey());
     }
 
     private String getGcsConfigXml()
@@ -838,6 +863,13 @@ public class HadoopContainer
         withCopyToContainer(
                 Transferable.of(getHiveSiteXml(s3Config)),
                 "/opt/hive/conf/hive-site.xml");
+        return this;
+    }
+
+    public HadoopContainer withAzureConfig(String account, String accessKey)
+    {
+        checkState(!kerberizedImage, "Azure configuration is not supported for Kerberized Hadoop containers");
+        this.azureConfig = new AzureConfig(account, accessKey);
         return this;
     }
 
