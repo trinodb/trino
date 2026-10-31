@@ -14,9 +14,13 @@
 package io.trino.plugin.faker;
 
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.AbstractLongType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.Test;
 
@@ -29,6 +33,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestFakerPageSource
 {
+    // an orderable type without a generator, like BingTile from the geospatial plugin
+    private static final Type ORDERABLE_TYPE = new AbstractLongType(new TypeDescriptor("orderable"))
+    {
+        @Override
+        public Object getObjectValue(Block block, int position)
+        {
+            return block.isNull(position) ? null : getLong(block, position);
+        }
+    };
+
     @Test
     public void testNaNGeneration()
     {
@@ -50,6 +64,16 @@ public class TestFakerPageSource
                     .isInstanceOf(TrinoException.class)
                     .hasMessage("Non-discrete NaN constraints are not supported for generated columns");
         }
+    }
+
+    @Test
+    public void testOrderableTypeWithoutGenerator()
+    {
+        Random random = new Random(0);
+        FakerColumnHandle column = new FakerColumnHandle(0, "x", ORDERABLE_TYPE, 0, null, Domain.all(ORDERABLE_TYPE), ValueSet.none(ORDERABLE_TYPE));
+        FakerPageSource source = new FakerPageSource(new Faker(random), random, List.of(column), 0, 1);
+        assertThat(source.getNextSourcePage()).isNull();
+        assertThat(source.getNextSourcePage().getBlock(0).isNull(0)).isTrue();
     }
 
     private static FakerColumnHandle column(Domain domain)

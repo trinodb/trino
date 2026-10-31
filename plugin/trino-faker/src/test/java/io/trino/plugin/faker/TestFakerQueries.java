@@ -154,7 +154,7 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_map_int", "map(integer, integer)", "count(distinct rnd_map_int)", "1"))
                 .add(new TestDataType("rnd_map_varchar", "map(varchar, varchar)", "count(distinct rnd_map_varchar)", "1"))
                 .add(new TestDataType("rnd_row", "row(integer, varchar)", "count(distinct rnd_row)", "1000"))
-                .add(new TestDataType("rnd_json", "json", "count(distinct rnd_json)", "1"))
+                .add(new TestDataType("rnd_json", "json", "count_if(json_format(rnd_json) = 'null')", "1000"))
                 .build();
 
         for (TestDataType testCase : testCases) {
@@ -722,8 +722,28 @@ final class TestFakerQueries
             assertThat(createTable).containsPattern("map map\\(varchar\\(1\\), integer\\) WITH \\(null_probability = 0E0\\)");
             assertThat(createTable).containsPattern("map_array array\\(map\\(varchar\\(1\\), integer\\)\\) WITH \\(null_probability = 0E0\\)");
             assertThat(createTable).containsPattern("map_row ROW\\(map\\(varchar\\(1\\), integer\\)\\) WITH \\(null_probability = 0E0\\)");
-            assertThat(createTable).containsPattern("hll HyperLogLog WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("hll HyperLogLog WITH \\(null_probability = 1E0\\)");
             assertThat(createTable).contains("default_limit = 1001");
+        }
+    }
+
+    @Test
+    void testSelectTypesWithoutGenerator()
+    {
+        try (TestTable table = newTrinoTable("without_generator", "(hll HyperLogLog NOT NULL, p4hll P4HyperLogLog, qdigest qdigest(bigint), tdigest tdigest)")) {
+            assertQuery(
+                    "SELECT count(*), count(hll), count(p4hll), count(qdigest), count(tdigest) FROM " + table.getName(),
+                    "VALUES (1000, 0, 0, 0, 0)");
+            assertQuery(
+                    "SHOW STATS FOR " + table.getName(),
+                    """
+                    VALUES
+                      ('hll', 0.0, NULL, 1.0, NULL, NULL, NULL),
+                      ('p4hll', 0.0, NULL, 1.0, NULL, NULL, NULL),
+                      ('qdigest', 0.0, NULL, 1.0, NULL, NULL, NULL),
+                      ('tdigest', 0.0, NULL, 1.0, NULL, NULL, NULL),
+                      (NULL, NULL, NULL, NULL, 1000, NULL, NULL)
+                    """);
         }
     }
 }
