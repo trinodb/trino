@@ -22,6 +22,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
@@ -439,32 +440,27 @@ public final class StringFunctions
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
         checkCondition(delimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
-        BlockBuilder parts = VARCHAR.createBlockBuilder(null, 1, string.length());
-        // If limit is one, the last and only element is the complete string
-        if (limit == 1) {
-            VARCHAR.writeSlice(parts, string);
-            return parts.build();
-        }
-
+        int expectedEntries = 1;
         int index = 0;
-        while (index < string.length()) {
+        while (expectedEntries < limit && index < string.length()) {
             int splitIndex = string.indexOf(delimiter, index);
-            // Found split?
             if (splitIndex < 0) {
                 break;
             }
-            // Add the part from current index to found split
-            VARCHAR.writeSlice(parts, string, index, splitIndex - index);
-            // Continue searching after delimiter
+            expectedEntries++;
             index = splitIndex + delimiter.length();
-            // Reached limit-1 parts so we can stop
-            if (parts.getPositionCount() == limit - 1) {
-                break;
-            }
         }
-        // Rest of string
-        VARCHAR.writeSlice(parts, string, index, string.length() - index);
 
+        int expectedBytes = string.length() - (expectedEntries - 1) * delimiter.length();
+        BlockBuilder parts = new VariableWidthBlockBuilder(null, expectedEntries, expectedBytes);
+        index = 0;
+        for (int part = 1; part < expectedEntries; part++) {
+            int splitIndex = string.indexOf(delimiter, index);
+            VARCHAR.writeSlice(parts, string, index, splitIndex - index);
+            index = splitIndex + delimiter.length();
+        }
+        // The last part includes any remaining delimiters when the limit is reached.
+        VARCHAR.writeSlice(parts, string, index, string.length() - index);
         return parts.build();
     }
 
