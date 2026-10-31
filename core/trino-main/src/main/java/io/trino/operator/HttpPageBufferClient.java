@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.LittleEndianDataInputStream;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -30,7 +29,10 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
+import io.airlift.http.client.ResponseMetadata;
+import io.airlift.http.client.ResponseTooLargeException;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
+import io.airlift.http.client.StreamingResponseHandler;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -38,6 +40,7 @@ import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeUtil;
+import io.trino.execution.buffer.SerializedPagesDecoder;
 import io.trino.server.remotetask.Backoff;
 import io.trino.server.remotetask.RetryableResponseException;
 import io.trino.spi.TrinoException;
@@ -45,10 +48,13 @@ import io.trino.spi.TrinoTransportException;
 import jakarta.annotation.Nullable;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -63,7 +69,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.OK;
@@ -76,7 +81,6 @@ import static io.airlift.http.client.StatusResponseHandler.createStatusResponseH
 import static io.trino.TrinoMediaTypes.TRINO_PAGES_TYPE;
 import static io.trino.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
-import static io.trino.execution.buffer.PagesSerdeUtil.readSerializedPages;
 import static io.trino.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static io.trino.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE_HEADER;
@@ -85,7 +89,6 @@ import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN_HEADER;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN_HEADER;
 import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED_HEADER;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID_HEADER;
-import static io.trino.server.PagesInputStreamFactory.SERIALIZED_PAGES_MAGIC;
 import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_BUFFER_CLOSE_FAILED;
@@ -128,6 +131,7 @@ public final class HttpPageBufferClient
     private final HttpClient httpClient;
     private final DataIntegrityVerification dataIntegrityVerification;
     private final DataSize maxResponseSize;
+    private final DataSize maxResponseContentLength;
     private final boolean acknowledgePages;
     private final TaskId remoteTaskId;
     private final URI location;
@@ -173,6 +177,7 @@ public final class HttpPageBufferClient
             HttpClient httpClient,
             DataIntegrityVerification dataIntegrityVerification,
             DataSize maxResponseSize,
+            DataSize maxResponseContentLength,
             Duration maxErrorDuration,
             boolean acknowledgePages,
             TaskId remoteTaskId,
@@ -185,6 +190,7 @@ public final class HttpPageBufferClient
                 httpClient,
                 dataIntegrityVerification,
                 maxResponseSize,
+                maxResponseContentLength,
                 maxErrorDuration,
                 acknowledgePages,
                 remoteTaskId,
@@ -200,6 +206,7 @@ public final class HttpPageBufferClient
             HttpClient httpClient,
             DataIntegrityVerification dataIntegrityVerification,
             DataSize maxResponseSize,
+            DataSize maxResponseContentLength,
             Duration maxErrorDuration,
             boolean acknowledgePages,
             TaskId remoteTaskId,
@@ -213,6 +220,7 @@ public final class HttpPageBufferClient
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
         this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
+        this.maxResponseContentLength = requireNonNull(maxResponseContentLength, "maxResponseContentLength is null");
         this.acknowledgePages = acknowledgePages;
         this.remoteTaskId = requireNonNull(remoteTaskId, "remoteTaskId is null");
         this.location = requireNonNull(location, "location is null");
@@ -362,7 +370,7 @@ public final class HttpPageBufferClient
                 prepareGet()
                         .setHeader(TRINO_MAX_SIZE_HEADER, maxResponseSize.toString())
                         .setUri(uri).build(),
-                new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE));
+                new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE, maxResponseContentLength));
 
         future = resultFuture;
         Futures.addCallback(resultFuture, new FutureCallback<>()
@@ -651,7 +659,7 @@ public final class HttpPageBufferClient
     private static Throwable rewriteException(Throwable t)
     {
         if (Throwables.getCausalChain(t).stream()
-                .anyMatch(e -> nullToEmpty(e.getMessage()).contains("exceeded maximum length"))) {
+                .anyMatch(ResponseTooLargeException.class::isInstance)) {
             PageTooLargeException pageTooLargeException = new PageTooLargeException();
             pageTooLargeException.addSuppressed(t);
             return pageTooLargeException;
@@ -660,13 +668,15 @@ public final class HttpPageBufferClient
     }
 
     public static class PageResponseHandler
-            implements ResponseHandler<PagesResponse, RuntimeException>
+            implements StreamingResponseHandler<PagesResponse, RuntimeException>
     {
         private final boolean dataIntegrityVerificationEnabled;
+        private final DataSize maxResponseContentLength;
 
-        private PageResponseHandler(boolean dataIntegrityVerificationEnabled)
+        private PageResponseHandler(boolean dataIntegrityVerificationEnabled, DataSize maxResponseContentLength)
         {
             this.dataIntegrityVerificationEnabled = dataIntegrityVerificationEnabled;
+            this.maxResponseContentLength = requireNonNull(maxResponseContentLength, "maxResponseContentLength is null");
         }
 
         @Override
@@ -676,19 +686,19 @@ public final class HttpPageBufferClient
         }
 
         @Override
-        public PagesResponse handle(Request request, Response response)
+        public BodyConsumer<PagesResponse, RuntimeException> handleHeaders(Request request, ResponseMetadata response)
         {
             URI uri = request.getUri();
             try {
                 // no content means no content was created within the wait period, but query is still ok
                 // if job is finished, complete is set in the response
                 if (response.getStatusCode() == NO_CONTENT.code()) {
-                    return createEmptyPagesResponse(
+                    return new EmptyBodyConsumer(createEmptyPagesResponse(
                             getTaskInstanceId(response, uri),
                             getToken(response, uri),
                             getNextToken(response, uri),
                             getComplete(response, uri),
-                            getTaskFailed(response, uri));
+                            getTaskFailed(response, uri)));
                 }
 
                 // the remote node is not ready, e.g. still starting up, so retry with backoff
@@ -699,22 +709,7 @@ public final class HttpPageBufferClient
 
                 // otherwise we must have gotten an OK response, everything else is considered fatal
                 if (response.getStatusCode() != OK.code()) {
-                    StringBuilder body = new StringBuilder();
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getInputStream(), UTF_8))) {
-                        // Get up to 1000 lines for debugging
-                        for (int i = 0; i < 1000; i++) {
-                            String line = reader.readLine();
-                            // Don't output more than 100KB
-                            if (line == null || body.length() + line.length() > 100 * 1024) {
-                                break;
-                            }
-                            body.append(line + "\n");
-                        }
-                    }
-                    catch (RuntimeException | IOException e) {
-                        // Ignored. Just return whatever message we were able to decode
-                    }
-                    throw new PageTransportErrorException(fromUri(uri), format("Expected response code to be 200, but was %s:%n%s", response.getStatusCode(), body));
+                    return new ErrorBodyConsumer(uri, response.getStatusCode());
                 }
 
                 // invalid content type can happen when an error page is returned, but is unlikely given the above 200
@@ -726,30 +721,119 @@ public final class HttpPageBufferClient
                     throw new PageTransportErrorException(fromUri(uri), format("Expected %s response from server but got %s", TRINO_PAGES_TYPE, contentType.orElseThrow()));
                 }
 
-                String taskInstanceId = getTaskInstanceId(response, uri);
-                long token = getToken(response, uri);
-                long nextToken = getNextToken(response, uri);
-                boolean complete = getComplete(response, uri);
-                boolean remoteTaskFailed = getTaskFailed(response, uri);
-
-                try (LittleEndianDataInputStream input = new LittleEndianDataInputStream(response.getInputStream())) {
-                    int magic = input.readInt();
-                    if (magic != SERIALIZED_PAGES_MAGIC) {
-                        throw new IllegalStateException(format("Invalid stream header, expected 0x%08x, but was 0x%08x", SERIALIZED_PAGES_MAGIC, magic));
-                    }
-                    long checksum = input.readLong();
-                    int pagesCount = input.readInt();
-                    List<Slice> pages = ImmutableList.copyOf(readSerializedPages(input));
-                    verifyChecksum(checksum, pages);
-                    checkState(pages.size() == pagesCount, "Wrong number of pages, expected %s, but read %s", pagesCount, pages.size());
-                    return createPagesResponse(taskInstanceId, token, nextToken, pages, complete, remoteTaskFailed);
-                }
-                catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                return new PagesBodyConsumer(
+                        getTaskInstanceId(response, uri),
+                        getToken(response, uri),
+                        getNextToken(response, uri),
+                        getComplete(response, uri),
+                        getTaskFailed(response, uri));
             }
             catch (PageTransportErrorException e) {
-                throw new PageTransportErrorException(fromUri(uri), format("Error fetching %s: %s", request.getUri().toASCIIString(), e.getMessage()), e);
+                throw errorFetching(uri, e);
+            }
+        }
+
+        private static PageTransportErrorException errorFetching(URI uri, PageTransportErrorException exception)
+        {
+            return new PageTransportErrorException(fromUri(uri), format("Error fetching %s: %s", uri.toASCIIString(), exception.getMessage()), exception);
+        }
+
+        private record EmptyBodyConsumer(PagesResponse pagesResponse)
+                implements BodyConsumer<PagesResponse, RuntimeException>
+        {
+            @Override
+            public void accept(ByteBuffer content)
+            {
+                // a no content response has no body
+                content.position(content.limit());
+            }
+
+            @Override
+            public PagesResponse complete()
+            {
+                return pagesResponse;
+            }
+        }
+
+        private static class ErrorBodyConsumer
+                implements BodyConsumer<PagesResponse, RuntimeException>
+        {
+            private static final int MAX_REPORTED_BODY_SIZE = 100 * 1024;
+
+            private final URI uri;
+            private final int statusCode;
+            private final ByteArrayOutputStream content = new ByteArrayOutputStream();
+
+            private ErrorBodyConsumer(URI uri, int statusCode)
+            {
+                this.uri = requireNonNull(uri, "uri is null");
+                this.statusCode = statusCode;
+            }
+
+            @Override
+            public void accept(ByteBuffer chunk)
+            {
+                // Only the start of the body is reported
+                byte[] bytes = new byte[Math.min(chunk.remaining(), MAX_REPORTED_BODY_SIZE - content.size())];
+                chunk.get(bytes);
+                content.writeBytes(bytes);
+                chunk.position(chunk.limit());
+            }
+
+            @Override
+            public PagesResponse complete()
+            {
+                StringBuilder body = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(content.toByteArray()), UTF_8))) {
+                    // Get up to 1000 lines for debugging
+                    for (int i = 0; i < 1000; i++) {
+                        String line = reader.readLine();
+                        // Don't output more than 100KB
+                        if (line == null || body.length() + line.length() > MAX_REPORTED_BODY_SIZE) {
+                            break;
+                        }
+                        body.append(line + "\n");
+                    }
+                }
+                catch (RuntimeException | IOException e) {
+                    // Ignored. Just return whatever message we were able to decode
+                }
+                throw errorFetching(uri, new PageTransportErrorException(fromUri(uri), format("Expected response code to be 200, but was %s:%n%s", statusCode, body)));
+            }
+        }
+
+        private class PagesBodyConsumer
+                implements BodyConsumer<PagesResponse, RuntimeException>
+        {
+            private final String taskInstanceId;
+            private final long token;
+            private final long nextToken;
+            private final boolean complete;
+            private final boolean remoteTaskFailed;
+            private final SerializedPagesDecoder decoder = new SerializedPagesDecoder(maxResponseContentLength.toBytes());
+
+            private PagesBodyConsumer(String taskInstanceId, long token, long nextToken, boolean complete, boolean remoteTaskFailed)
+            {
+                this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
+                this.token = token;
+                this.nextToken = nextToken;
+                this.complete = complete;
+                this.remoteTaskFailed = remoteTaskFailed;
+            }
+
+            @Override
+            public void accept(ByteBuffer content)
+            {
+                decoder.decode(content);
+            }
+
+            @Override
+            public PagesResponse complete()
+            {
+                List<Slice> pages = decoder.finish();
+                verifyChecksum(decoder.getChecksum(), pages);
+                checkState(pages.size() == decoder.getPagesCount(), "Wrong number of pages, expected %s, but read %s", decoder.getPagesCount(), pages.size());
+                return createPagesResponse(taskInstanceId, token, nextToken, pages, complete, remoteTaskFailed);
             }
         }
 
@@ -768,31 +852,31 @@ public final class HttpPageBufferClient
             }
         }
 
-        private static String getTaskInstanceId(Response response, URI uri)
+        private static String getTaskInstanceId(ResponseMetadata response, URI uri)
         {
             return response.getHeader(TRINO_TASK_INSTANCE_ID_HEADER)
                     .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_INSTANCE_ID_HEADER)));
         }
 
-        private static long getToken(Response response, URI uri)
+        private static long getToken(ResponseMetadata response, URI uri)
         {
             return Long.parseLong(response.getHeader(TRINO_PAGE_TOKEN_HEADER)
                     .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_TOKEN_HEADER))));
         }
 
-        private static long getNextToken(Response response, URI uri)
+        private static long getNextToken(ResponseMetadata response, URI uri)
         {
             return Long.parseLong(response.getHeader(TRINO_PAGE_NEXT_TOKEN_HEADER)
                     .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_NEXT_TOKEN_HEADER))));
         }
 
-        private static boolean getComplete(Response response, URI uri)
+        private static boolean getComplete(ResponseMetadata response, URI uri)
         {
             return Boolean.parseBoolean(response.getHeader(TRINO_BUFFER_COMPLETE_HEADER)
                     .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_BUFFER_COMPLETE_HEADER))));
         }
 
-        private static boolean getTaskFailed(Response response, URI uri)
+        private static boolean getTaskFailed(ResponseMetadata response, URI uri)
         {
             return Boolean.parseBoolean(response.getHeader(TRINO_TASK_FAILED_HEADER)
                     .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_FAILED_HEADER))));
