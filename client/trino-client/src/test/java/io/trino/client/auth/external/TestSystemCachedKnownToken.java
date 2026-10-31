@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -25,8 +26,13 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static io.trino.client.auth.external.TestingLockHolder.holdInAnotherProcess;
+import static io.trino.client.auth.external.TestingLockHolder.holdSharedInAnotherProcess;
+import static io.trino.client.auth.external.TestingLockHolder.tryLockInAnotherProcess;
+import static java.lang.Thread.State.TIMED_WAITING;
 import static java.nio.file.attribute.PosixFilePermission.OWNER_READ;
 import static java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
@@ -107,7 +113,7 @@ final class TestSystemCachedKnownToken
 
     @Test
     void testSetupTokenClearsTokenWhenSourceFails(@TempDir Path tempDir)
-            throws IOException
+            throws Exception
     {
         Files.writeString(tempDir.resolve(".token"), "old-token");
         SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
@@ -116,38 +122,157 @@ final class TestSystemCachedKnownToken
             throw new RuntimeException("Auth is expected to fail");
         })).hasMessage("Auth is expected to fail");
 
-        // Old token should be cleared, lock file should be cleaned up
+        // Old token should be cleared, lock should be released
         assertThat(knownToken.getToken()).isEmpty();
-        assertThat(Files.exists(tempDir.resolve(".token.lck"))).isFalse();
+        assertThat(tryLockInAnotherProcess(tempDir.resolve(".token.lock"))).isTrue();
     }
 
     @Test
-    void testSetupTokenRemovesLockFileAfterSuccess(@TempDir Path tempDir)
+    void testSetupTokenReleasesLockAfterSuccess(@TempDir Path tempDir)
+            throws Exception
     {
         SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
         knownToken.setupToken(() -> Optional.of(new Token("token")));
-        assertThat(Files.exists(tempDir.resolve(".token.lck"))).isFalse();
+        assertThat(tryLockInAnotherProcess(tempDir.resolve(".token.lock"))).isTrue();
     }
 
     @Test
-    void testSetupTokenSkipsWhenLockFileAlreadyExists(@TempDir Path tempDir)
-            throws IOException
+    void testSetupTokenHoldsLockDuringAuthentication(@TempDir Path tempDir)
+    {
+        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
+        knownToken.setupToken(() -> {
+            try {
+                assertThat(tryLockInAnotherProcess(tempDir.resolve(".token.lock"))).isFalse();
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            return Optional.of(new Token("token"));
+        });
+        assertThat(knownToken.getToken())
+                .isPresent()
+                .hasValueSatisfying(token -> assertThat(token.token()).isEqualTo("token"));
+    }
+
+    @Test
+    void testSetupTokenSkipsWhileAnotherProcessHoldsLock(@TempDir Path tempDir)
+            throws Exception
     {
         Files.writeString(tempDir.resolve(".token"), "existing-token");
+        Process holder = holdInAnotherProcess(tempDir.resolve(".token.lock"));
+        try {
+            AtomicBoolean tokenSourceCalled = new AtomicBoolean(false);
+            SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
+
+            knownToken.setupToken(() -> {
+                tokenSourceCalled.set(true);
+                return Optional.of(new Token("should-not-be-written"));
+            });
+
+            // Token source should not have been invoked
+            assertThat(tokenSourceCalled.get()).isFalse();
+            // Original token file should be unchanged
+            assertThat(Files.readString(tempDir.resolve(".token"))).isEqualTo("existing-token");
+        }
+        finally {
+            holder.destroyForcibly();
+        }
+    }
+
+    @Test
+    void testSetupTokenWaitsBrieflyForLock(@TempDir Path tempDir)
+            throws Exception
+    {
+        // Another process takes the lock for a moment, as getToken does to check it
+        Process holder = holdSharedInAnotherProcess(tempDir.resolve(".token.lock"));
+        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir, Duration.ofMinutes(1), Duration.ofSeconds(10));
+        FutureTask<Void> setup = new FutureTask<>(() -> knownToken.setupToken(() -> Optional.of(new Token("new-token"))), null);
+
+        Thread setupThread = new Thread(setup);
+        setupThread.start();
+        try {
+            // Sleeping between attempts to take the lock
+            while (setupThread.getState() != TIMED_WAITING) {
+                assertThat(setupThread.isAlive()).isTrue();
+                Thread.sleep(1);
+            }
+        }
+        finally {
+            holder.destroyForcibly().waitFor();
+        }
+        setup.get();
+
+        assertThat(knownToken.getToken())
+                .isPresent()
+                .hasValueSatisfying(token -> assertThat(token.token()).isEqualTo("new-token"));
+    }
+
+    @Test
+    void testSetupTokenSkipsWhenTokenAppearedWhileWaitingForLock(@TempDir Path tempDir)
+            throws Exception
+    {
+        // Long enough for the second authentication to take the lock after the first one
+        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir, Duration.ofMinutes(1), Duration.ofSeconds(10));
+        CountDownLatch firstAuthenticationStarted = new CountDownLatch(1);
+        CountDownLatch finishFirstAuthentication = new CountDownLatch(1);
+        AtomicBoolean secondTokenSourceCalled = new AtomicBoolean(false);
+
+        FutureTask<Void> first = new FutureTask<>(() -> knownToken.setupToken(() -> {
+            firstAuthenticationStarted.countDown();
+            try {
+                finishFirstAuthentication.await();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+            return Optional.of(new Token("first-token"));
+        }), null);
+        FutureTask<Void> second = new FutureTask<>(() -> knownToken.setupToken(() -> {
+            secondTokenSourceCalled.set(true);
+            return Optional.of(new Token("second-token"));
+        }), null);
+
+        new Thread(first).start();
+        try {
+            firstAuthenticationStarted.await();
+            Thread secondThread = new Thread(second);
+            secondThread.start();
+            // The second authentication reads the token file before it starts sleeping between attempts to take the lock
+            while (secondThread.getState() != TIMED_WAITING) {
+                assertThat(secondThread.isAlive()).isTrue();
+                Thread.sleep(1);
+            }
+        }
+        finally {
+            finishFirstAuthentication.countDown();
+        }
+        first.get();
+        second.get();
+
+        assertThat(secondTokenSourceCalled.get()).isFalse();
+        assertThat(knownToken.getToken())
+                .isPresent()
+                .hasValueSatisfying(token -> assertThat(token.token()).isEqualTo("first-token"));
+    }
+
+    @Test
+    void testLockFileOfOlderClientIsIgnored(@TempDir Path tempDir)
+            throws IOException
+    {
+        // Older clients locked by creating .token.lck and left it behind when they exited during a login
         Files.createFile(tempDir.resolve(".token.lck"));
+        Files.writeString(tempDir.resolve(".token"), "existing-token");
+        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir, Duration.ofMillis(1001));
 
-        AtomicBoolean tokenSourceCalled = new AtomicBoolean(false);
-        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
+        assertThat(knownToken.getToken())
+                .isPresent()
+                .hasValueSatisfying(token -> assertThat(token.token()).isEqualTo("existing-token"));
 
-        knownToken.setupToken(() -> {
-            tokenSourceCalled.set(true);
-            return Optional.of(new Token("should-not-be-written"));
-        });
-
-        // Token source should not have been invoked
-        assertThat(tokenSourceCalled.get()).isFalse();
-        // Original token file should be unchanged
-        assertThat(Files.readString(tempDir.resolve(".token"))).isEqualTo("existing-token");
+        knownToken.setupToken(() -> Optional.of(new Token("new-token")));
+        assertThat(knownToken.getToken())
+                .isPresent()
+                .hasValueSatisfying(token -> assertThat(token.token()).isEqualTo("new-token"));
     }
 
     @Test
@@ -160,26 +285,46 @@ final class TestSystemCachedKnownToken
 
         assertThat(Files.getPosixFilePermissions(tempDir.resolve(".token")))
                 .containsExactlyInAnyOrder(OWNER_READ, OWNER_WRITE);
+        assertThat(Files.getPosixFilePermissions(tempDir.resolve(".token.lock")))
+                .containsExactlyInAnyOrder(OWNER_READ, OWNER_WRITE);
     }
 
     @Test
-    void testGetTokenThrowsWhenLockFileExistsAfterMaxWait(@TempDir Path tempDir)
-            throws IOException
-    {
-        Files.createFile(tempDir.resolve(".token.lck"));
-        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir, Duration.ofMillis(1001));
-
-        assertThatThrownBy(knownToken::getToken)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Lock file")
-                .hasMessageContaining("still exists after waiting");
-    }
-
-    @Test
-    void testGetTokenWaitsForLockFileToBeRemoved(@TempDir Path tempDir)
+    void testGetTokenThrowsWhenLockIsHeldAfterMaxWait(@TempDir Path tempDir)
             throws Exception
     {
-        Files.createFile(tempDir.resolve(".token.lck"));
+        Process holder = holdInAnotherProcess(tempDir.resolve(".token.lock"));
+        try {
+            SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir, Duration.ofMillis(1001));
+
+            assertThatThrownBy(knownToken::getToken)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Lock file")
+                    .hasMessageContaining("is still locked after waiting");
+        }
+        finally {
+            holder.destroyForcibly();
+        }
+    }
+
+    @Test
+    void testGetTokenFailsOnIoError(@TempDir Path tempDir)
+            throws IOException
+    {
+        // A directory cannot be opened for writing
+        Files.createDirectory(tempDir.resolve(".token.lock"));
+        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
+
+        assertThatThrownBy(knownToken::getToken)
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessageContaining("Failed to open lock file");
+    }
+
+    @Test
+    void testGetTokenWaitsForLockToBeReleased(@TempDir Path tempDir)
+            throws Exception
+    {
+        Process holder = holdInAnotherProcess(tempDir.resolve(".token.lock"));
         Files.writeString(tempDir.resolve(".token"), "the-token");
 
         SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
@@ -197,8 +342,8 @@ final class TestSystemCachedKnownToken
             Thread.sleep(300);
             assertThat(future.isDone()).isFalse();
 
-            // Remove lock file — getToken should now complete
-            Files.delete(tempDir.resolve(".token.lck"));
+            // Kill the process holding the lock, as when an IDE is killed during a login. getToken should now complete
+            holder.destroyForcibly().waitFor();
 
             Optional<Token> result = future.get();
             assertThat(result)
@@ -207,6 +352,7 @@ final class TestSystemCachedKnownToken
         }
         finally {
             executor.shutdownNow();
+            holder.destroyForcibly();
         }
     }
 }
