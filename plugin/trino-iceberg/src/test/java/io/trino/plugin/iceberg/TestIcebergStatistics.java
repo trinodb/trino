@@ -1139,12 +1139,12 @@ public class TestIcebergStatistics
 
         assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
 
-        // NDV is not present after expire_snapshot as last snapshot did not contained stats
+        // NDV is retained after expire_snapshot as stats are carried forward from previous snapshot
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
                 VALUES
-                  ('key', null, null, 0, null, '1', '4'), -- NDV not present as expire_snapshot removed stats for previous snapshots
+                  ('key', null, 3, 0, null, '1', '4'), -- NDV retained as stats were carried forward from previous snapshot
                   (null,  null, null, null, 4, null, null)
                 """);
 
@@ -1259,6 +1259,84 @@ public class TestIcebergStatistics
                         "('regionkey', DOUBLE '5', null), " +
                         "('comment', DOUBLE '25', null), " +
                         "(null, null, DOUBLE '25')");
+    }
+
+    @Test
+    public void testShowStatsAfterUpdateAndExpireSnapshots()
+    {
+        assertStatsRetainedAfterWriteAndExpireSnapshots("UPDATE %s SET comment = 'updated' WHERE nationkey = 1");
+    }
+
+    @Test
+    public void testShowStatsAfterDeleteAndExpireSnapshots()
+    {
+        assertStatsRetainedAfterWriteAndExpireSnapshots("DELETE FROM %s WHERE nationkey = 1");
+    }
+
+    @Test
+    public void testShowStatsAfterMergeAndExpireSnapshots()
+    {
+        assertStatsRetainedAfterWriteAndExpireSnapshots(
+                "MERGE INTO %s t USING (SELECT 1 AS nationkey, 'new comment' AS comment) s " +
+                        "ON t.nationkey = s.nationkey " +
+                        "WHEN MATCHED THEN UPDATE SET comment = s.comment");
+    }
+
+    @Test
+    public void testInsertCollectsNdvAfterExpireSnapshots()
+    {
+        String tableName = "test_insert_collects_ndv_after_expire_" + randomNameSuffix();
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session minimalSnapshotRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+        String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate("UPDATE " + tableName + " SET comment = 'changed' WHERE nationkey = 2", 1);
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        // When stats are retained, subsequent INSERT will successfully keep NDV information
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
+
+        assertNationTableDistinctValuesCount(tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private void assertStatsRetainedAfterWriteAndExpireSnapshots(String writeStatementTemplate)
+    {
+        String tableName = "test_stats_expire_" + randomNameSuffix();
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session minimalSnapshotRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+        String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate(writeStatementTemplate.formatted(tableName), 1);
+
+        assertNationTableDistinctValuesCount(tableName);
+
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        assertNationTableDistinctValuesCount(tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private void assertNationTableDistinctValuesCount(String tableName)
+    {
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('nationkey', DOUBLE '25.0'), " +
+                        "('name', DOUBLE '25.0'), " +
+                        "('regionkey', DOUBLE '5.0'), " +
+                        "('comment', DOUBLE '25.0'), " +
+                        "(null, null)");
     }
 
     @Test
