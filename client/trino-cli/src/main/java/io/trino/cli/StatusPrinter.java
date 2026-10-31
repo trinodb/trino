@@ -28,6 +28,7 @@ import org.jline.utils.AttributedStyle;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
+import java.util.Locale;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.padStart;
@@ -183,6 +184,7 @@ Spilled: 20GB
 
         // Query 12, FINISHED, 1 node
         String querySummary = format(
+                Locale.ROOT,
                 "Query %s, %s, %,d %s",
                 results.getId(),
                 coloredState(stats.getState()),
@@ -196,6 +198,7 @@ Spilled: 20GB
 
         // Splits: 1000 total, 842 done (84.20%)
         String splitsSummary = format(
+                Locale.ROOT,
                 "Splits: %s total, %s done (%.2f%%)",
                 coloredCount(stats.getTotalSplits()),
                 coloredCount(stats.getCompletedSplits()),
@@ -206,6 +209,7 @@ Spilled: 20GB
             // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
             Duration cpuTime = millis(stats.getCpuTimeMillis());
             String cpuTimeSummary = format(
+                    Locale.ROOT,
                     "CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                     cpuTime.getValue(SECONDS),
                     formatCountRate(stats.getProcessedRows(), cpuTime, false),
@@ -217,6 +221,7 @@ Spilled: 20GB
 
             // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
             String perNodeSummary = format(
+                    Locale.ROOT,
                     "Per Node: %.1f parallelism, %5s rows/s, %8s",
                     parallelism / nodes,
                     formatCountRate((double) stats.getProcessedRows() / nodes, wallTime, false),
@@ -224,7 +229,7 @@ Spilled: 20GB
             reprintLine(perNodeSummary);
 
             // Parallelism: 5.3
-            out.printf("Parallelism: %.1f%n", parallelism);
+            out.printf(Locale.ROOT, "Parallelism: %.1f%n", parallelism);
 
             // Peak Memory: 1.97GB
             reprintLine("Peak Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true, decimalDataSize));
@@ -270,7 +275,7 @@ Spilled: 20GB
                 reprintLine("80 characters wide");
                 reprintLine("");
                 reprintLine(coloredState(stats.getState()));
-                reprintLine(format("%s %d%%", formatTime(wallTime), progressPercentage));
+                reprintLine(format(Locale.ROOT, "%s %d%%", formatTime(wallTime), progressPercentage));
                 return;
             }
 
@@ -278,6 +283,7 @@ Spilled: 20GB
 
             // Query 10, RUNNING, 1 node, 778 splits
             String querySummary = format(
+                    Locale.ROOT,
                     "Query %s, %s, %,d %s, %s splits",
                     results.getId(),
                     coloredState(stats.getState()),
@@ -298,6 +304,7 @@ Spilled: 20GB
             if (debug) {
                 // Splits:   620 queued, 34 running, 124 done
                 String splitsSummary = format(
+                        Locale.ROOT,
                         "Splits:   %,d queued, %,d running, %,d done",
                         stats.getQueuedSplits(),
                         stats.getRunningSplits(),
@@ -307,6 +314,7 @@ Spilled: 20GB
                 // CPU Time: 56.5s total, 36.4K rows/s, 4.44MB/s, 60% active
                 Duration cpuTime = millis(stats.getCpuTimeMillis());
                 String cpuTimeSummary = format(
+                        Locale.ROOT,
                         "CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                         cpuTime.getValue(SECONDS),
                         formatCountRate(stats.getProcessedRows(), cpuTime, false),
@@ -318,6 +326,7 @@ Spilled: 20GB
 
                 // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
                 String perNodeSummary = format(
+                        Locale.ROOT,
                         "Per Node: %.1f parallelism, %5s rows/s, %8s",
                         parallelism / nodes,
                         formatCountRate((double) stats.getProcessedRows() / nodes, wallTime, false),
@@ -325,7 +334,7 @@ Spilled: 20GB
                 reprintLine(perNodeSummary);
 
                 // Parallelism: 5.3
-                reprintLine(format("Parallelism: %.1f", parallelism));
+                reprintLine(format(Locale.ROOT, "Parallelism: %.1f", parallelism));
 
                 // Peak Memory: 1.97GB
                 reprintLine("Peak Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true, decimalDataSize));
@@ -347,6 +356,7 @@ Spilled: 20GB
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [=====>>                                   ] 10%
                 String progressLine = format(
+                        Locale.ROOT,
                         "%s [%s rows, %s] [%s rows/s, %s] [%s] %d%%",
                         formatTime(wallTime),
                         coloredNumber(formatCount(stats.getProcessedRows()), 5),
@@ -396,6 +406,7 @@ Spilled: 20GB
         else {
             // Query 31 [S] i[2.7M 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
             String querySummary = format(
+                    Locale.ROOT,
                     "Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
                     results.getId(),
                     coloredState(stats.getState()),
@@ -513,7 +524,7 @@ Spilled: 20GB
 
     private String coloredCount(long value)
     {
-        return colored(format("%,d", value), theme.number());
+        return colored(format(Locale.ROOT, "%,d", value), theme.number());
     }
 
     private String coloredNumber(String value)
