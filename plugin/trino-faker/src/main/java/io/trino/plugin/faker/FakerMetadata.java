@@ -76,6 +76,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -94,6 +95,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.filterKeys;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
@@ -109,6 +111,7 @@ import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
+import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
 import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
@@ -118,6 +121,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -129,6 +134,7 @@ public class FakerMetadata
     public static final String ROW_ID_COLUMN_NAME = "$row_id";
     public static final double MIN_SEQUENCE_RATIO = 0.98;
     public static final long MAX_DICTIONARY_SIZE = 1000L;
+    public static final int MAX_DICTIONARY_VALUE_LENGTH = 1000;
 
     @GuardedBy("this")
     private final List<SchemaInfo> schemas = new ArrayList<>();
@@ -156,7 +162,7 @@ public class FakerMetadata
         this.isDictionaryDetectionEnabled = config.isDictionaryDetectionEnabled();
         this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
         this.random = new Random(1);
-        this.faker = new Faker(random);
+        this.faker = new Faker(config.getLocale(), random);
     }
 
     @Override
@@ -433,6 +439,11 @@ public class FakerMetadata
         return type instanceof CharType || type instanceof VarcharType || type instanceof VarbinaryType;
     }
 
+    private static boolean isTextType(Type type)
+    {
+        return type instanceof CharType || type instanceof VarcharType;
+    }
+
     private static boolean isSequenceType(Type type)
     {
         return BIGINT.equals(type) || INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type);
@@ -488,6 +499,7 @@ public class FakerMetadata
         ImmutableMap.Builder<String, Object> maximumsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<String, Long> distinctValuesBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<String, Long> nonNullValuesBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Long> maxValueSizesBuilder = ImmutableMap.builder();
         List<ColumnInfo> columns = info.columns();
         Map<String, Type> types = columns.stream().collect(toImmutableMap(ColumnInfo::name, ColumnInfo::type));
         Long rowCount = null;
@@ -511,6 +523,7 @@ public class FakerMetadata
                     case MAX_VALUE -> maximumsBuilder.put(columnName, requireNonNull(readNativeValue(type, block, 0)));
                     case NUMBER_OF_DISTINCT_VALUES -> distinctValuesBuilder.put(columnName, BIGINT.getLong(block, 0));
                     case NUMBER_OF_NON_NULL_VALUES -> nonNullValuesBuilder.put(columnName, BIGINT.getLong(block, 0));
+                    case MAX_VALUE_SIZE_IN_BYTES -> maxValueSizesBuilder.put(columnName, BIGINT.getLong(block, 0));
                     default -> throw new IllegalArgumentException("Unexpected column statistic type: " + metadata.getStatisticType());
                 }
             });
@@ -519,6 +532,7 @@ public class FakerMetadata
         Map<String, Object> maximums = maximumsBuilder.buildOrThrow();
         Map<String, Long> distinctValues = distinctValuesBuilder.buildOrThrow();
         Map<String, Long> nonNullValues = info.properties().containsKey(TableInfo.NULL_PROBABILITY_PROPERTY) ? ImmutableMap.of() : nonNullValuesBuilder.buildOrThrow();
+        Map<String, Long> maxValueSizes = maxValueSizesBuilder.buildOrThrow();
 
         if (!info.properties().containsKey(TableInfo.DEFAULT_LIMIT_PROPERTY) && rowCount != null) {
             info = info.withProperties(ImmutableMap.<String, Object>builder()
@@ -531,7 +545,7 @@ public class FakerMetadata
         SchemaInfo schema = getSchema(tableName.getSchemaName());
         boolean isSchemaSequenceDetectionEnabled = (boolean) schema.properties().getOrDefault(SchemaInfo.SEQUENCE_DETECTION_ENABLED, isSequenceDetectionEnabled);
         boolean isTableSequenceDetectionEnabled = (boolean) info.properties().getOrDefault(TableInfo.SEQUENCE_DETECTION_ENABLED, isSchemaSequenceDetectionEnabled);
-        Map<String, List<Object>> columnValues = getColumnValues(tableName, info, distinctValues, minimums, maximums);
+        Map<String, List<Object>> columnValues = getColumnValues(tableName, info, distinctValues, minimums, maximums, maxValueSizes);
         return info.withColumns(columns.stream()
                 .map(column -> createColumnInfoFromStats(
                         column,
@@ -578,7 +592,7 @@ public class FakerMetadata
                 .withProperties(properties);
     }
 
-    private Map<String, List<Object>> getColumnValues(SchemaTableName tableName, TableInfo info, Map<String, Long> distinctValues, Map<String, Object> minimums, Map<String, Object> maximums)
+    private Map<String, List<Object>> getColumnValues(SchemaTableName tableName, TableInfo info, Map<String, Long> distinctValues, Map<String, Object> minimums, Map<String, Object> maximums, Map<String, Long> maxValueSizes)
     {
         boolean schemaDictionaryDetectionEnabled = (boolean) getSchema(tableName.getSchemaName()).properties().getOrDefault(SchemaInfo.DICTIONARY_DETECTION_ENABLED, isDictionaryDetectionEnabled);
         boolean tableDictionaryDetectionEnabled = (boolean) info.properties().getOrDefault(TableInfo.DICTIONARY_DETECTION_ENABLED, schemaDictionaryDetectionEnabled);
@@ -588,6 +602,14 @@ public class FakerMetadata
         List<ColumnInfo> columns = info.columns();
         Map<String, FakerColumnHandle> columnHandles = info.columns().stream()
                 .collect(toImmutableMap(ColumnInfo::name, column -> column.handle().withNullProbability(0)));
+        ImmutableMap.Builder<String, List<Object>> columnValues = ImmutableMap.builder();
+        // maximum value sizes are only collected for text columns, and generated text values are never empty
+        maxValueSizes.forEach((column, maxValueSize) -> {
+            long count = distinctValues.getOrDefault(column, Long.MAX_VALUE);
+            if (count <= MAX_DICTIONARY_SIZE && maxValueSize > 0) {
+                columnValues.put(column, textValues(columnHandles.get(column).type(), count, maxValueSize));
+            }
+        });
         List<FakerColumnHandle> dictionaryColumns = distinctValues.entrySet().stream()
                 .filter(entry -> entry.getValue() <= MAX_DICTIONARY_SIZE)
                 .map(entry -> columnHandles.get(entry.getKey()))
@@ -601,9 +623,8 @@ public class FakerMetadata
                         true)), false)))
                 .collect(toImmutableList());
         if (dictionaryColumns.isEmpty()) {
-            return ImmutableMap.of();
+            return columnValues.buildOrThrow();
         }
-        ImmutableMap.Builder<String, List<Object>> columnValues = ImmutableMap.builder();
         try (FakerPageSource pageSource = new FakerPageSource(faker, random, dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
             SourcePage page = null;
             while (page == null) {
@@ -623,6 +644,24 @@ public class FakerMetadata
             }
         }
         return columnValues.buildOrThrow();
+    }
+
+    private List<Object> textValues(Type type, long count, long maxValueSize)
+    {
+        int declaredLength = switch (type) {
+            case CharType charType -> charType.getLength();
+            case VarcharType varcharType -> varcharType.getLength().orElse(Integer.MAX_VALUE);
+            default -> throw new IllegalArgumentException("Unsupported type " + type);
+        };
+        // the size in bytes is only an upper bound of the length in characters, unless all characters are ASCII,
+        // and allowed values are stored in the table metadata and column handles, so limit their length
+        int maxLength = toIntExact(min(maxValueSize, min(declaredLength, MAX_DICTIONARY_VALUE_LENGTH)));
+        Set<Object> values = new LinkedHashSet<>();
+        // there might not be enough distinct short values, so stop after a limited number of attempts
+        for (long attempt = 0; values.size() < count && attempt < count * 100; attempt++) {
+            values.add(utf8Slice(faker.lorem().maxLengthSentence(1 + random.nextInt(maxLength))));
+        }
+        return ImmutableList.copyOf(values);
     }
 
     @Override
@@ -648,6 +687,9 @@ public class FakerMetadata
             statisticTypes.add(NUMBER_OF_DISTINCT_VALUES);
         }
         statisticTypes.add(NUMBER_OF_NON_NULL_VALUES);
+        if (isTextType(column.getType())) {
+            statisticTypes.add(MAX_VALUE_SIZE_IN_BYTES);
+        }
         return statisticTypes.build().stream()
                 .map(statisticType -> new ColumnStatisticMetadata(column.getName(), statisticType))
                 .collect(toImmutableList());

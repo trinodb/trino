@@ -665,13 +665,61 @@ final class TestFakerQueries
             String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
             assertThat(createTable).containsPattern("orderkey bigint WITH \\(max = '60000', min = '1', null_probability = 0E0, step = '1'\\)");
             assertThat(createTable).containsPattern("custkey bigint WITH \\(allowed_values = ARRAY\\['.*'], null_probability = 0E0\\)");
-            assertThat(createTable).containsPattern("orderstatus varchar\\(1\\)");
+            assertThat(createTable).containsPattern("orderstatus varchar\\(1\\) WITH \\(allowed_values = ARRAY\\['.*'], null_probability = 0E0\\)");
             assertThat(createTable).containsPattern("totalprice double WITH \\(max = '.*', min = '.*', null_probability = 0E0\\)");
             assertThat(createTable).containsPattern("orderdate date WITH \\(max = '1998-08-02', min = '1992-01-01', null_probability = 0E0\\)");
-            assertThat(createTable).containsPattern("orderpriority varchar\\(15\\)");
-            assertThat(createTable).containsPattern("clerk varchar\\(15\\)");
+            assertThat(createTable).containsPattern("orderpriority varchar\\(15\\) WITH \\(allowed_values = ARRAY\\['.*'], null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("clerk varchar\\(15\\) WITH \\(allowed_values = ARRAY\\['.*'], null_probability = 0E0\\)");
             assertThat(createTable).containsPattern("shippriority integer WITH \\(allowed_values = ARRAY\\['0'], null_probability = 0E0\\)");
-            assertThat(createTable).containsPattern("comment varchar\\(79\\)");
+            assertThat(createTable).containsPattern("comment varchar\\(79\\) WITH \\(null_probability = 0E0\\)");
+        }
+    }
+
+    @Test
+    void testCreateTableAsSelectCharacterDictionary()
+    {
+        String source =
+                """
+                SELECT
+                  orderstatus,
+                  orderpriority,
+                  CAST(orderpriority AS varchar) AS unbounded_orderpriority,
+                  CAST(orderpriority AS char(20)) AS char_orderpriority,
+                  rpad(CAST(custkey % 100 AS varchar), 2000, '.') AS long_text,
+                  comment
+                FROM tpch.tiny.orders
+                """;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "character_dictionary", "AS " + source)) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("orderstatus varchar\\(1\\) WITH \\(allowed_values = ARRAY\\[('[^']+',){2}'[^']+'], null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("orderpriority varchar\\(15\\) WITH \\(allowed_values = ARRAY\\[('[^']+',){4}'[^']+'], null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("unbounded_orderpriority varchar WITH \\(allowed_values = ARRAY\\[('[^']+',){4}'[^']+'], null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("char_orderpriority char\\(20\\) WITH \\(allowed_values = ARRAY\\[('[^']+',){4}'[^']+'], null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("comment varchar\\(79\\) WITH \\(null_probability = 0E0\\)");
+            assertQuery(
+                    "SELECT count(DISTINCT orderstatus), count(DISTINCT orderpriority), count(DISTINCT unbounded_orderpriority), count(DISTINCT char_orderpriority), max(length(unbounded_orderpriority)) <= 15, max(length(long_text)) <= 1000 FROM " + table.getName(),
+                    "VALUES (3, 5, 5, 5, true, true)");
+            assertQuery("SELECT count(*) FROM %s WHERE orderpriority IN (SELECT orderpriority FROM tpch.tiny.orders)".formatted(table.getName()), "VALUES 0");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "character_dictionary_disabled", "WITH (dictionary_detection_enabled = false) AS " + source)) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("orderstatus varchar\\(1\\) WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("orderpriority varchar\\(15\\) WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("char_orderpriority char\\(20\\) WITH \\(null_probability = 0E0\\)");
+        }
+    }
+
+    @Test
+    void testCreateTableAsSelectCharacterDictionaryLocale()
+            throws Exception
+    {
+        try (
+                QueryRunner queryRunner = FakerQueryRunner.builder().setFakerProperties(Map.of("faker.locale", "ko")).build();
+                TestTable table = new TestTable(queryRunner::execute, "character_dictionary_locale", "AS SELECT orderpriority FROM tpch.tiny.orders")) {
+            // unlike English, Korean words contain multi-byte characters
+            Object hasMultiByteValues = queryRunner.execute("SELECT bool_or(length(to_utf8(orderpriority)) > length(orderpriority)) FROM " + table.getName()).getOnlyValue();
+            assertThat(hasMultiByteValues).isEqualTo(true);
         }
     }
 

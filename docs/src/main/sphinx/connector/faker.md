@@ -392,10 +392,12 @@ Sequence detection can be turned off using the `sequence_detection_enabled`
 table, or schema property or in the connector configuration file, using the
 `faker.sequence-detection-enabled` property.
 
-The Faker connector detects dictionary columns, which are columns of
-non-character types with the number of distinct values lower or equal to 1000.
-For such columns, Faker generates a list of random values to choose from, and
-saves it in the `allowed_values` column property.
+The Faker connector detects dictionary columns, which are columns of numeric,
+date and time, `CHAR`, and `VARCHAR` types with the number of distinct values
+lower or equal to 1000. For such columns, Faker generates a list of random
+values to choose from, and saves it in the `allowed_values` column property.
+Faker limits the length of these generated `CHAR` and `VARCHAR` values to the
+size of the longest value in the original data, and to 1000 characters.
 
 Dictionary detection can be turned off using the `dictionary_detection_enabled`
 table, or schema property or in the connector configuration file, using
@@ -418,13 +420,13 @@ The table schema should contain additional column and table properties.
 CREATE TABLE generator.default.orders (
    orderkey bigint WITH (max = '60000', min = '1', null_probability = 0E0, step = '1'),
    custkey bigint WITH (allowed_values = ARRAY['153','662','1453','63','784', ..., '1493','657'], null_probability = 0E0),
-   orderstatus varchar(1),
+   orderstatus varchar(1) WITH (allowed_values = ARRAY['N','Q','H'], null_probability = 0E0),
    totalprice double WITH (max = '466001.28', min = '874.89', null_probability = 0E0),
    orderdate date WITH (max = '1998-08-02', min = '1992-01-01', null_probability = 0E0),
-   orderpriority varchar(15),
-   clerk varchar(15),
+   orderpriority varchar(15) WITH (allowed_values = ARRAY['Maiores natu','Nihil cor','Quibusdam inci','Aut veni','Verita'], null_probability = 0E0),
+   clerk varchar(15) WITH (allowed_values = ARRAY['Quos ab dolor','Excepturi nobis', ..., 'Explicabo la'], null_probability = 0E0),
    shippriority integer WITH (allowed_values = ARRAY['0'], null_probability = 0E0),
-   comment varchar(79)
+   comment varchar(79) WITH (null_probability = 0E0)
 )
 WITH (
    default_limit = 15000
