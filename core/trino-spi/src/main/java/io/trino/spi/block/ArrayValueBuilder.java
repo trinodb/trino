@@ -20,7 +20,7 @@ public interface ArrayValueBuilder<E extends Throwable>
     static <E extends Throwable> Block buildArrayValue(ArrayType arrayType, int entryCount, ArrayValueBuilder<E> builder)
             throws E
     {
-        return new BufferedArrayValueBuilder(arrayType, 1)
+        return new BufferedArrayValueBuilder(arrayType, entryCount)
                 .build(entryCount, builder);
     }
 
