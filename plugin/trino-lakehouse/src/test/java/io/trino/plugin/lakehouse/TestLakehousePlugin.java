@@ -24,6 +24,7 @@ import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestLakehousePlugin
 {
@@ -47,6 +48,20 @@ final class TestLakehousePlugin
         assertCreateConnector(ImmutableMap.of(
                 "iceberg.object-store-layout.enabled", "false",
                 "delta.object-store-layout.enabled", "true"));
+    }
+
+    @Test
+    void testLakehouseMetastoreIsNotSupported()
+    {
+        Plugin plugin = new LakehousePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "lakehouse",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("The Lakehouse runtime catalog is not supported by the Lakehouse connector");
     }
 
     private static void assertCreateConnector(Map<String, String> config)

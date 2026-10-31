@@ -22,6 +22,7 @@ import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
+import io.trino.plugin.hive.metastore.lakehouse.LakehouseMetastoreModule;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 
 import java.util.Optional;
@@ -50,6 +51,7 @@ public class HiveMetastoreModule
                 case THRIFT -> new ThriftMetastoreModule();
                 case FILE -> new FileMetastoreModule();
                 case GLUE -> new GlueMetastoreModule();
+                case LAKEHOUSE -> new LakehouseMetastoreModule();
             });
         }
 
