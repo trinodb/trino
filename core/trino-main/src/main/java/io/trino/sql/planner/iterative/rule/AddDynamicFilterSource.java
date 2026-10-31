@@ -23,6 +23,7 @@ import io.trino.matching.Pattern;
 import io.trino.operator.RetryPolicy;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -184,8 +185,11 @@ public final class AddDynamicFilterSource
     {
         boolean isIdentityProjection = node instanceof ProjectNode projectNode &&
                 dynamicFilterSymbols.stream().allMatch(symbol -> projectNode.getAssignments().isIdentity(symbol));
+        // AssignUniqueId only adds a column, so the dynamic filter symbols still come from its source
+        boolean isAssignUniqueId = node instanceof AssignUniqueId assignUniqueId &&
+                !dynamicFilterSymbols.contains(assignUniqueId.getIdColumn());
         // TODO: Add support for cases where the build side has multiple sources, e.g., a UNION ALL for a join
-        return isIdentityProjection || (node instanceof ExchangeNode && node.getSources().size() == 1);
+        return isIdentityProjection || isAssignUniqueId || (node instanceof ExchangeNode && node.getSources().size() == 1);
     }
 
     private static boolean isRemoteExchange(PlanNode node)

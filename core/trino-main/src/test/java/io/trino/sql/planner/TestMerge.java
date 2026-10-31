@@ -37,11 +37,15 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.RETRY_POLICY;
+import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.StandardErrorCode.MERGE_TARGET_ROW_MULTIPLE_MATCHES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -50,14 +54,19 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
@@ -152,5 +161,44 @@ public class TestMerge
                                                                                         assignUniqueId(
                                                                                                 "source_unique_id",
                                                                                                 tableScan("test_table_merge_source", ImmutableMap.of("column1_0", "column1", "column2_1", "column2")))))))))))));
+    }
+
+    @Test
+    public void testMergeDynamicFilterWithTaskRetries()
+    {
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
+                .setSystemProperty(RETRY_POLICY, TASK.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                .build();
+
+        // the dynamic filter source must stay below AssignUniqueId on the build side so that the target scan gets the dynamic filter
+        assertDistributedPlan(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN MATCHED " +
+                        "THEN UPDATE SET column2 = b.column2",
+                session,
+                anyTree(
+                        join(RIGHT, builder -> builder
+                                .equiCriteria("column1", "column1_0")
+                                .addDynamicFilter("DF", "column1_0")
+                                .left(
+                                        anyTree(
+                                                filter(
+                                                        TRUE,
+                                                        dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(INTEGER, "column1")),
+                                                        tableScan("test_table_merge_target", ImmutableMap.of("column1", "column1")))))
+                                .right(
+                                        exchange(
+                                                LOCAL,
+                                                assignUniqueId(
+                                                        "source_unique_id",
+                                                        exchange(
+                                                                REMOTE,
+                                                                node(
+                                                                        DynamicFilterSourceNode.class,
+                                                                        tableScan("test_table_merge_source", ImmutableMap.of("column1_0", "column1"))))))))));
     }
 }
