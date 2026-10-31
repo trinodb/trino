@@ -15,6 +15,7 @@ package io.trino.plugin.faker;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -60,7 +61,9 @@ import java.net.Inet4Address;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
+import java.util.random.RandomGenerator;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
@@ -124,8 +127,10 @@ class FakerPageSource
 
     private static final int ROWS_PER_PAGE = 4096;
 
+    private final Locale locale;
+    private final long rowOffset;
     private final long limit;
-    private final List<Generator> generators;
+    private final List<SeededColumnGenerator> generators;
     private long completedRows;
 
     private final PageBuilder pageBuilder;
@@ -133,58 +138,65 @@ class FakerPageSource
     private boolean closed;
 
     FakerPageSource(
-            Faker faker,
-            Random random,
+            Locale locale,
             List<FakerColumnHandle> columns,
             long rowOffset,
             long limit)
     {
-        requireNonNull(faker, "faker is null");
-        requireNonNull(random, "random is null");
+        this.locale = requireNonNull(locale, "locale is null");
         List<Type> types = requireNonNull(columns, "columns is null")
                 .stream()
                 .map(FakerColumnHandle::type)
                 .collect(toImmutableList());
+        this.rowOffset = rowOffset;
         this.limit = limit;
 
         this.generators = columns
                 .stream()
-                .map(column -> getGenerator(column, rowOffset, random, faker))
+                .map(this::seededColumnGenerator)
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(types);
     }
 
-    private Generator getGenerator(
+    private SeededColumnGenerator seededColumnGenerator(FakerColumnHandle column)
+    {
+        ReseedableRandom randomGenerator = new ReseedableRandom();
+        Random random = Random.from(randomGenerator);
+        ColumnGenerator generator = getGenerator(column, random, new Faker(locale, random));
+        return new SeededColumnGenerator(generator, randomGenerator, XxHash64.hash(column.columnIndex()));
+    }
+
+    private ColumnGenerator getGenerator(
             FakerColumnHandle column,
-            long rowOffset,
             Random random,
             Faker faker)
     {
         if (column.domain().getValues().isDiscreteSet()) {
             List<Object> values = column.domain().getValues().getDiscreteSet();
             ObjectWriter singleValueWriter = objectWriter(column.type());
-            return blockBuilder -> singleValueWriter.accept(blockBuilder, values.get(random.nextInt(values.size())));
+            return (blockBuilder, _) -> singleValueWriter.accept(blockBuilder, values.get(random.nextInt(values.size())));
         }
         if (column.domain().getValues() instanceof FloatingPointValueSet floatingPoint && !floatingPoint.isAll() &&
                 (floatingPoint.asRanges().isEmpty() || floatingPoint.isAllOrderedValues())) {
             throw new TrinoException(INVALID_ROW_FILTER, "Non-discrete NaN constraints are not supported for generated columns");
         }
-        Generator generator;
+        ColumnGenerator generator;
         if (!column.step().isNone()) {
-            generator = sequenceGenerator(column, rowOffset);
+            generator = sequenceWriter(column);
         }
         else {
-            generator = randomValueGenerator(column, random, faker);
+            Generator valueGenerator = randomValueGenerator(column, random, faker);
+            generator = (blockBuilder, _) -> valueGenerator.accept(blockBuilder);
         }
         if (column.nullProbability() == 0) {
             return generator;
         }
-        return blockBuilder -> {
+        return (blockBuilder, rowId) -> {
             if (random.nextDouble() <= column.nullProbability()) {
                 blockBuilder.appendNull();
             }
             else {
-                generator.accept(blockBuilder);
+                generator.accept(blockBuilder, rowId);
             }
         };
     }
@@ -219,9 +231,16 @@ class FakerPageSource
                 pageBuilder.declarePositions(positions);
                 for (int column = 0; column < generators.size(); column++) {
                     BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(column);
-                    Generator generator = generators.get(column);
+                    SeededColumnGenerator seededGenerator = generators.get(column);
+                    ColumnGenerator generator = seededGenerator.generator();
+                    ReseedableRandom random = seededGenerator.random();
+                    long columnSeed = seededGenerator.columnSeed();
                     for (int i = 0; i < positions; i++) {
-                        generator.accept(blockBuilder);
+                        long rowId = rowOffset + completedRows + i;
+                        // a value only depends on the column and the row number,
+                        // and not on other columns, the query, or how rows are divided into splits
+                        random.reseed(XxHash64.hash(columnSeed, rowId));
+                        generator.accept(blockBuilder, rowId);
                     }
                 }
                 completedRows += positions;
@@ -250,23 +269,7 @@ class FakerPageSource
         closed = true;
     }
 
-    private Generator sequenceGenerator(FakerColumnHandle handle, long rowOffset)
-    {
-        SequenceWriter writer = sequenceWriter(handle);
-
-        return new Generator()
-        {
-            long currentRowId = rowOffset;
-
-            @Override
-            public void accept(BlockBuilder blockBuilder)
-            {
-                writer.accept(blockBuilder, currentRowId++);
-            }
-        };
-    }
-
-    private SequenceWriter sequenceWriter(FakerColumnHandle handle)
+    private ColumnGenerator sequenceWriter(FakerColumnHandle handle)
     {
         Range genericRange = handle.domain().getValues().getRanges().getSpan();
         Type type = handle.type();
@@ -487,7 +490,7 @@ class FakerPageSource
         }
         // not supported: GEOMETRY
         if (type instanceof UuidType) {
-            return generateUUID(genericRange);
+            return generateUUID(genericRange, random);
         }
 
         throw new IllegalArgumentException("Unsupported type " + type);
@@ -859,6 +862,31 @@ class FakerPageSource
         }
     }
 
+    private record SeededColumnGenerator(ColumnGenerator generator, ReseedableRandom random, long columnSeed) {}
+
+    // java.util.Random is too slow to reseed for every row: setSeed() is synchronized, and every value requires an atomic update
+    private static final class ReseedableRandom
+            implements RandomGenerator
+    {
+        private long state;
+
+        public void reseed(long seed)
+        {
+            state = seed;
+        }
+
+        @Override
+        public long nextLong()
+        {
+            // SplitMix64
+            state += 0x9E3779B97F4A7C15L;
+            long z = state;
+            z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+            z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+            return z ^ (z >>> 31);
+        }
+    }
+
     private static Int128 add(Int128 left, Int128 right)
     {
         long[] result = new long[2];
@@ -1107,30 +1135,30 @@ class FakerPageSource
         };
     }
 
-    private Generator generateUUID(Range range)
+    private Generator generateUUID(Range range, Random random)
     {
         if (!range.isAll()) {
             throw new TrinoException(INVALID_ROW_FILTER, "Predicates for uuid columns are not supported");
         }
         return blockBuilder -> {
-            java.util.UUID uuid = java.util.UUID.randomUUID();
             ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
-            bb.putLong(uuid.getMostSignificantBits());
-            bb.putLong(uuid.getLeastSignificantBits());
+            // set the version 4 and IETF variant bits, like UUID.randomUUID() does
+            bb.putLong((random.nextLong() & 0xFFFF_FFFF_FFFF_0FFFL) | 0x0000_0000_0000_4000L);
+            bb.putLong((random.nextLong() & 0x3FFF_FFFF_FFFF_FFFFL) | 0x8000_0000_0000_0000L);
             UUID.writeSlice(blockBuilder, Slices.wrappedBuffer(bb.array(), 0, 16));
         };
-    }
-
-    @FunctionalInterface
-    private interface SequenceWriter
-    {
-        void accept(BlockBuilder blockBuilder, long rowId);
     }
 
     @FunctionalInterface
     private interface ObjectWriter
     {
         void accept(BlockBuilder blockBuilder, Object value);
+    }
+
+    @FunctionalInterface
+    private interface ColumnGenerator
+    {
+        void accept(BlockBuilder blockBuilder, long rowId);
     }
 
     @FunctionalInterface
