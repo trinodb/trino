@@ -24,6 +24,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * JUnit 5 extension that retries tests marked with {@link Flaky} annotation when they fail
@@ -112,6 +113,14 @@ public class FlakyTestRetryExtension
                 }
 
                 if (attempt <= MAX_RETRIES) {
+                    try {
+                        SECONDS.sleep(attempt);
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throwable.addSuppressed(e);
+                        throw throwable;
+                    }
                     log.warn(throwable,
                             "Test %s attempt %d failed (issue: %s), retrying...",
                             formatTestName(extensionContext),
