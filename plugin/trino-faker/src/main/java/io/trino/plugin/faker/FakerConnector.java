@@ -41,6 +41,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.REFERENCES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
@@ -177,6 +178,11 @@ public class FakerConnector
                         If true, when creating a table using existing data, columns with a low number of distinct values
                         are treated as dictionaries, and get the allowed_values column property populated with random values""",
                         null,
+                        false),
+                longProperty(
+                        TableInfo.SEED_PROPERTY,
+                        "Seed for generating data in this table, derived from the schema and table name if not specified",
+                        null,
                         false));
     }
 
@@ -227,6 +233,11 @@ public class FakerConnector
                 stringProperty(
                         STEP_PROPERTY,
                         "If set, generate sequential values with this step. For date and time columns set this to a duration",
+                        null,
+                        false),
+                stringProperty(
+                        REFERENCES_PROPERTY,
+                        "Column of the same or another table, as table.column or schema.table.column, to generate only values existing in that column",
                         null,
                         false));
     }

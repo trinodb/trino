@@ -14,11 +14,13 @@
 
 package io.trino.plugin.faker;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
@@ -69,18 +71,17 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import net.datafaker.Faker;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 import java.util.stream.IntStream;
@@ -93,12 +94,15 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.filterKeys;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.NULL_PROBABILITY_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.REFERENCES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -117,6 +121,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -136,8 +141,7 @@ public class FakerMetadata
     private final boolean isDictionaryDetectionEnabled;
     private final FunctionBundle functionBundle;
 
-    private final Random random;
-    private final Faker faker;
+    private final Locale locale;
 
     @GuardedBy("this")
     private final Map<SchemaTableName, TableInfo> tables = new HashMap<>();
@@ -153,8 +157,7 @@ public class FakerMetadata
         this.isSequenceDetectionEnabled = config.isSequenceDetectionEnabled();
         this.isDictionaryDetectionEnabled = config.isDictionaryDetectionEnabled();
         this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
-        this.random = new Random(1);
-        this.faker = new Faker(random);
+        this.locale = config.getLocale();
     }
 
     @Override
@@ -204,7 +207,17 @@ public class FakerMetadata
         }
         long schemaLimit = (long) schema.properties().getOrDefault(SchemaInfo.DEFAULT_LIMIT_PROPERTY, defaultLimit);
         long tableLimit = (long) tables.get(tableName).properties().getOrDefault(TableInfo.DEFAULT_LIMIT_PROPERTY, schemaLimit);
-        return new FakerTableHandle(tableName, tableLimit);
+        return new FakerTableHandle(tableName, tableLimit, seed(tableName, tableInfo));
+    }
+
+    private static long seed(SchemaTableName tableName, TableInfo tableInfo)
+    {
+        Long seed = (Long) tableInfo.properties().get(TableInfo.SEED_PROPERTY);
+        if (seed != null) {
+            return seed;
+        }
+        // hash the names separately, since joining them with a period makes some pairs of names equal
+        return XxHash64.hash(XxHash64.hash(utf8Slice(tableName.getSchemaName())), utf8Slice(tableName.getTableName()));
     }
 
     @Override
@@ -238,7 +251,63 @@ public class FakerMetadata
         FakerTableHandle tableHandle = (FakerTableHandle) connectorTableHandle;
         return tables.get(tableHandle.schemaTableName())
                 .columns().stream()
-                .collect(toImmutableMap(ColumnInfo::name, ColumnInfo::handle));
+                .collect(toImmutableMap(ColumnInfo::name, column -> columnHandle(connectorSession, tableHandle.schemaTableName(), column)));
+    }
+
+    private synchronized FakerColumnHandle columnHandle(ConnectorSession session, SchemaTableName tableName, ColumnInfo column)
+    {
+        return columnHandle(session, tableName, column, ImmutableList.of());
+    }
+
+    // The referenced column is resolved every time the table is read, because the referenced table can be dropped,
+    // recreated, or have its properties changed after the referencing table is created
+    private synchronized FakerColumnHandle columnHandle(ConnectorSession session, SchemaTableName tableName, ColumnInfo column, List<String> referencingColumns)
+    {
+        String references = (String) column.metadata().getProperties().get(REFERENCES_PROPERTY);
+        if (references == null) {
+            return column.handle();
+        }
+        String columnName = tableName + "." + column.name();
+        if (referencingColumns.contains(columnName)) {
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "Column references form a cycle: %s -> %s".formatted(String.join(" -> ", referencingColumns), columnName));
+        }
+        List<String> parts = Splitter.on('.').splitToList(references);
+        if (parts.size() < 2 || parts.size() > 3 || parts.contains("")) {
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property must be in the 'table.column' or 'schema.table.column' format".formatted(REFERENCES_PROPERTY));
+        }
+        if (parts.size() == 2) {
+            parts = ImmutableList.of(tableName.getSchemaName(), parts.get(0), parts.get(1));
+        }
+        SchemaTableName referencedTableName = new SchemaTableName(parts.get(0), parts.get(1));
+        String referencedColumnName = parts.get(2).toLowerCase(ENGLISH);
+
+        TableInfo referencedTable = tables.get(referencedTableName);
+        if (referencedTable == null) {
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "Table '%s' referenced by column '%s' does not exist".formatted(referencedTableName, columnName));
+        }
+        ColumnInfo referencedColumn = referencedTable.columns().stream()
+                .filter(candidate -> candidate.name().equals(referencedColumnName))
+                .findFirst()
+                .orElseThrow(() -> new TrinoException(INVALID_COLUMN_PROPERTY, "Column '%s.%s' referenced by column '%s' does not exist".formatted(referencedTableName, referencedColumnName, columnName)));
+        if (!referencedColumn.type().equals(column.type())) {
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "Column '%s' of type %s cannot reference column '%s.%s' of type %s".formatted(columnName, column.type(), referencedTableName, referencedColumnName, referencedColumn.type()));
+        }
+        // generating a value picks referenced rows until it finds one that is not null
+        if (referencedColumn.handle().nullProbability() == 1) {
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "Column '%s' cannot reference column '%s.%s', which only has null values".formatted(columnName, referencedTableName, referencedColumnName));
+        }
+        FakerTableHandle referencedTableHandle = (FakerTableHandle) getTableHandle(session, referencedTableName, Optional.empty(), Optional.empty());
+        // tables created from an empty query have the default_limit property set to 0
+        if (referencedTableHandle.limit() < 1) {
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "Table '%s' referenced by column '%s' has no rows".formatted(referencedTableName, columnName));
+        }
+        return column.handle().withReferencedColumn(new ReferencedColumn(
+                referencedTableHandle.seed(),
+                referencedTableHandle.limit(),
+                columnHandle(session, referencedTableName, referencedColumn, ImmutableList.<String>builder()
+                        .addAll(referencingColumns)
+                        .add(columnName)
+                        .build())));
     }
 
     @Override
@@ -340,7 +409,7 @@ public class FakerMetadata
         TableInfo oldInfo = tables.get(tableName);
         List<ColumnInfo> columns = oldInfo.columns().stream()
                 .map(columnInfo -> {
-                    if (columnInfo.handle().equals(column)) {
+                    if (columnInfo.handle().columnIndex() == ((FakerColumnHandle) column).columnIndex()) {
                         if (ROW_ID_COLUMN_NAME.equals(columnInfo.handle().name())) {
                             throw new TrinoException(INVALID_COLUMN_REFERENCE, "Cannot set comment for %s column".formatted(ROW_ID_COLUMN_NAME));
                         }
@@ -394,7 +463,8 @@ public class FakerMetadata
                         0,
                         "",
                         Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 0L)), false),
-                        ValueSet.of(BIGINT, 1L)),
+                        ValueSet.of(BIGINT, 1L),
+                        Optional.empty()),
                 ColumnMetadata.builder()
                         .setName(ROW_ID_COLUMN_NAME)
                         .setType(BIGINT)
@@ -402,10 +472,19 @@ public class FakerMetadata
                         .setNullable(false)
                         .build()));
 
-        tables.put(tableName, new TableInfo(
+        TableInfo tableInfo = new TableInfo(
                 columns.build(),
                 tableMetadata.getProperties(),
-                tableMetadata.getComment()));
+                tableMetadata.getComment());
+        // the table is added before validating references, so its columns can reference each other
+        tables.put(tableName, tableInfo);
+        try {
+            tableInfo.columns().forEach(column -> columnHandle(session, tableName, column));
+        }
+        catch (RuntimeException e) {
+            tables.remove(tableName);
+            throw e;
+        }
 
         return new FakerOutputTableHandle(tableName);
     }
@@ -601,7 +680,7 @@ public class FakerMetadata
             return ImmutableMap.of();
         }
         ImmutableMap.Builder<String, List<Object>> columnValues = ImmutableMap.builder();
-        try (FakerPageSource pageSource = new FakerPageSource(faker, random, dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
+        try (FakerPageSource pageSource = new FakerPageSource(locale, seed(tableName, info), dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
             SourcePage page = null;
             while (page == null) {
                 page = pageSource.getNextSourcePage();
@@ -801,6 +880,7 @@ public class FakerMetadata
     {
         FakerTableHandle fakerTableHandle = (FakerTableHandle) tableHandle;
         TableInfo info = tables.get(fakerTableHandle.schemaTableName());
+        Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tableHandle);
 
         TableStatistics.Builder tableStatisitics = TableStatistics.builder();
         tableStatisitics.setRowCount(Estimate.of(fakerTableHandle.limit()));
@@ -828,7 +908,7 @@ public class FakerMetadata
                 }
             }
             columnStatistics.setNullsFraction(Estimate.of(columnInfo.handle().nullProbability()));
-            tableStatisitics.setColumnStatistics(columnInfo.handle(), columnStatistics.build());
+            tableStatisitics.setColumnStatistics(columnHandles.get(columnInfo.name()), columnStatistics.build());
         });
         return tableStatisitics.build();
     }

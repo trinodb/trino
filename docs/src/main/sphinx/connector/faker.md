@@ -32,9 +32,12 @@ faker.locale=pl
 
 Create tables in the `default` schema, or create different schemas first. Tables
 in the catalog only exist as definition and do not hold actual data. Any query
-reading from tables returns random, but deterministic data. As a result,
-repeated invocation of a query returns identical data. See [](faker-usage) for
-more examples.
+reading from tables returns random, but deterministic data. Every generated
+value only depends on the `seed` table property, its column, row number, and
+the `faker.locale` catalog property. As a result, repeated invocation of a
+query returns identical data, and different queries reading the same table,
+like self-joins, return matching rows, no matter which columns they read, or
+how they filter or limit the rows. See [](faker-usage) for more examples.
 
 Schemas, tables, and views in a catalog are not persisted, and are stored in the
 memory of the coordinator only. They need to be recreated every time after
@@ -115,6 +118,11 @@ values from corresponding schema properties are used.
     number of distinct values are treated as dictionaries, and get
     the `allowed_values` column property populated with random values.
     Defaults to `true`.
+* - `seed`
+  - Seed for generating data in the table. Tables with the same seed, column
+    definitions, and `null_probability` property return identical data.
+    Defaults to a value derived from the schema and table name, so renaming a
+    table without this property changes its data.
 :::
 
 The following table details all supported column properties.
@@ -147,7 +155,51 @@ The following table details all supported column properties.
 * - `step`
   - If set, generate sequential values with this step. For date and time columns
     set this to a duration. Cannot be set for character-based type columns.
+* - `references`
+  - Column of another or the same table, in the `table.column` or
+    `schema.table.column` format, so names that contain periods can't be
+    referenced. If set, generate only values that exist in the
+    [referenced column](faker-references). Cannot be set together with the
+    `min`, `max`, `step`, `allowed_values`, or `generator` properties.
 :::
+
+(faker-references)=
+### Column references
+
+To generate related tables, like a foreign key that always matches a primary
+key, set the `references` column property. It names a column of the same type
+in another table, or in the same table. For every row, Faker picks a random row
+of the referenced table, up to its `default_limit`, and uses the value the
+referenced column has in that row:
+
+```sql
+CREATE TABLE generator.default.customer (
+  id UUID NOT NULL,
+  name VARCHAR NOT NULL WITH (generator = '#{Name.first_name}')
+)
+WITH (default_limit = 100);
+
+CREATE TABLE generator.default.orders (
+  id UUID NOT NULL,
+  customer_id UUID NOT NULL WITH (references = 'customer.id')
+);
+```
+
+Every order matches a customer, unless a query reads fewer rows from the
+`customer` table than its `default_limit`. Columns pick rows independently, so
+multiple columns referencing the same table can't form a composite foreign key.
+The referenced column can itself reference another column.
+
+The referencing column has `null` values according to its own
+`null_probability` property. Rows where the referenced column is `null` are
+skipped, so the referenced column can't have the `null_probability` property set
+to `1`, and the referenced table can't be empty. Reading the referencing table
+fails if the referenced table or column is dropped, or changes its type. It also
+fails if all rows of the referenced column are `null`, unless the referencing
+column has the `null_probability` property set to `1`.
+
+Reading a referencing column doesn't check access to the referenced table, so
+it can return values that the referenced table generates.
 
 ### Character types
 
