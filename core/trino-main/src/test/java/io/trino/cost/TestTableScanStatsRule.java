@@ -25,6 +25,7 @@ import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestTableScanStatsRule
         extends BaseStatsCalculatorTest
@@ -94,6 +95,38 @@ public class TestTableScanStatsRule
                                 .distinctValuesCountUnknown()
                                 .nullsFractionUnknown()
                                 .dataSizeUnknown()));
+    }
+
+    @Test
+    public void testDataSizeWithUnknownNullsFraction()
+    {
+        ColumnHandle knownNulls = new TestingColumnHandle("known_nulls");
+        ColumnHandle unknownNulls = new TestingColumnHandle("unknown_nulls");
+        tester()
+                .assertStatsFor(pb -> {
+                    Symbol knownNullsSymbol = pb.symbol("known_nulls", VARCHAR);
+                    Symbol unknownNullsSymbol = pb.symbol("unknown_nulls", VARCHAR);
+                    return pb.tableScan(
+                            ImmutableList.of(knownNullsSymbol, unknownNullsSymbol),
+                            ImmutableMap.of(knownNullsSymbol, knownNulls, unknownNullsSymbol, unknownNulls));
+                })
+                .withTableStatisticsProvider(_ -> TableStatistics.builder()
+                        .setRowCount(Estimate.of(100))
+                        .setColumnStatistics(
+                                knownNulls,
+                                ColumnStatistics.builder().setNullsFraction(Estimate.of(0.2)).setDataSize(Estimate.of(800)).build())
+                        .setColumnStatistics(
+                                unknownNulls,
+                                ColumnStatistics.builder().setDataSize(Estimate.of(800)).build())
+                        .build())
+                .check(check -> check
+                        .outputRowsCount(100)
+                        .symbolStats("known_nulls", VARCHAR, assertion -> assertion
+                                .nullsFraction(0.2)
+                                .averageRowSize(10))
+                        .symbolStats("unknown_nulls", VARCHAR, assertion -> assertion
+                                .nullsFractionUnknown()
+                                .averageRowSize(8)));
     }
 
     @Test

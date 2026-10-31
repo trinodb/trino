@@ -32,6 +32,7 @@ import java.util.Optional;
 import static io.trino.SystemSessionProperties.isStatisticsPrecalculationForPushdownEnabled;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.lang.Double.NaN;
+import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanStatsRule
@@ -85,6 +86,11 @@ public class TableScanStatsRule
 
         double nullsFraction = getNullsFraction(columnStatistics, tableStatistics.getRowCount());
         double nonNullRowsCount = tableStatistics.getRowCount().getValue() * (1.0 - nullsFraction);
+        if (isNaN(nullsFraction)) {
+            // Assume no nulls when the nulls fraction is unknown, as PlanNodeStatsEstimate does when computing
+            // the output size, so that a known data size is not discarded (e.g. nested columns in Iceberg)
+            nonNullRowsCount = tableStatistics.getRowCount().getValue();
+        }
         double averageRowSize;
         if (nonNullRowsCount == 0) {
             averageRowSize = 0;
