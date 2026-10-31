@@ -201,7 +201,9 @@ Faker supports the following non-character types:
 - `DECIMAL`
 - `REAL`
 - `DOUBLE`
-- `INTERVAL DAY TO SECOND`
+- `INTERVAL DAY TO SECOND` with a
+  [fractional-seconds precision](interval-fractional-seconds-precision) of up
+  to 6
 - `INTERVAL YEAR TO MONTH`
 - `TIMESTAMP` and `TIMESTAMP(P)`
 - `TIMESTAMP WITH TIME ZONE` and `TIMESTAMP(P) WITH TIME ZONE`
@@ -219,10 +221,14 @@ their data range, set the `min` and `max` column properties - see
 
 Faker does not support the following data types:
 
-- Structural types `ARRAY` and `MAP`
-- `JSON`
+- `INTERVAL DAY TO SECOND` with a fractional-seconds precision greater than 6
 - Geometry
 - HyperLogLog and all digest types
+
+Faker can create columns of the structural types `ARRAY` and `MAP`, and of the
+`JSON` type, but does not generate data for them. Every non-null `ARRAY` and
+`MAP` value is empty, and every non-null `JSON` value is the JSON `null`
+literal.
 
 To generate data using these complex types, data from column of primitive types
 can be combined, like in the following example:
