@@ -37,6 +37,7 @@ import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -118,6 +119,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.tests.BogusType.BOGUS;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static io.trino.util.StructuralTestUtil.sqlMapOf;
 import static io.trino.util.StructuralTestUtil.sqlRowOf;
@@ -611,6 +613,28 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Row(ImmutableList.of(new Constant(rowOfMapType, sqlRowOf(rowOfMapType, singletonMap(1L, null)))))))))
                 .isEqualTo(TRUE);
 
+        // NaN nested in a row
+        RowType doubleRowType = RowType.anonymous(ImmutableList.of(DOUBLE));
+        assertThat(effectivePredicateExtractor.extract(
+                SESSION,
+                emptySymbolAllocator(),
+                new ValuesNode(
+                        newId(),
+                        ImmutableList.of(new Symbol(doubleRowType, "r")),
+                        ImmutableList.of(new Row(ImmutableList.of(new Constant(doubleRowType, sqlRowOf(doubleRowType, Double.NaN))))))))
+                .isEqualTo(TRUE);
+
+        // NaN nested in a row, in a VALUES row given as one constant
+        RowType rowOfDoubleRowType = RowType.anonymous(ImmutableList.of(doubleRowType));
+        assertThat(effectivePredicateExtractor.extract(
+                SESSION,
+                emptySymbolAllocator(),
+                new ValuesNode(
+                        newId(),
+                        ImmutableList.of(new Symbol(doubleRowType, "r")),
+                        ImmutableList.of(new Constant(rowOfDoubleRowType, sqlRowOf(rowOfDoubleRowType, ImmutableList.of(Double.NaN)))))))
+                .isEqualTo(TRUE);
+
         // many rows
         List<Expression> rows = IntStream.range(0, 500)
                 .mapToObj(TestEffectivePredicateExtractor::bigintLiteral)
@@ -722,6 +746,17 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
                                 new Row(ImmutableList.of(bigintLiteral(2))))))).isEqualTo(TRUE);
+
+        // non-comparable and non-orderable structural type
+        ArrayType bogusArrayType = new ArrayType(BOGUS);
+        assertThat(effectivePredicateExtractor.extract(
+                SESSION,
+                emptySymbolAllocator(),
+                new ValuesNode(
+                        newId(),
+                        ImmutableList.of(new Symbol(bogusArrayType, "h")),
+                        ImmutableList.of(new Row(ImmutableList.of(new Constant(bogusArrayType, arrayBlockOf(BOGUS, 1L))))))))
+                .isEqualTo(TRUE);
     }
 
     private Expression extract(PlanNode node)
