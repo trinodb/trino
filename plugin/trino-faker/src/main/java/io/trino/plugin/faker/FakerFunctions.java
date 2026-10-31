@@ -20,6 +20,8 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import net.datafaker.Faker;
 
+import java.util.Locale;
+
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 
@@ -30,6 +32,11 @@ public final class FakerFunctions
     public FakerFunctions()
     {
         faker = new Faker();
+    }
+
+    FakerFunctions(Locale locale)
+    {
+        faker = new Faker(locale);
     }
 
     @ScalarFunction(deterministic = false)
