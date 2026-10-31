@@ -19,12 +19,18 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
@@ -51,6 +57,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -101,9 +109,15 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.Reals.toReal;
+import static io.trino.util.StructuralTestUtil.arrayBlockOf;
+import static io.trino.util.StructuralTestUtil.mapType;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
+import static io.trino.util.StructuralTestUtil.sqlRowOf;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ONE;
 import static java.math.BigDecimal.TWO;
+import static java.util.Collections.singletonList;
+import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -142,11 +156,33 @@ public class TestDomainTranslator
     private static final Symbol C_REAL_1 = new Symbol(REAL, "c_real_1");
     private static final Symbol C_TIMESTAMP_TZ = new Symbol(TIMESTAMP_TZ_MILLIS, "c_timestamp_tz");
     private static final Symbol C_INTERVAL_DAY_TIME = new Symbol(INTERVAL_DAY_TIME, "c_interval_day_time");
+    private static final RowType ROW_TYPE = RowType.anonymous(List.of(INTEGER, DOUBLE));
+    private static final Symbol C_ROW = new Symbol(ROW_TYPE, "c_row");
+    private static final ArrayType ARRAY_TYPE = new ArrayType(DOUBLE);
+    private static final Symbol C_ARRAY = new Symbol(ARRAY_TYPE, "c_array");
+    private static final MapType MAP_TYPE = mapType(INTEGER, DOUBLE);
+    private static final Symbol C_MAP = new Symbol(MAP_TYPE, "c_map");
+    private static final RowType ROW_OF_ARRAY_TYPE = RowType.anonymous(List.of(ARRAY_TYPE));
+    private static final Symbol C_ROW_OF_ARRAY = new Symbol(ROW_OF_ARRAY_TYPE, "c_row_of_array");
+    private static final ArrayType ARRAY_OF_ROW_TYPE = new ArrayType(ROW_TYPE);
+    private static final Symbol C_ARRAY_OF_ROW = new Symbol(ARRAY_OF_ROW_TYPE, "c_array_of_row");
+    private static final MapType MAP_OF_ROW_TYPE = mapType(INTEGER, ROW_TYPE);
+    private static final Symbol C_MAP_OF_ROW = new Symbol(MAP_OF_ROW_TYPE, "c_map_of_row");
+    private static final ArrayType ARRAY_OF_ARRAY_TYPE = new ArrayType(ARRAY_TYPE);
+    private static final Symbol C_ARRAY_OF_ARRAY = new Symbol(ARRAY_OF_ARRAY_TYPE, "c_array_of_array");
+    private static final RowType ROW_OF_MAP_OF_ARRAY_TYPE = RowType.anonymous(List.of(INTEGER, mapType(INTEGER, ARRAY_TYPE)));
+    private static final Symbol C_ROW_OF_MAP_OF_ARRAY = new Symbol(ROW_OF_MAP_OF_ARRAY_TYPE, "c_row_of_map_of_array");
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
     private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
     private static final long COLOR_VALUE_1 = 1;
     private static final long COLOR_VALUE_2 = 2;
+    private static final SqlRow ROW_VALUE_1 = sqlRowOf(ROW_TYPE, 50L, 5.0);
+    private static final SqlRow ROW_VALUE_2 = sqlRowOf(ROW_TYPE, 40L, 4.0);
+    private static final Block ARRAY_VALUE_1 = arrayBlockOf(DOUBLE, 1.0, 3.0);
+    private static final Block ARRAY_VALUE_2 = arrayBlockOf(DOUBLE, 2.0);
+    private static final SqlMap MAP_VALUE_1 = sqlMapOf(INTEGER, DOUBLE, Map.of(1L, 3.0));
+    private static final SqlMap MAP_VALUE_2 = sqlMapOf(INTEGER, DOUBLE, Map.of(2L, 4.0));
 
     private static final Session LEGACY_CHAR_VARCHAR_COERCION_SESSION = Session.builder(TEST_SESSION)
             .setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true")
@@ -1515,6 +1551,260 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testFromStructuralTypeEquality()
+    {
+        // Equality and identity with a value without nested NULL or NaN select exactly the value
+
+        assertPredicateTranslates(equal(C_ROW, new Constant(ROW_TYPE, ROW_VALUE_1)), tupleDomain(C_ROW, Domain.singleValue(ROW_TYPE, ROW_VALUE_1)));
+        assertPredicateTranslates(equal(C_ARRAY, new Constant(ARRAY_TYPE, ARRAY_VALUE_1)), tupleDomain(C_ARRAY, Domain.singleValue(ARRAY_TYPE, ARRAY_VALUE_1)));
+        assertPredicateTranslates(equal(C_MAP, new Constant(MAP_TYPE, MAP_VALUE_1)), tupleDomain(C_MAP, Domain.singleValue(MAP_TYPE, MAP_VALUE_1)));
+
+        assertPredicateTranslates(isNotDistinctFrom(C_ROW, new Constant(ROW_TYPE, ROW_VALUE_1)), tupleDomain(C_ROW, Domain.singleValue(ROW_TYPE, ROW_VALUE_1)));
+        assertPredicateTranslates(isNotDistinctFrom(C_ARRAY, new Constant(ARRAY_TYPE, ARRAY_VALUE_1)), tupleDomain(C_ARRAY, Domain.singleValue(ARRAY_TYPE, ARRAY_VALUE_1)));
+        assertPredicateTranslates(isNotDistinctFrom(C_MAP, new Constant(MAP_TYPE, MAP_VALUE_1)), tupleDomain(C_MAP, Domain.singleValue(MAP_TYPE, MAP_VALUE_1)));
+
+        Block emptyArray = arrayBlockOf(DOUBLE);
+        assertPredicateTranslates(equal(C_ARRAY, new Constant(ARRAY_TYPE, emptyArray)), tupleDomain(C_ARRAY, Domain.singleValue(ARRAY_TYPE, emptyArray)));
+        SqlMap emptyMap = sqlMapOf(INTEGER, DOUBLE, Map.of());
+        assertPredicateTranslates(equal(C_MAP, new Constant(MAP_TYPE, emptyMap)), tupleDomain(C_MAP, Domain.singleValue(MAP_TYPE, emptyMap)));
+    }
+
+    @Test
+    public void testFromNestedStructuralTypeEquality()
+    {
+        // Equality with a value without NULL or NaN at any depth selects exactly the value
+
+        SqlRow rowOfArray = sqlRowOf(ROW_OF_ARRAY_TYPE, List.of(1.0, 3.0));
+        assertPredicateTranslates(
+                equal(C_ROW_OF_ARRAY, new Constant(ROW_OF_ARRAY_TYPE, rowOfArray)),
+                tupleDomain(C_ROW_OF_ARRAY, Domain.singleValue(ROW_OF_ARRAY_TYPE, rowOfArray)));
+        Block arrayOfRow = arrayBlockOf(ROW_TYPE, List.of(50L, 5.0), List.of(40L, 4.0));
+        assertPredicateTranslates(
+                equal(C_ARRAY_OF_ROW, new Constant(ARRAY_OF_ROW_TYPE, arrayOfRow)),
+                tupleDomain(C_ARRAY_OF_ROW, Domain.singleValue(ARRAY_OF_ROW_TYPE, arrayOfRow)));
+        SqlMap mapOfRow = sqlMapOf(INTEGER, ROW_TYPE, Map.of(1L, List.of(50L, 5.0)));
+        assertPredicateTranslates(
+                equal(C_MAP_OF_ROW, new Constant(MAP_OF_ROW_TYPE, mapOfRow)),
+                tupleDomain(C_MAP_OF_ROW, Domain.singleValue(MAP_OF_ROW_TYPE, mapOfRow)));
+        Block arrayOfArray = arrayBlockOf(ARRAY_TYPE, List.of(1.0), List.of(2.0, 3.0));
+        assertPredicateTranslates(
+                equal(C_ARRAY_OF_ARRAY, new Constant(ARRAY_OF_ARRAY_TYPE, arrayOfArray)),
+                tupleDomain(C_ARRAY_OF_ARRAY, Domain.singleValue(ARRAY_OF_ARRAY_TYPE, arrayOfArray)));
+        SqlRow rowOfMapOfArray = sqlRowOf(ROW_OF_MAP_OF_ARRAY_TYPE, 1L, Map.of(1L, List.of(1.0, 3.0)));
+        assertPredicateTranslates(
+                equal(C_ROW_OF_MAP_OF_ARRAY, new Constant(ROW_OF_MAP_OF_ARRAY_TYPE, rowOfMapOfArray)),
+                tupleDomain(C_ROW_OF_MAP_OF_ARRAY, Domain.singleValue(ROW_OF_MAP_OF_ARRAY_TYPE, rowOfMapOfArray)));
+    }
+
+    @Test
+    public void testFromStructuralTypeEqualityWithNulls()
+    {
+        // Equality with a value with a nested NULL is never true, but a domain of the value contains it. Identity
+        // with the value is exact, but its domain translates back to that equality.
+
+        assertUnsupportedPredicate(equal(C_ROW, new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, 50L, null))));
+        assertUnsupportedPredicate(equal(C_ARRAY, new Constant(ARRAY_TYPE, arrayBlockOf(DOUBLE, 1.0, null))));
+        assertUnsupportedPredicate(equal(C_MAP, new Constant(MAP_TYPE, sqlMapOf(INTEGER, DOUBLE, singletonMap(1L, null)))));
+
+        assertUnsupportedPredicate(isNotDistinctFrom(C_ROW, new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, 50L, null))));
+        assertUnsupportedPredicate(isNotDistinctFrom(C_ARRAY, new Constant(ARRAY_TYPE, arrayBlockOf(DOUBLE, 1.0, null))));
+        assertUnsupportedPredicate(isNotDistinctFrom(C_MAP, new Constant(MAP_TYPE, sqlMapOf(INTEGER, DOUBLE, singletonMap(1L, null)))));
+
+        assertUnsupportedPredicate(equal(C_ROW_OF_ARRAY, new Constant(ROW_OF_ARRAY_TYPE, sqlRowOf(ROW_OF_ARRAY_TYPE, Arrays.asList(1.0, null)))));
+        assertUnsupportedPredicate(equal(C_ARRAY_OF_ROW, new Constant(ARRAY_OF_ROW_TYPE, arrayBlockOf(ROW_TYPE, List.of(50L, 5.0), Arrays.asList(40L, null)))));
+        assertUnsupportedPredicate(equal(C_MAP_OF_ROW, new Constant(MAP_OF_ROW_TYPE, sqlMapOf(INTEGER, ROW_TYPE, Map.of(1L, Arrays.asList(50L, null))))));
+        assertUnsupportedPredicate(equal(C_ARRAY_OF_ARRAY, new Constant(ARRAY_OF_ARRAY_TYPE, arrayBlockOf(ARRAY_TYPE, List.of(1.0), Arrays.asList(2.0, null)))));
+        assertUnsupportedPredicate(equal(C_ROW_OF_MAP_OF_ARRAY, new Constant(ROW_OF_MAP_OF_ARRAY_TYPE, sqlRowOf(ROW_OF_MAP_OF_ARRAY_TYPE, 1L, Map.of(1L, Arrays.asList(1.0, null))))));
+    }
+
+    @Test
+    public void testFromStructuralTypeEqualityWithNaN()
+    {
+        // Equality with a value with a nested NaN is never true, but a domain of the value contains it. Identity
+        // with the value is exact, but its domain translates back to that equality.
+
+        assertUnsupportedPredicate(equal(C_ROW, new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, 50L, Double.NaN))));
+        assertUnsupportedPredicate(equal(C_ARRAY, new Constant(ARRAY_TYPE, arrayBlockOf(DOUBLE, 1.0, Double.NaN))));
+        assertUnsupportedPredicate(equal(C_MAP, new Constant(MAP_TYPE, sqlMapOf(INTEGER, DOUBLE, Map.of(1L, Double.NaN)))));
+
+        assertUnsupportedPredicate(isNotDistinctFrom(C_ROW, new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, 50L, Double.NaN))));
+        assertUnsupportedPredicate(isNotDistinctFrom(C_ARRAY, new Constant(ARRAY_TYPE, arrayBlockOf(DOUBLE, 1.0, Double.NaN))));
+        assertUnsupportedPredicate(isNotDistinctFrom(C_MAP, new Constant(MAP_TYPE, sqlMapOf(INTEGER, DOUBLE, Map.of(1L, Double.NaN)))));
+
+        assertUnsupportedPredicate(equal(C_ROW_OF_ARRAY, new Constant(ROW_OF_ARRAY_TYPE, sqlRowOf(ROW_OF_ARRAY_TYPE, List.of(1.0, Double.NaN)))));
+        assertUnsupportedPredicate(equal(C_ARRAY_OF_ROW, new Constant(ARRAY_OF_ROW_TYPE, arrayBlockOf(ROW_TYPE, List.of(50L, 5.0), List.of(40L, Double.NaN)))));
+        assertUnsupportedPredicate(equal(C_MAP_OF_ROW, new Constant(MAP_OF_ROW_TYPE, sqlMapOf(INTEGER, ROW_TYPE, Map.of(1L, List.of(50L, Double.NaN))))));
+        assertUnsupportedPredicate(equal(C_ARRAY_OF_ARRAY, new Constant(ARRAY_OF_ARRAY_TYPE, arrayBlockOf(ARRAY_TYPE, List.of(1.0), List.of(2.0, Double.NaN)))));
+        assertUnsupportedPredicate(equal(C_ROW_OF_MAP_OF_ARRAY, new Constant(ROW_OF_MAP_OF_ARRAY_TYPE, sqlRowOf(ROW_OF_MAP_OF_ARRAY_TYPE, 1L, Map.of(1L, List.of(1.0, Double.NaN))))));
+
+        ArrayType realArrayType = new ArrayType(REAL);
+        assertUnsupportedPredicate(equal(new Symbol(realArrayType, "c_real_array"), new Constant(realArrayType, arrayBlockOf(REAL, Float.NaN))));
+        ArrayType numberArrayType = new ArrayType(NUMBER);
+        assertUnsupportedPredicate(equal(new Symbol(numberArrayType, "c_number_array"), new Constant(numberArrayType, arrayBlockOf(NUMBER, TrinoNumber.from(new TrinoNumber.NotANumber())))));
+    }
+
+    @Test
+    public void testFromStructuralTypeEqualityWithNullsAndNaN()
+    {
+        // Equality with a value with both a nested NULL and NaN is never true, but a domain of the value contains it
+
+        assertUnsupportedPredicate(equal(C_ROW, new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, null, Double.NaN))));
+        assertUnsupportedPredicate(equal(C_ARRAY, new Constant(ARRAY_TYPE, arrayBlockOf(DOUBLE, null, Double.NaN))));
+        Map<Long, Double> nullAndNaN = new HashMap<>();
+        nullAndNaN.put(1L, null);
+        nullAndNaN.put(2L, Double.NaN);
+        assertUnsupportedPredicate(equal(C_MAP, new Constant(MAP_TYPE, sqlMapOf(INTEGER, DOUBLE, nullAndNaN))));
+
+        assertUnsupportedPredicate(equal(C_ROW_OF_ARRAY, new Constant(ROW_OF_ARRAY_TYPE, sqlRowOf(ROW_OF_ARRAY_TYPE, Arrays.asList(null, Double.NaN)))));
+        assertUnsupportedPredicate(equal(C_ARRAY_OF_ROW, new Constant(ARRAY_OF_ROW_TYPE, arrayBlockOf(ROW_TYPE, Arrays.asList(null, 5.0), List.of(40L, Double.NaN)))));
+        assertUnsupportedPredicate(equal(C_MAP_OF_ROW, new Constant(MAP_OF_ROW_TYPE, sqlMapOf(INTEGER, ROW_TYPE, Map.of(1L, Arrays.asList(50L, null), 2L, List.of(40L, Double.NaN))))));
+        assertUnsupportedPredicate(equal(C_ARRAY_OF_ARRAY, new Constant(ARRAY_OF_ARRAY_TYPE, arrayBlockOf(ARRAY_TYPE, singletonList(null), List.of(Double.NaN)))));
+        assertUnsupportedPredicate(equal(C_ROW_OF_MAP_OF_ARRAY, new Constant(ROW_OF_MAP_OF_ARRAY_TYPE, sqlRowOf(ROW_OF_MAP_OF_ARRAY_TYPE, null, Map.of(1L, List.of(Double.NaN))))));
+    }
+
+    @Test
+    public void testFromStructuralTypeInPredicate()
+    {
+        // IN with values without nested NULL or NaN selects exactly the values
+
+        assertPredicateTranslates(
+                in(C_ROW, ImmutableList.of(new Constant(ROW_TYPE, ROW_VALUE_1), new Constant(ROW_TYPE, ROW_VALUE_2))),
+                tupleDomain(C_ROW, Domain.multipleValues(ROW_TYPE, ImmutableList.of(ROW_VALUE_1, ROW_VALUE_2))));
+        assertPredicateTranslates(
+                in(C_ARRAY, ImmutableList.of(new Constant(ARRAY_TYPE, ARRAY_VALUE_1), new Constant(ARRAY_TYPE, ARRAY_VALUE_2))),
+                tupleDomain(C_ARRAY, Domain.multipleValues(ARRAY_TYPE, ImmutableList.of(ARRAY_VALUE_1, ARRAY_VALUE_2))));
+        assertPredicateTranslates(
+                in(C_MAP, ImmutableList.of(new Constant(MAP_TYPE, MAP_VALUE_1), new Constant(MAP_TYPE, MAP_VALUE_2))),
+                tupleDomain(C_MAP, Domain.multipleValues(MAP_TYPE, ImmutableList.of(MAP_VALUE_1, MAP_VALUE_2))));
+    }
+
+    @Test
+    public void testFromStructuralTypeInPredicateWithNeverTrueValues()
+    {
+        // Equality with NULL or a value with a nested NULL or NaN is never true, so it doesn't change which rows the
+        // IN selects
+
+        assertPredicateTranslates(
+                in(C_ROW, ImmutableList.of(new Constant(ROW_TYPE, ROW_VALUE_1), nullLiteral(ROW_TYPE))),
+                tupleDomain(C_ROW, Domain.singleValue(ROW_TYPE, ROW_VALUE_1)));
+        assertPredicateTranslates(
+                in(C_ROW, ImmutableList.of(new Constant(ROW_TYPE, ROW_VALUE_1), new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, 50L, null)))),
+                tupleDomain(C_ROW, Domain.singleValue(ROW_TYPE, ROW_VALUE_1)));
+        assertPredicateTranslates(
+                in(C_ARRAY, ImmutableList.of(new Constant(ARRAY_TYPE, ARRAY_VALUE_1), new Constant(ARRAY_TYPE, arrayBlockOf(DOUBLE, 1.0, Double.NaN)))),
+                tupleDomain(C_ARRAY, Domain.singleValue(ARRAY_TYPE, ARRAY_VALUE_1)));
+        assertPredicateTranslates(
+                in(C_MAP, ImmutableList.of(new Constant(MAP_TYPE, MAP_VALUE_1), new Constant(MAP_TYPE, sqlMapOf(INTEGER, DOUBLE, singletonMap(1L, null))))),
+                tupleDomain(C_MAP, Domain.singleValue(MAP_TYPE, MAP_VALUE_1)));
+        assertPredicateTranslates(
+                in(C_ROW, ImmutableList.of(new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, 50L, null)), new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, null, Double.NaN)))),
+                TupleDomain.none());
+    }
+
+    @Test
+    public void testFromStructuralTypeComparisonsWithNullResult()
+    {
+        // These comparisons are NULL for some values with a nested NULL that their domains contain, e.g. the domain
+        // of c_row <> ROW(50, 5e0) contains ROW(50, NULL), for which it is NULL
+
+        assertUnsupportedPredicate(notEqual(C_ROW, new Constant(ROW_TYPE, ROW_VALUE_1)));
+        assertUnsupportedPredicate(notEqual(C_ARRAY, new Constant(ARRAY_TYPE, ARRAY_VALUE_1)));
+        assertUnsupportedPredicate(notEqual(C_MAP, new Constant(MAP_TYPE, MAP_VALUE_1)));
+
+        assertUnsupportedPredicate(greaterThan(C_ROW, new Constant(ROW_TYPE, ROW_VALUE_1)));
+        assertUnsupportedPredicate(greaterThan(C_ARRAY, new Constant(ARRAY_TYPE, ARRAY_VALUE_1)));
+
+        assertUnsupportedPredicate(not(in(C_ROW, ImmutableList.of(new Constant(ROW_TYPE, ROW_VALUE_1)))));
+        assertUnsupportedPredicate(not(in(C_ARRAY, ImmutableList.of(new Constant(ARRAY_TYPE, ARRAY_VALUE_1)))));
+        assertUnsupportedPredicate(not(in(C_MAP, ImmutableList.of(new Constant(MAP_TYPE, MAP_VALUE_1)))));
+    }
+
+    @Test
+    public void testFromStructuralTypeIsDistinctFrom()
+    {
+        // The domain is exact, but translates back to c_row IS NULL OR c_row <> ROW(50, 5e0), which is NULL for
+        // ROW(50, NULL)
+
+        assertUnsupportedPredicate(isDistinctFrom(C_ROW, new Constant(ROW_TYPE, ROW_VALUE_1)));
+        assertUnsupportedPredicate(isDistinctFrom(C_ARRAY, new Constant(ARRAY_TYPE, ARRAY_VALUE_1)));
+        assertUnsupportedPredicate(isDistinctFrom(C_MAP, new Constant(MAP_TYPE, MAP_VALUE_1)));
+    }
+
+    @Test
+    public void testFromComplementedStructuralTypeEquality()
+    {
+        // The complement of an equality's domain contains values with a nested NULL, for which the equality is NULL
+
+        Constant row = new Constant(ROW_TYPE, ROW_VALUE_1);
+        assertUnsupportedPredicate(or(not(equal(C_ROW, row)), equal(C_ROW, row)));
+        // NOT (c_row = ...) is the IR form of <>, so this complements <>, even though it is equivalent to the equality
+        assertUnsupportedPredicate(not(not(equal(C_ROW, row))));
+    }
+
+    @Test
+    public void testFromStructuralTypeInPredicateWithNonConstant()
+    {
+        // A non-constant value can be equal to any value
+
+        assertUnsupportedPredicate(in(C_ROW, ImmutableList.of(new Constant(ROW_TYPE, ROW_VALUE_1), new Symbol(ROW_TYPE, "c_row_1").toSymbolReference())));
+    }
+
+    @Test
+    public void testFromStructuralTypeNullPredicates()
+    {
+        // Unlike a nested NULL, a NULL value is described by the domain's null flag, and = and <> with it are never
+        // true
+
+        assertPredicateTranslates(isNull(C_ROW), tupleDomain(C_ROW, Domain.onlyNull(ROW_TYPE)));
+        assertPredicateTranslates(isNotNull(C_ROW), tupleDomain(C_ROW, Domain.notNull(ROW_TYPE)));
+        assertPredicateTranslates(isNull(C_ARRAY), tupleDomain(C_ARRAY, Domain.onlyNull(ARRAY_TYPE)));
+        assertPredicateTranslates(isNotNull(C_ARRAY), tupleDomain(C_ARRAY, Domain.notNull(ARRAY_TYPE)));
+        assertPredicateTranslates(isNull(C_MAP), tupleDomain(C_MAP, Domain.onlyNull(MAP_TYPE)));
+        assertPredicateTranslates(isNotNull(C_MAP), tupleDomain(C_MAP, Domain.notNull(MAP_TYPE)));
+
+        assertPredicateTranslates(equal(C_ROW, nullLiteral(ROW_TYPE)), TupleDomain.none());
+        assertPredicateTranslates(notEqual(C_ROW, nullLiteral(ROW_TYPE)), TupleDomain.none());
+        assertPredicateTranslates(isNotDistinctFrom(C_ROW, nullLiteral(ROW_TYPE)), tupleDomain(C_ROW, Domain.onlyNull(ROW_TYPE)));
+        assertPredicateTranslates(isDistinctFrom(C_ROW, nullLiteral(ROW_TYPE)), tupleDomain(C_ROW, Domain.notNull(ROW_TYPE)));
+    }
+
+    @Test
+    public void testFromStructuralTypeLogicalPredicates()
+    {
+        Constant row1 = new Constant(ROW_TYPE, ROW_VALUE_1);
+        Constant row2 = new Constant(ROW_TYPE, ROW_VALUE_2);
+        assertPredicateTranslates(or(equal(C_ROW, row1), equal(C_ROW, row2)), tupleDomain(C_ROW, Domain.multipleValues(ROW_TYPE, ImmutableList.of(ROW_VALUE_1, ROW_VALUE_2))));
+        assertPredicateTranslates(and(equal(C_ROW, row1), equal(C_ROW, row2)), TupleDomain.none());
+        assertPredicateTranslates(
+                and(equal(C_ROW, row1), greaterThan(C_BIGINT, bigintLiteral(5L))),
+                tupleDomain(C_ROW, Domain.singleValue(ROW_TYPE, ROW_VALUE_1), C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 5L)), false)));
+
+        // NOT distributes over OR, so the equality is complemented and only the other column is extracted
+        assertPredicateTranslates(
+                not(or(equal(C_ROW, row1), greaterThan(C_BIGINT, bigintLiteral(3L)))),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 3L)), false)),
+                not(equal(C_ROW, row1)));
+    }
+
+    @Test
+    public void testStructuralTypeRoundTrip()
+    {
+        // A domain translated to a predicate translates back to the same domain
+
+        TupleDomain<Symbol> singleValues = tupleDomain(ImmutableMap.of(
+                C_ROW, Domain.singleValue(ROW_TYPE, ROW_VALUE_1),
+                C_ARRAY, Domain.singleValue(ARRAY_TYPE, ARRAY_VALUE_1),
+                C_MAP, Domain.singleValue(MAP_TYPE, MAP_VALUE_1)));
+        assertPredicateTranslates(toPredicate(singleValues), singleValues);
+
+        TupleDomain<Symbol> multipleValuesOrNull = tupleDomain(ImmutableMap.of(
+                C_ROW, Domain.create(ValueSet.of(ROW_TYPE, ROW_VALUE_1, ROW_VALUE_2), true),
+                C_ARRAY, Domain.create(ValueSet.of(ARRAY_TYPE, ARRAY_VALUE_1, ARRAY_VALUE_2), true),
+                C_MAP, Domain.create(ValueSet.of(MAP_TYPE, MAP_VALUE_1, MAP_VALUE_2), true)));
+        assertPredicateTranslates(toPredicate(multipleValuesOrNull), multipleValuesOrNull);
+    }
+
+    @Test
     public void testFromInPredicateWithCastsAndNulls()
     {
         assertPredicateIsAlwaysFalse(new In(
@@ -2212,6 +2502,11 @@ public class TestDomainTranslator
     private static Expression isDistinctFrom(Symbol symbol, Expression expression)
     {
         return isDistinctFrom(symbol.toSymbolReference(), expression);
+    }
+
+    private static Expression isNotDistinctFrom(Symbol symbol, Expression expression)
+    {
+        return comparison(IDENTICAL, symbol.toSymbolReference(), expression);
     }
 
     private Call like(Symbol symbol, String pattern)

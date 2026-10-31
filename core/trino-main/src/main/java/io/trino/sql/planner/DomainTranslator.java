@@ -32,8 +32,12 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
@@ -66,6 +70,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -84,6 +89,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.function.PreimageResult.Exactness.EXACT;
@@ -172,6 +178,29 @@ public final class DomainTranslator
     {
         // This is a limited type analyzer for the simple expressions used in this method
         return new Visitor(plannerContext, session).process(predicate, false);
+    }
+
+    public static boolean isStructural(Type type)
+    {
+        return type instanceof ArrayType || type instanceof MapType || type instanceof RowType;
+    }
+
+    /**
+     * Returns a predicate testing whether {@code value = value} is true for a value of the type, i.e. whether the
+     * value contains no null or NaN at any level.
+     */
+    public static Predicate<Object> equalToItself(TypeOperators typeOperators, Type type)
+    {
+        MethodHandle equalOperator = typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
+        return value -> {
+            try {
+                return Boolean.TRUE.equals(equalOperator.invoke(value, value));
+            }
+            catch (Throwable throwable) {
+                Throwables.throwIfUnchecked(throwable);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, throwable);
+            }
+        };
     }
 
     private static class Visitor
@@ -786,7 +815,7 @@ public final class DomainTranslator
                             originalExpression));
         }
 
-        private static Optional<ExtractionResult> createComparisonExtractionResult(ComparisonOperator comparisonOperator, Symbol column, Type type, @Nullable Object value, boolean complement)
+        private Optional<ExtractionResult> createComparisonExtractionResult(ComparisonOperator comparisonOperator, Symbol column, Type type, @Nullable Object value, boolean complement)
         {
             if (value == null) {
                 return switch (comparisonOperator) {
@@ -798,6 +827,13 @@ public final class DomainTranslator
                                 TRUE));
                     }
                 };
+            }
+            if (isStructural(type) && ((comparisonOperator != EQUAL && comparisonOperator != IDENTICAL) || complement || !equalToItself(plannerContext.getTypeOperators(), type).test(value))) {
+                // A domain treats nested nulls and NaN as ordinary values, while SQL comparisons of them are NULL or
+                // false. Equality or identity with a value without them selects exactly that value, as does the
+                // equality the domain translates back to. Other domains contain values the comparison is NULL for, or
+                // translate back to a comparison that is.
+                return Optional.empty();
             }
             if (type.isOrderable()) {
                 return extractOrderableDomain(comparisonOperator, type, value, complement)
@@ -1008,6 +1044,10 @@ public final class DomainTranslator
             }
             Symbol symbol = Symbol.from(reference);
             Type type = reference.type();
+            if (isStructural(type) && complement) {
+                return Optional.empty();
+            }
+            Predicate<Object> isEqualToItself = isStructural(type) ? equalToItself(plannerContext.getTypeOperators(), type) : _ -> true;
             List<Object> inValues = new ArrayList<>(node.valueList().size());
             List<Expression> excludedExpressions = new ArrayList<>();
 
@@ -1033,6 +1073,12 @@ public final class DomainTranslator
                             else {
                                 inValues.add(constant.value());
                             }
+                        }
+                    }
+                    else if (isStructural(type)) {
+                        // A value with a nested null or NaN can be ignored: it never compares to true
+                        if (isEqualToItself.test(constant.value())) {
+                            inValues.add(constant.value());
                         }
                     }
                     else {
