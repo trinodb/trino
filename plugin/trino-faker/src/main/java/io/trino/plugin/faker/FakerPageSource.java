@@ -128,6 +128,7 @@ class FakerPageSource
     private static final int ROWS_PER_PAGE = 4096;
 
     private final Locale locale;
+    private final long seed;
     private final long rowOffset;
     private final long limit;
     private final List<SeededColumnGenerator> generators;
@@ -139,11 +140,13 @@ class FakerPageSource
 
     FakerPageSource(
             Locale locale,
+            long seed,
             List<FakerColumnHandle> columns,
             long rowOffset,
             long limit)
     {
         this.locale = requireNonNull(locale, "locale is null");
+        this.seed = seed;
         List<Type> types = requireNonNull(columns, "columns is null")
                 .stream()
                 .map(FakerColumnHandle::type)
@@ -163,7 +166,7 @@ class FakerPageSource
         ReseedableRandom randomGenerator = new ReseedableRandom();
         Random random = Random.from(randomGenerator);
         ColumnGenerator generator = getGenerator(column, random, new Faker(locale, random));
-        return new SeededColumnGenerator(generator, randomGenerator, XxHash64.hash(column.columnIndex()));
+        return new SeededColumnGenerator(generator, randomGenerator, XxHash64.hash(seed, column.columnIndex()));
     }
 
     private ColumnGenerator getGenerator(
@@ -237,7 +240,7 @@ class FakerPageSource
                     long columnSeed = seededGenerator.columnSeed();
                     for (int i = 0; i < positions; i++) {
                         long rowId = rowOffset + completedRows + i;
-                        // a value only depends on the column and the row number,
+                        // a value only depends on the table seed, the column, and the row number,
                         // and not on other columns, the query, or how rows are divided into splits
                         random.reseed(XxHash64.hash(columnSeed, rowId));
                         generator.accept(blockBuilder, rowId);

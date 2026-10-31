@@ -177,6 +177,11 @@ public class FakerConnector
                         If true, when creating a table using existing data, columns with a low number of distinct values
                         are treated as dictionaries, and get the allowed_values column property populated with random values""",
                         null,
+                        false),
+                longProperty(
+                        TableInfo.SEED_PROPERTY,
+                        "Seed for generating data in this table, derived from the schema and table name if not specified",
+                        null,
                         false));
     }
 

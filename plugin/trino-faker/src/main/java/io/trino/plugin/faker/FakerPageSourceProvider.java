@@ -60,7 +60,8 @@ public class FakerPageSourceProvider
                 .collect(toImmutableList());
 
         FakerSplit fakerSplit = (FakerSplit) split;
-        return new FakerPageSource(locale, handles, fakerSplit.rowsOffset(), fakerSplit.rowsCount());
+        FakerTableHandle fakerTable = (FakerTableHandle) table;
+        return new FakerPageSource(locale, fakerTable.seed(), handles, fakerSplit.rowsOffset(), fakerSplit.rowsCount());
     }
 
     public void validateGenerator(String generator)
