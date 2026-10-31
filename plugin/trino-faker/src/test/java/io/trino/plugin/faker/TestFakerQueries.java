@@ -236,6 +236,30 @@ final class TestFakerQueries
     }
 
     @Test
+    void testSelectGeneratorTruncatedToColumnLength()
+    {
+        try (TestTable table = newTrinoTable("bounded_generators",
+                """
+                (
+                    name_varchar VARCHAR(3) NOT NULL WITH (generator = '#{Name.first_name}'),
+                    name_char CHAR(2) NOT NULL WITH (generator = '#{Name.first_name}'),
+                    multibyte_varchar VARCHAR(3) NOT NULL WITH (generator = 'Żółw #{Name.first_name}'),
+                    multibyte_char CHAR(2) NOT NULL WITH (generator = 'Żółw #{Name.first_name}'),
+                    trailing_space_char CHAR(2) NOT NULL WITH (generator = 'A #{Name.first_name}')
+                )
+                """)) {
+            assertThat(computeActual("SELECT name_varchar, name_char FROM " + table.getName()).getMaterializedRows())
+                    .isNotEmpty()
+                    .allSatisfy(row -> {
+                        assertThat((String) row.getField(0)).hasSizeBetween(1, 3);
+                        assertThat((String) row.getField(1)).hasSize(2);
+                    });
+            assertThat(query("SELECT DISTINCT multibyte_varchar, multibyte_char, trailing_space_char FROM " + table.getName()))
+                    .matches("VALUES (CAST('Żół' AS VARCHAR(3)), CAST('Żó' AS CHAR(2)), CAST('A' AS CHAR(2)))");
+        }
+    }
+
+    @Test
     void testSelectLocale()
             throws Exception
     {

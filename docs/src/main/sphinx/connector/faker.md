@@ -134,7 +134,7 @@ The following table details all supported column properties.
     Only valid for columns of a character-based type. Defaults to a 3 to 40 word
     sentence from the
     [Lorem](https://javadoc.io/doc/net.datafaker/datafaker/latest/net/datafaker/providers/base/Lorem.html)
-    provider.
+    provider. Generated values longer than the column length are truncated.
 * - `min`
   - Minimum generated value (inclusive). Cannot be set for character-based type
     columns.
