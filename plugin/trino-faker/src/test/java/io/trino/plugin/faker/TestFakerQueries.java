@@ -340,6 +340,36 @@ final class TestFakerQueries
             }
         }
 
+        // inclusive ranges at the max high bound that produce only 2 values
+        // the max value of floating point types is never sampled, so they use wider ranges
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "9223372036854775806", "max", "9223372036854775807"), "count(distinct rnd_bigint)", "2"))
+                .add(new TestDataType("rnd_integer", "integer", Map.of("min", "2147483646", "max", "2147483647"), "count(distinct rnd_integer)", "2"))
+                .add(new TestDataType("rnd_smallint", "smallint", Map.of("min", "32766", "max", "32767"), "count(distinct rnd_smallint)", "2"))
+                .add(new TestDataType("rnd_tinyint", "tinyint", Map.of("min", "126", "max", "127"), "count(distinct rnd_tinyint)", "2"))
+                .add(new TestDataType("rnd_date", "date", Map.of("min", "5881580-07-10", "max", "5881580-07-11"), "count(distinct rnd_date)", "2"))
+                .add(new TestDataType("rnd_decimal1", "decimal", Map.of("min", "99999999999999999999999999999999999998", "max", "99999999999999999999999999999999999999"), "count(distinct rnd_decimal1)", "2"))
+                .add(new TestDataType("rnd_decimal2", "decimal(18,5)", Map.of("min", "9999999999999.99998", "max", "9999999999999.99999"), "count(distinct rnd_decimal2)", "2"))
+                .add(new TestDataType("rnd_real", "real", Map.of("min", "0.0", "max", "3.4028235E38"), "count(distinct rnd_real) > 1", "true"))
+                .add(new TestDataType("rnd_double", "double", Map.of("min", "0.0", "max", "1.7976931348623157E308"), "count(distinct rnd_double) > 1", "true"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("min", "294247-01-10 04:00:54.774", "max", "294247-01-10 04:00:54.775"), "count(distinct rnd_timestamp)", "2"))
+                .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("min", "294247-01-10 04:00:54.775806", "max", "294247-01-10 04:00:54.775807"), "count(distinct rnd_timestamp6)", "2"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("min", "294247-01-10 04:00:54.775807998", "max", "294247-01-10 04:00:54.775807999"), "count(distinct rnd_timestamp9)", "2"))
+                .add(new TestDataType("rnd_timestamp12", "timestamp(12)", Map.of("min", "294247-01-10 04:00:54.775807999998", "max", "294247-01-10 04:00:54.775807999999"), "count(distinct rnd_timestamp12)", "2"))
+                .add(new TestDataType("rnd_time", "time", Map.of("min", "23:59:59.998", "max", "23:59:59.999"), "count(distinct rnd_time)", "2"))
+                .add(new TestDataType("rnd_time12", "time(12)", Map.of("min", "23:59:59.999999999998", "max", "23:59:59.999999999999"), "count(distinct rnd_time12)", "2"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("range_top_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+                assertQuery(
+                        "SELECT count_if(%1$s < CAST('%2$s' AS %4$s) OR %1$s > CAST('%3$s' AS %4$s)) FROM %5$s".formatted(
+                                testCase.name(), testCase.properties().get("min"), testCase.properties().get("max"), testCase.type(), table.getName()),
+                        "VALUES 0");
+            }
+        }
+
         // inclusive range to get the min low bound
         testCases = ImmutableList.<TestDataType>builder()
                 .add(new TestDataType("rnd_bigint", "bigint", Map.of("max", "-9223372036854775808"), "count(distinct rnd_bigint)", "1"))
@@ -499,6 +529,48 @@ final class TestFakerQueries
 
         for (TestDataType testCase : testCases) {
             try (TestTable table = newTrinoTable("step_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+
+        // small step in small ranges at the max high bound that produce only 10 unique values for 1000 rows
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "9223372036854775798", "max", "9223372036854775807", "step", "1"), "count(distinct rnd_bigint)", "10"))
+                .add(new TestDataType("rnd_integer", "integer", Map.of("min", "2147483638", "max", "2147483647", "step", "1"), "count(distinct rnd_integer)", "10"))
+                .add(new TestDataType("rnd_date", "date", Map.of("min", "5881580-07-02", "max", "5881580-07-11", "step", "1d"), "count(distinct rnd_date)", "10"))
+                .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("min", "294247-01-10 04:00:54.775798", "max", "294247-01-10 04:00:54.775807", "step", "1us"), "count(distinct rnd_timestamp6)", "10"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("min", "294247-01-10 04:00:54.775798000", "max", "294247-01-10 04:00:54.775807999", "step", "1us"), "count(distinct rnd_timestamp9)", "10"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("step_top_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+
+        // long sequences with steps large enough to overflow when multiplied by the row number
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_date", "date", Map.of("min", "2000-01-01", "step", "1d"), "count(distinct rnd_date) = 200000 AND min(rnd_date) = DATE '2000-01-01' AND max(rnd_date) = DATE '2000-01-01' + INTERVAL '199999' DAY", "true"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("min", "2000-01-01 00:00:00.000", "step", "1d"), "count(distinct rnd_timestamp) = 200000 AND min(rnd_timestamp) = TIMESTAMP '2000-01-01 00:00:00.000'", "true"))
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "0", "step", "100000000000000"), "count(distinct rnd_bigint) = 92235 AND min(rnd_bigint) = 0", "true"))
+                .add(new TestDataType("rnd_bigint_wide", "bigint", Map.of("min", "-9223372036854775808", "max", "9223372036854775807", "step", "9223372036854775807"), "count(distinct rnd_bigint_wide) = 4 AND max(rnd_bigint_wide) = 9223372036854775807", "true"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("step_long_" + testCase.name(), "(%s) WITH (default_limit = 200000)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+
+        // without a min low bound, sequences start at the min value of the type
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("max", "0", "step", "1"), "min(rnd_bigint) = -9223372036854775808 AND max(rnd_bigint) < 0", "true"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("max", "2022-03-21 00:00:00.000", "step", "1s"), "year(min(rnd_timestamp)) < -290000 AND max(rnd_timestamp) < TIMESTAMP '2022-03-21 00:00:00.000'", "true"))
+                .add(new TestDataType("rnd_timestamp0", "timestamp(0)", Map.of("max", "2022-03-21 00:00:00", "step", "1s"), "year(min(rnd_timestamp0)) < -290000 AND max(rnd_timestamp0) < TIMESTAMP '2022-03-21 00:00:00'", "true"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("step_bottom_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
