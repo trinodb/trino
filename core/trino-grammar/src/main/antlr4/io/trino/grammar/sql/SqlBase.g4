@@ -96,7 +96,8 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ALTER COLUMN columnName=qualifiedName SET DEFAULT literal      #setDefaultValue
+        ALTER COLUMN columnName=qualifiedName
+        SET DEFAULT defaultOption                                      #setDefaultValue
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER COLUMN columnName=qualifiedName DROP DEFAULT             #dropDefaultValue
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
@@ -256,7 +257,24 @@ tableElement
     ;
 
 columnDefinition
-    : qualifiedName type (DEFAULT literal)? (NOT NULL)? (COMMENT string)? (WITH properties)?
+    : qualifiedName type (DEFAULT defaultOption)? (NOT NULL)? (COMMENT string)? (WITH properties)?
+    ;
+
+defaultOption
+    : literal
+    | sessionFunctions
+    ;
+
+sessionFunctions
+    : CURRENT_DATE                                         #currentDate
+    | CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?      #currentTime
+    | CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')? #currentTimestamp
+    | LOCALTIME ('(' precision=INTEGER_VALUE ')')?         #localTime
+    | LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?    #localTimestamp
+    | CURRENT_USER                                         #currentUser
+    | CURRENT_CATALOG                                      #currentCatalog
+    | CURRENT_SCHEMA                                       #currentSchema
+    | CURRENT_PATH                                         #currentPath
     ;
 
 likeClause
@@ -674,15 +692,7 @@ primaryExpression
     | identifier                                                                          #columnReference
     | base=primaryExpression '.' fieldName=identifier                                     #dereference
     | base=primaryExpression '.' stringField=string                                       #stringLiteralDereference
-    | name=CURRENT_DATE                                                                   #currentDate
-    | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                #currentTime
-    | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #currentTimestamp
-    | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #localTime
-    | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #localTimestamp
-    | name=CURRENT_USER                                                                   #currentUser
-    | name=CURRENT_CATALOG                                                                #currentCatalog
-    | name=CURRENT_SCHEMA                                                                 #currentSchema
-    | name=CURRENT_PATH                                                                   #currentPath
+    | sessionFunctions                                                                    #sessionFunction
     | TRIM '(' (trimsSpecification? trimChar=valueExpression? FROM)?
         trimSource=valueExpression ')'                                                    #trim
     | TRIM '(' trimSource=valueExpression ',' trimChar=valueExpression ')'                #trim
