@@ -104,6 +104,9 @@ final class TestFakerQueries
         assertQueryFails(
                 "CREATE TABLE unsupported_interval (v interval second(2, 9))",
                 "Faker does not support day-time intervals with fractional precision greater than 6: interval second\\(2, 9\\)");
+        assertQueryFails(
+                "CREATE TABLE unsupported_nested_interval (v row(x array(map(varchar, interval second(2, 9)))))",
+                "Faker does not support day-time intervals with fractional precision greater than 6: interval second\\(2, 9\\)");
     }
 
     @Test
@@ -149,10 +152,10 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_nchar", "char(1000)", "count(distinct rnd_nchar)", "1000"))
                 .add(new TestDataType("rnd_ipaddress", "ipaddress", "count(distinct rnd_ipaddress)", "1000"))
                 .add(new TestDataType("rnd_uuid", "uuid", "count(distinct rnd_uuid)", "1000"))
-                .add(new TestDataType("rnd_array_int", "array(integer)", "count(distinct rnd_array_int)", "1"))
-                .add(new TestDataType("rnd_array_varchar", "array(varchar)", "count(distinct rnd_array_varchar)", "1"))
-                .add(new TestDataType("rnd_map_int", "map(integer, integer)", "count(distinct rnd_map_int)", "1"))
-                .add(new TestDataType("rnd_map_varchar", "map(varchar, varchar)", "count(distinct rnd_map_varchar)", "1"))
+                .add(new TestDataType("rnd_array_int", "array(integer)", "count(distinct cardinality(rnd_array_int))", "6"))
+                .add(new TestDataType("rnd_array_varchar", "array(varchar)", "count(distinct cardinality(rnd_array_varchar))", "6"))
+                .add(new TestDataType("rnd_map_int", "map(integer, integer)", "count(distinct cardinality(rnd_map_int))", "6"))
+                .add(new TestDataType("rnd_map_varchar", "map(varchar, varchar)", "count(distinct cardinality(rnd_map_varchar))", "6"))
                 .add(new TestDataType("rnd_row", "row(integer, varchar)", "count(distinct rnd_row)", "1000"))
                 .add(new TestDataType("rnd_json", "json", "count(distinct rnd_json)", "1"))
                 .build();
@@ -700,6 +703,111 @@ final class TestFakerQueries
             String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
             assertThat(createTable).containsPattern("boolean boolean WITH \\(null_probability = 0E0\\)");
             assertThat(createTable).containsPattern("boolean_array array\\(boolean\\) WITH \\(null_probability = 0E0\\)");
+        }
+    }
+
+    @Test
+    void testCreateTableAsSelectNonOrderable()
+    {
+        String source =
+                """
+                SELECT
+                  JSON '1' AS json,
+                  MAP(ARRAY['a'], ARRAY[1]) AS map,
+                  ARRAY[MAP(ARRAY['a'], ARRAY[1])] AS map_array,
+                  ROW(MAP(ARRAY['a'], ARRAY[1])) AS map_row,
+                  empty_approx_set() AS hll
+                FROM TABLE(sequence(start => 0, stop => 1000, step => 1))
+                """;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "non_orderable", "AS " + source)) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("json json WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("map map\\(varchar\\(1\\), integer\\) WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("map_array array\\(map\\(varchar\\(1\\), integer\\)\\) WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("map_row ROW\\(map\\(varchar\\(1\\), integer\\)\\) WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("hll HyperLogLog WITH \\(null_probability = 1E0\\)");
+            assertThat(createTable).contains("default_limit = 1001");
+            // varchar(1) keys are always empty strings, so every map has at most one entry
+            assertQuery(
+                    "SELECT count(*), max(cardinality(map)), max(cardinality(map_row[1])) FROM " + table.getName(),
+                    "VALUES (1001, 1, 1)");
+        }
+    }
+
+    @Test
+    void testSelectStructuralTypes()
+    {
+        try (TestTable table = newTrinoTable("structural",
+                """
+                (
+                  tinyints array(tinyint) NOT NULL,
+                  nested array(array(integer)) NOT NULL,
+                  rows array(row(x integer, y varchar)) NOT NULL,
+                  colors array(color) NOT NULL,
+                  tinyint_keys map(tinyint, varchar) NOT NULL,
+                  boolean_keys map(boolean, integer) NOT NULL,
+                  boolean_row_keys map(row(b boolean), integer) NOT NULL,
+                  map_row row(m map(varchar, array(integer))) NOT NULL,
+                  color_keys map(color, integer) NOT NULL,
+                  row_keys map(row(c color, i integer), integer) NOT NULL,
+                  array_keys map(array(color), integer) NOT NULL)
+                """)) {
+            assertQuery(
+                    "SELECT count(DISTINCT cardinality(tinyints)), min(cardinality(tinyints)), max(cardinality(tinyints)) FROM " + table.getName(),
+                    "VALUES (6, 0, 5)");
+            assertQuery(
+                    "SELECT count(*) = count(e), count(DISTINCT e) > 250 FROM %s CROSS JOIN UNNEST(tinyints) u(e)".formatted(table.getName()),
+                    "VALUES (true, true)");
+            assertQuery(
+                    "SELECT count(DISTINCT cardinality(e)) FROM %s CROSS JOIN UNNEST(nested) u(e)".formatted(table.getName()),
+                    "VALUES (6)");
+            assertQuery(
+                    "SELECT count(*) = count(y), count(DISTINCT x) > 1 FROM %s CROSS JOIN UNNEST(rows) u(x, y)".formatted(table.getName()),
+                    "VALUES (true, true)");
+            // color has no generator
+            assertQuery(
+                    "SELECT count(*) > 0, count(e) FROM %s CROSS JOIN UNNEST(colors) u(e)".formatted(table.getName()),
+                    "VALUES (true, 0)");
+            assertQuery(
+                    "SELECT count(DISTINCT cardinality(tinyint_keys)), count_if(cardinality(array_distinct(map_keys(tinyint_keys))) <> cardinality(tinyint_keys)) FROM " + table.getName(),
+                    "VALUES (6, 0)");
+            assertQuery(
+                    "SELECT count(DISTINCT cardinality(boolean_keys)), max(cardinality(boolean_keys)), max(cardinality(boolean_row_keys)) FROM " + table.getName(),
+                    "VALUES (3, 2, 2)");
+            assertQuery(
+                    "SELECT count(DISTINCT cardinality(v)) FROM %s CROSS JOIN UNNEST(map_row.m) u(k, v)".formatted(table.getName()),
+                    "VALUES (6)");
+            // color has no generator, and null map keys are not allowed
+            assertQuery(
+                    "SELECT count(color_keys), max(cardinality(color_keys)) FROM " + table.getName(),
+                    "VALUES (1000, 0)");
+            // keys containing nulls are not allowed either, but empty arrays are
+            assertQuery(
+                    "SELECT max(cardinality(row_keys)), max(cardinality(array_keys)) FROM " + table.getName(),
+                    "VALUES (0, 1)");
+            assertQuery(
+                    "SELECT max(cardinality(k)) FROM %s CROSS JOIN UNNEST(array_keys) u(k, v)".formatted(table.getName()),
+                    "VALUES (0)");
+        }
+    }
+
+    @Test
+    void testSelectTypesWithoutGenerator()
+    {
+        try (TestTable table = newTrinoTable("without_generator", "(hll HyperLogLog NOT NULL, p4hll P4HyperLogLog, qdigest qdigest(bigint), tdigest tdigest)")) {
+            assertQuery(
+                    "SELECT count(*), count(hll), count(p4hll), count(qdigest), count(tdigest) FROM " + table.getName(),
+                    "VALUES (1000, 0, 0, 0, 0)");
+            assertQuery(
+                    "SHOW STATS FOR " + table.getName(),
+                    """
+                    VALUES
+                      ('hll', 0.0, NULL, 1.0, NULL, NULL, NULL),
+                      ('p4hll', 0.0, NULL, 1.0, NULL, NULL, NULL),
+                      ('qdigest', 0.0, NULL, 1.0, NULL, NULL, NULL),
+                      ('tdigest', 0.0, NULL, 1.0, NULL, NULL, NULL),
+                      (NULL, NULL, NULL, NULL, 1000, NULL, NULL)
+                    """);
         }
     }
 }
