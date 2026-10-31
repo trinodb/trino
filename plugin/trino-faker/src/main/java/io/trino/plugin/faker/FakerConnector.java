@@ -27,7 +27,6 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
@@ -61,7 +60,7 @@ public class FakerConnector
     private final FakerSplitManager splitManager;
     private final FakerPageSourceProvider pageSourceProvider;
     private final FakerPageSinkProvider pageSinkProvider;
-    private final FunctionBundle functionBundle;
+    private final FakerFunctionProvider functionProvider;
 
     @Inject
     public FakerConnector(
@@ -70,14 +69,14 @@ public class FakerConnector
             FakerSplitManager splitManager,
             FakerPageSourceProvider pageSourceProvider,
             FakerPageSinkProvider pageSinkProvider,
-            FunctionBundle functionBundle)
+            FakerFunctionProvider functionProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
+        this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
     }
 
     @Override
@@ -241,7 +240,7 @@ public class FakerConnector
     @Override
     public Optional<FunctionProvider> getFunctionProvider()
     {
-        return Optional.of(functionBundle.toProvider());
+        return Optional.of(functionProvider);
     }
 
     @Override

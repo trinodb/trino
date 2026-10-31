@@ -279,6 +279,14 @@ final class TestFakerQueries
     }
 
     @Test
+    void testSelectFunctionsLocale()
+    {
+        getQueryRunner().createCatalog("faker_pl", "faker", Map.of("faker.locale", "pl-PL"));
+        assertThat(computeScalar("SELECT faker_pl.default.random_string('#{Address.default_country}')"))
+                .isEqualTo("Polska");
+    }
+
+    @Test
     void testListFunctionsRespectsSchemaName()
     {
         assertUpdate("CREATE SCHEMA faker.other_schema");
