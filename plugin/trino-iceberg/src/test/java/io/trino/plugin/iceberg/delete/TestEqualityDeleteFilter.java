@@ -49,6 +49,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -475,12 +476,14 @@ class TestEqualityDeleteFilter
 
         builder.readEqualityDeletes(
                 fileOne,
-                (_, _, _) -> new FixedPageSource(ImmutableList.of(page)));
+                (_, _, _) -> new FixedPageSource(ImmutableList.of(page)),
+                directExecutor());
         long sizeAfterFirst = builder.getEstimatedSizeInBytes();
 
         builder.readEqualityDeletes(
                 fileTwo,
-                (_, _, _) -> new FixedPageSource(ImmutableList.of(page)));
+                (_, _, _) -> new FixedPageSource(ImmutableList.of(page)),
+                directExecutor());
         long sizeAfterSecond = builder.getEstimatedSizeInBytes();
 
         assertThat(sizeAfterSecond)
@@ -530,7 +533,7 @@ class TestEqualityDeleteFilter
 
     private static EqualityDeleteFilterBuilder newBuilder(IcebergColumnHandle... deleteColumns)
     {
-        return EqualityDeleteFilter.builder(ImmutableList.copyOf(deleteColumns), BLOCKS_HASH_FACTORY);
+        return EqualityDeleteFilter.builder(ImmutableList.copyOf(deleteColumns), BLOCKS_HASH_FACTORY, directExecutor());
     }
 
     private static void loadDeleteFile(
@@ -546,7 +549,8 @@ class TestEqualityDeleteFilter
                 deleteColumns.stream().map(IcebergColumnHandle::getId).collect(toImmutableList()));
         builder.readEqualityDeletes(
                 file,
-                (_, _, _) -> new FixedPageSource(ImmutableList.copyOf(pages)));
+                (_, _, _) -> new FixedPageSource(ImmutableList.copyOf(pages)),
+                directExecutor());
     }
 
     private static DeleteFile equalityDeleteFile(String path, long sequenceNumber, List<Integer> equalityFieldIds)

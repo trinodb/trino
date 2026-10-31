@@ -15,6 +15,8 @@ package io.trino.plugin.iceberg.delete;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.block.Block;
@@ -28,16 +30,20 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
 import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -50,17 +56,23 @@ public final class PositionDeleteReader
 {
     private PositionDeleteReader() {}
 
-    public static Optional<DeletionVector> readPositionDeletes(
+    /**
+     * Starts reading the position delete files that apply to the split and returns a future of the combined deletion vector.
+     * Each file is opened on {@code openExecutor}, and decoded and merged on {@code decodeExecutor}.
+     */
+    public static ListenableFuture<Optional<DeletionVector>> readPositionDeletes(
             String dataFilePath,
             List<DeleteFile> positionDeleteFiles,
             OptionalLong startRowPosition,
             OptionalLong endRowPosition,
             DeletePageSourceProvider deletePageSourceProvider,
             TypeManager typeManager,
+            Executor openExecutor,
+            Executor decodeExecutor,
             MemoryContext memoryContext)
     {
         if (positionDeleteFiles.isEmpty()) {
-            return Optional.empty();
+            return immediateFuture(Optional.empty());
         }
 
         Slice targetPath = utf8Slice(dataFilePath);
@@ -75,23 +87,34 @@ public final class PositionDeleteReader
             TupleDomain<IcebergColumnHandle> positionDomain = TupleDomain.withColumnDomains(ImmutableMap.of(deleteFilePos, Domain.create(ValueSet.ofRanges(positionRange), false)));
             deleteDomain = deleteDomain.intersect(positionDomain);
         }
+        TupleDomain<IcebergColumnHandle> effectiveDeleteDomain = deleteDomain;
 
         DeletionVector.Builder deletionVector = DeletionVector.builder();
+        // the files of this split only, so that what was opened is closed if the split gives up
+        ReferenceCountedLoader<ConnectorPageSource> loader = new ReferenceCountedLoader<>();
+        List<ListenableFuture<?>> futures = new ArrayList<>();
         for (DeleteFile deleteFile : positionDeleteFiles) {
-            if (shouldLoadPositionDeleteFile(deleteFile, startRowPosition, endRowPosition)) {
-                try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, deleteDomain)) {
-                    readMultiFilePositionDeletes(pageSource, targetPath, deletionVector::add);
-                }
-                catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-                // report after each file so that concurrent loads get memory pool pushback
-                // before the whole set is read
-                memoryContext.setBytes(deletionVector.retainedSizeInBytes());
+            if (!shouldLoadPositionDeleteFile(deleteFile, startRowPosition, endRowPosition)) {
+                continue;
             }
+            futures.add(loader.load(
+                    deleteFile.path(),
+                    openExecutor,
+                    () -> deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, effectiveDeleteDomain),
+                    decodeExecutor,
+                    pageSource -> {
+                        // decodes run one at a time on the thread reading the split, so they add to the vector directly
+                        readMultiFilePositionDeletes(pageSource, targetPath, deletionVector::add);
+                        // report after each file so that concurrent loads get memory pool pushback
+                        // before the whole set is read
+                        memoryContext.setBytes(deletionVector.retainedSizeInBytes());
+                    }));
         }
 
-        return deletionVector.build();
+        ListenableFuture<Optional<DeletionVector>> result = Futures.whenAllSucceed(futures)
+                .call(deletionVector::build, directExecutor());
+        addExceptionCallback(result, () -> futures.forEach(future -> future.cancel(true)));
+        return result;
     }
 
     private static boolean shouldLoadPositionDeleteFile(DeleteFile deleteFile, OptionalLong startRowPosition, OptionalLong endRowPosition)
@@ -109,6 +132,7 @@ public final class PositionDeleteReader
     public static void readSingleFilePositionDeletes(ConnectorPageSource pageSource, LongConsumer filePositionConsumer)
     {
         while (!pageSource.isFinished()) {
+            getFutureValue(pageSource.isBlocked());
             SourcePage page = pageSource.getNextSourcePage();
             if (page == null) {
                 continue;
@@ -129,6 +153,7 @@ public final class PositionDeleteReader
         // path values are dictionary encoded, since we only do the comparison once.
         CachingVarcharComparator comparator = new CachingVarcharComparator(targetPath);
         while (!pageSource.isFinished()) {
+            getFutureValue(pageSource.isBlocked());
             SourcePage page = pageSource.getNextSourcePage();
             if (page == null) {
                 continue;
@@ -154,6 +179,7 @@ public final class PositionDeleteReader
     public static void readMultiFilePositionDeletes(ConnectorPageSource pageSource, BiConsumer<String, Long> filePositionConsumer)
     {
         while (!pageSource.isFinished()) {
+            getFutureValue(pageSource.isBlocked());
             SourcePage page = pageSource.getNextSourcePage();
             if (page == null) {
                 continue;

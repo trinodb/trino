@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -62,7 +61,6 @@ public class IcebergAvroPageSource
     private final Map<String, org.apache.iceberg.types.Type> icebergTypes;
     private final boolean appendRowNumberColumn;
     private final PageBuilder pageBuilder;
-    private final AggregatedMemoryContext memoryUsage;
 
     private int rowId;
     private long readBytes;
@@ -78,13 +76,11 @@ public class IcebergAvroPageSource
             List<Type> columnTypes,
             boolean appendRowNumberColumn,
             OptionalLong fileFirstRowId,
-            OptionalLong dataSequenceNumber,
-            AggregatedMemoryContext memoryUsage)
+            OptionalLong dataSequenceNumber)
     {
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.appendRowNumberColumn = appendRowNumberColumn;
-        this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
         checkArgument(
                 columnNames.size() == columnTypes.size(),
                 "names and types must correspond one-to-one-to-one");
@@ -162,12 +158,6 @@ public class IcebergAvroPageSource
         readTimeNanos += System.nanoTime() - start;
 
         return SourcePage.create(page);
-    }
-
-    @Override
-    public long getMemoryUsage()
-    {
-        return memoryUsage.getBytes();
     }
 
     @Override
