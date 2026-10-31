@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Random;
 
+import static io.trino.plugin.faker.Distribution.UNIFORM;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -54,6 +55,6 @@ public class TestFakerPageSource
 
     private static FakerColumnHandle column(Domain domain)
     {
-        return new FakerColumnHandle(0, "x", DOUBLE, 0, null, domain, ValueSet.none(DOUBLE));
+        return new FakerColumnHandle(0, "x", DOUBLE, 0, null, domain, ValueSet.none(DOUBLE), UNIFORM, List.of());
     }
 }

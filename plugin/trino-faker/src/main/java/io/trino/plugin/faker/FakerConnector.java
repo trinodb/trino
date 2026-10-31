@@ -39,6 +39,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.DISTRIBUTION_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
@@ -48,6 +49,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -227,6 +229,12 @@ public class FakerConnector
                 stringProperty(
                         STEP_PROPERTY,
                         "If set, generate sequential values with this step. For date and time columns set this to a duration",
+                        null,
+                        false),
+                enumProperty(
+                        DISTRIBUTION_PROPERTY,
+                        "Distribution of generated values",
+                        Distribution.class,
                         null,
                         false));
     }

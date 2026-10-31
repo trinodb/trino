@@ -98,6 +98,7 @@ import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.NULL_PROBABILITY_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
+import static io.trino.plugin.faker.Distribution.UNIFORM;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -394,7 +395,9 @@ public class FakerMetadata
                         0,
                         "",
                         Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 0L)), false),
-                        ValueSet.of(BIGINT, 1L)),
+                        ValueSet.of(BIGINT, 1L),
+                        UNIFORM,
+                        ImmutableList.of()),
                 ColumnMetadata.builder()
                         .setName(ROW_ID_COLUMN_NAME)
                         .setType(BIGINT)
