@@ -30,6 +30,7 @@ public record ColumnInfo(FakerColumnHandle handle, ColumnMetadata metadata)
     public static final String MAX_PROPERTY = "max";
     public static final String ALLOWED_VALUES_PROPERTY = "allowed_values";
     public static final String STEP_PROPERTY = "step";
+    public static final String REFERENCES_PROPERTY = "references";
 
     public ColumnInfo
     {
