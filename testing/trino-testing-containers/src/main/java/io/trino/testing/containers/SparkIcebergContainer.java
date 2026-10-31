@@ -15,13 +15,13 @@ package io.trino.testing.containers;
 
 import io.trino.testing.TestingProperties;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 import java.nio.file.Path;
-import java.time.Duration;
+
+import static io.trino.testing.containers.SparkContainers.sparkThriftServerWaitStrategy;
 
 /**
  * A reusable Spark container for Iceberg product tests.
@@ -111,8 +111,7 @@ public class SparkIcebergContainer
                 "--conf",
                 "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
                 "spark-internal");
-        waitingFor(Wait.forListeningPort()
-                .withStartupTimeout(Duration.ofMinutes(3)));
+        waitingFor(sparkThriftServerWaitStrategy(SPARK_THRIFT_PORT));
     }
 
     public SparkIcebergContainer withAwsKmsEncryption(String kmsEndpoint)
