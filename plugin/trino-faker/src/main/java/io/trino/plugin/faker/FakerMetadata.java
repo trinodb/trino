@@ -153,9 +153,6 @@ public class FakerMetadata
     private final FunctionBundle functionBundle;
     private final Locale locale;
 
-    private final Random random;
-    private final Faker faker;
-
     @GuardedBy("this")
     private final Map<SchemaTableName, TableInfo> tables = new HashMap<>();
     @GuardedBy("this")
@@ -171,8 +168,6 @@ public class FakerMetadata
         this.isDictionaryDetectionEnabled = config.isDictionaryDetectionEnabled();
         this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
         this.locale = config.getLocale();
-        this.random = new Random(1);
-        this.faker = new Faker(random);
     }
 
     @Override
@@ -630,7 +625,7 @@ public class FakerMetadata
             return ImmutableMap.of();
         }
         ImmutableMap.Builder<String, List<Object>> columnValues = ImmutableMap.builder();
-        try (FakerPageSource pageSource = new FakerPageSource(faker, random, dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
+        try (FakerPageSource pageSource = new FakerPageSource(locale, dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
             SourcePage page = null;
             while (page == null) {
                 page = pageSource.getNextSourcePage();
