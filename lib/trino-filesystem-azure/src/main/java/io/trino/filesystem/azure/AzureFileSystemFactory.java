@@ -33,14 +33,13 @@ import jakarta.annotation.PreDestroy;
 import reactor.netty.resources.ConnectionProvider;
 
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.filesystem.azure.AzureFileSystemConstants.EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX;
+import static io.trino.filesystem.azure.AzureSasTokens.extractSasTokens;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -146,19 +145,23 @@ public class AzureFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        AzureAuth effectiveAuth = getEffectiveAuth(identity);
+        AzureAuth effectiveAuth = auth;
+        Map<String, String> sasTokens = extractSasTokens(identity);
+        if (!sasTokens.isEmpty()) {
+            effectiveAuth = new AzureAuthSasToken(sasTokens);
+        }
         return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
     }
 
-    private AzureAuth getEffectiveAuth(ConnectorIdentity identity)
+    @Override
+    public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
     {
-        Map<String, String> sasTokens = identity.getExtraCredentials().entrySet().stream()
-                .filter(e -> e.getKey().startsWith(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX))
-                .collect(toImmutableMap(e -> e.getKey().substring(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX.length()), Entry::getValue));
-        if (!sasTokens.isEmpty()) {
-            return new AzureAuthSasToken(sasTokens);
+        AzureAuth effectiveAuth = auth;
+        ConnectorIdentity identity = identitySupplier.get();
+        if (!extractSasTokens(identity).isEmpty()) {
+            effectiveAuth = new AzureAuthRefreshingSasToken(identity, identitySupplier);
         }
-        return auth;
+        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
     }
 
     public static HttpClient createAzureHttpClient(ConnectionProvider connectionProvider, EventLoopGroup eventLoopGroup, HttpClientOptions clientOptions)

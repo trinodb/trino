@@ -16,6 +16,8 @@ package io.trino.filesystem;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
+import java.util.function.Supplier;
+
 public interface TrinoFileSystemFactory
 {
     TrinoFileSystem create(ConnectorIdentity identity);
@@ -23,5 +25,10 @@ public interface TrinoFileSystemFactory
     default TrinoFileSystem create(ConnectorSession session)
     {
         return create(session.getIdentity());
+    }
+
+    default TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
+    {
+        return create(identitySupplier.get());
     }
 }

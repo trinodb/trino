@@ -21,12 +21,21 @@ import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.ServerFeature;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
+import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputStream;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.jdbc.JdbcCatalog;
@@ -36,16 +45,21 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.REGION;
+import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Execution(ExecutionMode.SAME_THREAD)
@@ -53,6 +67,8 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
         extends AbstractTestQueryFramework
 {
     private static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(REGION);
+    protected static final DataSize WRITE_PART_SIZE = DataSize.of(5, MEGABYTE);
+    private static final int WRITE_PART_COUNT = 3;
 
     protected String warehouseLocation;
     private VendedCredentialsRestCatalogServlet servlet;
@@ -66,6 +82,8 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
     protected abstract VendedCredentialsRestCatalogServlet createServlet(Catalog backendCatalog);
 
     protected abstract Map<String, String> catalogFileSystemProperties();
+
+    protected abstract int expectedVendedCredentialsRefreshCountDuringWrite();
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -139,6 +157,44 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
             assertQuery("SELECT * FROM " + testTable.getName(), "SELECT * FROM region");
             assertThat(servlet.getVendedCredentialsRefreshCount()).isEqualTo(refreshCount);
         }
+    }
+
+    @Test
+    public void testFileSystemUsesCredentialsRefreshedDuringWrite()
+            throws IOException
+    {
+        try (TestTable table = newTrinoTable("test_refresh_during_write", "(id bigint)")) {
+            sessionTokenExpirationTime.set(Instant.EPOCH);
+            IcebergRestCatalogFileSystemFactory fileSystemFactory = icebergRestCatalogFileSystemFactory(getQueryRunner());
+            fileSystemFactory.flushVendedCredentialsCache();
+            BaseTable icebergTable = loadTable(table.getName());
+            TrinoFileSystem fileSystem = fileSystemFactory.create(getSession().getIdentity().toConnectorIdentity(), IcebergTableCredentials.forFileIO(icebergTable.io()));
+            Location location = Location.of(icebergTable.location()).appendPath("data/refresh-during-write-" + randomNameSuffix());
+            byte[] data = randomData(toIntExact(WRITE_PART_SIZE.toBytes() * WRITE_PART_COUNT));
+
+            OutputStream outputStream = fileSystem.newOutputFile(location).create();
+            int refreshCount = servlet.getVendedCredentialsRefreshCount();
+            outputStream.write(data);
+            outputStream.close();
+            assertThat(servlet.getVendedCredentialsRefreshCount() - refreshCount).isEqualTo(expectedVendedCredentialsRefreshCountDuringWrite());
+
+            try (TrinoInputStream inputStream = fileSystem.newInputFile(location).newStream()) {
+                assertThat(inputStream.readAllBytes()).isEqualTo(data);
+            }
+        }
+    }
+
+    private BaseTable loadTable(String tableName)
+    {
+        TrinoCatalog trinoCatalog = getConnectorService(getQueryRunner(), TrinoCatalogFactory.class).create(getSession().getIdentity().toConnectorIdentity());
+        return (BaseTable) trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
+    }
+
+    private static byte[] randomData(int size)
+    {
+        byte[] data = new byte[size];
+        ThreadLocalRandom.current().nextBytes(data);
+        return data;
     }
 
     private static IcebergRestCatalogFileSystemFactory icebergRestCatalogFileSystemFactory(QueryRunner queryRunner)

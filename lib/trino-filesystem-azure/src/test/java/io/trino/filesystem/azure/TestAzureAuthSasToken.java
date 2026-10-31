@@ -14,6 +14,7 @@
 package io.trino.filesystem.azure;
 
 import com.azure.storage.blob.BlobContainerClientBuilder;
+import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
@@ -27,6 +28,9 @@ final class TestAzureAuthSasToken
         AzureAuthSasToken auth = new AzureAuthSasToken(ImmutableMap.of("account1", "sas-token-1"));
 
         assertThatThrownBy(() -> auth.setAuth("nonexistent", new BlobContainerClientBuilder()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No SAS token provided for storage account: nonexistent");
+        assertThatThrownBy(() -> auth.setAuth("nonexistent", new DataLakeServiceClientBuilder()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("No SAS token provided for storage account: nonexistent");
     }

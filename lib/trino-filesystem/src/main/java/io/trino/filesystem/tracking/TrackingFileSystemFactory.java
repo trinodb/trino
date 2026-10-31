@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.lang.ref.Cleaner;
+import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
@@ -43,6 +44,12 @@ public class TrackingFileSystemFactory
     public TrinoFileSystem create(ConnectorSession session)
     {
         return new TrackingFileSystem(delegate.create(session), createCleaner());
+    }
+
+    @Override
+    public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
+    {
+        return new TrackingFileSystem(delegate.create(identitySupplier), createCleaner());
     }
 
     private static Cleaner createCleaner()
