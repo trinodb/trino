@@ -25,12 +25,13 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.DeletionVectorDecryptionData;
 import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
+import io.trino.plugin.iceberg.encryption.ParquetFileDecryptionData;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ColumnHandle;
@@ -99,6 +100,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.IcebergSplitSource.createFileStatisticsDomain;
+import static io.trino.plugin.iceberg.IcebergSplitSource.deleteFileDecryptionData;
 import static io.trino.plugin.iceberg.IcebergSplitSource.parquetFileDecryptionData;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -135,6 +137,21 @@ public class TestIcebergSplitSource
                     new ParquetWriterConfig())
                     .getSessionProperties())
             .build();
+
+    private static final EncryptionManager NON_NATIVE_ENCRYPTION_MANAGER = new EncryptionManager()
+    {
+        @Override
+        public InputFile decrypt(EncryptedInputFile encrypted)
+        {
+            return encrypted.encryptedInputFile();
+        }
+
+        @Override
+        public EncryptedOutputFile encrypt(OutputFile rawOutput)
+        {
+            throw new UnsupportedOperationException();
+        }
+    };
 
     private TrinoFileSystemFactory fileSystemFactory;
     private TrinoCatalog catalog;
@@ -584,6 +601,16 @@ public class TestIcebergSplitSource
                 encryptionManager))
                 .hasMessageContaining("Reading encrypted non-Parquet file is not supported");
 
+        // Key metadata that does not resolve to a natively encrypted file must not be read as plaintext
+        assertThatThrownBy(() -> parquetFileDecryptionData(
+                FileFormat.PARQUET,
+                "memory:///test.parquet",
+                10,
+                keyMetadata,
+                fileIo,
+                NON_NATIVE_ENCRYPTION_MANAGER))
+                .hasMessageContaining("unsupported encryption");
+
         assertThat(parquetFileDecryptionData(
                 FileFormat.PARQUET,
                 "memory:///test.parquet",
@@ -603,6 +630,34 @@ public class TestIcebergSplitSource
         assertThat(decryptionData).isPresent();
         assertThat(decryptionData.orElseThrow().fileEncryptionKey()).containsExactly(expectedKey);
         assertThat(decryptionData.orElseThrow().fileAadPrefix()).containsExactly(expectedAadPrefix);
+    }
+
+    @Test
+    public void testDeleteFileDecryptionData()
+    {
+        FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
+        String location = "local:///delete-file-" + UUID.randomUUID() + ".puffin";
+        EncryptionManager encryptionManager = EncryptionTestHelpers.createEncryptionManager();
+        NativeEncryptionKeyMetadata keyMetadata = ((NativeEncryptionOutputFile) encryptionManager.encrypt(fileIo.newOutputFile(location))).keyMetadata();
+        byte[] key = ByteBuffers.toByteArray(keyMetadata.encryptionKey());
+        byte[] aadPrefix = ByteBuffers.toByteArray(keyMetadata.aadPrefix());
+
+        assertThat(deleteFileDecryptionData(FileFormat.PUFFIN, location, 10, keyMetadata.copyWithLength(10).buffer(), fileIo, encryptionManager))
+                .hasValue(new DeletionVectorDecryptionData(key, aadPrefix, 10));
+        assertThatThrownBy(() -> deleteFileDecryptionData(FileFormat.PUFFIN, location, 10, keyMetadata.copyWithLength(123).buffer(), fileIo, encryptionManager))
+                .hasMessageContaining("Encrypted file length in key metadata (123) does not match file size (10)");
+        assertThatThrownBy(() -> deleteFileDecryptionData(FileFormat.PUFFIN, location, 10, keyMetadata.buffer(), fileIo, encryptionManager))
+                .hasMessageContaining("Encrypted file length in key metadata (null) does not match file size (10)");
+
+        // Key metadata that does not resolve to a natively encrypted file must not be read as plaintext
+        assertThatThrownBy(() -> deleteFileDecryptionData(FileFormat.PUFFIN, location, 10, keyMetadata.copyWithLength(10).buffer(), fileIo, NON_NATIVE_ENCRYPTION_MANAGER))
+                .hasMessageContaining("unsupported encryption");
+        assertThatThrownBy(() -> deleteFileDecryptionData(FileFormat.PARQUET, location, 10, keyMetadata.buffer(), fileIo, NON_NATIVE_ENCRYPTION_MANAGER))
+                .hasMessageContaining("unsupported encryption");
+
+        // Parquet delete files are decrypted with the key and AAD prefix alone
+        assertThat(deleteFileDecryptionData(FileFormat.PARQUET, location, 10, keyMetadata.buffer(), fileIo, encryptionManager))
+                .hasValue(new ParquetFileDecryptionData(key, aadPrefix));
     }
 
     @Test

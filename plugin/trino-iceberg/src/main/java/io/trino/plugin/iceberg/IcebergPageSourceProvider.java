@@ -59,12 +59,14 @@ import io.trino.plugin.hive.TransformConnectorPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
 import io.trino.plugin.iceberg.delete.DeletionVector;
 import io.trino.plugin.iceberg.delete.PageFilter;
+import io.trino.plugin.iceberg.encryption.DeletionVectorDecryptionData;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.FileDecryptionData;
+import io.trino.plugin.iceberg.encryption.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.plugin.iceberg.system.files.FilesTablePageSource;
@@ -116,10 +118,13 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.avro.AvroSchemaUtil;
+import org.apache.iceberg.encryption.AesGcmInputFile;
 import org.apache.iceberg.encryption.EncryptingFileIO;
 import org.apache.iceberg.encryption.EncryptionManager;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.IOUtil;
 import org.apache.iceberg.io.InputFile;
+import org.apache.iceberg.io.SeekableInputStream;
 import org.apache.iceberg.mapping.MappedField;
 import org.apache.iceberg.mapping.MappedFields;
 import org.apache.iceberg.mapping.NameMapping;
@@ -167,6 +172,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.geospatial.serde.JtsGeometrySerde.OGC_CRS84_SRID;
 import static io.trino.geospatial.serde.JtsGeometrySerde.wkbToEwkb;
 import static io.trino.memory.context.AggregatedMemoryContext.newAggregatedMemoryContext;
@@ -240,6 +246,8 @@ import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
+import static org.apache.iceberg.encryption.Ciphers.CIPHER_BLOCK_SIZE;
+import static org.apache.iceberg.encryption.Ciphers.PLAIN_BLOCK_SIZE;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class IcebergPageSourceProvider
@@ -588,15 +596,45 @@ public class IcebergPageSourceProvider
         return requiredColumns.build();
     }
 
+    private static <T extends FileDecryptionData> Optional<T> fileDecryptionData(DeleteFile delete, Class<T> type)
+    {
+        return delete.fileDecryptionData().map(decryptionData -> {
+            verify(type.isInstance(decryptionData), "Unexpected %s decryption data for delete file: %s", decryptionData.type(), delete.path());
+            return type.cast(decryptionData);
+        });
+    }
+
     private static DeletionVector readDeletionVector(TrinoFileSystem fileSystem, DeleteFile delete, AggregatedMemoryContext memoryContext)
     {
         verify(delete.isDeletionVector(), "Not a deletion vector: %s", delete);
         TrinoInputFile trinoInputFile = fileSystem.newInputFile(Location.of(delete.path()), delete.fileSizeInBytes());
         LocalMemoryContext readBufferMemoryContext = memoryContext.newLocalMemoryContext(DeletionVector.class.getSimpleName());
-        try (TrinoInput trinoInput = trinoInputFile.newInput()) {
+        try {
+            long contentOffset = delete.contentOffset().orElseThrow();
             int contentSize = toIntExact(delete.contentSizeInBytes().orElseThrow());
-            readBufferMemoryContext.setBytes(contentSize);
-            Slice slice = trinoInput.readFully(delete.contentOffset().orElseThrow(), contentSize);
+            Optional<DeletionVectorDecryptionData> decryptionData = fileDecryptionData(delete, DeletionVectorDecryptionData.class);
+            // An AES-GCM stream reader must buffer a whole ciphertext block to authenticate it, plus the decrypted plaintext block
+            long readBufferSize = decryptionData.isPresent() ? (long) contentSize + CIPHER_BLOCK_SIZE + PLAIN_BLOCK_SIZE : contentSize;
+            readBufferMemoryContext.setBytes(readBufferSize);
+            Slice slice;
+            if (decryptionData.isPresent()) {
+                AesGcmInputFile inputFile = new AesGcmInputFile(
+                        new ForwardingInputFile(trinoInputFile),
+                        decryptionData.get().fileEncryptionKey(),
+                        decryptionData.get().fileAadPrefix(),
+                        decryptionData.get().fileLength());
+                try (SeekableInputStream inputStream = inputFile.newStream()) {
+                    inputStream.seek(contentOffset);
+                    byte[] content = new byte[contentSize];
+                    IOUtil.readFully(inputStream, content, 0, contentSize);
+                    slice = wrappedBuffer(content);
+                }
+            }
+            else {
+                try (TrinoInput trinoInput = trinoInputFile.newInput()) {
+                    slice = trinoInput.readFully(contentOffset, contentSize);
+                }
+            }
             return DeletionVector.builder().deserialize(slice).build().orElseThrow();
         }
         catch (IOException e) {
@@ -634,7 +672,7 @@ public class IcebergPageSourceProvider
                 OptionalLong.empty(),
                 OptionalLong.empty(),
                 memoryContext,
-                createParquetFileDecryptionProperties(delete.parquetFileDecryptionData(), arePlaintextFilesAllowedForEncryptedTables(session)))
+                createParquetFileDecryptionProperties(fileDecryptionData(delete, ParquetFileDecryptionData.class), arePlaintextFilesAllowedForEncryptedTables(session)))
                 .pageSource();
     }
 

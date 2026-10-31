@@ -33,8 +33,10 @@ import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.IntList;
 import io.trino.plugin.base.metrics.LongCount;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.delete.DeleteFile;
+import io.trino.plugin.iceberg.encryption.DeletionVectorDecryptionData;
+import io.trino.plugin.iceberg.encryption.FileDecryptionData;
+import io.trino.plugin.iceberg.encryption.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
@@ -114,6 +116,7 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.iceberg.ExpressionConverter.isConvertibleToIcebergExpression;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergExceptions.translateMetadataException;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
@@ -143,6 +146,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.PARQUET;
+import static org.apache.iceberg.FileFormat.PUFFIN;
 import static org.apache.iceberg.encryption.EncryptedFiles.encryptedInput;
 import static org.apache.iceberg.types.Conversions.fromByteBuffer;
 import static org.apache.iceberg.util.ByteBuffers.toByteArray;
@@ -613,7 +617,7 @@ public class IcebergSplitSource
                 .collect(toImmutableList());
         List<DeleteFile> deleteFiles = wholeFileTask.deletes().stream()
                 .peek(file -> verifyDeletionVectorReferencesDataFile(wholeFileTask, file))
-                .map(file -> DeleteFile.fromIceberg(file, parquetFileDecryptionData(
+                .map(file -> DeleteFile.fromIceberg(file, deleteFileDecryptionData(
                         file.format(),
                         file.location(),
                         file.fileSizeInBytes(),
@@ -687,6 +691,28 @@ public class IcebergSplitSource
     }
 
     @VisibleForTesting
+    public static Optional<FileDecryptionData> deleteFileDecryptionData(
+            FileFormat fileFormat,
+            String location,
+            long fileSizeInBytes,
+            @Nullable ByteBuffer keyMetadata,
+            FileIO fileIo,
+            EncryptionManager encryptionManager)
+    {
+        if (fileFormat == PUFFIN) {
+            return nativeKeyMetadata(location, fileSizeInBytes, keyMetadata, fileIo, encryptionManager).map(nativeKeyMetadata -> {
+                // Workers open deletion vectors with the file size, which must match the encrypted length
+                Long fileLength = nativeKeyMetadata.fileLength();
+                if (fileLength == null || fileLength != fileSizeInBytes) {
+                    throw new TrinoException(ICEBERG_BAD_DATA, "Encrypted file length in key metadata (%s) does not match file size (%s): %s".formatted(fileLength, fileSizeInBytes, location));
+                }
+                return new DeletionVectorDecryptionData(encryptionKey(nativeKeyMetadata), aadPrefix(nativeKeyMetadata), fileLength);
+            });
+        }
+        return parquetFileDecryptionData(fileFormat, location, fileSizeInBytes, keyMetadata, fileIo, encryptionManager).map(FileDecryptionData.class::cast);
+    }
+
+    @VisibleForTesting
     public static Optional<ParquetFileDecryptionData> parquetFileDecryptionData(
             FileFormat fileFormat,
             String location,
@@ -696,6 +722,20 @@ public class IcebergSplitSource
             EncryptionManager encryptionManager)
     {
         requireNonNull(fileFormat, "fileFormat is null");
+        if (keyMetadata != null && fileFormat != PARQUET) {
+            throw new TrinoException(NOT_SUPPORTED, "Reading encrypted non-Parquet file is not supported: " + location);
+        }
+        return nativeKeyMetadata(location, fileSizeInBytes, keyMetadata, fileIo, encryptionManager)
+                .map(nativeKeyMetadata -> new ParquetFileDecryptionData(encryptionKey(nativeKeyMetadata), aadPrefix(nativeKeyMetadata)));
+    }
+
+    private static Optional<NativeEncryptionKeyMetadata> nativeKeyMetadata(
+            String location,
+            long fileSizeInBytes,
+            @Nullable ByteBuffer keyMetadata,
+            FileIO fileIo,
+            EncryptionManager encryptionManager)
+    {
         requireNonNull(location, "location is null");
         requireNonNull(fileIo, "fileIo is null");
         requireNonNull(encryptionManager, "encryptionManager is null");
@@ -704,21 +744,23 @@ public class IcebergSplitSource
             return Optional.empty();
         }
 
-        if (fileFormat != PARQUET) {
-            throw new TrinoException(NOT_SUPPORTED, "Reading encrypted non-Parquet file is not supported: " + location);
-        }
-
         EncryptedInputFile encryptedInputFile = encryptedInput(fileIo.newInputFile(location, fileSizeInBytes), keyMetadata.duplicate());
         InputFile inputFile = encryptionManager.decrypt(encryptedInputFile);
 
         if (!(inputFile instanceof NativeEncryptionInputFile nativeEncryptionInputFile)) {
-            return Optional.empty();
+            throw new TrinoException(NOT_SUPPORTED, "Reading file with unsupported encryption is not supported: " + location);
         }
+        return Optional.of(nativeEncryptionInputFile.keyMetadata());
+    }
 
-        NativeEncryptionKeyMetadata nativeKeyMetadata = nativeEncryptionInputFile.keyMetadata();
-        ByteBuffer encryptionKey = requireNonNull(nativeKeyMetadata.encryptionKey(), "native encryption key is null");
-        ByteBuffer aadPrefix = requireNonNull(nativeKeyMetadata.aadPrefix(), "native AAD prefix is null");
-        return Optional.of(new ParquetFileDecryptionData(toByteArray(encryptionKey), toByteArray(aadPrefix)));
+    private static byte[] encryptionKey(NativeEncryptionKeyMetadata nativeKeyMetadata)
+    {
+        return toByteArray(requireNonNull(nativeKeyMetadata.encryptionKey(), "native encryption key is null"));
+    }
+
+    private static byte[] aadPrefix(NativeEncryptionKeyMetadata nativeKeyMetadata)
+    {
+        return toByteArray(requireNonNull(nativeKeyMetadata.aadPrefix(), "native AAD prefix is null"));
     }
 
     @VisibleForTesting

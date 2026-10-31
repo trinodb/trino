@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFile;
+import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -25,14 +27,20 @@ import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
+import org.apache.iceberg.deletes.BaseDVFileWriter;
+import org.apache.iceberg.deletes.DVFileWriter;
 import org.apache.iceberg.deletes.EqualityDeleteWriter;
 import org.apache.iceberg.deletes.PositionDelete;
+import org.apache.iceberg.deletes.PositionDeleteIndex;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.encryption.EncryptedOutputFile;
 import org.apache.iceberg.encryption.EncryptionManager;
 import org.apache.iceberg.encryption.EncryptionUtil;
 import org.apache.iceberg.encryption.KeyManagementClient;
+import org.apache.iceberg.encryption.NativeEncryptionOutputFile;
+import org.apache.iceberg.encryption.PlaintextEncryptionManager;
 import org.apache.iceberg.io.DataWriter;
+import org.apache.iceberg.io.OutputFileFactory;
 import org.apache.iceberg.parquet.Parquet;
 
 import java.io.Closeable;
@@ -40,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 
@@ -122,6 +131,50 @@ public final class EncryptedFileTestUtils
             }
             writer.close();
             return writer.toDeleteFile();
+        }
+    }
+
+    public static DeleteFile withNewEncryptionKey(Table table, DeleteFile deleteFile, EncryptionManager encryptionManager)
+    {
+        NativeEncryptionOutputFile outputFile = (NativeEncryptionOutputFile) encryptionManager.encrypt(table.io().newOutputFile(deleteFile.location()));
+        return FileMetadata.deleteFileBuilder(table.spec())
+                .copy(deleteFile)
+                .withEncryptionKeyMetadata(outputFile.keyMetadata().copyWithLength(deleteFile.fileSizeInBytes()).buffer())
+                .build();
+    }
+
+    /**
+     * Writes deletion vectors into a single Puffin file the way Iceberg core does.
+     * Iceberg's DV writer always encrypts with the table's own encryption manager, so the table must have an encryption key.
+     */
+    public static List<DeleteFile> writeEncryptedDeletionVectors(Table table, Map<String, long[]> positionsByDataFile)
+            throws Exception
+    {
+        checkArgument(!(table.encryption() instanceof PlaintextEncryptionManager), "Table has no encryption key: %s", table.name());
+        return writeDeletionVectors(table, positionsByDataFile);
+    }
+
+    public static List<DeleteFile> writePlaintextDeletionVectors(Table table, Map<String, long[]> positionsByDataFile)
+            throws Exception
+    {
+        checkArgument(table.encryption() instanceof PlaintextEncryptionManager, "Table has an encryption key: %s", table.name());
+        return writeDeletionVectors(table, positionsByDataFile);
+    }
+
+    // Iceberg's DV writer encrypts implicitly with table.encryption(), so the public helpers check the table's encryption state
+    private static List<DeleteFile> writeDeletionVectors(Table table, Map<String, long[]> positionsByDataFile)
+            throws Exception
+    {
+        try (DVFileWriter writer = new BaseDVFileWriter(
+                OutputFileFactory.builderFor(table, 1, 1).format(FileFormat.PUFFIN).build(),
+                _ -> PositionDeleteIndex.empty())) {
+            positionsByDataFile.forEach((dataFilePath, positions) -> {
+                for (long position : positions) {
+                    writer.delete(dataFilePath, position, table.spec(), null);
+                }
+            });
+            writer.close();
+            return writer.result().deleteFiles();
         }
     }
 
