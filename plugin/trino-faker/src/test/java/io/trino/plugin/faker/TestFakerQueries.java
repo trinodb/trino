@@ -1506,6 +1506,13 @@ final class TestFakerQueries
             String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
             assertThat(createTable).containsPattern("nullable integer WITH \\(null_probability = 1E0\\)");
         }
+
+        // the table property overrides the detected null probability, so the column generates values without having any in the source
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "only_nulls", "WITH (null_probability = 0.5) AS " + source)) {
+            assertThat((Long) computeScalar("SELECT count(nullable) FROM " + table.getName())).isPositive();
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).doesNotContain(ALLOWED_VALUES_PROPERTY);
+        }
     }
 
     @Test
