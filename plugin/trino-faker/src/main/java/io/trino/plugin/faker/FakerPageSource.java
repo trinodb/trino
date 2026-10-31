@@ -18,13 +18,13 @@ import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.ArrayBlockBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
@@ -49,21 +49,30 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import net.datafaker.Faker;
 
+import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.Inet4Address;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -123,6 +132,10 @@ class FakerPageSource
     };
 
     private static final int ROWS_PER_PAGE = 4096;
+    // Small enough to keep nested arrays and maps, and the pages holding them, small,
+    // while still producing empty, single, and multiple elements often.
+    private static final int MAX_CARDINALITY = 5;
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
     private final Random random;
     private final Faker faker;
@@ -372,16 +385,16 @@ class FakerPageSource
             };
         }
         if (type instanceof ArrayType arrayType) {
-            ArrayBlockBuilder arrayBlockBuilder = arrayType.createBlockBuilder(null, 1);
-            arrayBlockBuilder.buildEntry(_ -> {});
-            ArrayBlock emptyBlock = (ArrayBlock) arrayBlockBuilder.build();
-            return blockBuilder -> blockBuilder.append(emptyBlock, 0);
+            Generator elementGenerator = nestedValueGenerator(arrayType.getElementType());
+            return blockBuilder -> ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                int cardinality = random.nextInt(MAX_CARDINALITY + 1);
+                for (int i = 0; i < cardinality; i++) {
+                    elementGenerator.accept(elementBuilder);
+                }
+            });
         }
         if (type instanceof MapType mapType) {
-            MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
-            mapBlockBuilder.buildEntry((_, _) -> {});
-            MapBlock emptyBlock = (MapBlock) mapBlockBuilder.build();
-            return blockBuilder -> blockBuilder.append(emptyBlock, 0);
+            return mapGenerator(mapType);
         }
         if (type.getBaseName().equals(StandardTypes.JSON)) {
             // An empty slice is not a valid JSON document and would fail the parse on read;
@@ -595,9 +608,62 @@ class FakerPageSource
         throw new IllegalArgumentException("Unsupported type " + type);
     }
 
+    private Generator mapGenerator(MapType mapType)
+    {
+        Type keyType = mapType.getKeyType();
+        Generator keyGenerator = nestedValueGenerator(keyType);
+        Generator valueGenerator = nestedValueGenerator(mapType.getValueType());
+        MethodHandle keyIndeterminate = TYPE_OPERATORS.getIndeterminateOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        MethodHandle keyEqual = TYPE_OPERATORS.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
+        return blockBuilder -> {
+            BlockBuilder keyCandidatesBuilder = keyType.createBlockBuilder(null, MAX_CARDINALITY);
+            int cardinality = random.nextInt(MAX_CARDINALITY + 1);
+            for (int i = 0; i < cardinality; i++) {
+                keyGenerator.accept(keyCandidatesBuilder);
+            }
+            ValueBlock keyCandidates = keyCandidatesBuilder.buildValueBlock();
+            int[] keyPositions = distinctKeyPositions(keyCandidates, keyIndeterminate, keyEqual);
+            ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
+                for (int position : keyPositions) {
+                    keyBuilder.append(keyCandidates, position);
+                    valueGenerator.accept(valueBuilder);
+                }
+            });
+        };
+    }
+
     private Generator nestedValueGenerator(Type type)
     {
         return randomValueGenerator(new FakerColumnHandle(0, "nested", type, 0, null, Domain.all(type), ValueSet.none(type)));
+    }
+
+    // Duplicate keys are dropped instead of regenerated, so key types with few values, like boolean,
+    // produce smaller maps instead of never finishing. Indeterminate keys are dropped, because map keys
+    // can't be null or contain nulls, which is what types without a generator, like color, produce.
+    private static int[] distinctKeyPositions(Block keys, MethodHandle keyIndeterminate, MethodHandle keyEqual)
+    {
+        int[] positions = new int[keys.getPositionCount()];
+        int count = 0;
+        try {
+            for (int position = 0; position < keys.getPositionCount(); position++) {
+                if ((boolean) keyIndeterminate.invokeExact(keys, position)) {
+                    continue;
+                }
+                boolean duplicate = false;
+                for (int i = 0; i < count && !duplicate; i++) {
+                    // equal only returns null for keys containing nulls, which are already skipped
+                    duplicate = (Boolean) keyEqual.invokeExact(keys, positions[i], keys, position);
+                }
+                if (!duplicate) {
+                    positions[count++] = position;
+                }
+            }
+        }
+        catch (Throwable throwable) {
+            throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
+        }
+        return Arrays.copyOf(positions, count);
     }
 
     private Generator decimalGenerator(Range genericRange, DecimalType decimalType)
