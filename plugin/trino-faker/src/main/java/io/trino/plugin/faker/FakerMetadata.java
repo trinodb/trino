@@ -54,18 +54,23 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.HyperLogLogType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.P4HyperLogLogType;
 import io.trino.spi.type.QuantileDigestType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
@@ -81,6 +86,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.UnaryOperator;
@@ -99,6 +105,7 @@ import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.NULL_PROBABILITY_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
+import static io.trino.plugin.faker.FakerPageSource.POWERS_OF_TEN;
 import static io.trino.plugin.faker.FakerPageSource.hasGenerator;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
@@ -114,8 +121,14 @@ import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VAL
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.lang.String.format;
@@ -829,23 +842,71 @@ public class FakerMetadata
             checkState(allowedValues == null || (min == null && max == null), "The `%s` property cannot be set together with `%s` and `%s` properties".formatted(ALLOWED_VALUES_PROPERTY, MIN_PROPERTY, MAX_PROPERTY));
 
             ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
-            if (allowedValues != null) {
-                columnStatistics.setDistinctValuesCount(Estimate.of(allowedValues.size()));
-            }
-            else {
-                Type type = columnInfo.metadata().getType();
-                if (min != null && max != null && type.getJavaType() == long.class) {
-                    long distinctValuesCount = (long) max - (long) min;
-                    if (step != null) {
-                        distinctValuesCount = distinctValuesCount / (long) step;
-                    }
-                    columnStatistics.setDistinctValuesCount(Estimate.of(distinctValuesCount));
-                }
-            }
             // columns of types without a generator only contain nulls
-            columnStatistics.setNullsFraction(Estimate.of(hasGenerator(columnInfo.type()) ? columnInfo.handle().nullProbability() : 1));
+            double nullsFraction = hasGenerator(columnInfo.type()) ? columnInfo.handle().nullProbability() : 1;
+            columnStatistics.setNullsFraction(Estimate.of(nullsFraction));
+            if (nullsFraction == 1) {
+                columnStatistics.setDistinctValuesCount(Estimate.zero());
+            }
+            else if (allowedValues != null) {
+                // the domain doesn't contain duplicate values
+                columnStatistics.setDistinctValuesCount(Estimate.of(Math.min(columnInfo.handle().domain().getValues().getDiscreteSet().size(), fakerTableHandle.limit())));
+            }
+            else if (min != null && max != null) {
+                Type type = columnInfo.metadata().getType();
+                distinctValuesCount(type, min, max, step)
+                        .ifPresent(count -> columnStatistics.setDistinctValuesCount(Estimate.of(Math.min(count, fakerTableHandle.limit()))));
+                DoubleRange.from(type, min, max).ifPresent(columnStatistics::setRange);
+            }
             tableStatisitics.setColumnStatistics(columnInfo.handle(), columnStatistics.build());
         });
         return tableStatisitics.build();
+    }
+
+    /**
+     * Counts values between {@code min} and {@code max} the same way {@link FakerPageSource} generates them.
+     * Other types are skipped, because their values are floating point numbers, are not stored in a long, or have a time zone offset.
+     */
+    private static OptionalDouble distinctValuesCount(Type type, Object min, Object max, Object step)
+    {
+        if (BIGINT.equals(type) || INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type) || (type instanceof DecimalType decimalType && decimalType.isShort())) {
+            return distinctValuesCount((long) min, (long) max, 1, (Long) step, 1);
+        }
+        if (DATE.equals(type)) {
+            return distinctValuesCount((long) min, (long) max, 1, (Long) step, NANOSECONDS_PER_DAY);
+        }
+        if (type instanceof TimestampType timestampType && timestampType.isShort()) {
+            long factor = POWERS_OF_TEN[6 - timestampType.getPrecision()];
+            return distinctValuesCount((long) min, (long) max, factor, (Long) step, factor * NANOSECONDS_PER_MICROSECOND);
+        }
+        if (type instanceof TimestampWithTimeZoneType timestampType && timestampType.isShort()) {
+            long factor = POWERS_OF_TEN[3 - timestampType.getPrecision()];
+            return distinctValuesCount(unpackMillisUtc((long) min), unpackMillisUtc((long) max), factor, (Long) step, factor * NANOSECONDS_PER_MILLISECOND);
+        }
+        if (type instanceof TimeType timeType) {
+            long factor = POWERS_OF_TEN[12 - timeType.getPrecision()];
+            return distinctValuesCount((long) min, (long) max, factor, step == null ? null : (long) step * PICOSECONDS_PER_NANOSECOND, factor);
+        }
+        if (IntervalValues.isInterval(type)) {
+            long quantum = IntervalValues.quantum(type);
+            return distinctValuesCount((long) min, (long) max, quantum, (Long) step, quantum);
+        }
+        return OptionalDouble.empty();
+    }
+
+    private static OptionalDouble distinctValuesCount(long min, long max, long valueUnit, Long step, long stepUnit)
+    {
+        // converting large values to a double loses precision, so only do that when max - min overflows a long
+        long difference = max - min;
+        double valueUnits = (difference >= 0 ? (double) difference : (double) max - min) / valueUnit;
+        if (step == null) {
+            return OptionalDouble.of(valueUnits + 1);
+        }
+        // a step shorter than the type precision generates repeated values, and a step that is not positive does not generate a sequence
+        if (step <= 0 || step % stepUnit != 0) {
+            return OptionalDouble.empty();
+        }
+        // FakerPageSource generates max after the last full step, which might be shorter
+        return OptionalDouble.of(Math.ceil(valueUnits / (step / stepUnit)) + 1);
     }
 }
