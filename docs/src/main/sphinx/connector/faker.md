@@ -11,12 +11,6 @@ including Trino itself, and application user interfaces accessing the data.
 
 ## Configuration
 
-Day-time intervals support up to six fractional-second digits. Their `min`, `max`,
-`step`, and `allowed_values` properties use seconds; year-month interval properties
-use months. Generated values respect the qualifier, leading precision, and
-fractional precision. Intervals with more than six fractional-second digits are
-not supported and are rejected when a table is created.
-
 Create a catalog properties file that specifies the Faker connector by setting
 the `connector.name` to `faker`.
 
@@ -230,6 +224,13 @@ CREATE TABLE generator.default.customer (
   last_login_ip IPADDRESS NOT NULL WITH (generator = '#{Internet.ipV4Address}')
 );
 ```
+
+Day-time intervals support up to six fractional-second digits. Their `min`,
+`max`, `step`, and `allowed_values` properties use seconds; year-month interval
+properties use months. Generated values respect the qualifier, leading
+precision, and fractional precision. Intervals with more than six
+fractional-second digits are not supported and are rejected when a table is
+created.
 
 ### Unsupported types
 
