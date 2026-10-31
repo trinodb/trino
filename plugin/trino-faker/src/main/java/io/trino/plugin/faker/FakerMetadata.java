@@ -69,18 +69,17 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import net.datafaker.Faker;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 import java.util.stream.IntStream;
@@ -136,8 +135,7 @@ public class FakerMetadata
     private final boolean isDictionaryDetectionEnabled;
     private final FunctionBundle functionBundle;
 
-    private final Random random;
-    private final Faker faker;
+    private final Locale locale;
 
     @GuardedBy("this")
     private final Map<SchemaTableName, TableInfo> tables = new HashMap<>();
@@ -153,8 +151,7 @@ public class FakerMetadata
         this.isSequenceDetectionEnabled = config.isSequenceDetectionEnabled();
         this.isDictionaryDetectionEnabled = config.isDictionaryDetectionEnabled();
         this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
-        this.random = new Random(1);
-        this.faker = new Faker(random);
+        this.locale = config.getLocale();
     }
 
     @Override
@@ -601,7 +598,7 @@ public class FakerMetadata
             return ImmutableMap.of();
         }
         ImmutableMap.Builder<String, List<Object>> columnValues = ImmutableMap.builder();
-        try (FakerPageSource pageSource = new FakerPageSource(faker, random, dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
+        try (FakerPageSource pageSource = new FakerPageSource(locale, dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
             SourcePage page = null;
             while (page == null) {
                 page = pageSource.getNextSourcePage();
