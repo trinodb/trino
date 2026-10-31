@@ -25,6 +25,7 @@ public record SchemaInfo(String name, Map<String, Object> properties)
     public static final String DEFAULT_LIMIT_PROPERTY = "default_limit";
     public static final String SEQUENCE_DETECTION_ENABLED = "sequence_detection_enabled";
     public static final String DICTIONARY_DETECTION_ENABLED = "dictionary_detection_enabled";
+    public static final String GENERATOR_DETECTION_ENABLED = "generator_detection_enabled";
 
     public SchemaInfo
     {

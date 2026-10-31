@@ -94,10 +94,12 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.filterKeys;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.GENERATOR_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.NULL_PROBABILITY_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
+import static io.trino.plugin.faker.GeneratorDetection.detectGenerator;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -134,6 +136,7 @@ public class FakerMetadata
     private final long defaultLimit;
     private final boolean isSequenceDetectionEnabled;
     private final boolean isDictionaryDetectionEnabled;
+    private final boolean isGeneratorDetectionEnabled;
     private final FunctionBundle functionBundle;
 
     private final Random random;
@@ -152,6 +155,7 @@ public class FakerMetadata
         this.defaultLimit = config.getDefaultLimit();
         this.isSequenceDetectionEnabled = config.isSequenceDetectionEnabled();
         this.isDictionaryDetectionEnabled = config.isDictionaryDetectionEnabled();
+        this.isGeneratorDetectionEnabled = config.isGeneratorDetectionEnabled();
         this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
         this.random = new Random(1);
         this.faker = new Faker(random);
@@ -375,12 +379,17 @@ public class FakerMetadata
 
         double schemaNullProbability = (double) schema.properties().getOrDefault(SchemaInfo.NULL_PROBABILITY_PROPERTY, nullProbability);
         double tableNullProbability = (double) tableMetadata.getProperties().getOrDefault(TableInfo.NULL_PROBABILITY_PROPERTY, schemaNullProbability);
+        boolean schemaGeneratorDetectionEnabled = (boolean) schema.properties().getOrDefault(SchemaInfo.GENERATOR_DETECTION_ENABLED, isGeneratorDetectionEnabled);
+        boolean tableGeneratorDetectionEnabled = (boolean) tableMetadata.getProperties().getOrDefault(TableInfo.GENERATOR_DETECTION_ENABLED, schemaGeneratorDetectionEnabled);
 
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         int columnId = 0;
         for (; columnId < tableMetadata.getColumns().size(); columnId++) {
             ColumnMetadata column = tableMetadata.getColumns().get(columnId);
             IntervalValues.checkSupported(column.getType());
+            if (tableGeneratorDetectionEnabled) {
+                column = withDetectedGenerator(column);
+            }
             columns.add(new ColumnInfo(
                     FakerColumnHandle.of(columnId, column, tableNullProbability),
                     column));
@@ -408,6 +417,22 @@ public class FakerMetadata
                 tableMetadata.getComment()));
 
         return new FakerOutputTableHandle(tableName);
+    }
+
+    private static ColumnMetadata withDetectedGenerator(ColumnMetadata column)
+    {
+        Map<String, Object> properties = column.getProperties();
+        if (properties.containsKey(GENERATOR_PROPERTY) || properties.containsKey(ALLOWED_VALUES_PROPERTY)) {
+            return column;
+        }
+        return detectGenerator(column.getName(), column.getType())
+                .map(generator -> ColumnMetadata.builderFrom(column)
+                        .setProperties(ImmutableMap.<String, Object>builder()
+                                .putAll(properties)
+                                .put(GENERATOR_PROPERTY, generator)
+                                .buildOrThrow())
+                        .build())
+                .orElse(column);
     }
 
     private static boolean isRangeType(Type type)
@@ -589,6 +614,8 @@ public class FakerMetadata
                 .filter(entry -> entry.getValue() <= MAX_DICTIONARY_SIZE)
                 .map(entry -> columnHandles.get(entry.getKey()))
                 .filter(Objects::nonNull)
+                // Generators produce more realistic values than random dictionaries
+                .filter(column -> column.generator() == null)
                 .filter(column -> isRangeType(column.type()))
                 .map(column -> !minimums.containsKey(column.name()) ? column : column.withDomain(Domain.create(ValueSet.ofRanges(Range.range(
                         column.type(),

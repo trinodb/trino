@@ -145,6 +145,13 @@ public class FakerConnector
                         If true, when creating a table using existing data, columns with a low number of distinct values
                         are treated as dictionaries, and get the allowed_values column property populated with random values""",
                         null,
+                        false),
+                booleanProperty(
+                        SchemaInfo.GENERATOR_DETECTION_ENABLED,
+                        """
+                        If true, when creating a table, CHAR and VARCHAR columns with a recognized name, like email or city,
+                        get the generator column property set to a matching Faker expression""",
+                        null,
                         false));
     }
 
@@ -176,6 +183,13 @@ public class FakerConnector
                         """
                         If true, when creating a table using existing data, columns with a low number of distinct values
                         are treated as dictionaries, and get the allowed_values column property populated with random values""",
+                        null,
+                        false),
+                booleanProperty(
+                        TableInfo.GENERATOR_DETECTION_ENABLED,
+                        """
+                        If true, when creating a table, CHAR and VARCHAR columns with a recognized name, like email or city,
+                        get the generator column property set to a matching Faker expression""",
                         null,
                         false));
     }
