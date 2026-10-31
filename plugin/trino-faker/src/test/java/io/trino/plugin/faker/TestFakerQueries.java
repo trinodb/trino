@@ -702,4 +702,48 @@ final class TestFakerQueries
             assertThat(createTable).containsPattern("boolean_array array\\(boolean\\) WITH \\(null_probability = 0E0\\)");
         }
     }
+
+    @Test
+    void testCreateTableAsSelectNonOrderable()
+    {
+        String source =
+                """
+                SELECT
+                  JSON '1' AS json,
+                  MAP(ARRAY['a'], ARRAY[1]) AS map,
+                  ARRAY[MAP(ARRAY['a'], ARRAY[1])] AS map_array,
+                  ROW(MAP(ARRAY['a'], ARRAY[1])) AS map_row,
+                  empty_approx_set() AS hll
+                FROM TABLE(sequence(start => 0, stop => 1000, step => 1))
+                """;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "non_orderable", "AS " + source)) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("json json WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("map map\\(varchar\\(1\\), integer\\) WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("map_array array\\(map\\(varchar\\(1\\), integer\\)\\) WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("map_row ROW\\(map\\(varchar\\(1\\), integer\\)\\) WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("hll HyperLogLog WITH \\(null_probability = 1E0\\)");
+            assertThat(createTable).contains("default_limit = 1001");
+        }
+    }
+
+    @Test
+    void testSelectTypesWithoutGenerator()
+    {
+        try (TestTable table = newTrinoTable("without_generator", "(hll HyperLogLog NOT NULL, p4hll P4HyperLogLog, qdigest qdigest(bigint), tdigest tdigest)")) {
+            assertQuery(
+                    "SELECT count(*), count(hll), count(p4hll), count(qdigest), count(tdigest) FROM " + table.getName(),
+                    "VALUES (1000, 0, 0, 0, 0)");
+            assertQuery(
+                    "SHOW STATS FOR " + table.getName(),
+                    """
+                    VALUES
+                      ('hll', 0.0, NULL, 1.0, NULL, NULL, NULL),
+                      ('p4hll', 0.0, NULL, 1.0, NULL, NULL, NULL),
+                      ('qdigest', 0.0, NULL, 1.0, NULL, NULL, NULL),
+                      ('tdigest', 0.0, NULL, 1.0, NULL, NULL, NULL),
+                      (NULL, NULL, NULL, NULL, 1000, NULL, NULL)
+                    """);
+        }
+    }
 }
