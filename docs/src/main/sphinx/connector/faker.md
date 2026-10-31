@@ -11,12 +11,6 @@ including Trino itself, and application user interfaces accessing the data.
 
 ## Configuration
 
-Day-time intervals support up to six fractional-second digits. Their `min`, `max`,
-`step`, and `allowed_values` properties use seconds; year-month interval properties
-use months. Generated values respect the qualifier, leading precision, and
-fractional precision. Intervals with more than six fractional-second digits are
-not supported and are rejected when a table is created.
-
 Create a catalog properties file that specifies the Faker connector by setting
 the `connector.name` to `faker`.
 
@@ -214,6 +208,13 @@ Faker supports the following non-character types:
 You can not use generator expressions for non-character-based columns. To limit
 their data range, set the `min` and `max` column properties - see
 [](faker-usage).
+
+Day-time intervals support up to six fractional-second digits. Their `min`,
+`max`, `step`, and `allowed_values` properties use seconds; year-month interval
+properties use months. Generated values respect the qualifier, leading
+precision, and fractional precision. Intervals with more than six
+fractional-second digits are not supported and are rejected when a table is
+created.
 
 ### Unsupported types
 
