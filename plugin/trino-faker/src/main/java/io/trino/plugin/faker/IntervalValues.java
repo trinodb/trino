@@ -42,6 +42,8 @@ final class IntervalValues
         if (isInterval(type) && type.getJavaType() != long.class) {
             throw new TrinoException(NOT_SUPPORTED, "Faker does not support day-time intervals with fractional precision greater than 6: " + type.getDisplayName());
         }
+        // row fields, array elements, and map keys and values are generated too
+        type.getTypeParameters().forEach(IntervalValues::checkSupported);
     }
 
     static long parse(String value, Type type)
