@@ -459,6 +459,20 @@ final class TestFakerQueries
     }
 
     @Test
+    void testOutOfRangeIntegerProperties()
+    {
+        assertQueryFails(
+                "CREATE TABLE out_of_range_integer (v integer WITH (min = '2147483648'))",
+                "The `min` property must be a valid integer literal");
+        assertQueryFails(
+                "CREATE TABLE out_of_range_smallint (v smallint WITH (max = '-32769'))",
+                "The `max` property must be a valid smallint literal");
+        assertQueryFails(
+                "CREATE TABLE out_of_range_tinyint (v tinyint WITH (allowed_values = ARRAY['0', '128']))",
+                "The `allowed_values` property must only contain valid tinyint literals, failed to parse `128`");
+    }
+
+    @Test
     void testSelectStepProperties()
     {
         // small step in small ranges that produce only 10 unique values for 1000 rows

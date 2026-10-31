@@ -99,8 +99,19 @@ public class Literal
         if (value == null) {
             return null;
         }
-        if (BIGINT.equals(type) || INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type)) {
+        if (BIGINT.equals(type)) {
             return parseLong(value);
+        }
+        if (INTEGER.equals(type)) {
+            long integer = parseLong(value);
+            checkArgument(integer >= Integer.MIN_VALUE && integer <= Integer.MAX_VALUE, "Out of range: %s", integer);
+            return integer;
+        }
+        if (SMALLINT.equals(type)) {
+            return (long) Shorts.checkedCast(parseLong(value));
+        }
+        if (TINYINT.equals(type)) {
+            return (long) SignedBytes.checkedCast(parseLong(value));
         }
         if (BOOLEAN.equals(type)) {
             return parseBoolean(value);
