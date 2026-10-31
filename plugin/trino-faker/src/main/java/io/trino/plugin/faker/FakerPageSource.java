@@ -472,7 +472,10 @@ class FakerPageSource
             }
             if (varcharType.getLength().isPresent()) {
                 int length = varcharType.getLength().get();
-                return blockBuilder -> varcharType.writeSlice(blockBuilder, boundedSentenceGenerator.get(random.nextInt(length)));
+                if (length == 0) {
+                    return blockBuilder -> varcharType.writeSlice(blockBuilder, Slices.EMPTY_SLICE);
+                }
+                return blockBuilder -> varcharType.writeSlice(blockBuilder, boundedSentenceGenerator.get(1 + random.nextInt(length)));
             }
             return blockBuilder -> varcharType.writeSlice(blockBuilder, sentenceGenerator.get());
         }

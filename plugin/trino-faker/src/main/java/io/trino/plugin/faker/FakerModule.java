@@ -42,6 +42,7 @@ public class FakerModule
         binder.bind(FakerPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(FakerPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(FunctionBundle.class).toInstance(functionBundleFactory.builder().functions(FakerFunctions.class).build());
+        binder.bind(FakerFunctionProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(FakerConfig.class);
     }
 }

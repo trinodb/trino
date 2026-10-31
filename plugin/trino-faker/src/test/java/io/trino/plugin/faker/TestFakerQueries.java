@@ -165,6 +165,16 @@ final class TestFakerQueries
     }
 
     @Test
+    void testSelectBoundedVarchar()
+    {
+        try (TestTable table = newTrinoTable("bounded_varchar", "(single_char varchar(1), short_text varchar(5), empty varchar(0))")) {
+            assertQuery(
+                    "SELECT count(DISTINCT single_char) > 1, min(length(single_char)), min(length(short_text)), max(length(short_text)), count(DISTINCT length(short_text)), max(length(empty)) FROM " + table.getName(),
+                    "VALUES (true, 1, 1, 5, 5, 0)");
+        }
+    }
+
+    @Test
     void testSelectLimit()
     {
         try (TestTable table = newTrinoTable("single_column", "(rnd_bigint bigint NOT NULL)")) {
@@ -266,6 +276,14 @@ final class TestFakerQueries
         @Language("SQL")
         String testQuery = "SELECT faker.default.random_string('#{options.option ''a'', ''b''}') IN ('a', 'b')";
         assertQuery(testQuery, "VALUES (true)");
+    }
+
+    @Test
+    void testSelectFunctionsLocale()
+    {
+        getQueryRunner().createCatalog("faker_pl", "faker", Map.of("faker.locale", "pl-PL"));
+        assertThat(computeScalar("SELECT faker_pl.default.random_string('#{Address.default_country}')"))
+                .isEqualTo("Polska");
     }
 
     @Test
