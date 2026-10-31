@@ -27,6 +27,7 @@ import java.util.Map;
 
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -500,6 +501,46 @@ final class TestFakerQueries
             try (TestTable table = newTrinoTable("step_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
+        }
+    }
+
+    @Test
+    void testNonPositiveStepProperty()
+    {
+        // durations can't be negative, so only a zero step is tested for date and time types
+        List<String> columnSchemas = ImmutableList.of(
+                "bigint WITH (step = '-1')",
+                "bigint WITH (step = '0')",
+                "integer WITH (step = '-1')",
+                "smallint WITH (step = '-1')",
+                "tinyint WITH (step = '-1')",
+                "decimal(18,5) WITH (step = '-0.00001')",
+                "decimal(38,0) WITH (step = '-1')",
+                "decimal(38,0) WITH (step = '0')",
+                "real WITH (step = '-1.4E-45')",
+                "real WITH (step = '-0.0')",
+                "real WITH (step = 'NaN')",
+                "real WITH (step = 'Infinity')",
+                "double WITH (step = '-4.9E-324')",
+                "double WITH (step = '0.0')",
+                "double WITH (step = 'NaN')",
+                "double WITH (step = 'Infinity')",
+                "interval day(2) to second(3) WITH (step = '-0.001')",
+                "interval year(9) to month WITH (step = '0')",
+                "date WITH (step = '0d')",
+                "timestamp WITH (step = '0ms')",
+                "timestamp(9) WITH (step = '0ms')",
+                "timestamp with time zone WITH (step = '0ms')",
+                "timestamp(9) with time zone WITH (step = '0ms')",
+                "time WITH (step = '0ms')",
+                "time with time zone WITH (step = '0ms')",
+                "time(12) with time zone WITH (step = '0ms')");
+
+        for (String columnSchema : columnSchemas) {
+            assertThat(query("CREATE TABLE step_not_positive (value %s)".formatted(columnSchema)))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage("The `step` property must be greater than zero and finite");
         }
     }
 

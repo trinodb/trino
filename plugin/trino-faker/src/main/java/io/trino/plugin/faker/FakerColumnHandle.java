@@ -21,6 +21,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
@@ -42,6 +43,9 @@ import static io.trino.plugin.faker.PropertyValues.propertyValue;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.RealType.REAL;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public record FakerColumnHandle(
@@ -120,7 +124,22 @@ public record FakerColumnHandle(
         if (DATE.equals(type) || type instanceof TimestampType || type instanceof TimestampWithTimeZoneType || type instanceof TimeType || type instanceof TimeWithTimeZoneType) {
             stepType = BIGINT;
         }
+        if (!isPositive(stepType, step)) {
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property must be greater than zero and finite".formatted(STEP_PROPERTY));
+        }
         return ValueSet.of(stepType, step);
+    }
+
+    private static boolean isPositive(Type type, Object value)
+    {
+        return switch (value) {
+            case Long longValue when REAL.equals(type) -> Float.isFinite(intBitsToFloat(toIntExact(longValue))) && intBitsToFloat(toIntExact(longValue)) > 0;
+            case Long longValue -> longValue > 0;
+            case Double doubleValue -> Double.isFinite(doubleValue) && doubleValue > 0;
+            case Int128 int128Value -> !int128Value.isNegative() && !int128Value.isZero();
+            // types without numeric values don't support sequences, which is reported when generating data
+            default -> true;
+        };
     }
 
     private static Range range(Type type, Object min, Object max)
