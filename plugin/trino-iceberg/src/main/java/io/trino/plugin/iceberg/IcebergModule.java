@@ -107,6 +107,7 @@ public class IcebergModule
 
         binder.bind(ForwardingFileIoFactory.class).in(Scopes.SINGLETON);
         binder.bind(TableStatisticsReader.class).in(Scopes.SINGLETON);
+        binder.bind(PartitionStatisticsReader.class).in(Scopes.SINGLETON);
         binder.bind(TableStatisticsWriter.class).in(Scopes.SINGLETON);
         binder.bind(DeletionVectorWriter.class).to(DefaultDeletionVectorWriter.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMetadataFactory.class).in(Scopes.SINGLETON);
@@ -121,6 +122,7 @@ public class IcebergModule
         newExporter(binder).export(IcebergFileWriterFactory.class).withGeneratedName();
 
         binder.bind(IcebergEnvironmentContext.class).asEagerSingleton();
+        binder.bind(IcebergInternalData.class).asEagerSingleton();
 
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(RollbackToSnapshotProcedure.class).in(Scopes.SINGLETON);

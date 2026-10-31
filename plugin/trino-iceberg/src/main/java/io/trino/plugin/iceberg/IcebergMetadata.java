@@ -323,12 +323,14 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergPartitionFunction.Transform.BUCKET;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getPartitionStatisticsMinDataFiles;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getQueryPartitionFilterRequiredSchemas;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isBucketExecutionEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectExtendedStatisticsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isIncrementalRefreshEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isPartitionStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isQueryPartitionFilterRequired;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
@@ -551,7 +553,7 @@ public class IcebergMetadata
     private final ExecutorService icebergFileDeleteExecutor;
     private final int materializedViewRefreshMaxSnapshotsToExpire;
     private final Duration materializedViewRefreshSnapshotRetentionPeriod;
-    private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
+    private final Map<TableStatisticsCacheKey, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
     private final IcebergTableCredentialsProvider tableCredentialsProvider;
     private final DeletionVectorWriter deletionVectorWriter;
     private final ConnectorExpressionEvaluator evaluator;
@@ -4083,7 +4085,9 @@ public class IcebergMetadata
         // If this changes, the caching logic may here may need to be revised.
         checkArgument(originalHandle.getMaxScannedFileSize().isEmpty(), "Unexpected max scanned file size set");
 
-        IcebergTableHandle cacheKey = new IcebergTableHandle(
+        boolean partitionStatisticsEnabled = isPartitionStatisticsEnabled(session);
+        int partitionStatisticsMinDataFiles = getPartitionStatisticsMinDataFiles(session);
+        IcebergTableHandle cacheKeyHandle = new IcebergTableHandle(
                 originalHandle.getSchemaName(),
                 originalHandle.getTableName(),
                 originalHandle.getTableType(),
@@ -4105,6 +4109,8 @@ public class IcebergMetadata
                 originalHandle.getMaxScannedFileSize(),
                 ImmutableSet.of(), // constraintColumns do not affect stats
                 Optional.empty()); // forAnalyze does not affect stats
+        // the partition statistics settings change the loaded statistics, so they are part of the key
+        TableStatisticsCacheKey cacheKey = new TableStatisticsCacheKey(cacheKeyHandle, partitionStatisticsEnabled, partitionStatisticsMinDataFiles);
         return getIncrementally(
                 tableStatisticsCache,
                 cacheKey,
@@ -4114,7 +4120,9 @@ public class IcebergMetadata
                     return tableStatisticsReader.getTableStatistics(
                             originalHandle,
                             projectedColumns,
-                            icebergTable);
+                            icebergTable,
+                            partitionStatisticsEnabled,
+                            partitionStatisticsMinDataFiles);
                 },
                 originalHandle.getProjectedColumns());
     }
@@ -4702,9 +4710,11 @@ public class IcebergMetadata
     private record GoneOrCorruptedTableChange()
             implements TableChangeInfo {}
 
+    private record TableStatisticsCacheKey(IcebergTableHandle handle, boolean partitionStatisticsEnabled, int partitionStatisticsMinDataFiles) {}
+
     private static TableStatistics getIncrementally(
-            Map<IcebergTableHandle, AtomicReference<TableStatistics>> cache,
-            IcebergTableHandle key,
+            Map<TableStatisticsCacheKey, AtomicReference<TableStatistics>> cache,
+            TableStatisticsCacheKey key,
             Predicate<TableStatistics> isSufficient,
             Function<Set<IcebergColumnHandle>, TableStatistics> columnStatisticsLoader,
             Set<IcebergColumnHandle> projectedColumns)
