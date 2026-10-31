@@ -35,6 +35,7 @@ import java.util.stream.Stream;
 
 import static io.trino.testing.containers.TrinoProductTestContainer.STARTUP_TIMEOUT_SECONDS;
 import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
+import static io.trino.testing.containers.TrinoTestImages.getDefaultTrinoImage;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -237,7 +238,7 @@ public class MultiNodeTrinoCluster
 
     public static class Builder
     {
-        private String imageName = TrinoTestImages.getDefaultTrinoImage();
+        private String imageName = getDefaultTrinoImage();
         private final Map<String, Map<String, String>> catalogs = new HashMap<>();
         private final Map<String, String> configProperties = new HashMap<>();
         private final Map<String, String> files = new HashMap<>();

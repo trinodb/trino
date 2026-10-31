@@ -37,6 +37,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.trino.testing.containers.TrinoTestImages.getDefaultTrinoImage;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -238,7 +239,7 @@ public final class TrinoProductTestContainer
 
     public static class Builder
     {
-        private String imageName = TrinoTestImages.getDefaultTrinoImage();
+        private String imageName = getDefaultTrinoImage();
         private final Map<String, Map<String, String>> catalogs = new HashMap<>();
         private Network network;
         private String networkAlias;
