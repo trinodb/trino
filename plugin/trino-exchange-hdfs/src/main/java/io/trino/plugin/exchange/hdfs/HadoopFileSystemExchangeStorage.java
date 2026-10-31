@@ -21,6 +21,7 @@ import com.google.inject.Inject;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.plugin.exchange.filesystem.CommitManifest;
 import io.trino.plugin.exchange.filesystem.ExchangeSourceFile;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
@@ -35,7 +36,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
@@ -50,6 +53,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_PROCESSED;
 import static java.lang.Math.toIntExact;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class HadoopFileSystemExchangeStorage
@@ -103,6 +107,41 @@ public class HadoopFileSystemExchangeStorage
     }
 
     @Override
+    public ListenableFuture<Void> deleteFiles(List<URI> files)
+    {
+        try {
+            for (URI file : files) {
+                fileSystem.delete(new Path(file), false);
+            }
+            for (URI file : files) {
+                Path markerPath = new Path(file);
+                if (markerPath.getName().equals(CommitManifest.FILE_NAME)) {
+                    Path attemptDirectory = markerPath.getParent();
+                    deleteDirectoryIfEmpty(attemptDirectory);
+                    deleteDirectoryIfEmpty(attemptDirectory.getParent());
+                }
+            }
+        }
+        catch (IOException | RuntimeException e) {
+            return immediateFailedFuture(e);
+        }
+        return immediateVoidFuture();
+    }
+
+    private void deleteDirectoryIfEmpty(Path directory)
+            throws IOException
+    {
+        try {
+            if (fileSystem.listStatus(directory).length == 0) {
+                fileSystem.delete(directory, false);
+            }
+        }
+        catch (FileNotFoundException _) {
+            // The directory may have been removed by another cleanup operation.
+        }
+    }
+
+    @Override
     public ListenableFuture<Void> deleteRecursively(List<URI> directories)
     {
         for (URI dir : directories) {
@@ -132,6 +171,38 @@ public class HadoopFileSystemExchangeStorage
             return immediateFailedFuture(e);
         }
         return immediateFuture(builder.build());
+    }
+
+    @Override
+    public ListenableFuture<Void> writeMarkerFile(URI directory, CommitManifest markerFile)
+    {
+        Path markerPath = new Path(new Path(directory), CommitManifest.FILE_NAME);
+        try (OutputStream out = fileSystem.create(markerPath, true)) {
+            out.write(markerFile.serialize().getBytes(UTF_8));
+        }
+        catch (IOException | RuntimeException e) {
+            return immediateFailedFuture(e);
+        }
+        return immediateVoidFuture();
+    }
+
+    @Override
+    public ListenableFuture<CommitManifest> readMarkerFile(URI uri)
+    {
+        Path markerPath = new Path(uri.toString());
+        if (!markerPath.getName().equals(CommitManifest.FILE_NAME)) {
+            markerPath = new Path(markerPath, CommitManifest.FILE_NAME);
+        }
+        try (InputStream in = fileSystem.open(markerPath)) {
+            byte[] data = in.readAllBytes();
+            if (data.length == 0) {
+                return immediateFailedFuture(new IOException("Committed marker file is empty: " + markerPath));
+            }
+            return immediateFuture(CommitManifest.deserialize(data));
+        }
+        catch (IOException | RuntimeException e) {
+            return immediateFailedFuture(e);
+        }
     }
 
     @Override
@@ -249,6 +320,8 @@ public class HadoopFileSystemExchangeStorage
     {
         private static final int INSTANCE_SIZE = instanceSize(HadoopExchangeStorageReader.class);
         private final OutputStream outputStream;
+        private final URI file;
+        private long size;
 
         public HadoopExchangeStorageWriter(FileSystem fileSystem, URI file)
         {
@@ -258,6 +331,7 @@ public class HadoopFileSystemExchangeStorage
             catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
+            this.file = requireNonNull(file, "file is null");
         }
 
         @Override
@@ -269,6 +343,7 @@ public class HadoopFileSystemExchangeStorage
             catch (IOException | RuntimeException e) {
                 return immediateFailedFuture(e);
             }
+            size += slice.length();
             return immediateVoidFuture();
         }
 
@@ -300,6 +375,12 @@ public class HadoopFileSystemExchangeStorage
         public long getRetainedSize()
         {
             return INSTANCE_SIZE;
+        }
+
+        @Override
+        public FileStatus getFileStatus()
+        {
+            return new FileStatus(file.toString(), size);
         }
     }
 }

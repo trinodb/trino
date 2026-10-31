@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.exchange.filesystem;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.plugin.exchange.filesystem.local.LocalFileSystemExchangeStorage;
@@ -37,61 +38,71 @@ final class TestFileSystemExchangeSink
     void testAbortDeletesOutputAndPreventsFinish(@TempDir Path temporaryDirectory)
             throws IOException
     {
-        Path outputDirectory = Files.createDirectory(temporaryDirectory.resolve("sink"));
-        FileSystemExchangeSink sink = createSink(new LocalFileSystemExchangeStorage(), outputDirectory);
-        sink.add(0, utf8Slice("data"));
+        for (boolean commitManifestEnabled : ImmutableList.of(false, true)) {
+            Path outputDirectory = Files.createDirectory(temporaryDirectory.resolve("sink-" + commitManifestEnabled));
+            FileSystemExchangeSink sink = createSink(new LocalFileSystemExchangeStorage(), outputDirectory, commitManifestEnabled);
+            sink.add(0, utf8Slice("data"));
 
-        getFutureValue(sink.abort());
-        assertThat(outputDirectory).doesNotExist();
-        assertThatThrownBy(() -> getFutureValue(sink.finish()))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Exchange sink has already closed");
+            getFutureValue(sink.abort());
+            assertThat(outputDirectory).doesNotExist();
+            assertThatThrownBy(() -> getFutureValue(sink.finish()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Exchange sink has already closed");
+        }
     }
 
     @Test
     void testAbortDuringFinishDoesNotDeleteCommittedOutput(@TempDir Path temporaryDirectory)
             throws IOException
     {
-        Path outputDirectory = Files.createDirectory(temporaryDirectory.resolve("sink"));
-        BlockingCommitStorage storage = new BlockingCommitStorage();
-        FileSystemExchangeSink sink = createSink(storage, outputDirectory);
-        sink.add(0, utf8Slice("data"));
+        for (boolean commitManifestEnabled : ImmutableList.of(false, true)) {
+            Path outputDirectory = Files.createDirectory(temporaryDirectory.resolve("sink-" + commitManifestEnabled));
+            BlockingCommitStorage storage = new BlockingCommitStorage();
+            FileSystemExchangeSink sink = createSink(storage, outputDirectory, commitManifestEnabled);
+            sink.add(0, utf8Slice("data"));
 
-        CompletableFuture<Void> finish = sink.finish();
-        assertThat(finish).isNotDone();
-        assertThat(outputDirectory.resolve(FileSystemExchangeSink.COMMITTED_MARKER_FILE_NAME)).exists();
+            CompletableFuture<Void> finish = sink.finish();
+            assertThat(finish).isNotDone();
+            assertThat(outputDirectory.resolve(CommitManifest.FILE_NAME)).exists();
 
-        getFutureValue(sink.abort());
-        assertThat(outputDirectory).exists();
+            getFutureValue(sink.abort());
+            assertThat(outputDirectory).exists();
 
-        storage.completeCommit();
-        getFutureValue(finish);
-        assertThat(outputDirectory.resolve("0_0.data")).exists();
-        assertThat(outputDirectory.resolve(FileSystemExchangeSink.COMMITTED_MARKER_FILE_NAME)).exists();
+            storage.completeCommit();
+            getFutureValue(finish);
+            assertThat(outputDirectory.resolve("0_0.data")).exists();
+            assertThat(outputDirectory.resolve(CommitManifest.FILE_NAME)).exists();
+            if (commitManifestEnabled) {
+                assertThat(getFutureValue(storage.readMarkerFile(outputDirectory.toUri())).files())
+                        .containsExactly(new FileStatus(outputDirectory.resolve("0_0.data").toUri().toString(), 8));
+            }
+        }
     }
 
     @Test
     void testFinishFailureDeletesOutput(@TempDir Path temporaryDirectory)
             throws IOException
     {
-        Path outputDirectory = Files.createDirectory(temporaryDirectory.resolve("sink"));
-        BlockingCommitStorage storage = new BlockingCommitStorage();
-        FileSystemExchangeSink sink = createSink(storage, outputDirectory);
-        sink.add(0, utf8Slice("data"));
+        for (boolean commitManifestEnabled : ImmutableList.of(false, true)) {
+            Path outputDirectory = Files.createDirectory(temporaryDirectory.resolve("sink-" + commitManifestEnabled));
+            BlockingCommitStorage storage = new BlockingCommitStorage();
+            FileSystemExchangeSink sink = createSink(storage, outputDirectory, commitManifestEnabled);
+            sink.add(0, utf8Slice("data"));
 
-        CompletableFuture<Void> finish = sink.finish();
-        assertThat(finish).isNotDone();
-        assertThat(outputDirectory.resolve(FileSystemExchangeSink.COMMITTED_MARKER_FILE_NAME)).exists();
+            CompletableFuture<Void> finish = sink.finish();
+            assertThat(finish).isNotDone();
+            assertThat(outputDirectory.resolve(CommitManifest.FILE_NAME)).exists();
 
-        storage.failCommit(new IOException("commit failed"));
+            storage.failCommit(new IOException("commit failed"));
 
-        assertThatThrownBy(finish::join)
-                .hasRootCauseInstanceOf(IOException.class)
-                .hasRootCauseMessage("commit failed");
-        assertThat(outputDirectory).doesNotExist();
+            assertThatThrownBy(finish::join)
+                    .hasRootCauseInstanceOf(IOException.class)
+                    .hasRootCauseMessage("commit failed");
+            assertThat(outputDirectory).doesNotExist();
+        }
     }
 
-    private static FileSystemExchangeSink createSink(FileSystemExchangeStorage storage, Path outputDirectory)
+    private static FileSystemExchangeSink createSink(FileSystemExchangeStorage storage, Path outputDirectory, boolean commitManifestEnabled)
     {
         return new FileSystemExchangeSink(
                 storage,
@@ -102,7 +113,8 @@ final class TestFileSystemExchangeSink
                 1024,
                 1,
                 1,
-                1024);
+                1024,
+                commitManifestEnabled);
     }
 
     private static final class BlockingCommitStorage
@@ -138,6 +150,25 @@ final class TestFileSystemExchangeSink
         {
             getFutureValue(delegate.createEmptyFile(file));
             return commitFuture;
+        }
+
+        @Override
+        public ListenableFuture<Void> writeMarkerFile(URI directory, CommitManifest manifest)
+        {
+            getFutureValue(delegate.writeMarkerFile(directory, manifest));
+            return commitFuture;
+        }
+
+        @Override
+        public ListenableFuture<CommitManifest> readMarkerFile(URI uri)
+        {
+            return delegate.readMarkerFile(uri);
+        }
+
+        @Override
+        public ListenableFuture<Void> deleteFiles(List<URI> files)
+        {
+            return delegate.deleteFiles(files);
         }
 
         @Override
