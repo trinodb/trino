@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -58,9 +59,9 @@ public class TestFakerPageSource
     public void testSplitsDoNotChangeValues()
     {
         List<FakerColumnHandle> columns = List.of(
-                new FakerColumnHandle(0, "sequence", BIGINT, 0.5, null, Domain.all(BIGINT), ValueSet.of(BIGINT, 1L)),
-                new FakerColumnHandle(1, "number", BIGINT, 0.5, null, Domain.all(BIGINT), ValueSet.none(BIGINT)),
-                new FakerColumnHandle(2, "text", VARCHAR, 0.5, null, Domain.all(VARCHAR), ValueSet.none(VARCHAR)));
+                new FakerColumnHandle(0, "sequence", BIGINT, 0.5, null, Domain.all(BIGINT), ValueSet.of(BIGINT, 1L), Optional.empty()),
+                new FakerColumnHandle(1, "number", BIGINT, 0.5, null, Domain.all(BIGINT), ValueSet.none(BIGINT), Optional.empty()),
+                new FakerColumnHandle(2, "text", VARCHAR, 0.5, null, Domain.all(VARCHAR), ValueSet.none(VARCHAR), Optional.empty()));
         List<List<Object>> singleSplit = generateRows(columns, 0, 5000);
         List<List<Object>> twoSplits = ImmutableList.<List<Object>>builder()
                 .addAll(generateRows(columns, 0, 1234))
@@ -71,7 +72,7 @@ public class TestFakerPageSource
 
     private static FakerColumnHandle column(Domain domain)
     {
-        return new FakerColumnHandle(0, "x", DOUBLE, 0, null, domain, ValueSet.none(DOUBLE));
+        return new FakerColumnHandle(0, "x", DOUBLE, 0, null, domain, ValueSet.none(DOUBLE), Optional.empty());
     }
 
     private static List<List<Object>> generateRows(List<FakerColumnHandle> columns, long rowOffset, long limit)

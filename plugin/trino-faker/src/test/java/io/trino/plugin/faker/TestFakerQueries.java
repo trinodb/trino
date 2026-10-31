@@ -28,6 +28,7 @@ import java.util.Map;
 
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.util.stream.Collectors.joining;
@@ -604,6 +605,174 @@ final class TestFakerQueries
                     .collect(joining(", "));
             return "%s %s NOT NULL%s".formatted(name, type, propertiesSchema.isEmpty() ? "" : " WITH (%s)".formatted(propertiesSchema));
         }
+    }
+
+    @Test
+    void testReferences()
+    {
+        try (TestTable parent = newTrinoTable("references_parent",
+                """
+                (
+                    id UUID NOT NULL,
+                    name VARCHAR NOT NULL WITH (generator = '#{Name.first_name}'),
+                    number INTEGER NOT NULL WITH (min = '1', step = '1')
+                )
+                WITH (default_limit = 100)
+                """);
+                TestTable child = newTrinoTable("references_child",
+                        """
+                        (
+                            parent_id UUID NOT NULL WITH (references = '%1$s.id'),
+                            parent_name VARCHAR NOT NULL WITH (references = 'default.%1$s.name'),
+                            parent_number INTEGER NOT NULL WITH (references = '%1$s.number')
+                        )
+                        """.formatted(parent.getName()))) {
+            assertNoOrphans(child.getName(), "parent_id", parent.getName(), "id");
+            assertNoOrphans(child.getName(), "parent_name", parent.getName(), "name");
+            assertNoOrphans(child.getName(), "parent_number", parent.getName(), "number");
+            // 1000 rows choosing from 100 parent rows reference almost all of them
+            assertThat((long) computeScalar("SELECT count(DISTINCT parent_id) FROM " + child.getName())).isGreaterThan(90);
+        }
+    }
+
+    @Test
+    void testReferencesSameTable()
+    {
+        assertUpdate(
+                """
+                CREATE TABLE references_employees (
+                    id BIGINT NOT NULL WITH (min = '1', step = '1'),
+                    manager_id BIGINT WITH (references = 'references_employees.id', null_probability = 0.1)
+                )
+                """);
+        assertNoOrphans("references_employees", "manager_id", "references_employees", "id");
+        assertUpdate("DROP TABLE references_employees");
+    }
+
+    @Test
+    void testReferencesChain()
+    {
+        try (TestTable first = newTrinoTable("references_chain_first", "(id UUID NOT NULL)");
+                TestTable second = newTrinoTable("references_chain_second", "(first_id UUID NOT NULL WITH (references = '%s.id')) WITH (default_limit = 10)".formatted(first.getName()));
+                TestTable third = newTrinoTable("references_chain_third", "(first_id UUID NOT NULL WITH (references = '%s.first_id'))".formatted(second.getName()))) {
+            assertNoOrphans(second.getName(), "first_id", first.getName(), "id");
+            assertNoOrphans(third.getName(), "first_id", second.getName(), "first_id");
+        }
+    }
+
+    @Test
+    void testReferencesNullableColumn()
+    {
+        try (TestTable parent = newTrinoTable("references_nullable_parent", "(id UUID WITH (null_probability = 0.5))");
+                TestTable child = newTrinoTable("references_nullable_child", "(parent_id UUID NOT NULL WITH (references = '%s.id'))".formatted(parent.getName()))) {
+            assertNoOrphans(child.getName(), "parent_id", parent.getName(), "id");
+            assertQuery("SELECT count(*) FROM %s WHERE parent_id IS NULL".formatted(child.getName()), "VALUES 0");
+        }
+    }
+
+    @Test
+    void testReferencesOnlyNullRows()
+    {
+        // with this seed, both rows of the referenced table are null
+        try (TestTable parent = newTrinoTable("references_null_rows_parent", "(id UUID WITH (null_probability = 0.999999)) WITH (default_limit = 2, seed = 0)");
+                TestTable child = newTrinoTable("references_null_rows_child", "(parent_id UUID NOT NULL WITH (references = '%s.id'))".formatted(parent.getName()))) {
+            assertQueryFails(
+                    "SELECT * FROM " + child.getName(),
+                    "Column 'id' referenced by column 'parent_id' only has null values");
+        }
+    }
+
+    @Test
+    void testReferencingColumnMetadata()
+    {
+        try (TestTable parent = newTrinoTable("references_metadata_parent", "(id UUID NOT NULL)");
+                TestTable child = newTrinoTable("references_metadata_child", "(parent_id UUID NOT NULL WITH (references = '%s.id'))".formatted(parent.getName()))) {
+            assertUpdate("COMMENT ON COLUMN %s.parent_id IS 'comment text'".formatted(child.getName()));
+            assertQuery("SHOW COLUMNS FROM " + child.getName(), "VALUES ('parent_id', 'uuid', '', 'comment text')");
+            assertQuery(
+                    "SHOW STATS FOR " + child.getName(),
+                    "VALUES ('parent_id', NULL, NULL, 0.0, NULL, NULL, NULL), (NULL, NULL, NULL, NULL, 1000.0, NULL, NULL)");
+        }
+    }
+
+    @Test
+    void testReferencesValidation()
+    {
+        try (TestTable parent = newTrinoTable("references_invalid_parent", "(id UUID NOT NULL, number BIGINT NOT NULL, nothing UUID WITH (null_probability = 1))");
+                TestTable emptyParent = newTrinoTable("references_invalid_empty_parent", "AS SELECT uuid() AS id WITH NO DATA")) {
+            String parentName = parent.getName();
+            assertThat(query("CREATE TABLE references_invalid (x UUID WITH (references = 'id'))"))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage("The `references` property must be in the 'table.column' or 'schema.table.column' format");
+            assertThat(query("CREATE TABLE references_invalid (x UUID WITH (references = 'missing.id'))"))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage("Table 'default.missing' referenced by column 'default.references_invalid.x' does not exist");
+            assertThat(query("CREATE TABLE references_invalid (x UUID WITH (references = '%s.missing'))".formatted(parentName)))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage("Column 'default.%s.missing' referenced by column 'default.references_invalid.x' does not exist".formatted(parentName));
+            assertThat(query("CREATE TABLE references_invalid (x VARCHAR WITH (references = '%s.id'))".formatted(parentName)))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage("Column 'default.references_invalid.x' of type varchar cannot reference column 'default.%s.id' of type uuid".formatted(parentName));
+            assertThat(query("CREATE TABLE references_invalid (x BIGINT WITH (references = '%s.number', min = '1'))".formatted(parentName)))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage("The `references` property cannot be set together with `min`, `max`, `step`, `allowed_values`, and `generator` properties");
+            assertThat(query("CREATE TABLE references_invalid (x UUID WITH (references = 'references_invalid.y'), y UUID WITH (references = 'references_invalid.x'))"))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage("Column references form a cycle: default.references_invalid.x -> default.references_invalid.y -> default.references_invalid.x");
+            assertThat(query("CREATE TABLE references_invalid (x UUID WITH (references = '%s.nothing'))".formatted(parentName)))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage("Column 'default.references_invalid.x' cannot reference column 'default.%s.nothing', which only has null values".formatted(parentName));
+            assertThat(query("CREATE TABLE references_invalid (x UUID WITH (references = '%s.id'))".formatted(emptyParent.getName())))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage("Table 'default.%s' referenced by column 'default.references_invalid.x' has no rows".formatted(emptyParent.getName()));
+            assertThat(getQueryRunner().tableExists(getSession(), "references_invalid")).isFalse();
+        }
+    }
+
+    @Test
+    void testReferencedTableChanged()
+    {
+        assertUpdate("CREATE TABLE references_changed_parent (id UUID NOT NULL)");
+        assertUpdate("CREATE TABLE references_changed_child (parent_id UUID NOT NULL WITH (references = 'references_changed_parent.id'))");
+
+        assertUpdate("ALTER TABLE references_changed_parent SET PROPERTIES default_limit = 10, seed = 1");
+        assertNoOrphans("references_changed_child", "parent_id", "references_changed_parent", "id");
+        assertQuery("SELECT count(DISTINCT parent_id) FROM references_changed_child", "VALUES 10");
+
+        assertUpdate("DROP TABLE references_changed_parent");
+        assertThat(query("SELECT * FROM references_changed_child"))
+                .failure()
+                .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                .hasMessage("Table 'default.references_changed_parent' referenced by column 'default.references_changed_child.parent_id' does not exist");
+
+        assertUpdate("CREATE TABLE references_changed_parent (id VARCHAR NOT NULL)");
+        assertThat(query("SELECT * FROM references_changed_child"))
+                .failure()
+                .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                .hasMessage("Column 'default.references_changed_child.parent_id' of type uuid cannot reference column 'default.references_changed_parent.id' of type varchar");
+
+        assertUpdate("DROP TABLE references_changed_parent");
+        assertUpdate("DROP TABLE references_changed_child");
+    }
+
+    private void assertNoOrphans(String table, String column, String referencedTable, String referencedColumn)
+    {
+        assertQuery(
+                """
+                SELECT count(r.%3$s) > 0, count_if(t.%4$s IS NULL)
+                FROM %1$s r
+                LEFT JOIN %2$s t ON r.%3$s = t.%4$s
+                WHERE r.%3$s IS NOT NULL
+                """.formatted(table, referencedTable, column, referencedColumn),
+                "VALUES (true, 0)");
     }
 
     @Test

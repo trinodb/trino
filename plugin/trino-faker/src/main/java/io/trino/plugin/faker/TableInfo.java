@@ -41,7 +41,7 @@ public record TableInfo(List<ColumnInfo> columns, Map<String, Object> properties
     public ColumnInfo column(ColumnHandle handle)
     {
         return columns.stream()
-                .filter(column -> column.handle().equals(handle))
+                .filter(column -> column.handle().columnIndex() == ((FakerColumnHandle) handle).columnIndex())
                 .findFirst()
                 .orElseThrow();
     }
