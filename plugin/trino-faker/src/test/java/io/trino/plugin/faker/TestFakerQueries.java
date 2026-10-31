@@ -473,6 +473,17 @@ final class TestFakerQueries
     }
 
     @Test
+    void testDecimalProperties()
+    {
+        try (TestTable table = newTrinoTable("decimal_properties", "(v decimal(5, 2) NOT NULL WITH (allowed_values = ARRAY['0.1', '1', '2.345']))")) {
+            assertQuery("SELECT DISTINCT v FROM " + table.getName(), "VALUES 0.10, 1.00, 2.35");
+        }
+        assertQueryFails(
+                "CREATE TABLE out_of_range_decimal (v decimal(5, 2) WITH (max = '1000'))",
+                "The `max` property must be a valid decimal\\(5,2\\) literal");
+    }
+
+    @Test
     void testSelectStepProperties()
     {
         // small step in small ranges that produce only 10 unique values for 1000 rows
