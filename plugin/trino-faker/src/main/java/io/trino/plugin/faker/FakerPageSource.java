@@ -398,7 +398,11 @@ class FakerPageSource
             if (!genericRange.isAll()) {
                 throw new TrinoException(INVALID_ROW_FILTER, "Predicates for columns with a generator expression are not supported");
             }
-            return blockBuilder -> VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(faker.expression(handle.generator())));
+            if (type instanceof CharType || type instanceof VarcharType || type instanceof VarbinaryType) {
+                return blockBuilder -> VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(faker.expression(handle.generator())));
+            }
+            ObjectWriter writer = objectWriter(type);
+            return blockBuilder -> writer.accept(blockBuilder, handle.parseGeneratedValue(faker.expression(handle.generator())));
         }
         // check every type in order defined in StandardTypes
         if (BIGINT.equals(type)) {

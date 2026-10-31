@@ -82,6 +82,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Locale.ENGLISH;
 
 public class Literal
@@ -99,8 +100,19 @@ public class Literal
         if (value == null) {
             return null;
         }
-        if (BIGINT.equals(type) || INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type)) {
+        if (BIGINT.equals(type)) {
             return parseLong(value);
+        }
+        if (INTEGER.equals(type)) {
+            long integer = parseLong(value);
+            checkArgument(integer >= Integer.MIN_VALUE && integer <= Integer.MAX_VALUE, "Out of range: %s", integer);
+            return integer;
+        }
+        if (SMALLINT.equals(type)) {
+            return (long) Shorts.checkedCast(parseLong(value));
+        }
+        if (TINYINT.equals(type)) {
+            return (long) SignedBytes.checkedCast(parseLong(value));
         }
         if (BOOLEAN.equals(type)) {
             return parseBoolean(value);
@@ -200,10 +212,16 @@ public class Literal
         fractionalPart = fractionalPart.replace("_", "");
 
         String unscaledValue = sign + (integralPart.isEmpty() ? "0" : "") + integralPart + fractionalPart;
-        if (decimalType.isShort()) {
-            return Long.parseLong(unscaledValue);
+        // round like a cast to the decimal type
+        BigDecimal decimal = new BigDecimal(new BigInteger(unscaledValue), fractionalPart.length())
+                .setScale(decimalType.getScale(), HALF_UP);
+        if (decimal.precision() > decimalType.getPrecision()) {
+            throw new IllegalArgumentException("DECIMAL value '" + value + "' is out of range for " + decimalType);
         }
-        return Int128.valueOf(new BigInteger(unscaledValue));
+        if (decimalType.isShort()) {
+            return decimal.unscaledValue().longValueExact();
+        }
+        return Int128.valueOf(decimal.unscaledValue());
     }
 
     private static String getMatcherGroup(MatchResult matcher, int group)

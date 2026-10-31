@@ -20,7 +20,11 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
@@ -70,8 +74,11 @@ public record FakerColumnHandle(
             nullProbability = (double) column.getProperties().getOrDefault(NULL_PROBABILITY_PROPERTY, defaultNullProbability);
         }
         String generator = (String) column.getProperties().get(GENERATOR_PROPERTY);
-        if (generator != null && !isCharacterColumn(column)) {
-            throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property can only be set for CHAR, VARCHAR or VARBINARY columns".formatted(GENERATOR_PROPERTY));
+        if (generator != null && !supportsGenerator(column.getType())) {
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property cannot be set for ROW, ARRAY, MAP, or JSON columns".formatted(GENERATOR_PROPERTY));
+        }
+        if (generator != null && (column.getProperties().get(MIN_PROPERTY) != null || column.getProperties().get(MAX_PROPERTY) != null || column.getProperties().get(STEP_PROPERTY) != null)) {
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property cannot be set together with `%s`, `%s`, and `%s` properties".formatted(GENERATOR_PROPERTY, MIN_PROPERTY, MAX_PROPERTY, STEP_PROPERTY));
         }
         Object min = propertyValue(column, MIN_PROPERTY);
         Object max = propertyValue(column, MAX_PROPERTY);
@@ -99,6 +106,12 @@ public record FakerColumnHandle(
                 generator,
                 domain,
                 stepValue(column));
+    }
+
+    // Generated text is parsed like other property values, which is not supported for these types
+    private static boolean supportsGenerator(Type type)
+    {
+        return !(type instanceof RowType || type instanceof ArrayType || type instanceof MapType || type.getBaseName().equals(StandardTypes.JSON));
     }
 
     private static boolean isCharacterColumn(ColumnMetadata column)
@@ -136,6 +149,16 @@ public record FakerColumnHandle(
             return Range.lessThanOrEqual(type, max);
         }
         return Range.range(type, min, true, max, true);
+    }
+
+    public Object parseGeneratedValue(String value)
+    {
+        try {
+            return Literal.parse(value, type);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property of column `%s` produced `%s`, which is not a valid %s value".formatted(GENERATOR_PROPERTY, name, value, type.getDisplayName()), e);
+        }
     }
 
     public FakerColumnHandle withNullProbability(double nullProbability)

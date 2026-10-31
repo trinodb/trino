@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Random;
 
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -50,6 +51,17 @@ public class TestFakerPageSource
                     .isInstanceOf(TrinoException.class)
                     .hasMessage("Non-discrete NaN constraints are not supported for generated columns");
         }
+    }
+
+    @Test
+    public void testInvalidGeneratedValue()
+    {
+        Random random = new Random(0);
+        FakerColumnHandle column = new FakerColumnHandle(0, "x", INTEGER, 0, "#{Name.first_name}", Domain.all(INTEGER), ValueSet.none(INTEGER));
+        FakerPageSource source = new FakerPageSource(new Faker(random), random, List.of(column), 0, 1);
+        assertThatThrownBy(source::getNextSourcePage)
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("The `generator` property of column `x` produced `\\w+`, which is not a valid integer value");
     }
 
     private static FakerColumnHandle column(Domain domain)

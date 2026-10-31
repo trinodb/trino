@@ -131,8 +131,11 @@ The following table details all supported column properties.
     `faker.null-probability` configuration property.
 * - `generator`
   - Name of the Faker library generator used to generate data for the column.
-    Only valid for columns of a character-based type. Defaults to a 3 to 40 word
-    sentence from the
+    For columns of types other than character-based types, the generated text
+    must be a valid value of the column type, in the same format as the `min`
+    and `max` properties. Cannot be set for `ROW`, `ARRAY`, `MAP`, or `JSON`
+    columns, or together with the `min`, `max`, `step`, or `allowed_values`
+    properties. Defaults to a 3 to 40 word sentence from the
     [Lorem](https://javadoc.io/doc/net.datafaker/datafaker/latest/net/datafaker/providers/base/Lorem.html)
     provider.
 * - `min`
@@ -211,9 +214,19 @@ Faker supports the following non-character types:
 - `IPADDRESS`
 - `UUID`
 
-You can not use generator expressions for non-character-based columns. To limit
-their data range, set the `min` and `max` column properties - see
-[](faker-usage).
+To limit the range of generated values, set the `min` and `max` column
+properties - see [usage examples](faker-usage). To generate more realistic
+values, set the `generator` column property to an expression that produces
+valid values of the column type, like in the following example:
+
+```sql
+CREATE TABLE generator.default.customer (
+  rating INTEGER NOT NULL WITH (generator = '#{Number.numberBetween ''1'',''6''}'),
+  birthday DATE NOT NULL WITH (generator = '#{Date.birthday ''yyyy-MM-dd''}'),
+  balance DECIMAL(10,2) NOT NULL WITH (generator = '#{Commerce.price}'),
+  last_login_ip IPADDRESS NOT NULL WITH (generator = '#{Internet.ipV4Address}')
+);
+```
 
 ### Unsupported types
 

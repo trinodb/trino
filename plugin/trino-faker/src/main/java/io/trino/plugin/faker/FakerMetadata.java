@@ -76,6 +76,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -135,6 +136,7 @@ public class FakerMetadata
     private final boolean isSequenceDetectionEnabled;
     private final boolean isDictionaryDetectionEnabled;
     private final FunctionBundle functionBundle;
+    private final Locale locale;
 
     private final Random random;
     private final Faker faker;
@@ -153,6 +155,7 @@ public class FakerMetadata
         this.isSequenceDetectionEnabled = config.isSequenceDetectionEnabled();
         this.isDictionaryDetectionEnabled = config.isDictionaryDetectionEnabled();
         this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
+        this.locale = config.getLocale();
         this.random = new Random(1);
         this.faker = new Faker(random);
     }
@@ -381,9 +384,9 @@ public class FakerMetadata
         for (; columnId < tableMetadata.getColumns().size(); columnId++) {
             ColumnMetadata column = tableMetadata.getColumns().get(columnId);
             IntervalValues.checkSupported(column.getType());
-            columns.add(new ColumnInfo(
-                    FakerColumnHandle.of(columnId, column, tableNullProbability),
-                    column));
+            FakerColumnHandle handle = FakerColumnHandle.of(columnId, column, tableNullProbability);
+            checkGeneratedValue(handle);
+            columns.add(new ColumnInfo(handle, column));
         }
 
         columns.add(new ColumnInfo(
@@ -408,6 +411,16 @@ public class FakerMetadata
                 tableMetadata.getComment()));
 
         return new FakerOutputTableHandle(tableName);
+    }
+
+    private void checkGeneratedValue(FakerColumnHandle column)
+    {
+        if (column.generator() == null || isCharacterType(column.type())) {
+            return;
+        }
+        // Use a fixed seed so that the same column definition is always either accepted or rejected
+        Faker faker = new Faker(locale, new Random(1));
+        column.parseGeneratedValue(faker.expression(column.generator()));
     }
 
     private static boolean isRangeType(Type type)
