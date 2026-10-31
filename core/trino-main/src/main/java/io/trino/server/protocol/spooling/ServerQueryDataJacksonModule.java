@@ -55,6 +55,9 @@ public class ServerQueryDataJacksonModule
             if (value instanceof JsonBytesQueryData jsonBytesQueryData) {
                 jsonBytesQueryData.writeTo(generator);
             }
+            else if (value instanceof LazyEncodedQueryData lazyEncodedQueryData) {
+                super.serialize(lazyEncodedQueryData.data(), generator, provider);
+            }
             else {
                 super.serialize(value, generator, provider);
             }

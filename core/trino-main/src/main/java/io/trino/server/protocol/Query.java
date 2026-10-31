@@ -118,6 +118,7 @@ class Query
     private static final DataSize TARGET_RESULT_SIZE = DataSize.of(1, MEGABYTE);
 
     private final QueryManager queryManager;
+    private final QueryDataProducerFactory queryDataProducerFactory;
     private final QueryId queryId;
     private final Session session;
     private final Slug slug;
@@ -217,6 +218,7 @@ class Query
             Session session,
             Slug slug,
             QueryManager queryManager,
+            QueryDataProducerFactory queryDataProducerFactory,
             Optional<URI> queryInfoUrl,
             DirectExchangeClientSupplier directExchangeClientSupplier,
             ExchangeManagerRegistry exchangeManagerRegistry,
@@ -234,7 +236,7 @@ class Query
                 getRetryPolicy(session),
                 exchangeManagerRegistry);
 
-        Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
+        Query result = new Query(session, slug, queryManager, queryDataProducerFactory, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 
         result.queryManager.setOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
@@ -255,6 +257,7 @@ class Query
             Session session,
             Slug slug,
             QueryManager queryManager,
+            QueryDataProducerFactory queryDataProducerFactory,
             Optional<URI> queryInfoUrl,
             ExchangeDataSource exchangeDataSource,
             Executor resultsProcessorExecutor,
@@ -271,6 +274,7 @@ class Query
         requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
 
         this.queryManager = queryManager;
+        this.queryDataProducerFactory = requireNonNull(queryDataProducerFactory, "queryDataProducerFactory is null");
         this.queryId = session.getQueryId();
         this.session = session;
         this.slug = slug;
@@ -598,7 +602,7 @@ class Query
                     columns = ImmutableList.of(
                             createColumn("metric_name", VARCHAR, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval),
                             createColumn("metric_value", BIGINT, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
-                    queryDataProducer = QueryDataProducerFactory.create(session, types);
+                    queryDataProducer = queryDataProducerFactory.create(session, types);
                     Optional<Map<String, Long>> callResult = queryManager.getCallResult(queryId);
                     if (callResult.isPresent() && !callResult.get().isEmpty()) {
                         Map<String, Long> metrics = callResult.get();
@@ -757,7 +761,7 @@ class Query
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();
-            queryDataProducer = QueryDataProducerFactory.create(session, types);
+            queryDataProducer = queryDataProducerFactory.create(session, types);
         }
 
         outputInfo.drainInputs(exchangeDataSource::addInput);

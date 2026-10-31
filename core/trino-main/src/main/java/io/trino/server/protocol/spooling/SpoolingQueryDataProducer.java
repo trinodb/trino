@@ -17,33 +17,45 @@ import io.airlift.slice.Slice;
 import io.trino.client.QueryData;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
+import io.trino.client.spooling.Segment;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.protocol.QueryDataProducer;
 import io.trino.server.protocol.QueryResultRows;
-import io.trino.spi.Page;
+import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
 import io.trino.spi.TrinoException;
+import io.trino.spi.spool.SpooledLocation.DirectLocation;
+import io.trino.spi.spool.SpoolingManager;
 import jakarta.ws.rs.core.UriBuilder;
 
+import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 import java.util.function.Consumer;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.ROW_OFFSET;
 import static io.trino.client.spooling.Segment.inlined;
 import static io.trino.client.spooling.Segment.spooled;
 import static io.trino.server.protocol.spooling.CoordinatorSegmentResource.spooledSegmentUriBuilder;
+import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.STORAGE;
+import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class SpoolingQueryDataProducer
         implements QueryDataProducer
 {
     private final String encoding;
+    private final SpoolingManager spoolingManager;
+    private final SegmentRetrievalMode retrievalMode;
 
     private long currentOffset;
 
-    public SpoolingQueryDataProducer(String encoding)
+    public SpoolingQueryDataProducer(String encoding, SpoolingManager spoolingManager, SegmentRetrievalMode retrievalMode)
     {
         this.encoding = requireNonNull(encoding, "encoding is null");
+        this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
+        this.retrievalMode = requireNonNull(retrievalMode, "retrievalMode is null");
     }
 
     @Override
@@ -52,25 +64,63 @@ public class SpoolingQueryDataProducer
         if (rows.isEmpty()) {
             return null;
         }
+        try {
+            List<SpooledMetadataBlock> metadata = rows.getPages().stream()
+                    .flatMap(page -> SpooledMetadataBlockSerde.deserialize(page).stream())
+                    .collect(toImmutableList());
+            long rowsCount = metadata.stream()
+                    .mapToLong(block -> block.attributes().get(ROWS_COUNT, Long.class))
+                    .sum();
+            long startOffset = currentOffset;
+            currentOffset += rowsCount;
+            // Query calls produce while holding its monitor. Storage access must wait until serialization.
+            return new LazyEncodedQueryData(rowsCount, () -> encode(uriInfo, metadata, startOffset, throwableConsumer));
+        }
+        catch (RuntimeException e) {
+            throwableConsumer.accept(new TrinoException(SERIALIZATION_ERROR, "Failed to serialize spooled segments", e));
+            return null;
+        }
+    }
+
+    private EncodedQueryData encode(ExternalUriInfo uriInfo, List<SpooledMetadataBlock> metadata, long offset, Consumer<TrinoException> throwableConsumer)
+    {
         EncodedQueryData.Builder builder = EncodedQueryData.builder(encoding);
         UriBuilder uriBuilder = spooledSegmentUriBuilder(uriInfo);
-        for (Page page : rows.getPages()) {
-            for (SpooledMetadataBlock metadataBlock : SpooledMetadataBlockSerde.deserialize(page)) {
+        try {
+            for (SpooledMetadataBlock metadataBlock : metadata) {
                 DataAttributes attributes = metadataBlock.attributes().toBuilder()
-                        .set(ROW_OFFSET, currentOffset)
+                        .set(ROW_OFFSET, offset)
                         .build();
                 switch (metadataBlock) {
-                    case SpooledMetadataBlock.Spooled spooled -> builder.withSegment(spooled(
-                            spooled.directUri().orElseGet(() -> buildSegmentDownloadURI(uriBuilder, spooled.identifier())),
-                            buildSegmentAckURI(uriBuilder, spooled.identifier()),
-                            attributes,
-                            spooled.headers()));
+                    case SpooledMetadataBlock.Spooled spooled -> builder.withSegment(createSpooledSegment(uriBuilder, spooled, attributes));
                     case SpooledMetadataBlock.Inlined inlined -> builder.withSegment(inlined(inlined.data().getBytes(), attributes));
                 }
-                currentOffset += attributes.get(ROWS_COUNT, Long.class);
+                offset += attributes.get(ROWS_COUNT, Long.class);
             }
         }
+        catch (IOException | RuntimeException e) {
+            TrinoException exception = new TrinoException(SERIALIZATION_ERROR, "Failed to serialize spooled segments", e);
+            throwableConsumer.accept(exception);
+            // Fail the response rather than returning a successful response with missing rows.
+            throw exception;
+        }
         return builder.build();
+    }
+
+    private Segment createSpooledSegment(UriBuilder uriBuilder, SpooledMetadataBlock.Spooled metadata, DataAttributes attributes)
+            throws IOException
+    {
+        if (retrievalMode == STORAGE) {
+            // Sign when the coordinator delivers the segment to the client, rather than when a worker spools it.
+            DirectLocation location = spoolingManager.directLocation(spoolingManager.handle(metadata.identifier(), metadata.headers()))
+                    .orElseThrow(() -> new IOException("Could not generate pre-signed URI"));
+            return spooled(location.directUri(), buildSegmentAckURI(uriBuilder, metadata.identifier()), attributes, location.headers());
+        }
+        return spooled(
+                metadata.directUri().orElseGet(() -> buildSegmentDownloadURI(uriBuilder, metadata.identifier())),
+                buildSegmentAckURI(uriBuilder, metadata.identifier()),
+                attributes,
+                metadata.headers());
     }
 
     private URI buildSegmentDownloadURI(UriBuilder builder, Slice identifier)
