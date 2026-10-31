@@ -191,6 +191,7 @@ export interface QueryInfoBase {
 export interface QueryInfo extends QueryInfoBase {
     clientTags: string[]
     queryTextPreview: string
+    preparedQueryPreview?: string
     resourceGroupId: string[]
     retryPolicy: string
     self: string
