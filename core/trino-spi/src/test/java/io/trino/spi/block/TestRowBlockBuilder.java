@@ -15,6 +15,7 @@ package io.trino.spi.block;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
+import io.trino.spi.variant.Variant;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -60,6 +61,33 @@ final class TestRowBlockBuilder
         assertThat(singleRowBuilder.getRetainedSizeInBytes()).isEqualTo(expected.getRetainedSizeInBytes());
         assertIsAllNulls(singleRowBuilder.build(), 1);
         assertIsAllNulls(blockBuilder.build(), 1024);
+    }
+
+    @Test
+    void testNewBlockBuilderLikePreservesFieldByteEstimates()
+    {
+        RowBlockBuilder previous = new RowBlockBuilder(List.of(VARCHAR, VARIANT), null, 100);
+        Variant variant = Variant.ofString("abcdefgh");
+        for (int position = 0; position < 100; position++) {
+            previous.buildEntry(fields -> {
+                VARCHAR.writeString(fields.get(0), "abcdefgh");
+                VARIANT.writeObject(fields.get(1), variant);
+            });
+        }
+        RowBlock previousBlock = previous.buildValueBlock();
+        VariableWidthBlock previousValues = (VariableWidthBlock) ((VariantBlock) previousBlock.getRawFieldBlocks()[1]).getRawValues();
+
+        RowBlockBuilder next = (RowBlockBuilder) previous.newBlockBuilderLike(null);
+        next.buildEntry(fields -> {
+            VARCHAR.writeString(fields.get(0), "abcdefgh");
+            VARIANT.writeObject(fields.get(1), variant);
+        });
+        RowBlock block = next.buildValueBlock();
+        assertThat(((VariableWidthBlock) block.getRawFieldBlocks()[0]).getRawSlice().byteArray()).hasSize(1000);
+        VariableWidthBlock values = (VariableWidthBlock) ((VariantBlock) block.getRawFieldBlocks()[1]).getRawValues();
+        assertThat(values.getRawSlice().byteArray()).hasSize((int) Math.ceil(previousValues.getRawSlice().length() * 1.25));
+        assertThat(VARCHAR.getSlice(block.getRawFieldBlocks()[0], 0).toStringUtf8()).isEqualTo("abcdefgh");
+        assertThat(VARIANT.getObject(block.getRawFieldBlocks()[1], 0)).isEqualTo(variant);
     }
 
     @Test
