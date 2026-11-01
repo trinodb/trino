@@ -170,6 +170,26 @@ final class TestBigQueryStoragePageSource
         }
     }
 
+    @Test
+    void testArrowCloseCancelsStreamBeforeFirstResponse()
+            throws Exception
+    {
+        try (TestingBigQueryReadServer server = new TestingBigQueryReadServer(ImmutableList.of(), false)) {
+            createArrowPageSource(server.client(), backgroundExecutor, _ -> {}).close();
+            assertThat(server.awaitReadRowsCancelled()).isTrue();
+        }
+    }
+
+    @Test
+    void testAvroCloseCancelsStreamBeforeFirstResponse()
+            throws Exception
+    {
+        try (TestingBigQueryReadServer server = new TestingBigQueryReadServer(ImmutableList.of(), false)) {
+            createAvroPageSource(server.client(), backgroundExecutor, _ -> {}).close();
+            assertThat(server.awaitReadRowsCancelled()).isTrue();
+        }
+    }
+
     private static void assertCloseCancelsUnfinishedStream(ConnectorPageSource pageSource, TestingBigQueryReadServer server)
             throws Exception
     {
