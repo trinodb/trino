@@ -5591,6 +5591,8 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testParquetPredicateOnDecimalOverIntegerPartition()
     {
+        testParquetPredicateOnDecimalOverIntegerPartition("tinyint", "decimal(12,1)");
+        testParquetPredicateOnDecimalOverIntegerPartition("smallint", "decimal(12,1)");
         testParquetPredicateOnDecimalOverIntegerPartition("integer", "decimal(12,1)");
         testParquetPredicateOnDecimalOverIntegerPartition("bigint", "decimal(12,1)");
         testParquetPredicateOnDecimalOverIntegerPartition("integer", "decimal(20,1)");
