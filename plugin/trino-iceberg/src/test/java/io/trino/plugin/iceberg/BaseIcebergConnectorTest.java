@@ -9479,11 +9479,25 @@ public abstract class BaseIcebergConnectorTest
     @Test // regression test for https://github.com/trinodb/trino/issues/29802
     public void testColumnTypeEvolutionWithStatistics()
     {
-        try (TestTable table = newTrinoTable("test_stats_type_change", "(x INT)", List.of("1", "2"))) {
-            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN x SET DATA TYPE BIGINT");
+        testColumnTypeEvolutionWithStatistics("INT", "BIGINT");
+        testColumnTypeEvolutionWithStatistics("DECIMAL(5, 3)", "DECIMAL(10, 3)");
+        testColumnTypeEvolutionWithStatistics("DECIMAL(5, 3)", "DECIMAL(38, 3)");
+        testColumnTypeEvolutionWithStatistics("DECIMAL(28, 3)", "DECIMAL(38, 3)");
+        // The Parquet predicate cannot use the float statistics of an older file yet, see https://github.com/trinodb/trino/issues/30544
+        if (format != PARQUET) {
+            testColumnTypeEvolutionWithStatistics("REAL", "DOUBLE");
+        }
+    }
+
+    private void testColumnTypeEvolutionWithStatistics(String initialType, String newType)
+    {
+        try (TestTable table = newTrinoTable("test_stats_type_change", "(x %s)".formatted(initialType), List.of("1", "2"))) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN x SET DATA TYPE " + newType);
 
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE x IN (SELECT DISTINCT x FROM " + table.getName() + ")"))
-                    .matches("VALUES BIGINT '1', 2");
+                    .matches("VALUES CAST(1 AS %1$s), CAST(2 AS %1$s)".formatted(newType));
+            assertThat(query("SELECT * FROM %s WHERE x = CAST(1 AS %s)".formatted(table.getName(), newType)))
+                    .matches("VALUES CAST(1 AS %s)".formatted(newType));
         }
     }
 
