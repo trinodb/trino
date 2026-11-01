@@ -83,6 +83,7 @@ import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.metrics.ScanMetricsResult;
 import org.apache.iceberg.metrics.ScanReport;
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.Types.NestedField;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -105,6 +106,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static com.google.common.math.LongMath.saturatedAdd;
@@ -127,7 +129,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
-import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -163,7 +164,6 @@ public class IcebergSplitSource
     private final EncryptionManager encryptionManager;
     private final Scan<?, FileScanTask, CombinedScanTask> tableScan;
     private final OptionalLong maxScannedFileSizeInBytes;
-    private final Map<Integer, Type.PrimitiveType> fieldIdToType;
     private final PartitionConstraintMatcher partitionConstraintMatcher;
     private final TypeManager typeManager;
     @GuardedBy("closer")
@@ -234,7 +234,6 @@ public class IcebergSplitSource
         this.encryptionManager = requireNonNull(icebergTable.encryption(), "encryptionManager is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.maxScannedFileSizeInBytes = maxScannedFileSize.isPresent() ? OptionalLong.of(maxScannedFileSize.orElseThrow().toBytes()) : OptionalLong.empty();
-        this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
         this.partitionConstraintMatcher = new PartitionConstraintMatcher(constraint, evaluator, session);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.recordScannedFiles = recordScannedFiles;
@@ -644,9 +643,11 @@ public class IcebergSplitSource
     private FileScanTaskWithContext createFileScanTaskWithContext(FileScanTask wholeFileTask, Set<Integer> predicatedColumnIds)
     {
         verify(predicatedColumnIds != null, "predicatedColumnIds is null");
-        List<IcebergColumnHandle> predicatedColumns = wholeFileTask.schema().columns().stream()
-                .filter(column -> predicatedColumnIds.contains(column.fieldId()))
-                .map(column -> getColumnHandle(column, typeManager))
+        List<NestedField> predicatedFields = wholeFileTask.schema().columns().stream()
+                .filter(field -> predicatedColumnIds.contains(field.fieldId()))
+                .collect(toImmutableList());
+        List<IcebergColumnHandle> predicatedColumns = predicatedFields.stream()
+                .map(field -> getColumnHandle(field, typeManager))
                 .collect(toImmutableList());
         List<DeleteFile> deleteFiles = wholeFileTask.deletes().stream()
                 .peek(file -> verifyDeletionVectorReferencesDataFile(wholeFileTask, file))
@@ -661,7 +662,9 @@ public class IcebergSplitSource
         return new FileScanTaskWithContext(
                 wholeFileTask,
                 createFileStatisticsDomain(
-                        fieldIdToType,
+                        // Read the bounds as the type of these columns rather than of the scan. Changing the type of a column creates no snapshot,
+                        // so until the next one the scan of the current snapshot keeps the older schema, while its tasks have the new one
+                        predicatedFields.stream().collect(toImmutableMap(NestedField::fieldId, NestedField::type)),
                         wholeFileTask.file().lowerBounds(),
                         wholeFileTask.file().upperBounds(),
                         wholeFileTask.file().nullValueCounts(),
@@ -760,7 +763,7 @@ public class IcebergSplitSource
 
     @VisibleForTesting
     static TupleDomain<IcebergColumnHandle> createFileStatisticsDomain(
-            Map<Integer, Type.PrimitiveType> fieldIdToType,
+            Map<Integer, ? extends Type> fieldIdToType,
             @Nullable Map<Integer, ByteBuffer> lowerBounds,
             @Nullable Map<Integer, ByteBuffer> upperBounds,
             @Nullable Map<Integer, Long> nullValueCounts,

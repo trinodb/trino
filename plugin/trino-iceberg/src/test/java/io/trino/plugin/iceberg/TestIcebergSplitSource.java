@@ -43,6 +43,7 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.Int128;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
@@ -112,8 +113,10 @@ import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDele
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.predicate.FloatingPointValueSet.nanValue;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToRawIntBits;
@@ -396,6 +399,48 @@ public class TestIcebergSplitSource
             for (String predicate : ImmutableList.of("x <> 1.0e0", "NOT (x < 2.0e0)", "x IS DISTINCT FROM 1.0e0")) {
                 assertQuery("SELECT count(*) FROM " + tableName + " WHERE " + predicate, "VALUES 1");
             }
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    /**
+     * Changing the type of a column creates no snapshot, so until the next one the scan of the current snapshot keeps the
+     * older schema, while its tasks have the new one.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"PARQUET", "ORC"})
+    public void testFileStatisticsDomainAfterColumnTypeChange(String format)
+            throws Exception
+    {
+        assertFileStatisticsDomainAfterColumnTypeChange(format, "integer", BIGINT, 0L, 1L, 3L, 4L);
+        assertFileStatisticsDomainAfterColumnTypeChange(format, "real", DOUBLE, 0.0, 1.0, 3.0, 4.0);
+        assertFileStatisticsDomainAfterColumnTypeChange(format, "decimal(5,2)", createDecimalType(10, 2), 0L, 100L, 300L, 400L);
+        assertFileStatisticsDomainAfterColumnTypeChange(format, "decimal(5,2)", createDecimalType(38, 2), Int128.valueOf(0), Int128.valueOf(100), Int128.valueOf(300), Int128.valueOf(400));
+        assertFileStatisticsDomainAfterColumnTypeChange(format, "decimal(28,2)", createDecimalType(38, 2), Int128.valueOf(0), Int128.valueOf(100), Int128.valueOf(300), Int128.valueOf(400));
+    }
+
+    private void assertFileStatisticsDomainAfterColumnTypeChange(String format, String initialType, io.trino.spi.type.Type newType, Object belowMinimum, Object minimum, Object maximum, Object aboveMaximum)
+            throws Exception
+    {
+        String tableName = "test_statistics_type_change_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE %s WITH (format = '%s') AS SELECT CAST(x AS %s) x FROM (VALUES 1, 2, 3) t(x)".formatted(tableName, format, initialType), 3);
+        try {
+            assertUpdate("ALTER TABLE %s ALTER COLUMN x SET DATA TYPE %s".formatted(tableName, newType));
+
+            SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+            IcebergColumnHandle column = IcebergColumnHandle.optional(new ColumnIdentity(table.schema().findField("x").fieldId(), "x", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                    .columnType(newType)
+                    .build();
+            IcebergTableHandle tableHandle = createTableHandle(schemaTableName, table, TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.notNull(newType))));
+
+            Domain domain = generateSplit(table, tableHandle).fileStatisticsDomain().getDomains().orElseThrow().get(column);
+            assertThat(domain.includesNullableValue(minimum)).isTrue();
+            assertThat(domain.includesNullableValue(maximum)).isTrue();
+            assertThat(domain.includesNullableValue(aboveMaximum)).isFalse();
+            assertThat(domain.includesNullableValue(belowMinimum)).isFalse();
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -798,7 +843,7 @@ public class TestIcebergSplitSource
                 session,
                 tableHandle,
                 nationTable,
-                nationTable.newScan().metricsReporter(metricsReporter),
+                nationTable.newScan().useSnapshot(nationTable.currentSnapshot().snapshotId()).metricsReporter(metricsReporter),
                 Optional.empty(),
                 alwaysTrue(),
                 TESTING_TYPE_MANAGER,
