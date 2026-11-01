@@ -2362,6 +2362,20 @@ public class TestIcebergV3
 
     @ParameterizedTest
     @EnumSource(IcebergFileFormat.class)
+    void testUpdateTableWithNestedUnknownType(IcebergFileFormat format)
+    {
+        try (TestTable table = newTrinoTable(
+                "test_update_nested_unknown_type",
+                "(x int, z row(a int, b unknown)) WITH (format_version = 3, format = '" + format + "')")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, ROW(10, NULL)), (2, ROW(20, NULL)), (3, NULL)", 3);
+            assertUpdate("UPDATE " + table.getName() + " SET x = x + 10", 3);
+            assertThat(query("SELECT x, z.a, z.b IS NULL, z IS NULL FROM " + table.getName()))
+                    .matches("VALUES (11, 10, true, false), (12, 20, true, false), (13, NULL, true, true)");
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
     void testCreateTableWithUnknownType(IcebergFileFormat format)
             throws Exception
     {
