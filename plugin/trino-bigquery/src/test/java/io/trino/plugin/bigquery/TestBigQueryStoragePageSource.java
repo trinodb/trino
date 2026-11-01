@@ -78,7 +78,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-final class TestBigQueryStoragePageSourceMemoryTracking
+final class TestBigQueryStoragePageSource
 {
     private static final BigQueryTypeManager TYPE_MANAGER = new BigQueryTypeManager(TESTING_TYPE_MANAGER);
     private static final List<BigQueryColumnHandle> COLUMNS = ImmutableList.of(
