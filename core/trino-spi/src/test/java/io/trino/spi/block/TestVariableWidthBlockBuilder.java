@@ -132,6 +132,54 @@ final class TestVariableWidthBlockBuilder
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(BLOCK_BUILDER_INSTANCE_SIZE + actualBytesSize + actualArraySize);
     }
 
+    @Test
+    public void testNewBlockBuilderLikeWithExpectedEntries()
+    {
+        VariableWidthBlockBuilder previous = new VariableWidthBlockBuilder(null, 100, 0);
+        for (int i = 0; i < 100; i++) {
+            previous.writeEntry(utf8Slice("abcdefgh"));
+        }
+
+        assertNewBlockBuilderLikeSize(previous, 25, 250);
+        assertNewBlockBuilderLikeSize(previous, 100, 1000);
+        // growth is capped at twice the previous bytes
+        assertNewBlockBuilderLikeSize(previous, 400, 2000);
+    }
+
+    @Test
+    public void testNewBlockBuilderLikeCapsGrowthFromSingleWideRow()
+    {
+        VariableWidthBlockBuilder previous = new VariableWidthBlockBuilder(null, 1, 0);
+        previous.writeEntry(Slices.allocate(100 * 1024));
+
+        assertNewBlockBuilderLikeSize(previous, 8192, 256_000);
+    }
+
+    @Test
+    public void testNewBlockBuilderLikeRejectsInvalidExpectedEntries()
+    {
+        VariableWidthBlockBuilder previous = new VariableWidthBlockBuilder(null, 100, 0);
+        for (int i = 0; i < 100; i++) {
+            previous.writeEntry(utf8Slice("abcdefgh"));
+        }
+
+        assertThatThrownBy(() -> previous.newBlockBuilderLike(Integer.MAX_VALUE, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("expectedEntries");
+        assertThatThrownBy(() -> previous.newBlockBuilderLike(-1, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("expectedEntries");
+    }
+
+    private static void assertNewBlockBuilderLikeSize(VariableWidthBlockBuilder previous, int expectedEntries, int expectedBytes)
+    {
+        VariableWidthBlockBuilder next = (VariableWidthBlockBuilder) previous.newBlockBuilderLike(expectedEntries, null);
+        next.writeEntry(utf8Slice("abcdefgh"));
+        long expectedSize = BLOCK_BUILDER_INSTANCE_SIZE + sizeOf(new int[expectedEntries + 1]) + sizeOf(new byte[expectedBytes]);
+        assertThat(next.getRetainedSizeInBytes()).isEqualTo(expectedSize);
+        assertThat(toStrings(next.buildValueBlock())).containsExactly("abcdefgh");
+    }
+
     private void testIsFull(PageBuilder pageBuilder)
     {
         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
