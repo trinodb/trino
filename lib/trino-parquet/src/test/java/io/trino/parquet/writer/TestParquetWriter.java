@@ -38,6 +38,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.SourcePage;
@@ -103,6 +104,7 @@ import static io.trino.parquet.BloomFilterStore.hasBloomFilter;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
+import static io.trino.parquet.ParquetTestUtils.createRowBlock;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.parquet.metadata.HiddenColumnChunkMetadata.isHiddenColumn;
@@ -426,6 +428,30 @@ public class TestParquetWriter
         assertThat(chunkMetaData.getStatistics().getMinBytes()).isEqualTo(truncatedMin.getBytes());
         truncatedMax = Slices.utf8Slice(maxCodePoint + "d".repeat(1016) + "e");
         assertThat(chunkMetaData.getStatistics().getMaxBytes()).isEqualTo(truncatedMax.getBytes());
+    }
+
+    @Test
+    public void testColumnOrdersAreWritten()
+            throws IOException
+    {
+        // the row column has four leaf columns, so the number of leaf columns differs from the number of columns
+        int positionCount = 100;
+        List<String> columnNames = ImmutableList.of("columnA", "columnB");
+        List<Type> types = ImmutableList.of(BIGINT, rowType(field("a", BIGINT), field("b", BIGINT), field("c", BIGINT), field("d", BIGINT)));
+        Page page = new Page(
+                new LongArrayBlock(positionCount, Optional.empty(), new long[positionCount]),
+                createRowBlock(Optional.empty(), positionCount));
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(ParquetWriterOptions.builder().build(), types, columnNames, ImmutableList.of(page)),
+                ParquetReaderOptions.defaultOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        int leafColumns = parquetMetadata.getFileMetaData().getSchema().getColumns().size();
+        assertThat(leafColumns).isEqualTo(5);
+        assertThat(parquetMetadata.getParquetMetadata().getColumn_orders())
+                .hasSize(leafColumns)
+                .allSatisfy(columnOrder -> assertThat(columnOrder.isSetTYPE_ORDER()).isTrue());
     }
 
     @Test
