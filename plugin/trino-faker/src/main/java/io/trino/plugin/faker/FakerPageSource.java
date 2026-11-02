@@ -77,6 +77,7 @@ import java.util.random.RandomGenerator;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.math.LongMath.saturatedAdd;
+import static com.google.common.math.LongMath.saturatedMultiply;
 import static io.trino.plugin.faker.Distribution.NORMAL;
 import static io.trino.plugin.faker.Distribution.UNIFORM;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
@@ -417,7 +418,7 @@ class FakerPageSource
                 return (blockBuilder, rowId) -> timestampType.writeLong(blockBuilder, range.at(rowId, factor * NANOSECONDS_PER_MICROSECOND) * factor);
             }
             LongTimestampRange range = LongTimestampRange.of(withDefaultTemporalLow(genericRange), timestampType.getPrecision(), (long) handle.step().getSingleValue());
-            return (blockBuilder, rowId) -> timestampType.writeObject(blockBuilder, range.at(rowId, NANOSECONDS_PER_MICROSECOND));
+            return (blockBuilder, rowId) -> timestampType.writeObject(blockBuilder, range.at(rowId));
         }
         if (type instanceof TimestampWithTimeZoneType tzType) {
             if (tzType.isShort()) {
@@ -425,7 +426,7 @@ class FakerPageSource
                 return (blockBuilder, rowId) -> tzType.writeLong(blockBuilder, range.at(rowId, NANOSECONDS_PER_MILLISECOND));
             }
             LongTimestampWithTimeZoneRange range = LongTimestampWithTimeZoneRange.of(withDefaultTemporalLow(genericRange), tzType.getPrecision(), (long) handle.step().getSingleValue());
-            return (blockBuilder, rowId) -> tzType.writeObject(blockBuilder, range.at(rowId, NANOSECONDS_PER_MILLISECOND));
+            return (blockBuilder, rowId) -> tzType.writeObject(blockBuilder, range.at(rowId));
         }
         if (type instanceof TimeType timeType) {
             long factor = POWERS_OF_TEN[12 - timeType.getPrecision()];
@@ -1225,11 +1226,20 @@ class FakerPageSource
             return new LongTimestampRange(low, high, factor, step);
         }
 
-        LongTimestamp at(long index, long stepFactor)
+        LongTimestamp at(long index)
         {
-            // TODO support nanosecond increments
-            long epochMicros = sequenceValue(low.getEpochMicros(), index, step, stepFactor);
-            return new LongTimestamp(step > 0 ? Math.min(epochMicros, high.getEpochMicros()) : Math.max(epochMicros, high.getEpochMicros()), 0);
+            // the fractions of low and high are in units of the precision, as is the offset
+            long unitsPerMicro = PICOSECONDS_PER_MICROSECOND / factor;
+            long offset = sequenceOffsetUnits(index, step, factor);
+            long fraction = low.getPicosOfMicro() + offset % unitsPerMicro;
+            long micros = offset / unitsPerMicro + fraction / unitsPerMicro;
+            fraction %= unitsPerMicro;
+            // the difference between the bounds can overflow, but not as an unsigned value
+            int comparison = Long.compareUnsigned(micros, high.getEpochMicros() - low.getEpochMicros());
+            if (comparison > 0 || (comparison == 0 && fraction > high.getPicosOfMicro())) {
+                return new LongTimestamp(high.getEpochMicros(), high.getPicosOfMicro() * factor);
+            }
+            return new LongTimestamp(low.getEpochMicros() + micros, toIntExact(fraction * factor));
         }
     }
 
@@ -1299,14 +1309,21 @@ class FakerPageSource
                     step);
         }
 
-        LongTimestampWithTimeZone at(long index, long stepFactor)
+        LongTimestampWithTimeZone at(long index)
         {
-            // TODO support nanosecond increments
-            // TODO handle exclusive high
-            long millis = sequenceValue(lowEpochMillis, index, step, stepFactor);
-            // highEpochMillis is exclusive when no picoseconds of it are included
+            // the fractions of low and high are in units of the precision, as is the offset
+            long unitsPerMilli = PICOSECONDS_PER_MILLISECOND / factor;
+            long offset = sequenceOffsetUnits(index, step, factor);
+            long fraction = lowPicosOfMilli + offset % unitsPerMilli;
+            long millis = offset / unitsPerMilli + fraction / unitsPerMilli;
+            fraction %= unitsPerMilli;
+            // the high bound is exclusive
             long lastEpochMillis = highPicosOfMilli > 0 ? highEpochMillis : highEpochMillis - 1;
-            return fromEpochMillisAndFraction(step > 0 ? Math.min(millis, lastEpochMillis) : Math.max(millis, lastEpochMillis), 0, defaultTZ);
+            long lastFraction = highPicosOfMilli > 0 ? highPicosOfMilli - 1 : unitsPerMilli - 1;
+            if (millis > lastEpochMillis - lowEpochMillis || (millis == lastEpochMillis - lowEpochMillis && fraction > lastFraction)) {
+                return fromEpochMillisAndFraction(lastEpochMillis, toIntExact(lastFraction * factor), defaultTZ);
+            }
+            return fromEpochMillisAndFraction(lowEpochMillis + millis, toIntExact(fraction * factor), defaultTZ);
         }
     }
 
@@ -1367,6 +1384,15 @@ class FakerPageSource
             long picoseconds = sequenceValue(low, index, step, factor);
             return new LongTimeWithTimeZone((step > 0 ? Math.min(picoseconds, high - 1) : Math.max(picoseconds, high - 1)) * factor, offsetMinutes);
         }
+    }
+
+    // the offset of a sequence value in units of a precision, where a unit takes the given number of picoseconds
+    private static long sequenceOffsetUnits(long index, long stepNanos, long picosPerUnit)
+    {
+        if (picosPerUnit >= PICOSECONDS_PER_NANOSECOND) {
+            return sequenceValue(0, index, stepNanos, picosPerUnit / PICOSECONDS_PER_NANOSECOND);
+        }
+        return saturatedMultiply(sequenceValue(0, index, stepNanos, 1), PICOSECONDS_PER_NANOSECOND / picosPerUnit);
     }
 
     // low + index * step / factor overflows for long sequences with large steps, like a day in nanoseconds,

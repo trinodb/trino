@@ -805,11 +805,25 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_integer", "integer", Map.of("min", "2147483638", "max", "2147483647", "step", "1"), "count(distinct rnd_integer) = 10 AND min(rnd_integer) = 2147483638 AND max(rnd_integer) = 2147483647", "true"))
                 .add(new TestDataType("rnd_date", "date", Map.of("min", "5881580-07-02", "max", "5881580-07-11", "step", "1d"), "count(distinct rnd_date) = 10 AND min(rnd_date) = DATE '5881580-07-02' AND max(rnd_date) = DATE '5881580-07-11'", "true"))
                 .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("min", "294247-01-10 04:00:54.775798", "max", "294247-01-10 04:00:54.775807", "step", "1us"), "count(distinct rnd_timestamp6) = 10 AND min(rnd_timestamp6) = TIMESTAMP '294247-01-10 04:00:54.775798' AND max(rnd_timestamp6) = TIMESTAMP '294247-01-10 04:00:54.775807'", "true"))
-                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("min", "294247-01-10 04:00:54.775798000", "max", "294247-01-10 04:00:54.775807999", "step", "1us"), "count(distinct rnd_timestamp9) = 10 AND min(rnd_timestamp9) = TIMESTAMP '294247-01-10 04:00:54.775798000' AND max(rnd_timestamp9) = TIMESTAMP '294247-01-10 04:00:54.775807000'", "true"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("min", "294247-01-10 04:00:54.775798000", "max", "294247-01-10 04:00:54.775807999", "step", "1us"), "count(distinct rnd_timestamp9) = 11 AND min(rnd_timestamp9) = TIMESTAMP '294247-01-10 04:00:54.775798000' AND max(rnd_timestamp9) = TIMESTAMP '294247-01-10 04:00:54.775807999'", "true"))
                 .build();
 
         for (TestDataType testCase : testCases) {
             try (TestTable table = newTrinoTable("step_top_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+
+        // steps shorter than the unit of the stored value, like a microsecond or a millisecond
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("min", "2020-01-01 00:00:00.000000000", "step", "1ns"), "count(distinct rnd_timestamp9) = 1000 AND max(rnd_timestamp9) = TIMESTAMP '2020-01-01 00:00:00.000000999'", "true"))
+                .add(new TestDataType("rnd_timestamp12", "timestamp(12)", Map.of("min", "2020-01-01 00:00:00.000000000001", "step", "1ns"), "count(distinct rnd_timestamp12) = 1000 AND max(rnd_timestamp12) = TIMESTAMP '2020-01-01 00:00:00.000000999001'", "true"))
+                .add(new TestDataType("rnd_timestamptz6", "timestamp(6) with time zone", Map.of("min", "2020-01-01 00:00:00.000000 UTC", "step", "1us"), "count(distinct rnd_timestamptz6) = 1000 AND max(rnd_timestamptz6) = TIMESTAMP '2020-01-01 00:00:00.000999 UTC'", "true"))
+                .add(new TestDataType("rnd_timestamptz9", "timestamp(9) with time zone", Map.of("min", "2020-01-01 00:00:00.000000001 UTC", "max", "2020-01-01 00:00:00.000000500 UTC", "step", "1ns"), "count(distinct rnd_timestamptz9) = 500 AND max(rnd_timestamptz9) = TIMESTAMP '2020-01-01 00:00:00.000000500 UTC'", "true"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("step_fraction_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
