@@ -150,6 +150,8 @@ class FakerPageSource
     };
 
     private static final int ROWS_PER_PAGE = 4096;
+    // limits the size of pages with deeply nested arrays and maps, whose number of values grows exponentially with their depth
+    private static final int MAX_VALUES_PER_COLUMN = 16 * ROWS_PER_PAGE;
     private static final int MAX_NORMAL_ATTEMPTS = 10;
     // accepts most samples of the Zipf distribution without evaluating the hat function, see zipfOffset
     private static final double ZIPF_SQUEEZE = 2 - Math.exp(Math.log(2.5) - 0.5);
@@ -167,6 +169,7 @@ class FakerPageSource
     private final Locale locale;
     private final long rowOffset;
     private final long limit;
+    private final int rowsPerPage;
     private final List<SeededColumnGenerator> generators;
     private long completedRows;
 
@@ -188,12 +191,27 @@ class FakerPageSource
                 .collect(toImmutableList());
         this.rowOffset = rowOffset;
         this.limit = limit;
+        double maxValuesPerRow = types.stream()
+                .mapToDouble(FakerPageSource::expectedValueCount)
+                .max()
+                .orElse(1);
+        this.rowsPerPage = (int) Math.clamp(MAX_VALUES_PER_COLUMN / maxValuesPerRow, 1, ROWS_PER_PAGE);
 
         this.generators = columns
                 .stream()
                 .map(column -> seededColumnGenerator(seed, column))
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(types);
+    }
+
+    private static double expectedValueCount(Type type)
+    {
+        return switch (type) {
+            case ArrayType arrayType -> 1 + MAX_CARDINALITY / 2.0 * expectedValueCount(arrayType.getElementType());
+            case MapType mapType -> 1 + MAX_CARDINALITY / 2.0 * (expectedValueCount(mapType.getKeyType()) + expectedValueCount(mapType.getValueType()));
+            case RowType rowType -> 1 + rowType.getTypeParameters().stream().mapToDouble(FakerPageSource::expectedValueCount).sum();
+            default -> 1;
+        };
     }
 
     private SeededColumnGenerator seededColumnGenerator(long tableSeed, FakerColumnHandle column)
@@ -300,7 +318,7 @@ class FakerPageSource
     public SourcePage getNextSourcePage()
     {
         if (!closed) {
-            int positions = (int) Math.min(limit - completedRows, ROWS_PER_PAGE);
+            int positions = (int) Math.min(limit - completedRows, rowsPerPage);
             if (positions <= 0) {
                 closed = true;
             }
