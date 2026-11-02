@@ -244,7 +244,7 @@ public class StaticCatalogManager
     }
 
     @Override
-    public void dropCatalog(CatalogName catalogName, boolean exists)
+    public Optional<Catalog> dropCatalog(CatalogName catalogName, boolean exists)
     {
         throw new TrinoException(NOT_SUPPORTED, "DROP CATALOG is not supported by the static catalog store");
     }
