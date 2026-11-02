@@ -178,7 +178,9 @@ The following table details all supported column properties.
     properties.
 * - `step`
   - If set, generate sequential values with this step, which must be finite and
-    greater than zero. For date and time columns set this to a duration.
+    greater than zero. For date and time columns set this to a duration, which
+    can't be shorter than the precision of the column type, like `1d` for `DATE`
+    columns, or `1ms` for `TIMESTAMP(3)` columns.
     Without `min`, sequences of `DATE`, `TIMESTAMP`, and `TIMESTAMP WITH TIME
     ZONE` columns start at `1970-01-01`, and continue past `2100-01-01` when
     `max` isn't set. Can only be set for numeric, date and time, and interval

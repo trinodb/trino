@@ -16,6 +16,7 @@ package io.trino.plugin.faker;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -43,6 +44,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.Duration.succinctNanos;
+import static io.airlift.units.Duration.timeUnitToString;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.DISTRIBUTION_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.GENERATOR_PROPERTY;
@@ -54,6 +57,7 @@ import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
 import static io.trino.plugin.faker.Distribution.NORMAL;
 import static io.trino.plugin.faker.Distribution.UNIFORM;
 import static io.trino.plugin.faker.Distribution.ZIPF;
+import static io.trino.plugin.faker.FakerPageSource.POWERS_OF_TEN;
 import static io.trino.plugin.faker.PropertyValues.propertyValue;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -62,6 +66,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -232,14 +237,34 @@ public record FakerColumnHandle(
             throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property cannot be set for %s columns".formatted(STEP_PROPERTY, type.getDisplayName()));
         }
         Object step = propertyValue(column, STEP_PROPERTY);
-        Type stepType = type;
-        if (DATE.equals(type) || type instanceof TimestampType || type instanceof TimestampWithTimeZoneType || type instanceof TimeType || type instanceof TimeWithTimeZoneType) {
-            stepType = BIGINT;
-        }
+        boolean isDateTime = DATE.equals(type) || type instanceof TimestampType || type instanceof TimestampWithTimeZoneType || type instanceof TimeType || type instanceof TimeWithTimeZoneType;
+        // date and time steps are durations in nanoseconds
+        Type stepType = isDateTime ? BIGINT : type;
         if (!isPositive(stepType, step)) {
             throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property must be greater than zero and finite".formatted(STEP_PROPERTY));
         }
+        // a step shorter than the precision of the type generates repeated values
+        if (isDateTime && (long) step < minimumStepNanos(type)) {
+            Duration minimumStep = succinctNanos(minimumStepNanos(type));
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property for a %s column must be at least %d%s".formatted(
+                    STEP_PROPERTY, type.getDisplayName(), Math.round(minimumStep.getValue()), timeUnitToString(minimumStep.getUnit())));
+        }
         return ValueSet.of(stepType, step);
+    }
+
+    private static long minimumStepNanos(Type type)
+    {
+        if (DATE.equals(type)) {
+            return NANOSECONDS_PER_DAY;
+        }
+        int precision = switch (type) {
+            case TimestampType timestampType -> timestampType.getPrecision();
+            case TimestampWithTimeZoneType timestampWithTimeZoneType -> timestampWithTimeZoneType.getPrecision();
+            case TimeType timeType -> timeType.getPrecision();
+            case TimeWithTimeZoneType timeWithTimeZoneType -> timeWithTimeZoneType.getPrecision();
+            default -> throw new VerifyException("Unexpected type: " + type);
+        };
+        return precision >= 9 ? 1 : POWERS_OF_TEN[9 - precision];
     }
 
     private static boolean isPositive(Type type, Object value)

@@ -1070,7 +1070,7 @@ public class FakerMetadata
         if (step == null) {
             return OptionalDouble.of(valueUnits + 1);
         }
-        // a step shorter than the type precision generates repeated values, and a step that is not positive does not generate a sequence
+        // a step that is not a multiple of the type precision generates values at uneven intervals, and a step that is not positive does not generate a sequence
         if (step <= 0 || step % stepUnit != 0) {
             return OptionalDouble.empty();
         }
