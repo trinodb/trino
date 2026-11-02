@@ -227,6 +227,12 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <configuration>
                     <rules combine.children="merge">
+                        <requireUpperBoundDeps>
+                            <excludes combine.children="append">
+                                <!-- JDK11 support dropped by units 1.9+ -->
+                                <exclude>io.airlift:units</exclude>
+                            </excludes>
+                        </requireUpperBoundDeps>
                         <enforceBytecodeVersion>
                             <excludes>
                                 <!-- jline-terminal-ffm works only on JDK 22+, but will fall back to JNI on lower JDKs -->
