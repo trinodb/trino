@@ -190,7 +190,7 @@
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.2</dep.avro.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
-        <dep.confluent.version>8.1.1</dep.confluent.version>
+        <dep.confluent.version>8.4.0</dep.confluent.version>
         <dep.datasketches.version>9.0.0</dep.datasketches.version>
         <dep.derby.version>10.17.1.0</dep.derby.version>
         <dep.docker.images.version>132</dep.docker.images.version>
@@ -1931,7 +1931,7 @@
             <dependency>
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
-                <version>4.3.2</version>
+                <version>4.4.0</version>
             </dependency>
 
             <dependency>
