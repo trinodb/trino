@@ -21,6 +21,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.AbstractLongType;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import org.junit.jupiter.api.Test;
@@ -112,6 +113,23 @@ public class TestFakerPageSource
         // rows start at an offset of the column's random stream, which wraps around after 2^44 rows
         assertThat(generateRows(columns, 1L << 44, 1000)).doesNotContainAnyElementsOf(generateRows(columns, 0, 1000));
         assertThat(generateRows(columns, 3L << 44, 1000)).doesNotContainAnyElementsOf(generateRows(columns, 1L << 44, 1000));
+    }
+
+    @Test
+    public void testDeeplyNestedPageSize()
+    {
+        Type type = INTEGER;
+        for (int depth = 0; depth < 8; depth++) {
+            type = new ArrayType(type);
+        }
+        FakerColumnHandle column = new FakerColumnHandle(0, "nested", type, 0, null, Domain.all(type), ValueSet.none(type), Optional.empty(), UNIFORM, List.of());
+        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 100_000);
+        SourcePage page = source.getNextSourcePage();
+        while (page == null) {
+            page = source.getNextSourcePage();
+        }
+        // every row has about 2500 values on average, so a page of 4096 rows would take tens of megabytes
+        assertThat(page.getSizeInBytes()).isLessThan(8 * 1024 * 1024);
     }
 
     private static FakerColumnHandle column(Domain domain)
