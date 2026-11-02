@@ -34,6 +34,7 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.operator.ForScheduler;
@@ -144,6 +145,7 @@ public class HttpRemoteTaskFactory
             boolean speculative,
             PlanFragment fragment,
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            Map<PlanNodeId, ResolvingIdentity> tableIdentities,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
@@ -160,6 +162,7 @@ public class HttpRemoteTaskFactory
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
                 tableCredentials,
+                tableIdentities,
                 initialSplits,
                 outputBuffers,
                 httpClient,

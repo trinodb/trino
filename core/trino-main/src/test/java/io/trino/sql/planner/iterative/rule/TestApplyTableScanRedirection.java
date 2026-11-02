@@ -20,8 +20,8 @@ import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableHandle.ResolvingIdentity;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -229,7 +229,7 @@ public class TestApplyTableScanRedirection
                                     new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                     TupleDomain.all(),
                                     ImmutableMap.of("DEST_COL", DESTINATION_COLUMN_HANDLE_A::equals))
-                                    .with(new PredicateMatcher<TableScanNode>(node -> node.getTable().resolvingIdentity().user().equals(MOCK_SESSION.getUser()))));
+                                    .with(new PredicateMatcher<TableScanNode>(node -> node.getTable().requireResolvingIdentity().user().equals(MOCK_SESSION.getUser()))));
         }
     }
 
@@ -301,8 +301,8 @@ public class TestApplyTableScanRedirection
                     withRequiredFilter
                             ? ImmutableMap.of("OUT", DESTINATION_COLUMN_HANDLE_B::equals, "FILTER", DESTINATION_COLUMN_HANDLE_C::equals)
                             : ImmutableMap.of("OUT", DESTINATION_COLUMN_HANDLE_B::equals))
-                    .with(new PredicateMatcher<TableScanNode>(node -> node.getTable().resolvingIdentity().user().equals(tableIdentity.getUser()) &&
-                            node.getTable().resolvingIdentity().groups().equals(tableIdentity.getGroups())));
+                    .with(new PredicateMatcher<TableScanNode>(node -> node.getTable().requireResolvingIdentity().user().equals(tableIdentity.getUser()) &&
+                            node.getTable().requireResolvingIdentity().groups().equals(tableIdentity.getGroups())));
 
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .withSession(session)

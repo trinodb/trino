@@ -43,6 +43,7 @@ import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.operator.TaskContext;
@@ -148,6 +149,7 @@ public class MockRemoteTaskFactory
                 false,
                 testFragment,
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 initialSplits.build(),
                 PipelinedOutputBuffers.createInitial(BROADCAST),
                 partitionedSplitCountTracker,
@@ -165,6 +167,7 @@ public class MockRemoteTaskFactory
             boolean speculative,
             PlanFragment fragment,
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            Map<PlanNodeId, ResolvingIdentity> tableIdentities,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,

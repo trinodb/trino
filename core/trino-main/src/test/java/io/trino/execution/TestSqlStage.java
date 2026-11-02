@@ -33,6 +33,7 @@ import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.node.InternalNode;
@@ -87,6 +88,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -227,6 +229,7 @@ public class TestSqlStage
         };
 
         AtomicReference<Map<PlanNodeId, ConnectorTableCredentials>> capturedCredentials = new AtomicReference<>();
+        AtomicReference<Map<PlanNodeId, ResolvingIdentity>> capturedIdentities = new AtomicReference<>();
         RemoteTaskFactory capturingFactory = new RemoteTaskFactory()
         {
             private final RemoteTaskFactory delegate = new MockRemoteTaskFactory(executor, scheduledExecutor);
@@ -240,6 +243,7 @@ public class TestSqlStage
                     boolean speculative,
                     PlanFragment fragment,
                     Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+                    Map<PlanNodeId, ResolvingIdentity> tableIdentities,
                     Multimap<PlanNodeId, Split> initialSplits,
                     OutputBuffers outputBuffers,
                     PartitionedSplitCountTracker partitionedSplitCountTracker,
@@ -248,7 +252,8 @@ public class TestSqlStage
                     boolean summarizeTaskInfo)
             {
                 capturedCredentials.set(tableCredentials);
-                return delegate.createRemoteTask(session, stageSpan, taskId, node, speculative, fragment, tableCredentials, initialSplits, outputBuffers, partitionedSplitCountTracker, outboundDynamicFilterIds, estimatedMemory, summarizeTaskInfo);
+                capturedIdentities.set(tableIdentities);
+                return delegate.createRemoteTask(session, stageSpan, taskId, node, speculative, fragment, tableCredentials, tableIdentities, initialSplits, outputBuffers, partitionedSplitCountTracker, outboundDynamicFilterIds, estimatedMemory, summarizeTaskInfo);
             }
         };
 
@@ -275,6 +280,9 @@ public class TestSqlStage
 
         assertThat(capturedCredentials.get())
                 .containsExactly(Map.entry(TABLE_SCAN_NODE_ID, credentials));
+        // the identities the tables were resolved as are sent with the plan
+        assertThat(capturedIdentities.get())
+                .containsExactly(Map.entry(TABLE_SCAN_NODE_ID, TEST_RESOLVING_IDENTITY));
 
         stage.finish();
     }

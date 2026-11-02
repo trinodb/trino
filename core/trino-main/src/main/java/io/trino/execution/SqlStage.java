@@ -27,6 +27,7 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.spi.connector.ConnectorTableCredentials;
@@ -34,6 +35,7 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.ConnectorTableCredentialsVisitor;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.TableResolvingIdentities;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -74,6 +76,7 @@ public final class SqlStage
     private final Session session;
     private final StageStateMachine stateMachine;
     private final Supplier<Map<PlanNodeId, ConnectorTableCredentials>> tableCredentialsProvider;
+    private final Map<PlanNodeId, ResolvingIdentity> tableIdentities;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
@@ -132,7 +135,8 @@ public final class SqlStage
                 nodeTaskMap,
                 summarizeTaskInfo,
                 bucketCountProvider,
-                memoize(context.wrapSupplier(() -> extractTableCredentials(session, metadata, fragment))::get));
+                memoize(context.wrapSupplier(() -> extractTableCredentials(session, metadata, fragment))::get),
+                TableResolvingIdentities.collect(fragment.getRoot()));
         sqlStage.initialize();
         return sqlStage;
     }
@@ -144,7 +148,8 @@ public final class SqlStage
             NodeTaskMap nodeTaskMap,
             boolean summarizeTaskInfo,
             LocalExchangeBucketCountProvider bucketCountProvider,
-            Supplier<Map<PlanNodeId, ConnectorTableCredentials>> tableCredentialsProvider)
+            Supplier<Map<PlanNodeId, ConnectorTableCredentials>> tableCredentialsProvider,
+            Map<PlanNodeId, ResolvingIdentity> tableIdentities)
     {
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
@@ -155,6 +160,7 @@ public final class SqlStage
 
         this.outboundDynamicFilterIds = getOutboundDynamicFilters(stateMachine.getFragment());
         this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
+        this.tableIdentities = ImmutableMap.copyOf(requireNonNull(tableIdentities, "tableIdentities is null"));
     }
 
     private static Map<PlanNodeId, ConnectorTableCredentials> extractTableCredentials(Session session, Metadata metadata, PlanFragment fragment)
@@ -306,6 +312,7 @@ public final class SqlStage
                 speculative,
                 fragment,
                 tableCredentialsProvider.get(),
+                tableIdentities,
                 splits,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),

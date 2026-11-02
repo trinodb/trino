@@ -633,7 +633,7 @@ public final class Session
         if (tableHandle.isResolvedAs(identity)) {
             return identity;
         }
-        return tableHandle.resolvingIdentity().toIdentity(tableHandle.catalogHandle().getCatalogName().toString());
+        return tableHandle.requireResolvingIdentity().toIdentity(tableHandle.catalogHandle().getCatalogName().toString());
     }
 
     private ConnectorSession toConnectorSession(CatalogHandle catalogHandle, Identity effectiveIdentity)

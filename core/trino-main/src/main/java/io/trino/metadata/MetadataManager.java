@@ -27,7 +27,6 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.LanguageFunctionManager.RunAsIdentityLoader;
-import io.trino.metadata.TableHandle.ResolvingIdentity;
 import io.trino.plugin.base.util.UncheckedCloser;
 import io.trino.security.AccessControl;
 import io.trino.security.InjectedConnectorAccessControl;

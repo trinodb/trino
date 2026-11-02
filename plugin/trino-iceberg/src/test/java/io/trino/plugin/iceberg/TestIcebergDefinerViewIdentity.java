@@ -13,18 +13,26 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import io.trino.Session;
+import io.trino.execution.QueryInfo;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.local.LocalFileSystem;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.eventlistener.QueryCompletedEvent;
+import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.security.Identity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -48,6 +56,7 @@ import static io.trino.plugin.iceberg.IcebergConnectorFactory.createConnector;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -62,8 +71,10 @@ final class TestIcebergDefinerViewIdentity
 {
     private static final String VIEW_OWNER = "view_owner";
     private static final String VIEW_READER = "view_reader";
+    private static final String VIEW_OWNER_GROUP = "view_owners";
 
     private final List<FileRead> fileReads = new CopyOnWriteArrayList<>();
+    private final List<QueryCompletedEvent> completedQueries = new CopyOnWriteArrayList<>();
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -75,7 +86,18 @@ final class TestIcebergDefinerViewIdentity
                 .setIdentity(Identity.ofUser(VIEW_OWNER))
                 .build();
 
-        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setEventListener(new EventListener()
+                {
+                    @Override
+                    public void queryCompleted(QueryCompletedEvent event)
+                    {
+                        completedQueries.add(event);
+                    }
+                })
+                .build();
+        // the owner's groups are part of the identity a definer view's tables are resolved as
+        queryRunner.getCoordinator().getGroupProvider().setConfiguredGroupProvider(user -> user.equals(VIEW_OWNER) ? ImmutableSet.of(VIEW_OWNER_GROUP) : ImmutableSet.of());
 
         Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
         dataDirectory.toFile().mkdirs();
@@ -101,6 +123,44 @@ final class TestIcebergDefinerViewIdentity
 
         assertThat(tableReadUsers(tableName)).containsExactly(VIEW_OWNER);
         assertThat(dataFileReadUsers(tableName)).containsExactly(VIEW_OWNER);
+    }
+
+    @Test
+    void testQueryDetailsDoNotExposeTheIdentityOfTheViewOwner()
+            throws Exception
+    {
+        String tableName = "test_reported_table_" + randomNameSuffix();
+        String viewName = "test_reported_view_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 id", 1);
+        assertUpdate("CREATE VIEW " + viewName + " SECURITY DEFINER AS SELECT * FROM " + tableName);
+
+        QueryId queryId = getDistributedQueryRunner().executeWithPlan(viewReaderSession(), "SELECT * FROM " + viewName).queryId();
+
+        QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getFullQueryInfo(queryId);
+        ObjectMapper objectMapper = getDistributedQueryRunner().getCoordinator().getInstance(Key.get(ObjectMapper.class));
+        String stages = objectMapper.writeValueAsString(queryInfo.getStages().orElseThrow());
+
+        // the plan of the scan is reported, but not the identity it was resolved as
+        assertThat(stages).contains(tableName);
+        assertThat(stages).doesNotContain(VIEW_OWNER, VIEW_OWNER_GROUP);
+
+        for (String explain : List.of("EXPLAIN ", "EXPLAIN ANALYZE VERBOSE ")) {
+            String plan = (String) computeActual(viewReaderSession(), explain + "SELECT * FROM " + viewName).getOnlyValue();
+            assertThat(plan).contains(tableName);
+            assertThat(plan).doesNotContain(VIEW_OWNER, VIEW_OWNER_GROUP);
+        }
+
+        // a listener receives the stage plans of the query as well
+        assertEventually(() -> assertThat(completedQueries).anyMatch(event -> event.getMetadata().getQueryId().equals(queryId.toString())));
+        QueryMetadata metadata = completedQueries.stream()
+                .filter(event -> event.getMetadata().getQueryId().equals(queryId.toString()))
+                .map(QueryCompletedEvent::getMetadata)
+                .findFirst()
+                .orElseThrow();
+        assertThat(metadata.getPayload().orElseThrow()).contains(tableName);
+        assertThat(metadata.getPayload().orElseThrow()).doesNotContain(VIEW_OWNER, VIEW_OWNER_GROUP);
+        assertThat(metadata.getPlan().orElseThrow()).doesNotContain(VIEW_OWNER, VIEW_OWNER_GROUP);
+        assertThat(metadata.getJsonPlan().orElseThrow()).doesNotContain(VIEW_OWNER, VIEW_OWNER_GROUP);
     }
 
     @Test

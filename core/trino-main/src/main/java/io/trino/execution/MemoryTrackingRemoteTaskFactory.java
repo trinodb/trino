@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.spi.connector.ConnectorTableCredentials;
@@ -54,6 +55,7 @@ public class MemoryTrackingRemoteTaskFactory
             boolean speculative,
             PlanFragment fragment,
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            Map<PlanNodeId, ResolvingIdentity> tableIdentities,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
@@ -69,6 +71,7 @@ public class MemoryTrackingRemoteTaskFactory
                 speculative,
                 fragment,
                 tableCredentials,
+                tableIdentities,
                 initialSplits,
                 outputBuffers,
                 partitionedSplitCountTracker,

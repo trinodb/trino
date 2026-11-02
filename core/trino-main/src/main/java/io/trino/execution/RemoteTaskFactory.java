@@ -19,6 +19,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.spi.connector.ConnectorTableCredentials;
@@ -40,6 +41,7 @@ public interface RemoteTaskFactory
             boolean speculative,
             PlanFragment fragment,
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            Map<PlanNodeId, ResolvingIdentity> tableIdentities,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,

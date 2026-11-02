@@ -14,7 +14,6 @@
 package io.trino.metadata;
 
 import io.airlift.json.JsonMapperProvider;
-import io.trino.metadata.TableHandle.ResolvingIdentity;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.security.BasicPrincipal;
@@ -53,7 +52,7 @@ public class TestTableHandle
         TableHandle handle = tableHandle(OWNER);
         // a pushdown replaces the connector handle, but the table is still the one the owner resolved
         TableHandle rewritten = handle.withConnectorHandle(new TestingTableHandle("t2"));
-        assertThat(rewritten.resolvingIdentity()).isEqualTo(OWNER);
+        assertThat(rewritten.resolvingIdentity()).contains(OWNER);
         assertThat(rewritten.catalogHandle()).isEqualTo(handle.catalogHandle());
         assertThat(rewritten.transaction()).isEqualTo(handle.transaction());
     }
@@ -100,11 +99,11 @@ public class TestTableHandle
         // the credentials themselves are not carried, so this identity can only be used as the session identity
         assertThatThrownBy(resolvingIdentity::toConnectorIdentity)
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Extra credentials of the identity owner are not available for the table");
+                .hasMessage("The extra credentials of the identity a table was resolved as are not available");
     }
 
     @Test
-    public void testWorkerSerializationCarriesResolvingIdentity()
+    public void testSerializationDoesNotCarryResolvingIdentity()
             throws Exception
     {
         HandleResolver resolver = new HandleResolver();
@@ -117,10 +116,18 @@ public class TestTableHandle
                 .withConnectorRole(new SelectedRole(SelectedRole.Type.ROLE, Optional.of("owner_role")))
                 .withExtraCredentials(Map.of("private_key", "private_value"))
                 .build()));
-        String json = mapper.writeValueAsString(table);
 
-        assertThat(json).contains("view_owner", "view_owners", "owner_principal", "owner_role");
-        assertThat(json).doesNotContain("private_key", "private_value");
-        assertThat(mapper.readValue(json, TableHandle.class)).isEqualTo(table);
+        // query details, such as the plan of a stage in query information, must not expose the identity of a view owner
+        String json = mapper.writeValueAsString(table);
+        assertThat(json).doesNotContain("view_owner", "view_owners", "owner_principal", "owner_role", "private_key", "private_value");
+
+        TableHandle deserialized = mapper.readValue(json, TableHandle.class);
+        assertThat(deserialized.resolvingIdentity()).isEmpty();
+        assertThat(deserialized).isEqualTo(new TableHandle(table.catalogHandle(), table.connectorHandle(), table.transaction(), Optional.empty()));
+        assertThatThrownBy(deserialized::requireResolvingIdentity)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("has not been restored");
+
+        assertThat(deserialized.withResolvingIdentity(OWNER)).isEqualTo(tableHandle(OWNER));
     }
 }

@@ -14,8 +14,8 @@
 package io.trino;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableHandle.ResolvingIdentity;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.BasicPrincipal;

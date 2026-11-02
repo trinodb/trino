@@ -9127,21 +9127,21 @@ public class TestAnalyzer
     public void testTablesCarryTheResolvingConnectorIdentity()
     {
         assertThat(analyze("SELECT * FROM definer_view").getTables())
-                .extracting(table -> table.resolvingIdentity().user())
+                .extracting(table -> table.requireResolvingIdentity().user())
                 .containsExactly("view_owner");
 
         for (String relation : ImmutableList.of("t1", "invoker_view", "v1")) {
             assertThat(analyze("SELECT * FROM " + relation).getTables())
                     .isNotEmpty()
-                    .allSatisfy(table -> assertThat(table.resolvingIdentity().user()).isEqualTo(CLIENT_SESSION.getUser()));
+                    .allSatisfy(table -> assertThat(table.requireResolvingIdentity().user()).isEqualTo(CLIENT_SESSION.getUser()));
         }
 
         assertThat(analyze("SELECT * FROM definer_view_over_mv").getTables())
-                .extracting(table -> table.resolvingIdentity().user())
+                .extracting(table -> table.requireResolvingIdentity().user())
                 .contains("view_owner");
 
         assertThat(analyze("SELECT a FROM definer_view UNION ALL SELECT a FROM t1").getTables())
-                .extracting(table -> table.resolvingIdentity().user())
+                .extracting(table -> table.requireResolvingIdentity().user())
                 .containsExactlyInAnyOrder("view_owner", CLIENT_SESSION.getUser());
     }
 

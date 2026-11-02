@@ -14,8 +14,8 @@
 package io.trino.testing;
 
 import io.trino.connector.CatalogHandle;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableHandle.ResolvingIdentity;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.security.ConnectorIdentity;

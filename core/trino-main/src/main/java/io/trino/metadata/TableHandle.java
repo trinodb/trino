@@ -13,23 +13,33 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.ImmutableSet;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.security.BasicPrincipal;
-import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.SelectedRole;
 
-import java.security.Principal;
 import java.util.Optional;
-import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public record TableHandle(CatalogHandle catalogHandle, ConnectorTableHandle connectorHandle, ConnectorTransactionHandle transaction, ResolvingIdentity resolvingIdentity)
+/**
+ * A table, as resolved by {@link Metadata}, together with the identity it was resolved as.
+ * <p>
+ * The identity is not serialized, so that query information, the stage plans it carries to the events of a listener,
+ * and {@code EXPLAIN} output do not expose the identity of a SECURITY DEFINER view's owner. A worker receives the
+ * identities of the tables a plan fragment reads next to the fragment and restores them before planning it. The other
+ * handles of a fragment, such as the targets of writes, are used with the session identity and have no identity on
+ * a worker.
+ */
+public record TableHandle(
+        CatalogHandle catalogHandle,
+        ConnectorTableHandle connectorHandle,
+        ConnectorTransactionHandle transaction,
+        Optional<ResolvingIdentity> resolvingIdentity)
 {
     public TableHandle
     {
@@ -37,6 +47,31 @@ public record TableHandle(CatalogHandle catalogHandle, ConnectorTableHandle conn
         requireNonNull(connectorHandle, "connectorHandle is null");
         requireNonNull(transaction, "transaction is null");
         requireNonNull(resolvingIdentity, "resolvingIdentity is null");
+    }
+
+    public TableHandle(CatalogHandle catalogHandle, ConnectorTableHandle connectorHandle, ConnectorTransactionHandle transaction, ResolvingIdentity resolvingIdentity)
+    {
+        this(catalogHandle, connectorHandle, transaction, Optional.of(resolvingIdentity));
+    }
+
+    @DoNotCall // For JSON deserialization only
+    @JsonCreator
+    public static TableHandle fromJson(
+            @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
+            @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
+            @JsonProperty("transaction") ConnectorTransactionHandle transaction)
+    {
+        return new TableHandle(catalogHandle, connectorHandle, transaction, Optional.empty());
+    }
+
+    /**
+     * The identity the table was resolved as. Empty in a deserialized handle whose identity has not been restored.
+     */
+    @JsonIgnore
+    @Override
+    public Optional<ResolvingIdentity> resolvingIdentity()
+    {
+        return resolvingIdentity;
     }
 
     public TableHandle withConnectorHandle(ConnectorTableHandle connectorHandle)
@@ -48,70 +83,32 @@ public record TableHandle(CatalogHandle catalogHandle, ConnectorTableHandle conn
                 resolvingIdentity);
     }
 
+    public TableHandle withResolvingIdentity(ResolvingIdentity resolvingIdentity)
+    {
+        return new TableHandle(
+                catalogHandle,
+                connectorHandle,
+                transaction,
+                resolvingIdentity);
+    }
+
+    /**
+     * Whether the table was resolved as {@code identity}, so that it can be used with a session of that identity,
+     * including its extra credentials.
+     */
     public boolean isResolvedAs(Identity identity)
     {
-        return resolvingIdentity.equals(ResolvingIdentity.from(identity.toConnectorIdentity(catalogHandle.getCatalogName().toString())));
+        return requireResolvingIdentity().equals(ResolvingIdentity.from(identity.toConnectorIdentity(catalogHandle.getCatalogName().toString())));
+    }
+
+    public ResolvingIdentity requireResolvingIdentity()
+    {
+        return resolvingIdentity.orElseThrow(() -> new IllegalStateException("The identity of the table " + this + " has not been restored"));
     }
 
     @Override
     public String toString()
     {
         return catalogHandle + ":" + connectorHandle;
-    }
-
-    /**
-     * The identity the table was resolved as, for example the owner of a SECURITY DEFINER view.
-     * Extra credentials are not included, the same way they are kept out of the session representation.
-     * Only the session identity has extra credentials, so a table resolved with them is used with the session identity.
-     */
-    public record ResolvingIdentity(String user, Set<String> groups, Optional<String> principal, Set<String> enabledSystemRoles, Optional<SelectedRole> connectorRole, boolean hasExtraCredentials)
-    {
-        public ResolvingIdentity
-        {
-            requireNonNull(user, "user is null");
-            groups = ImmutableSet.copyOf(requireNonNull(groups, "groups is null"));
-            requireNonNull(principal, "principal is null");
-            enabledSystemRoles = ImmutableSet.copyOf(requireNonNull(enabledSystemRoles, "enabledSystemRoles is null"));
-            requireNonNull(connectorRole, "connectorRole is null");
-        }
-
-        public static ResolvingIdentity from(ConnectorIdentity identity)
-        {
-            return new ResolvingIdentity(
-                    identity.getUser(),
-                    identity.getGroups(),
-                    identity.getPrincipal().map(Principal::toString),
-                    identity.getEnabledSystemRoles(),
-                    identity.getConnectorRole(),
-                    !identity.getExtraCredentials().isEmpty());
-        }
-
-        public ConnectorIdentity toConnectorIdentity()
-        {
-            checkExtraCredentialsNotRequired();
-            return ConnectorIdentity.forUser(user)
-                    .withGroups(groups)
-                    .withPrincipal(principal.map(BasicPrincipal::new))
-                    .withEnabledSystemRoles(enabledSystemRoles)
-                    .withConnectorRole(connectorRole)
-                    .build();
-        }
-
-        // The connector role applies only to the catalog of the table
-        public Identity toIdentity(String catalogName)
-        {
-            checkExtraCredentialsNotRequired();
-            Identity.Builder identity = Identity.forUser(user)
-                    .withGroups(groups)
-                    .withPrincipal(principal.map(BasicPrincipal::new))
-                    .withEnabledRoles(enabledSystemRoles);
-            connectorRole.ifPresent(role -> identity.withConnectorRole(catalogName, role));
-            return identity.build();
-        }
-
-        private void checkExtraCredentialsNotRequired()
-        {
-            checkState(!hasExtraCredentials, "Extra credentials of the identity %s are not available for the table", user);
-        }
     }
 }
