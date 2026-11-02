@@ -14,6 +14,7 @@
 
 package io.trino.plugin.faker;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -221,13 +222,16 @@ public record FakerColumnHandle(
     private static ValueSet stepValue(ColumnMetadata column)
     {
         Type type = column.getType();
-        Object step = propertyValue(column, STEP_PROPERTY);
-        if (step == null) {
+        if (column.getProperties().get(STEP_PROPERTY) == null) {
             return ValueSet.none(type);
         }
         if (isCharacterColumn(column)) {
             throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property cannot be set for CHAR, VARCHAR or VARBINARY columns".formatted(STEP_PROPERTY));
         }
+        if (!isSequenceSupported(type)) {
+            throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property cannot be set for %s columns".formatted(STEP_PROPERTY, type.getDisplayName()));
+        }
+        Object step = propertyValue(column, STEP_PROPERTY);
         Type stepType = type;
         if (DATE.equals(type) || type instanceof TimestampType || type instanceof TimestampWithTimeZoneType || type instanceof TimeType || type instanceof TimeWithTimeZoneType) {
             stepType = BIGINT;
@@ -245,9 +249,16 @@ public record FakerColumnHandle(
             case Long longValue -> longValue > 0;
             case Double doubleValue -> Double.isFinite(doubleValue) && doubleValue > 0;
             case Int128 int128Value -> !int128Value.isNegative() && !int128Value.isZero();
-            // types without numeric values don't support sequences, which is reported when generating data
-            default -> true;
+            default -> throw new VerifyException("Unexpected step value: " + value);
         };
+    }
+
+    private static boolean isSequenceSupported(Type type)
+    {
+        return BIGINT.equals(type) || INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type) ||
+                type instanceof DecimalType || REAL.equals(type) || DOUBLE.equals(type) ||
+                IntervalValues.isInterval(type) ||
+                DATE.equals(type) || type instanceof TimestampType || type instanceof TimestampWithTimeZoneType || type instanceof TimeType || type instanceof TimeWithTimeZoneType;
     }
 
     private static Range range(Type type, Object min, Object max)

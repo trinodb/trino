@@ -983,6 +983,17 @@ final class TestFakerQueries
     }
 
     @Test
+    void testStepPropertyUnsupportedType()
+    {
+        for (String type : ImmutableList.of("boolean", "uuid", "ipaddress", "json", "array(bigint)")) {
+            assertThat(query("CREATE TABLE step_not_supported (value %s WITH (step = '1'))".formatted(type)))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage("The `step` property cannot be set for %s columns".formatted(type));
+        }
+    }
+
+    @Test
     void testNormalDistribution()
     {
         List<DistributionTestCase> testCases = ImmutableList.of(
