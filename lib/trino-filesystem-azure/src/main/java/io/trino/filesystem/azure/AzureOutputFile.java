@@ -29,6 +29,7 @@ import java.nio.file.FileAlreadyExistsException;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -86,7 +87,7 @@ class AzureOutputFile
             if (BlobErrorCode.CONTAINER_NOT_FOUND.equals(e.getErrorCode())) {
                 throw new FileNotFoundException(location.toString());
             }
-            throw e;
+            throw handleAzureException(e, "writing", location);
         }
     }
 
