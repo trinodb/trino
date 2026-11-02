@@ -274,6 +274,31 @@ class TestLakehouseHiveMetastore
     }
 
     @Test
+    void listsPartitionsOnceForAllNamesWhoseFilterIsEmpty()
+    {
+        Table table = partitionedOrders();
+        client.add(SCHEMA, TABLE, partition(TABLE, List.of("emea")))
+                .add(SCHEMA, TABLE, partition(TABLE, List.of("o'brien")))
+                .add(SCHEMA, TABLE, partition(TABLE, List.of("o'neil")));
+
+        String brien = makePartName(List.of("region"), List.of("o'brien"));
+        String neil = makePartName(List.of("region"), List.of("o'neil"));
+        String hara = makePartName(List.of("region"), List.of("o'hara"));
+        Map<String, Optional<Partition>> partitions =
+                metastore.getPartitionsByNames(table, List.of(brien, neil, hara, "region=emea"));
+
+        assertThat(partitions).containsOnlyKeys(brien, neil, hara, "region=emea");
+        assertThat(partitions.get(brien))
+                .hasValueSatisfying(partition -> assertThat(partition.getValues()).containsExactly("o'brien"));
+        assertThat(partitions.get(neil))
+                .hasValueSatisfying(partition -> assertThat(partition.getValues()).containsExactly("o'neil"));
+        assertThat(partitions.get(hara)).isEmpty();
+        assertThat(partitions.get("region=emea")).isPresent();
+        // One listing without a filter serves the three names with a quote, and the other name keeps its own filter
+        assertThat(client.partitionFilters()).containsExactlyInAnyOrder("", "region='emea'");
+    }
+
+    @Test
     void returnsOnlyThePartitionWhoseValuesEqualTheRequestedOnes()
     {
         client.add(table(SCHEMA, TABLE, "", List.of(field("id", "bigint")), List.of(field("n", "int"))));

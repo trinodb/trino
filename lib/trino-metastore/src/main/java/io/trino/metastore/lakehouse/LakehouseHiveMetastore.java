@@ -14,6 +14,7 @@
 package io.trino.metastore.lakehouse;
 
 import com.google.cloud.biglake.hive.v1.HiveTable;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -153,19 +154,41 @@ public class LakehouseHiveMetastore
     @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
     {
+        // Looking up a name whose filter is empty lists every partition of the table, so those names share one listing
+        Supplier<Optional<List<com.google.cloud.biglake.hive.v1.Partition>>> unfilteredListing = Suppliers.memoize(
+                () -> client.get().listPartitions(table.getDatabaseName(), table.getTableName(), ""));
+
         ImmutableMap.Builder<String, Optional<Partition>> partitions =
                 ImmutableMap.builderWithExpectedSize(partitionNames.size());
         for (String partitionName : partitionNames) {
-            partitions.put(partitionName, onePartition(table, toPartitionValues(partitionName)));
+            List<String> partitionValues = toPartitionValues(partitionName);
+            String filter = PartitionFilter.toLakehouseFilter(table.getPartitionColumns(), partitionValues);
+            if (filter.isEmpty()) {
+                partitions.put(partitionName, exactPartition(table, partitionValues, unfilteredListing.get()));
+            }
+            else {
+                partitions.put(partitionName, onePartition(table, partitionValues, filter));
+            }
         }
         return partitions.buildKeepingLast();
     }
 
     private Optional<Partition> onePartition(Table table, List<String> partitionValues)
     {
-        String filter = PartitionFilter.toLakehouseFilter(table.getPartitionColumns(), partitionValues);
-        return client.get()
-                .listPartitions(table.getDatabaseName(), table.getTableName(), filter)
+        return onePartition(table, partitionValues, PartitionFilter.toLakehouseFilter(table.getPartitionColumns(), partitionValues));
+    }
+
+    private Optional<Partition> onePartition(Table table, List<String> partitionValues, String filter)
+    {
+        return exactPartition(table, partitionValues, client.get().listPartitions(table.getDatabaseName(), table.getTableName(), filter));
+    }
+
+    private static Optional<Partition> exactPartition(
+            Table table,
+            List<String> partitionValues,
+            Optional<List<com.google.cloud.biglake.hive.v1.Partition>> listedPartitions)
+    {
+        return listedPartitions
                 // A filter that left a value out lists more than one partition
                 .flatMap(partitions -> partitions.stream()
                         .filter(partition -> partition.getValuesList().equals(partitionValues))
