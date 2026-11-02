@@ -403,6 +403,16 @@
                                 <include>com.amazonaws:*:*</include>
                             </includes>
                         </bannedDependencies>
+                        <requireUpperBoundDeps>
+                            <excludes combine.children="append">
+                                <!-- Jetty 11 pinned until Ranger upgrades to Jetty 12 -->
+                                <exclude>org.eclipse.jetty:jetty-alpn-client</exclude>
+                                <exclude>org.eclipse.jetty:jetty-client</exclude>
+                                <exclude>org.eclipse.jetty:jetty-http</exclude>
+                                <exclude>org.eclipse.jetty:jetty-io</exclude>
+                                <exclude>org.eclipse.jetty:jetty-util</exclude>
+                            </excludes>
+                        </requireUpperBoundDeps>
                     </rules>
                 </configuration>
             </plugin>
