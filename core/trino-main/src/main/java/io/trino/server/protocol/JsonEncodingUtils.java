@@ -15,6 +15,7 @@ package io.trino.server.protocol;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceUtf8;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.json.Json;
@@ -289,8 +290,26 @@ public final class JsonEncodingUtils
                 return;
             }
             Slice slice = VARCHAR.getSlice(block, position);
-            generator.writeUTF8String(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+            if (SliceUtf8.isAscii(slice) || isValidUtf8(slice)) {
+                generator.writeUTF8String(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+                return;
+            }
+            // If it is not valid UTF-8, convert to String first
+            generator.writeString(slice.toStringUtf8());
         }
+    }
+
+    private static boolean isValidUtf8(Slice slice)
+    {
+        int position = 0;
+        while (position < slice.length()) {
+            int codePoint = SliceUtf8.tryGetCodePointAt(slice, position);
+            if (codePoint < 0) {
+                return false;
+            }
+            position += SliceUtf8.lengthOfCodePoint(codePoint);
+        }
+        return true;
     }
 
     private static final class CharEncoder

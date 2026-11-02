@@ -16,6 +16,7 @@ package io.trino.server.protocol;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.client.CloseableIterator;
@@ -1152,5 +1153,25 @@ public class TestJsonEncodingUtils
         }
         assertThat(failure.get()).hasMessage("Interval map keys collide at millisecond precision; use a client supporting PARAMETRIC_INTERVAL");
         assertThat(failure.get().getErrorCode()).isEqualTo(NOT_SUPPORTED.toErrorCode());
+    }
+
+    @Test
+    public void testVarcharInvalidUtf8Serialization()
+            throws IOException
+    {
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", VARCHAR));
+        // A varchar field is not guaranteed to contain valid UTF-8
+        // The Kafka connector for example exposes the raw message bytes through its _message column.
+        // 0x82 is an invalid start byte and 0xE2 0x82 is an invalid code point.
+        byte[] invalidUtf8 = new byte[] {'a', (byte) 0x82, 'b', (byte) 0xE2, (byte) 0x82};
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);
+        VARCHAR.writeSlice(blockBuilder, Slices.wrappedBuffer(invalidUtf8));
+
+        QueryDataEncoder encoder = newEncoder(TEST_SESSION, columns);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        encoder.encodeTo(output, ImmutableList.of(page(blockBuilder.build())));
+
+        assertThat(output.toByteArray()).isEqualTo("[[\"a\uFFFDb\uFFFD\"]]".getBytes(UTF_8));
+        assertThat(parseJson(columns, output.toByteArray())).containsExactly(ImmutableList.of("a\uFFFDb\uFFFD"));
     }
 }
