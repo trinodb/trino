@@ -19,17 +19,21 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
 
 import java.io.IOException;
 
-import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.FLAT;
+import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.HIERARCHICAL;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
 @TestInstance(Lifecycle.PER_CLASS)
-class TestAzureFileSystemGen2Flat
+public class TestAzureFileSystemOAuthHierarchicalAzure
         extends AbstractTestAzureFileSystem
 {
     @BeforeAll
     void setup()
             throws IOException
     {
-        initializeWithAccessKeyAndMultipartWrites(requireEnv("ABFS_FLAT_ACCOUNT"), requireEnv("ABFS_FLAT_ACCESS_KEY"), FLAT);
+        String account = requireEnv("ABFS_HIERARCHICAL_ACCOUNT");
+        String tenantId = requireEnv("ABFS_OAUTH_TENANT_ID");
+        String clientId = requireEnv("ABFS_OAUTH_CLIENT_ID");
+        String clientSecret = requireEnv("ABFS_OAUTH_CLIENT_SECRET");
+        initializeWithOAuth(account, tenantId, clientId, clientSecret, HIERARCHICAL);
     }
 }

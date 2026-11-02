@@ -23,7 +23,7 @@ import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
 @TestInstance(Lifecycle.PER_CLASS)
-public class TestAzureFileSystemOAuthGen2Flat
+public class TestAzureFileSystemOAuthFlatAzure
         extends AbstractTestAzureFileSystem
 {
     @BeforeAll
