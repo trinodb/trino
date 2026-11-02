@@ -13,13 +13,15 @@
  */
 package io.trino.testng.services;
 
-import com.google.common.base.Joiner;
 import com.google.errorprone.annotations.FormatMethod;
 import org.testng.ITestClass;
 import org.testng.ITestNGListener;
 import org.testng.ITestResult;
 
+import java.util.stream.Stream;
+
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 /**
  * @see io.trino.testing.services.junit.Listeners for utlity class for JUnit listeners
@@ -63,6 +65,6 @@ public final class Listeners
         if (parameters == null || parameters.length == 0) {
             return "";
         }
-        return format(" [%s]", Joiner.on(", ").useForNull("null").join(parameters));
+        return format(" [%s]", Stream.of(parameters).map(String::valueOf).collect(joining(", ")));
     }
 }

@@ -15,11 +15,14 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.SessionRepresentation;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.QueryId;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -54,6 +57,7 @@ public class TestInlineSession
         QueryRunner runner = new StandaloneQueryRunner(session);
         MockConnectorPlugin mockConnectorPlugin = new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withSessionProperty(stringProperty("catalog_property", "Test catalog property", "", false))
+                .withSessionProperty(stringProperty("other_catalog_property", "Other test catalog property", "", false))
                 .build());
 
         runner.installPlugin(mockConnectorPlugin);
@@ -109,21 +113,35 @@ public class TestInlineSession
     @Test
     void testValidSystemSessionProperties()
     {
-        assertThat(assertions.execute("WITH SESSION query_max_total_memory = '10GB' SELECT 1").getSession().getSystemProperties())
+        assertThat(effectiveSession("WITH SESSION query_max_total_memory = '10GB' SELECT 1").getSystemProperties())
                 .isEqualTo(Map.of("query_max_total_memory", "10GB"));
 
-        assertThat(assertions.execute("WITH SESSION query_max_total_memory = CAST('10GB' AS VARCHAR) SELECT 1").getSession().getSystemProperties())
+        assertThat(effectiveSession("WITH SESSION query_max_total_memory = CAST('10GB' AS VARCHAR) SELECT 1").getSystemProperties())
                 .isEqualTo(Map.of("query_max_total_memory", "10GB"));
     }
 
     @Test
     void testValidCatalogSessionProperty()
     {
-        assertThat(assertions.execute("WITH SESSION mock.catalog_property = 'true' SELECT 1").getSession().getCatalogProperties("mock"))
+        assertThat(effectiveSession("WITH SESSION mock.catalog_property = 'true' SELECT 1").getCatalogProperties().get("mock"))
                 .isEqualTo(Map.of("catalog_property", "true"));
 
-        assertThat(assertions.execute("WITH SESSION mock.catalog_property = CAST(true AS varchar) SELECT 1").getSession().getCatalogProperties("mock"))
+        assertThat(effectiveSession("WITH SESSION mock.catalog_property = CAST(true AS varchar) SELECT 1").getCatalogProperties().get("mock"))
                 .isEqualTo(Map.of("catalog_property", "true"));
+    }
+
+    @Test
+    void testExistingCatalogSessionProperties()
+    {
+        Session session = assertions.sessionBuilder()
+                .setCatalogSessionProperty(MOCK_CATALOG, "catalog_property", "false")
+                .build();
+
+        assertThat(effectiveSession(session, "WITH SESSION mock.catalog_property = 'true' SELECT 1").getCatalogProperties().get("mock"))
+                .isEqualTo(Map.of("catalog_property", "true"));
+
+        assertThat(effectiveSession(session, "WITH SESSION mock.other_catalog_property = 'true' SELECT 1").getCatalogProperties().get("mock"))
+                .isEqualTo(Map.of("catalog_property", "false", "other_catalog_property", "true"));
     }
 
     @Test
@@ -167,5 +185,17 @@ public class TestInlineSession
         assertThat(assertions.query("WITH SESSION mock.catalog_property = 'true', mock.catalog_property = 'false' SELECT 1"))
                 .failure()
                 .hasMessageContaining("line 1:46: Session property 'mock.catalog_property' already set");
+    }
+
+    private SessionRepresentation effectiveSession(@Language("SQL") String sql)
+    {
+        return effectiveSession(assertions.getDefaultSession(), sql);
+    }
+
+    private SessionRepresentation effectiveSession(Session session, @Language("SQL") String sql)
+    {
+        QueryRunner runner = assertions.getQueryRunner();
+        QueryId queryId = runner.executeWithPlan(session, sql).queryId();
+        return runner.getCoordinator().getFullQueryInfo(queryId).getSession();
     }
 }

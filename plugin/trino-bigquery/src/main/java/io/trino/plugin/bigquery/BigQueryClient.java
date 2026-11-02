@@ -103,6 +103,12 @@ public class BigQueryClient
             .onRetry(event -> log.debug("Getting destination table failed, retrying: %s", event.getLastException()))
             .handleIf(BigQueryUtil::isRetryable)
             .build();
+    private static final RetryPolicy<Object> LIST_TABLES_RETRY_POLICY = RetryPolicy.builder()
+            .withMaxRetries(3)
+            .withBackoff(100, 2000, ChronoUnit.MILLIS)
+            .onRetry(event -> log.debug("Listing tables failed, retrying: %s", event.getLastException()))
+            .handleIf(BigQueryUtil::isRetryable)
+            .build();
 
     // BigQuery has different table_type in `INFORMATION_SCHEMA` than API responses that returns TableDefinition.Type
     // see https://cloud.google.com/bigquery/docs/information-schema-tables#schema
@@ -166,7 +172,16 @@ public class BigQueryClient
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
     {
-        return toRemoteDataset(projectId, datasetName, () -> listDatasetIds(projectId));
+        Supplier<List<DatasetId>> datasetIds = () -> listDatasetIds(projectId);
+        Optional<RemoteDatabaseObject> remoteDataset = toRemoteDataset(projectId, datasetName, datasetIds);
+        if (remoteDataset.isPresent() && remoteDataset.get().isAmbiguous()) {
+            // The colliding dataset may have been dropped or renamed, so re-resolve from the current remote state.
+            // The cached dataset listing must also be dropped, as the mapping is rebuilt from it.
+            remoteDatasetCaseInsensitiveCache.invalidate(DatasetId.of(projectId, datasetName));
+            remoteDatasetIdCache.invalidate(projectId);
+            return toRemoteDataset(projectId, datasetName, datasetIds);
+        }
+        return remoteDataset;
     }
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName, Supplier<List<DatasetId>> datasetIds)
@@ -261,7 +276,12 @@ public class BigQueryClient
 
         Optional<RemoteDatabaseObject> remoteTableFromCache = Optional.ofNullable(remoteTableCaseInsensitiveCache.getIfPresent(cacheKey));
         if (remoteTableFromCache.isPresent()) {
-            return remoteTableFromCache;
+            if (!remoteTableFromCache.get().isAmbiguous()) {
+                return remoteTableFromCache;
+            }
+            // The colliding table may have been dropped or renamed, so invalidate the entry and re-resolve.
+            // The rebuild below seeds from the cache, so the entry must be removed before it runs.
+            remoteTableCaseInsensitiveCache.invalidate(cacheKey);
         }
 
         // Get all information from BigQuery and update cache from all fetched information
@@ -328,11 +348,11 @@ public class BigQueryClient
         }
     }
 
-    public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<BigQueryColumnHandle> requiredColumns, Optional<String> filter)
+    public TableInfo getCachedTable(Duration viewExpiration, TableId tableId, List<BigQueryColumnHandle> requiredColumns, Optional<String> filter)
     {
-        String query = selectSql(remoteTableId.getTableId(), requiredColumns, filter, OptionalLong.empty());
+        String query = selectSql(tableId, requiredColumns, filter, OptionalLong.empty());
         log.debug("query is %s", query);
-        return materializationCache.getCachedTable(this, query, viewExpiration, remoteTableId);
+        return materializationCache.getCachedTable(this, query, viewExpiration, tableId);
     }
 
     /**
@@ -400,7 +420,8 @@ public class BigQueryClient
         // BigQuery.listTables returns partial information on each table. See javadoc for more details.
         Iterable<Table> allTables;
         try {
-            allTables = bigQuery.listTables(remoteDatasetId, BigQuery.TableListOption.pageSize(metadataPageSize)).iterateAll();
+            allTables = Failsafe.with(LIST_TABLES_RETRY_POLICY)
+                    .get(() -> bigQuery.listTables(remoteDatasetId, BigQuery.TableListOption.pageSize(metadataPageSize)).iterateAll());
         }
         catch (BigQueryException e) {
             throw new TrinoException(BIGQUERY_LISTING_TABLE_ERROR, "Failed to retrieve tables from BigQuery", e);
@@ -603,7 +624,7 @@ public class BigQueryClient
             query = query + " WHERE " + filter.get();
         }
         if (limit.isPresent()) {
-            query = query + " LIMIT " + limit.getAsLong();
+            query = query + " LIMIT " + limit.orElseThrow();
         }
         return query;
     }

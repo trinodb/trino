@@ -27,8 +27,10 @@ import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 public class IcebergExecutorModule
         implements Module
@@ -45,8 +47,13 @@ public class IcebergExecutorModule
     @Singleton
     @Provides
     @ForIcebergMetadata
-    public ExecutorService createIcebergMetadataExecutor(CatalogName catalogName)
+    public ExecutorService createIcebergMetadataExecutor(CatalogName catalogName, IcebergConfig config)
     {
+        // Metadata enumeration is blocking object-store/catalog I/O bounded by BoundedExecutor(iceberg.metadata.parallelism),
+        // so a virtual-thread-per-task executor caps thread cost while the BoundedExecutor preserves the downstream concurrency limit.
+        if (config.isMetadataVirtualThreadsEnabled()) {
+            return newThreadPerTaskExecutor(virtualThreadsNamed("iceberg-metadata-" + catalogName + "#v%s"));
+        }
         return newCachedThreadPool(daemonThreadsNamed("iceberg-metadata-" + catalogName + "-%s"));
     }
 

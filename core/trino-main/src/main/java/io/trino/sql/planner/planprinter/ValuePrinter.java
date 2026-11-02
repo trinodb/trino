@@ -22,6 +22,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -43,6 +44,11 @@ public final class ValuePrinter
         return metadata;
     }
 
+    public Session getSession()
+    {
+        return session;
+    }
+
     public String render(Type type, Object value)
     {
         try {
@@ -50,7 +56,7 @@ public final class ValuePrinter
                 return "NULL";
             }
 
-            ResolvedFunction coercion = metadata.getCoercion(type, VARCHAR);
+            ResolvedFunction coercion = metadata.getCoercion(getCharVarcharCoercion(session), type, VARCHAR);
             Slice coerced = (Slice) new InterpretedFunctionInvoker(functionManager).invoke(coercion, session.toConnectorSession(), value);
             return coerced.toStringUtf8();
         }

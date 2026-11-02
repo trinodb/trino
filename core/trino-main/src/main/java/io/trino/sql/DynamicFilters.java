@@ -25,6 +25,7 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.BooleanType;
@@ -39,6 +40,7 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.List;
 import java.util.Objects;
@@ -63,23 +65,25 @@ public final class DynamicFilters
 
     public static Expression createDynamicFilterExpression(
             Metadata metadata,
+            CharVarcharCoercion charVarcharCoercion,
             DynamicFilterId id,
             Type inputType,
             Expression input,
             ComparisonOperator operator)
     {
-        return createDynamicFilterExpression(metadata, id, inputType, input, operator, false);
+        return createDynamicFilterExpression(metadata, charVarcharCoercion, id, inputType, input, operator, false);
     }
 
     public static Expression createDynamicFilterExpression(
             Metadata metadata,
+            CharVarcharCoercion charVarcharCoercion,
             DynamicFilterId id,
             Type inputType,
             Expression input,
             ComparisonOperator operator,
             boolean nullAllowed)
     {
-        return BuiltinFunctionCallBuilder.resolve(metadata)
+        return BuiltinFunctionCallBuilder.resolve(metadata, charVarcharCoercion)
                 .setName(nullAllowed ? NullableFunction.NAME : Function.NAME)
                 .addArgument(inputType, input)
                 .addArgument(new Constant(VarcharType.VARCHAR, Slices.utf8Slice(operator.toString())))
@@ -89,9 +93,9 @@ public final class DynamicFilters
     }
 
     @VisibleForTesting
-    public static Expression createDynamicFilterExpression(Metadata metadata, DynamicFilterId id, Type inputType, Expression input)
+    public static Expression createDynamicFilterExpression(Metadata metadata, CharVarcharCoercion charVarcharCoercion, DynamicFilterId id, Type inputType, Expression input)
     {
-        return createDynamicFilterExpression(metadata, id, inputType, input, EQUAL);
+        return createDynamicFilterExpression(metadata, charVarcharCoercion, id, inputType, input, EQUAL);
     }
 
     public static ExtractResult extractDynamicFilters(Expression expression)
@@ -129,8 +133,8 @@ public final class DynamicFilters
     private static Symbol extractSourceSymbol(DynamicFilters.Descriptor descriptor)
     {
         Expression dynamicFilterExpression = descriptor.getInput();
-        if (dynamicFilterExpression instanceof Reference) {
-            return Symbol.from(dynamicFilterExpression);
+        if (dynamicFilterExpression instanceof Reference reference) {
+            return Symbol.from(reference);
         }
         checkState(dynamicFilterExpression instanceof Cast);
         checkState(((Cast) dynamicFilterExpression).expression() instanceof Reference);
@@ -189,25 +193,12 @@ public final class DynamicFilters
         return functionName.equals(builtinFunctionName(Function.NAME)) || functionName.equals(builtinFunctionName(NullableFunction.NAME));
     }
 
-    public static class ExtractResult
+    public record ExtractResult(List<Expression> staticConjuncts, List<Descriptor> dynamicConjuncts)
     {
-        private final List<Expression> staticConjuncts;
-        private final List<Descriptor> dynamicConjuncts;
-
-        public ExtractResult(List<Expression> staticConjuncts, List<Descriptor> dynamicConjuncts)
+        public ExtractResult
         {
-            this.staticConjuncts = ImmutableList.copyOf(requireNonNull(staticConjuncts, "staticConjuncts is null"));
-            this.dynamicConjuncts = ImmutableList.copyOf(requireNonNull(dynamicConjuncts, "dynamicConjuncts is null"));
-        }
-
-        public List<Expression> getStaticConjuncts()
-        {
-            return staticConjuncts;
-        }
-
-        public List<Descriptor> getDynamicConjuncts()
-        {
-            return dynamicConjuncts;
+            staticConjuncts = ImmutableList.copyOf(requireNonNull(staticConjuncts, "staticConjuncts is null"));
+            dynamicConjuncts = ImmutableList.copyOf(requireNonNull(dynamicConjuncts, "dynamicConjuncts is null"));
         }
     }
 
@@ -303,14 +294,20 @@ public final class DynamicFilters
                 }
                 return domain;
             }
-            Range span = domain.getValues().getRanges().getSpan();
-            return switch (operator) {
-                case EQUAL -> {
-                    if (nullAllowed) {
-                        yield Domain.create(domain.getValues(), true);
-                    }
-                    yield domain;
+            if (operator == EQUAL) {
+                return nullAllowed ? Domain.create(domain.getValues(), true) : domain;
+            }
+            Range span;
+            if (domain.getValues() instanceof FloatingPointValueSet floatingPoint) {
+                if (floatingPoint.isNaNAllowed()) {
+                    return Domain.create(ValueSet.all(domain.getType()), nullAllowed);
                 }
+                span = floatingPoint.getOrderedValues().getSpan();
+            }
+            else {
+                span = domain.getValues().getRanges().getSpan();
+            }
+            return switch (operator) {
                 case LESS_THAN -> {
                     Range range = Range.lessThan(span.getType(), span.getHighBoundedValue());
                     yield Domain.create(ValueSet.ofRanges(range), false);

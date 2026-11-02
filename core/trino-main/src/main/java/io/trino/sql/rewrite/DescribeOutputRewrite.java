@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.server.protocol.ProtocolUtil.formatType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.NUMBER;
@@ -193,7 +194,7 @@ public final class DescribeOutputRewrite
 
             Optional<QualifiedObjectName> originTable = field.getOriginTable();
 
-            String typeName = field.getType().getDisplayName();
+            String typeName = formatType(field.getType(), session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_INTERVAL.toString()));
             if (typeName.equals(NUMBER) && !session.getClientCapabilities().contains(ClientCapabilities.NUMBER.toString())) {
                 typeName = VARCHAR.getDisplayName();
             }

@@ -15,13 +15,18 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.connector.ColumnMetadata;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
+import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.parseVersion;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -63,6 +68,27 @@ public class TestIcebergUtil
                 .hasMessageMatching("Invalid metadata file name:.*");
         assertThatThrownBy(() -> parseVersion("v-10.metadata.json"))
                 .hasMessageMatching("Invalid metadata file name:.*");
+    }
+
+    @Test
+    public void testColumnMetadataTimeZone()
+    {
+        Schema schema = new Schema(
+                NestedField.required(1, "id", Types.LongType.get()),
+                NestedField.required(2, "ts", Types.TimestampType.withZone()),
+                NestedField.required(3, "nested", Types.ListType.ofRequired(4, Types.TimestampType.withZone())),
+                NestedField.required(5, "local_ts", Types.TimestampType.withoutZone()));
+
+        assertThat(getColumnMetadatas(schema, TESTING_TYPE_MANAGER, 2))
+                .extracting(ColumnMetadata::getName, ColumnMetadata::getTimeZone)
+                .containsExactly(
+                        tuple("id", Optional.empty()),
+                        tuple("ts", Optional.of(UTC_KEY)),
+                        tuple("nested", Optional.of(UTC_KEY)),
+                        tuple("local_ts", Optional.empty()),
+                        tuple("$partition", Optional.empty()),
+                        tuple("$path", Optional.empty()),
+                        tuple("$file_modified_time", Optional.of(UTC_KEY)));
     }
 
     @Test

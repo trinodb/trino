@@ -108,21 +108,25 @@ import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.Intersect;
+import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IntervalLiteral.Sign;
+import io.trino.sql.tree.IntervalValueExpression;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Isolation;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonTablePlan;
 import io.trino.sql.tree.JsonValue;
@@ -136,6 +140,7 @@ import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeDelete;
@@ -150,6 +155,7 @@ import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OneOrMoreQuantifier;
 import io.trino.sql.tree.OrderBy;
@@ -268,7 +274,6 @@ import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static io.trino.sql.parser.ParserAssert.assertExpressionIsInvalid;
 import static io.trino.sql.parser.ParserAssert.assertStatementIsInvalid;
@@ -582,9 +587,9 @@ public class TestSqlParser
         assertThat(expression("TIMESTAMP 'abc'"))
                 .isEqualTo(new GenericLiteral(location, "TIMESTAMP", "abc"));
         assertThat(expression("INTERVAL '33' day"))
-                .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, new SimpleIntervalQualifier(new NodeLocation(1, 15), OptionalInt.empty(), new IntervalField.Day())));
+                .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, new SimpleIntervalQualifier(new NodeLocation(1, 15), Optional.empty(), new IntervalField.Day())));
         assertThat(expression("INTERVAL '33' day to second"))
-                .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, new CompositeIntervalQualifier(new NodeLocation(1, 15), OptionalInt.empty(), new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty()))));
+                .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, new CompositeIntervalQualifier(new NodeLocation(1, 15), Optional.empty(), new IntervalField.Day(), new IntervalField.Second(Optional.empty()))));
         assertThat(expression("CHAR 'abc'"))
                 .isEqualTo(new GenericLiteral(location, "CHAR", "abc"));
     }
@@ -717,6 +722,9 @@ public class TestSqlParser
     @Test
     public void testIdentifier()
     {
+        assertThat(expression("interval"))
+                .isEqualTo(new Identifier(new NodeLocation(1, 1), "interval", false));
+
         assertThat(expression("_123_456"))
                 .isEqualTo(new Identifier(new NodeLocation(1, 1), "_123_456", false));
 
@@ -1810,74 +1818,121 @@ public class TestSqlParser
     {
         NodeLocation location = new NodeLocation(1, 1);
         assertThat(expression("INTERVAL '123' YEAR"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Year())));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), Optional.empty(), new IntervalField.Year())));
         assertThat(expression("INTERVAL '123-3' YEAR TO MONTH"))
-                .isEqualTo(new IntervalLiteral(location, "123-3", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 18), OptionalInt.empty(), new IntervalField.Year(), new IntervalField.Month())));
+                .isEqualTo(new IntervalLiteral(location, "123-3", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 18), Optional.empty(), new IntervalField.Year(), new IntervalField.Month())));
         assertThat(expression("INTERVAL '123' MONTH"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Month())));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), Optional.empty(), new IntervalField.Month())));
         assertThat(expression("INTERVAL '123' DAY"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Day())));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), Optional.empty(), new IntervalField.Day())));
         assertThat(expression("INTERVAL '123 23:58:53.456' DAY TO SECOND"))
-                .isEqualTo(new IntervalLiteral(location, "123 23:58:53.456", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 29), OptionalInt.empty(), new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty()))));
+                .isEqualTo(new IntervalLiteral(location, "123 23:58:53.456", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 29), Optional.empty(), new IntervalField.Day(), new IntervalField.Second(Optional.empty()))));
         assertThat(expression("INTERVAL '123' HOUR"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Hour())));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), Optional.empty(), new IntervalField.Hour())));
         assertThat(expression("INTERVAL '23:59' HOUR TO MINUTE"))
-                .isEqualTo(new IntervalLiteral(location, "23:59", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 18), OptionalInt.empty(), new IntervalField.Hour(), new IntervalField.Minute())));
+                .isEqualTo(new IntervalLiteral(location, "23:59", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 18), Optional.empty(), new IntervalField.Hour(), new IntervalField.Minute())));
         assertThat(expression("INTERVAL '123' MINUTE"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Minute())));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), Optional.empty(), new IntervalField.Minute())));
         assertThat(expression("INTERVAL '123' SECOND"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Second(OptionalInt.empty()))));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), Optional.empty(), new IntervalField.Second(Optional.empty()))));
 
         assertThat(expression("INTERVAL '1' YEAR(1)"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Year())));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 19), "1")), new IntervalField.Year())));
 
         assertThat(expression("INTERVAL '1' YEAR(1) TO MONTH"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Year(), new IntervalField.Month())));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 19), "1")), new IntervalField.Year(), new IntervalField.Month())));
 
         assertThat(expression("INTERVAL '1' MONTH(1)"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Month())));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 20), "1")), new IntervalField.Month())));
 
         assertThat(expression("INTERVAL '1' DAY(1)"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day())));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 18), "1")), new IntervalField.Day())));
 
         assertThat(expression("INTERVAL '1' DAY(1) TO HOUR"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Hour())));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 18), "1")), new IntervalField.Day(), new IntervalField.Hour())));
 
         assertThat(expression("INTERVAL '1' DAY(1) TO MINUTE"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Minute())));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 18), "1")), new IntervalField.Day(), new IntervalField.Minute())));
 
         assertThat(expression("INTERVAL '1' DAY(1) TO SECOND"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty()))));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 18), "1")), new IntervalField.Day(), new IntervalField.Second(Optional.empty()))));
 
         assertThat(expression("INTERVAL '1' DAY(1) TO SECOND(2)"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Second(OptionalInt.of(2)))));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 18), "1")), new IntervalField.Day(), new IntervalField.Second(Optional.of(new NumericParameter(new NodeLocation(1, 31), "2"))))));
 
         assertThat(expression("INTERVAL '1' HOUR(1)"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Hour())));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 19), "1")), new IntervalField.Hour())));
 
         assertThat(expression("INTERVAL '1' HOUR(1) TO MINUTE"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Minute())));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 19), "1")), new IntervalField.Hour(), new IntervalField.Minute())));
 
         assertThat(expression("INTERVAL '1' HOUR(1) TO SECOND"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Second(OptionalInt.empty()))));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 19), "1")), new IntervalField.Hour(), new IntervalField.Second(Optional.empty()))));
 
         assertThat(expression("INTERVAL '1' HOUR(1) TO SECOND(2)"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Second(OptionalInt.of(2)))));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 19), "1")), new IntervalField.Hour(), new IntervalField.Second(Optional.of(new NumericParameter(new NodeLocation(1, 32), "2"))))));
 
         assertThat(expression("INTERVAL '1' MINUTE(1)"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Minute())));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 21), "1")), new IntervalField.Minute())));
 
         assertThat(expression("INTERVAL '1' MINUTE(1) TO SECOND"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Minute(), new IntervalField.Second(OptionalInt.empty()))));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 21), "1")), new IntervalField.Minute(), new IntervalField.Second(Optional.empty()))));
 
         assertThat(expression("INTERVAL '1' MINUTE(1) TO SECOND(2)"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Minute(), new IntervalField.Second(OptionalInt.of(2)))));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 21), "1")), new IntervalField.Minute(), new IntervalField.Second(Optional.of(new NumericParameter(new NodeLocation(1, 34), "2"))))));
 
         assertThat(expression("INTERVAL '1' SECOND(1)"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Second(OptionalInt.empty()))));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 21), "1")), new IntervalField.Second(Optional.empty()))));
 
         assertThat(expression("INTERVAL '1' SECOND(1, 2)"))
-                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Second(OptionalInt.of(2)))));
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 21), "1")), new IntervalField.Second(Optional.of(new NumericParameter(new NodeLocation(1, 24), "2"))))));
+    }
+
+    @Test
+    public void testIntervalValueExpression()
+    {
+        NodeLocation location = new NodeLocation(1, 1);
+
+        // Keep the qualified syntax distinct from an ordinary subtraction or cast.
+        assertThat(expression("(a - b) DAY TO SECOND"))
+                .ignoringLocation()
+                .isEqualTo(new IntervalValueExpression(
+                        location,
+                        new Identifier(location, "a", false),
+                        new Identifier(location, "b", false),
+                        new IntervalDataType(location, new CompositeIntervalQualifier(location, Optional.empty(), new IntervalField.Day(), new IntervalField.Second(Optional.empty())))));
+
+        // an explicit leading precision rides along on the qualifier
+        assertThat(expression("(a - b) DAY(9) TO SECOND"))
+                .ignoringLocation()
+                .isEqualTo(new IntervalValueExpression(
+                        location,
+                        new Identifier(location, "a", false),
+                        new Identifier(location, "b", false),
+                        new IntervalDataType(location, new CompositeIntervalQualifier(location, Optional.of(new NumericParameter(location, "9")), new IntervalField.Day(), new IntervalField.Second(Optional.empty())))));
+
+        // a single-field day-time qualifier works too
+        assertThat(expression("(a - b) HOUR"))
+                .ignoringLocation()
+                .isEqualTo(new IntervalValueExpression(
+                        location,
+                        new Identifier(location, "a", false),
+                        new Identifier(location, "b", false),
+                        new IntervalDataType(location, new SimpleIntervalQualifier(location, Optional.empty(), new IntervalField.Hour()))));
+
+        // A year-month qualifier is retained and rejected later, during analysis, as
+        // unsupported (a datetime difference is a day-time interval, not a calendar year-month difference)
+        assertThat(expression("(a - b) MONTH"))
+                .ignoringLocation()
+                .isEqualTo(new IntervalValueExpression(
+                        location,
+                        new Identifier(location, "a", false),
+                        new Identifier(location, "b", false),
+                        new IntervalDataType(location, new SimpleIntervalQualifier(location, Optional.empty(), new IntervalField.Month()))));
+
+        // the parenthesized form requires a subtraction: an addition is not an interval value expression
+        assertExpressionIsInvalid("(a + b) DAY TO SECOND")
+                .withMessage("line 1:1: Qualified datetime difference must be a subtraction");
     }
 
     @Test
@@ -4879,6 +4934,15 @@ public class TestSqlParser
     }
 
     @Test
+    public void testCommentMaterializedView()
+    {
+        QualifiedName materializedView = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 30), "a", false)));
+        assertThat(statement("COMMENT ON MATERIALIZED VIEW a IS 'test'")).isEqualTo(new Comment(location(1, 1), Comment.Type.MATERIALIZED_VIEW, materializedView, Optional.of("test")));
+        assertThat(statement("COMMENT ON MATERIALIZED VIEW a IS ''")).isEqualTo(new Comment(location(1, 1), Comment.Type.MATERIALIZED_VIEW, materializedView, Optional.of("")));
+        assertThat(statement("COMMENT ON MATERIALIZED VIEW a IS NULL")).isEqualTo(new Comment(location(1, 1), Comment.Type.MATERIALIZED_VIEW, materializedView, Optional.empty()));
+    }
+
+    @Test
     public void testCommentColumn()
     {
         QualifiedName column = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "a", false), new Identifier(location(1, 21), "b", false)));
@@ -5115,6 +5179,29 @@ public class TestSqlParser
                                         location(1, 50),
                                         new Identifier(location(1, 46), "age", false),
                                         new ComparisonPredicate(location(1, 50), ComparisonPredicate.Operator.GREATER_THAN, new LongLiteral(location(1, 52), "17"))))));
+    }
+
+    @Test
+    public void testMaterializedViewExecute()
+    {
+        Table mv = new Table(location(1, 7), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "foo", false))));
+        Identifier procedure = new Identifier(location(1, 37), "bar", false);
+
+        assertThat(statement("ALTER MATERIALIZED VIEW foo EXECUTE bar"))
+                .isEqualTo(new MaterializedViewExecute(location(1, 1), mv, procedure, ImmutableList.of(), Optional.empty()));
+        assertThat(statement("ALTER MATERIALIZED VIEW foo EXECUTE bar(bah => 1, wuh => 'clap') WHERE age > 17")).isEqualTo(
+                new MaterializedViewExecute(
+                        location(1, 1),
+                        mv,
+                        procedure,
+                        ImmutableList.of(
+                                new CallArgument(location(1, 41), Optional.of(new Identifier(location(1, 41), "bah", false)), new LongLiteral(location(1, 48), "1")),
+                                new CallArgument(location(1, 51), Optional.of(new Identifier(location(1, 51), "wuh", false)), new StringLiteral(location(1, 58), "clap"))),
+                        Optional.of(
+                                new Predicated(
+                                        location(1, 76),
+                                        new Identifier(location(1, 72), "age", false),
+                                        new ComparisonPredicate(location(1, 76), ComparisonPredicate.Operator.GREATER_THAN, new LongLiteral(location(1, 78), "17"))))));
     }
 
     @Test
@@ -5580,24 +5667,29 @@ public class TestSqlParser
     public void testCreateView()
     {
         assertThat(statement("CREATE VIEW a AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(18), false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(18), false, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
         assertThat(statement("CREATE OR REPLACE VIEW a AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 24), "a"), selectAllFromT(29), true, Optional.empty(), Optional.empty(), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 24), "a"), selectAllFromT(29), true, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertThat(statement("CREATE VIEW IF NOT EXISTS a AS SELECT * FROM t"))
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 27), "a"), selectAllFromT(32), false, true, Optional.empty(), Optional.empty(), ImmutableList.of()));
+
+        assertStatementIsInvalid("CREATE OR REPLACE VIEW IF NOT EXISTS a AS SELECT * FROM t")
+                .withMessage("line 1:1: 'OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together");
 
         assertThat(statement("CREATE VIEW a SECURITY DEFINER AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(35), false, Optional.empty(), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(35), false, false, Optional.empty(), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
         assertThat(statement("CREATE VIEW a SECURITY INVOKER AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(35), false, Optional.empty(), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(35), false, false, Optional.empty(), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
 
         assertThat(statement("CREATE VIEW a COMMENT 'comment' SECURITY DEFINER AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(53), false, Optional.of("comment"), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(53), false, false, Optional.of("comment"), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
         assertThat(statement("CREATE VIEW a COMMENT '' SECURITY INVOKER AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(46), false, Optional.of(""), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(46), false, false, Optional.of(""), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
 
         assertThat(statement("CREATE VIEW a COMMENT 'comment' AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(36), false, Optional.of("comment"), Optional.empty(), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(36), false, false, Optional.of("comment"), Optional.empty(), ImmutableList.of()));
         assertThat(statement("CREATE VIEW a COMMENT '' AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(29), false, Optional.of(""), Optional.empty(), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(29), false, false, Optional.of(""), Optional.empty(), ImmutableList.of()));
 
         assertThat(statement("CREATE VIEW a WITH (property_1 = 'value_1', property_2 = 2) AS SELECT * FROM t"))
                 .isEqualTo(
@@ -5605,6 +5697,7 @@ public class TestSqlParser
                                 location(1, 1),
                                 qualifiedName(location(1, 13), "a"),
                                 selectAllFromT(64),
+                                false,
                                 false,
                                 Optional.empty(),
                                 Optional.empty(),
@@ -5618,6 +5711,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "bar", false), new Identifier(location(1, 17), "foo", false))),
                         selectAllFromT(24),
                         false,
+                        false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
@@ -5627,6 +5721,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "awesome view", true))),
                         selectAllFromT(31),
                         false,
+                        false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
@@ -5635,6 +5730,7 @@ public class TestSqlParser
                         location(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "awesome schema", true), new Identifier(location(1, 30), "awesome view", true))),
                         selectAllFromT(48),
+                        false,
                         false,
                         Optional.empty(),
                         Optional.empty(),
@@ -6032,13 +6128,13 @@ public class TestSqlParser
                                         location(1, 15),
                                         "10",
                                         Sign.POSITIVE,
-                                        new SimpleIntervalQualifier(location(1, 29), OptionalInt.empty(), new IntervalField.Hour())))));
+                                        new SimpleIntervalQualifier(location(1, 29), Optional.empty(), new IntervalField.Hour())))));
         assertThat(statement("SET TIME ZONE INTERVAL -'08:00' HOUR TO MINUTE"))
                 .isEqualTo(
                         new SetTimeZone(
                                 location(1, 1),
                                 Optional.of(new IntervalLiteral(
-                                        location(1, 15), "08:00", Sign.NEGATIVE, new CompositeIntervalQualifier(location(1, 33), OptionalInt.empty(), new IntervalField.Hour(), new IntervalField.Minute())))));
+                                        location(1, 15), "08:00", Sign.NEGATIVE, new CompositeIntervalQualifier(location(1, 33), Optional.empty(), new IntervalField.Hour(), new IntervalField.Minute())))));
     }
 
     @Test
@@ -7915,7 +8011,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         false,
                         false,
-                        Optional.of(new IntervalLiteral(new NodeLocation(1, 41), "2", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 54), OptionalInt.empty(), new IntervalField.Day()))),
+                        Optional.of(new IntervalLiteral(new NodeLocation(1, 41), "2", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 54), Optional.empty(), new IntervalField.Day()))),
                         Optional.empty(),
                         ImmutableList.of(),
                         Optional.empty()));
@@ -8339,7 +8435,7 @@ public class TestSqlParser
                                 Optional.of(new Identifier(location(1, 14), "someWindow", false)),
                                 ImmutableList.of(new Identifier(location(1, 38), "x", false)),
                                 Optional.of(new OrderBy(location(1, 40), ImmutableList.of(new SortItem(location(1, 49), new Identifier(location(1, 49), "y", false), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(location(1, 51), ROWS, new FrameBound(location(1, 56), CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
+                                Optional.of(new WindowFrame(location(1, 51), ROWS, new FrameBound(location(1, 56), CURRENT_ROW), Optional.empty(), WindowFrame.Exclusion.NO_OTHERS, ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -8356,7 +8452,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(new Identifier(location(1, 27), "x", false)),
                                 Optional.of(new OrderBy(location(1, 29), ImmutableList.of(new SortItem(location(1, 38), new Identifier(location(1, 38), "y", false), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(location(1, 40), ROWS, new FrameBound(location(1, 45), CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
+                                Optional.of(new WindowFrame(location(1, 40), ROWS, new FrameBound(location(1, 45), CURRENT_ROW), Optional.empty(), WindowFrame.Exclusion.NO_OTHERS, ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -8445,6 +8541,7 @@ public class TestSqlParser
                                         ROWS,
                                         new FrameBound(location(7, 17), CURRENT_ROW),
                                         Optional.of(new FrameBound(location(7, 33), FOLLOWING, new LongLiteral(location(7, 33), "5"))),
+                                        WindowFrame.Exclusion.NO_OTHERS,
                                         ImmutableList.of(
                                                 new MeasureDefinition(
                                                         location(5, 8),
@@ -8526,6 +8623,7 @@ public class TestSqlParser
                                         ROWS,
                                         new FrameBound(location(3, 8), CURRENT_ROW),
                                         Optional.empty(),
+                                        WindowFrame.Exclusion.NO_OTHERS,
                                         ImmutableList.of(new MeasureDefinition(
                                                 location(2, 12),
                                                 new Identifier(location(2, 12), "z", false),
@@ -9217,6 +9315,115 @@ public class TestSqlParser
                         Optional.of(JsonQuery.QuotesBehavior.OMIT),
                         JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY,
                         JsonQuery.EmptyOrErrorBehavior.ERROR));
+    }
+
+    @Test
+    public void testJsonConstructor()
+    {
+        for (String sql : List.of("JSON(json_column)", "json(json_column)")) {
+            assertThat(expression(sql))
+                    .isEqualTo(new JsonConstructor(
+                            location(1, 1),
+                            new Identifier(location(1, 6), "json_column", false),
+                            JSON));
+        }
+
+        assertThat(expression("JSON(binary_column FORMAT JSON ENCODING UTF16)"))
+                .isEqualTo(new JsonConstructor(
+                        location(1, 1),
+                        new Identifier(location(1, 6), "binary_column", false),
+                        UTF16));
+    }
+
+    @Test
+    public void testJsonFunctionCall()
+    {
+        QualifiedName name = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "json", false)));
+        for (String sql : List.of("json()", "json(*)")) {
+            assertThat(expression(sql))
+                    .isEqualTo(new FunctionCall(location(1, 1), name, ImmutableList.of()));
+        }
+
+        assertThat(expression("json(1, 2)"))
+                .isEqualTo(new FunctionCall(
+                        location(1, 1),
+                        name,
+                        ImmutableList.of(new LongLiteral(location(1, 6), "1"), new LongLiteral(location(1, 9), "2"))));
+
+        assertThat(expression("json(DISTINCT x)"))
+                .isEqualTo(new FunctionCall(
+                        location(1, 1),
+                        name,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        true,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(new CallArgument(location(1, 15), Optional.empty(), new Identifier(location(1, 15), "x", false)))));
+
+        for (String sql : List.of(
+                "json(ALL x)",
+                "json(t.*)",
+                "json(x ORDER BY y)",
+                "json(x) FILTER (WHERE true)",
+                "json(x) OVER ()",
+                "json(x) IGNORE NULLS OVER ()",
+                "schema.json(x)",
+                "\"json\"(x)")) {
+            assertThat(SQL_PARSER.createExpression(sql))
+                    .isInstanceOf(FunctionCall.class);
+        }
+
+        assertThat(expression("json.foo.bar(1)"))
+                .isEqualTo(new FunctionCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 1), "json", false),
+                                new Identifier(location(1, 6), "foo", false),
+                                new Identifier(location(1, 10), "bar", false))),
+                        ImmutableList.of(new LongLiteral(location(1, 14), "1"))));
+    }
+
+    @Test
+    public void testJsonSerialize()
+    {
+        // The ON ERROR clause is a Trino extension (SQL:2023 §6.37 has none); the default is ERROR.
+        assertThat(expression("JSON_SERIALIZE(json_column)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "json_column", false),
+                        JSON,
+                        Optional.empty(),
+                        Optional.empty(),
+                        JsonSerialize.OnErrorBehavior.ERROR));
+
+        assertThat(expression("JSON_SERIALIZE(binary_column FORMAT JSON ENCODING UTF16 RETURNING varbinary FORMAT JSON ENCODING UTF32)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "binary_column", false),
+                        UTF16,
+                        Optional.of(new GenericDataType(location(1, 67), new Identifier(location(1, 67), "varbinary", false), ImmutableList.of())),
+                        Optional.of(UTF32),
+                        JsonSerialize.OnErrorBehavior.ERROR));
+
+        assertThat(expression("JSON_SERIALIZE(json_column NULL ON ERROR)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "json_column", false),
+                        JSON,
+                        Optional.empty(),
+                        Optional.empty(),
+                        JsonSerialize.OnErrorBehavior.NULL));
+
+        assertThat(expression("JSON_SERIALIZE(json_column RETURNING varchar NULL ON ERROR)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "json_column", false),
+                        JSON,
+                        Optional.of(new GenericDataType(location(1, 38), new Identifier(location(1, 38), "varchar", false), ImmutableList.of())),
+                        Optional.empty(),
+                        JsonSerialize.OnErrorBehavior.NULL));
     }
 
     @Test

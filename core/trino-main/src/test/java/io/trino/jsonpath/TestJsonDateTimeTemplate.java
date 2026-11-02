@@ -13,7 +13,7 @@
  */
 package io.trino.jsonpath;
 
-import io.trino.jsonpath.ir.TypedValue;
+import io.trino.json.TypedValue;
 import org.junit.jupiter.api.Test;
 
 import java.time.DateTimeException;

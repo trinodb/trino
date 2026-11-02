@@ -17,10 +17,10 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.canConvertSqlTypeToStringForParts;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.sqlScalarToString;
 import static java.util.Objects.requireNonNull;
@@ -39,7 +39,7 @@ final class InjectedProjection
     }
 
     @Override
-    public List<String> getProjectedValues(Optional<Domain> partitionValueFilter)
+    public Set<String> getProjectedValues(Optional<Domain> partitionValueFilter)
     {
         Domain domain = partitionValueFilter
                 .orElseThrow(() -> new InvalidProjectionException(columnName, "Injected projection requires single predicate for it's column in where clause"));
@@ -56,6 +56,6 @@ final class InjectedProjection
                     }
                     return stringValue;
                 })
-                .collect(toImmutableList());
+                .collect(toImmutableSet());
     }
 }

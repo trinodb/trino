@@ -73,4 +73,34 @@ public class TestPreAggregateCaseAggregations
                 "FROM (VALUES ('1', 1), ('2', 2), ('3', 3), ('4', 0)) t(c1, c2)"))
                 .matches("VALUES (10, 5, 3, 0)");
     }
+
+    @Test
+    public void testNonDeterministicCondition()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT
+                    sum(CASE WHEN k = 1 AND random() < 0.5 THEN 1 END) BETWEEN 1 AND 3332,
+                    sum(CASE WHEN k = 1 THEN 1 END),
+                    max(CASE WHEN k = 2 THEN 1 END),
+                    min(CASE WHEN k = 2 THEN 1 END)
+                FROM (SELECT x % 3 AS k FROM UNNEST(sequence(1, 9999)) t(x))
+                """))
+                .matches("VALUES (true, BIGINT '3333', 1, 1)");
+    }
+
+    @Test
+    public void testNonDeterministicResult()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT
+                    sum(CASE WHEN k = 1 THEN random() END) = sum(CASE WHEN k IN (1, 100) THEN random() END),
+                    sum(CASE WHEN k = 0 THEN random() END) IS NOT NULL,
+                    sum(CASE WHEN k = 2 THEN random() END) IS NOT NULL,
+                    sum(CASE WHEN k = 3 THEN random() END) IS NULL
+                FROM (SELECT x % 3 AS k FROM UNNEST(sequence(1, 9999)) t(x))
+                """))
+                .matches("VALUES (false, true, true, true)");
+    }
 }

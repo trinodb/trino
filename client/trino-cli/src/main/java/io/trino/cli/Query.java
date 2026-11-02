@@ -251,7 +251,7 @@ public class Query
     {
         String status = results.getUpdateType();
         if (results.getUpdateCount().isPresent()) {
-            long count = results.getUpdateCount().getAsLong();
+            long count = results.getUpdateCount().orElseThrow();
             status += format(": %s row%s", count, (count != 1) ? "s" : "");
             out.println(status);
         }

@@ -32,8 +32,7 @@ public final class PositionsAppenderPageBuilder
     private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
     @VisibleForTesting
     static final int MAX_POSITION_COUNT = PageProcessor.MAX_BATCH_SIZE * 4;
-    // Maximum page size before being considered full based on current direct appender size and if RLE channels were converted to direct. Currently,
-    // dictionary mode appenders still under-report because computing their equivalent size if converted to direct is prohibitively expensive.
+    // Maximum page size before being considered full based on current direct appender size and if RLE and dictionary channels were converted to direct.
     private static final int MAXIMUM_DIRECT_SIZE_MULTIPLIER = 8;
 
     private final UnnestingPositionsAppender[] channelAppenders;
@@ -154,6 +153,27 @@ public final class PositionsAppenderPageBuilder
     public boolean isEmpty()
     {
         return declaredPositions == 0;
+    }
+
+    /**
+     * True when appending {@code page} flattens a buffered dictionary whose flattened size already fills a page.
+     */
+    public boolean requiresFlushBeforeFlattening(Page page)
+    {
+        if (declaredPositions == 0 || !appendFlattensDictionary(page)) {
+            return false;
+        }
+        return computeAppenderSizes().getDirectSizeInBytes() >= maxPageSizeInBytes;
+    }
+
+    private boolean appendFlattensDictionary(Page page)
+    {
+        for (int channel = 0; channel < channelAppenders.length; channel++) {
+            if (channelAppenders[channel].appendFlattensDictionary(page.getBlock(channel))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public Optional<Page> flushOrFlattenBeforeRelease()

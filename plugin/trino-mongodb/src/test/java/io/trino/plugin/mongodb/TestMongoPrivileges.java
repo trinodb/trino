@@ -95,7 +95,7 @@ public class TestMongoPrivileges
 
     private static AuthenticatedMongoServer setupMongoServer()
     {
-        AuthenticatedMongoServer mongoServer = new AuthenticatedMongoServer("4.2.0");
+        AuthenticatedMongoServer mongoServer = new AuthenticatedMongoServer("6.0.14");
         try (MongoClient client = MongoClients.create(mongoServer.rootUserConnectionString())) {
             DATABASES.forEach(database -> createDatabase(client, database));
             client.getDatabase("another").createCollection("_schema"); // this database/schema should not be visible

@@ -20,13 +20,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.schema.ColumnOrder;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
+import org.apache.parquet.schema.Types;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
@@ -40,6 +43,7 @@ import static io.trino.plugin.deltalake.DeltaLakeWriter.mergeStats;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
@@ -102,7 +106,8 @@ public class TestDeltaLakeWriter
     public void testMergeFloatNaNStatistics()
     {
         String columnName = "t_float";
-        PrimitiveType type = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.FLOAT, columnName);
+        // Type-defined order matches how MetadataReader interprets floating point statistics, see ParquetMetadataConverter#toTypeDefinedOrder
+        PrimitiveType type = Types.required(PrimitiveType.PrimitiveTypeName.FLOAT).columnOrder(ColumnOrder.typeDefined()).named(columnName);
         List<ColumnChunkMetadata> metadata = ImmutableList.of(
                 createMetaData(
                         columnName,
@@ -132,7 +137,8 @@ public class TestDeltaLakeWriter
     public void testMergeDoubleNaNStatistics()
     {
         String columnName = "t_double";
-        PrimitiveType type = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.DOUBLE, columnName);
+        // Type-defined order matches how MetadataReader interprets floating point statistics, see ParquetMetadataConverter#toTypeDefinedOrder
+        PrimitiveType type = Types.required(PrimitiveType.PrimitiveTypeName.DOUBLE).columnOrder(ColumnOrder.typeDefined()).named(columnName);
         List<ColumnChunkMetadata> metadata = ImmutableList.of(
                 createMetaData(
                         columnName,
@@ -206,6 +212,43 @@ public class TestDeltaLakeWriter
         assertThat(fileStats.getMinColumnValue(varcharColumn)).isEqualTo(Optional.of(utf8Slice("aba")));
         assertThat(fileStats.getMaxColumnValue(varcharColumn)).isEqualTo(Optional.of(utf8Slice("ab\uD83D\uDD74")));
         assertThat(fileStats.getNullCount(columnName)).isEqualTo(Optional.of(12L));
+    }
+
+    @Test
+    public void testMergeTimestampStatisticsHasWideBounds()
+    {
+        String columnName = "t_timestamp";
+        PrimitiveType timestampType = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.INT64, columnName);
+        byte[] epochMicros = ByteBuffer.allocate(8).order(LITTLE_ENDIAN).putLong(1_705_314_600_123_456L).array();
+        List<ColumnChunkMetadata> metadata = ImmutableList.of(
+                createMetaData(
+                        columnName,
+                        timestampType,
+                        10,
+                        Statistics.getBuilderForReading(timestampType).withMin(epochMicros).withMax(epochMicros).withNumNulls(0).build()));
+
+        DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, TIMESTAMP_MICROS), 10);
+        assertThat(fileStats.getMaxValues()).contains(ImmutableMap.of(columnName, "2024-01-15T10:30:00.124Z"));
+        assertThat(fileStats.getTightBounds()).contains(false);
+    }
+
+    @Test
+    public void testMergeStatisticsWithoutTimestampMaximumHasTightBounds()
+    {
+        String columnName = "t_int";
+        PrimitiveType intType = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.INT32, columnName);
+        List<ColumnChunkMetadata> metadata = ImmutableList.of(
+                createMetaData(
+                        columnName,
+                        intType,
+                        10,
+                        Statistics.getBuilderForReading(intType).withMin(getIntByteArray(1)).withMax(getIntByteArray(2)).withNumNulls(0).build()));
+
+        DeltaLakeFileStatistics fileStats = mergeStats(
+                buildMultimap(columnName, metadata),
+                ImmutableMap.of(columnName, INTEGER, "t_row", RowType.rowType(RowType.field("ts", TIMESTAMP_MICROS)), "t_timestamp", TIMESTAMP_MICROS),
+                10);
+        assertThat(fileStats.getTightBounds()).isEmpty();
     }
 
     private ColumnChunkMetadata createMetaData(String columnName, PrimitiveType columnType, long valueCount, Statistics<?> statistics)

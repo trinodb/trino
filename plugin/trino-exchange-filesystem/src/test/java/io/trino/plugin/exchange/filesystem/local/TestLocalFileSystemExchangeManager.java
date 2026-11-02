@@ -19,6 +19,11 @@ import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.plugin.exchange.filesystem.TestExchangeManagerContext;
 import io.trino.spi.exchange.ExchangeManager;
 
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 public class TestLocalFileSystemExchangeManager
         extends AbstractTestExchangeManager
 {
@@ -34,5 +39,12 @@ public class TestLocalFileSystemExchangeManager
                         "exchange.sink-max-file-size", "16MB",
                         "exchange.source-handle-target-data-size", "1MB"),
                 new TestExchangeManagerContext());
+    }
+
+    @Override
+    protected void deleteFile(URI file)
+            throws IOException
+    {
+        Files.delete(Path.of(file.getPath()));
     }
 }

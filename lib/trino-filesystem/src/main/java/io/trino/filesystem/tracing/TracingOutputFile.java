@@ -17,10 +17,10 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 
 import java.io.IOException;
-import java.io.OutputStream;
 
 import static io.trino.filesystem.tracing.Tracing.withTracing;
 import static java.util.Objects.requireNonNull;
@@ -38,7 +38,7 @@ final class TracingOutputFile
     }
 
     @Override
-    public OutputStream create()
+    public TrinoOutputStream create()
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.create")
@@ -68,7 +68,7 @@ final class TracingOutputFile
     }
 
     @Override
-    public OutputStream create(AggregatedMemoryContext memoryContext)
+    public TrinoOutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.create")

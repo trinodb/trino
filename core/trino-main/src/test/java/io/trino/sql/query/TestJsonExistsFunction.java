@@ -212,6 +212,18 @@ public class TestJsonExistsFunction
     }
 
     @Test
+    public void testNumberParameter()
+    {
+        assertThat(assertions.query(
+                "SELECT json_exists('1', 'lax $?(@ == $parameter)' PASSING CAST(1 AS number) AS \"parameter\")"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"1\"', 'lax $?(@ == $parameter)' PASSING CAST(1 AS number) AS \"parameter\")"))
+                .matches("VALUES false");
+    }
+
+    @Test
     public void testIncorrectPath()
     {
         assertThat(assertions.query(

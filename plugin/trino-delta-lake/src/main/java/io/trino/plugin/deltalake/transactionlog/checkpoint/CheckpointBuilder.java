@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
+import io.trino.plugin.deltalake.transactionlog.FileEntryKey;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
@@ -32,8 +33,8 @@ public class CheckpointBuilder
     private MetadataEntry metadataEntry;
     private ProtocolEntry protocolEntry;
     private final Map<String, TransactionEntry> transactionEntries = new HashMap<>();
-    private final Map<String, AddFileEntry> addFileEntries = new HashMap<>();
-    private final Map<String, RemoveFileEntry> removeFileEntries = new HashMap<>();
+    private final Map<FileEntryKey, AddFileEntry> addFileEntries = new HashMap<>();
+    private final Map<FileEntryKey, RemoveFileEntry> removeFileEntries = new HashMap<>();
 
     public void addLogEntry(DeltaLakeTransactionLogEntry logEntry)
     {
@@ -69,8 +70,9 @@ public class CheckpointBuilder
         if (entry == null) {
             return;
         }
-        addFileEntries.put(entry.getPath(), entry);
-        removeFileEntries.remove(entry.getPath());
+        FileEntryKey key = FileEntryKey.of(entry);
+        addFileEntries.put(key, entry);
+        removeFileEntries.remove(key);
     }
 
     private void handleRemoveFileEntry(@Nullable RemoveFileEntry entry)
@@ -78,8 +80,9 @@ public class CheckpointBuilder
         if (entry == null) {
             return;
         }
-        removeFileEntries.put(entry.path(), entry);
-        addFileEntries.remove(entry.path());
+        FileEntryKey key = FileEntryKey.of(entry);
+        removeFileEntries.put(key, entry);
+        addFileEntries.remove(key);
     }
 
     public CheckpointEntries build()

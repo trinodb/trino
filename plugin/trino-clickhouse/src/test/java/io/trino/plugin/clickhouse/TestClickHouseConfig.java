@@ -13,21 +13,8 @@
  */
 package io.trino.plugin.clickhouse;
 
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import com.google.common.collect.ImmutableMap;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -35,6 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 
 public class TestClickHouseConfig
 {
@@ -42,7 +30,8 @@ public class TestClickHouseConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ClickHouseConfig.class)
-                .setMapStringAsVarchar(false));
+                .setMapStringAsVarchar(false)
+                .setClusterName(null));
     }
 
     @Test
@@ -50,11 +39,23 @@ public class TestClickHouseConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("clickhouse.map-string-as-varchar", "true")
+                .put("clickhouse.cluster-name", "test_cluster")
                 .buildOrThrow();
 
         ClickHouseConfig expected = new ClickHouseConfig()
-                .setMapStringAsVarchar(true);
+                .setMapStringAsVarchar(true)
+                .setClusterName("test_cluster");
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testClusterName()
+    {
+        assertFailsValidation(
+                new ClickHouseConfig().setClusterName(" "),
+                "clusterNameValid",
+                "clickhouse.cluster-name must not be blank",
+                AssertTrue.class);
     }
 }

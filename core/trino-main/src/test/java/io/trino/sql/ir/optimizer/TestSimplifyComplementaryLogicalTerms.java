@@ -23,10 +23,13 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.SimplifyComplementaryLogicalTerms;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -40,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TestSimplifyComplementaryLogicalTerms
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(createTestTransactionManager(), PLANNER_CONTEXT);
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of());
 
@@ -49,8 +53,8 @@ class TestSimplifyComplementaryLogicalTerms
         assertThat(optimize(
                 new Logical(
                         OR,
-                        ImmutableList.of(TRUE, not(FUNCTIONS.getMetadata(), TRUE)))))
-                .isEqualTo(Optional.of(new Logical(OR, ImmutableList.of(TRUE, not(FUNCTIONS.getMetadata(), new IsNull(TRUE))))));
+                        ImmutableList.of(TRUE, not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, TRUE)))))
+                .isEqualTo(Optional.of(new Logical(OR, ImmutableList.of(TRUE, not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(TRUE))))));
 
         assertThat(optimize(
                 new Logical(
@@ -62,18 +66,18 @@ class TestSimplifyComplementaryLogicalTerms
                 new Logical(OR, ImmutableList.of(
                         new Reference(BOOLEAN, "a"),
                         new Reference(BOOLEAN, "b"),
-                        not(FUNCTIONS.getMetadata(), new Reference(BOOLEAN, "a"))))))
+                        not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, new Reference(BOOLEAN, "a"))))))
                 .isEqualTo(Optional.of(
                         new Logical(OR, ImmutableList.of(
                                 new Logical(OR, ImmutableList.of(
                                         new Reference(BOOLEAN, "a"),
-                                        not(FUNCTIONS.getMetadata(), new IsNull(new Reference(BOOLEAN, "a"))))),
+                                        not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BOOLEAN, "a"))))),
                                 new Reference(BOOLEAN, "b")))));
 
         assertThat(optimize(
                 new Logical(OR, ImmutableList.of(
                         new IsNull(new Call(RANDOM, ImmutableList.of())),
-                        not(FUNCTIONS.getMetadata(), new IsNull(new Call(RANDOM, ImmutableList.of())))))))
+                        not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Call(RANDOM, ImmutableList.of())))))))
                 .describedAs("Non-deterministic terms")
                 .isEqualTo(Optional.empty());
     }
@@ -84,7 +88,7 @@ class TestSimplifyComplementaryLogicalTerms
         assertThat(optimize(
                 new Logical(
                         AND,
-                        ImmutableList.of(TRUE, not(FUNCTIONS.getMetadata(), TRUE)))))
+                        ImmutableList.of(TRUE, not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, TRUE)))))
                 .isEqualTo(Optional.of(new Logical(AND, ImmutableList.of(TRUE, new IsNull(TRUE)))));
 
         assertThat(optimize(
@@ -97,7 +101,7 @@ class TestSimplifyComplementaryLogicalTerms
                 new Logical(AND, ImmutableList.of(
                         new Reference(BOOLEAN, "a"),
                         new Reference(BOOLEAN, "b"),
-                        not(FUNCTIONS.getMetadata(), new Reference(BOOLEAN, "a"))))))
+                        not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, new Reference(BOOLEAN, "a"))))))
                 .isEqualTo(Optional.of(
                         new Logical(AND, ImmutableList.of(
                                 new Logical(AND, ImmutableList.of(
@@ -108,7 +112,7 @@ class TestSimplifyComplementaryLogicalTerms
         assertThat(optimize(
                 new Logical(AND, ImmutableList.of(
                         new IsNull(new Call(RANDOM, ImmutableList.of())),
-                        not(FUNCTIONS.getMetadata(), new IsNull(new Call(RANDOM, ImmutableList.of())))))))
+                        not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Call(RANDOM, ImmutableList.of())))))))
                 .describedAs("Non-deterministic terms")
                 .isEqualTo(Optional.empty());
     }

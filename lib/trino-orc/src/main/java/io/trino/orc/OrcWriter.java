@@ -467,6 +467,23 @@ public final class OrcWriter
         bufferedBytes = 0;
     }
 
+    /**
+     * Discards the buffered data without writing the file footer, and aborts the data sink.
+     */
+    public void abort()
+            throws IOException
+    {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        stats.updateSizeInBytes(-previouslyRecordedSizeInBytes);
+        previouslyRecordedSizeInBytes = 0;
+        bufferedBytes = 0;
+
+        orcDataSink.abort();
+    }
+
     public enum OrcOperation
     {
         NONE(-1),

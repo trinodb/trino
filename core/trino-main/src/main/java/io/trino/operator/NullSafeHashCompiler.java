@@ -16,11 +16,9 @@ package io.trino.operator;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -48,7 +46,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.add;
 import static io.airlift.bytecode.expression.BytecodeExpressions.and;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
@@ -56,8 +53,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.sql.gen.BytecodeUtils.invoke;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 
 public final class NullSafeHashCompiler
@@ -103,8 +100,7 @@ public final class NullSafeHashCompiler
         generateHashBlocksDictionary("hashBatchedDictionaryWithCombine", definition, callSiteBinder, hashMethod, true);
 
         try {
-            DynamicClassLoader classLoader = new DynamicClassLoader(NullSafeHashCompiler.class.getClassLoader(), callSiteBinder.getBindings());
-            return defineClass(definition, NullSafeHash.class, classLoader)
+            return defineHiddenClass(definition, NullSafeHash.class, callSiteBinder.getClassData())
                     .getConstructor()
                     .newInstance();
         }
@@ -227,13 +223,7 @@ public final class NullSafeHashCompiler
 
     private static BytecodeExpression computeHashNonNull(CallSiteBinder callSiteBinder, Variable block, BytecodeExpression position, MethodHandle hashMethod)
     {
-        return invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(hashMethod).getBindingId()),
-                "hash",
-                long.class,
-                block,
-                position);
+        return invoke(callSiteBinder.bind(hashMethod), "hash", block, position);
     }
 
     private static BytecodeExpression setHashExpression(Parameter hashes, Variable index, Variable hash, boolean combineHash)

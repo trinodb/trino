@@ -103,7 +103,7 @@ public class DistinctAccumulatorFactory
     {
         private final Accumulator accumulator;
         @Nullable
-        private MarkDistinctHash hash; // null after evaluateFinal() is called
+        private MarkDistinctHash hash; // null after prepareFinal() is called
 
         private DistinctAccumulator(
                 Accumulator accumulator,
@@ -138,7 +138,7 @@ public class DistinctAccumulatorFactory
         @Override
         public void addInput(Page arguments, AggregationMask mask)
         {
-            checkState(hash != null, "evaluateFinal() has already been called");
+            checkState(hash != null, "prepareFinal() has already been called");
             // 1. filter out positions based on mask, if present
             Page filtered = mask.filterPage(arguments);
 
@@ -173,9 +173,15 @@ public class DistinctAccumulatorFactory
         @Override
         public void evaluateFinal(BlockBuilder blockBuilder)
         {
-            // release hash memory since it's no longer needed
-            hash = null;
             accumulator.evaluateFinal(blockBuilder);
+        }
+
+        @Override
+        public boolean prepareFinal(UpdateMemory updateMemory)
+        {
+            // release hash memory after all inputs have been added
+            hash = null;
+            return accumulator.prepareFinal(updateMemory);
         }
     }
 
@@ -276,10 +282,11 @@ public class DistinctAccumulatorFactory
         }
 
         @Override
-        public void prepareFinal()
+        public void prepareFinal(UpdateMemory updateMemory)
         {
             // release hash memory after all inputs have been added
             hash = null;
+            accumulator.prepareFinal(updateMemory);
         }
     }
 }

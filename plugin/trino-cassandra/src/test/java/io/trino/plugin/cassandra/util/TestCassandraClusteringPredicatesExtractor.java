@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCassandraClusteringPredicatesExtractor
@@ -45,6 +46,16 @@ public class TestCassandraClusteringPredicatesExtractor
 
         cassandraTable = new CassandraTable(
                 new CassandraNamedRelationHandle("test", "records"), ImmutableList.of(col1, col2, col3, col4));
+    }
+
+    @Test
+    public void testNaNClusteringConstraintRemainsUnenforced()
+    {
+        CassandraColumnHandle column = new CassandraColumnHandle("x", 1, CassandraTypes.DOUBLE, false, true, false, false);
+        TupleDomain<ColumnHandle> constraint = TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.singleValue(DOUBLE, Double.NaN)));
+        CassandraClusteringPredicatesExtractor extractor = new CassandraClusteringPredicatesExtractor(CASSANDRA_TYPE_MANAGER, ImmutableList.of(column), constraint);
+        assertThat(extractor.getClusteringKeyPredicates()).isEmpty();
+        assertThat(extractor.getUnenforcedConstraints()).isEqualTo(constraint);
     }
 
     @Test

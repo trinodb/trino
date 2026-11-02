@@ -45,8 +45,9 @@ public class LagFunction
 
     @SqlNullable
     @Override
-    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
+    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition, int excludedStart, int excludedEnd, int keptRow)
     {
+        // lag operates over the partition and ignores the frame and its exclusion
         checkCondition(offsetChannel < 0 || !windowIndex.isNull(offsetChannel, currentPosition), INVALID_FUNCTION_ARGUMENT, "Offset must not be null");
 
         long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);

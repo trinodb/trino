@@ -22,6 +22,7 @@ import io.airlift.log.Logger;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -97,7 +98,8 @@ public class CassandraPartitionManager
             for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 CassandraColumnHandle column = (CassandraColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
-                if (column.indexed() && domain.isSingleValue()) {
+                if (column.indexed() && domain.isSingleValue() &&
+                        !(domain.getValues() instanceof FloatingPointValueSet floatingPoint && floatingPoint.isNaNAllowed())) {
                     sb.append(CassandraCqlUtils.validColumnName(column.name()))
                             .append(" = ")
                             .append(cassandraTypeManager.toCqlLiteral(column.cassandraType(), entry.getValue().getSingleValue()));
@@ -146,7 +148,7 @@ public class CassandraPartitionManager
             }
 
             // todo does cassandra allow null partition keys?
-            if (domain.isNullAllowed()) {
+            if (domain.isNullAllowed() || domain.getValues() instanceof FloatingPointValueSet floatingPoint && floatingPoint.isNaNAllowed()) {
                 return ImmutableList.of();
             }
 

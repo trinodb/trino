@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.util.StructuralTestUtil.mapType;
@@ -29,7 +28,7 @@ public class TestMapAggFunction
     public void testMapAgg()
     {
         assertWindowQuery("map_agg(orderkey, orderstatus) OVER(PARTITION BY orderdate)",
-                resultBuilder(TEST_SESSION, BIGINT, VarcharType.createVarcharType(1), mapType(BIGINT, VarcharType.createVarcharType(1)))
+                resultBuilder(BIGINT, VarcharType.createVarcharType(1), mapType(BIGINT, VarcharType.createVarcharType(1)))
                         .row(1, "O", ImmutableMap.of(1, "O"))
                         .row(2, "O", ImmutableMap.of(2, "O"))
                         .row(3, "F", ImmutableMap.of(3, "F"))

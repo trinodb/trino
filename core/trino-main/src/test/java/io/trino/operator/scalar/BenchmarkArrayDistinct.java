@@ -57,6 +57,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -127,7 +128,7 @@ public class BenchmarkArrayDistinct
             }
 
             List<Expression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, layoutBuilder.buildOrThrow()).get();
+            pageProcessor = compiler.compilePageProcessor(TEST_SESSION, Optional.empty(), projections, layoutBuilder.buildOrThrow()).get();
             page = new Page(blocks);
         }
 

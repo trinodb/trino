@@ -393,6 +393,54 @@ public abstract class AbstractTestAggregations
         assertQuery("select a, array_agg(b), array_agg(distinct c) from (values (1,1,1)) t(a,b,c) group by a");
     }
 
+    // NULL grouping keys survive the split of multiple distinct aggregations into sub-aggregations
+    @Test
+    public void testMultipleDistinctAggregationsPreserveNullGroupKey()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "split_to_subqueries")
+                .build();
+
+        // nation has 25 rows with regionkey in {0..4}; the CASE nulls regionkey for values > 1,
+        // yielding three groups: 0 (5 rows), 1 (5 rows), NULL (15 rows).
+        assertQuery(
+                session,
+                "SELECT regionkey, count(DISTINCT name), count(DISTINCT nationkey) " +
+                        "FROM (SELECT nationkey, name, CASE WHEN regionkey > 1 THEN NULL ELSE regionkey END AS regionkey FROM nation) n " +
+                        "GROUP BY regionkey",
+                "VALUES (CAST(0 AS BIGINT), CAST(5 AS BIGINT), CAST(5 AS BIGINT)), " +
+                        "       (CAST(1 AS BIGINT), CAST(5 AS BIGINT), CAST(5 AS BIGINT)), " +
+                        "       (CAST(NULL AS BIGINT), CAST(15 AS BIGINT), CAST(15 AS BIGINT))");
+
+        // composite grouping key with NULLs in both columns
+        assertQuery(
+                session,
+                "SELECT regionkey_text, regionkey, count(DISTINCT name), count(DISTINCT nationkey) " +
+                        "FROM (" +
+                        "    SELECT nationkey, name, " +
+                        "           CASE WHEN regionkey > 1 THEN NULL ELSE CAST(regionkey AS VARCHAR) END AS regionkey_text, " +
+                        "           CASE WHEN regionkey > 0 THEN NULL ELSE regionkey END AS regionkey " +
+                        "    FROM nation) n " +
+                        "GROUP BY regionkey_text, regionkey",
+                "VALUES ('0', CAST(0 AS BIGINT), CAST(5 AS BIGINT), CAST(5 AS BIGINT)), " +
+                        "       ('1', CAST(NULL AS BIGINT), CAST(5 AS BIGINT), CAST(5 AS BIGINT)), " +
+                        "       (CAST(NULL AS VARCHAR), CAST(NULL AS BIGINT), CAST(15 AS BIGINT), CAST(15 AS BIGINT))");
+
+        // VARBINARY grouping key
+        assertQuery(
+                session,
+                "SELECT regionkey, count(DISTINCT name), count(DISTINCT nationkey) " +
+                        "FROM (" +
+                        "    SELECT nationkey, name, " +
+                        "           CASE WHEN regionkey > 1 THEN NULL ELSE to_utf8(CAST(regionkey AS VARCHAR)) END AS regionkey_bytes, " +
+                        "           CASE WHEN regionkey > 1 THEN NULL ELSE CAST(regionkey AS VARCHAR) END AS regionkey " +
+                        "    FROM nation) n " +
+                        "GROUP BY regionkey_bytes, regionkey",
+                "VALUES ('0', CAST(5 AS BIGINT), CAST(5 AS BIGINT)), " +
+                        "       ('1', CAST(5 AS BIGINT), CAST(5 AS BIGINT)), " +
+                        "       (CAST(NULL AS VARCHAR), CAST(15 AS BIGINT), CAST(15 AS BIGINT))");
+    }
+
     @Test
     public void testDistinctAndNonDistinctAggregationOnTheSameColumn()
     {
@@ -512,27 +560,28 @@ public abstract class AbstractTestAggregations
         // this test verifies that the two streams produced by the right join
         // are handled gathered for the aggregation operator
         assertQueryOrdered(
-                "" +
-                        "SELECT\n" +
-                        "  value\n" +
-                        "FROM\n" +
-                        "(\n" +
-                        "    SELECT\n" +
-                        "        key\n" +
-                        "    FROM\n" +
-                        "        (VALUES 'match') AS a(key)\n" +
-                        "        LEFT JOIN (SELECT * FROM (VALUES (0)) LIMIT 0) AS x(ignored)\n" +
-                        "        ON TRUE\n" +
-                        "    GROUP BY 1\n" +
-                        ") a\n" +
-                        "RIGHT JOIN\n" +
-                        "(\n" +
-                        "    VALUES\n" +
-                        "    ('match', 'value'),\n" +
-                        "    ('no-match', 'value')\n" +
-                        ") AS b(key, value)\n" +
-                        "ON a.key = b.key\n" +
-                        "GROUP BY 1\n",
+                """
+                SELECT
+                  value
+                FROM
+                (
+                    SELECT
+                        key
+                    FROM
+                        (VALUES 'match') AS a(key)
+                        LEFT JOIN (SELECT * FROM (VALUES (0)) LIMIT 0) AS x(ignored)
+                        ON TRUE
+                    GROUP BY 1
+                ) a
+                RIGHT JOIN
+                (
+                    VALUES
+                    ('match', 'value'),
+                    ('no-match', 'value')
+                ) AS b(key, value)
+                ON a.key = b.key
+                GROUP BY 1
+                """,
                 "VALUES 'value'");
     }
 
@@ -645,38 +694,55 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupBySearchedCase()
     {
-        assertQuery("SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END");
+        assertQuery(
+                """
+                SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END
+                """);
 
         assertQuery(
-                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY 1",
-                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END");
+                """
+                SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY 1
+                """,
+                """
+                SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END
+                """);
     }
 
     @Test
     public void testGroupBySearchedCaseNoElse()
     {
         // whole CASE in GROUP BY clause
-        assertQuery("SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END");
+        assertQuery(
+                """
+                SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)
+                FROM orders
+                GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END
+                """);
 
         assertQuery(
-                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY 1",
-                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END");
+                """
+                SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)
+                FROM orders
+                GROUP BY 1
+                """,
+                """
+                SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)
+                FROM orders
+                GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END
+                """);
 
-        assertQuery("SELECT CASE WHEN true THEN orderstatus END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE WHEN true THEN orderstatus END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
     }
 
     @Test
@@ -684,70 +750,103 @@ public abstract class AbstractTestAggregations
     {
         assertQuery(
                 "SELECT IF(orderkey between 1 and 5, 'orders', 'others'), sum(totalprice) FROM orders GROUP BY 1",
-                "SELECT CASE WHEN orderkey BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END, sum(totalprice)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY CASE WHEN orderkey BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END");
+                """
+                SELECT CASE WHEN orderkey BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END, sum(totalprice)
+                FROM orders
+                GROUP BY CASE WHEN orderkey BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END
+                """);
     }
 
     @Test
     public void testGroupByCase()
     {
         // whole CASE in GROUP BY clause
-        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END");
+        assertQuery(
+                """
+                SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END
+                """);
 
         assertQuery(
-                "SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY 1",
-                "SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END");
+                """
+                SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY 1
+                """,
+                """
+                SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END
+                """);
 
         // operand in GROUP BY clause
-        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
 
         // condition in GROUP BY clause
-        assertQuery("SELECT CASE 'O' WHEN orderstatus THEN 'a' ELSE 'b' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE 'O' WHEN orderstatus THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
 
         // 'then' in GROUP BY clause
-        assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus ELSE 'x' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE 1 WHEN 1 THEN orderstatus ELSE 'x' END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
 
         // 'else' in GROUP BY clause
-        assertQuery("SELECT CASE 1 WHEN 1 THEN 'x' ELSE orderstatus END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE 1 WHEN 1 THEN 'x' ELSE orderstatus END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
     }
 
     @Test
     public void testGroupByCaseNoElse()
     {
         // whole CASE in GROUP BY clause
-        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' END");
+        assertQuery(
+                """
+                SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)
+                FROM orders
+                GROUP BY CASE orderstatus WHEN 'O' THEN 'a' END
+                """);
 
         // operand in GROUP BY clause
-        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
 
         // condition in GROUP BY clause
-        assertQuery("SELECT CASE 'O' WHEN orderstatus THEN 'a' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE 'O' WHEN orderstatus THEN 'a' END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
 
         // 'then' in GROUP BY clause
-        assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE 1 WHEN 1 THEN orderstatus END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
     }
 
     @Test
@@ -815,28 +914,32 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupByNullConstant()
     {
-        assertQuery("" +
-                "SELECT count(*)\n" +
-                "FROM (\n" +
-                "  SELECT CAST(null AS VARCHAR) constant, orderdate\n" +
-                "  FROM orders\n" +
-                ") a\n" +
-                "group by constant, orderdate\n");
+        assertQuery(
+                """
+                SELECT count(*)
+                FROM (
+                  SELECT CAST(null AS VARCHAR) constant, orderdate
+                  FROM orders
+                ) a
+                group by constant, orderdate
+                """);
     }
 
     @Test
     public void test15WayGroupBy()
     {
         // Among other things, this test verifies we are not getting for overflow in the distributed HashPagePartitionFunction
-        assertQuery("" +
-                "SELECT " +
-                "    orderkey + 1, orderkey + 2, orderkey + 3, orderkey + 4, orderkey + 5, " +
-                "    orderkey + 6, orderkey + 7, orderkey + 8, orderkey + 9, orderkey + 10, " +
-                "    count(*) " +
-                "FROM orders " +
-                "GROUP BY " +
-                "    orderkey + 1, orderkey + 2, orderkey + 3, orderkey + 4, orderkey + 5, " +
-                "    orderkey + 6, orderkey + 7, orderkey + 8, orderkey + 9, orderkey + 10");
+        assertQuery(
+                """
+                SELECT
+                    orderkey + 1, orderkey + 2, orderkey + 3, orderkey + 4, orderkey + 5,
+                    orderkey + 6, orderkey + 7, orderkey + 8, orderkey + 9, orderkey + 10,
+                    count(*)
+                FROM orders
+                GROUP BY
+                    orderkey + 1, orderkey + 2, orderkey + 3, orderkey + 4, orderkey + 5,
+                    orderkey + 6, orderkey + 7, orderkey + 8, orderkey + 9, orderkey + 10
+                """);
     }
 
     @Test
@@ -977,7 +1080,7 @@ public abstract class AbstractTestAggregations
     public void testApproximateCountDistinctGroupBy()
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey) FROM orders GROUP BY orderstatus");
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 990L)
                 .row("F", 990L)
                 .row("P", 303L)
@@ -990,7 +1093,7 @@ public abstract class AbstractTestAggregations
     public void testApproximateCountDistinctGroupByWithStandardError()
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey, 0.023) FROM orders GROUP BY orderstatus");
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 990L)
                 .row("F", 990L)
                 .row("P", 303L)
@@ -1506,27 +1609,27 @@ public abstract class AbstractTestAggregations
     @Test
     public void testApproxMostFrequentWithLongGroupBy()
     {
-        MaterializedResult actual1 = computeActual("SELECT k, approx_most_frequent(3, cast(v as bigint), 15) FROM (values ('a', 1), ('b', 2), ('a', 1), ('c', 3), ('a', 1), ('b', 2), ('c', 3), ('a', 4), ('b', 5)) t(k, v) GROUP BY 1 ORDER BY 1");
-        assertThat(actual1.getRowCount()).isEqualTo(3);
-        assertThat(actual1.getMaterializedRows().get(0).getFields().get(0)).isEqualTo("a");
-        assertThat(actual1.getMaterializedRows().get(0).getFields().get(1)).isEqualTo(ImmutableMap.of(1L, 3L, 4L, 1L));
-        assertThat(actual1.getMaterializedRows().get(1).getFields().get(0)).isEqualTo("b");
-        assertThat(actual1.getMaterializedRows().get(1).getFields().get(1)).isEqualTo(ImmutableMap.of(2L, 2L, 5L, 1L));
-        assertThat(actual1.getMaterializedRows().get(2).getFields().get(0)).isEqualTo("c");
-        assertThat(actual1.getMaterializedRows().get(2).getFields().get(1)).isEqualTo(ImmutableMap.of(3L, 2L));
+        MaterializedResult actual = computeActual("SELECT k, approx_most_frequent(3, cast(v as bigint), 15) FROM (values ('a', 1), ('b', 2), ('a', 1), ('c', 3), ('a', 1), ('b', 2), ('c', 3), ('a', 4), ('b', 5)) t(k, v) GROUP BY 1 ORDER BY 1");
+        assertThat(actual.getRowCount()).isEqualTo(3);
+        assertThat(actual.getMaterializedRows().get(0).getFields().get(0)).isEqualTo("a");
+        assertThat(actual.getMaterializedRows().get(0).getFields().get(1)).isEqualTo(ImmutableMap.of(1L, 3L, 4L, 1L));
+        assertThat(actual.getMaterializedRows().get(1).getFields().get(0)).isEqualTo("b");
+        assertThat(actual.getMaterializedRows().get(1).getFields().get(1)).isEqualTo(ImmutableMap.of(2L, 2L, 5L, 1L));
+        assertThat(actual.getMaterializedRows().get(2).getFields().get(0)).isEqualTo("c");
+        assertThat(actual.getMaterializedRows().get(2).getFields().get(1)).isEqualTo(ImmutableMap.of(3L, 2L));
     }
 
     @Test
     public void testApproxMostFrequentWithStringGroupBy()
     {
-        MaterializedResult actual1 = computeActual("SELECT k, approx_most_frequent(3, v, 15) FROM (values ('a', 'A'), ('b', 'B'), ('a', 'A'), ('c', 'C'), ('a', 'A'), ('b', 'B'), ('c', 'C'), ('a', 'D'), ('b', 'E')) t(k, v) GROUP BY 1 ORDER BY 1");
-        assertThat(actual1.getRowCount()).isEqualTo(3);
-        assertThat(actual1.getMaterializedRows().get(0).getFields().get(0)).isEqualTo("a");
-        assertThat(actual1.getMaterializedRows().get(0).getFields().get(1)).isEqualTo(ImmutableMap.of("A", 3L, "D", 1L));
-        assertThat(actual1.getMaterializedRows().get(1).getFields().get(0)).isEqualTo("b");
-        assertThat(actual1.getMaterializedRows().get(1).getFields().get(1)).isEqualTo(ImmutableMap.of("B", 2L, "E", 1L));
-        assertThat(actual1.getMaterializedRows().get(2).getFields().get(0)).isEqualTo("c");
-        assertThat(actual1.getMaterializedRows().get(2).getFields().get(1)).isEqualTo(ImmutableMap.of("C", 2L));
+        MaterializedResult actual = computeActual("SELECT k, approx_most_frequent(3, v, 15) FROM (values ('a', 'A'), ('b', 'B'), ('a', 'A'), ('c', 'C'), ('a', 'A'), ('b', 'B'), ('c', 'C'), ('a', 'D'), ('b', 'E')) t(k, v) GROUP BY 1 ORDER BY 1");
+        assertThat(actual.getRowCount()).isEqualTo(3);
+        assertThat(actual.getMaterializedRows().get(0).getFields().get(0)).isEqualTo("a");
+        assertThat(actual.getMaterializedRows().get(0).getFields().get(1)).isEqualTo(ImmutableMap.of("A", 3L, "D", 1L));
+        assertThat(actual.getMaterializedRows().get(1).getFields().get(0)).isEqualTo("b");
+        assertThat(actual.getMaterializedRows().get(1).getFields().get(1)).isEqualTo(ImmutableMap.of("B", 2L, "E", 1L));
+        assertThat(actual.getMaterializedRows().get(2).getFields().get(0)).isEqualTo("c");
+        assertThat(actual.getMaterializedRows().get(2).getFields().get(1)).isEqualTo(ImmutableMap.of("C", 2L));
     }
 
     @Test

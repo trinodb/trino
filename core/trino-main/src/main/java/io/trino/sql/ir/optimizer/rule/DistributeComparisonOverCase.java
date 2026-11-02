@@ -21,15 +21,16 @@ import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions.Comparison;
-import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
@@ -44,6 +45,8 @@ import static io.trino.sql.ir.IrExpressions.matchNullIf;
  *
  * into:
  * <pre>{@code Case(When(c1, op(v, r1)), When(c2, op(v, r2)), ..)))}</pre>
+ *
+ * when {@code v} is a constant. A comparison with a reference stays intact so it remains usable as a join key.
  */
 public class DistributeComparisonOverCase
         implements IrOptimizerRule
@@ -62,19 +65,19 @@ public class DistributeComparisonOverCase
             return Optional.empty();
         }
 
-        if (comparison.left() instanceof Case caseTerm && (comparison.right() instanceof Reference || comparison.right() instanceof Constant)) {
+        if (comparison.left() instanceof Case caseTerm && comparison.right() instanceof Constant) {
             // Leave a desugared NULLIF intact so it stays recognizable for connector pushdown.
             if (matchNullIf(caseTerm) != null) {
                 return Optional.empty();
             }
-            return Optional.of(distribute(comparison.operator(), caseTerm, comparison.right()));
+            return Optional.of(distribute(session, comparison.operator(), caseTerm, comparison.right()));
         }
 
-        if (comparison.right() instanceof Case caseTerm && (comparison.left() instanceof Reference || comparison.left() instanceof Constant)) {
+        if (comparison.right() instanceof Case caseTerm && comparison.left() instanceof Constant) {
             if (matchNullIf(caseTerm) != null) {
                 return Optional.empty();
             }
-            return Optional.of(distribute(flipOperator(comparison.operator()), caseTerm, comparison.left()));
+            return Optional.of(distribute(session, flipOperator(comparison.operator()), caseTerm, comparison.left()));
         }
 
         return Optional.empty();
@@ -91,14 +94,15 @@ public class DistributeComparisonOverCase
         };
     }
 
-    private Expression distribute(ComparisonOperator operator, Case caseTerm, Expression target)
+    private Expression distribute(Session session, ComparisonOperator operator, Case caseTerm, Expression target)
     {
+        CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(session);
         return new Case(
                 caseTerm.whenClauses().stream()
                         .map(clause -> new WhenClause(
-                                clause.getOperand(),
-                                comparison(metadata, operator, clause.getResult(), target)))
+                                clause.operand(),
+                                comparison(metadata, charVarcharCoercion, operator, clause.result(), target)))
                         .toList(),
-                comparison(metadata, operator, caseTerm.defaultValue(), target));
+                comparison(metadata, charVarcharCoercion, operator, caseTerm.defaultValue(), target));
     }
 }

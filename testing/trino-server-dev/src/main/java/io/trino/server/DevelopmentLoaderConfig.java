@@ -15,7 +15,6 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
-import io.airlift.resolver.ArtifactResolver;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
@@ -23,8 +22,8 @@ import java.util.List;
 public class DevelopmentLoaderConfig
 {
     private List<String> plugins = ImmutableList.of();
-    private String mavenLocalRepository = ArtifactResolver.USER_LOCAL_REPO;
-    private List<String> mavenRemoteRepository = ImmutableList.of(ArtifactResolver.MAVEN_CENTRAL_URI);
+    private String mavenLocalRepository = MavenArtifactResolver.USER_LOCAL_REPO;
+    private List<String> mavenRemoteRepository = ImmutableList.of(MavenArtifactResolver.MAVEN_CENTRAL_URI);
 
     public List<String> getPlugins()
     {

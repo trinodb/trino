@@ -418,6 +418,129 @@ public class TestDeltaLakeMetastoreAccessOperations
     }
 
     @Test
+    public void testInsert()
+    {
+        try (TestTable table = newTrinoTable("test_insert", "(col int)")) {
+            assertMetastoreInvocations(
+                    getSession(),
+                    "INSERT INTO " + table.getName() + " VALUES 1",
+                    ImmutableMultiset.of(GET_TABLE),
+                    asyncInvocations(true));
+        }
+    }
+
+    @Test
+    public void testUpdate()
+    {
+        try (TestTable table = newTrinoTable("test_update", "AS SELECT 1 AS col")) {
+            assertMetastoreInvocations(
+                    getSession(),
+                    "UPDATE " + table.getName() + " SET col = 2",
+                    ImmutableMultiset.of(GET_TABLE),
+                    asyncInvocations(true));
+        }
+    }
+
+    @Test
+    public void testMerge()
+    {
+        try (TestTable table = newTrinoTable("test_merge", "AS SELECT 1 AS col")) {
+            assertMetastoreInvocations(
+                    getSession(),
+                    "MERGE INTO " + table.getName() + " t " +
+                            "USING (SELECT * FROM (VALUES 1)) AS s(col) " +
+                            "ON (t.col = s.col) " +
+                            "WHEN MATCHED THEN UPDATE SET col = 2",
+                    ImmutableMultiset.of(GET_TABLE),
+                    asyncInvocations(true));
+        }
+    }
+
+    @Test
+    public void testDelete()
+    {
+        try (TestTable table = newTrinoTable("test_delete", "AS SELECT 1 AS col")) {
+            assertMetastoreInvocations(
+                    getSession(),
+                    "DELETE FROM " + table.getName() + " WHERE col = 1",
+                    ImmutableMultiset.of(GET_TABLE),
+                    asyncInvocations(true));
+        }
+    }
+
+    @Test
+    public void testDeleteWithoutWhereClause()
+    {
+        try (TestTable table = newTrinoTable("test_delete_all", "AS SELECT 1 AS col")) {
+            assertMetastoreInvocations(
+                    getSession(),
+                    "DELETE FROM " + table.getName(),
+                    ImmutableMultiset.of(GET_TABLE),
+                    asyncInvocations(true));
+        }
+    }
+
+    @Test
+    public void testTruncateTable()
+    {
+        try (TestTable table = newTrinoTable("test_truncate", "AS SELECT 1 AS col")) {
+            assertMetastoreInvocations(
+                    getSession(),
+                    "TRUNCATE TABLE " + table.getName(),
+                    ImmutableMultiset.of(GET_TABLE),
+                    asyncInvocations(true));
+        }
+    }
+
+    @Test
+    public void testCommentTable()
+    {
+        try (TestTable table = newTrinoTable("test_comment_table", "(col int)")) {
+            assertMetastoreInvocations(
+                    getSession(),
+                    "COMMENT ON TABLE " + table.getName() + " IS 'test comment'",
+                    ImmutableMultiset.of(GET_TABLE),
+                    asyncInvocations(true));
+        }
+    }
+
+    @Test
+    public void testCommentColumn()
+    {
+        try (TestTable table = newTrinoTable("test_comment_column", "(col int)")) {
+            assertMetastoreInvocations(
+                    getSession(),
+                    "COMMENT ON COLUMN " + table.getName() + ".col IS 'test comment'",
+                    ImmutableMultiset.of(GET_TABLE),
+                    asyncInvocations(true));
+        }
+    }
+
+    @Test
+    public void testAddColumn()
+    {
+        try (TestTable table = newTrinoTable("test_add_column", "(col int)")) {
+            assertMetastoreInvocations(
+                    getSession(),
+                    "ALTER TABLE " + table.getName() + " ADD COLUMN new_col int",
+                    ImmutableMultiset.of(GET_TABLE),
+                    asyncInvocations(true));
+        }
+    }
+
+    @Test
+    public void testDropColumn()
+    {
+        try (TestTable table = newTrinoTable("test_drop_column", "(col int, col2 int) WITH (column_mapping_mode = 'name')")) {
+            assertMetastoreInvocations(
+                    getSession(),
+                    "ALTER TABLE " + table.getName() + " DROP COLUMN col2",
+                    ImmutableMultiset.of(GET_TABLE),
+                    asyncInvocations(true));
+        }
+    }
+
+    @Test
     public void testSelectWithoutMetadataInMetastore()
     {
         assertUpdate("CREATE TABLE test_select_without_cache (id VARCHAR, age INT)");

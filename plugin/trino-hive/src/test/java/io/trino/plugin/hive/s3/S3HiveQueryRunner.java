@@ -101,13 +101,6 @@ public final class S3HiveQueryRunner
         }
 
         @CanIgnoreReturnValue
-        public Builder setThriftMetastoreConfig(ThriftMetastoreConfig thriftMetastoreConfig)
-        {
-            this.thriftMetastoreConfig = requireNonNull(thriftMetastoreConfig, "thriftMetastoreConfig is null");
-            return this;
-        }
-
-        @CanIgnoreReturnValue
         public Builder setS3Region(String s3Region)
         {
             this.s3Region = requireNonNull(s3Region, "s3Region is null");

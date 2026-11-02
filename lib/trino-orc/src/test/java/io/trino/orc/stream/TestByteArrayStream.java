@@ -13,12 +13,14 @@
  */
 package io.trino.orc.stream;
 
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDecompressor;
 import io.trino.orc.checkpoint.ByteArrayStreamCheckpoint;
+import io.trino.orc.metadata.OrcColumnId;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -28,7 +30,12 @@ import java.util.Optional;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcDecompressor.createOrcDecompressor;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
 import static io.trino.orc.metadata.CompressionKind.SNAPPY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestByteArrayStream
         extends AbstractTestValueStream<Slice, ByteArrayStreamCheckpoint, ByteArrayOutputStream, ByteArrayInputStream>
@@ -50,6 +57,41 @@ public class TestByteArrayStream
             groups.add(group);
         }
         testWriteValue(groups);
+    }
+
+    @Test
+    public void testSeekToEmptyGroupAtCompressedStreamEnd()
+            throws IOException
+    {
+        ByteArrayOutputStream outputStream = createValueOutputStream();
+        int directWriteSize = 64 * 1024; // Exceeds OrcOutputBuffer's 32 KiB direct flush threshold.
+
+        outputStream.recordCheckpoint();
+        outputStream.writeSlice(Slices.allocate(directWriteSize));
+
+        outputStream.recordCheckpoint();
+        outputStream.close();
+
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(directWriteSize);
+        outputStream.getStreamDataOutput(new OrcColumnId(33)).writeData(sliceOutput);
+
+        ByteArrayStreamCheckpoint emptyGroupCheckpoint = outputStream.getCheckpoints().get(1);
+        assertThat(decodeCompressedBlockOffset(emptyGroupCheckpoint.getInputStreamCheckpoint())).isEqualTo(sliceOutput.size());
+        assertThat(decodeDecompressedOffset(emptyGroupCheckpoint.getInputStreamCheckpoint())).isEqualTo(0);
+
+        ByteArrayInputStream valueStream = createValueStream(sliceOutput.slice());
+        valueStream.seekToCheckpoint(emptyGroupCheckpoint);
+        assertThat(valueStream.next(0)).isEmpty();
+        assertThatThrownBy(() -> valueStream.next(1))
+                .isInstanceOf(OrcCorruptionException.class)
+                .hasMessageContaining("Unexpected end of stream");
+
+        assertThatThrownBy(() -> valueStream.seekToCheckpoint(new ByteArrayStreamCheckpoint(createInputStreamCheckpoint(sliceOutput.size(), 1))))
+                .isInstanceOf(OrcCorruptionException.class)
+                .hasMessageContaining("Seek past end of stream");
+        assertThatThrownBy(() -> valueStream.seekToCheckpoint(new ByteArrayStreamCheckpoint(createInputStreamCheckpoint(sliceOutput.size() + 1, 0))))
+                .isInstanceOf(OrcCorruptionException.class)
+                .hasMessageContaining("Seek past end of stream");
     }
 
     @Override

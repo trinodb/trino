@@ -105,7 +105,7 @@ import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
 import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
 import static io.trino.plugin.mongodb.MongoSession.ID;
 import static io.trino.plugin.mongodb.MongoSessionProperties.isProjectionPushdownEnabled;
-import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
+import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedDomain;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
@@ -258,7 +258,11 @@ public class MongoMetadata
         if (saveMode == REPLACE) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
-        RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(tableMetadata.getTable());
+        SchemaTableName tableName = tableMetadata.getTable();
+        if (tableName.toString().getBytes(UTF_8).length > MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH) {
+            throw new TrinoException(NOT_SUPPORTED, format("Qualified identifier name must be shorter than or equal to '%s' bytes: '%s'", MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH, tableName));
+        }
+        RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(tableName);
         mongoSession.createTable(remoteTableName, buildColumnHandles(tableMetadata), tableMetadata.getComment());
     }
 
@@ -402,7 +406,11 @@ public class MongoMetadata
         if (replace) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
-        RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(tableMetadata.getTable());
+        SchemaTableName tableName = tableMetadata.getTable();
+        if (tableName.toString().getBytes(UTF_8).length > MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH) {
+            throw new TrinoException(NOT_SUPPORTED, format("Qualified identifier name must be shorter than or equal to '%s' bytes: '%s'", MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH, tableName));
+        }
+        RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(tableName);
 
         List<MongoColumnHandle> columns = buildColumnHandles(tableMetadata);
 
@@ -612,7 +620,7 @@ public class MongoMetadata
             return Optional.empty();
         }
 
-        if (handle.limit().isPresent() && handle.limit().getAsInt() <= limit) {
+        if (handle.limit().isPresent() && handle.limit().orElseThrow() <= limit) {
             return Optional.empty();
         }
 
@@ -648,9 +656,8 @@ public class MongoMetadata
             for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 MongoColumnHandle columnHandle = (MongoColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
-                Type columnType = columnHandle.type();
                 // TODO: Support predicate pushdown on more types including JSON
-                if (isPushdownSupportedType(columnType)) {
+                if (isPushdownSupportedDomain(domain)) {
                     supported.put(entry.getKey(), entry.getValue());
                 }
                 else {

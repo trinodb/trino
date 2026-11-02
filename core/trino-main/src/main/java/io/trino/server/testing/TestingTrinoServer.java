@@ -24,6 +24,8 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -41,6 +43,8 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.trino.Session;
 import io.trino.SystemSessionPropertiesProvider;
+import io.trino.cache.CacheManagerConfig;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
@@ -127,6 +131,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -140,10 +145,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
@@ -220,6 +225,7 @@ public class TestingTrinoServer
     private final boolean coordinator;
     private final FailureInjector failureInjector;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final CacheManagerRegistry cacheManagerRegistry;
     private final SpoolingManagerRegistry spoolingManagerRegistry;
 
     public static class TestShutdownAction
@@ -325,6 +331,7 @@ public class TestingTrinoServer
                     binder.bind(NodeVersion.class).toInstance(new NodeVersion(VERSION));
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerConfig.class).in(Scopes.SINGLETON);
+                    binder.bind(CacheManagerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlConfig.class).in(Scopes.SINGLETON);
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingGroupProvider.class).in(Scopes.SINGLETON);
@@ -341,6 +348,7 @@ public class TestingTrinoServer
                     binder.bind(NodeStateManager.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
+                    binder.bind(CacheManagerRegistry.class).in(Scopes.SINGLETON);
                     spanProcessor.ifPresent(processor -> newSetBinder(binder, SpanProcessor.class).addBinding().toInstance(processor));
 
                     newSetBinder(binder, SystemSessionPropertiesProvider.class)
@@ -432,6 +440,7 @@ public class TestingTrinoServer
         mBeanServer = injector.getInstance(MBeanServer.class);
         failureInjector = injector.getInstance(FailureInjector.class);
         exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
+        cacheManagerRegistry = injector.getInstance(CacheManagerRegistry.class);
         spoolingManagerRegistry = injector.getInstance(SpoolingManagerRegistry.class);
 
         systemAccessControlConfiguration.ifPresentOrElse(
@@ -447,7 +456,14 @@ public class TestingTrinoServer
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
 
-        getFutureValue(injector.getInstance(Announcer.class).forceAnnounce());
+        Announcer announcer = injector.getInstance(Announcer.class);
+        // An announcement can time out when the JVM is under load, e.g. during a long GC pause
+        Failsafe.with(RetryPolicy.builder()
+                        .withMaxAttempts(-1)
+                        .withMaxDuration(Duration.ofMinutes(1))
+                        .withDelay(Duration.ofMillis(100))
+                        .build())
+                .run(() -> getUnchecked(announcer.forceAnnounce()));
         // Must be run before startup is considered complete and node will therefore accept tasks.
         // Technically `this` reference might escape here. However, the object is fully constructed.
         additionalConfiguration.accept(this);
@@ -525,6 +541,11 @@ public class TestingTrinoServer
     public void loadExchangeManager(String name, Map<String, String> properties)
     {
         exchangeManagerRegistry.loadExchangeManager(name, properties);
+    }
+
+    public void loadBlobCacheManager(String name, Map<String, String> properties)
+    {
+        cacheManagerRegistry.loadBlobCacheManager(name, properties);
     }
 
     public void loadSpoolingManager(String name, Map<String, String> properties)

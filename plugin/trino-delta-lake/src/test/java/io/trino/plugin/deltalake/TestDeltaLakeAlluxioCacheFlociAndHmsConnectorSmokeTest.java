@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.AfterAll;
 
@@ -21,8 +22,10 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Stream;
 
 /**
@@ -31,20 +34,25 @@ import java.util.stream.Stream;
 public class TestDeltaLakeAlluxioCacheFlociAndHmsConnectorSmokeTest
         extends TestDeltaLakeFlociAndHmsConnectorSmokeTest
 {
-    private Path cacheDirectory;
+    private final List<Path> cacheDirectories = new CopyOnWriteArrayList<>();
 
     @AfterAll
     final void deleteDirectory()
     {
-        try (Stream<Path> walk = Files.walk(cacheDirectory)) {
-            Iterator<Path> iterator = walk.sorted(Comparator.reverseOrder()).iterator();
-            while (iterator.hasNext()) {
-                Path path = iterator.next();
-                Files.delete(path);
+        for (Path directory : ImmutableList.copyOf(cacheDirectories)) {
+            try (Stream<Path> walk = Files.walk(directory)) {
+                walk.sorted(Comparator.reverseOrder()).forEach(path -> {
+                    try {
+                        Files.delete(path);
+                    }
+                    catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                });
             }
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
         super.cleanUp();
     }
@@ -52,17 +60,26 @@ public class TestDeltaLakeAlluxioCacheFlociAndHmsConnectorSmokeTest
     @Override
     protected Map<String, String> deltaStorageConfiguration()
     {
+        return ImmutableMap.<String, String>builder()
+                .putAll(super.deltaStorageConfiguration())
+                .put("fs.cache.enabled", "true")
+                .buildOrThrow();
+    }
+
+    @Override
+    protected Optional<Map<String, String>> getBlobCacheProperties()
+    {
+        Path cacheDirectory;
         try {
             cacheDirectory = Files.createTempDirectory("cache");
         }
         catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
-        return ImmutableMap.<String, String>builder()
-                .putAll(super.deltaStorageConfiguration())
-                .put("fs.cache.enabled", "true")
+        cacheDirectories.add(cacheDirectory);
+        return Optional.of(ImmutableMap.<String, String>builder()
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                 .put("fs.cache.max-sizes", "100MB")
-                .buildOrThrow();
+                .buildOrThrow());
     }
 }

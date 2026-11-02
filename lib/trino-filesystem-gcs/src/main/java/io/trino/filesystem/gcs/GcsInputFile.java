@@ -76,7 +76,7 @@ public class GcsInputFile
             throws IOException
     {
         if (predeclaredLength.isPresent()) {
-            return predeclaredLength.getAsLong();
+            return predeclaredLength.orElseThrow();
         }
         if (length.isEmpty()) {
             loadProperties();
@@ -98,8 +98,7 @@ public class GcsInputFile
     public boolean exists()
             throws IOException
     {
-        Optional<Blob> blob = getBlob(storage, location, blobGetOptions());
-        return blob.isPresent() && blob.get().exists();
+        return getBlob(storage, location, blobGetOptions()).isPresent();
     }
 
     @Override

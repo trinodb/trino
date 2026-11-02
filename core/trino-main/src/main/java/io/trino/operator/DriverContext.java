@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -242,40 +241,40 @@ public class DriverContext
         return pipelineContext.isCpuTimerEnabled();
     }
 
-    public CounterStat getInputDataSize()
+    public long getInputDataSize()
     {
         OperatorContext inputOperator = getFirst(operatorContexts, null);
         if (inputOperator != null) {
             return inputOperator.getInputDataSize();
         }
-        return new CounterStat();
+        return 0;
     }
 
-    public CounterStat getInputPositions()
+    public long getInputPositions()
     {
         OperatorContext inputOperator = getFirst(operatorContexts, null);
         if (inputOperator != null) {
             return inputOperator.getInputPositions();
         }
-        return new CounterStat();
+        return 0;
     }
 
-    public CounterStat getOutputDataSize()
+    public long getOutputDataSize()
     {
         OperatorContext inputOperator = getLast(operatorContexts, null);
         if (inputOperator != null) {
             return inputOperator.getOutputDataSize();
         }
-        return new CounterStat();
+        return 0;
     }
 
-    public CounterStat getOutputPositions()
+    public long getOutputPositions()
     {
         OperatorContext inputOperator = getLast(operatorContexts, null);
         if (inputOperator != null) {
             return inputOperator.getOutputPositions();
         }
-        return new CounterStat();
+        return 0;
     }
 
     public long getWriterInputDataSize()

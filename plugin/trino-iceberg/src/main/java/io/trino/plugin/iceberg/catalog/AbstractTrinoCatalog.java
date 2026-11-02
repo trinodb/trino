@@ -18,7 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.metrics.MeasuredTrinoFileSystem;
+import io.trino.filesystem.metrics.MeasuredTrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
+import io.trino.plugin.base.metrics.ApiCallStats;
 import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
@@ -37,6 +40,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.MapType;
@@ -57,6 +61,7 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.types.Types;
 
@@ -101,6 +106,7 @@ import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -111,6 +117,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
@@ -134,6 +141,7 @@ public abstract class AbstractTrinoCatalog
     protected final TypeManager typeManager;
     protected final IcebergTableOperationsProvider tableOperationsProvider;
     protected final TrinoFileSystemFactory fileSystemFactory;
+    private final ApiCallStats fileSystemStats = new ApiCallStats();
     protected final ForwardingFileIoFactory fileIoFactory;
 
     protected AbstractTrinoCatalog(
@@ -148,8 +156,19 @@ public abstract class AbstractTrinoCatalog
         this.useUniqueTableLocation = useUniqueTableLocation;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileSystemFactory = new MeasuredTrinoFileSystemFactory(requireNonNull(fileSystemFactory, "fileSystemFactory is null"), fileSystemStats);
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
+    }
+
+    public TrinoFileSystem measureFileSystem(TrinoFileSystem fileSystem)
+    {
+        return new MeasuredTrinoFileSystem(fileSystem, fileSystemStats);
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return fileSystemStats.toMetrics("filesystem.catalog");
     }
 
     @Override
@@ -362,7 +381,12 @@ public abstract class AbstractTrinoCatalog
         Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false, tableLocation, _ -> false, ImmutableList.of());
         AppendFiles appendFiles = transaction.newAppend();
         commit(appendFiles, session);
-        transaction.commitTransaction();
+        try {
+            transaction.commitTransaction();
+        }
+        catch (CommitFailedException e) {
+            throw new TrinoException(TRANSACTION_CONFLICT, format("Failed to commit the transaction while creating materialized view storage table: %s", requireNonNullElse(e.getMessage(), e)), e);
+        }
         return storageTable;
     }
 
@@ -370,7 +394,7 @@ public abstract class AbstractTrinoCatalog
     {
         Schema schemaWithTimestampTzPreserved = schemaFromMetadata(definition.getColumns().stream()
                 .map(column -> {
-                    Type type = typeManager.getType(column.getType());
+                    Type type = typeManager.fromPersistedSqlType(column.getType().getId());
                     if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6) {
                         // For now preserve timestamptz columns so that we can parse partitioning
                         type = TIMESTAMP_TZ_MICROS;
@@ -396,7 +420,7 @@ public abstract class AbstractTrinoCatalog
 
         return definition.getColumns().stream()
                 .map(column -> {
-                    Type type = typeManager.getType(column.getType());
+                    Type type = typeManager.fromPersistedSqlType(column.getType().getId());
                     if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6 && temporalPartitioningSources.contains(column.getName())) {
                         // Apply point-in-time semantics to maintain partitioning capabilities
                         type = TIMESTAMP_TZ_MICROS;
@@ -552,6 +576,9 @@ public abstract class AbstractTrinoCatalog
                 .commit();
         try {
             transaction.commitTransaction();
+        }
+        catch (CommitFailedException e) {
+            throw new TrinoException(TRANSACTION_CONFLICT, format("Failed to commit the transaction while replacing materialized view storage table: %s", requireNonNullElse(e.getMessage(), e)), e);
         }
         finally {
             if (isMaterializedViewStorage(storageTableName.getTableName())) {

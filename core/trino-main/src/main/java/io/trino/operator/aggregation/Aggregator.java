@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.primitives.Ints;
 import io.trino.operator.AggregationMetrics;
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -74,7 +75,7 @@ public class Aggregator
             Page arguments = page.getColumns(inputChannels);
             Optional<Block> maskBlock = Optional.empty();
             if (maskChannel.isPresent()) {
-                maskBlock = Optional.of(page.getBlock(maskChannel.getAsInt()));
+                maskBlock = Optional.of(page.getBlock(maskChannel.orElseThrow()));
             }
             AggregationMask mask = maskBuilder.buildAggregationMask(arguments, maskBlock);
 
@@ -90,6 +91,11 @@ public class Aggregator
             accumulator.addIntermediate(page.getBlock(inputChannels[0]));
             metrics.recordAccumulatorUpdateTimeSince(start);
         }
+    }
+
+    public boolean prepareFinal(UpdateMemory updateMemory)
+    {
+        return accumulator.prepareFinal(updateMemory);
     }
 
     public void evaluate(BlockBuilder blockBuilder)

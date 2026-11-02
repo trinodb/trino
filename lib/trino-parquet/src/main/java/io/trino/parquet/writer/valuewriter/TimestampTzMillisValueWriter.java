@@ -13,13 +13,12 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.ValueBlock;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static java.util.Objects.requireNonNull;
 
 public class TimestampTzMillisValueWriter
         extends PrimitiveValueWriter
@@ -30,14 +29,44 @@ public class TimestampTzMillisValueWriter
     }
 
     @Override
-    public void write(Block block)
+    protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                long millis = unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, i));
+                long millis = unpackMillisUtc(longArrayBlock.getLong(i));
+                valuesWriter.writeLong(millis);
+                statistics.updateStats(millis);
+            }
+        }
+    }
+
+    @Override
+    protected void writeRepeated(ValueBlock block, int count)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        long millis = unpackMillisUtc(((LongArrayBlock) block).getLong(0));
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeLong(millis);
+        }
+        statistics.updateStats(millis);
+    }
+
+    @Override
+    protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
+        boolean mayHaveNull = block.mayHaveNull();
+        for (int index = 0; index < length; index++) {
+            int position = positions[offset + index];
+            if (!mayHaveNull || !block.isNull(position)) {
+                long millis = unpackMillisUtc(longArrayBlock.getLong(position));
                 valuesWriter.writeLong(millis);
                 statistics.updateStats(millis);
             }

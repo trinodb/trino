@@ -22,6 +22,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
@@ -34,8 +35,8 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.StandardTypes;
 import io.trino.type.CodePointsType;
+import io.trino.util.Soundex;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
-import org.apache.commons.codec.language.Soundex;
 
 import java.text.Normalizer;
 import java.util.OptionalInt;
@@ -110,7 +111,7 @@ public final class StringFunctions
     @ScalarFunction(value = "length", neverFails = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
-    public static long charLength(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    public static long charLength(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
         return x;
     }
@@ -212,9 +213,9 @@ public final class StringFunctions
     @ScalarFunction(value = "reverse", neverFails = true)
     @LiteralParameters("x")
     @SqlType("char(x)")
-    public static Slice charReverse(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    public static Slice charReverse(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
-        return SliceUtf8.reverse(padSpaces(slice, (int) x));
+        return trimTrailingSpaces(SliceUtf8.reverse(padSpaces(slice, x)));
     }
 
     @Description("Returns index of first occurrence of a substring (or 0 if not found)")
@@ -328,9 +329,9 @@ public final class StringFunctions
     @ScalarFunction(value = "substring", alias = "substr", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice charSubstring(@LiteralParameter("x") long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    public static Slice charSubstring(@LiteralParameter("x") int x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
     {
-        return substring(padSpaces(utf8, toIntExact(x)), start);
+        return substring(padSpaces(utf8, x), start);
     }
 
     @Description("Substring of given length starting at an index")
@@ -386,9 +387,9 @@ public final class StringFunctions
     @ScalarFunction(value = "substring", alias = "substr", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice charSubstr(@LiteralParameter("x") long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    public static Slice charSubstr(@LiteralParameter("x") int x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
-        return substring(padSpaces(utf8, toIntExact(x)), start, length);
+        return substring(padSpaces(utf8, x), start, length);
     }
 
     @ScalarFunction(value = OVERLAY_FUNCTION_NAME, hidden = true)
@@ -439,32 +440,27 @@ public final class StringFunctions
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
         checkCondition(delimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
-        BlockBuilder parts = VARCHAR.createBlockBuilder(null, 1, string.length());
-        // If limit is one, the last and only element is the complete string
-        if (limit == 1) {
-            VARCHAR.writeSlice(parts, string);
-            return parts.build();
-        }
-
+        int expectedEntries = 1;
         int index = 0;
-        while (index < string.length()) {
+        while (expectedEntries < limit && index < string.length()) {
             int splitIndex = string.indexOf(delimiter, index);
-            // Found split?
             if (splitIndex < 0) {
                 break;
             }
-            // Add the part from current index to found split
-            VARCHAR.writeSlice(parts, string, index, splitIndex - index);
-            // Continue searching after delimiter
+            expectedEntries++;
             index = splitIndex + delimiter.length();
-            // Reached limit-1 parts so we can stop
-            if (parts.getPositionCount() == limit - 1) {
-                break;
-            }
         }
-        // Rest of string
-        VARCHAR.writeSlice(parts, string, index, string.length() - index);
 
+        int expectedBytes = string.length() - (expectedEntries - 1) * delimiter.length();
+        BlockBuilder parts = new VariableWidthBlockBuilder(null, expectedEntries, expectedBytes);
+        index = 0;
+        for (int part = 1; part < expectedEntries; part++) {
+            int splitIndex = string.indexOf(delimiter, index);
+            VARCHAR.writeSlice(parts, string, index, splitIndex - index);
+            index = splitIndex + delimiter.length();
+        }
+        // The last part includes any remaining delimiters when the limit is reached.
+        VARCHAR.writeSlice(parts, string, index, string.length() - index);
         return parts.build();
     }
 
@@ -527,6 +523,7 @@ public final class StringFunctions
         return SliceUtf8.leftTrim(slice);
     }
 
+    // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
     @Description("Removes whitespace from the beginning of a string")
     @ScalarFunction(value = "ltrim", neverFails = true)
     @LiteralParameters("x")
@@ -545,6 +542,7 @@ public final class StringFunctions
         return SliceUtf8.rightTrim(slice);
     }
 
+    // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
     @Description("Removes whitespace from the end of a string")
     @ScalarFunction(value = "rtrim", neverFails = true)
     @LiteralParameters("x")
@@ -563,6 +561,7 @@ public final class StringFunctions
         return SliceUtf8.trim(slice);
     }
 
+    // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
     @Description("Removes whitespace from the beginning and end of a string")
     @ScalarFunction(value = "trim", neverFails = true)
     @LiteralParameters("x")
@@ -581,6 +580,7 @@ public final class StringFunctions
         return SliceUtf8.leftTrim(slice, codePointsToTrim);
     }
 
+    // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
     @Description("Remove the longest string containing only given characters from the beginning of a string")
     @ScalarFunction(value = "ltrim", neverFails = true)
     @LiteralParameters("x")
@@ -599,13 +599,14 @@ public final class StringFunctions
         return SliceUtf8.rightTrim(slice, codePointsToTrim);
     }
 
+    // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
     @Description("Remove the longest string containing only given characters from the end of a string")
     @ScalarFunction(value = "rtrim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice charRightTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        return trimTrailingSpaces(rightTrim(slice, codePointsToTrim));
+        return rightTrim(slice, codePointsToTrim);
     }
 
     @Description("Remove the longest string containing only given characters from the beginning and end of a string")
@@ -617,13 +618,14 @@ public final class StringFunctions
         return SliceUtf8.trim(slice, codePointsToTrim);
     }
 
+    // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
     @Description("Remove the longest string containing only given characters from the beginning and end of a string")
     @ScalarFunction(value = "trim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice charTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        return trimTrailingSpaces(trim(slice, codePointsToTrim));
+        return trim(slice, codePointsToTrim);
     }
 
     @ScalarOperator(OperatorType.CAST)
@@ -637,9 +639,9 @@ public final class StringFunctions
     @ScalarOperator(OperatorType.CAST)
     @SqlType(CodePointsType.NAME)
     @LiteralParameters("x")
-    public static int[] castCharToCodePoints(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    public static int[] castCharToCodePoints(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
-        return castToCodePoints(padSpaces(slice, toIntExact(x)));
+        return castToCodePoints(padSpaces(slice, x));
     }
 
     private static int[] castToCodePoints(Slice slice)
@@ -778,9 +780,9 @@ public final class StringFunctions
     @ScalarFunction("lpad")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice leftPad(@LiteralParameter("x") long x, @SqlType("char(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
+    public static Slice leftPad(@LiteralParameter("x") int x, @SqlType("char(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
     {
-        text = padSpaces(text, toIntExact(x));
+        text = padSpaces(text, x);
         return leftPad(text, targetLength, padString);
     }
 
@@ -873,8 +875,9 @@ public final class StringFunctions
                 distance++;
             }
 
-            leftPosition += codePointLeft > 0 ? lengthOfCodePoint(codePointLeft) : -codePointLeft;
-            rightPosition += codePointRight > 0 ? lengthOfCodePoint(codePointRight) : -codePointRight;
+            // a valid code point is non-negative (NUL is the valid code point 0); an invalid sequence is encoded as a negative length
+            leftPosition += codePointLeft >= 0 ? lengthOfCodePoint(codePointLeft) : -codePointLeft;
+            rightPosition += codePointRight >= 0 ? lengthOfCodePoint(codePointRight) : -codePointRight;
         }
 
         checkCondition(
@@ -959,26 +962,25 @@ public final class StringFunctions
     @ScalarFunction(neverFails = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice toUtf8(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    public static Slice toUtf8(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
-        return Chars.padSpaces(slice, toIntExact(x));
+        return Chars.padSpaces(slice, x);
     }
 
-    // TODO: implement N arguments char concat
     @Description("Concatenates given character strings")
     // Given CHAR type max length, if the result type is valid, allocation cannot fail.
     @ScalarFunction(neverFails = true)
     @LiteralParameters({"x", "y", "u"})
     @Constraint(variable = "u", expression = "x + y")
     @SqlType("char(u)")
-    public static Slice concat(@LiteralParameter("x") long x, @SqlType("char(x)") Slice left, @SqlType("char(y)") Slice right)
+    public static Slice concat(@LiteralParameter("x") int x, @SqlType("char(x)") Slice left, @SqlType("char(y)") Slice right)
     {
         int rightLength = right.length();
         if (rightLength == 0) {
             return left;
         }
 
-        Slice paddedLeft = padSpaces(left, toIntExact(x));
+        Slice paddedLeft = padSpaces(left, x);
         int leftLength = paddedLeft.length();
 
         Slice result = Slices.allocate(leftLength + rightLength);
@@ -1059,7 +1061,7 @@ public final class StringFunctions
     public static Slice soundex(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         try {
-            return utf8Slice(Soundex.US_ENGLISH.encode(slice.toStringUtf8()));
+            return Soundex.soundex(slice);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);

@@ -60,6 +60,7 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.security.ViewAccessControl;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -195,6 +196,7 @@ import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
@@ -286,6 +288,7 @@ import io.trino.sql.tree.WindowSpecification;
 import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.TypeCoercion;
 
 import java.math.RoundingMode;
@@ -318,12 +321,14 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getMaxGroupingSets;
 import static io.trino.metadata.FunctionResolver.toPath;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.metadata.TableVersion.toTableVersion;
+import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_RETURN_TYPE;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
@@ -440,6 +445,7 @@ import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.sql.util.AstUtils.preOrder;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -457,6 +463,7 @@ class StatementAnalyzer
     private final PlannerContext plannerContext;
     private final TypeCoercion typeCoercion;
     private final Session session;
+    private final CharVarcharCoercion charVarcharCoercion;
     private final SqlParser sqlParser;
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
@@ -492,7 +499,8 @@ class StatementAnalyzer
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
+        this.charVarcharCoercion = getCharVarcharCoercion(session);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -737,16 +745,6 @@ class StatementAnalyzer
             analysis.setUpdateType("REFRESH MATERIALIZED VIEW");
 
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, refreshMaterializedView, name.catalogName());
-            if (metadata.delegateMaterializedViewRefreshToConnector(session, name)) {
-                analysis.setDelegatedRefreshMaterializedView(name);
-                analysis.setUpdateTarget(
-                        catalogHandle.getVersion(),
-                        name,
-                        Optional.empty(),
-                        Optional.empty());
-                return createAndAssignScope(refreshMaterializedView, scope);
-            }
-
             QualifiedName storageName = getMaterializedViewStorageTableName(view)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Storage Table for materialized view '%s' does not exist", name));
 
@@ -1278,60 +1276,116 @@ class StatementAnalyzer
                     tableName,
                     procedureName);
 
-            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with row filter");
+            return analyzeTableExecute(
+                    node,
+                    new ExecuteTarget.TableExecuteTarget(table, tableName.catalogName(), tableName, tableHandle),
+                    procedureName,
+                    node.getArguments(),
+                    node.getWhere(),
+                    scope);
+        }
+
+        @Override
+        protected Scope visitMaterializedViewExecute(MaterializedViewExecute node, Optional<Scope> scope)
+        {
+            Table table = node.getTable();
+            QualifiedObjectName materializedViewName = createQualifiedObjectName(session, table, node.getName());
+            MaterializedViewDefinition materializedViewDefinition = metadata.getMaterializedView(session, materializedViewName)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Materialized view '%s' does not exist", materializedViewName));
+            String procedureName = node.getProcedureName().getCanonicalValue();
+
+            accessControl.checkCanExecuteTableProcedure(session.toSecurityContext(), materializedViewName, procedureName);
+
+            QualifiedName storageName = getMaterializedViewStorageTableName(materializedViewDefinition)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Storage table for materialized view '%s' does not exist", materializedViewName));
+            QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName);
+            checkStorageTableNotRedirected(storageTableName);
+            TableHandle storageTableHandle = metadata.getTableHandle(session, storageTableName)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", storageTableName));
+
+            return analyzeTableExecute(
+                    node,
+                    new ExecuteTarget.MaterializedViewExecuteTarget(table, storageTableName.catalogName(), materializedViewName, storageTableHandle),
+                    procedureName,
+                    node.getArguments(),
+                    node.getWhere(),
+                    scope);
+        }
+
+        private Scope analyzeTableExecute(
+                Node node,
+                ExecuteTarget target,
+                String procedureName,
+                List<CallArgument> arguments,
+                Optional<Expression> where,
+                Optional<Scope> scope)
+        {
+            if (!accessControl.getRowFilters(session.toSecurityContext(), target.authorizationTarget()).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "%s is not supported for %s with row filter", target.updateType(), target.targetNoun());
             }
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableMetadata.columns().stream().map(ColumnMetadata::getColumnSchema).collect(toImmutableList())).isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with column masks");
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, target.tableHandle());
+            if (!accessControl.getColumnMasks(session.toSecurityContext(), target.authorizationTarget(), tableMetadata.columns().stream().map(ColumnMetadata::getColumnSchema).collect(toImmutableList())).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "%s is not supported for %s with column masks", target.updateType(), target.targetNoun());
             }
 
-            Scope tableScope = analyze(table);
+            Scope tableScope = switch (target) {
+                case ExecuteTarget.MaterializedViewExecuteTarget materializedViewExecuteTarget -> {
+                    analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), materializedViewExecuteTarget.authorizationTarget(), getBranchName(materializedViewExecuteTarget.tableNode()));
+                    yield createScopeForMaterializedViewStorageTableExecute(materializedViewExecuteTarget.tableNode(), materializedViewExecuteTarget.authorizationTarget(), scope, materializedViewExecuteTarget.storageTableHandle());
+                }
+                case ExecuteTarget.TableExecuteTarget tableExecuteTarget -> analyze(tableExecuteTarget.tableNode());
+            };
 
-            String catalogName = tableName.catalogName();
-            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName);
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, target.catalogName());
             TableProcedureMetadata procedureMetadata = tableProceduresRegistry.resolve(catalogHandle, procedureName);
 
             // analyze WHERE
-            if (!procedureMetadata.getExecutionMode().supportsFilter() && node.getWhere().isPresent()) {
+            if (!procedureMetadata.getExecutionMode().supportsFilter() && where.isPresent()) {
                 throw semanticException(NOT_SUPPORTED, node, "WHERE not supported for procedure %s", procedureName);
             }
-            node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
+            where.ifPresent(whereExpression -> analyzeWhere(node, tableScope, whereExpression));
 
             // analyze arguments
 
-            List<Property> arguments = processTableExecuteArguments(node, procedureMetadata, scope);
+            List<Property> properties = processTableExecuteArguments(node, arguments, procedureMetadata, scope);
             Map<String, Object> tableProperties = tableProceduresPropertyManager.getProperties(
-                    catalogName,
+                    target.catalogName(),
                     catalogHandle,
                     procedureName,
-                    arguments,
+                    properties,
                     session,
                     plannerContext,
                     accessControl,
                     analysis.getParameters());
 
-            TableExecuteHandle executeHandle =
-                    metadata.getTableHandleForExecute(
-                                    session,
-                                    tableHandle,
-                                    procedureName,
-                                    tableProperties)
-                            .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on table '%s'", procedureName, tableName));
+            TableExecuteHandle executeHandle = switch (target) {
+                case ExecuteTarget.MaterializedViewExecuteTarget materializedViewExecuteTarget -> metadata.getTableHandleForMaterializedViewExecute(
+                                session,
+                                target.tableHandle(),
+                                procedureName,
+                                tableProperties)
+                        .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on materialized view '%s'", procedureName, materializedViewExecuteTarget.materializedViewName()));
+                case ExecuteTarget.TableExecuteTarget tableExecuteTarget -> metadata.getTableHandleForExecute(
+                                session,
+                                target.tableHandle(),
+                                procedureName,
+                                tableProperties)
+                        .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on table '%s'", procedureName, tableExecuteTarget.tableName()));
+            };
 
             analysis.setTableExecuteReadsData(procedureMetadata.getExecutionMode().isReadsData());
             analysis.setTableExecuteHandle(executeHandle);
+            analysis.setTableExecuteTable(target.tableNode());
 
-            analysis.setUpdateType("ALTER TABLE EXECUTE");
-            analysis.setUpdateTarget(executeHandle.catalogHandle().getVersion(), tableName, Optional.of(table), Optional.empty());
+            analysis.setUpdateType(target.updateType());
+            analysis.setUpdateTarget(executeHandle.catalogHandle().getVersion(), target.authorizationTarget(), Optional.of(target.tableNode()), Optional.empty());
 
             return createAndAssignScope(node, scope, Field.newUnqualified("metric_name", VARCHAR), Field.newUnqualified("metric_value", BIGINT));
         }
 
-        private List<Property> processTableExecuteArguments(TableExecute node, TableProcedureMetadata procedureMetadata, Optional<Scope> scope)
+        private List<Property> processTableExecuteArguments(Node node, List<CallArgument> arguments, TableProcedureMetadata procedureMetadata, Optional<Scope> scope)
         {
-            List<CallArgument> arguments = node.getArguments();
             Predicate<CallArgument> hasName = argument -> argument.getName().isPresent();
             boolean anyNamed = arguments.stream().anyMatch(hasName);
             boolean allNamed = arguments.stream().allMatch(hasName);
@@ -2640,6 +2694,21 @@ class StatementAnalyzer
                     true);
         }
 
+        private Scope createScopeForMaterializedViewStorageTableExecute(Table table, QualifiedObjectName viewName, Optional<Scope> scope, TableHandle storageTable)
+        {
+            TableSchema tableSchema = metadata.getTableSchema(session, storageTable);
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, storageTable);
+            List<Field> outputFields = analyzeTableOutputFields(table, viewName, tableSchema, columnHandles);
+
+            Scope accessControlScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
+                    .build();
+            analyzeFiltersAndMasks(table, viewName, new RelationType(outputFields), accessControlScope);
+            analysis.registerTable(table, Optional.of(storageTable), viewName, getBranchName(table), session.getIdentity().getUser(), accessControlScope, Optional.empty());
+
+            return createAndAssignScope(table, scope, outputFields);
+        }
+
         private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ViewDefinition view)
         {
             return createScopeForView(
@@ -2781,7 +2850,7 @@ class StatementAnalyzer
 
                 if (!tableField.getType().equals(viewField.getType())) {
                     try {
-                        metadata.getCoercion(viewField.getType(), tableField.getType());
+                        metadata.getCoercion(charVarcharCoercion, viewField.getType(), tableField.getType());
                     }
                     catch (TrinoException e) {
                         throw semanticException(
@@ -3879,7 +3948,6 @@ class StatementAnalyzer
             List<ColumnSchema> updatedColumnSchemas = allColumns.stream()
                     .filter(column -> assignmentTargets.contains(column.getName()))
                     .collect(toImmutableList());
-            analysis.setUpdatedColumns(updatedColumnSchemas);
 
             Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, handle);
             List<ColumnHandle> updatedColumnHandles = updatedColumnSchemas.stream()
@@ -4315,7 +4383,7 @@ class StatementAnalyzer
 
                 // ensure a comparison operator exists for the given types (applying coercions if necessary)
                 try {
-                    metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(
+                    metadata.resolveOperator(charVarcharCoercion, OperatorType.EQUAL, ImmutableList.of(
                             leftField.getType(), rightField.getType()));
                 }
                 catch (OperatorNotFoundException e) {
@@ -4658,6 +4726,7 @@ class StatementAnalyzer
         {
             return new JsonPathAnalyzer(
                     plannerContext.getMetadata(),
+                    session,
                     createConstantAnalyzer(plannerContext, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe()))
                     .analyzeJsonPath(path, ImmutableMap.of());
         }
@@ -4666,6 +4735,7 @@ class StatementAnalyzer
         {
             return new JsonPathAnalyzer(
                     plannerContext.getMetadata(),
+                    session,
                     createConstantAnalyzer(plannerContext, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe()))
                     .analyzeImplicitJsonPath(path, columnLocation.orElseThrow(() -> new IllegalStateException("missing NodeLocation for JSON_TABLE column")));
         }
@@ -5674,14 +5744,18 @@ class StatementAnalyzer
                 return queryScope.getRelationType().withAlias(name.objectName(), null);
             }
             catch (RuntimeException e) {
-                throw semanticException(INVALID_VIEW, node, e, "Failed analyzing stored view '%s': %s", name, e.getMessage());
+                ErrorCode errorCode = toFailure(e).errorCode();
+                if (errorCode.getType() == USER_ERROR) {
+                    throw semanticException(INVALID_VIEW, node, e, "Failed analyzing stored view '%s': %s", name, e.getMessage());
+                }
+                throw new TrinoException(() -> errorCode, extractLocation(node), format("Failed analyzing stored view '%s': %s", name, e.getMessage()), e);
             }
         }
 
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
             try {
-                return (Query) sqlParser.createStatement(view);
+                return (Query) sqlParser.createStatement(view, TypeDescriptorTranslator::normalizeStoredIntervalType);
             }
             catch (ParsingException e) {
                 throw semanticException(INVALID_VIEW, node, e, "Failed parsing stored view '%s': %s", name, e.getMessage());
@@ -5735,7 +5809,7 @@ class StatementAnalyzer
         private Type getViewColumnType(ViewColumn column, QualifiedObjectName name, Node node)
         {
             try {
-                return plannerContext.getTypeManager().getType(column.type());
+                return plannerContext.getTypeManager().fromPersistedSqlType(column.type().getId());
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(INVALID_VIEW, node, e, "Unknown type '%s' for column '%s' in view: %s", column.type(), column.name(), name);
@@ -5817,7 +5891,7 @@ class StatementAnalyzer
 
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(BOOLEAN)) {
-                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
+                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
 
                 if (!coercion.canCoerce(actualType, BOOLEAN)) {
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected row filter for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
@@ -5880,7 +5954,7 @@ class StatementAnalyzer
 
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(BOOLEAN)) {
-                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
+                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
 
                 if (!coercion.canCoerce(actualType, BOOLEAN)) {
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected check constraint for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
@@ -5941,7 +6015,7 @@ class StatementAnalyzer
             Type expectedType = field.getType();
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(expectedType)) {
-                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
+                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
 
                 if (!coercion.canCoerce(actualType, field.getType())) {
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), actualType), null);
@@ -6410,7 +6484,7 @@ class StatementAnalyzer
                     checkState(count instanceof Parameter, "unexpected FETCH FIRST rowCount: %s", count.getClass().getSimpleName());
                     OptionalLong providedValue = analyzeParameterAsRowCount((Parameter) count, scope, "FETCH FIRST");
                     if (providedValue.isPresent()) {
-                        rowCount = providedValue.getAsLong();
+                        rowCount = providedValue.orElseThrow();
                     }
                 }
             }
@@ -6652,7 +6726,7 @@ class StatementAnalyzer
             if (sourceType.equals(targetType)) {
                 return value;
             }
-            ResolvedFunction coercion = metadata.getCoercion(sourceType, targetType);
+            ResolvedFunction coercion = metadata.getCoercion(charVarcharCoercion, sourceType, targetType);
             InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             return functionInvoker.invoke(coercion, session.toConnectorSession(), value);
         }
@@ -6712,6 +6786,71 @@ class StatementAnalyzer
         public List<TableArgumentAnalysis> getTableArgumentAnalyses()
         {
             return tableArgumentAnalyses;
+        }
+    }
+
+    private sealed interface ExecuteTarget
+    {
+        String updateType();
+
+        String targetNoun();
+
+        Table tableNode();
+
+        QualifiedObjectName authorizationTarget();
+
+        String catalogName();
+
+        TableHandle tableHandle();
+
+        record TableExecuteTarget(Table tableNode, String catalogName, QualifiedObjectName tableName, TableHandle tableHandle)
+                implements ExecuteTarget
+        {
+            @Override
+            public QualifiedObjectName authorizationTarget()
+            {
+                return tableName;
+            }
+
+            @Override
+            public String updateType()
+            {
+                return "ALTER TABLE EXECUTE";
+            }
+
+            @Override
+            public String targetNoun()
+            {
+                return "table";
+            }
+        }
+
+        record MaterializedViewExecuteTarget(Table tableNode, String catalogName, QualifiedObjectName materializedViewName, TableHandle storageTableHandle)
+                implements ExecuteTarget
+        {
+            @Override
+            public QualifiedObjectName authorizationTarget()
+            {
+                return materializedViewName;
+            }
+
+            @Override
+            public TableHandle tableHandle()
+            {
+                return storageTableHandle;
+            }
+
+            @Override
+            public String updateType()
+            {
+                return "ALTER MATERIALIZED VIEW EXECUTE";
+            }
+
+            @Override
+            public String targetNoun()
+            {
+                return "materialized view";
+            }
         }
     }
 }

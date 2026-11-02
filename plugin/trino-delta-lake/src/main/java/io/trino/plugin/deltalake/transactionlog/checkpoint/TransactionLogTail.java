@@ -114,7 +114,7 @@ public class TransactionLogTail
      * Loads a section of the Transaction Log JSON entries starting from {@code startVersion} (inclusive) up to the latest version.
      *
      * the {@code version} is the latest table version, which is the last entry number in the transaction log we already know,
-     * the {@code starVersion} is the first entry number we want to load, but it is not guaranteed to be the first entry in the transaction log.
+     * the {@code startVersion} is the first entry number we want to load, but it is not guaranteed to be the first entry in the transaction log.
      */
     private static TransactionLogTail loadNewTail(
             TrinoFileSystem fileSystem,

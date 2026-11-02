@@ -72,7 +72,8 @@ public class PageProcessor
         this.identityProjections = !projections.isEmpty() && projections.stream().allMatch(InputPageProjection.class::isInstance);
         this.projections = projections.stream()
                 .map(projection -> {
-                    if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
+                    // input projections preserve the encoding of their input on their own
+                    if (projection.getInputChannels().size() == 1 && projection.isDeterministic() && !(projection instanceof InputPageProjection)) {
                         return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction);
                     }
                     return projection;
@@ -134,7 +135,31 @@ public class PageProcessor
             return WorkProcessor.of(new Page(selectedPositions.size()));
         }
 
+        if (!isAllPositions(selectedPositions, page.getPositionCount())) {
+            int[] positions;
+            int positionsOffset;
+            if (selectedPositions.isList()) {
+                positions = selectedPositions.getPositions();
+                positionsOffset = selectedPositions.getOffset();
+            }
+            else {
+                positions = new int[selectedPositions.size()];
+                positionsOffset = 0;
+                for (int index = 0; index < positions.length; index++) {
+                    positions[index] = selectedPositions.getOffset() + index;
+                }
+            }
+            if (page.trySelectPositions(positions, positionsOffset, selectedPositions.size())) {
+                selectedPositions = positionsRange(0, selectedPositions.size());
+            }
+        }
+
         return WorkProcessor.create(new ProjectSelectedPositions(session, memoryContext, metrics, page, selectedPositions));
+    }
+
+    private static boolean isAllPositions(SelectedPositions selectedPositions, int positionCount)
+    {
+        return !selectedPositions.isList() && selectedPositions.getOffset() == 0 && selectedPositions.size() == positionCount;
     }
 
     private class ProjectSelectedPositions

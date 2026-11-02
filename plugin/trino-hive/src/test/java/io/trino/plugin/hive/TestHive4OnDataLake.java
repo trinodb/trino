@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.plugin.hive.containers.Hive4FlociDataLake;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -30,6 +31,13 @@ class TestHive4OnDataLake
     public TestHive4OnDataLake()
     {
         super(BUCKET_NAME, new Hive4FlociDataLake(BUCKET_NAME));
+    }
+
+    @BeforeAll
+    public void setManagedLocation()
+    {
+        // Hive 4 places ACID tables under the database managed location, which cannot be set from Trino
+        hiveFlociDataLake.runOnHive("ALTER DATABASE %1$s SET MANAGEDLOCATION 's3a://%2$s/%1$s_managed'".formatted(HIVE_TEST_SCHEMA, bucketName));
     }
 
     @Override
@@ -62,5 +70,29 @@ class TestHive4OnDataLake
     {
         // https://github.com/trinodb/trino/issues/24454
         abort("Fails with `Processor has no capabilities, cannot create an ACID table`");
+    }
+
+    @Test
+    public void testAcidTableMultipleDereferencesOfSameColumn()
+    {
+        // Hive 4 metastore rejects ACID table creation from Trino (https://github.com/trinodb/trino/issues/24454),
+        // so the table is created through Hive.
+        String tableName = "test_acid_dereferences_" + randomNameSuffix();
+        String hiveTableName = getHiveTestTableName(tableName);
+        String testTable = getFullyQualifiedTestTableName(tableName);
+        hiveFlociDataLake.runOnHive(
+                "SET hive.support.concurrency=true; " +
+                        "SET hive.txn.manager=org.apache.hadoop.hive.ql.lockmgr.DbTxnManager; " +
+                        "CREATE TABLE " + hiveTableName + " (id bigint, row_column struct<nested_a:string, nested_b:string, nested_c:string>, flat_column string) STORED AS ORC TBLPROPERTIES ('transactional'='true'); " +
+                        "INSERT INTO " + hiveTableName + " VALUES " +
+                        "(1, named_struct('nested_a', 'a1', 'nested_b', 'b1', 'nested_c', 'c1'), 'flat1'), " +
+                        "(2, named_struct('nested_a', 'a2', 'nested_b', 'b2', 'nested_c', 'c2'), 'flat2')");
+        try {
+            assertQuery("SELECT row_column.nested_a, row_column.nested_b, flat_column FROM " + testTable, "VALUES ('a1', 'b1', 'flat1'), ('a2', 'b2', 'flat2')");
+            assertQuery("SELECT row_column.nested_a, flat_column FROM " + testTable + " WHERE row_column.nested_b = 'b2'", "VALUES ('a2', 'flat2')");
+        }
+        finally {
+            hiveFlociDataLake.runOnHive("DROP TABLE " + hiveTableName);
+        }
     }
 }

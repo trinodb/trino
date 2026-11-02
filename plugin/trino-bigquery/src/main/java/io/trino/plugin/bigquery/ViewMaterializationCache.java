@@ -61,9 +61,9 @@ public class ViewMaterializationCache
         this.viewMaterializationDataset = config.getViewMaterializationDataset();
     }
 
-    public TableInfo getCachedTable(BigQueryClient client, String query, Duration viewExpiration, TableInfo remoteTableId)
+    public TableInfo getCachedTable(BigQueryClient client, String query, Duration viewExpiration, TableId tableId)
     {
-        return uncheckedCacheGet(destinationTableCache, query, new DestinationTableBuilder(client, viewExpiration, query, buildDestinationTable(remoteTableId.getTableId())));
+        return uncheckedCacheGet(destinationTableCache, query, new DestinationTableBuilder(client, viewExpiration, query, buildDestinationTable(tableId)));
     }
 
     private TableId buildDestinationTable(TableId remoteTableId)

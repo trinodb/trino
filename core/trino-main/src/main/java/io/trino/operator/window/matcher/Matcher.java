@@ -246,8 +246,8 @@ public class Matcher
             case JUMP -> advanceAndSchedule(next, threadId, ((Jump) instruction).getTarget(), inputIndex, runtime);
             case SPLIT -> {
                 int forked = runtime.forkThread(threadId);
-                advanceAndSchedule(next, threadId, ((Split) instruction).getFirst(), inputIndex, runtime);
-                advanceAndSchedule(next, forked, ((Split) instruction).getSecond(), inputIndex, runtime);
+                advanceAndSchedule(next, threadId, ((Split) instruction).first(), inputIndex, runtime);
+                advanceAndSchedule(next, forked, ((Split) instruction).second(), inputIndex, runtime);
             }
             case SAVE -> {
                 runtime.captures.save(threadId, inputIndex);

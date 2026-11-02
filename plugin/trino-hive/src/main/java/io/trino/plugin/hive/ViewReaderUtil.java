@@ -249,9 +249,9 @@ public final class ViewReaderUtil
                         .collect(toImmutableMap(Column::getName, column -> column.getComment().get()));
 
                 List<ViewColumn> columns = rowType.getFieldList().stream()
-                        .map(field -> new ViewColumn(
+                        .map(field -> ViewColumn.fromType(
                                 field.getName(),
-                                typeManager.fromSqlType(getTypeString(field.getType(), hiveViewsTimestampPrecision)).getTypeId(),
+                                typeManager.fromSqlType(getTypeString(field.getType(), hiveViewsTimestampPrecision)),
                                 Optional.ofNullable(columnComments.get(field.getName()))))
                         .collect(toImmutableList());
                 return new ConnectorViewDefinition(

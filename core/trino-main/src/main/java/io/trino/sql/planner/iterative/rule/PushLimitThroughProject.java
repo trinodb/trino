@@ -83,10 +83,10 @@ public class PushLimitThroughProject
         for (Symbol symbol : symbolsForRewrite) {
             Expression expression = projectNode.getAssignments().get(symbol);
             // if a symbol results from some computation, the translation fails
-            if (!(expression instanceof Reference)) {
+            if (!(expression instanceof Reference reference)) {
                 return Result.empty();
             }
-            symbolMapper.put(symbol, Symbol.from(expression));
+            symbolMapper.put(symbol, Symbol.from(reference));
         }
 
         LimitNode mappedLimitNode = symbolMapper.build().map(parent, projectNode.getSource());

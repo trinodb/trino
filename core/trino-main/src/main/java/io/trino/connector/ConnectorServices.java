@@ -139,7 +139,7 @@ public class ConnectorServices
             requireNonNull(connectorRecordSetProvider, format("Connector '%s' returned a null record set provider", catalogHandle));
             verify(connectorPageSourceProviderFactory == null, "Connector '%s' returned both page source and record set providers", catalogHandle);
             var pageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
-            connectorPageSourceProviderFactory = () -> pageSourceProvider;
+            connectorPageSourceProviderFactory = _ -> pageSourceProvider;
         }
         catch (UnsupportedOperationException _) {
         }

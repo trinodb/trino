@@ -113,6 +113,11 @@ public interface TrinoCatalog
         return icebergTable.newTransaction();
     }
 
+    /**
+     * Fails before a write begins if the catalog does not allow modifying the table.
+     */
+    default void verifyTableWritable(Table icebergTable) {}
+
     Transaction newCreateTableTransaction(
             ConnectorSession session,
             SchemaTableName schemaTableName,
@@ -196,6 +201,8 @@ public interface TrinoCatalog
             Map<String, Object> materializedViewProperties,
             boolean replace,
             boolean ignoreExisting);
+
+    void updateMaterializedViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment);
 
     void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment);
 

@@ -24,7 +24,7 @@ public record TrinoGrantPrincipal(String type, String name)
 {
     public static TrinoGrantPrincipal fromTrinoPrincipal(TrinoPrincipal principal)
     {
-        return new TrinoGrantPrincipal(principal.getType().name(), principal.getName());
+        return new TrinoGrantPrincipal(principal.getType().name(), principal.getPrincipalName());
     }
 
     public TrinoGrantPrincipal

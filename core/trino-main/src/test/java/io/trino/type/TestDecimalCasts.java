@@ -913,6 +913,23 @@ public class TestDecimalCasts
                 .binding("a", "DOUBLE '-1234567890.51'"))
                 .isEqualTo(decimal("-0000001234567891", createDecimalType(16)));
 
+        // double 2.675 is actually 2.67499...
+        assertThat(assertions.expression("cast(a as DECIMAL(3,2))")
+                .binding("a", "DOUBLE '2.675'"))
+                .isEqualTo(decimal("2.68", createDecimalType(3, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3,2))")
+                .binding("a", "DOUBLE '-2.675'"))
+                .isEqualTo(decimal("-2.68", createDecimalType(3, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3,2))")
+                .binding("a", "DOUBLE '1.005'"))
+                .isEqualTo(decimal("1.01", createDecimalType(3, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(18,17))")
+                .binding("a", "DOUBLE '0.1'"))
+                .isEqualTo(decimal(".10000000000000000", createDecimalType(18, 17)));
+
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(17,16))")
                 .binding("a", "DOUBLE '100.02'").evaluate())
                 .hasMessage("Cannot cast DOUBLE '100.02' to DECIMAL(17, 16)")
@@ -1064,6 +1081,23 @@ public class TestDecimalCasts
         assertThat(assertions.expression("cast(a as DECIMAL(10,0))")
                 .binding("a", "DOUBLE '1234567890.51'"))
                 .isEqualTo(decimal("1234567891", createDecimalType(10)));
+
+        // double 2.675 is actually 2.67499...
+        assertThat(assertions.expression("cast(a as DECIMAL(20,2))")
+                .binding("a", "DOUBLE '2.675'"))
+                .isEqualTo(decimal("2.68", createDecimalType(20, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,2))")
+                .binding("a", "DOUBLE '-2.675'"))
+                .isEqualTo(decimal("-2.68", createDecimalType(20, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,17))")
+                .binding("a", "DOUBLE '0.1'"))
+                .isEqualTo(decimal(".10000000000000000", createDecimalType(20, 17)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(38,30))")
+                .binding("a", "DOUBLE '0.1'"))
+                .isEqualTo(decimal(".100000000000000000000000000000", createDecimalType(38, 30)));
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,37))")
                 .binding("a", "DOUBLE '100.02'").evaluate())
@@ -1291,6 +1325,32 @@ public class TestDecimalCasts
                 .binding("a", "REAL '1456213.432632456'"))
                 .isEqualTo(decimal("001456213.400000000", createDecimalType(18, 9)));
 
+        // real 2.675 is actually 2.67499...
+        assertThat(assertions.expression("cast(a as DECIMAL(3,2))")
+                .binding("a", "REAL '2.675'"))
+                .isEqualTo(decimal("2.68", createDecimalType(3, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3,2))")
+                .binding("a", "REAL '-2.675'"))
+                .isEqualTo(decimal("-2.68", createDecimalType(3, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,2))")
+                .binding("a", "REAL '2.675'"))
+                .isEqualTo(decimal("2.68", createDecimalType(20, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,2))")
+                .binding("a", "REAL '-2.675'"))
+                .isEqualTo(decimal("-2.68", createDecimalType(20, 2)));
+
+        // real 12345.123 is actually 12345.123046...
+        assertThat(assertions.expression("cast(a as DECIMAL(10,5))")
+                .binding("a", "REAL '12345.123'"))
+                .isEqualTo(decimal("12345.12300", createDecimalType(10, 5)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,5))")
+                .binding("a", "REAL '12345.123'"))
+                .isEqualTo(decimal("12345.12300", createDecimalType(20, 5)));
+
         // test roundtrip
         assertThat(assertions.expression("CAST(CAST(DOUBLE '123456790519087104' AS DECIMAL(18,0)) as DOUBLE) = DOUBLE '123456790519087104'"))
                 .isEqualTo(true);
@@ -1445,6 +1505,24 @@ public class TestDecimalCasts
         assertThat(assertions.expression("cast(a as REAL)")
                 .binding("a", "CAST(-16777217.0 AS DECIMAL(13,1))"))
                 .isEqualTo(-16777217.0f);
+
+        // Unscaled value far below 2^53 but still double-rounds when narrowing to real at scale 14
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '0.00391462049447'"))
+                .isEqualTo(0.0039146203f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '-0.00391462049447'"))
+                .isEqualTo(-0.0039146203f);
+
+        // Unscaled value above 2^53, where the double divide itself is inexact
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '9600000841482239.99'"))
+                .isEqualTo(9.6e15f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '-9600000841482239.99'"))
+                .isEqualTo(-9.6e15f);
     }
 
     @Test

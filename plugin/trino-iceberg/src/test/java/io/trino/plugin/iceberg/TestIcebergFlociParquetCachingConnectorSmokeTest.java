@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
-import io.trino.filesystem.Location;
 import org.apache.iceberg.FileFormat;
 import org.junit.jupiter.api.AfterAll;
 
@@ -23,10 +22,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 
 public class TestIcebergFlociParquetCachingConnectorSmokeTest
         extends BaseIcebergFlociConnectorSmokeTest
@@ -54,14 +53,15 @@ public class TestIcebergFlociParquetCachingConnectorSmokeTest
     {
         return ImmutableMap.<String, String>builder()
                 .put("fs.cache.enabled", "true")
-                .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
-                .put("fs.cache.max-sizes", "100MB")
                 .buildOrThrow();
     }
 
     @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
+    protected Optional<Map<String, String>> getBlobCacheProperties()
     {
-        return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
+        return Optional.of(ImmutableMap.<String, String>builder()
+                .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
+                .put("fs.cache.max-sizes", "100MB")
+                .buildOrThrow());
     }
 }

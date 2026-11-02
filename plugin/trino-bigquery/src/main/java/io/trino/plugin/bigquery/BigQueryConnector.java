@@ -13,8 +13,11 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import com.google.inject.Injector;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -39,6 +42,7 @@ import static java.util.Objects.requireNonNull;
 public class BigQueryConnector
         implements Connector
 {
+    private final Injector injector;
     private final LifeCycleManager lifeCycleManager;
     private final BigQueryTransactionManager transactionManager;
     private final BigQuerySplitManager splitManager;
@@ -47,9 +51,11 @@ public class BigQueryConnector
     private final Set<ConnectorTableFunction> connectorTableFunctions;
     private final Set<Procedure> procedures;
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final List<PropertyMetadata<?>> schemaProperties;
 
     @Inject
     public BigQueryConnector(
+            Injector injector,
             LifeCycleManager lifeCycleManager,
             BigQueryTransactionManager transactionManager,
             BigQuerySplitManager splitManager,
@@ -57,8 +63,10 @@ public class BigQueryConnector
             BigQueryPageSinkProvider pageSinkProvider,
             Set<ConnectorTableFunction> connectorTableFunctions,
             Set<Procedure> procedures,
-            Set<SessionPropertiesProvider> sessionPropertiesProviders)
+            Set<SessionPropertiesProvider> sessionPropertiesProviders,
+            BigQuerySchemaProperties schemaProperties)
     {
+        this.injector = requireNonNull(injector, "injector is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -69,6 +77,13 @@ public class BigQueryConnector
         this.sessionProperties = sessionPropertiesProviders.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
+        this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null").schemaProperties());
+    }
+
+    @VisibleForTesting
+    Injector getInjector()
+    {
+        return injector;
     }
 
     @Override
@@ -129,6 +144,12 @@ public class BigQueryConnector
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSchemaProperties()
+    {
+        return schemaProperties;
     }
 
     @Override

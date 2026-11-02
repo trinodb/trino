@@ -14,6 +14,7 @@
 package io.trino.spi.block;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -22,7 +23,9 @@ import java.util.List;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.anonymous;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -40,6 +43,23 @@ final class TestRowBlockBuilder
 
         // multiple nulls
         assertIsAllNulls(blockBuilder().appendNull().appendNull().build(), 2);
+    }
+
+    @Test
+    void testNewBlockBuilderLikeExpectedEntries()
+    {
+        List<Type> fieldTypes = List.of(VARCHAR, VARIANT, anonymous(List.of(VARCHAR, BIGINT)));
+        RowBlockBuilder blockBuilder = new RowBlockBuilder(fieldTypes, null, 1024);
+        for (int position = 0; position < 1024; position++) {
+            blockBuilder.appendNull();
+        }
+
+        BlockBuilder singleRowBuilder = blockBuilder.newBlockBuilderLike(1, null).appendNull();
+        RowBlockBuilder expected = new RowBlockBuilder(fieldTypes, null, 1);
+        expected.appendNull();
+        assertThat(singleRowBuilder.getRetainedSizeInBytes()).isEqualTo(expected.getRetainedSizeInBytes());
+        assertIsAllNulls(singleRowBuilder.build(), 1);
+        assertIsAllNulls(blockBuilder.build(), 1024);
     }
 
     @Test

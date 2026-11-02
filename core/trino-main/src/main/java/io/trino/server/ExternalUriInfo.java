@@ -42,7 +42,7 @@ public class ExternalUriInfo
         this(uriInfo, requireNonNull(httpHeaders, "httpHeaders is null").getHeaderString(X_FORWARDED_PREFIX));
     }
 
-    ExternalUriInfo(UriInfo uriInfo, String forwardedPrefix)
+    public ExternalUriInfo(UriInfo uriInfo, String forwardedPrefix)
     {
         this.uriInfo = requireNonNull(uriInfo, "uriInfo is null");
         this.forwardedPrefix = requireNonNullElse(forwardedPrefix, "");

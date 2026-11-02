@@ -75,6 +75,10 @@ import static io.trino.client.uri.ConnectionProperties.KERBEROS_REMOTE_SERVICE_N
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.trino.client.uri.ConnectionProperties.LOCALE;
+import static io.trino.client.uri.ConnectionProperties.OAUTH2_CLIENT_ID;
+import static io.trino.client.uri.ConnectionProperties.OAUTH2_CLIENT_SECRET;
+import static io.trino.client.uri.ConnectionProperties.OAUTH2_SCOPE;
+import static io.trino.client.uri.ConnectionProperties.OAUTH2_TOKEN_ENDPOINT;
 import static io.trino.client.uri.ConnectionProperties.PASSWORD;
 import static io.trino.client.uri.ConnectionProperties.RESOURCE_ESTIMATES;
 import static io.trino.client.uri.ConnectionProperties.ROLES;
@@ -388,6 +392,32 @@ public class TrinoUri
     public boolean isExternalAuthenticationEnabled()
     {
         return resolveWithDefault(EXTERNAL_AUTHENTICATION, false);
+    }
+
+    public Optional<String> getOauth2ClientId()
+    {
+        return resolveOptional(OAUTH2_CLIENT_ID);
+    }
+
+    public Optional<String> getOauth2ClientSecret()
+    {
+        return resolveOptional(OAUTH2_CLIENT_SECRET);
+    }
+
+    public Optional<String> getOauth2TokenEndpoint()
+    {
+        return resolveOptional(OAUTH2_TOKEN_ENDPOINT);
+    }
+
+    public Optional<String> getOauth2Scope()
+    {
+        return resolveOptional(OAUTH2_SCOPE);
+    }
+
+    public boolean isClientCredentialsAuthenticationEnabled()
+    {
+        return resolveOptional(OAUTH2_CLIENT_ID).isPresent()
+                && resolveOptional(OAUTH2_CLIENT_SECRET).isPresent();
     }
 
     public Optional<Duration> getExternalAuthenticationTimeout()
@@ -949,6 +979,26 @@ public class TrinoUri
         public Builder setExternalAuthentication(Boolean externalAuthentication)
         {
             return setProperty(EXTERNAL_AUTHENTICATION, requireNonNull(externalAuthentication, "externalAuthentication is null"));
+        }
+
+        public Builder setOauth2ClientId(String clientId)
+        {
+            return setProperty(OAUTH2_CLIENT_ID, requireNonNull(clientId, "clientId is null"));
+        }
+
+        public Builder setOauth2ClientSecret(String clientSecret)
+        {
+            return setProperty(OAUTH2_CLIENT_SECRET, requireNonNull(clientSecret, "clientSecret is null"));
+        }
+
+        public Builder setOauth2TokenEndpoint(String tokenEndpoint)
+        {
+            return setProperty(OAUTH2_TOKEN_ENDPOINT, requireNonNull(tokenEndpoint, "tokenEndpoint is null"));
+        }
+
+        public Builder setOauth2Scope(String scope)
+        {
+            return setProperty(OAUTH2_SCOPE, requireNonNull(scope, "scope is null"));
         }
 
         public Builder setExternalAuthenticationTimeout(Duration externalAuthenticationTimeout)

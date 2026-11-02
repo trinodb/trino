@@ -74,6 +74,7 @@ import io.trino.execution.scheduler.OutputDataSizeEstimate;
 import io.trino.execution.scheduler.QueryScheduler;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.TaskExecutionStats;
+import io.trino.execution.scheduler.faulttolerant.ExchangeFailureClassifier.ExchangeFailureKind;
 import io.trino.execution.scheduler.faulttolerant.NodeAllocator.NodeLease;
 import io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import io.trino.execution.scheduler.faulttolerant.PartitionMemoryEstimator.MemoryRequirements;
@@ -167,13 +168,15 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getTaskRetryAttemptsPerTask;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionAdaptiveQueryPlanningEnabled;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionStageEstimationForEagerParentEnabled;
-import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
+import static io.trino.execution.BasicStageStats.aggregateFaultTolerantBasicStageStats;
 import static io.trino.execution.StageState.ABORTED;
 import static io.trino.execution.StageState.PLANNED;
 import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.LOW_TO_HIGH;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
 import static io.trino.execution.scheduler.SchedulingUtils.canStream;
+import static io.trino.execution.scheduler.faulttolerant.ExchangeFailureClassifier.ExchangeFailureKind.TRANSIENT;
+import static io.trino.execution.scheduler.faulttolerant.ExchangeFailureClassifier.classify;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.STANDARD;
@@ -181,7 +184,6 @@ import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
-import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
@@ -337,6 +339,12 @@ public class EventDrivenFaultTolerantQueryScheduler
             queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStages()));
         });
 
+        startAttempt();
+    }
+
+    private synchronized void startAttempt()
+    {
+        log.debug("Starting fault tolerant query scheduler for query %s", queryStateMachine.getQueryId());
         Session session = queryStateMachine.getSession();
         int maxPartitionCount = getFaultTolerantExecutionMaxPartitionCount(session);
         FaultTolerantPartitioningSchemeFactory partitioningSchemeFactory = new FaultTolerantPartitioningSchemeFactory(
@@ -506,8 +514,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                         (_, stageInfo) -> stageInfo.withSubStages(
                                 sourceFragments.stream()
                                         .map(sourceFragment -> {
-                                            StageInfo stageInfo1 = reportedStageInfos.get(sourceFragment);
-                                            return stageInfo1.stageId();
+                                            StageInfo fragmentStageInfo = reportedStageInfos.get(sourceFragment);
+                                            return fragmentStageInfo.stageId();
                                         })
                                         .collect(toImmutableList())));
             });
@@ -541,7 +549,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             List<BasicStageStats> stageStats = stages.values().stream()
                     .map(SqlStage::getBasicStageStats)
                     .collect(toImmutableList());
-            return aggregateBasicStageStats(stageStats);
+            return aggregateFaultTolerantBasicStageStats(stageStats, plan.get().getAllFragments().size());
         }
 
         public long getUserMemoryReservation()
@@ -1465,7 +1473,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         bucketCountProvider);
                 closer.register(stage::abort);
                 stageRegistry.add(stage);
-                stage.addFinalStageInfoListener(_ -> queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStages())));
+                stage.addFinalStageInfoListener(_ -> queryStateMachine.updateFinalQueryInfo(() -> Optional.ofNullable(stageRegistry.getStages())));
 
                 ImmutableMap.Builder<PlanFragmentId, Exchange> sourceExchangesBuilder = ImmutableMap.builder();
                 Map<PlanFragmentId, OutputDataSizeEstimate> sourceOutputEstimatesByFragmentId = new HashMap<>();
@@ -1729,8 +1737,9 @@ public class EventDrivenFaultTolerantQueryScheduler
                         }, NO_FINAL_TASK_INFO_CHECK_INTERVAL.toMillis(), MILLISECONDS);
                         case CANCELED, ABORTED, FAILED -> scheduledExecutorService.schedule(() -> {
                             if (!finalTaskInfoReceived.get()) {
+                                log.error("Did not receive final task info for task %s after it %s; internal inconsistency; finalizing task info locally and marking task failed in scheduler", task.getTaskId(), taskStatus.state());
+                                task.forceFinalizationUsingTaskStatus();
                                 if (taskCompletedEventSent.compareAndSet(false, true)) {
-                                    log.error("Did not receive final task info for task %s after it %s; internal inconsistency; marking task failed in scheduler to unblock query progression", task.getTaskId(), taskStatus.state());
                                     eventQueue.add(new RemoteTaskCompletedEvent(taskStatus));
                                 }
                             }
@@ -1779,7 +1788,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 if (!outputBufferStatus.exchangeSinkInstanceHandleUpdateRequired()) {
                     return;
                 }
-                long remoteVersion = outputBufferStatus.outputBuffersVersion().getAsLong();
+                long remoteVersion = outputBufferStatus.outputBuffersVersion().orElseThrow();
                 while (true) {
                     long localVersion = respondedToVersion.get();
                     if (remoteVersion <= localVersion) {
@@ -2193,15 +2202,6 @@ public class EventDrivenFaultTolerantQueryScheduler
         public boolean isExchangeClosed()
         {
             return exchangeClosed;
-        }
-
-        public void setSpeculative(boolean speculative)
-        {
-            checkArgument(!speculative || this.speculative, "cannot mark non-speculative stage as speculative");
-            if (this.speculative && !speculative) {
-                nonSpeculativeSwitchTime = OptionalLong.of(System.nanoTime());
-            }
-            this.speculative = speculative;
         }
 
         public void addPartition(int partitionId, NodeRequirements nodeRequirements)
@@ -2638,7 +2638,15 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return ImmutableList.of();
             }
 
-            if (partition.getRemainingAttempts() == 0 || (errorCode != null && (errorCode.getType() == USER_ERROR || errorCode.isFatal()))) {
+            ExchangeFailureKind failureKind = errorCode == null ? TRANSIENT : classify(errorCode);
+            boolean retryable = switch (failureKind) {
+                case TRANSIENT -> true;
+                // missing exchange data may be a temporary transient storage inconsistency (e.g. NFS lookup cache), so retry once before giving up
+                case EXCHANGE_DATA_UNRECOVERABLE -> partition.tryConsumeExchangeDataLossRetry();
+                case FATAL -> false;
+            };
+            log.debug("Task %s failed with error code %s, failureKind=%s, retryable=%s", taskId, errorCode, failureKind, retryable);
+            if (partition.getRemainingAttempts() == 0 || !retryable) {
                 stage.fail(failure);
                 // stage failed, don't reschedule
                 return ImmutableList.of();
@@ -2830,6 +2838,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private Optional<OpenTaskDescriptor> openTaskDescriptor;
         private MemoryRequirements memoryRequirements;
         private boolean failureObserved;
+        private boolean exchangeDataLossRetryConsumed;
         private int remainingAttempts;
 
         private final Map<TaskId, RemoteTask> tasks = new HashMap<>();
@@ -3032,6 +3041,14 @@ public class EventDrivenFaultTolerantQueryScheduler
             remainingAttempts--;
         }
 
+        // returns true only for the first observed exchange data loss in this partition
+        public boolean tryConsumeExchangeDataLossRetry()
+        {
+            boolean retryAvailable = !exchangeDataLossRetryConsumed;
+            exchangeDataLossRetryConsumed = true;
+            return retryAvailable;
+        }
+
         public void updateExchangeSinkInstanceHandle(TaskId taskId, ExchangeSinkInstanceHandle handle)
         {
             SpoolingOutputBuffers outputBuffers = taskOutputBuffers.get(taskId);
@@ -3090,6 +3107,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     .add("openTaskDescriptor", openTaskDescriptor)
                     .add("memoryRequirements", memoryRequirements)
                     .add("failureObserved", failureObserved)
+                    .add("exchangeDataLossObserved", exchangeDataLossRetryConsumed)
                     .add("remainingAttempts", remainingAttempts)
                     .add("tasks", tasks)
                     .add("taskOutputBuffers", taskOutputBuffers)
@@ -3119,13 +3137,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.splits = requireNonNull(splits, "splits is null");
             this.noMoreSplits = ImmutableSet.copyOf(requireNonNull(noMoreSplits, "noMoreSplits is null"));
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
-        }
-
-        private static Map<PlanNodeId, ListMultimap<Integer, Split>> copySplits(Map<PlanNodeId, ListMultimap<Integer, Split>> splits)
-        {
-            ImmutableMap.Builder<PlanNodeId, ListMultimap<Integer, Split>> splitsBuilder = ImmutableMap.builder();
-            splits.forEach((planNodeId, planNodeSplits) -> splitsBuilder.put(planNodeId, ImmutableListMultimap.copyOf(planNodeSplits)));
-            return splitsBuilder.buildOrThrow();
         }
 
         public SplitsMapping getSplits()
@@ -3720,11 +3731,6 @@ public class EventDrivenFaultTolerantQueryScheduler
         public boolean isWaitingForNode()
         {
             return waitingForNode;
-        }
-
-        public void setWaitingForNode(boolean waitingForNode)
-        {
-            this.waitingForNode = waitingForNode;
         }
 
         public boolean isWaitingForSinkInstanceHandle()

@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
@@ -232,6 +233,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
         Symbol rightSymbol = symbolForExpression(context, rightExpression);
         newConjuncts.add(comparison(
                 metadata,
+                getCharVarcharCoercion(context.getSession()),
                 comparison.operator(),
                 alignedComparison ? leftExpression : rightSymbol.toSymbolReference(),
                 alignedComparison ? rightSymbol.toSymbolReference() : leftExpression));

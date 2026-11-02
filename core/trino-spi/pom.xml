@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>484-SNAPSHOT</version>
+        <version>485-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -89,9 +89,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
+            <groupId>io.airlift</groupId>
             <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>jackson</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -199,6 +204,38 @@
                         <revapi.differences>
                             <ignore>true</ignore>
                             <differences>
+                                <item>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>interface io.trino.spi.predicate.ValueSet</old>
+                                    <new>interface io.trino.spi.predicate.ValueSet</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonSubTypes</annotationType>
+                                    <attribute>value</attribute>
+                                    <justification>Add a floating-point value-set subtype. Existing serialized value sets remain readable.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::intersect(===io.trino.spi.predicate.ValueSet===)</old>
+                                    <new>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::intersect(===io.trino.spi.predicate.SortedRangeSet===)</new>
+                                    <justification>Mixed operations return ValueSet; range-only overloads retain SortedRangeSet results. Revapi pairs overloads by their return types.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::union(===io.trino.spi.predicate.ValueSet===)</old>
+                                    <new>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::union(===io.trino.spi.predicate.SortedRangeSet===)</new>
+                                    <justification>Mixed operations return ValueSet; range-only overloads retain SortedRangeSet results. Revapi pairs overloads by their return types.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::union(===java.util.Collection&lt;io.trino.spi.predicate.ValueSet&gt;===)</old>
+                                    <new>parameter io.trino.spi.predicate.ValueSet io.trino.spi.predicate.SortedRangeSet::union(===io.trino.spi.predicate.ValueSet===)</new>
+                                    <justification>Mixed operations return ValueSet; range-only overloads retain SortedRangeSet results. Revapi pairs overloads by their return types.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::union(java.util.Collection&lt;io.trino.spi.predicate.ValueSet&gt;)</old>
+                                    <new>method io.trino.spi.predicate.ValueSet io.trino.spi.predicate.SortedRangeSet::union(io.trino.spi.predicate.ValueSet)</new>
+                                    <justification>Mixed operations return ValueSet; range-only overloads retain SortedRangeSet results. Revapi pairs overloads by their return types.</justification>
+                                </item>
                                 <!-- Allow adding new annotations (such as @Nullable) -->
                                 <item>
                                     <code>java.annotation.added</code>
@@ -210,6 +247,11 @@
                                 <!-- Allow changing enum constant order (e.g., StandardErrorCode) -->
                                 <item>
                                     <code>java.field.enumConstantOrderChanged</code>
+                                </item>
+                                <item>
+                                    <code>java.field.removedWithConstant</code>
+                                    <old>field io.trino.spi.type.StandardTypes.JSON_2016</old>
+                                    <justification>The json2016 type was internal to the SQL/JSON path engine: it had no literal, cast or function signature reachable from SQL, and no type of that name is registered any more</justification>
                                 </item>
                                 <!-- Allow arbitrary changes to unstable APIs -->
                                 <item>
@@ -231,310 +273,26 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method int io.trino.spi.block.ArrayBlock::getOffsetBase()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlock::getRawElementBlock()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method boolean[] io.trino.spi.block.ArrayBlock::getRawValueIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method boolean[] io.trino.spi.block.ByteArrayBlock::getRawValueIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method int io.trino.spi.block.Fixed12Block::getRawOffset()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method boolean[] io.trino.spi.block.Fixed12Block::getRawValueIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method int[] io.trino.spi.block.Fixed12Block::getRawValues()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method int io.trino.spi.block.Int128ArrayBlock::getRawOffset()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method boolean[] io.trino.spi.block.Int128ArrayBlock::getRawValueIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method long[] io.trino.spi.block.Int128ArrayBlock::getRawValues()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method boolean[] io.trino.spi.block.IntArrayBlock::getRawValueIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method boolean[] io.trino.spi.block.LongArrayBlock::getRawValueIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method long[] io.trino.spi.block.LongArrayBlock::getRawValues()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method int io.trino.spi.block.LongArrayBlock::getRawValuesOffset()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method int io.trino.spi.block.MapBlock::getOffsetBase()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getRawKeyBlock()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method boolean[] io.trino.spi.block.MapBlock::getRawMapIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getRawValueBlock()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method boolean[] io.trino.spi.block.ShortArrayBlock::getRawValueIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method short[] io.trino.spi.block.ShortArrayBlock::getRawValues()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method int io.trino.spi.block.ShortArrayBlock::getRawValuesOffset()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method int io.trino.spi.block.VariableWidthBlock::getRawArrayBase()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method int[] io.trino.spi.block.VariableWidthBlock::getRawOffsets()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method boolean[] io.trino.spi.block.VariableWidthBlock::getRawValueIsNull()</old>
-                                </item>
-                                <!-- Boolean values now use bit-packed blocks. -->
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.block.Block io.trino.spi.type.BooleanType::wrapByteArrayAsBooleanBlockWithoutNulls(byte[])</old>
-                                </item>
-                                <!-- Block null representation changed from boolean null arrays to validity bitmaps. -->
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::fromElementBlock(int, ===java.util.Optional&lt;boolean[]&gt;===, int[], io.trino.spi.block.Block)</old>
-                                    <new>parameter io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::fromElementBlock(int, ===java.util.Optional&lt;long[]&gt;===, int[], io.trino.spi.block.Block)</new>
-                                    <parameterIndex>1</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.ArrayBlock::getNulls()</old>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.RecordPageSource::&lt;init&gt;(io.trino.spi.connector.RecordSet)</old>
+                                    <new>method void io.trino.spi.connector.RecordPageSource::&lt;init&gt;(io.trino.spi.connector.RecordSet, io.trino.spi.connector.MemoryContext)</new>
+                                    <justification>Require a MemoryContext to replace polling through ConnectorPageSource.getMemoryUsage</justification>
                                 </item>
                                 <item>
                                     <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.block.ArrayBlockEncoding::&lt;init&gt;(boolean)</old>
-                                    <new>method void io.trino.spi.block.ArrayBlockEncoding::&lt;init&gt;()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter void io.trino.spi.block.ByteArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;boolean[]&gt;===, byte[])</old>
-                                    <new>parameter void io.trino.spi.block.ByteArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;long[]&gt;===, byte[])</new>
-                                    <parameterIndex>1</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.ByteArrayBlock::getNulls()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.block.ByteArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean)</old>
-                                    <new>method void io.trino.spi.block.ByteArrayBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter void io.trino.spi.block.Fixed12Block::&lt;init&gt;(int, ===java.util.Optional&lt;boolean[]&gt;===, int[])</old>
-                                    <new>parameter void io.trino.spi.block.Fixed12Block::&lt;init&gt;(int, ===java.util.Optional&lt;long[]&gt;===, int[])</new>
-                                    <parameterIndex>1</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.Fixed12Block::getNulls()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.block.Fixed12BlockEncoding::&lt;init&gt;(boolean)</old>
-                                    <new>method void io.trino.spi.block.Fixed12BlockEncoding::&lt;init&gt;()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter void io.trino.spi.block.Int128ArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;boolean[]&gt;===, long[])</old>
-                                    <new>parameter void io.trino.spi.block.Int128ArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;long[]&gt;===, long[])</new>
-                                    <parameterIndex>1</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.Int128ArrayBlock::getNulls()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.block.Int128ArrayBlockEncoding::&lt;init&gt;(boolean)</old>
-                                    <new>method void io.trino.spi.block.Int128ArrayBlockEncoding::&lt;init&gt;()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter void io.trino.spi.block.IntArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;boolean[]&gt;===, int[])</old>
-                                    <new>parameter void io.trino.spi.block.IntArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;long[]&gt;===, int[])</new>
-                                    <parameterIndex>1</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.IntArrayBlock::getNulls()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.block.IntArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean)</old>
-                                    <new>method void io.trino.spi.block.IntArrayBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter void io.trino.spi.block.LongArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;boolean[]&gt;===, long[])</old>
-                                    <new>parameter void io.trino.spi.block.LongArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;long[]&gt;===, long[])</new>
-                                    <parameterIndex>1</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.LongArrayBlock::getNulls()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.block.LongArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean)</old>
-                                    <new>method void io.trino.spi.block.LongArrayBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::createMapBlockInternal(io.trino.spi.type.MapType, int, int, ===java.util.Optional&lt;boolean[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.block.MapHashTables)</old>
-                                    <new>parameter io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::createMapBlockInternal(io.trino.spi.type.MapType, int, int, ===java.util.Optional&lt;long[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.block.MapHashTables)</new>
-                                    <parameterIndex>3</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::fromKeyValueBlock(===java.util.Optional&lt;boolean[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.type.MapType)</old>
-                                    <new>parameter io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::fromKeyValueBlock(===java.util.Optional&lt;long[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.type.MapType)</new>
-                                    <parameterIndex>0</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::fromKeyValueBlock(===java.util.Optional&lt;boolean[]&gt;===, int[], int, io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.type.MapType)</old>
-                                    <new>parameter io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::fromKeyValueBlock(===java.util.Optional&lt;long[]&gt;===, int[], int, io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.type.MapType)</new>
-                                    <parameterIndex>0</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.MapBlock::getNulls()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.block.MapBlockEncoding::&lt;init&gt;(boolean)</old>
-                                    <new>method void io.trino.spi.block.MapBlockEncoding::&lt;init&gt;()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::fromNotNullSuppressedFieldBlocks(int, ===java.util.Optional&lt;boolean[]&gt;===, io.trino.spi.block.Block[])</old>
-                                    <new>parameter io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::fromNotNullSuppressedFieldBlocks(int, ===java.util.Optional&lt;long[]&gt;===, io.trino.spi.block.Block[])</new>
-                                    <parameterIndex>1</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.RowBlock::getNulls()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean[] io.trino.spi.block.RowBlock::getRawRowIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.block.RowBlockEncoding::&lt;init&gt;(boolean)</old>
-                                    <new>method void io.trino.spi.block.RowBlockEncoding::&lt;init&gt;()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter void io.trino.spi.block.ShortArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;boolean[]&gt;===, short[])</old>
-                                    <new>parameter void io.trino.spi.block.ShortArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;long[]&gt;===, short[])</new>
-                                    <parameterIndex>1</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.ShortArrayBlock::getNulls()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.block.ShortArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean)</old>
-                                    <new>method void io.trino.spi.block.ShortArrayBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.ValueBlock::getNulls()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method java.util.Optional&lt;io.trino.spi.block.Bitmap&gt; io.trino.spi.block.ValueBlock::getValidityBitmap()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter void io.trino.spi.block.VariableWidthBlock::&lt;init&gt;(int, io.airlift.slice.Slice, int[], ===java.util.Optional&lt;boolean[]&gt;===)</old>
-                                    <new>parameter void io.trino.spi.block.VariableWidthBlock::&lt;init&gt;(int, io.airlift.slice.Slice, int[], ===java.util.Optional&lt;long[]&gt;===)</new>
-                                    <parameterIndex>3</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.VariableWidthBlock::getNulls()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.block.VariableWidthBlockEncoding::&lt;init&gt;(boolean)</old>
-                                    <new>method void io.trino.spi.block.VariableWidthBlockEncoding::&lt;init&gt;()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter io.trino.spi.block.VariantBlock io.trino.spi.block.VariantBlock::create(int, io.trino.spi.block.Block, io.trino.spi.block.Block, ===java.util.Optional&lt;boolean[]&gt;===)</old>
-                                    <new>parameter io.trino.spi.block.VariantBlock io.trino.spi.block.VariantBlock::create(int, io.trino.spi.block.Block, io.trino.spi.block.Block, ===java.util.Optional&lt;long[]&gt;===)</new>
-                                    <parameterIndex>3</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.VariantBlock::getNulls()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean[] io.trino.spi.block.VariantBlock::getRawIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.block.VariantBlockEncoding::&lt;init&gt;(boolean)</old>
-                                    <new>method void io.trino.spi.block.VariantBlockEncoding::&lt;init&gt;()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter io.trino.spi.block.MapBlock io.trino.spi.type.MapType::createBlockFromKeyValue(===java.util.Optional&lt;boolean[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block)</old>
-                                    <new>parameter io.trino.spi.block.MapBlock io.trino.spi.type.MapType::createBlockFromKeyValue(===java.util.Optional&lt;long[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block)</new>
-                                    <parameterIndex>0</parameterIndex>
+                                    <old>method void io.trino.spi.connector.RecordPageSource::&lt;init&gt;(java.util.List&lt;io.trino.spi.type.Type&gt;, io.trino.spi.connector.RecordCursor)</old>
+                                    <new>method void io.trino.spi.connector.RecordPageSource::&lt;init&gt;(java.util.List&lt;io.trino.spi.type.Type&gt;, io.trino.spi.connector.RecordCursor, io.trino.spi.connector.MemoryContext)</new>
+                                    <justification>Require a MemoryContext to replace polling through ConnectorPageSource.getMemoryUsage</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method boolean io.trino.spi.spool.SpoolingManager::isRecoverableException(java.io.IOException)</new>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.connector.ConnectorMetadata::delegateMaterializedViewRefreshToConnector(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName)</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.concurrent.CompletableFuture&lt;?&gt; io.trino.spi.connector.ConnectorMetadata::refreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName)</old>
                                 </item>
                             </differences>
                         </revapi.differences>
@@ -554,6 +312,15 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Run tests on the class path despite module-info.java, so that class path scanning sees SPI classes -->
+                    <useModulePath>false</useModulePath>
+                </configuration>
             </plugin>
 
             <plugin>

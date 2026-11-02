@@ -31,7 +31,9 @@ import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
 import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
+import io.trino.plugin.deltalake.delete.DeletionVectors;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
@@ -69,7 +71,6 @@ import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkUnsupportedUniver
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkValidTableHandle;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.toUriFormat;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinRetention;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.DELETION_VECTORS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedWriterFeatures;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
@@ -196,14 +197,9 @@ public class VacuumProcedure
             if (protocolEntry.minWriterVersion() > MAX_WRITER_VERSION) {
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %d writer version".formatted(protocolEntry.minWriterVersion()));
             }
-            Set<String> writerFeatures = protocolEntry.writerFeatures().orElse(ImmutableSet.of());
             Set<String> unsupportedWriterFeatures = unsupportedWriterFeatures(protocolEntry.writerFeatures().orElse(ImmutableSet.of()));
             if (!unsupportedWriterFeatures.isEmpty()) {
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %s writer features".formatted(unsupportedWriterFeatures));
-            }
-            if (writerFeatures.contains(DELETION_VECTORS_FEATURE_NAME)) {
-                // TODO https://github.com/trinodb/trino/issues/22809 Add support for vacuuming tables with deletion vectors
-                throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %s writer features".formatted(DELETION_VECTORS_FEATURE_NAME));
             }
 
             TableSnapshot tableSnapshot = metadata.getSnapshot(session, handle, Optional.of(handle.getReadVersion()));
@@ -229,7 +225,7 @@ public class VacuumProcedure
                         activeAddEntries
                                 // paths can be absolute as well in case of shallow-cloned tables, and they shouldn't be deleted as part of vacuum because according to
                                 // delta-protocol absolute paths are inherited from base table and the vacuum procedure should only list and delete local file references
-                                .map(AddFileEntry::getPath),
+                                .flatMap(VacuumProcedure::retainedFilePaths),
                         transactionLogAccess.getJsonEntries(
                                         fileSystem,
                                         transactionLogDir,
@@ -240,7 +236,7 @@ public class VacuumProcedure
                                                 .collect(toImmutableList()))
                                 .map(DeltaLakeTransactionLogEntry::getRemove)
                                 .filter(Objects::nonNull)
-                                .map(RemoveFileEntry::path))) {
+                                .flatMap(VacuumProcedure::retainedFilePaths))) {
                     retainedPaths = pathEntries
                             .peek(path -> checkState(!path.startsWith(tableLocation), "Unexpected absolute path in transaction log: %s", path))
                             .collect(toImmutableSet());
@@ -328,5 +324,25 @@ public class VacuumProcedure
                     retainedUnknownFiles,
                     removedFiles);
         }
+    }
+
+    private static Stream<String> retainedFilePaths(AddFileEntry add)
+    {
+        return retainedFilePaths(add.getPath(), add.getDeletionVector());
+    }
+
+    private static Stream<String> retainedFilePaths(RemoveFileEntry remove)
+    {
+        return retainedFilePaths(remove.path(), remove.deletionVector());
+    }
+
+    private static Stream<String> retainedFilePaths(String dataPath, Optional<DeletionVectorEntry> deletionVector)
+    {
+        return Stream.concat(
+                Stream.of(dataPath),
+                deletionVector
+                        .flatMap(DeletionVectors::relativePath)
+                        .map(DeltaLakeMetadata::toUriFormat)
+                        .stream());
     }
 }

@@ -16,6 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
+import io.trino.metadata.FunctionPreimages;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
@@ -36,6 +38,7 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.TypeCoercion;
 
 import java.util.HashSet;
@@ -47,9 +50,12 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
 import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
 import static io.trino.operator.join.JoinUtils.getSemiJoinDynamicFilterId;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
+import static io.trino.spi.function.PreimageResult.Exactness.CONSERVATIVE;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.DynamicFilters.getDescriptor;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
@@ -81,18 +87,26 @@ public class RemoveUnsupportedDynamicFilters
     @Override
     public PlanNode optimize(PlanNode plan, Context context)
     {
-        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(), ImmutableSet.of());
+        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(context.session()), ImmutableSet.of());
         return result.getNode();
     }
 
     private class Rewriter
             extends PlanVisitor<PlanWithConsumedDynamicFilters, Set<DynamicFilterId>>
     {
+        private final Session session;
+        private final CharVarcharCoercion charVarcharCoercion;
         private final TypeCoercion typeCoercion;
+        private final FunctionPreimages preimages;
+        private final boolean functionPreimagesEnabled;
 
-        public Rewriter()
+        public Rewriter(Session session)
         {
-            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
+            this.session = requireNonNull(session, "session is null");
+            this.charVarcharCoercion = getCharVarcharCoercion(session);
+            this.functionPreimagesEnabled = isFunctionPreimagesEnabled(session);
+            this.preimages = new FunctionPreimages(plannerContext.getMetadata(), plannerContext.getFunctionManager(), plannerContext.getTypeManager());
+            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
         }
 
         @Override
@@ -314,28 +328,26 @@ public class RemoveUnsupportedDynamicFilters
             if (!typeCoercion.canCoerce(castSourceType, castTargetType)) {
                 return false;
             }
-            return doesSaturatedFloorCastOperatorExist(castTargetType, castSourceType);
-        }
-
-        private boolean doesSaturatedFloorCastOperatorExist(Type fromType, Type toType)
-        {
-            try {
-                plannerContext.getMetadata().getCoercion(SATURATED_FLOOR_CAST, fromType, toType);
+            if (functionPreimagesEnabled) {
+                return preimages.bindCast(session, castSourceType, castTargetType, CONSERVATIVE).isPresent();
             }
-            catch (OperatorNotFoundException e) {
+            try {
+                plannerContext.getMetadata().getCoercion(charVarcharCoercion, SATURATED_FLOOR_CAST, castTargetType, castSourceType);
+                return true;
+            }
+            catch (OperatorNotFoundException _) {
                 return false;
             }
-            return true;
         }
 
         private Expression removeAllDynamicFilters(Expression expression)
         {
             Expression rewrittenExpression = removeNestedDynamicFilters(expression);
             DynamicFilters.ExtractResult extractResult = extractDynamicFilters(rewrittenExpression);
-            if (extractResult.getDynamicConjuncts().isEmpty()) {
+            if (extractResult.dynamicConjuncts().isEmpty()) {
                 return rewrittenExpression;
             }
-            return combineConjuncts(extractResult.getStaticConjuncts());
+            return combineConjuncts(extractResult.staticConjuncts());
         }
 
         private Expression removeNestedDynamicFilters(Expression expression)

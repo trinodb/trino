@@ -32,7 +32,7 @@ public final class SuiteLdap
     public static void main(String[] args)
             throws Exception
     {
-        System.setProperty("trino.product-test.environment-mode", "STRICT");
+        SuiteRunner.initialize(SuiteLdap.class);
 
         List<TestRunResult> results = new ArrayList<>();
 

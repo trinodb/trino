@@ -19,6 +19,8 @@ import java.net.URI;
 import java.util.Map;
 
 import static io.trino.plugin.hive.containers.HiveFlociDataLake.State.STARTED;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 
 public class Hive3FlociDataLake
@@ -35,7 +37,7 @@ public class Hive3FlociDataLake
     {
         this(bucketName,
                 ImmutableMap.of(
-                        "/etc/hadoop/conf/core-site.xml", getPathFromClassPathResource("hive_floci_datalake/hive-core-site.xml")),
+                        "/opt/hadoop/etc/hadoop/core-site.xml", getPathFromClassPathResource("hive_floci_datalake/hive-core-site.xml")),
                 hiveHadoopImage);
     }
 
@@ -45,6 +47,9 @@ public class Hive3FlociDataLake
         HiveHadoop.Builder hiveHadoopBuilder = HiveHadoop.builder()
                 .withImage(hiveHadoopImage)
                 .withNetwork(network)
+                .withEnvVars(Map.of(
+                        "AWS_ACCESS_KEY_ID", FLOCI_ACCESS_KEY,
+                        "AWS_SECRET_ACCESS_KEY", FLOCI_SECRET_KEY))
                 .withFilesToMount(hiveHadoopFilesToMount);
         this.hiveHadoop = closer.register(hiveHadoopBuilder.build());
     }

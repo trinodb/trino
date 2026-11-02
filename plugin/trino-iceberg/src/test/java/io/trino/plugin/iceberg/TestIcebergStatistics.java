@@ -48,6 +48,7 @@ import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_TABLE_PROCEDURE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UP;
@@ -135,7 +136,7 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 50, 0, null, '0', '49'),
                   ('regionkey', null, 10, 0, null, '0', '9'),
-                  ('comment', 6247.0, 50, 0, null, null, null),
+                  ('comment', 6250.0, 50, 0, null, null, null),
                   ('name', 1536.0, 50, 0, null, null, null),
                   (null, null, null, null, 75, null, null)
                 """;
@@ -151,7 +152,7 @@ public class TestIcebergStatistics
                     VALUES
                       ('nationkey', null, 25, 0, null, '0', '49'),
                       ('regionkey', null, 5, 0, null, '0', '9'),
-                      ('comment', 6247.0, 25, 0, null, null, null),
+                      ('comment', 6250.0, 25, 0, null, null, null),
                       ('name', 1536.0, 25, 0, null, null, null),
                       (null, null, null, null, 75, null, null)
                     """);
@@ -269,7 +270,7 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 50, 0, null, '0', '49'),
                   ('regionkey', null, 10, 0, null, '0', '9'),
-                  ('comment', 10891.0, 50, 0, null, null, null),
+                  ('comment', 10889.0, 50, 0, null, null, null),
                   ('name', 3635.9999999999995, 50, 0, null, null, null),
                   (null, null, null, null, 75, null, null)
                 """;
@@ -285,7 +286,7 @@ public class TestIcebergStatistics
                     VALUES
                       ('nationkey', null, 25, 0, null, '0', '49'),
                       ('regionkey', null, 5, 0, null, '0', '9'),
-                      ('comment', 10891.0, 25, 0, null, null, null),
+                      ('comment', 10889.0, 25, 0, null, null, null),
                       ('name', 3635.9999999999995, 25, 0, null, null, null),
                       (null, null, null, null, 75, null, null)
                     """);
@@ -397,7 +398,7 @@ public class TestIcebergStatistics
                           ('name', %s, 25, 0, null, null, null),
                           (null, null, null, null, 25, null, null)
                         """
-                        .formatted(partitioned ? "4241.0" : "2624.0", partitioned ? "1506.0" : "718.0")
+                        .formatted(partitioned ? "4241.0" : "2621.0", partitioned ? "1506.0" : "718.0")
                         :
                         """
                         VALUES
@@ -407,7 +408,7 @@ public class TestIcebergStatistics
                           ('name', %s, null, 0, null, null, null),
                           (null, null, null, null, 25, null, null)
                         """
-                        .formatted(partitioned ? "4241.0" : "2624.0", partitioned ? "1506.0" : "718.0"));
+                        .formatted(partitioned ? "4241.0" : "2621.0", partitioned ? "1506.0" : "718.0"));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -716,7 +717,8 @@ public class TestIcebergStatistics
         assertQuery("SHOW STATS FOR " + tableName, extendedStats);
 
         // Dropping extended stats clears distinct count and leaves other stats alone
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE DROP_EXTENDED_STATS");
+        assertThat(query("ALTER TABLE " + tableName + " EXECUTE DROP_EXTENDED_STATS"))
+                .matches("VALUES (VARCHAR 'removed_statistics_count', BIGINT '1')");
         assertQuery("SHOW STATS FOR " + tableName, baseStats);
 
         // Re-analyzing should work
@@ -1224,9 +1226,8 @@ public class TestIcebergStatistics
         assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
 
         icebergTable.refresh();
-        assertThat(icebergTable.statisticsFiles())
-                .hasSize(1)
-                .containsExactlyInAnyOrderElementsOf(statisticsFiles);
+        assertThat(icebergTable.statisticsFiles()).hasSize(1);
+        assertEqualsIgnoreOrder(icebergTable.statisticsFiles(), statisticsFiles);
 
         assertUpdate("DROP TABLE " + tableName);
     }

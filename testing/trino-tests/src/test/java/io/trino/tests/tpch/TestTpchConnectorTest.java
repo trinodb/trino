@@ -24,6 +24,9 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.planprinter.IoPlanPrinter;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
+import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedDomain;
+import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker;
+import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedRange;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -35,6 +38,8 @@ import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.ABOVE;
+import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.BELOW;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -115,6 +120,42 @@ public class TestTpchConnectorTest
     }
 
     @Test
+    public void testIoExplainFloatingPointRanges()
+    {
+        FormattedMarker lowUnbounded = new FormattedMarker(Optional.empty(), ABOVE);
+        FormattedMarker highUnbounded = new FormattedMarker(Optional.empty(), BELOW);
+        FormattedMarker negativeInfinity = new FormattedMarker(Optional.of("-Infinity"), EXACTLY);
+        FormattedMarker positiveInfinity = new FormattedMarker(Optional.of("Infinity"), EXACTLY);
+
+        assertIoExplainDomain("totalprice > 5.0", new FormattedRange(new FormattedMarker(Optional.of("5.0E0"), ABOVE), highUnbounded));
+        assertIoExplainDomain("totalprice < 5.0", new FormattedRange(lowUnbounded, new FormattedMarker(Optional.of("5.0E0"), BELOW)));
+        assertIoExplainDomain("totalprice >= -infinity()", new FormattedRange(lowUnbounded, highUnbounded));
+        assertIoExplainDomain("totalprice > -infinity()", new FormattedRange(new FormattedMarker(Optional.of("-Infinity"), ABOVE), highUnbounded));
+        assertIoExplainDomain("totalprice < infinity()", new FormattedRange(lowUnbounded, new FormattedMarker(Optional.of("Infinity"), BELOW)));
+        assertIoExplainDomain("totalprice = -infinity()", new FormattedRange(negativeInfinity, negativeInfinity));
+        assertIoExplainDomain("totalprice = infinity()", new FormattedRange(positiveInfinity, positiveInfinity));
+        FormattedMarker nan = new FormattedMarker(Optional.of("NaN"), EXACTLY);
+        assertIoExplainDomain(
+                "totalprice <> 5.0",
+                new FormattedRange(lowUnbounded, new FormattedMarker(Optional.of("5.0E0"), BELOW)),
+                new FormattedRange(new FormattedMarker(Optional.of("5.0E0"), ABOVE), highUnbounded),
+                new FormattedRange(nan, nan));
+    }
+
+    private void assertIoExplainDomain(String predicate, FormattedRange... ranges)
+    {
+        String json = (String) computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM orders WHERE " + predicate).getOnlyValue();
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(getQueryRunner().getPlannerContext().getTypeManager())))
+                .get();
+        IoPlanPrinter.IoPlan plan = new JsonCodecFactory(jsonMapper).jsonCodec(IoPlanPrinter.IoPlan.class).fromJson(json);
+        assertThat(getOnlyElement(plan.getInputTableColumnInfos()).getConstraint().getColumnConstraints())
+                .filteredOn(column -> column.getColumnName().equals("totalprice"))
+                .extracting(IoPlanPrinter.ColumnConstraint::getDomain)
+                .containsExactly(new FormattedDomain(false, ImmutableSet.copyOf(ranges)));
+    }
+
+    @Test
     public void testAnalyzePropertiesSystemTable()
     {
         assertQuery("SELECT COUNT(*) FROM system.metadata.analyze_properties WHERE catalog_name = 'tpch'", "SELECT 0");
@@ -168,17 +209,20 @@ public class TestTpchConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE tpch.tiny.orders (\n" +
-                        "   orderkey bigint NOT NULL,\n" +
-                        "   custkey bigint NOT NULL,\n" +
-                        "   orderstatus varchar(1) NOT NULL,\n" +
-                        "   totalprice double NOT NULL,\n" +
-                        "   orderdate date NOT NULL,\n" +
-                        "   orderpriority varchar(15) NOT NULL,\n" +
-                        "   clerk varchar(15) NOT NULL,\n" +
-                        "   shippriority integer NOT NULL,\n" +
-                        "   comment varchar(79) NOT NULL\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE tpch.tiny.orders (
+                           orderkey bigint NOT NULL,
+                           custkey bigint NOT NULL,
+                           orderstatus varchar(1) NOT NULL,
+                           totalprice double NOT NULL,
+                           orderdate date NOT NULL,
+                           orderpriority varchar(15) NOT NULL,
+                           clerk varchar(15) NOT NULL,
+                           shippriority integer NOT NULL,
+                           comment varchar(79) NOT NULL
+                        )\
+                        """);
     }
 
     @Test

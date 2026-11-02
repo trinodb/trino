@@ -14,7 +14,6 @@
 package io.trino.execution.executor.timesharing;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 import io.trino.execution.TaskId;
 import io.trino.execution.executor.TaskHandle;
@@ -22,22 +21,24 @@ import io.trino.execution.executor.timesharing.SimulationController.TaskSpecific
 
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
+import static io.trino.execution.executor.TestingTaskMemory.NO_TASK_MEMORY;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 abstract class SimulationTask
 {
     private final TaskSpecification specification;
 
-    private final Set<SimulationSplit> runningSplits = Sets.newConcurrentHashSet();
-    private final Set<SimulationSplit> completedSplits = Sets.newConcurrentHashSet();
+    private final Set<SimulationSplit> runningSplits = ConcurrentHashMap.newKeySet();
+    private final Set<SimulationSplit> completedSplits = ConcurrentHashMap.newKeySet();
 
     private final TaskHandle taskHandle;
 
     public SimulationTask(TimeSharingTaskExecutor taskExecutor, TaskSpecification specification, TaskId taskId)
     {
         this.specification = specification;
-        taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, SECONDS), OptionalInt.empty());
+        taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, SECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
     }
 
     public Set<SimulationSplit> getCompletedSplits()

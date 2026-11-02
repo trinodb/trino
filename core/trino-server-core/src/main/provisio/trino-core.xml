@@ -39,6 +39,18 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/blob-cache-alluxio">
+        <artifact id="${project.groupId}:trino-blob-cache-alluxio:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/blob-cache-memory">
+        <artifact id="${project.groupId}:trino-blob-cache-memory:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/functions-python">
         <artifact id="${project.groupId}:trino-functions-python:zip:${project.version}">
             <unpack />

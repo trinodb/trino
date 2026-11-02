@@ -31,6 +31,7 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputOperatorFactory;
 import io.trino.spi.Page;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
 import io.trino.type.BlockTypeOperators;
@@ -52,6 +53,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
@@ -165,6 +167,29 @@ public class TestPagePartitionerPool
 
         assertThatThrownBy(factory::noMoreOperators).isEqualTo(exception);
         assertThat(memoryContext.getBytes()).isEqualTo(0);
+    }
+
+    @Test
+    public void testMemoryReleasedOnReleaseFailure()
+    {
+        RuntimeException exception = new RuntimeException();
+        OutputBufferMock outputBuffer = new OutputBufferMock()
+        {
+            @Override
+            public void enqueue(int partition, List<Slice> pages)
+            {
+                throw exception;
+            }
+        };
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        PartitionedOutputOperatorFactory factory = createFactory(DataSize.of(1, MEGABYTE), outputBuffer, memoryContext);
+        Operator operator = factory.createOperator(driverContext());
+        // repeated dictionary ids make release flush the buffered page
+        operator.addInput(new Page(DictionaryBlock.create(4, createLongsBlock(0, 1), new int[] {0, 1, 0, 1})));
+        assertThat(memoryContext.getBytes()).isPositive();
+
+        assertThatThrownBy(operator::finish).isSameAs(exception);
+        assertThat(memoryContext.getBytes()).isZero();
     }
 
     private static PartitionedOutputOperatorFactory createFactory(DataSize maxPagePartitioningBufferSize, OutputBufferMock outputBuffer, AggregatedMemoryContext memoryContext)

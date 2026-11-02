@@ -477,7 +477,7 @@ public final class MetastoreUtil
     {
         HiveBasicStatistics basicStatistics = getHiveBasicStatistics(parameters);
         // Partitioned table without statistics
-        if (basicStatistics.getRowCount().isEmpty() || basicStatistics.getRowCount().getAsLong() == 0L) {
+        if (basicStatistics.getRowCount().isEmpty() || basicStatistics.getRowCount().orElseThrow() == 0L) {
             HiveBasicStatistics sparkBasicStatistics = getSparkBasicStatistics(parameters);
             if (sparkBasicStatistics.getRowCount().isPresent()) {
                 return sparkBasicStatistics;

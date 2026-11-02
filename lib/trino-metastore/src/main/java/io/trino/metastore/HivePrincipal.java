@@ -62,7 +62,7 @@ public class HivePrincipal
 
     public static HivePrincipal from(TrinoPrincipal trinoPrincipal)
     {
-        return new HivePrincipal(trinoPrincipal.getType(), trinoPrincipal.getName());
+        return new HivePrincipal(trinoPrincipal.getType(), trinoPrincipal.getPrincipalName());
     }
 
     private final PrincipalType type;

@@ -98,7 +98,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.StandardTypes.DOUBLE;
-import static io.trino.spi.type.TypeDescriptor.arrayType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
 import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
@@ -880,7 +879,7 @@ public class TestAnnotationEngineForAggregates
         @InputFunction
         @LiteralParameters("x")
         public static void input(
-                @LiteralParameter("x") Long varcharSize,
+                @LiteralParameter("x") long varcharSize,
                 @AggregationState LongState state,
                 @SqlType("varchar(x)") Slice slice)
         {
@@ -889,7 +888,7 @@ public class TestAnnotationEngineForAggregates
 
         @CombineFunction
         public static void combine(
-                @LiteralParameter("x") Long varcharSize,
+                @LiteralParameter("x") long varcharSize,
                 @AggregationState LongState combine1,
                 @AggregationState LongState combine2)
         {
@@ -898,7 +897,7 @@ public class TestAnnotationEngineForAggregates
 
         @OutputFunction("varchar(x)")
         public static void output(
-                @LiteralParameter("x") Long varcharSize,
+                @LiteralParameter("x") long varcharSize,
                 @AggregationState LongState state,
                 BlockBuilder out)
         {
@@ -1197,8 +1196,8 @@ public class TestAnnotationEngineForAggregates
 
         ImmutableMap.Builder<TypeDescriptor, Type> typeDependencies = ImmutableMap.builder();
         for (TypeTemplate typeTemplate : dependencyDeclaration.getTypeDependencies()) {
-            TypeDescriptor typeSignature = applyBoundVariables(typeTemplate, functionBinding.variables());
-            typeDependencies.put(typeSignature, PLANNER_CONTEXT.getTypeManager().getType(typeSignature));
+            TypeDescriptor typeDescriptor = applyBoundVariables(typeTemplate, functionBinding.variables());
+            typeDependencies.put(typeDescriptor, PLANNER_CONTEXT.getTypeManager().getType(typeDescriptor));
         }
 
         ImmutableSet.Builder<ResolvedFunction> functionDependencies = ImmutableSet.builder();

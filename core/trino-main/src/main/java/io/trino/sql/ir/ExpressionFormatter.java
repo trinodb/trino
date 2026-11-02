@@ -239,7 +239,7 @@ public final class ExpressionFormatter
 
         protected String format(WhenClause node, Void context)
         {
-            return "WHEN " + process(node.getOperand(), context) + " THEN " + process(node.getResult(), context);
+            return "WHEN " + process(node.operand(), context) + " THEN " + process(node.result(), context);
         }
 
         protected String format(MatchClause node, Void context)

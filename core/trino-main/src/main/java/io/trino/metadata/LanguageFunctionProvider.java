@@ -18,6 +18,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.sql.routine.ir.IrRoutine;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.Map;
 import java.util.Optional;
@@ -53,23 +54,24 @@ public interface LanguageFunctionProvider
 
     void unregisterTask(TaskId taskId);
 
-    record LanguageFunctionData(Optional<IrRoutine> irRoutine, Optional<LanguageFunctionDefinition> definition)
+    record LanguageFunctionData(Optional<IrRoutine> irRoutine, Optional<LanguageFunctionDefinition> definition, CharVarcharCoercion charVarcharCoercion)
     {
         public LanguageFunctionData
         {
             requireNonNull(irRoutine, "irRoutine is null");
             requireNonNull(definition, "definition is null");
             checkArgument(irRoutine.isPresent() != definition.isPresent(), "exactly one of irRoutine and metadata must be present");
+            requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
         }
 
-        public static LanguageFunctionData ofIrRoutine(IrRoutine irRoutine)
+        public static LanguageFunctionData ofIrRoutine(IrRoutine irRoutine, CharVarcharCoercion charVarcharCoercion)
         {
-            return new LanguageFunctionData(Optional.of(irRoutine), Optional.empty());
+            return new LanguageFunctionData(Optional.of(irRoutine), Optional.empty(), charVarcharCoercion);
         }
 
-        public static LanguageFunctionData ofDefinition(LanguageFunctionDefinition metadata)
+        public static LanguageFunctionData ofDefinition(LanguageFunctionDefinition metadata, CharVarcharCoercion charVarcharCoercion)
         {
-            return new LanguageFunctionData(Optional.empty(), Optional.of(metadata));
+            return new LanguageFunctionData(Optional.empty(), Optional.of(metadata), charVarcharCoercion);
         }
     }
 }

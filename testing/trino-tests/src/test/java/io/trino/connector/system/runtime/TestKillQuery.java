@@ -115,7 +115,7 @@ public class TestKillQuery
 
         assertThatThrownBy(() -> queryFuture.get(1, TimeUnit.MINUTES))
                 .isInstanceOf(ExecutionException.class)
-                .hasMessageContaining("Query killed. " + expectedKilledMessage);
+                .hasMessageContaining("Query killed by user 'user'. " + expectedKilledMessage);
     }
 
     @Test

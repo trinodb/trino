@@ -48,6 +48,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.distinctAggregationsStrategy;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -207,6 +208,7 @@ public class OptimizeMixedDistinctAggregations
         if (hasNonDistinctAggregation) {
             groupIdFilters.put(nonDistinctGroupFilterSymbol, comparison(
                     metadata,
+                    getCharVarcharCoercion(context.getSession()),
                     EQUAL,
                     groupSymbol.toSymbolReference(),
                     new Constant(BIGINT, 0L)));
@@ -226,6 +228,7 @@ public class OptimizeMixedDistinctAggregations
                     Symbol filterSymbol = symbolAllocator.newSymbol("gid-filter-" + groupId, BOOLEAN);
                     groupIdFilters.put(filterSymbol, comparison(
                             metadata,
+                            getCharVarcharCoercion(context.getSession()),
                             EQUAL,
                             groupSymbol.toSymbolReference(),
                             new Constant(BIGINT, (long) groupId)));

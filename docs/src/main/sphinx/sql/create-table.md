@@ -54,7 +54,7 @@ If `INCLUDING PROPERTIES` is specified, all the table properties are
 copied to the new table. If the `WITH` clause specifies the same property
 name as one of the copied properties, the value from the `WITH` clause
 will be used. The default behavior is `EXCLUDING PROPERTIES`. The
-`INCLUDING PROPERTIES` option maybe specified for at most one table.
+`INCLUDING PROPERTIES` option may be specified for at most one table.
 
 ## Examples
 

@@ -80,6 +80,9 @@ class TestFlatHashStrategy
 
                 byte[] fixedChunk = new byte[flatFixedLength + FIXED_CHUNK_OFFSET];
                 byte[] variableChunk = new byte[variableWidth + VARIABLE_CHUNK_OFFSET];
+                // Fill the region with bytes to assert that flat data works even with non-zeroed buffers
+                Arrays.fill(fixedChunk, FIXED_CHUNK_OFFSET, FIXED_CHUNK_OFFSET + flatFixedLength, (byte) 0xFF);
+                Arrays.fill(variableChunk, VARIABLE_CHUNK_OFFSET, VARIABLE_CHUNK_OFFSET + variableWidth, (byte) 0xFF);
                 flatHashStrategy.writeFlat(blocks, position, fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET);
                 assertThat(fixedChunk).startsWith(new byte[FIXED_CHUNK_OFFSET]);
                 assertThat(variableChunk).startsWith(new byte[VARIABLE_CHUNK_OFFSET]);

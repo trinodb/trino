@@ -1,0 +1,57 @@
+name: PR description check
+
+on:
+  pull_request:
+    types:
+      # "opened", "edited", "reopened" cover events that change the PR description
+      - opened
+      - edited
+      - reopened
+      # "synchronize" (every push) is needed because the result attaches to the PR HEAD commit:
+      # without it, a failure silently vanishes when new commits are pushed.
+      - synchronize
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  check-description:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check issue-closing references are on list items
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+
+            // GitHub's issue-closing keywords, see
+            // https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue
+            const keyword = '(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)';
+            // An issue reference: #123, a cross-repo owner/repo#123, or a full github issue/PR URL.
+            const reference = '(?:#\\d+|[\\w.-]+/[\\w.-]+#\\d+|https?://github\\.com/[^/\\s]+/[^/\\s]+/(?:issues|pull)/\\d+)';
+            // The keyword may be followed by a colon (GitHub accepts "Closes: #10"). The separator
+            // is then ASCII space/tab only: GitHub does not auto-close across a non-breaking space,
+            // so neither do we (and it lets this PR's own description mention the pattern via a
+            // non-breaking space without tripping the check).
+            const closingPattern = new RegExp(`\\b${keyword}\\b:?[ \\t]+${reference}`, 'i');
+            const listItemPattern = /^\s*[-*]\s+/;
+
+            const offending = [];
+            for (const line of body.split(/\r?\n/)) {
+              if (closingPattern.test(line) && !listItemPattern.test(line)) {
+                offending.push(line);
+              }
+            }
+
+            if (offending.length > 0) {
+              const details = offending.map(line => `    ${line.trim()}`).join('\n');
+              core.setFailed(
+                'Issue-closing references (e.g. "fixes #123") must be on a list item line ' +
+                'starting with "- " or "* ". On a list item they render as rich link previews ' +
+                '(their issue title shown) instead of a bare number, making it clear which issue ' +
+                'is being closed. Offending line(s):\n' + details);
+            }

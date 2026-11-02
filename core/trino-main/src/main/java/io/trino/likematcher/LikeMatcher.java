@@ -163,7 +163,7 @@ public class LikeMatcher
             return false;
         }
 
-        if (maxSize.isPresent() && length > maxSize.getAsInt()) {
+        if (maxSize.isPresent() && length > maxSize.orElseThrow()) {
             return false;
         }
 

@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
@@ -97,7 +98,7 @@ public class SimplifyComplementaryLogicalTerms
                         changed = true;
                         newTerms.add(switch (operator) {
                             case AND -> new Logical(AND, ImmutableList.of(unwrapped, new IsNull(unwrapped)));
-                            case OR -> new Logical(OR, ImmutableList.of(unwrapped, not(metadata, new IsNull(unwrapped))));
+                            case OR -> new Logical(OR, ImmutableList.of(unwrapped, not(metadata, getCharVarcharCoercion(session), new IsNull(unwrapped))));
                         });
                         seen.add(unwrapped);
                     }

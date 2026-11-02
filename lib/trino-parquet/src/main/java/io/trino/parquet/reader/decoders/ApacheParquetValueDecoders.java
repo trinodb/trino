@@ -24,8 +24,8 @@ import java.nio.ByteBuffer;
 
 import static io.trino.spi.block.Bitmap.clear;
 import static io.trino.spi.block.Bitmap.set;
-import static java.lang.Double.doubleToLongBits;
-import static java.lang.Float.floatToIntBits;
+import static java.lang.Double.doubleToRawLongBits;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -100,7 +100,8 @@ public class ApacheParquetValueDecoders
         public void read(long[] values, int offset, int length)
         {
             for (int i = offset; i < offset + length; i++) {
-                values[i] = doubleToLongBits(delegate.readDouble());
+                // Raw conversion preserves NaN payloads, matching the PLAIN decoder behavior
+                values[i] = doubleToRawLongBits(delegate.readDouble());
             }
         }
 
@@ -131,7 +132,8 @@ public class ApacheParquetValueDecoders
         public void read(int[] values, int offset, int length)
         {
             for (int i = offset; i < offset + length; i++) {
-                values[i] = floatToIntBits(delegate.readFloat());
+                // Raw conversion preserves NaN payloads, matching the PLAIN decoder behavior
+                values[i] = floatToRawIntBits(delegate.readFloat());
             }
         }
 

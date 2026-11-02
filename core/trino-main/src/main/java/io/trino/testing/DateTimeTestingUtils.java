@@ -19,7 +19,6 @@ import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
-import org.joda.time.DateTime;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -85,11 +84,6 @@ public final class DateTimeTestingUtils
     public static SqlTimestamp sqlTimestampOf(int precision, LocalDateTime dateTime)
     {
         return sqlTimestampOf(precision, DAYS.toMillis(dateTime.toLocalDate().toEpochDay()) + NANOSECONDS.toMillis(dateTime.toLocalTime().toNanoOfDay()));
-    }
-
-    public static SqlTimestamp sqlTimestampOf(int precision, DateTime dateTime)
-    {
-        return sqlTimestampOf(precision, dateTime.getMillis());
     }
 
     public static SqlTimestamp sqlTimestampOf(int precision, long millis)

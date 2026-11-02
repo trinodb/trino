@@ -83,6 +83,16 @@ public @interface TestGroup
     @Tag("smoke")
     @interface Smoke {}
 
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
+    @Tag("sql_cancel")
+    @interface SqlCancel {}
+
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
+    @Tag("compatibility")
+    @interface Compatibility {}
+
     // JDBC
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
@@ -389,8 +399,8 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
-    @Tag("delta-lake-minio")
-    @interface DeltaLakeMinio {}
+    @Tag("delta-lake-floci")
+    @interface DeltaLakeFloci {}
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
@@ -409,28 +419,8 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
-    @Tag("delta-lake-databricks-133")
-    @interface DeltaLakeDatabricks133 {}
-
-    @Target({TYPE, METHOD})
-    @Retention(RUNTIME)
-    @Tag("delta-lake-databricks-143")
-    @interface DeltaLakeDatabricks143 {}
-
-    @Target({TYPE, METHOD})
-    @Retention(RUNTIME)
-    @Tag("delta-lake-databricks-154")
-    @interface DeltaLakeDatabricks154 {}
-
-    @Target({TYPE, METHOD})
-    @Retention(RUNTIME)
-    @Tag("delta-lake-databricks-164")
-    @interface DeltaLakeDatabricks164 {}
-
-    @Target({TYPE, METHOD})
-    @Retention(RUNTIME)
-    @Tag("delta-lake-exclude-173")
-    @interface DeltaLakeExclude173 {}
+    @Tag("delta-lake-exclude-18")
+    @interface DeltaLakeExclude18 {}
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)

@@ -223,7 +223,7 @@ public class OrcDeletedRows
                 bucket = bucketNumber.orElse(0);
                 statementId = 0;
                 // In case of original files, calculate row ID is start row ID of the page + current position in the page
-                row = startRowId.getAsLong() + position;
+                row = startRowId.orElseThrow() + position;
             }
             else {
                 originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);

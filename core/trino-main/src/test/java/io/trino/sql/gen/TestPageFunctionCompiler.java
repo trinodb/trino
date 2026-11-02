@@ -21,10 +21,12 @@ import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.slice.Slice;
+import io.trino.json.JsonItems;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.TestingSourcePage;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
@@ -34,11 +36,14 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.Signature;
@@ -52,12 +57,17 @@ import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
@@ -65,18 +75,23 @@ import org.junit.jupiter.api.Test;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.STATIC;
 import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.ClassGenerator.classGenerator;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.slice.Slices.allocate;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
@@ -90,13 +105,15 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.gen.RowConstructorCodeGenerator.MEGAMORPHIC_FIELD_COUNT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
+import static io.trino.type.JsonType.JSON;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.field;
@@ -121,7 +138,7 @@ public class TestPageFunctionCompiler
     {
         PageFunctionCompiler functionCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
 
-        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, Optional.empty());
+        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, SQL_STANDARD, Optional.empty());
         PageProjection projection = projectionSupplier.get();
 
         // process good page and verify we got the expected number of result rows
@@ -138,6 +155,33 @@ public class TestPageFunctionCompiler
         // if block builder in generated code was not reset properly, we could get junk results after the failure
         goodResult = project(projection, goodPage, SelectedPositions.positionsRange(0, goodPage.getPositionCount()));
         assertThat(goodPage.getPositionCount()).isEqualTo(goodResult.getPositionCount());
+    }
+
+    @Test
+    public void testProjectionOverWrappedBlocks()
+    {
+        PageFunctionCompiler functionCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
+        PageProjection add10 = functionCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, SQL_STANDARD, Optional.empty()).get();
+        PageProjection coalesce = functionCompiler.compileProjection(
+                        new Coalesce(new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 42L)),
+                        LAYOUT,
+                        SQL_STANDARD,
+                        Optional.empty())
+                .get();
+
+        // dictionary block with nulls, read out of order and with repeats
+        Block values = createLongsBlock(0L, 1L, null, 3L);
+        Page dictionaryPage = createPageWithBlockAtChannel2(DictionaryBlock.create(5, values, new int[] {3, 2, 1, 3, 0}));
+        assertBlockValues(project(add10, dictionaryPage, SelectedPositions.positionsRange(0, 5)), 13L, null, 11L, 13L, 10L);
+        assertBlockValues(project(coalesce, dictionaryPage, SelectedPositions.positionsRange(0, 5)), 3L, 42L, 1L, 3L, 0L);
+
+        Page rlePage = createPageWithBlockAtChannel2(RunLengthEncodedBlock.create(values.getRegion(0, 1), 3));
+        assertBlockValues(project(add10, rlePage, SelectedPositions.positionsRange(0, 3)), 10L, 10L, 10L);
+        assertBlockValues(project(coalesce, rlePage, SelectedPositions.positionsRange(0, 3)), 0L, 0L, 0L);
+
+        Page nullRlePage = createPageWithBlockAtChannel2(RunLengthEncodedBlock.create(values.getRegion(2, 1), 3));
+        assertBlockValues(project(add10, nullRlePage, SelectedPositions.positionsRange(0, 3)), null, null, null);
+        assertBlockValues(project(coalesce, nullRlePage, SelectedPositions.positionsRange(0, 3)), 42L, 42L, 42L);
     }
 
     @Test
@@ -160,7 +204,7 @@ public class TestPageFunctionCompiler
         ResolvedFunction constructor = functionResolution.resolveFunction("test_hidden_constructor", fromTypes());
         ResolvedFunction identity = functionResolution.resolveFunction("test_hidden_identity", fromTypes(hiddenType));
         PageProjection projection = functionResolution.getPageFunctionCompiler()
-                .compileProjection(call(identity, call(constructor)), ImmutableMap.of(), Optional.empty())
+                .compileProjection(call(identity, call(constructor)), ImmutableMap.of(), SQL_STANDARD, Optional.empty())
                 .get();
 
         Page page = createLongBlockPage(0, 1);
@@ -189,6 +233,7 @@ public class TestPageFunctionCompiler
                                 new Reference(inputArrayType, "$col_0"),
                                 new Lambda(ImmutableList.of(new Symbol(BIGINT, "x")), call(constructor))),
                         ImmutableMap.of(new Symbol(inputArrayType, "$col_0"), 0),
+                        SQL_STANDARD,
                         Optional.empty())
                 .get();
 
@@ -216,6 +261,7 @@ public class TestPageFunctionCompiler
                                 new Reference(inputMapType, "$col_0"),
                                 new Lambda(ImmutableList.of(new Symbol(BIGINT, "k"), new Symbol(BIGINT, "v")), call(constructor))),
                         ImmutableMap.of(new Symbol(inputMapType, "$col_0"), 0),
+                        SQL_STANDARD,
                         Optional.empty())
                 .get();
 
@@ -239,6 +285,7 @@ public class TestPageFunctionCompiler
                                 new Reference(mapType, "$col_0"),
                                 new Lambda(ImmutableList.of(new Symbol(BIGINT, "k"), new Symbol(hiddenType, "v")), new Reference(BIGINT, "k"))),
                         ImmutableMap.of(new Symbol(mapType, "$col_0"), 0),
+                        SQL_STANDARD,
                         Optional.empty())
                 .get();
 
@@ -262,6 +309,7 @@ public class TestPageFunctionCompiler
                                 new Reference(mapType, "$col_0"),
                                 new Lambda(ImmutableList.of(new Symbol(BIGINT, "k"), new Symbol(hiddenType, "v")), new Constant(BOOLEAN, true))),
                         ImmutableMap.of(new Symbol(mapType, "$col_0"), 0),
+                        SQL_STANDARD,
                         Optional.empty())
                 .get();
 
@@ -284,12 +332,88 @@ public class TestPageFunctionCompiler
         Expression row = new Row(ImmutableList.of(call(constructor)), rowType);
         Expression dereference = new FieldReference(row, 0);
         PageProjection projection = functionResolution.getPageFunctionCompiler()
-                .compileProjection(dereference, ImmutableMap.of(), Optional.empty())
+                .compileProjection(dereference, ImmutableMap.of(), SQL_STANDARD, Optional.empty())
                 .get();
 
         Page page = createLongBlockPage(0);
         Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
         assertThat(hiddenType.getObjectValue(result, 0)).isEqualTo(42);
+
+        PageProjection rowProjection = functionResolution.getPageFunctionCompiler()
+                .compileProjection(row, ImmutableMap.of(), SQL_STANDARD, Optional.empty())
+                .get();
+        result = project(rowProjection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(42));
+    }
+
+    @Test
+    public void testNestedRowProjection()
+    {
+        Reference input = new Reference(BIGINT, "$col_0");
+        Row row = new Row(ImmutableList.of(input, new Row(ImmutableList.of(ADD_10_EXPRESSION, input))));
+        RowType rowType = (RowType) row.type();
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(row, LAYOUT, SQL_STANDARD, Optional.empty())
+                .get();
+
+        Page page = createPageWithBlockAtChannel2(createLongsBlock(1L, null, 3L));
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, 3));
+        assertThat(result.getPositionCount()).isEqualTo(3);
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(1L, ImmutableList.of(11L, 1L)));
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(Arrays.asList(null, Arrays.asList(null, null)));
+        assertThat(rowType.getObjectValue(result, 2)).isEqualTo(ImmutableList.of(3L, ImmutableList.of(13L, 3L)));
+
+        result = project(projection, page, SelectedPositions.positionsList(new int[] {2, 1, 0, 2}, 0, 4));
+        assertThat(result.getPositionCount()).isEqualTo(4);
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(3L, ImmutableList.of(13L, 3L)));
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(Arrays.asList(null, Arrays.asList(null, null)));
+        assertThat(rowType.getObjectValue(result, 2)).isEqualTo(ImmutableList.of(1L, ImmutableList.of(11L, 1L)));
+        assertThat(rowType.getObjectValue(result, 3)).isEqualTo(ImmutableList.of(3L, ImmutableList.of(13L, 3L)));
+
+        Page badPage = createPageWithDataAtChannel2(1, Long.MAX_VALUE);
+        assertTrinoExceptionThrownBy(() -> project(projection, badPage, SelectedPositions.positionsRange(0, 2)))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        result = project(projection, page, SelectedPositions.positionsRange(2, 1));
+        assertThat(result.getPositionCount()).isEqualTo(1);
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(3L, ImmutableList.of(13L, 3L)));
+    }
+
+    @Test
+    public void testRowProjectionWithNullRow()
+    {
+        RowType nestedType = RowType.anonymous(ImmutableList.of(BIGINT));
+        Row row = new Row(ImmutableList.of(
+                new Constant(nestedType, null),
+                new Reference(VARCHAR, "value"),
+                new Row(ImmutableList.of(new Constant(BIGINT, null)))));
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(row, ImmutableMap.of(new Symbol(VARCHAR, "value"), 0), SQL_STANDARD, Optional.empty())
+                .get();
+        Page page = new Page(createStringsBlock("abc", "xyz"));
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, 2));
+        RowType rowType = (RowType) row.type();
+        assertThat(result.getPositionCount()).isEqualTo(2);
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(Arrays.asList(null, "abc", nCopies(1, null)));
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(Arrays.asList(null, "xyz", nCopies(1, null)));
+    }
+
+    @Test
+    public void testProjectionWithLargeInputBackedRow()
+    {
+        int fieldCount = MEGAMORPHIC_FIELD_COUNT + 1;
+        Reference input = new Reference(BIGINT, "$col_0");
+        RowType rowType = RowType.anonymous(nCopies(fieldCount, BIGINT));
+        Row row = new Row(nCopies(fieldCount, input), rowType);
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(row, ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0), SQL_STANDARD, Optional.empty())
+                .get();
+
+        Page page = new Page(createLongsBlock(1L, null, 3L));
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(result.getPositionCount()).isEqualTo(3);
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(nCopies(fieldCount, 1L));
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(nCopies(fieldCount, null));
+        assertThat(rowType.getObjectValue(result, 2)).isEqualTo(nCopies(fieldCount, 3L));
     }
 
     @Test
@@ -301,7 +425,7 @@ public class TestPageFunctionCompiler
         Expression filter = comparison(GREATER_THAN, new FieldReference(row, fieldCount - 1), new Constant(BIGINT, 2L));
 
         PageFilter compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
-                .compileFilter(filter, ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0), Optional.empty())
+                .compileFilter(filter, ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0), SQL_STANDARD, Optional.empty())
                 .get();
 
         Page page = createLongBlockPage(0, 1, 2, 3, 4);
@@ -323,7 +447,7 @@ public class TestPageFunctionCompiler
         Expression row = new Row(nCopies(fieldCount, nestedRow), rowType);
 
         PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
-                .compileProjection(row, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0), Optional.empty())
+                .compileProjection(row, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0), SQL_STANDARD, Optional.empty())
                 .get();
 
         Page page = new Page(createStringsBlock("abc", "xyz"));
@@ -334,28 +458,232 @@ public class TestPageFunctionCompiler
     }
 
     @Test
+    public void testCompiledClassesAreHidden()
+            throws ReflectiveOperationException
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
+
+        PageProjection projection = compiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, SQL_STANDARD, Optional.empty()).get();
+        Field workFactoryField = projection.getClass().getDeclaredField("pageProjectionWorkFactory");
+        workFactoryField.setAccessible(true);
+        Class<?> workClass = ((MethodHandle) workFactoryField.get(projection)).type().returnType();
+        assertThat(workClass.isHidden()).isTrue();
+        // names are stable unless class dumping is enabled; the JVM appends the unique suffix
+        assertThat(workClass.getName()).matches("io\\.trino\\.\\$gen\\.PageProjectionWork/0x[0-9a-f]+");
+
+        Expression filter = comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 2L));
+        PageFilter pageFilter = compiler.compileFilter(filter, LAYOUT, SQL_STANDARD, Optional.empty()).get();
+        assertThat(pageFilter.getClass().isHidden()).isTrue();
+    }
+
+    @Test
+    public void testProjectionTemplateReuse()
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Page page = createPageWithDataAtChannel2(1);
+
+        // same structure with different constants shares one compiled template
+        Block first = project(compileAdd(compiler, 10), page, SelectedPositions.positionsRange(0, 1));
+        Block second = project(compileAdd(compiler, 99), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(BIGINT.getLong(first, 0)).isEqualTo(11);
+        assertThat(BIGINT.getLong(second, 0)).isEqualTo(100);
+
+        // two lookups, one template stored on the first miss and hit by the second
+        assertThat(compiler.getProjectionTemplateCache().getRequestCount()).isEqualTo(2);
+        assertThat(compiler.getProjectionTemplateCache().size()).isEqualTo(1);
+        assertThat(compiler.getProjectionTemplateCache().getHitRate()).isEqualTo(0.5);
+    }
+
+    @Test
+    public void testTemplateAliasedLiterals()
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Page page = createPageWithDataAtChannel2(1);
+
+        // equal literals deduplicate into one class data slot in the template
+        Block aliased = project(compileAdd(compiler, 5, 5), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(BIGINT.getLong(aliased, 0)).isEqualTo(11);
+
+        // the same structure with unequal literals cannot use the aliased template
+        Block distinct = project(compileAdd(compiler, 5, 7), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(BIGINT.getLong(distinct, 0)).isEqualTo(13);
+
+        // equal literals fit the template again
+        Block aliasedAgain = project(compileAdd(compiler, 9, 9), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(BIGINT.getLong(aliasedAgain, 0)).isEqualTo(19);
+        assertThat(compiler.getProjectionTemplateCache().size()).isEqualTo(1);
+    }
+
+    @Test
+    public void testNullLiteralThenBoundLiteral()
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Page page = createPageWithDataAtChannel2(10);
+
+        // a null literal must not share a template with a bound literal at the same site:
+        // the template holds no literal slot for the position, so a hit would replay null
+        Block nullResult = project(compileAddConstant(compiler, new Constant(BIGINT, null)), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(nullResult.isNull(0)).isTrue();
+
+        Block boundResult = project(compileAddConstant(compiler, new Constant(BIGINT, 1L)), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(boundResult.isNull(0)).isFalse();
+        assertThat(BIGINT.getLong(boundResult, 0)).isEqualTo(11);
+    }
+
+    private static PageProjection compileAddConstant(PageFunctionCompiler compiler, Constant constant)
+    {
+        return compiler.compileProjection(
+                call(FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                        new Reference(BIGINT, "$col_0"),
+                        constant),
+                LAYOUT,
+                SQL_STANDARD,
+                Optional.empty()).get();
+    }
+
+    @Test
+    public void testValueDependentFilterNotTemplated()
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Page page = createPageWithDataAtChannel2(1, 2, 3, 4, 5, 6);
+
+        // IN filters derive switch labels and lookup sets from the values, so they must
+        // not share templates; correctness across different value lists proves it
+        assertThat(filterIn(compiler, page, 1L, 2L, 3L).size()).isEqualTo(3);
+        assertThat(filterIn(compiler, page, 4L, 5L, 6L).size()).isEqualTo(3);
+        assertThat(filterIn(compiler, page, 42L, 43L, 44L).size()).isEqualTo(0);
+        assertThat(compiler.getFilterTemplateCache().size()).isEqualTo(0);
+    }
+
+    private static PageProjection compileAdd(PageFunctionCompiler compiler, long value)
+    {
+        return compiler.compileProjection(
+                call(FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                        new Reference(BIGINT, "$col_0"),
+                        new Constant(BIGINT, value)),
+                LAYOUT,
+                SQL_STANDARD,
+                Optional.empty()).get();
+    }
+
+    private static PageProjection compileAdd(PageFunctionCompiler compiler, long first, long second)
+    {
+        return compiler.compileProjection(
+                call(FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                        call(FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                                new Reference(BIGINT, "$col_0"),
+                                new Constant(BIGINT, first)),
+                        new Constant(BIGINT, second)),
+                LAYOUT,
+                SQL_STANDARD,
+                Optional.empty()).get();
+    }
+
+    private static SelectedPositions filterIn(PageFunctionCompiler compiler, Page page, Long... values)
+    {
+        Expression filter = new In(
+                new Reference(BIGINT, "$col_0"),
+                Arrays.stream(values)
+                        .map(value -> (Expression) new Constant(BIGINT, value))
+                        .collect(toImmutableList()));
+        PageFilter compiled = compiler.compileFilter(filter, LAYOUT, SQL_STANDARD, Optional.empty()).get();
+        SourcePage inputPage = compiled.getInputChannels().getInputChannels(SourcePage.create(page));
+        return compiled.filter(SESSION, inputPage);
+    }
+
+    @Test
+    public void testLambdaCapturingNothingIsHeldInAField()
+            throws ReflectiveOperationException
+    {
+        MapType mapType = new MapType(BIGINT, BIGINT, TYPE_OPERATORS);
+        ResolvedFunction mapFilter = FUNCTION_RESOLUTION.resolveFunction("map_filter", fromTypes(mapType, new FunctionType(ImmutableList.of(BIGINT, BIGINT), BOOLEAN)));
+        // the lambda body reads neither the enclosing row nor any captured value
+        Expression projection = call(
+                mapFilter,
+                new Reference(mapType, "$col_0"),
+                new Lambda(ImmutableList.of(new Symbol(BIGINT, "k"), new Symbol(BIGINT, "v")), new Constant(BOOLEAN, true)));
+
+        PageProjection compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(projection, ImmutableMap.of(new Symbol(mapType, "$col_0"), 0), SQL_STANDARD, Optional.empty())
+                .get();
+
+        Field workFactoryField = compiled.getClass().getDeclaredField("pageProjectionWorkFactory");
+        workFactoryField.setAccessible(true);
+        Class<?> workClass = ((MethodHandle) workFactoryField.get(compiled)).type().returnType();
+
+        // the lambda is built into a field of the class that evaluates it, rather than by
+        // every evaluation, so a projection over a page builds one lambda and not one per row
+        assertThat(workClass.getDeclaredFields())
+                .anyMatch(field -> field.getName().endsWith("_instance"));
+    }
+
+    @Test
+    public void testJsonProjectionCache()
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Reference input = new Reference(JSON, "c");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(JSON, "c"), 0);
+        PageProjection first = compiler.compileProjection(
+                new Coalesce(input, new Constant(JSON, JsonItems.fromText(utf8Slice("1")))),
+                layout,
+                SQL_STANDARD,
+                Optional.empty()).get();
+        PageProjection second = compiler.compileProjection(
+                new Coalesce(input, new Constant(JSON, JsonItems.fromText(utf8Slice("1.0")))),
+                layout,
+                SQL_STANDARD,
+                Optional.empty()).get();
+        SourcePage page = SourcePage.create(new Page(JSON.createBlockBuilder(null, 1).appendNull().build()));
+        Block firstResult = first.project(SESSION, first.getInputChannels().getInputChannels(page), SelectedPositions.positionsRange(0, 1));
+        Block secondResult = second.project(SESSION, second.getInputChannels().getInputChannels(page), SelectedPositions.positionsRange(0, 1));
+        assertThat(JSON.getObjectValue(firstResult, 0)).isEqualTo("1");
+        assertThat(JSON.getObjectValue(secondResult, 0)).isEqualTo("1.0");
+        assertThat(compiler.getProjectionCache().getLoadCount()).isEqualTo(2);
+        assertThat(compiler.getProjectionTemplateCache().size()).isEqualTo(1);
+        assertThat(compiler.getProjectionTemplateCache().getHitRate()).isEqualTo(0.5);
+    }
+
+    @Test
+    public void testJsonTemplateAliasedLiterals()
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Reference input = new Reference(JSON, "c");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(JSON, "c"), 0);
+        RowType rowType = RowType.anonymous(ImmutableList.of(JSON, JSON));
+        Constant one = new Constant(JSON, JsonItems.fromText(utf8Slice("1")));
+        Expression aliased = new Row(ImmutableList.of(new Coalesce(input, one), one), rowType);
+        Expression distinct = new Row(ImmutableList.of(new Coalesce(input, one), new Constant(JSON, JsonItems.fromText(utf8Slice("1.0")))), rowType);
+        Page page = new Page(JSON.createBlockBuilder(null, 1).appendNull().build());
+
+        Block first = project(compiler.compileProjection(aliased, layout, SQL_STANDARD, Optional.empty()).get(), page, SelectedPositions.positionsRange(0, 1));
+        Block second = project(compiler.compileProjection(distinct, layout, SQL_STANDARD, Optional.empty()).get(), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(rowType.getObjectValue(first, 0)).isEqualTo(ImmutableList.of("1", "1"));
+        assertThat(rowType.getObjectValue(second, 0)).isEqualTo(ImmutableList.of("1", "1.0"));
+    }
+
+    @Test
     public void testProjectionCache()
     {
         PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
         Page page = createPageWithDataAtChannel2(0, 1, 2, 3);
 
         // First compile: cache miss → triggers class compilation
-        cacheCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, Optional.empty());
+        cacheCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, SQL_STANDARD, Optional.empty());
         assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(1);
         assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(1);
 
         // Second compile with same expression: cache hit → no new compilation
-        cacheCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, Optional.empty());
+        cacheCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, SQL_STANDARD, Optional.empty());
         assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(2);
         assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(1);
 
         // classNameSuffix does not affect cache key
-        cacheCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, Optional.of("hint"));
+        cacheCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, SQL_STANDARD, Optional.of("hint"));
         assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(3);
         assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(1);
 
         // Cached projections produce correct results
-        PageProjection projection = cacheCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, Optional.empty()).get();
+        PageProjection projection = cacheCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, SQL_STANDARD, Optional.empty()).get();
         assertThat(project(projection, page, SelectedPositions.positionsRange(0, 4)).getPositionCount()).isEqualTo(4);
 
         // No-cache compiler always compiles
@@ -372,8 +700,8 @@ public class TestPageFunctionCompiler
         Map<Symbol, Integer> layout1 = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
         Map<Symbol, Integer> layout2 = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 3);
 
-        PageProjection projection1 = cacheCompiler.compileProjection(ADD_10_EXPRESSION, layout1, Optional.empty()).get();
-        PageProjection projection2 = cacheCompiler.compileProjection(ADD_10_EXPRESSION, layout2, Optional.empty()).get();
+        PageProjection projection1 = cacheCompiler.compileProjection(ADD_10_EXPRESSION, layout1, SQL_STANDARD, Optional.empty()).get();
+        PageProjection projection2 = cacheCompiler.compileProjection(ADD_10_EXPRESSION, layout2, SQL_STANDARD, Optional.empty()).get();
 
         // Verify cache hit: only one compilation despite two calls with different layouts
         assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(2);
@@ -407,23 +735,23 @@ public class TestPageFunctionCompiler
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
 
         // First compile: cache miss
-        cacheCompiler.compileFilter(filter, layout, Optional.empty());
+        cacheCompiler.compileFilter(filter, layout, SQL_STANDARD, Optional.empty());
         assertThat(cacheCompiler.getFilterCache().getRequestCount()).isEqualTo(1);
         assertThat(cacheCompiler.getFilterCache().getLoadCount()).isEqualTo(1);
 
         // Second compile: cache hit
-        cacheCompiler.compileFilter(filter, layout, Optional.empty());
+        cacheCompiler.compileFilter(filter, layout, SQL_STANDARD, Optional.empty());
         assertThat(cacheCompiler.getFilterCache().getRequestCount()).isEqualTo(2);
         assertThat(cacheCompiler.getFilterCache().getLoadCount()).isEqualTo(1);
 
         // classNameSuffix does not affect cache key
-        cacheCompiler.compileFilter(filter, layout, Optional.of("hint"));
+        cacheCompiler.compileFilter(filter, layout, SQL_STANDARD, Optional.of("hint"));
         assertThat(cacheCompiler.getFilterCache().getRequestCount()).isEqualTo(3);
         assertThat(cacheCompiler.getFilterCache().getLoadCount()).isEqualTo(1);
 
         // Cached filter produces correct results
         Page page = createPageWithDataAtChannel2(0, 1, 2, 3, 4);
-        PageFilter compiled = cacheCompiler.compileFilter(filter, layout, Optional.empty()).get();
+        PageFilter compiled = cacheCompiler.compileFilter(filter, layout, SQL_STANDARD, Optional.empty()).get();
         SourcePage inputPage = compiled.getInputChannels().getInputChannels(SourcePage.create(page));
         SelectedPositions result = compiled.filter(SESSION, inputPage);
         assertThat(result.size()).isEqualTo(2); // values > 2 at positions 3, 4
@@ -439,8 +767,8 @@ public class TestPageFunctionCompiler
         Map<Symbol, Integer> layout1 = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
         Map<Symbol, Integer> layout2 = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 3);
 
-        PageFilter filter1 = cacheCompiler.compileFilter(filter, layout1, Optional.empty()).get();
-        PageFilter filter2 = cacheCompiler.compileFilter(filter, layout2, Optional.empty()).get();
+        PageFilter filter1 = cacheCompiler.compileFilter(filter, layout1, SQL_STANDARD, Optional.empty()).get();
+        PageFilter filter2 = cacheCompiler.compileFilter(filter, layout2, SQL_STANDARD, Optional.empty()).get();
 
         // Verify cache hit: only one compilation despite two calls with different layouts
         assertThat(cacheCompiler.getFilterCache().getRequestCount()).isEqualTo(2);
@@ -469,6 +797,108 @@ public class TestPageFunctionCompiler
         SourcePage sourcePage = SourcePage.create(page);
         SourcePage inputPage = projection.getInputChannels().getInputChannels(sourcePage);
         return projection.project(SESSION, inputPage, selectedPositions);
+    }
+
+    private static Page createPageWithBlockAtChannel2(Block block)
+    {
+        int positionCount = block.getPositionCount();
+        return new Page(createRepeatedValuesBlock(0L, positionCount), createRepeatedValuesBlock(0L, positionCount), block);
+    }
+
+    private static void assertBlockValues(Block block, Long... expected)
+    {
+        assertThat(block.getPositionCount()).isEqualTo(expected.length);
+        for (int position = 0; position < expected.length; position++) {
+            if (expected[position] == null) {
+                assertThat(block.isNull(position)).isTrue();
+            }
+            else {
+                assertThat(BIGINT.getLong(block, position)).isEqualTo(expected[position]);
+            }
+        }
+    }
+
+    @Test
+    public void testShortCircuitAndFilterSkipsChannelLoad()
+    {
+        Expression filter = new Logical(
+                Logical.Operator.AND,
+                ImmutableList.of(
+                        comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 100L)),
+                        comparison(GREATER_THAN, new Reference(BIGINT, "$col_1"), new Constant(BIGINT, 100L))));
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "$col_0"), 0,
+                new Symbol(BIGINT, "$col_1"), 1);
+        PageFilter compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileFilter(filter, layout, SQL_STANDARD, Optional.empty())
+                .get();
+
+        TestingSourcePage allRejected = new TestingSourcePage(3, createLongsBlock(1L, 2L, 3L), createLongsBlock(200L, 201L, 202L));
+        assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(allRejected)).size()).isEqualTo(0);
+        assertThat(allRejected.wasLoaded(0)).isTrue();
+        assertThat(allRejected.wasLoaded(1)).isFalse();
+
+        TestingSourcePage someAccepted = new TestingSourcePage(3, createLongsBlock(1L, 200L, 3L), createLongsBlock(200L, 201L, 202L));
+        assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(someAccepted)).size()).isEqualTo(1);
+        assertThat(someAccepted.wasLoaded(1)).isTrue();
+    }
+
+    @Test
+    public void testShortCircuitOrFilterSkipsChannelLoad()
+    {
+        Expression filter = new Logical(
+                Logical.Operator.OR,
+                ImmutableList.of(
+                        comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 100L)),
+                        comparison(GREATER_THAN, new Reference(BIGINT, "$col_1"), new Constant(BIGINT, 100L))));
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "$col_0"), 0,
+                new Symbol(BIGINT, "$col_1"), 1);
+        PageFilter compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileFilter(filter, layout, SQL_STANDARD, Optional.empty())
+                .get();
+
+        TestingSourcePage allAccepted = new TestingSourcePage(3, createLongsBlock(101L, 102L, 103L), createLongsBlock(1L, 2L, 3L));
+        assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(allAccepted)).size()).isEqualTo(3);
+        assertThat(allAccepted.wasLoaded(0)).isTrue();
+        assertThat(allAccepted.wasLoaded(1)).isFalse();
+
+        TestingSourcePage someRejected = new TestingSourcePage(3, createLongsBlock(101L, 2L, 103L), createLongsBlock(1L, 2L, 3L));
+        assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(someRejected)).size()).isEqualTo(2);
+        assertThat(someRejected.wasLoaded(1)).isTrue();
+    }
+
+    @Test
+    public void testCaseProjectionSkipsChannelLoad()
+    {
+        Expression projection = new Case(
+                ImmutableList.of(
+                        new WhenClause(
+                                comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 100L)),
+                                new Reference(BIGINT, "$col_1")),
+                        new WhenClause(
+                                comparison(LESS_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 0L)),
+                                new Reference(BIGINT, "$col_1"))),
+                new Constant(BIGINT, null));
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "$col_0"), 0,
+                new Symbol(BIGINT, "$col_1"), 1);
+        PageProjection compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(projection, layout, SQL_STANDARD, Optional.empty())
+                .get();
+
+        TestingSourcePage noneTaken = new TestingSourcePage(3, createLongsBlock(1L, 2L, 3L), createLongsBlock(200L, 201L, 202L));
+        Block result = compiled.project(SESSION, compiled.getInputChannels().getInputChannels(noneTaken), SelectedPositions.positionsRange(0, 3));
+        assertThat(result.isNull(0)).isTrue();
+        assertThat(noneTaken.wasLoaded(0)).isTrue();
+        assertThat(noneTaken.wasLoaded(1)).isFalse();
+
+        TestingSourcePage someTaken = new TestingSourcePage(3, createLongsBlock(-1L, 200L, 3L), createLongsBlock(200L, 201L, 202L));
+        result = compiled.project(SESSION, compiled.getInputChannels().getInputChannels(someTaken), SelectedPositions.positionsRange(0, 3));
+        assertThat(BIGINT.getLong(result, 0)).isEqualTo(200L);
+        assertThat(BIGINT.getLong(result, 1)).isEqualTo(201L);
+        assertThat(result.isNull(2)).isTrue();
+        assertThat(someTaken.wasLoaded(1)).isTrue();
     }
 
     private static Page createLongBlockPage(long... values)
@@ -563,7 +993,10 @@ public class TestPageFunctionCompiler
         identity.getBody()
                 .append(identityValue.ret());
 
-        Class<?> hiddenClass = defineClass(classDefinition, Object.class, new DynamicClassLoader(TestPageFunctionCompiler.class.getClassLoader()));
+        // defined in a separate class loader so the tests exercise the per accessed class
+        // lookup anchors for types the engine loader cannot see
+        Class<?> hiddenClass = classGenerator(new DynamicClassLoader(TestPageFunctionCompiler.class.getClassLoader()))
+                .defineClass(classDefinition, Object.class);
         return new HiddenFunctions(
                 new HiddenType(hiddenClass),
                 insertArguments(constructorMethodHandle(hiddenClass, int.class), 0, 42),
@@ -586,7 +1019,7 @@ public class TestPageFunctionCompiler
         }
 
         @Override
-        protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+        public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
         {
             return new ChoicesSpecializedSqlScalarFunction(boundSignature, FAIL_ON_NULL, argumentConventions, methodHandle);
         }

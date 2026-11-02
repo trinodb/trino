@@ -7,6 +7,24 @@ geometries that are operated on are both simple and valid. For example, it does 
 make sense to calculate the area of a polygon that has a hole defined outside the
 polygon, or to construct a polygon from a non-simple boundary line.
 
+By default, an overlay or union operation that fails on a topologically invalid
+input reports `INVALID_FUNCTION_ARGUMENT` with a message describing the invalidity
+and its location. Setting the JVM property
+`-Dtrino.geospatial.legacy-lenient-overlay=true` instead repairs the input and
+retries the operation once, matching the lenient behavior of the legacy Esri
+engine. The repair can change the geometry and is not guaranteed to reproduce
+every result from the legacy engine.
+
+The property is read once during startup and must be identical on every node, so
+changing it requires restarting the cluster. During a rolling restart both modes
+are live at once, and the same query can fail or succeed depending on which nodes
+execute it.
+
+The policy applies to {func}`ST_Intersection`, {func}`ST_Difference`,
+{func}`ST_SymDifference`, {func}`ST_Union`, {func}`geometry_union`, and
+{func}`geometry_union_agg`. {func}`convex_hull_agg` is not subject to it, because
+a convex hull is well defined even for topologically invalid input.
+
 Trino Geospatial functions support Well-Known Text (WKT), Extended Well-Known
 Text (EWKT), Well-Known Binary (WKB), and Extended Well-Known Binary (EWKB)
 forms of spatial objects:

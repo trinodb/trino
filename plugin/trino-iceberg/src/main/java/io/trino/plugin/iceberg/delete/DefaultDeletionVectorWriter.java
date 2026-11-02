@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.delete;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
@@ -27,10 +28,12 @@ import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergPageSourceProviderFactory;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.plugin.iceberg.IcebergTableHandle;
+import io.trino.plugin.iceberg.ReferencedDataFile;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DeleteFile;
@@ -103,7 +106,7 @@ public class DefaultDeletionVectorWriter
     }
 
     @Override
-    public void writeDeletionVectors(
+    public Set<String> writeDeletionVectors(
             ConnectorSession session,
             Table icebergTable,
             IcebergTableHandle table,
@@ -114,7 +117,7 @@ public class DefaultDeletionVectorWriter
 
         // deletion vector info may contain multiple entries for the same data file; merge them here
         Map<String, DeletionVector.Builder> deletionVectorBuilders = deletionVectorInfos.stream().collect(toImmutableMap(
-                DeletionVectorInfo::dataFilePath,
+                info -> info.referencedDataFile().path(),
                 info -> DeletionVector.builder().deserialize(info.serializedDeletionVector()),
                 DeletionVector.Builder::addAll));
         // Load any existing delete files for the affected data files
@@ -178,16 +181,46 @@ public class DefaultDeletionVectorWriter
                         // at this point there should not be an empty deletion vector
                         entry -> entry.getValue().orElseThrow(() -> new VerifyException("Delection vector is empty"))));
 
+        // fully-covered data files are dropped instead of getting a deletion vector
+        Map<String, DeletionVectorInfo> deletionVectorInfoByPath = deletionVectorInfos.stream()
+                .collect(toImmutableMap(
+                        info -> info.referencedDataFile().path(),
+                        Function.identity(),
+                        (left, right) -> {
+                            verify(left.partitionSpec().equals(right.partitionSpec()), "Mismatched partition specs for data file: %s", left.referencedDataFile().path());
+                            return left;
+                        }));
+        Map<String, DeletionVector> partiallyDeletedFiles = new HashMap<>();
+        for (Map.Entry<String, DeletionVector> entry : deletionVectors.entrySet()) {
+            String dataFilePath = entry.getKey();
+            DeletionVector deletionVector = entry.getValue();
+            DeletionVectorInfo deletionVectorInfo = deletionVectorInfoByPath.get(dataFilePath);
+            ReferencedDataFile referencedDataFile = deletionVectorInfo.referencedDataFile();
+            long cardinality = deletionVector.cardinality();
+            if (cardinality > referencedDataFile.recordCount()) {
+                throw new TrinoException(ICEBERG_BAD_DATA, "Deletion vector for %s has more positions (%s) than the data file has rows (%s)".formatted(dataFilePath, cardinality, referencedDataFile.recordCount()));
+            }
+            if (cardinality == referencedDataFile.recordCount()) {
+                // Iceberg matches the removed file to its manifest entry by location
+                rowDelta.removeRows(referencedDataFile.toDataFile(deletionVectorInfo.partitionSpec(), deletionVectorInfo.partitionData()));
+            }
+            else {
+                partiallyDeletedFiles.put(dataFilePath, deletionVector);
+            }
+        }
+
         // Write a single Puffin file containing all DVs; get blob offsets/lengths back.
         LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), table.getTableLocation(), table.getStorageProperties());
 
         // write deletion vectors to a puffin file and delete files to the row delta
-        writeDeletionVectorsPuffin(session, icebergTable, locationProvider, deletionVectorInfos, deletionVectors, trinoVersion)
+        writeDeletionVectorsPuffin(session, icebergTable, locationProvider, deletionVectorInfoByPath, partiallyDeletedFiles, trinoVersion)
                 .forEach(rowDelta::addDeletes);
 
-        // remove existing DVs and file-scoped position deletes
+        // remove existing DVs and file-scoped position deletes, including for dropped files
         existingDeletes.deletionVectors().values().forEach(rowDelta::removeDeletes);
         existingDeletes.fileScopedDeletes().values().forEach(rowDelta::removeDeletes);
+
+        return Sets.difference(deletionVectors.keySet(), partiallyDeletedFiles.keySet());
     }
 
     private static ExistingDeletes getExistingDeletesByMetadataOnly(Table table, long snapshotId, Set<String> dataFilePaths)
@@ -242,7 +275,7 @@ public class DefaultDeletionVectorWriter
             ConnectorSession session,
             Table icebergTable,
             LocationProvider locationProvider,
-            List<DeletionVectorInfo> deletionVectorInfos,
+            Map<String, DeletionVectorInfo> deletionVectorInfoByPath,
             Map<String, DeletionVector> deletionVectors,
             String trinoVersion)
     {
@@ -262,15 +295,6 @@ public class DefaultDeletionVectorWriter
 
                 writer.finish();
 
-                Map<String, DeletionVectorInfo> partitionInfo = deletionVectorInfos.stream()
-                        .collect(toImmutableMap(
-                                DeletionVectorInfo::dataFilePath,
-                                Function.identity(),
-                                (left, right) -> {
-                                    verify(left.partitionSpec().equals(right.partitionSpec()), "Mismatched partition specs for data file: %s", left.dataFilePath());
-                                    return left;
-                                }));
-
                 List<DeleteFile> deleteFiles = new ArrayList<>(deletionVectors.size());
                 for (BlobMetadata meta : writer.writtenBlobsMetadata()) {
                     verify(DV_V1.equals(meta.type()), "Unexpected blob type written to deletion vector puffin file: %s", meta.type());
@@ -278,7 +302,7 @@ public class DefaultDeletionVectorWriter
                     String referencedDataFile = meta.properties().get(REFERENCED_DATA_FILE_KEY);
                     verify(referencedDataFile != null, "DV blob missing '%s' property", REFERENCED_DATA_FILE_KEY);
 
-                    DeletionVectorInfo deletionVectorInfo = partitionInfo.get(referencedDataFile);
+                    DeletionVectorInfo deletionVectorInfo = deletionVectorInfoByPath.get(referencedDataFile);
                     verify(deletionVectorInfo != null, "No DeletionVectorInfo found for data file: %s", referencedDataFile);
 
                     long cardinality = Long.parseLong(meta.properties().get(CARDINALITY_KEY));
@@ -313,7 +337,7 @@ public class DefaultDeletionVectorWriter
     // TODO (https://github.com/trinodb/trino/issues/29957) memory usage reporting
     private ConnectorPageSource openDeleteFilePageSource(ConnectorSession session, DeleteFile deleteFile, TrinoFileSystem fileSystem)
     {
-        return pageSourceProviderFactory.createPageSourceProvider().openDeleteFile(
+        return pageSourceProviderFactory.createPageSourceProvider(MemoryContext.NO_LIMIT).openDeleteFile(
                 session,
                 fileSystem,
                 io.trino.plugin.iceberg.delete.DeleteFile.fromIceberg(deleteFile),

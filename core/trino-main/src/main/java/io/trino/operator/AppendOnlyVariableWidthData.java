@@ -20,7 +20,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.List;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -76,16 +75,6 @@ public final class AppendOnlyVariableWidthData
         return addExact(
                 INSTANCE_SIZE,
                 addExact(chunksRetainedSizeInBytes, sizeOf(chunks.elements())));
-    }
-
-    public List<byte[]> getAllChunks()
-    {
-        return chunks;
-    }
-
-    public long getAllocatedBytes()
-    {
-        return allocatedBytes;
     }
 
     public long getFreeBytes()

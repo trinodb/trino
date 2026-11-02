@@ -19,11 +19,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import com.google.errorprone.annotations.DoNotCall;
+import io.airlift.slice.Slice;
+import io.trino.json.Json;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Objects;
 
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -65,6 +68,48 @@ public record Constant(Type type, @JsonIgnore Object value)
     public List<? extends Expression> children()
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        if (!(other instanceof Constant that) || !type.equals(that.type)) {
+            return false;
+        }
+        // Expression substitution must preserve representation, unlike SQL grouping equality.
+        if (value instanceof Json left && that.value instanceof Json right) {
+            if (left.isRawText() != right.isRawText()) {
+                return false;
+            }
+            Slice leftBytes = jsonBytes(left);
+            Slice rightBytes = jsonBytes(right);
+            return leftBytes.equals(jsonOffset(left), jsonLength(left), rightBytes, jsonOffset(right), jsonLength(right));
+        }
+        return Objects.equals(value, that.value);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int valueHash = value instanceof Json json
+                ? jsonBytes(json).hashCode(jsonOffset(json), jsonLength(json))
+                : Objects.hashCode(value);
+        return 31 * type.hashCode() + valueHash;
+    }
+
+    private static Slice jsonBytes(Json value)
+    {
+        return value.isRawText() ? value.rawText() : value.backingSlice();
+    }
+
+    private static int jsonOffset(Json value)
+    {
+        return value.isRawText() ? 0 : value.viewOffset();
+    }
+
+    private static int jsonLength(Json value)
+    {
+        return value.isRawText() ? value.rawText().length() : value.viewEnd() - value.viewOffset();
     }
 
     @Override

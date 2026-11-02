@@ -19,6 +19,11 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
+import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -63,7 +68,12 @@ public class TestUnboundedVarcharType
     @Test
     public void testPreviousValue()
     {
+        // a lesser value can always be extended with the highest code point, so there is no greatest lesser value
         assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+        assertThat(type.getPreviousValue(EMPTY_SLICE))
+                .isEmpty();
+        assertThat(type.getPreviousValue(utf8Slice("apple\0")))
                 .isEmpty();
     }
 
@@ -71,6 +81,12 @@ public class TestUnboundedVarcharType
     public void testNextValue()
     {
         assertThat(type.getNextValue(getSampleValue()))
+                .isEqualTo(Optional.of(utf8Slice("apple\0")));
+        assertThat(type.getNextValue(EMPTY_SLICE))
+                .isEqualTo(Optional.of(utf8Slice("\0")));
+
+        // a value that is not valid UTF-8 has no known neighbors
+        assertThat(type.getNextValue(wrappedBuffer((byte) 0xC3)))
                 .isEmpty();
     }
 }

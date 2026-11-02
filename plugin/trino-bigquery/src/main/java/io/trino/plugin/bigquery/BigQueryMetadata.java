@@ -14,6 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.api.core.ApiFuture;
+import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
@@ -132,11 +133,13 @@ import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_BAD_WRITE;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_CREATE_SCHEMA;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_TABLE_ERROR;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_OPERATION;
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_DATE;
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_TIME;
+import static io.trino.plugin.bigquery.BigQuerySchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isSkipViewMaterialization;
 import static io.trino.plugin.bigquery.BigQueryTableHandle.BigQueryPartitionType.INGESTION;
@@ -152,6 +155,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.function.Function.identity;
 
 public class BigQueryMetadata
@@ -168,6 +172,7 @@ public class BigQueryMetadata
 
     private final BigQueryClientFactory bigQueryClientFactory;
     private final BigQueryWriteClientFactory writeClientFactory;
+    private final RetrySettings writerRetrySettings;
     private final BigQueryTypeManager typeManager;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
     private final ListeningExecutorService executorService;
@@ -176,12 +181,14 @@ public class BigQueryMetadata
     public BigQueryMetadata(
             BigQueryClientFactory bigQueryClientFactory,
             BigQueryWriteClientFactory writeClientFactory,
+            RetrySettings writerRetrySettings,
             BigQueryTypeManager typeManager,
             ListeningExecutorService executorService,
             boolean isLegacyMetadataListing)
     {
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory is null");
         this.writeClientFactory = requireNonNull(writeClientFactory, "writeClientFactory is null");
+        this.writerRetrySettings = requireNonNull(writerRetrySettings, "writerRetrySettings is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.isLegacyMetadataListing = isLegacyMetadataListing;
@@ -508,9 +515,14 @@ public class BigQueryMetadata
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
-        checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
-        DatasetInfo datasetInfo = DatasetInfo.newBuilder(client.toDatasetId(schemaName)).build();
-        client.createSchema(datasetInfo);
+        DatasetInfo.Builder datasetInfo = DatasetInfo.newBuilder(client.toDatasetId(schemaName));
+        BigQuerySchemaProperties.location(properties).ifPresent(datasetInfo::setLocation);
+        try {
+            client.createSchema(datasetInfo.build());
+        }
+        catch (BigQueryException e) {
+            throw new TrinoException(BIGQUERY_CREATE_SCHEMA, "Failed to create schema. " + requireNonNullElse(e.getMessage(), e), e);
+        }
     }
 
     @Override
@@ -520,6 +532,24 @@ public class BigQueryMetadata
         DatasetId localDatasetId = client.toDatasetId(schemaName);
         String remoteSchemaName = getRemoteSchemaName(client, localDatasetId.getProject(), localDatasetId.getDataset());
         client.dropSchema(DatasetId.of(localDatasetId.getProject(), remoteSchemaName), cascade);
+    }
+
+    @Override
+    public Map<String, Object> getSchemaProperties(ConnectorSession session, String schemaName)
+    {
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        DatasetId localDatasetId = client.toDatasetId(schemaName);
+        String remoteSchemaName = getRemoteSchemaName(client, localDatasetId.getProject(), localDatasetId.getDataset());
+        DatasetInfo dataset = client.getDataset(DatasetId.of(localDatasetId.getProject(), remoteSchemaName));
+        if (dataset == null) {
+            throw new SchemaNotFoundException(schemaName);
+        }
+
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        if (dataset.getLocation() != null) {
+            properties.put(LOCATION_PROPERTY, dataset.getLocation());
+        }
+        return properties.buildOrThrow();
     }
 
     private void setRollback(Runnable action)
@@ -767,7 +797,7 @@ public class BigQueryMetadata
             WriteStream stream = writeClient.createWriteStream(createWriteStreamRequest);
             JSONArray batch = new JSONArray();
             fragments.forEach(slice -> batch.put(ImmutableMap.of(pageSinkIdColumnName, slice.getLong(0))));
-            try (JsonStreamWriter writer = JsonStreamWriter.newBuilder(stream.getName(), stream.getTableSchema(), writeClient).build()) {
+            try (JsonStreamWriter writer = JsonStreamWriter.newBuilder(stream.getName(), stream.getTableSchema(), writeClient).setRetrySettings(writerRetrySettings).build()) {
                 ApiFuture<AppendRowsResponse> future = writer.append(batch);
                 AppendRowsResponse response = future.get();
                 if (response.hasError()) {
@@ -1097,7 +1127,7 @@ public class BigQueryMetadata
     {
         BigQueryTableHandle table = (BigQueryTableHandle) handle;
 
-        if (table.limit().isPresent() && table.limit().getAsLong() <= limit) {
+        if (table.limit().isPresent() && table.limit().orElseThrow() <= limit) {
             return Optional.empty();
         }
 

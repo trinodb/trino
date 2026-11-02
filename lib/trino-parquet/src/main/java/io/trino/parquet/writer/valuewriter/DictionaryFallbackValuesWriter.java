@@ -19,7 +19,6 @@ import jakarta.annotation.Nullable;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
-import org.apache.parquet.io.api.Binary;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -62,7 +61,8 @@ public class DictionaryFallbackValuesWriter
         return rawDataByteSize;
     }
 
-    public long getEstimatedBufferedSize()
+    @Override
+    public long getEstimatedDataPageSize()
     {
         long estimatedBufferedSize = currentWriter.getBufferedSize();
         if (!fellBackAlready && firstPage && initialWriter != null &&
@@ -70,6 +70,22 @@ public class DictionaryFallbackValuesWriter
             return rawDataByteSize;
         }
         return estimatedBufferedSize;
+    }
+
+    @Override
+    public long getEstimatedDictionaryPageSize()
+    {
+        if (!fellBackAlready && firstPage && initialWriter != null &&
+                !initialWriter.isCompressionSatisfying(rawDataByteSize, initialWriter.getBufferedSize())) {
+            return 0;
+        }
+        if (!fellBackAlready && initialWriter != null) {
+            return initialWriter.getDictionaryByteSize();
+        }
+        if (initialUsedAndHadDictionary) {
+            return initialWriter.getLastUsedDictionaryByteSize();
+        }
+        return 0;
     }
 
     @Override
@@ -155,10 +171,12 @@ public class DictionaryFallbackValuesWriter
     public String memUsageString(String prefix)
     {
         return String.format(
-                "%s FallbackValuesWriter{\n"
-                        + "%s\n"
-                        + "%s\n"
-                        + "%s}\n",
+                """
+                %s FallbackValuesWriter{
+                %s
+                %s
+                %s}
+                """,
                 prefix,
                 initialWriter != null ? initialWriter.memUsageString(prefix + " initial:") : "",
                 fallBackWriter.memUsageString(prefix + " fallback:"),
@@ -184,11 +202,10 @@ public class DictionaryFallbackValuesWriter
     }
 
     @Override
-    public void writeBytes(Binary value)
+    public void writeBytes(Slice base, int offset, int length)
     {
-        // For raw data, length(4 bytes int) is stored, followed by the binary content itself
-        rawDataByteSize += value.length() + Integer.BYTES;
-        currentWriter.writeBytes(value);
+        rawDataByteSize += length + Integer.BYTES;
+        currentWriter.writeBytes(base, offset, length);
         checkFallback();
     }
 
@@ -231,9 +248,9 @@ public class DictionaryFallbackValuesWriter
     }
 
     @VisibleForTesting
-    public org.apache.parquet.column.values.ValuesWriter getFallBackWriter()
+    public ValuesWriter getFallBackWriter()
     {
-        return ((ParquetValuesWriterAdapter) fallBackWriter).getDelegate();
+        return fallBackWriter;
     }
 
     private void checkFallback()

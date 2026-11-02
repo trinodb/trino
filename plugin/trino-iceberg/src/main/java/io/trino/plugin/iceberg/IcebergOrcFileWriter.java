@@ -191,7 +191,7 @@ public final class IcebergOrcFileWriter
     public void rollback()
     {
         try (Closeable _ = rollbackAction::run) {
-            orcWriter.close();
+            orcWriter.abort();
         }
         catch (Exception e) {
             throw new TrinoException(ICEBERG_WRITER_CLOSE_ERROR, "Error rolling back write to ORC file", e);

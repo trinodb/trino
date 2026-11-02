@@ -52,6 +52,7 @@ import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -536,7 +537,15 @@ public final class SortedRangeSet
     }
 
     @Override
-    public SortedRangeSet intersect(ValueSet other)
+    public ValueSet intersect(ValueSet other)
+    {
+        if (other instanceof FloatingPointValueSet floatingPoint) {
+            return floatingPoint.intersect(this);
+        }
+        return intersect(checkCompatibility(other));
+    }
+
+    public SortedRangeSet intersect(SortedRangeSet other)
     {
         SortedRangeSet that = checkCompatibility(other);
 
@@ -802,6 +811,19 @@ public final class SortedRangeSet
     @Override
     public boolean overlaps(ValueSet other)
     {
+        if (other instanceof FloatingPointValueSet floatingPoint) {
+            return floatingPoint.overlaps(this);
+        }
+        if (typeHasNaN(type)) {
+            // An unbounded end and an inclusive infinity denote the same ordered values
+            return FloatingPointValueSet.fromRanges(this).overlaps(other);
+        }
+        return overlaps(checkCompatibility(other));
+    }
+
+    /// Compares the ranges of both sets without interpreting NaN membership.
+    boolean overlaps(SortedRangeSet other)
+    {
         SortedRangeSet that = checkCompatibility(other);
 
         if (this.isNone() || that.isNone()) {
@@ -931,7 +953,17 @@ public final class SortedRangeSet
     }
 
     @Override
-    public SortedRangeSet union(Collection<ValueSet> valueSets)
+    public ValueSet union(Collection<ValueSet> valueSets)
+    {
+        // A union of proper subsets can cover every ordered value. Join them with explicit NaN
+        // membership, so the result does not become the all-values set, which includes NaN.
+        if (typeHasNaN(type) || valueSets.stream().anyMatch(FloatingPointValueSet.class::isInstance)) {
+            return FloatingPointValueSet.fromRanges(this).union(valueSets);
+        }
+        return unionRanges(valueSets.stream().map(this::checkCompatibility).toList());
+    }
+
+    SortedRangeSet unionRanges(Collection<SortedRangeSet> valueSets)
     {
         if (this.isAll()) {
             return this;
@@ -965,7 +997,29 @@ public final class SortedRangeSet
     }
 
     @Override
-    public SortedRangeSet union(ValueSet other)
+    public ValueSet union(ValueSet other)
+    {
+        if (other instanceof FloatingPointValueSet floatingPoint) {
+            return floatingPoint.union(this);
+        }
+        if (typeHasNaN(type)) {
+            // See union(Collection)
+            return FloatingPointValueSet.fromRanges(this).union(other);
+        }
+        return union(checkCompatibility(other));
+    }
+
+    @Override
+    public ValueSet subtract(ValueSet other)
+    {
+        if (typeHasNaN(type) || other instanceof FloatingPointValueSet) {
+            // The complement of a proper subset excludes NaN even when this set includes it
+            return FloatingPointValueSet.fromRanges(this).subtract(other);
+        }
+        return intersect(other.complement());
+    }
+
+    public SortedRangeSet union(SortedRangeSet other)
     {
         SortedRangeSet that = checkCompatibility(other);
 
@@ -1140,6 +1194,16 @@ public final class SortedRangeSet
 
     @Override
     public boolean contains(ValueSet other)
+    {
+        // An unbounded end and an inclusive infinity denote the same ordered values
+        if (typeHasNaN(type) || other instanceof FloatingPointValueSet) {
+            return FloatingPointValueSet.fromRanges(this).contains(other);
+        }
+        return contains(checkCompatibility(other));
+    }
+
+    /// Compares the ranges of both sets without interpreting NaN membership.
+    boolean contains(SortedRangeSet other)
     {
         SortedRangeSet that = checkCompatibility(other);
 

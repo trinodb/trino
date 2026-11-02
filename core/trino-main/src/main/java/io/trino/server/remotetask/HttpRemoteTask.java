@@ -73,7 +73,6 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
-import jakarta.ws.rs.ServiceUnavailableException;
 
 import java.net.URI;
 import java.time.Instant;
@@ -107,6 +106,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.HttpStatus.SERVICE_UNAVAILABLE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -383,7 +383,10 @@ public final class HttpRemoteTask
                     cleanUpTask(state);
                 }
                 else {
-                    partitionedSplitCountTracker.setPartitionedSplits(getPartitionedSplitsInfo());
+                    // synchronized with cleanUpTask so a stale status cannot overwrite the final zero count
+                    synchronized (this) {
+                        partitionedSplitCountTracker.setPartitionedSplits(getPartitionedSplitsInfo());
+                    }
                     updateSplitQueueSpace();
                 }
                 if (state.isDone()) {
@@ -612,7 +615,7 @@ public final class HttpRemoteTask
     public synchronized ListenableFuture<Void> whenSplitQueueHasSpace(long weightThreshold)
     {
         if (whenSplitQueueHasSpaceThreshold.isPresent()) {
-            checkArgument(weightThreshold == whenSplitQueueHasSpaceThreshold.getAsLong(), "Multiple split queue space notification thresholds not supported");
+            checkArgument(weightThreshold == whenSplitQueueHasSpaceThreshold.orElseThrow(), "Multiple split queue space notification thresholds not supported");
         }
         else {
             whenSplitQueueHasSpaceThreshold = OptionalLong.of(weightThreshold);
@@ -634,7 +637,7 @@ public final class HttpRemoteTask
     {
         // Must check whether the unacknowledged split count threshold is reached even without listeners registered yet
         splitQueueHasSpace = getUnacknowledgedPartitionedSplitCount() < maxUnacknowledgedSplits &&
-                (whenSplitQueueHasSpaceThreshold.isEmpty() || getQueuedPartitionedSplitsWeight() < whenSplitQueueHasSpaceThreshold.getAsLong());
+                (whenSplitQueueHasSpaceThreshold.isEmpty() || getQueuedPartitionedSplitsWeight() < whenSplitQueueHasSpaceThreshold.orElseThrow());
         // Only trigger notifications if a listener might be registered
         if (splitQueueHasSpace && whenSplitQueueHasSpaceThreshold.isPresent()) {
             whenSplitQueueHasSpace.complete(null, executor);
@@ -929,7 +932,15 @@ public final class HttpRemoteTask
                 if (currentTimeNanos == 0) {
                     currentTimeNanos = 1;
                 }
-                this.terminationStartedNanos.compareAndSet(0, currentTimeNanos);
+                if (this.terminationStartedNanos.compareAndSet(0, currentTimeNanos)) {
+                    errorScheduledExecutor.schedule(() -> {
+                        if (!getTaskStatus().state().isDone()) {
+                            fatalUnacknowledgedFailure(new TrinoException(REMOTE_TASK_ERROR, format("Task %s failed to terminate after %s, last known state: %s", taskId, taskTerminationTimeout, getTaskStatus().state())));
+                            // the worker never reported a final state, so final task info will not arrive from it
+                            forceFinalizationUsingTaskStatus();
+                        }
+                    }, taskTerminationTimeout.roundTo(NANOSECONDS), NANOSECONDS);
+                }
             }
             else {
                 Duration terminatingTime = nanosSince(terminationStartedNanos);
@@ -992,7 +1003,7 @@ public final class HttpRemoteTask
             public void onSuccess(JsonResponse<TaskInfo> result)
             {
                 if (result.getStatusCode() != OK.code()) {
-                    onFailure(exceptionForErrorCode(result));
+                    onFailure(exceptionForErrorCode(result, request.getUri()));
                     return;
                 }
 
@@ -1013,10 +1024,10 @@ public final class HttpRemoteTask
                 }
             }
 
-            private static RuntimeException exceptionForErrorCode(JsonResponse<TaskInfo> result)
+            private static RuntimeException exceptionForErrorCode(JsonResponse<TaskInfo> result, URI uri)
             {
                 return switch (result.getStatusCode()) {
-                    case HTTP_UNAVAILABLE -> new ServiceUnavailableException("Service Unavailable");
+                    case HTTP_UNAVAILABLE -> new RetryableResponseException(SERVICE_UNAVAILABLE, uri);
                     default -> new RuntimeException("Unexpected http status code " + result.getStatusCode());
                 };
             }
@@ -1153,6 +1164,13 @@ public final class HttpRemoteTask
                 }
             }
         }
+    }
+
+    @Override
+    public void forceFinalizationUsingTaskStatus()
+    {
+        checkState(getTaskStatus().state().isDone(), "task status is not terminal");
+        taskInfoFetcher.updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
     }
 
     @Override

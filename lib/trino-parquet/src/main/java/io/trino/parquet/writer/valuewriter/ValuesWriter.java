@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
-import org.apache.parquet.io.api.Binary;
 
 /**
  * Based on org.apache.parquet.column.values.ValuesWriter, adapted so binary values
@@ -30,6 +29,22 @@ public abstract class ValuesWriter
      * @return the size of the currently buffered data in bytes, used to decide when to move to the next page
      */
     public abstract long getBufferedSize();
+
+    /**
+     * @return the estimated uncompressed size of the data buffered for the current data page
+     */
+    public long getEstimatedDataPageSize()
+    {
+        return getBufferedSize();
+    }
+
+    /**
+     * @return the estimated uncompressed size of the dictionary page associated with the current row group
+     */
+    public long getEstimatedDictionaryPageSize()
+    {
+        return 0;
+    }
 
     /**
      * @return the bytes buffered so far to write to the current page
@@ -80,12 +95,12 @@ public abstract class ValuesWriter
         throw new UnsupportedOperationException(getClass().getName());
     }
 
-    public void writeBytes(Slice value)
+    public void writeBytes(Slice base, int offset, int length)
     {
-        throw new UnsupportedOperationException(getClass().getName());
+        writeBytes(base.slice(offset, length));
     }
 
-    public void writeBytes(Binary value)
+    public void writeBytes(Slice value)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }

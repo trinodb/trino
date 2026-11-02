@@ -15,6 +15,7 @@ package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
+import io.trino.spi.Unstable;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
@@ -94,6 +95,12 @@ public class NumberType
     public String getDisplayName()
     {
         return NAME;
+    }
+
+    @Unstable
+    public static int currentMaxPrecision()
+    {
+        return MAX_DECIMAL_PRECISION;
     }
 
     @Override

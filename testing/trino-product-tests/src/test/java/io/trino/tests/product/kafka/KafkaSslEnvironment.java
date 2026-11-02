@@ -53,10 +53,10 @@ public class KafkaSslEnvironment
     @Override
     protected void customizeTrinoContainer(TrinoContainer container)
     {
-        configureTrinoContainer(container);
+        configureKafkaClient(container);
     }
 
-    static void configureTrinoContainer(TrinoContainer container)
+    static void configureKafkaClient(TrinoContainer container)
     {
         container.withCopyFileToContainer(
                 MountableFile.forClasspathResource("kafka/ssl/secrets/kafka.client.keystore"),

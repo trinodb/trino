@@ -62,6 +62,11 @@ public class InputChannels
         return inputChannels.length;
     }
 
+    public boolean isEagerlyLoaded(int channel)
+    {
+        return eagerlyLoad != null && eagerlyLoad[channel];
+    }
+
     public List<Integer> getInputChannels()
     {
         return Collections.unmodifiableList(Ints.asList(inputChannels));
@@ -182,6 +187,11 @@ public class InputChannels
         public void selectPositions(int[] positions, int offset, int size)
         {
             sourcePage.selectPositions(positions, offset, size);
+            selectLoadedBlocks(positions, offset, size);
+        }
+
+        private void selectLoadedBlocks(int[] positions, int offset, int size)
+        {
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
                 if (block != null) {

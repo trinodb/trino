@@ -29,6 +29,7 @@ import io.trino.spi.security.Identity;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.TypeDescriptorTranslator;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RefreshView;
@@ -110,7 +111,7 @@ public class RefreshViewTask
 
         Session viewSession = session.createViewSession(viewDefinition.getCatalog(), viewDefinition.getSchema(), identity, viewDefinition.getPath());
 
-        Statement viewDefinitionSql = sqlParser.createStatement(viewDefinition.getOriginalSql());
+        Statement viewDefinitionSql = sqlParser.createStatement(viewDefinition.getOriginalSql(), TypeDescriptorTranslator::normalizeStoredIntervalType);
 
         Analysis analysis = analyzerFactory.createAnalyzer(
                         viewSession,
@@ -129,7 +130,7 @@ public class RefreshViewTask
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(viewDefinitionSql)
                 .getVisibleFields().stream()
-                .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId(), Optional.ofNullable(columnComments.get(field.getName().get()))))
+                .map(field -> ViewColumn.fromType(field.getName().get(), field.getType(), Optional.ofNullable(columnComments.get(field.getName().get()))))
                 .collect(toImmutableList());
 
         ViewDefinition viewDefinitionWithNewColumns = new ViewDefinition(

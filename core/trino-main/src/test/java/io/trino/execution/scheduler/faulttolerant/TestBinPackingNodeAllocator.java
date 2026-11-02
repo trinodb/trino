@@ -156,6 +156,71 @@ public class TestBinPackingNodeAllocator
 
     @Test
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testAllocateNoMemoryTaskOnClusterWithoutFreeMemory()
+    {
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
+            // reserve all the memory of both nodes (each task requires 32GB and we have 2 nodes with 64GB each)
+            assertAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD), NODE_1);
+            assertAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD), NODE_2);
+            assertAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD), NODE_1);
+            assertAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD), NODE_2);
+
+            // tasks requiring memory block, as no node has any left; one per node, so every node is marked as being out of memory
+            assertNotAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD));
+            assertNotAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD));
+
+            // tasks which do not reserve any memory, e.g. ones only reading catalog metadata, are not blocked by that
+            // and get spread across nodes instead of piling up on a single one
+            assertAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.ofBytes(0), STANDARD), NODE_1);
+            assertAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.ofBytes(0), STANDARD), NODE_2);
+            assertAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.ofBytes(0), STANDARD), NODE_1);
+            assertAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.ofBytes(0), STANDARD), NODE_2);
+        }
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testAllocateNoMemoryTaskSpreadWithUnevenPriorLoad()
+    {
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
+            // pin memory-consuming tasks to make NODE_1 hold more acquires than NODE_2
+            assertAcquired(nodeAllocator.acquire(REQ_NODE_1, DataSize.of(8, GIGABYTE), STANDARD), NODE_1);
+            assertAcquired(nodeAllocator.acquire(REQ_NODE_1, DataSize.of(8, GIGABYTE), STANDARD), NODE_1);
+            assertAcquired(nodeAllocator.acquire(REQ_NODE_2, DataSize.of(8, GIGABYTE), STANDARD), NODE_2);
+
+            // NODE_1 has 2 acquires, NODE_2 has 1; first zero-memory task goes to the less loaded NODE_2, next balances
+            assertAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.ofBytes(0), STANDARD), NODE_2);
+            assertAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.ofBytes(0), STANDARD), NODE_1);
+        }
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testAllocateNoMemoryTaskSpreadCountsSpeculativeAcquires()
+    {
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
+            // pin speculative tasks to make NODE_1 hold more speculative acquires than NODE_2
+            assertAcquired(nodeAllocator.acquire(REQ_NODE_1, DataSize.of(8, GIGABYTE), SPECULATIVE), NODE_1);
+            assertAcquired(nodeAllocator.acquire(REQ_NODE_1, DataSize.of(8, GIGABYTE), SPECULATIVE), NODE_1);
+            assertAcquired(nodeAllocator.acquire(REQ_NODE_2, DataSize.of(8, GIGABYTE), SPECULATIVE), NODE_2);
+
+            // standard zero-memory acquire avoids NODE_1: speculative acquires are counted for spread even though their
+            // memory usage is ignored when evaluating standard tasks
+            assertAcquired(nodeAllocator.acquire(REQ_NONE, DataSize.ofBytes(0), STANDARD), NODE_2);
+        }
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateSimple()
     {
         TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);

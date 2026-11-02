@@ -45,6 +45,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -123,6 +124,27 @@ public class TestMongoConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         return abort("MongoDB connector does not support column default values");
+    }
+
+    @Test
+    public void testFloatingPointRangePushdownWithNaN()
+    {
+        for (String type : List.of("real", "double")) {
+            try (TestTable table = newTrinoTable(
+                    "test_nan_range_pushdown",
+                    "(id integer, x " + type + ")",
+                    List.of("1, -infinity()", "2, -1", "3, 0", "4, 1", "5, infinity()", "6, nan()", "7, NULL"))) {
+                assertThat(query("SELECT id FROM " + table.getName() + " WHERE x < 0"))
+                        .matches("VALUES 1, 2")
+                        .isFullyPushedDown();
+                assertThat(query("SELECT id FROM " + table.getName() + " WHERE x > 0"))
+                        .matches("VALUES 4, 5")
+                        .isFullyPushedDown();
+                assertThat(query("SELECT id FROM " + table.getName() + " WHERE x < 0 OR x > 0 OR x IS NULL"))
+                        .matches("VALUES 1, 2, 4, 5, 7")
+                        .isFullyPushedDown();
+            }
+        }
     }
 
     @Test
@@ -205,6 +227,32 @@ public class TestMongoConnectorTest
                     .matches("VALUES (VARCHAR '" + table + "', VARCHAR 'lowercase')");
             assertThat(query("SELECT * FROM " + schema + "." + table))
                     .matches("VALUES BIGINT '1'");
+        }
+        finally {
+            client.getDatabase(schema).drop();
+        }
+    }
+
+    @Test
+    void testOnlyNonLowercaseCollectionIsNotQueryable()
+    {
+        String suffix = randomNameSuffix();
+        String schema = "test_db_" + suffix;
+        String table = "test_collection_" + suffix;
+        String upperCaseTable = table.toUpperCase(ENGLISH);
+        try {
+            MongoDatabase db = client.getDatabase(schema);
+            db.createCollection(upperCaseTable);
+            db.getCollection(upperCaseTable).insertOne(new Document("uppercase", 1));
+
+            assertThat(query("SELECT table_name FROM mongodb.information_schema.tables WHERE table_schema = '" + schema + "'"))
+                    .matches("VALUES VARCHAR '" + table + "'");
+
+            assertThat(query("SELECT * FROM " + schema + "." + table)).failure()
+                    .hasMessageMatching(".*Table 'mongodb\\.%s\\.%s' does not exist".formatted(schema, table));
+
+            assertThat(db.getCollection("_schema").find(new Document("table", table)).first())
+                    .isNull();
         }
         finally {
             client.getDatabase(schema).drop();
@@ -517,15 +565,17 @@ public class TestMongoConnectorTest
                 Arrays.asList("decimal '3141592653589793238462643383279502'", null))) {
             // Filter clause with 38 precision decimal value
             String predicateValue = "decimal '31415926535897932384626433832795028841'";
+            // The predicate value exceeds the column type's range, so PushPredicateIntoTableScan#pushFilterIntoTableScan
+            // replaces the table scan with a ValuesNode and there is no pushdown to verify.
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + predicateValue))
-                    // With EQUAL operator when column type precision is less than the predicate value's precision,
-                    // PushPredicateIntoTableScan#pushFilterIntoTableScan returns ValuesNode. So It is not possible to verify isFullyPushedDown.
+                    .returnsEmptyResult();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col > " + predicateValue))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col >= " + predicateValue))
                     .returnsEmptyResult();
             testPredicatePushdown(table.getName(), "col != " + predicateValue);
             testPredicatePushdown(table.getName(), "col < " + predicateValue);
-            testPredicatePushdown(table.getName(), "col > " + predicateValue);
             testPredicatePushdown(table.getName(), "col <= " + predicateValue);
-            testPredicatePushdown(table.getName(), "col >= " + predicateValue);
 
             // Filter clause with 34 precision decimal value
             predicateValue = "decimal '3141592653589793238462643383279502'";
@@ -1896,7 +1946,7 @@ public class TestMongoConnectorTest
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Invalid database name");
+        assertThat(e).hasMessageContaining("Invalid namespace specified");
     }
 
     @Override

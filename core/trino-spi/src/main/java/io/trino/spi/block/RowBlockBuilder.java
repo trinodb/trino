@@ -488,7 +488,7 @@ public class RowBlockBuilder
     {
         BlockBuilder[] newBlockBuilders = new BlockBuilder[fieldBlockBuilders.length];
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
+            newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(expectedEntries, blockBuilderStatus);
         }
         return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, expectedEntries, null);
     }
@@ -497,7 +497,7 @@ public class RowBlockBuilder
     {
         Block[] fieldBlocks = new Block[fieldBlockBuilders.length];
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            fieldBlocks[i] = fieldBlockBuilders[i].newBlockBuilderLike(null).appendNull().build();
+            fieldBlocks[i] = fieldBlockBuilders[i].newBlockBuilderLike(1, null).appendNull().build();
         }
 
         RowBlock nullRowBlock = createRowBlockInternal(0, 1, new long[] {0}, fieldBlocks);

@@ -84,6 +84,7 @@ public class AggregationOperator
     private final AggregationMetrics aggregationMetrics = new AggregationMetrics();
 
     private State state = State.NEEDS_INPUT;
+    private int preparedAggregatorCount;
 
     public AggregationOperator(OperatorContext operatorContext, List<AggregatorFactory> aggregatorFactories)
     {
@@ -134,12 +135,19 @@ public class AggregationOperator
         checkState(needsInput(), "Operator is already finishing");
         requireNonNull(page, "page is null");
 
-        long memorySize = 0;
         for (Aggregator aggregate : aggregates) {
             aggregate.processPage(page);
+        }
+        updateMemoryUsage();
+    }
+
+    private boolean updateMemoryUsage()
+    {
+        long memorySize = 0;
+        for (Aggregator aggregate : aggregates) {
             memorySize += aggregate.getEstimatedSize();
         }
-        userMemoryContext.setBytes(memorySize);
+        return userMemoryContext.setBytes(memorySize).isDone();
     }
 
     @Override
@@ -148,6 +156,15 @@ public class AggregationOperator
         if (state != State.HAS_OUTPUT) {
             updateOperatorMetrics();
             return null;
+        }
+
+        // an aggregator can grow while preparing final output (e.g. ordered aggregation replaying
+        // its buffered pages into a distinct hash); report that growth and yield when memory is blocked
+        while (preparedAggregatorCount < aggregates.size()) {
+            if (!aggregates.get(preparedAggregatorCount).prepareFinal(this::updateMemoryUsage)) {
+                return null;
+            }
+            preparedAggregatorCount++;
         }
 
         // project results into output blocks

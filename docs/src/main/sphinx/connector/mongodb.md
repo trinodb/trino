@@ -10,7 +10,7 @@ The `mongodb` connector allows the use of [MongoDB](https://www.mongodb.com/) co
 
 To connect to MongoDB, you need:
 
-- MongoDB 4.2 or higher.
+- MongoDB 6.0 or higher.
 - Network access from the Trino coordinator and workers to MongoDB.
   Port 27017 is the default port.
 - Write access to the {ref}`schema information collection <table-definition-label>`

@@ -131,6 +131,7 @@ import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.operator.scalar.ConcatWsFunction;
 import io.trino.operator.scalar.DataSizeFunctions;
 import io.trino.operator.scalar.DateTimeFunctions;
+import io.trino.operator.scalar.DivideRoundToScale;
 import io.trino.operator.scalar.EmptyMapConstructor;
 import io.trino.operator.scalar.FailureFunction;
 import io.trino.operator.scalar.FormatNumberFunction;
@@ -152,7 +153,7 @@ import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.JsonFunctions;
 import io.trino.operator.scalar.JsonOperators;
-import io.trino.operator.scalar.LegacyCharToVarcharCast;
+import io.trino.operator.scalar.JsonScalarFunction;
 import io.trino.operator.scalar.LuhnCheckFunction;
 import io.trino.operator.scalar.MapCardinalityFunction;
 import io.trino.operator.scalar.MapConcatFunction;
@@ -273,8 +274,6 @@ import io.trino.type.DecimalOperators;
 import io.trino.type.DoubleOperators;
 import io.trino.type.HyperLogLogOperators;
 import io.trino.type.IntegerOperators;
-import io.trino.type.IntervalDayTimeOperators;
-import io.trino.type.IntervalYearMonthOperators;
 import io.trino.type.IpAddressOperators;
 import io.trino.type.LikeFunctions;
 import io.trino.type.NumberOperators;
@@ -309,10 +308,17 @@ import static io.trino.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_A
 import static io.trino.operator.scalar.FormatFunction.FORMAT_FUNCTION;
 import static io.trino.operator.scalar.Greatest.GREATEST;
 import static io.trino.operator.scalar.IdentityCast.IDENTITY_CAST;
+import static io.trino.operator.scalar.IntervalExtractFunctions.INTERVAL_DAY;
+import static io.trino.operator.scalar.IntervalExtractFunctions.INTERVAL_DAY_OF_MONTH;
+import static io.trino.operator.scalar.IntervalExtractFunctions.INTERVAL_HOUR;
+import static io.trino.operator.scalar.IntervalExtractFunctions.INTERVAL_MILLISECOND;
+import static io.trino.operator.scalar.IntervalExtractFunctions.INTERVAL_MINUTE;
+import static io.trino.operator.scalar.IntervalExtractFunctions.INTERVAL_MONTH;
+import static io.trino.operator.scalar.IntervalExtractFunctions.INTERVAL_SECOND;
+import static io.trino.operator.scalar.IntervalExtractFunctions.INTERVAL_YEAR;
 import static io.trino.operator.scalar.JsonStringArrayExtractScalar.JSON_STRING_ARRAY_EXTRACT_SCALAR;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP;
-import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW;
 import static io.trino.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
 import static io.trino.operator.scalar.JsonToMapCast.JSON_TO_MAP;
 import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
@@ -380,6 +386,15 @@ import static io.trino.type.DecimalSaturatedFloorCasts.INTEGER_TO_DECIMAL_SATURA
 import static io.trino.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.trino.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.trino.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
+import static io.trino.type.IntervalCasts.INTERVAL_DAY_TIME_TO_INTERVAL_DAY_TIME_CAST;
+import static io.trino.type.IntervalCasts.INTERVAL_DAY_TIME_TO_VARCHAR_CAST;
+import static io.trino.type.IntervalCasts.INTERVAL_YEAR_MONTH_TO_INTERVAL_YEAR_MONTH_CAST;
+import static io.trino.type.IntervalCasts.INTERVAL_YEAR_MONTH_TO_VARCHAR_CAST;
+import static io.trino.type.IntervalCasts.VARCHAR_TO_INTERVAL_DAY_TIME_CAST;
+import static io.trino.type.IntervalCasts.VARCHAR_TO_INTERVAL_YEAR_MONTH_CAST;
+import static io.trino.type.IntervalCasts.intervalNumericCasts;
+import static io.trino.type.IntervalDayTimeOperators.intervalDayTimeOperators;
+import static io.trino.type.IntervalYearMonthOperators.intervalYearMonthOperators;
 
 public final class SystemFunctionBundle
 {
@@ -456,6 +471,7 @@ public final class SystemFunctionBundle
                 .aggregates(BitwiseXorAggregation.class)
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
+                .scalar(SequenceFunction.SequenceDateDayToSecond.class)
                 .scalars(SessionFunctions.class)
                 .scalars(StringFunctions.class)
                 .scalars(VarcharMethods.class)
@@ -479,6 +495,7 @@ public final class SystemFunctionBundle
                 .scalar(MathFunctions.IsNan.class)
                 .scalars(BitwiseFunctions.class)
                 .scalars(DateTimeFunctions.class)
+                .scalar(DateTimeFunctions.ToMilliseconds.class)
                 .scalar(DateTimeFunctions.FromUnixtimeNanosDecimal.class)
                 .scalars(JsonFunctions.class)
                 .scalars(JsonInputFunctions.class)
@@ -510,9 +527,10 @@ public final class SystemFunctionBundle
                 .scalars(CharOperators.class)
                 .scalars(VarcharOperators.class)
                 .scalars(DateOperators.class)
-                .scalars(IntervalDayTimeOperators.class)
-                .scalars(IntervalYearMonthOperators.class)
                 .scalars(DateTimeOperators.class)
+                .scalar(DateTimeOperators.DatePlusIntervalDayToSecond.class)
+                .scalar(DateTimeOperators.IntervalDayToSecondPlusDate.class)
+                .scalar(DateTimeOperators.DateMinusIntervalDayToSecond.class)
                 .scalars(HyperLogLogOperators.class)
                 .scalars(QuantileDigestOperators.class)
                 .scalars(TDigestOperators.class)
@@ -534,9 +552,10 @@ public final class SystemFunctionBundle
                 .scalars(FailureFunction.class)
                 .scalars(JoniRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
-                .scalars(featuresConfig.isLegacyVarcharToCharCoercion() ? LegacyCharToVarcharCast.class : CharToVarcharCast.class)
+                .scalars(CharToVarcharCast.class)
                 .scalars(LuhnCheckFunction.class)
                 .scalar(DecimalOperators.Negation.class)
+                .scalars(DivideRoundToScale.class)
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
                 .scalar(ArrayRemoveFunction.class)
                 .scalar(ArrayElementAtFunction.class)
@@ -619,11 +638,23 @@ public final class SystemFunctionBundle
                 .aggregates(MinByNAggregationFunction.class)
                 .aggregates(MaxByNAggregationFunction.class)
                 .aggregates(CountColumn.class)
-                .functions(JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
+                .functions(JSON_TO_ROW, ROW_TO_ROW_CAST)
                 .functions(ROW_TO_JSON, ARRAY_TO_JSON, MAP_TO_JSON)
+                .scalars(JsonScalarFunction.class)
+                .scalar(JsonScalarFunction.FromDecimal.class)
+                .scalar(JsonScalarFunction.FromTimeWithTimeZone.class)
+                .scalar(JsonScalarFunction.FromTimestamp.class)
+                .scalar(JsonScalarFunction.FromTimestampWithTimeZone.class)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(CONCAT_WS)
                 .function(DECIMAL_TO_DECIMAL_CAST)
+                .functions(INTERVAL_DAY_TIME_TO_INTERVAL_DAY_TIME_CAST, INTERVAL_YEAR_MONTH_TO_INTERVAL_YEAR_MONTH_CAST)
+                .functions(INTERVAL_DAY_TIME_TO_VARCHAR_CAST, INTERVAL_YEAR_MONTH_TO_VARCHAR_CAST)
+                .functions(INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_DAY_OF_MONTH, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_MILLISECOND)
+                .functions(VARCHAR_TO_INTERVAL_DAY_TIME_CAST, VARCHAR_TO_INTERVAL_YEAR_MONTH_CAST)
+                .functions(intervalNumericCasts())
+                .functions(intervalDayTimeOperators())
+                .functions(intervalYearMonthOperators())
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .aggregates(DecimalAverageAggregation.class)
@@ -654,6 +685,11 @@ public final class SystemFunctionBundle
                 .aggregates(VarcharApproximateMostFrequent.class)
                 .scalar(ArrayHistogramFunction.class);
 
+        // TODO (https://github.com/trinodb/trino/issues/30778) Restore char/varchar dynamic filtering domain coercion
+//        if (featuresConfig.isLegacyVarcharToCharCoercion()) {
+//            builder.scalars(LegacyVarcharToCharSaturatedFloorCast.class);
+//        }
+
         // timestamp operators and functions
         builder
                 .scalar(TimestampOperators.TimestampPlusIntervalDayToSecond.class)
@@ -662,7 +698,7 @@ public final class SystemFunctionBundle
                 .scalar(TimestampOperators.IntervalYearToMonthPlusTimestamp.class)
                 .scalar(TimestampOperators.TimestampMinusIntervalDayToSecond.class)
                 .scalar(TimestampOperators.TimestampMinusIntervalYearToMonth.class)
-                .scalar(TimestampOperators.TimestampMinusTimestamp.class)
+                .function(TimestampOperators.timestampMinusTimestamp())
                 .scalar(TimestampToTimestampCast.class)
                 .scalar(TimestampToTimeCast.class)
                 .scalar(TimestampToTimeWithTimeZoneCast.class)
@@ -709,7 +745,7 @@ public final class SystemFunctionBundle
                 .scalar(TimestampWithTimeZoneOperators.TimestampPlusIntervalYearToMonth.class)
                 .scalar(TimestampWithTimeZoneOperators.IntervalYearToMonthPlusTimestamp.class)
                 .scalar(TimestampWithTimeZoneOperators.TimestampMinusIntervalYearToMonth.class)
-                .scalar(TimestampWithTimeZoneOperators.TimestampMinusTimestamp.class)
+                .function(TimestampWithTimeZoneOperators.timestampMinusTimestamp())
                 .scalar(CurrentTimestamp.class)
                 .scalar(io.trino.operator.scalar.timestamptz.ExtractYear.class)
                 .scalar(io.trino.operator.scalar.timestamptz.ExtractQuarter.class)
@@ -750,6 +786,10 @@ public final class SystemFunctionBundle
         // time without time zone functions and operators
         builder.scalar(LocalTimeFunction.class)
                 .scalars(TimeOperators.class)
+                .scalar(TimeOperators.TimePlusIntervalDayToSecond.class)
+                .scalar(TimeOperators.IntervalDayToSecondPlusTime.class)
+                .scalar(TimeOperators.TimeMinusIntervalDayToSecond.class)
+                .function(TimeOperators.timeMinusTime())
                 .scalars(TimeFunctions.class)
                 .scalar(TimeToTimeWithTimeZoneCast.class);
 
@@ -758,7 +798,7 @@ public final class SystemFunctionBundle
                 .scalar(TimeWithTimeZoneOperators.TimePlusIntervalDayToSecond.class)
                 .scalar(TimeWithTimeZoneOperators.IntervalDayToSecondPlusTime.class)
                 .scalar(TimeWithTimeZoneOperators.TimeMinusIntervalDayToSecond.class)
-                .scalar(TimeWithTimeZoneOperators.TimeMinusTime.class)
+                .function(TimeWithTimeZoneOperators.timeMinusTime())
                 .scalar(TimeWithTimeZoneToTimeCast.class)
                 .scalar(TimeWithTimeZoneToTimeWithTimeZoneCast.class)
                 .scalar(TimeWithTimeZoneToVarcharCast.class)

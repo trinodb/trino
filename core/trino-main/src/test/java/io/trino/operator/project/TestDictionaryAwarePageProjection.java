@@ -29,6 +29,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
@@ -150,6 +151,41 @@ public class TestDictionaryAwarePageProjection
     }
 
     @Test
+    public void testFallbackProjectsFlatDictionary()
+    {
+        AtomicReference<Class<?>> innerInputClass = new AtomicReference<>();
+        DictionaryAwarePageProjection projection = new DictionaryAwarePageProjection(
+                new TestPageProjection()
+                {
+                    @Override
+                    public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
+                    {
+                        innerInputClass.set(page.getBlock(0).getClass());
+                        return super.project(session, page, selectedPositions);
+                    }
+                },
+                _ -> randomDictionaryId());
+        testProjectRange(createDictionaryBlock(100, 20), DictionaryBlock.class, projection);
+        // unprofitable new dictionary falls back; the inner projection receives the flat dictionary
+        testProjectRange(createDictionaryBlock(100, 25), LongArrayBlock.class, projection);
+        assertThat(innerInputClass.get()).isEqualTo(LongArrayBlock.class);
+    }
+
+    @Test
+    public void testFallbackWithUnorderedDictionaryIds()
+    {
+        Block block = createDictionaryBlockWithUnorderedIds(100, 25);
+
+        DictionaryAwarePageProjection rangeProjection = createProjection();
+        testProjectRange(createDictionaryBlock(100, 20), DictionaryBlock.class, rangeProjection);
+        testProjectRange(block, LongArrayBlock.class, rangeProjection);
+
+        DictionaryAwarePageProjection listProjection = createProjection();
+        testProjectList(createDictionaryBlock(100, 20), DictionaryBlock.class, listProjection);
+        testProjectList(block, LongArrayBlock.class, listProjection);
+    }
+
+    @Test
     public void testPreservesDictionaryInstance()
     {
         DictionaryAwarePageProjection projection = new DictionaryAwarePageProjection(
@@ -177,6 +213,14 @@ public class TestDictionaryAwarePageProjection
         Block dictionary = createLongSequenceBlock(0, dictionarySize);
         int[] ids = new int[blockSize];
         Arrays.setAll(ids, index -> index % dictionarySize);
+        return DictionaryBlock.create(ids.length, dictionary, ids);
+    }
+
+    private static Block createDictionaryBlockWithUnorderedIds(int dictionarySize, int blockSize)
+    {
+        Block dictionary = createLongSequenceBlock(0, dictionarySize);
+        int[] ids = new int[blockSize];
+        Arrays.setAll(ids, index -> (blockSize - index) % 5);
         return DictionaryBlock.create(ids.length, dictionary, ids);
     }
 

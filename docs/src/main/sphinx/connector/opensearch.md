@@ -432,8 +432,11 @@ The `raw_query` function requires three parameters:
 - `index`: The index in OpenSearch to search.
 - `query`: The query to execute, written in [OpenSearch Query DSL](https://opensearch.org/docs/latest/query-dsl).
 
-Once executed, the query returns a single row containing the resulting JSON
-payload returned by OpenSearch.
+The function returns a single row with a `result` column of type `VARCHAR`
+containing the JSON response from OpenSearch. Trino does not reorder the
+hits within this response. Use the `sort` parameter in the query to specify
+the order of the hits. If you expand the hits into SQL rows, use `ORDER BY`
+in the outermost query to order those rows.
 
 For example, query the `example` catalog and use the `raw_query` table function
 to search for documents in the `orders` index where the country name is
@@ -457,9 +460,6 @@ FROM
       }'
     )
   );
-```
-
-```{include} query-table-function-ordering.fragment
 ```
 
 ## Performance

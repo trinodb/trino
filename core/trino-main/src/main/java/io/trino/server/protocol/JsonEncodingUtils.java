@@ -17,6 +17,8 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -46,6 +48,8 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.spi.type.VariantType;
 import io.trino.spi.variant.Variant;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.JsonType;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import io.trino.util.variant.VariantUtil;
@@ -53,11 +57,14 @@ import io.trino.util.variant.VariantUtil;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -71,6 +78,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class JsonEncodingUtils
 {
@@ -85,6 +93,7 @@ public final class JsonEncodingUtils
     private static final TinyintEncoder TINYINT_ENCODER = new TinyintEncoder();
     private static final VarcharEncoder VARCHAR_ENCODER = new VarcharEncoder();
     private static final VarbinaryEncoder VARBINARY_ENCODER = new VarbinaryEncoder();
+    private static final JsonEncoder JSON_ENCODER = new JsonEncoder();
 
     public static TypeEncoder[] createTypeEncoders(Session session, List<Type> types)
     {
@@ -92,15 +101,16 @@ public final class JsonEncodingUtils
 
         Set<String> clientCapabilities = session.getClientCapabilities();
         boolean supportsParametricDateTime = clientCapabilities.contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        boolean supportsParametricInterval = clientCapabilities.contains(ClientCapabilities.PARAMETRIC_INTERVAL.toString());
         boolean supportsVariant = clientCapabilities.contains(ClientCapabilities.VARIANT.toString());
         boolean supportsVariantBinary = clientCapabilities.contains(ClientCapabilities.VARIANT_BINARY.toString());
 
         return types.stream()
-                .map(type -> createTypeEncoder(type, supportsParametricDateTime, supportsVariant, supportsVariantBinary))
+                .map(type -> createTypeEncoder(type, supportsParametricDateTime, supportsParametricInterval, supportsVariant, supportsVariantBinary))
                 .toArray(TypeEncoder[]::new);
     }
 
-    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime, boolean supportsVariant, boolean supportsVariantBinary)
+    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime, boolean supportsParametricInterval, boolean supportsVariant, boolean supportsVariantBinary)
     {
         return switch (type) {
             case BigintType _ -> BIGINT_ENCODER;
@@ -112,16 +122,17 @@ public final class JsonEncodingUtils
             case TinyintType _ -> TINYINT_ENCODER;
             case VarcharType _ -> VARCHAR_ENCODER;
             case VarbinaryType _ -> VARBINARY_ENCODER;
+            case JsonType _ -> JSON_ENCODER;
             case CharType charType -> new CharEncoder(charType.getLength());
             case VariantType _ -> new VariantEncoder(supportsVariant, supportsVariantBinary);
             // TODO: add specialized Short/Long decimal encoders
-            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
-            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
+            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime, supportsParametricInterval, supportsVariant, supportsVariantBinary));
+            case MapType mapType -> new MapEncoder(mapType, supportsParametricInterval, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime, supportsParametricInterval, supportsVariant, supportsVariantBinary));
             case RowType rowType -> new RowEncoder(rowType, rowType.getFieldTypes()
                     .stream()
-                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime, supportsVariant, supportsVariantBinary))
+                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime, supportsParametricInterval, supportsVariant, supportsVariantBinary))
                     .toArray(TypeEncoder[]::new));
-            case Type _ -> new TypeObjectValueEncoder(type, supportsParametricDateTime);
+            case Type _ -> new TypeObjectValueEncoder(type, supportsParametricDateTime, supportsParametricInterval);
         };
     }
 
@@ -146,6 +157,9 @@ public final class JsonEncodingUtils
             }
             generator.writeEndArray();
             generator.flush(); // final flush to have the data written to the output stream
+        }
+        catch (TrinoException e) {
+            throwableConsumer.accept(e);
         }
         catch (Exception e) {
             throwableConsumer.accept(new TrinoException(SERIALIZATION_ERROR, "Could not serialize data to JSON", e));
@@ -360,6 +374,26 @@ public final class JsonEncodingUtils
         }
     }
 
+    private static final class JsonEncoder
+            implements TypeEncoder
+    {
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+
+            // Legacy text-only wire form. The typed-envelope variant (and the
+            // JSON_PARSED_ITEM_ENCODING capability that gates it) lives in the
+            // follow-on client-protocol commit.
+            Json json = (Json) JsonType.JSON.getObject(block, position);
+            generator.writeString(JsonItems.toText(json).toStringUtf8());
+        }
+    }
+
     private static final class ArrayEncoder
             implements TypeEncoder
     {
@@ -394,11 +428,13 @@ public final class JsonEncodingUtils
             implements TypeEncoder
     {
         private final MapType mapType;
+        private final boolean supportsParametricInterval;
         private final TypeEncoder valueEncoder;
 
-        public MapEncoder(MapType mapType, TypeEncoder valueEncoder)
+        public MapEncoder(MapType mapType, boolean supportsParametricInterval, TypeEncoder valueEncoder)
         {
             this.mapType = requireNonNull(mapType, "mapType is null");
+            this.supportsParametricInterval = supportsParametricInterval;
             this.valueEncoder = requireNonNull(valueEncoder, "valueEncoder is null");
         }
 
@@ -417,16 +453,41 @@ public final class JsonEncodingUtils
             Block valueBlock = map.getRawValueBlock();
 
             verify(keyBlock.getPositionCount() == valueBlock.getPositionCount(), "Key and value blocks have different number of positions");
+            boolean roundIntervalKeys = !supportsParametricInterval && containsDayTimeInterval(mapType.getKeyType());
+            Set<String> legacyIntervalKeys = roundIntervalKeys ? new HashSet<>() : Set.of();
             generator.writeStartObject();
             for (int i = 0; i < map.getSize(); i++) {
                 // Map keys are always serialized as strings for backward compatibility with existing clients.
                 // Map values are always properly encoded using their types.
                 // TODO: improve in v2 JSON format
-                generator.writeFieldName(mapType.getKeyType().getObjectValue(keyBlock, offset + i).toString());
+                Object key = mapType.getKeyType().getObjectValue(keyBlock, offset + i);
+                String encodedKey = roundIntervalKeys ? formatLegacyMapKey(key) : key.toString();
+                if (roundIntervalKeys && !legacyIntervalKeys.add(encodedKey)) {
+                    throw new TrinoException(NOT_SUPPORTED, "Interval map keys collide at millisecond precision; use a client supporting PARAMETRIC_INTERVAL");
+                }
+                generator.writeFieldName(encodedKey);
                 valueEncoder.encode(generator, valueBlock, offset + i);
             }
             generator.writeEndObject();
         }
+    }
+
+    private static boolean containsDayTimeInterval(Type type)
+    {
+        return type instanceof IntervalDayTimeType || type.getTypeParameters().stream().anyMatch(JsonEncodingUtils::containsDayTimeInterval);
+    }
+
+    private static String formatLegacyMapKey(Object key)
+    {
+        return switch (key) {
+            case null -> "null";
+            case SqlIntervalDayTime interval -> interval.formatLegacy();
+            case List<?> values -> values.stream().map(JsonEncodingUtils::formatLegacyMapKey).collect(joining(", ", "[", "]"));
+            case Map<?, ?> values -> values.entrySet().stream()
+                    .map(entry -> formatLegacyMapKey(entry.getKey()) + "=" + formatLegacyMapKey(entry.getValue()))
+                    .collect(joining(", ", "{", "}"));
+            default -> key.toString();
+        };
     }
 
     private static final class RowEncoder
@@ -463,11 +524,13 @@ public final class JsonEncodingUtils
     {
         private final Type type;
         private final boolean supportsParametricDateTime;
+        private final boolean supportsParametricInterval;
 
-        public TypeObjectValueEncoder(Type type, boolean supportsParametricDateTime)
+        public TypeObjectValueEncoder(Type type, boolean supportsParametricDateTime, boolean supportsParametricInterval)
         {
             this.type = requireNonNull(type, "type is null");
             this.supportsParametricDateTime = supportsParametricDateTime;
+            this.supportsParametricInterval = supportsParametricInterval;
         }
 
         @Override
@@ -488,7 +551,7 @@ public final class JsonEncodingUtils
                 // When client does not have NUMBER capability, NUMBER values are sent as varchar (strings).
                 // When it has the capability, they are also sent as strings.
                 case SqlNumber number -> generator.writeString(number.toString());
-                case SqlIntervalDayTime intervalValue -> generator.writeString(intervalValue.toString());
+                case SqlIntervalDayTime intervalValue -> generator.writeString(supportsParametricInterval ? intervalValue.toString() : intervalValue.formatLegacy());
                 case SqlIntervalYearMonth intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlTime timeValue -> generator.writeString(timeValue.toString());
                 case SqlTimeWithTimeZone timeWithTimeZone -> generator.writeString(timeWithTimeZone.toString());
@@ -501,15 +564,11 @@ public final class JsonEncodingUtils
 
         private Object roundParametricTypes(Object value)
         {
-            if (supportsParametricDateTime) {
-                return value;
-            }
-
             return switch (value) {
-                case SqlTimestamp sqlTimestamp -> sqlTimestamp.roundTo(3);
-                case SqlTimestampWithTimeZone sqlTimestampWithTimeZone -> sqlTimestampWithTimeZone.roundTo(3);
-                case SqlTime sqlTime -> sqlTime.roundTo(3);
-                case SqlTimeWithTimeZone sqlTimeWithTimeZone -> sqlTimeWithTimeZone.roundTo(3);
+                case SqlTimestamp sqlTimestamp when !supportsParametricDateTime -> sqlTimestamp.roundTo(3);
+                case SqlTimestampWithTimeZone sqlTimestampWithTimeZone when !supportsParametricDateTime -> sqlTimestampWithTimeZone.roundTo(3);
+                case SqlTime sqlTime when !supportsParametricDateTime -> sqlTime.roundTo(3);
+                case SqlTimeWithTimeZone sqlTimeWithTimeZone when !supportsParametricDateTime -> sqlTimeWithTimeZone.roundTo(3);
                 default -> value;
             };
         }

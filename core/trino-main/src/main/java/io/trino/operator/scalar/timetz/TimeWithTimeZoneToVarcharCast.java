@@ -41,19 +41,19 @@ public final class TimeWithTimeZoneToVarcharCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
-    public static Slice cast(@LiteralParameter("p") long precision, @SqlType("time(p) with time zone") long packedTime)
+    public static Slice cast(@LiteralParameter("p") int precision, @SqlType("time(p) with time zone") long packedTime)
     {
         long nanos = unpackTimeNanos(packedTime);
         int offsetMinutes = unpackOffsetMinutes(packedTime);
 
-        return format((int) precision, nanos * PICOSECONDS_PER_NANOSECOND, offsetMinutes);
+        return format(precision, nanos * PICOSECONDS_PER_NANOSECOND, offsetMinutes);
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
-    public static Slice cast(@LiteralParameter("p") long precision, @SqlType("time(p) with time zone") LongTimeWithTimeZone time)
+    public static Slice cast(@LiteralParameter("p") int precision, @SqlType("time(p) with time zone") LongTimeWithTimeZone time)
     {
-        return format((int) precision, time.getPicoseconds(), time.getOffsetMinutes());
+        return format(precision, time.getPicoseconds(), time.getOffsetMinutes());
     }
 
     private static Slice format(int precision, long picos, int offsetMinutes)

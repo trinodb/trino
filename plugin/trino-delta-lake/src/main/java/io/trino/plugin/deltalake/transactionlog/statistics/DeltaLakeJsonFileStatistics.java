@@ -24,10 +24,12 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.CanonicalColumnName;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -45,16 +47,16 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.JSON
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_DAY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_MICROS;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializeColumnValue;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.lang.Math.floorDiv;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeJsonFileStatistics
         implements DeltaLakeFileStatistics
@@ -67,6 +69,7 @@ public class DeltaLakeJsonFileStatistics
     private final Optional<Map<CanonicalColumnName, Object>> minValues;
     private final Optional<Map<CanonicalColumnName, Object>> maxValues;
     private final Optional<Map<CanonicalColumnName, Object>> nullCount;
+    private final Optional<Boolean> tightBounds;
 
     public static DeltaLakeJsonFileStatistics create(String jsonStatistics)
             throws JsonProcessingException
@@ -79,14 +82,19 @@ public class DeltaLakeJsonFileStatistics
             @JsonProperty("numRecords") Optional<Long> numRecords,
             @JsonProperty("minValues") Optional<Map<String, Object>> minValues,
             @JsonProperty("maxValues") Optional<Map<String, Object>> maxValues,
-            @JsonProperty("nullCount") Optional<Map<String, Object>> nullCount)
+            @JsonProperty("nullCount") Optional<Map<String, Object>> nullCount,
+            @JsonProperty("tightBounds") Optional<Boolean> tightBounds)
     {
-        this.numRecords = numRecords;
+        this.numRecords = requireNonNull(numRecords, "numRecords is null");
+        requireNonNull(minValues, "minValues is null");
+        requireNonNull(maxValues, "maxValues is null");
+        requireNonNull(nullCount, "nullCount is null");
         // Re-use CanonicalColumnName for min/max/null maps to benefit from cached hashCode
         Map<String, CanonicalColumnName> canonicalColumnNames = DeltaLakeFileStatistics.getCanonicalColumnNames(minValues, maxValues, nullCount);
         this.minValues = minValues.map(minValuesMap -> toCanonicalNameKeyedMap(minValuesMap, canonicalColumnNames));
         this.maxValues = maxValues.map(maxValuesMap -> toCanonicalNameKeyedMap(maxValuesMap, canonicalColumnNames));
         this.nullCount = nullCount.map(nullCountMap -> toCanonicalNameKeyedMap(nullCountMap, canonicalColumnNames));
+        this.tightBounds = requireNonNull(tightBounds, "tightBounds is null");
     }
 
     @JsonProperty
@@ -115,6 +123,13 @@ public class DeltaLakeJsonFileStatistics
     public Optional<Map<String, Object>> getNullCount()
     {
         return nullCount.map(TransactionLogAccess::toOriginalNameKeyedMap);
+    }
+
+    @JsonProperty
+    @Override
+    public Optional<Boolean> getTightBounds()
+    {
+        return tightBounds;
     }
 
     @Override
@@ -168,8 +183,7 @@ public class DeltaLakeJsonFileStatistics
             }
         }
         if (columnType instanceof TimestampWithTimeZoneType) {
-            long packedTimestamp = (long) columnValue;
-            long epochMillis = unpackMillisUtc(packedTimestamp);
+            long epochMillis = ((LongTimestampWithTimeZone) columnValue).getEpochMillis();
             if (floorDiv(epochMillis, MILLISECONDS_PER_DAY) < START_OF_MODERN_ERA_EPOCH_DAY) {
                 return Optional.empty();
             }
@@ -184,10 +198,12 @@ public class DeltaLakeJsonFileStatistics
         return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND + divide(localDateTime.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
     }
 
-    private static Long readStatisticsTimestampWithZone(String timestamp)
+    private static LongTimestampWithTimeZone readStatisticsTimestampWithZone(String timestamp)
     {
         ZonedDateTime zonedDateTime = ZonedDateTime.parse(timestamp, JSON_STATISTICS_TIMESTAMP_FORMATTER);
-        return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
+        Instant instant = zonedDateTime.toInstant();
+        long fractionMicros = instant.getNano() / NANOSECONDS_PER_MICROSECOND;
+        return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(instant.getEpochSecond(), fractionMicros * PICOSECONDS_PER_MICROSECOND, UTC_KEY);
     }
 
     @Override
@@ -242,13 +258,14 @@ public class DeltaLakeJsonFileStatistics
         return Objects.equals(numRecords, that.numRecords) &&
                 Objects.equals(minValues, that.minValues) &&
                 Objects.equals(maxValues, that.maxValues) &&
-                Objects.equals(nullCount, that.nullCount);
+                Objects.equals(nullCount, that.nullCount) &&
+                Objects.equals(tightBounds, that.tightBounds);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(numRecords, minValues, maxValues, nullCount);
+        return Objects.hash(numRecords, minValues, maxValues, nullCount, tightBounds);
     }
 
     @Override
@@ -259,6 +276,7 @@ public class DeltaLakeJsonFileStatistics
                 .add("minValues", minValues)
                 .add("maxValues", maxValues)
                 .add("nullCount", nullCount)
+                .add("tightBounds", tightBounds)
                 .toString();
     }
 }

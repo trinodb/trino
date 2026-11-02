@@ -161,10 +161,10 @@ public final class VariantType
         if (variantBlock.getBasicType(rawPosition).isContainer()) {
             long length = Integer.BYTES;
             length += getSliceLength(variantBlock.getRawMetadata(), rawPosition);
-            length += getSliceLength(variantBlock.getValues(), rawPosition);
+            length += getSliceLength(variantBlock.getRawValues(), rawPosition);
             return toIntExact(length);
         }
-        return getSliceLength(variantBlock.getValues(), rawPosition);
+        return getSliceLength(variantBlock.getRawValues(), rawPosition);
     }
 
     private static int getSliceLength(Block nestedBlock, int position)
@@ -238,11 +238,7 @@ public final class VariantType
             @FlatVariableWidth byte[] variableSizeSlice,
             @FlatVariableOffset int variableSizeOffset)
     {
-        Metadata metadata = value.metadata();
-        Slice metadataSlice;
-        metadataSlice = metadata == EMPTY_METADATA ? null : metadata.toSlice();
-        Slice data = value.data();
-        writeFlat(metadataSlice, data, fixedSizeSlice, fixedSizeOffset, variableSizeSlice, variableSizeOffset);
+        writeFlat(value.metadata().toSlice(), value.data(), fixedSizeSlice, fixedSizeOffset, variableSizeSlice, variableSizeOffset);
     }
 
     @ScalarOperator(READ_VALUE)
@@ -264,7 +260,7 @@ public final class VariantType
 
     private static void writeFlat(Slice metadataSlice, Slice data, byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
     {
-        if (metadataSlice == null || !Header.getBasicType(data.getByte(0)).isContainer()) {
+        if (!Header.getBasicType(data.getByte(0)).isContainer()) {
             int length = data.length();
             INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, length);
             data.getBytes(0, variableSizeSlice, variableSizeOffset, length);

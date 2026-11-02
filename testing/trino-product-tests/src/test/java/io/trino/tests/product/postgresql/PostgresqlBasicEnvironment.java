@@ -15,7 +15,7 @@ package io.trino.tests.product.postgresql;
 
 import io.trino.testing.containers.TrinoProductTestContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.trino.TrinoContainer;
 
 import java.sql.Connection;
@@ -37,7 +37,7 @@ public class PostgresqlBasicEnvironment
         extends PostgresqlEnvironment
 {
     private Network network;
-    private PostgreSQLContainer<?> postgresql;
+    private PostgreSQLContainer postgresql;
     private TrinoContainer trino;
 
     @Override
@@ -49,7 +49,7 @@ public class PostgresqlBasicEnvironment
 
         network = Network.newNetwork();
 
-        postgresql = new PostgreSQLContainer<>("postgres:11")
+        postgresql = new PostgreSQLContainer("postgres:11")
                 .withNetwork(network)
                 .withNetworkAliases("postgresql")
                 .withDatabaseName("test")
@@ -70,7 +70,7 @@ public class PostgresqlBasicEnvironment
         createTestTables(postgresql);
     }
 
-    static void createTestTables(PostgreSQLContainer<?> postgresql)
+    static void createTestTables(PostgreSQLContainer postgresql)
     {
         try (Connection conn = postgresql.createConnection("");
                 Statement stmt = conn.createStatement()) {

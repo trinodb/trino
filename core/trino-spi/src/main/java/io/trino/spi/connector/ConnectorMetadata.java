@@ -50,7 +50,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
@@ -137,6 +136,24 @@ public interface ConnectorMetadata
             RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
+    }
+
+    /**
+     * Variant of {@link #getTableHandleForExecute} used when the procedure is invoked through
+     * {@code ALTER MATERIALIZED VIEW ... EXECUTE}. The statement names a materialized view, while {@code tableHandle}
+     * is the handle of that view's storage table. Connectors that expose a different set of procedures on
+     * materialized view storage than on plain tables can override this to apply those rules, regardless of whether
+     * the storage table is also reachable by name. The default rejects the statement.
+     */
+    default Optional<ConnectorTableExecuteHandle> getTableHandleForMaterializedViewExecute(
+            ConnectorSession session,
+            ConnectorAccessControl accessControl,
+            ConnectorTableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties,
+            RetryMode retryMode)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized view procedures");
     }
 
     /**
@@ -564,6 +581,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Sets the comment of the specified materialized view.
+     */
+    default void setMaterializedViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view comments");
+    }
+
+    /**
      * Comments to the specified materialized view column.
      */
     default void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
@@ -828,24 +853,6 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Returns true if materialized view refresh should be delegated to connector using {@link ConnectorMetadata#refreshMaterializedView}
-     */
-    @Deprecated(since = "477", forRemoval = true)
-    default boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
-    }
-
-    /**
-     * Refresh materialized view
-     */
-    @Deprecated(since = "477", forRemoval = true)
-    default CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
-    }
-
-    /**
      * Begin materialized view query.
      * <p>
      * If connector does not support execution with retries, the method should throw:
@@ -930,8 +937,9 @@ public interface ConnectorMetadata
      * @param sourceTableHandles All source table handles belonging to the connector from which the operation is reading data
      * @param fragments All fragments returned by the merge plan
      * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
+     * @return ConnectorOutputMetadata that will be populated in the query output
      */
-    default void finishMerge(
+    default Optional<ConnectorOutputMetadata> finishMerge(
             ConnectorSession session,
             ConnectorMergeTableHandle mergeTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
@@ -944,10 +952,26 @@ public interface ConnectorMetadata
     /**
      * Create the specified view. The view definition is intended to
      * be serialized by the connector for permanent storage.
+     *
+     * @deprecated use {@link #createView(ConnectorSession, SchemaTableName, ConnectorViewDefinition, Map, SaveMode)}
      */
+    @Deprecated
     default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating views");
+    }
+
+    /**
+     * Creates a view using the specified view definition.
+     * IGNORE means the view is created using CREATE VIEW ... IF NOT EXISTS syntax.
+     * REPLACE means the view is created using CREATE OR REPLACE VIEW syntax.
+     *
+     * @throws TrinoException with {@code ALREADY_EXISTS} if the view already exists and {@code saveMode} is FAIL.
+     */
+    default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
+    {
+        // Delegate to deprecated SPI to not break existing connectors
+        createView(session, viewName, definition, viewProperties, saveMode == REPLACE);
     }
 
     /**
@@ -1775,12 +1799,6 @@ public interface ConnectorMetadata
      */
     default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean considerGracePeriod)
     {
-        return getMaterializedViewFreshness(session, name);
-    }
-
-    @Deprecated(forRemoval = true)
-    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
-    {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getMaterializedView() is implemented without getMaterializedViewFreshness()");
     }
 
@@ -1823,7 +1841,8 @@ public interface ConnectorMetadata
 
     /**
      * @return true if reading a subset of columns from a given table separately from reading a complement of the subset has similar or better
-     *         performance as reading this table.
+     *         performance as reading this table. Must return false when two reads of the same handle can return different rows, for example
+     *         when a sample has been pushed down, because the engine reads the table once per subset.
      */
     default boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
     {

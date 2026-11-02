@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
@@ -45,7 +46,6 @@ import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
@@ -95,9 +95,10 @@ import static java.util.Objects.requireNonNull;
  */
 public class PlanFragmenter
 {
-    private static final String TOO_MANY_STAGES_MESSAGE = "" +
-            "If the query contains multiple aggregates with DISTINCT over different columns, please set the 'distinct_aggregations_strategy' session property to 'single_step'. " +
-            "If the query contains WITH clauses that are referenced more than once, please create temporary table(s) for the queries in those clauses.";
+    private static final String TOO_MANY_STAGES_MESSAGE =
+            """
+            If the query contains multiple aggregates with DISTINCT over different columns, please set the 'distinct_aggregations_strategy' session property to 'single_step'. \
+            If the query contains WITH clauses that are referenced more than once, please create temporary table(s) for the queries in those clauses.""";
 
     private final Metadata metadata;
     private final FunctionManager functionManager;
@@ -372,13 +373,6 @@ public class PlanFragmenter
         }
 
         @Override
-        public PlanNode visitRefreshMaterializedView(RefreshMaterializedViewNode node, RewriteContext<FragmentProperties> context)
-        {
-            context.get().setCoordinatorOnlyDistribution();
-            return context.defaultRewrite(node, context.get());
-        }
-
-        @Override
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<FragmentProperties> context)
         {
             node.getPartitioningScheme().ifPresent(scheme -> context.get().setDistribution(
@@ -614,11 +608,6 @@ public class PlanFragmenter
             return children;
         }
 
-        public boolean hasDistribution()
-        {
-            return partitioningHandle.isPresent();
-        }
-
         public FragmentProperties setSingleNodeDistribution()
         {
             if (partitioningHandle.isPresent() && partitioningHandle.get().isSingleNode()) {
@@ -636,6 +625,7 @@ public class PlanFragmenter
             return this;
         }
 
+        @CanIgnoreReturnValue
         public FragmentProperties setDistribution(
                 PartitioningHandle distribution,
                 OptionalInt partitionCount,
@@ -690,7 +680,7 @@ public class PlanFragmenter
 
         private boolean isCompatibleSystemPartitioning(PartitioningHandle distribution)
         {
-            ConnectorPartitioningHandle currentHandle = partitioningHandle.get().getConnectorHandle();
+            ConnectorPartitioningHandle currentHandle = partitioningHandle.orElseThrow().getConnectorHandle();
             ConnectorPartitioningHandle distributionHandle = distribution.getConnectorHandle();
             if ((currentHandle instanceof SystemPartitioningHandle currentPartitioningHandle) &&
                     (distributionHandle instanceof SystemPartitioningHandle distributionPartitioningHandle)) {
@@ -712,6 +702,7 @@ public class PlanFragmenter
             return currentWithScaledWritersEnabled.equals(suggested);
         }
 
+        @CanIgnoreReturnValue
         public FragmentProperties setCoordinatorOnlyDistribution()
         {
             if (partitioningHandle.isPresent() && partitioningHandle.get().isCoordinatorOnly()) {
@@ -730,6 +721,7 @@ public class PlanFragmenter
             return this;
         }
 
+        @CanIgnoreReturnValue
         public FragmentProperties addSourceDistribution(PlanNodeId source, PartitioningHandle distribution, Metadata metadata, Session session)
         {
             requireNonNull(source, "source is null");
@@ -762,6 +754,7 @@ public class PlanFragmenter
             throw new IllegalStateException(format("Cannot overwrite distribution with %s (currently set to %s)", distribution, currentPartitioning));
         }
 
+        @CanIgnoreReturnValue
         public FragmentProperties addChildren(List<SubPlan> children)
         {
             this.children.addAll(children);

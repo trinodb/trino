@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.trino.plugin.iceberg.TrinoMetricsReporter;
 import io.trino.spi.NodeVersion;
 import org.apache.iceberg.CatalogProperties;
 
@@ -23,6 +24,10 @@ import java.util.Map.Entry;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.AUTH_SESSION_TIMEOUT_MS;
+import static org.apache.iceberg.CatalogProperties.METRICS_REPORTER_IMPL;
+import static org.apache.iceberg.rest.RESTCatalogProperties.METRICS_REPORTING_ENABLED;
+import static org.apache.iceberg.rest.RESTCatalogProperties.SNAPSHOT_LOADING_MODE;
+import static org.apache.iceberg.rest.RESTCatalogProperties.TABLE_CACHE_MAX_ENTRIES;
 
 public class IcebergRestCatalogPropertiesProvider
 {
@@ -43,10 +48,15 @@ public class IcebergRestCatalogPropertiesProvider
         restConfig.getWarehouse().ifPresent(location -> properties.put(CatalogProperties.WAREHOUSE_LOCATION, location));
         restConfig.getPrefix().ifPresent(aPrefix -> properties.put("prefix", aPrefix));
         properties.put("view-endpoints-supported", Boolean.toString(restConfig.isViewEndpointsEnabled()));
+        properties.put(METRICS_REPORTING_ENABLED, Boolean.toString(restConfig.isMetricsReportingEnabled()));
+        properties.put(METRICS_REPORTER_IMPL, TrinoMetricsReporter.class.getName());
         properties.put("trino-version", nodeVersion.toString());
+        properties.put(SNAPSHOT_LOADING_MODE, restConfig.getSnapshotLoadingMode().name());
         properties.put(AUTH_SESSION_TIMEOUT_MS, String.valueOf(restConfig.getSessionTimeout().toMillis()));
         restConfig.getConnectionTimeout().ifPresent(duration -> properties.put("rest.client.connection-timeout-ms", String.valueOf(duration.toMillis())));
         restConfig.getSocketTimeout().ifPresent(timeout -> properties.put("rest.client.socket-timeout-ms", String.valueOf(timeout.toMillis())));
+        // Hardcoded literal because org.apache.iceberg.rest.HTTPClient.REST_MAX_RETRIES is private.
+        properties.put("rest.client.max-retries", String.valueOf(restConfig.getMaxRetries()));
         properties.putAll(securityProperties.get());
         if (restConfig.isVendedCredentialsEnabled()) {
             properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");
@@ -55,6 +65,12 @@ public class IcebergRestCatalogPropertiesProvider
         for (Entry<String, String> entry : restConfig.getHttpHeaders().entrySet()) {
             properties.put("header.".concat(entry.getKey()), entry.getValue());
         }
+
+        // Disable the table cache because it is not useful here. Trino generates a random
+        // `SessionCatalog.SessionContext.sessionId` for every catalog access and uses it as the cache key.
+        // Disabling the cache avoids unnecessary memory consumption since cached data would
+        // otherwise be kept for `RESTCatalogProperties.TABLE_CACHE_EXPIRE_AFTER_WRITE_MS_DEFAULT`.
+        properties.put(TABLE_CACHE_MAX_ENTRIES, "0");
 
         catalogProperties = properties.buildOrThrow();
     }

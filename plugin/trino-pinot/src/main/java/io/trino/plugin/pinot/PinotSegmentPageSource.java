@@ -16,6 +16,7 @@ package io.trino.plugin.pinot;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.json.JsonItems;
 import io.trino.plugin.pinot.client.PinotDataFetcher;
 import io.trino.plugin.pinot.client.PinotDataTableWithSize;
 import io.trino.plugin.pinot.conversion.PinotTimestamps;
@@ -43,7 +44,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static io.trino.plugin.pinot.decoders.VarbinaryDecoder.toBytes;
@@ -210,7 +210,7 @@ public class PinotSegmentPageSource
         else if (javaType.equals(double.class)) {
             writeDoubleBlock(blockBuilder, columnType, rowIdx, columnIdx);
         }
-        else if (javaType.equals(Slice.class)) {
+        else if (javaType.equals(Slice.class) || columnType.getBaseName().equalsIgnoreCase(StandardTypes.JSON)) {
             writeSliceBlock(blockBuilder, columnType, rowIdx, columnIdx);
         }
         else if (javaType.equals(Block.class)) {
@@ -380,7 +380,7 @@ public class PinotSegmentPageSource
         }
         if (trinoType.getBaseName().equalsIgnoreCase(StandardTypes.JSON)) {
             String field = dataTable.getString(rowIndex, columnIndex);
-            return jsonParse(getUtf8Slice(field));
+            return JsonItems.fromText(getUtf8Slice(field)).encoding();
         }
         return Slices.EMPTY_SLICE;
     }

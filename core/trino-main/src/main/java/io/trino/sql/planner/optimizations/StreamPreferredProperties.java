@@ -96,14 +96,6 @@ public class StreamPreferredProperties
         return new StreamPreferredProperties(Optional.of(MULTIPLE), Optional.empty(), orderSensitive);
     }
 
-    public StreamPreferredProperties withFixedParallelism()
-    {
-        if (distribution.isPresent() && distribution.get() == FIXED) {
-            return this;
-        }
-        return fixedParallelism();
-    }
-
     public static StreamPreferredProperties partitionedOn(Collection<Symbol> partitionSymbols)
     {
         if (partitionSymbols.isEmpty()) {
@@ -129,7 +121,7 @@ public class StreamPreferredProperties
         return new StreamPreferredProperties(Optional.empty(), Optional.empty(), orderSensitive);
     }
 
-    public StreamPreferredProperties withPartitioning(Collection<Symbol> partitionSymbols)
+    public StreamPreferredProperties withPartitioning(List<Symbol> partitionSymbols)
     {
         if (partitionSymbols.isEmpty()) {
             return singleStream();
@@ -138,7 +130,7 @@ public class StreamPreferredProperties
         Iterable<Symbol> desiredPartitioning = partitionSymbols;
         if (partitioningColumns.isPresent()) {
             if (exactColumnOrder) {
-                if (partitioningColumns.get().equals(desiredPartitioning)) {
+                if (partitioningColumns.get().equals(partitionSymbols)) {
                     return this;
                 }
             }

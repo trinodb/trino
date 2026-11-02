@@ -154,14 +154,14 @@ public abstract class AbstractTestOrcReader
     public void testLongPatchedBase()
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), intsBetween(0, 18), ImmutableList.of(30_000, 20_000, 400_000, 30_000, 20_000))), 30_000));
+        testRoundTripNumeric(limit(cycle(concat(ImmutableList.of(intsBetween(0, 18), intsBetween(0, 18), ImmutableList.of(30_000, 20_000, 400_000, 30_000, 20_000)))), 30_000));
     }
 
     @Test
     public void testLongStrideDictionary()
             throws Exception
     {
-        testRoundTripNumeric(concat(ImmutableList.of(1), nCopies(9999, 123), ImmutableList.of(2), nCopies(9999, 123)));
+        testRoundTripNumeric(concat(ImmutableList.of(ImmutableList.of(1), nCopies(9999, 123), ImmutableList.of(2), nCopies(9999, 123))));
     }
 
     private void testRoundTripNumeric(Iterable<? extends Number> values)
@@ -450,7 +450,7 @@ public abstract class AbstractTestOrcReader
     public void testStringStrideDictionary()
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))));
+        tester.testRoundTrip(VARCHAR, newArrayList(concat(ImmutableList.of(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123")))));
     }
 
     @Test

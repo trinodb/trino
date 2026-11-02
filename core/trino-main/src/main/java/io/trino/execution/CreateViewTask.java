@@ -25,6 +25,7 @@ import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.security.Identity;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -45,7 +46,7 @@ import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
-import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
+import static io.trino.sql.SqlFormatterUtil.getFormattedSqlForStorage;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
 import static java.util.Objects.requireNonNull;
@@ -99,6 +100,9 @@ public class CreateViewTask
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Materialized view already exists: '%s'", name);
         }
         if (metadata.isView(session, name)) {
+            if (statement.isNotExists()) {
+                return immediateVoidFuture();
+            }
             if (!statement.isReplace()) {
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "View already exists: '%s'", name);
             }
@@ -107,14 +111,14 @@ public class CreateViewTask
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table already exists: '%s'", name);
         }
 
-        String sql = getFormattedSql(statement.getQuery(), sqlParser);
+        String sql = getFormattedSqlForStorage(statement.getQuery(), sqlParser);
 
         Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, stateMachine.getWarningCollector(), stateMachine.getPlanOptimizersStatsCollector())
                 .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
-                .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId(), Optional.empty()))
+                .map(field -> ViewColumn.fromType(field.getName().get(), field.getType(), Optional.empty()))
                 .collect(toImmutableList());
 
         // use DEFINER security by default
@@ -148,11 +152,22 @@ public class CreateViewTask
                         .filter(element -> !element.getCatalogName().equals(GlobalSystemConnector.NAME))
                         .collect(toImmutableList()));
 
-        metadata.createView(session, name, definition, properties, statement.isReplace());
+        metadata.createView(session, name, definition, properties, saveMode(statement));
 
         stateMachine.setOutput(analysis.getTarget());
         stateMachine.setReferencedTables(analysis.getReferencedTables());
 
         return immediateVoidFuture();
+    }
+
+    private static SaveMode saveMode(CreateView statement)
+    {
+        if (statement.isReplace()) {
+            return SaveMode.REPLACE;
+        }
+        if (statement.isNotExists()) {
+            return SaveMode.IGNORE;
+        }
+        return SaveMode.FAIL;
     }
 }

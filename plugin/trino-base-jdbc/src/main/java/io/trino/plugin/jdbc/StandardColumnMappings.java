@@ -17,6 +17,8 @@ import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -40,7 +42,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
-import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -148,7 +149,12 @@ public final class StandardColumnMappings
 
     public static ColumnMapping realColumnMapping()
     {
-        return ColumnMapping.longMapping(REAL, (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)), realWriteFunction());
+        return realColumnMapping(FULL_PUSHDOWN);
+    }
+
+    public static ColumnMapping realColumnMapping(PredicatePushdownController predicatePushdownController)
+    {
+        return ColumnMapping.longMapping(REAL, (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)), realWriteFunction(), predicatePushdownController);
     }
 
     public static LongWriteFunction realWriteFunction()
@@ -158,7 +164,12 @@ public final class StandardColumnMappings
 
     public static ColumnMapping doubleColumnMapping()
     {
-        return ColumnMapping.doubleMapping(DOUBLE, ResultSet::getDouble, doubleWriteFunction());
+        return doubleColumnMapping(FULL_PUSHDOWN);
+    }
+
+    public static ColumnMapping doubleColumnMapping(PredicatePushdownController predicatePushdownController)
+    {
+        return ColumnMapping.doubleMapping(DOUBLE, ResultSet::getDouble, doubleWriteFunction(), predicatePushdownController);
     }
 
     public static DoubleWriteFunction doubleWriteFunction()
@@ -353,6 +364,68 @@ public final class StandardColumnMappings
             return varcharColumnMapping(createUnboundedVarcharType(), isRemoteCaseSensitive);
         }
         return varcharColumnMapping(createVarcharType(columnSize), isRemoteCaseSensitive);
+    }
+
+    /// Maps a remote JSON/text column to Trino's JSON type. The remote side is canonical JSON
+    /// text: the read function parses it into a typed JSON value and the write function
+    /// serializes back to text. Whatever JSON text can carry survives the round-trip -- a
+    /// number's literal form (`1` versus `1.0`, arbitrary precision), object member order and
+    /// duplicate keys. What JSON text cannot carry does not: a typed datetime item serializes
+    /// to a JSON string (JSON has no datetime type), so it reads back as VARCHAR. That loss is
+    /// inherent to a text wire form; the typed encoding travels only inside the engine, not
+    /// through a remote JSON column.
+    public static ColumnMapping jsonColumnMapping(Type jsonType, SliceWriteFunction textWriteFunction)
+    {
+        return ColumnMapping.objectMapping(
+                jsonType,
+                ObjectReadFunction.of(Json.class, (resultSet, columnIndex) ->
+                        JsonItems.fromText(utf8Slice(resultSet.getString(columnIndex)))),
+                jsonObjectWriteFunction(textWriteFunction),
+                DISABLE_PUSHDOWN);
+    }
+
+    /// Write mapping for a remote JSON column. `JsonType`'s javaType is `Json`, so the write
+    /// function must accept `Json` (not `Slice`); it renders the value to canonical text and
+    /// hands it to the dialect's text-write function.
+    public static WriteMapping jsonWriteMapping(String dataType, SliceWriteFunction textWriteFunction)
+    {
+        return WriteMapping.objectMapping(dataType, jsonObjectWriteFunction(textWriteFunction));
+    }
+
+    /// Adapts a dialect's text-write function to the `Json` javaType: it renders the value to
+    /// canonical text before handing it over, and keeps the dialect's bind expression (e.g.
+    /// `CAST(? AS json)`) so the parameter is still bound with the remote JSON type rather than
+    /// as plain text.
+    private static ObjectWriteFunction jsonObjectWriteFunction(SliceWriteFunction textWriteFunction)
+    {
+        return new ObjectWriteFunction()
+        {
+            @Override
+            public Class<?> getJavaType()
+            {
+                return Json.class;
+            }
+
+            @Override
+            public String getBindExpression()
+            {
+                return textWriteFunction.getBindExpression();
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Object value)
+                    throws SQLException
+            {
+                textWriteFunction.set(statement, index, JsonItems.toText((Json) value));
+            }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                textWriteFunction.setNull(statement, index);
+            }
+        };
     }
 
     public static ColumnMapping varcharColumnMapping(VarcharType varcharType, boolean isRemoteCaseSensitive)
@@ -579,35 +652,6 @@ public final class StandardColumnMappings
         });
     }
 
-    /**
-     * @deprecated This method uses {@link java.sql.Timestamp} and the class cannot represent date-time value when JVM zone had
-     *         forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
-     *         (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). This mapping also disables pushdown by default
-     *         to ensure correctness because rounding happens within Trino and won't apply to remote system.
-     *         If driver supports {@link LocalDateTime}, use {@link #timestampColumnMapping} instead.
-     */
-    @Deprecated
-    public static ColumnMapping timestampColumnMappingUsingSqlTimestampWithRounding(TimestampType timestampType)
-    {
-        // TODO support higher precision
-        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
-        return ColumnMapping.longMapping(
-                timestampType,
-                (resultSet, columnIndex) -> {
-                    LocalDateTime localDateTime = resultSet.getTimestamp(columnIndex).toLocalDateTime();
-                    int roundedNanos = toIntExact(round(localDateTime.getNano(), 9 - timestampType.getPrecision()));
-                    LocalDateTime rounded = localDateTime
-                            .withNano(0)
-                            .plusNanos(roundedNanos);
-                    return toTrinoTimestamp(timestampType, rounded);
-                },
-                timestampWriteFunctionUsingSqlTimestamp(timestampType),
-                // NOTE: pushdown is disabled because the values stored in remote system might not match the values as
-                // read by Trino due to rounding. This can lead to incorrect results if operations are pushed down to
-                // the remote system.
-                DISABLE_PUSHDOWN);
-    }
-
     public static ColumnMapping timestampColumnMapping(TimestampType timestampType)
     {
         if (timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION) {
@@ -637,19 +681,6 @@ public final class StandardColumnMappings
         return ObjectReadFunction.of(
                 LongTimestamp.class,
                 (resultSet, columnIndex) -> toLongTrinoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class)));
-    }
-
-    /**
-     * @deprecated This method uses {@link java.sql.Timestamp} and the class cannot represent date-time value when JVM zone had
-     *         forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
-     *         (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). If driver only supports {@link LocalDateTime}, use
-     *         {@link #timestampWriteFunction} instead.
-     */
-    @Deprecated
-    public static LongWriteFunction timestampWriteFunctionUsingSqlTimestamp(TimestampType timestampType)
-    {
-        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
-        return LongWriteFunction.of(Types.TIMESTAMP, (statement, index, value) -> statement.setTimestamp(index, Timestamp.valueOf(fromTrinoTimestamp(value))));
     }
 
     public static LongWriteFunction timestampWriteFunction(TimestampType timestampType)

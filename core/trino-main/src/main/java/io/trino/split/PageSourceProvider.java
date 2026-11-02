@@ -36,9 +36,14 @@ public interface PageSourceProvider
             DynamicFilter dynamicFilter,
             MemoryContext memoryContext);
 
-    // TODO (https://github.com/trinodb/trino/issues/29955) replace with MemoryContext
-    default long getMemoryUsage()
-    {
-        return 0;
-    }
+    /**
+     * Adds a reference to the reservation for state which the connector shares across the page sources
+     * created by this provider. A newly created provider holds one reference.
+     */
+    default void retain() {}
+
+    /**
+     * Drops a reference added by {@link #retain()}. Dropping the last reference gives up the reservation.
+     */
+    default void release() {}
 }

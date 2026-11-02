@@ -213,8 +213,8 @@ public class LongOutputStreamV2
         // we need to compute zigzag values for DIRECT encoding if we decide to
         // break early for delta overflows or for shorter runs
         if (signed) {
-            for (int i1 = 0; i1 < numLiterals; i1++) {
-                zigzagLiterals[i1] = zigzagEncode(literals[i1]);
+            for (int i = 0; i < numLiterals; i++) {
+                zigzagLiterals[i] = zigzagEncode(literals[i]);
             }
         }
         else {

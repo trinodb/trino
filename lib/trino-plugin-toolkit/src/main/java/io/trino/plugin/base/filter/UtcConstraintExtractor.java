@@ -66,7 +66,9 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Math.toIntExact;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.time.DayOfWeek.MONDAY;
 import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.TemporalAdjusters.previousOrSame;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -243,7 +245,7 @@ public final class UtcConstraintExtractor
             Map<String, ColumnHandle> assignments)
     {
         if (!(castSource instanceof Variable sourceVariable)) {
-            // Engine unwraps casts in comparisons in UnwrapCastInComparison. Within a connector we can do more than
+            // Engine unwraps casts through function preimages. Within a connector we can do more than
             // engine only for source columns. We cannot draw many conclusions for intermediate expressions without
             // knowing them well.
             return Optional.empty();
@@ -345,7 +347,7 @@ public final class UtcConstraintExtractor
             Map<String, ColumnHandle> assignments)
     {
         if (!(dateTruncSource instanceof Variable sourceVariable)) {
-            // Engine unwraps date_trunc in comparisons in UnwrapDateTruncInComparison. Within a connector we can do more than
+            // Engine unwraps date_trunc through function preimages. Within a connector we can do more than
             // engine only for source columns. We cannot draw many conclusions for intermediate expressions without
             // knowing them well.
             return Optional.empty();
@@ -404,9 +406,18 @@ public final class UtcConstraintExtractor
                 periodStart = dateTime.toLocalDate().atStartOfDay().atZone(UTC);
                 nextPeriodStart = periodStart.plusDays(1);
             }
+            case "week" -> {
+                periodStart = dateTime.toLocalDate().with(previousOrSame(MONDAY)).atStartOfDay().atZone(UTC);
+                nextPeriodStart = periodStart.plusWeeks(1);
+            }
             case "month" -> {
                 periodStart = dateTime.toLocalDate().withDayOfMonth(1).atStartOfDay().atZone(UTC);
                 nextPeriodStart = periodStart.plusMonths(1);
+            }
+            case "quarter" -> {
+                int firstMonthOfQuarter = ((dateTime.getMonthValue() - 1) / 3) * 3 + 1;
+                periodStart = dateTime.toLocalDate().withMonth(firstMonthOfQuarter).withDayOfMonth(1).atStartOfDay().atZone(UTC);
+                nextPeriodStart = periodStart.plusMonths(3);
             }
             case "year" -> {
                 periodStart = dateTime.toLocalDate().withMonth(1).withDayOfMonth(1).atStartOfDay().atZone(UTC);
@@ -476,7 +487,7 @@ public final class UtcConstraintExtractor
             Map<String, ColumnHandle> assignments)
     {
         if (!(yearSource instanceof Variable sourceVariable)) {
-            // Engine unwraps year in comparisons in UnwrapYearInComparison. Within a connector we can do more than
+            // Engine unwraps year through function preimages. Within a connector we can do more than
             // engine only for source columns. We cannot draw many conclusions for intermediate expressions without
             // knowing them well.
             return Optional.empty();

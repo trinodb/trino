@@ -90,9 +90,10 @@ public class IcebergCostBasedPlanTestSetup
 
         connectorConfiguration = ImmutableMap.<String, String>builder()
                 .put("iceberg.catalog.type", TESTING_FILE_METASTORE.name())
-                .put("hive.metastore.catalog.dir", temporaryMetastoreDirectory.toString())
+                .put("hive.metastore.catalog.dir", "local:///")
+                .put("local.location", temporaryMetastoreDirectory.toString())
                 .put("fs.s3.enabled", "true")
-                .put("fs.hadoop.enabled", "true")
+                .put("fs.local.enabled", "true")
                 .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
                 .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
                 .put("s3.region", FLOCI_REGION)

@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.ArrayType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -29,8 +31,12 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.types.Types;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -49,8 +55,11 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
@@ -62,6 +71,7 @@ import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -71,6 +81,7 @@ public abstract class BaseIcebergSystemTables
     private final IcebergFileFormat format;
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
+    private TrinoCatalog catalog;
 
     protected BaseIcebergSystemTables(IcebergFileFormat format)
     {
@@ -86,6 +97,7 @@ public abstract class BaseIcebergSystemTables
                 .build();
         metastore = getHiveMetastore(queryRunner);
         fileSystemFactory = getFileSystemFactory(queryRunner);
+        catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
         return queryRunner;
     }
 
@@ -241,6 +253,37 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    public void testPartitionsTableWithReservedKeywordColumnName()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_partitions_reserved_keyword",
+                "(\"group\" varchar, \"order\" bigint, _date date) WITH (partitioning = ARRAY['_date'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('a', 1, DATE '2024-01-01'), ('b', 2, DATE '2024-01-02')", 2);
+
+            assertQuery(
+                    "SELECT partition._date, record_count, data.\"group\".min, data.\"order\".max FROM \"" + table.getName() + "$partitions\"",
+                    "VALUES (DATE '2024-01-01', 1, 'a', 1), (DATE '2024-01-02', 1, 'b', 2)");
+        }
+    }
+
+    @Test
+    public void testPartitionsTableWithTimestampWithTimeZone()
+    {
+        // View column ids use SQL type spelling, including nested zoned timestamp fields in both
+        // the partition row and the data row's min/max fields.
+        try (TestTable table = newTrinoTable(
+                "test_partitions_tz",
+                "(part_ts timestamp(6) with time zone, data_ts timestamp(6) with time zone) WITH (partitioning = ARRAY['part_ts'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2024-01-01 00:00:00.000000 UTC', TIMESTAMP '2024-06-01 12:00:00.000000 UTC')", 1);
+
+            // SELECT * resolves the whole view row type.
+            assertThat(computeActual("SELECT * FROM \"" + table.getName() + "$partitions\"").getRowCount()).isEqualTo(1);
+            assertThat(computeScalar("SELECT partition.part_ts FROM \"" + table.getName() + "$partitions\"")).isNotNull();
+            assertThat(computeScalar("SELECT data.data_ts.min FROM \"" + table.getName() + "$partitions\"")).isNotNull();
+        }
+    }
+
+    @Test
     public void testPartitionsTableOnDropColumn()
     {
         MaterializedResult resultAfterDrop = computeActual("SELECT * from test_schema.\"test_table_drop_column$partitions\"");
@@ -259,6 +302,73 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    public void testFilesAndPartitionsTableWithoutSnapshot()
+    {
+        SchemaTableName tableName = new SchemaTableName("test_schema", "test_table_without_snapshot");
+        createTableWithoutSnapshot(tableName);
+        try {
+            assertThat(computeActual("SELECT * FROM test_schema.\"test_table_without_snapshot$files\"").getRowCount()).isEqualTo(0);
+            assertThat(computeActual("SELECT * FROM test_schema.\"test_table_without_snapshot$partitions\"").getRowCount()).isEqualTo(0);
+        }
+        finally {
+            catalog.dropTable(SESSION, tableName);
+        }
+    }
+
+    @Test
+    public void testMetadataTablesWithoutSnapshot()
+    {
+        SchemaTableName tableName = new SchemaTableName("test_schema", "test_metadata_tables_without_snapshot");
+        createTableWithoutSnapshot(tableName);
+        try {
+            for (TableType tableType : TableType.values()) {
+                if (tableType == TableType.DATA || tableType == TableType.MATERIALIZED_VIEW_STORAGE) {
+                    continue;
+                }
+                String metadataTable = tableNameWithType(tableName.getTableName(), tableType);
+                assertThatCode(() -> computeActual("SELECT * FROM test_schema.\"" + metadataTable + "\""))
+                        .describedAs(tableType.name())
+                        .doesNotThrowAnyException();
+            }
+        }
+        finally {
+            catalog.dropTable(SESSION, tableName);
+        }
+    }
+
+    @Test
+    public void testMetadataTablesForNonExistentTable()
+    {
+        String tableName = "nonexistent_table";
+        for (TableType tableType : TableType.values()) {
+            if (tableType == TableType.DATA || tableType == TableType.MATERIALIZED_VIEW_STORAGE) {
+                continue;
+            }
+            String metadataTable = tableNameWithType(tableName, tableType);
+            assertThat(query("SELECT * FROM test_schema.\"" + metadataTable + "\""))
+                    .describedAs(tableType.name())
+                    .failure().hasMessageMatching(".* Table '.*.\"" + tableName + "\\$" + tableType.name().toLowerCase(ENGLISH) + "\"' does not exist");
+        }
+    }
+
+    // Create the table with the Iceberg API so that it has no snapshot (Trino CREATE TABLE would add an empty one)
+    private void createTableWithoutSnapshot(SchemaTableName tableName)
+    {
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "_bigint", Types.LongType.get()),
+                Types.NestedField.optional(2, "_date", Types.DateType.get()));
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        tableName,
+                        schema,
+                        PartitionSpec.builderFor(schema).identity("_date").build(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, tableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+    }
+
+    @Test
     public void testHistoryTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$history\"",
@@ -269,6 +379,56 @@ public abstract class BaseIcebergSystemTables
 
         // Test the number of history entries
         assertQuery("SELECT count(*) FROM test_schema.\"test_table$history\"", "VALUES 3");
+    }
+
+    @Test
+    void testHistoryTableAfterRollback()
+    {
+        try (TestTable table = newTrinoTable("test_history_rollback", "AS SELECT 1 id")) {
+            long firstSnapshotId = loadTable(table.getName()).currentSnapshot().snapshotId();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            long secondSnapshotId = loadTable(table.getName()).currentSnapshot().snapshotId();
+
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE rollback_to_snapshot(" + firstSnapshotId + ")");
+
+            // Rolling back adds a second log entry for the snapshot which became current again
+            assertThat(query("SELECT snapshot_id, count(*) FROM \"" + table.getName() + "$history\" GROUP BY snapshot_id"))
+                    .matches("VALUES (BIGINT '" + firstSnapshotId + "', BIGINT '2'), (BIGINT '" + secondSnapshotId + "', BIGINT '1')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$snapshots\""))
+                    .matches("VALUES BIGINT '2'");
+            assertThat(query("SELECT DISTINCT is_current_ancestor FROM \"" + table.getName() + "$history\" WHERE snapshot_id = " + secondSnapshotId))
+                    .matches("VALUES false");
+            // The rollback entry records when the snapshot became current again, after the second commit
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$history\" WHERE snapshot_id = " + firstSnapshotId +
+                    " AND made_current_at >= (SELECT committed_at FROM \"" + table.getName() + "$snapshots\" WHERE snapshot_id = " + secondSnapshotId + ")"))
+                    .matches("VALUES BIGINT '1'");
+        }
+    }
+
+    @Test
+    void testHistoryTableExcludesSnapshotNeverMadeCurrent()
+    {
+        // Trino cannot write to a branch, so commit the branch snapshot through the Iceberg API
+        try (TestTable table = newTrinoTable("test_history_branch", "AS SELECT 1 id")) {
+            Table icebergTable = loadTable(table.getName());
+            long mainSnapshotId = icebergTable.currentSnapshot().snapshotId();
+
+            DataFile dataFile = DataFiles.builder(icebergTable.spec())
+                    .withPath(icebergTable.location() + "/data/branch-only." + format.name().toLowerCase(ENGLISH))
+                    .withFormat(FileFormat.fromString(format.name()))
+                    .withFileSizeInBytes(1234)
+                    .withRecordCount(1)
+                    .build();
+            icebergTable.manageSnapshots().createBranch("test_branch", mainSnapshotId).commit();
+            icebergTable.newAppend().appendFile(dataFile).toBranch("test_branch").commit();
+            icebergTable.refresh();
+            long branchSnapshotId = icebergTable.snapshot("test_branch").snapshotId();
+
+            assertThat(query("SELECT snapshot_id FROM \"" + table.getName() + "$snapshots\""))
+                    .matches("VALUES BIGINT '" + mainSnapshotId + "', BIGINT '" + branchSnapshotId + "'");
+            assertThat(query("SELECT snapshot_id FROM \"" + table.getName() + "$history\""))
+                    .matches("VALUES BIGINT '" + mainSnapshotId + "'");
+        }
     }
 
     @Test
@@ -575,7 +735,7 @@ public abstract class BaseIcebergSystemTables
 
         long offset = format == PARQUET ? 4L : 3L;
         assertThat(computeActual("SELECT split_offsets FROM test_schema.\"test_table$files\""))
-                .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
+                .isEqualTo(resultBuilder(ImmutableList.of(new ArrayType(BIGINT)))
                         .row(ImmutableList.of(offset))
                         .row(ImmutableList.of(offset))
                         .row(ImmutableList.of(offset))
@@ -1030,6 +1190,20 @@ public abstract class BaseIcebergSystemTables
                     entry("format-version", "2"),
                     entry("sort-order", "y ASC NULLS FIRST"),
                     entry("write.format.default", format.name()));
+        }
+    }
+
+    @Test
+    public void testPropertiesTableWithSortOrderTableProperty()
+    {
+        try (TestTable table = newTrinoTable("test_properties_sort_order", "(x BIGINT, y DOUBLE) WITH (sorted_by = ARRAY['y'])")) {
+            loadTable(table.getName()).updateProperties().set("sort-order", "x ASC NULLS FIRST").commit();
+            assertThat(getTableProperties(table.getName())).containsEntry("sort-order", "y ASC NULLS FIRST");
+        }
+
+        try (TestTable table = newTrinoTable("test_properties_sort_order", "(x BIGINT, y DOUBLE)")) {
+            loadTable(table.getName()).updateProperties().set("sort-order", "x ASC NULLS FIRST").commit();
+            assertThat(getTableProperties(table.getName())).doesNotContainKey("sort-order");
         }
     }
 

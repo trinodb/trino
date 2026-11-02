@@ -25,6 +25,7 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
@@ -92,12 +93,14 @@ public class BigQueryStorageAvroPageSource
     private final BigQueryReadClient bigQueryReadClient;
     private final ExecutorService executor;
     private final BigQueryTypeManager typeManager;
+    private final String traceId;
     private final String streamName;
     private final Schema avroSchema;
     private final List<BigQueryColumnHandle> columns;
     private final AtomicLong readBytes = new AtomicLong();
     private final AtomicLong readTimeNanos = new AtomicLong();
     private final PageBuilder pageBuilder;
+    private final MemoryContext memoryContext;
     private final Iterator<ReadRowsResponse> responses;
 
     private CompletableFuture<ReadRowsResponse> nextResponse;
@@ -109,20 +112,25 @@ public class BigQueryStorageAvroPageSource
             BigQueryTypeManager typeManager,
             int maxReadRowsRetries,
             BigQuerySplit split,
-            List<BigQueryColumnHandle> columns)
+            List<BigQueryColumnHandle> columns,
+            MemoryContext memoryContext)
     {
         this.bigQueryReadClient = requireNonNull(bigQueryReadClient, "bigQueryReadClient is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         requireNonNull(split, "split is null");
+        this.traceId = split.traceId();
         this.streamName = split.streamName();
         this.avroSchema = parseSchema(split.schemaString());
         this.columns = requireNonNull(columns, "columns is null");
         this.pageBuilder = new PageBuilder(columns.stream()
                 .map(BigQueryColumnHandle::trinoType)
                 .collect(toImmutableList()));
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        // Report before the read is started, so that exceeding the memory limit sends no read request
+        updateMemoryUsage();
 
-        log.debug("Starting to read from %s", streamName);
+        log.debug("Trace id: %s, Stream: %s, Starting to read", traceId, streamName);
         responses = new ReadRowsHelper(bigQueryReadClient, streamName, maxReadRowsRetries).readRows();
         nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
     }
@@ -184,6 +192,7 @@ public class BigQueryStorageAvroPageSource
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
+        updateMemoryUsage();
         readTimeNanos.addAndGet(System.nanoTime() - start);
         return SourcePage.create(page);
     }
@@ -248,7 +257,7 @@ public class BigQueryStorageAvroPageSource
             else if (type.getJavaType() == Int128.class) {
                 writeObject(output, type, value);
             }
-            else if (javaType == Slice.class) {
+            else if (javaType == Slice.class || typeManager.isJsonType(type)) {
                 writeSlice(output, type, value);
             }
             else if (javaType == LongTimestampWithTimeZone.class) {
@@ -328,13 +337,6 @@ public class BigQueryStorageAvroPageSource
     }
 
     @Override
-    @SuppressWarnings("deprecation") // TODO (https://github.com/trinodb/trino/issues/29959) migrate to MemoryContext
-    public long getMemoryUsage()
-    {
-        return pageBuilder.getRetainedSizeInBytes();
-    }
-
-    @Override
     public void close()
     {
         nextResponse.cancel(true);
@@ -355,11 +357,16 @@ public class BigQueryStorageAvroPageSource
         return response;
     }
 
+    private void updateMemoryUsage()
+    {
+        memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
+    }
+
     Iterable<GenericRecord> parse(ReadRowsResponse response)
     {
         byte[] buffer = response.getAvroRows().getSerializedBinaryRows().toByteArray();
         readBytes.addAndGet(buffer.length);
-        log.debug("Read %d bytes (total %d) from %s", buffer.length, readBytes.get(), streamName);
+        log.debug("Trace id: %s, Stream: %s, Read %d bytes (total %d)", traceId, streamName, buffer.length, readBytes.get());
         return () -> new AvroBinaryIterator(avroSchema, buffer);
     }
 

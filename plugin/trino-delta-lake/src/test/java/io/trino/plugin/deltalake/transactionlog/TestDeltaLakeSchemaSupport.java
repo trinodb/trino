@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeTable;
@@ -47,6 +48,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorSupported;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
@@ -57,9 +60,10 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_SECONDS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -104,7 +108,7 @@ public class TestDeltaLakeSchemaSupport
                 ColumnMetadata.builder().setName("a").setType(DATE).setNullable(true).build());
         testSinglePrimitiveFieldSchema(
                 "{\"type\":\"struct\",\"fields\":[{\"name\":\"a\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
-                ColumnMetadata.builder().setName("a").setType(TIMESTAMP_TZ_MILLIS).setNullable(true).build());
+                ColumnMetadata.builder().setName("a").setType(TIMESTAMP_TZ_MICROS).setTimeZone(Optional.of(UTC_KEY)).setNullable(true).build());
     }
 
     private void testSinglePrimitiveFieldSchema(String json, ColumnMetadata metadata)
@@ -148,7 +152,7 @@ public class TestDeltaLakeSchemaSupport
         assertThat(schema.get(1).toString()).isEqualTo("ColumnMetadata{name='b', type=row(\"b1\" integer, \"b2\" row(\"b21\" varchar, \"b22\" boolean)), nullable}");
         assertThat(schema.get(2).toString()).isEqualTo("ColumnMetadata{name='c', type=array(integer), nullable}");
         assertThat(schema.get(3).toString()).isEqualTo("ColumnMetadata{name='d', type=array(row(\"d1\" integer)), nullable}");
-        assertThat(schema.get(4).toString()).isEqualTo("ColumnMetadata{name='e', type=map(varchar, row(\"e1\" date, \"e2\" timestamp(3) with time zone)), nullable}");
+        assertThat(schema.get(4).toString()).isEqualTo("ColumnMetadata{name='e', type=map(varchar, row(\"e1\" date, \"e2\" timestamp(6) with time zone)), timeZone=UTC, nullable}");
     }
 
     @Test
@@ -160,7 +164,8 @@ public class TestDeltaLakeSchemaSupport
                         Optional.of(100L),
                         Optional.of(ImmutableMap.of("c", 42)),
                         Optional.of(ImmutableMap.of("c", 51)),
-                        Optional.of(ImmutableMap.of("c", 1L))))).isEqualTo("{\"numRecords\":100,\"minValues\":{\"c\":42},\"maxValues\":{\"c\":51},\"nullCount\":{\"c\":1}}");
+                        Optional.of(ImmutableMap.of("c", 1L)),
+                        Optional.empty()))).isEqualTo("{\"numRecords\":100,\"minValues\":{\"c\":42},\"maxValues\":{\"c\":51},\"nullCount\":{\"c\":1}}");
     }
 
     @Test
@@ -181,7 +186,8 @@ public class TestDeltaLakeSchemaSupport
                         Optional.of(1L),
                         Optional.of(minValues),
                         Optional.of(maxValues),
-                        Optional.of(ImmutableMap.of("c1", 1L, "c2", 0L))))).isEqualTo("{\"numRecords\":1,\"minValues\":{\"c2\":10},\"maxValues\":{\"c2\":26},\"nullCount\":{\"c1\":1,\"c2\":0}}");
+                        Optional.of(ImmutableMap.of("c1", 1L, "c2", 0L)),
+                        Optional.empty()))).isEqualTo("{\"numRecords\":1,\"minValues\":{\"c2\":10},\"maxValues\":{\"c2\":26},\"nullCount\":{\"c1\":1,\"c2\":0}}");
     }
 
     @Test
@@ -278,10 +284,10 @@ public class TestDeltaLakeSchemaSupport
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(DATE)).doesNotThrowAnyException();
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(VARCHAR)).doesNotThrowAnyException();
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(DecimalType.createDecimalType(3))).doesNotThrowAnyException();
-        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(TIMESTAMP_TZ_MILLIS)).doesNotThrowAnyException();
-        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new MapType(TIMESTAMP_TZ_MILLIS, TIMESTAMP_TZ_MILLIS, new TypeOperators()))).doesNotThrowAnyException();
-        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_MILLIS)))).doesNotThrowAnyException();
-        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new ArrayType(TIMESTAMP_TZ_MILLIS))).doesNotThrowAnyException();
+        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(TIMESTAMP_TZ_MICROS)).doesNotThrowAnyException();
+        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new MapType(TIMESTAMP_TZ_MICROS, TIMESTAMP_TZ_MICROS, new TypeOperators()))).doesNotThrowAnyException();
+        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_MICROS)))).doesNotThrowAnyException();
+        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new ArrayType(TIMESTAMP_TZ_MICROS))).doesNotThrowAnyException();
     }
 
     @Test
@@ -300,5 +306,32 @@ public class TestDeltaLakeSchemaSupport
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new MapType(TIMESTAMP_TZ_SECONDS, TIMESTAMP_TZ_SECONDS, new TypeOperators()))).hasMessage("Unsupported type: timestamp(0) with time zone");
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_SECONDS)))).hasMessage("Unsupported type: timestamp(0) with time zone");
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new ArrayType(TIMESTAMP_TZ_SECONDS))).hasMessage("Unsupported type: timestamp(0) with time zone");
+    }
+
+    @Test
+    public void testIsDeletionVectorEnabled()
+    {
+        MetadataEntry enabled = metadataEntry(ImmutableMap.of("delta.enableDeletionVectors", "true"));
+        MetadataEntry disabled = metadataEntry(ImmutableMap.of("delta.enableDeletionVectors", "false"));
+        MetadataEntry unset = metadataEntry(ImmutableMap.of());
+
+        ProtocolEntry legacy = new ProtocolEntry(1, 2, Optional.empty(), Optional.empty());
+        ProtocolEntry withoutFeature = new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
+        ProtocolEntry withFeature = new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of("deletionVectors")), Optional.of(ImmutableSet.of("deletionVectors")));
+
+        assertThat(isDeletionVectorEnabled(enabled, legacy)).isFalse();
+        assertThat(isDeletionVectorEnabled(enabled, withoutFeature)).isFalse();
+        assertThat(isDeletionVectorEnabled(enabled, withFeature)).isTrue();
+        assertThat(isDeletionVectorEnabled(disabled, withFeature)).isFalse();
+        assertThat(isDeletionVectorEnabled(unset, withFeature)).isFalse();
+
+        assertThat(isDeletionVectorSupported(legacy)).isFalse();
+        assertThat(isDeletionVectorSupported(withoutFeature)).isFalse();
+        assertThat(isDeletionVectorSupported(withFeature)).isTrue();
+    }
+
+    private static MetadataEntry metadataEntry(Map<String, String> configuration)
+    {
+        return new MetadataEntry("id", "name", "description", new MetadataEntry.Format("parquet", ImmutableMap.of()), "{}", ImmutableList.of(), configuration, 0);
     }
 }

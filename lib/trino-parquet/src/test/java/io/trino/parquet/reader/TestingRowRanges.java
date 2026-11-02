@@ -14,12 +14,7 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.reader.FilteredRowRanges.RowRange;
-import org.apache.parquet.internal.column.columnindex.OffsetIndex;
-import org.apache.parquet.internal.filter2.columnindex.RowRanges;
-
-import java.util.stream.IntStream;
-
-import static java.util.Objects.requireNonNull;
+import org.apache.parquet.filter2.columnindex.RowRanges;
 
 public class TestingRowRanges
 {
@@ -32,47 +27,10 @@ public class TestingRowRanges
 
     public static RowRanges toRowRanges(RowRange... ranges)
     {
-        return RowRanges.create(-1, IntStream.range(0, ranges.length).iterator(), new MockOffsetIndex(ranges));
-    }
-
-    private static class MockOffsetIndex
-            implements OffsetIndex
-    {
-        private final RowRange[] rowRanges;
-
-        private MockOffsetIndex(RowRange[] rowRanges)
-        {
-            this.rowRanges = requireNonNull(rowRanges, "rowRanges is null");
+        RowRanges.Builder builder = RowRanges.builder();
+        for (RowRange range : ranges) {
+            builder.addSelectedRange(range.start(), range.end());
         }
-
-        @Override
-        public int getPageCount()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public long getOffset(int pageIndex)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public int getCompressedPageSize(int pageIndex)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public long getFirstRowIndex(int pageIndex)
-        {
-            return rowRanges[pageIndex].start();
-        }
-
-        @Override
-        public long getLastRowIndex(int pageIndex, long rowGroupRowCount)
-        {
-            return rowRanges[pageIndex].end();
-        }
+        return builder.build();
     }
 }

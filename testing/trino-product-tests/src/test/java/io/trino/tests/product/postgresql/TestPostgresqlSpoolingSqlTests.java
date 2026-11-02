@@ -13,9 +13,21 @@
  */
 package io.trino.tests.product.postgresql;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.trino.testing.containers.environment.ProductTest;
 import io.trino.testing.containers.environment.RequiresEnvironment;
 import io.trino.tests.product.TestGroup;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * PostgreSQL SQL tests running against the PostgreSQL + spooling environment.
@@ -30,4 +42,37 @@ import io.trino.tests.product.TestGroup;
 @TestGroup.PostgresqlSpooling
 @TestGroup.ProfileSpecificTests
 class TestPostgresqlSpoolingSqlTests
-        extends BasePostgresqlSqlTests {}
+        extends BasePostgresqlSqlTests
+{
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    @Test
+    void testResultsAreSpooled(PostgresqlSpoolingEnvironment env)
+            throws Exception
+    {
+        URI coordinatorUri = URI.create(env.getTrinoJdbcUrl().replace("jdbc:trino:", "http:"));
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            JsonNode results = send(client, HttpRequest.newBuilder(coordinatorUri.resolve("/v1/statement"))
+                    .header("X-Trino-User", "hive")
+                    .header("X-Trino-Query-Data-Encoding", "json")
+                    .POST(BodyPublishers.ofString("SELECT * FROM postgresql.public.workers_psql")));
+            while (!results.has("data")) {
+                results = send(client, HttpRequest.newBuilder(URI.create(results.required("nextUri").asText())));
+            }
+            JsonNode data = results.get("data");
+            assertThat(data.path("encoding").asText()).isEqualTo("json");
+            assertThat(data.path("segments"))
+                    .isNotEmpty()
+                    .allSatisfy(segment -> assertThat(segment.path("type").asText()).isEqualTo("spooled"));
+        }
+        assertThat(env.listSpooledSegments()).isNotEmpty();
+    }
+
+    private static JsonNode send(HttpClient client, HttpRequest.Builder request)
+            throws IOException, InterruptedException
+    {
+        HttpResponse<String> response = client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).isEqualTo(200);
+        return OBJECT_MAPPER.readTree(response.body());
+    }
+}

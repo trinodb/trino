@@ -60,7 +60,6 @@ import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -734,12 +733,6 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanAndMappings visitRefreshMaterializedView(RefreshMaterializedViewNode node, UnaliasContext context)
-        {
-            return new PlanAndMappings(node, ImmutableMap.of());
-        }
-
-        @Override
         public PlanAndMappings visitTableWriter(TableWriterNode node, UnaliasContext context)
         {
             PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
@@ -905,8 +898,8 @@ public class UnaliasSymbolReferences
                 // If the assignment potentially introduces a reused (ambiguous) symbol, do not map output to input
                 // to avoid mixing semantics. Input symbols represent semantics as in the source plan,
                 // while output symbols represent newly established semantics.
-                if (expression instanceof Reference && !ambiguousSymbolsPresent) {
-                    Symbol value = Symbol.from(expression);
+                if (expression instanceof Reference reference && !ambiguousSymbolsPresent) {
+                    Symbol value = Symbol.from(reference);
                     if (!assignment.getKey().equals(value)) {
                         newMapping.put(assignment.getKey(), value);
                     }

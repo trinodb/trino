@@ -306,6 +306,31 @@ public class TestRealOperators
     }
 
     @Test
+    public void testIn()
+    {
+        assertThat(assertions.expression("a IN (REAL '12.34')")
+                .binding("a", "REAL '12.34'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (REAL '12.34')")
+                .binding("a", "REAL '23.45'"))
+                .isEqualTo(false);
+
+        // NaN is not equal to itself, also when the IN list is small enough for a switch over raw float bits
+        assertThat(assertions.expression("a IN (REAL 'NaN')")
+                .binding("a", "REAL 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a IN (REAL '12.34', REAL 'NaN', REAL '23.45')")
+                .binding("a", "REAL 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a IN (REAL '1', REAL '2', REAL '3', REAL '4', REAL '5', REAL '6', REAL '7', REAL 'NaN')")
+                .binding("a", "REAL 'NaN'"))
+                .isEqualTo(false);
+    }
+
+    @Test
     public void testNotEqual()
     {
         assertThat(assertions.expression("a <> b")

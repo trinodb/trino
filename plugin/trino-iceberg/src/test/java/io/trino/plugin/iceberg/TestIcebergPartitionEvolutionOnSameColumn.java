@@ -28,7 +28,6 @@ import static io.trino.testing.containers.Floci.FLOCI_REGION;
 import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergPartitionEvolutionOnSameColumn
         extends AbstractTestQueryFramework
@@ -129,7 +128,7 @@ public class TestIcebergPartitionEvolutionOnSameColumn
      * @see iceberg.conflict_truncate
      */
     @Test
-    void testFilesPartitionEvolutionWithTruncateMetadataCorruption()
+    void testFilesPartitionEvolutionWithDuplicatePartitionFieldNames()
     {
         String tableName = "test_iceberg_partition_evolution_" + randomNameSuffix();
 
@@ -142,10 +141,10 @@ public class TestIcebergPartitionEvolutionOnSameColumn
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (VARCHAR 'abc'), (VARCHAR 'abcd')");
 
-        // In the generated table, the latest metadata incorrectly reuses the same partition
-        // field name for different truncate widths, each with its own field ID, resulting in an invalid schema
-        assertThatThrownBy(() -> computeActual("SELECT partition FROM \"" + tableName + "$files\""))
-                .hasMessage("Invalid schema: multiple fields for name partition.a_trunc: 1000 and 1001");
+        // Table has duplicate partition field names (a_trunc) across specs, which is valid Iceberg;
+        // $files must still read it. See https://github.com/trinodb/trino/issues/31435
+        assertQuerySucceeds("SELECT partition FROM \"" + tableName + "$files\"");
+        assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\"")).matches("VALUES BIGINT '2'");
 
         // Fix partition evolution by setting the partitioning to use the same truncation level as the current configuration
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['truncate(a, 10)']");

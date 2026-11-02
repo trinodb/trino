@@ -50,6 +50,10 @@ public final class StandardFunctions
      */
     public static final FunctionName CAST_FUNCTION_NAME = new FunctionName("$cast");
     public static final FunctionName TRY_CAST_FUNCTION_NAME = new FunctionName("$try_cast");
+    /**
+     * A {@code char} to {@code varchar} cast under legacy semantics. The result type is determined by the {@link Call#getType()}.
+     */
+    public static final FunctionName LEGACY_CHAR_TO_VARCHAR_CAST_FUNCTION_NAME = new FunctionName("$legacy_char_to_varchar_cast");
 
     public static final FunctionName EQUAL_OPERATOR_FUNCTION_NAME = new FunctionName("$equal");
     public static final FunctionName NOT_EQUAL_OPERATOR_FUNCTION_NAME = new FunctionName("$not_equal");

@@ -16,7 +16,7 @@ package io.trino.faulttolerant.hive;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
 import io.trino.plugin.hive.BaseHiveConnectorTest;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
@@ -29,7 +29,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT;
-import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.NONE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -38,14 +38,14 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestHiveRuntimeAdaptivePartitioningFaultTolerantExecutionConnectorTest
         extends BaseHiveConnectorTest
 {
-    private MinioStorage minioStorage;
+    private FlociStorage storage;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
-        minioStorage.start();
+        storage = new FlociStorage("test-exchange-spooling-" + randomNameSuffix(), NONE);
+        storage.start();
 
         ImmutableMap.Builder<String, String> extraPropertiesWithRuntimeAdaptivePartitioning = ImmutableMap.builder();
         extraPropertiesWithRuntimeAdaptivePartitioning.putAll(FaultTolerantExecutionConnectorTestHelper.getExtraProperties());
@@ -53,7 +53,7 @@ public class TestHiveRuntimeAdaptivePartitioningFaultTolerantExecutionConnectorT
 
         return createHiveQueryRunner(HiveQueryRunner.builder()
                 .setExtraProperties(extraPropertiesWithRuntimeAdaptivePartitioning.buildOrThrow())
-                .withExchange("filesystem", getExchangeManagerProperties(minioStorage)));
+                .withExchange("filesystem", storage.getExchangeManagerProperties()));
     }
 
     @Test
@@ -116,9 +116,9 @@ public class TestHiveRuntimeAdaptivePartitioningFaultTolerantExecutionConnectorT
     public void destroy()
             throws Exception
     {
-        if (minioStorage != null) {
-            minioStorage.close();
-            minioStorage = null;
+        if (storage != null) {
+            storage.close();
+            storage = null;
         }
     }
 }

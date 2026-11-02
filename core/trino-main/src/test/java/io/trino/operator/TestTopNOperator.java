@@ -99,7 +99,7 @@ public class TestTopNOperator
                 ImmutableList.of(0),
                 ImmutableList.of(DESC_NULLS_LAST));
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
+        MaterializedResult expected = resultBuilder(BIGINT, DOUBLE)
                 .row(6L, 0.6)
                 .row(5L, 0.5)
                 .build();
@@ -128,7 +128,7 @@ public class TestTopNOperator
                 ImmutableList.of(0, 1),
                 ImmutableList.of(DESC_NULLS_LAST, DESC_NULLS_LAST));
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, BIGINT)
                 .row("f", 3L)
                 .row("e", 6L)
                 .row("d", 7L)
@@ -159,7 +159,7 @@ public class TestTopNOperator
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST));
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
+        MaterializedResult expected = resultBuilder(BIGINT, DOUBLE)
                 .row(-1L, -0.1)
                 .row(1L, 0.1)
                 .build();

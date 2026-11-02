@@ -19,9 +19,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static com.google.common.math.DoubleMath.roundToLong;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.math.RoundingMode.DOWN;
 
 public class TestNodeMemoryConfig
 {
@@ -30,9 +32,12 @@ public class TestNodeMemoryConfig
     @Test
     public void testDefaults()
     {
+        // HeapSizeParser rounds relative sizes down, as rounding each to the nearest byte
+        // could make percentages summing to 100% exceed the heap by one byte
+        long defaultSize = roundToLong(AVAILABLE_HEAP_MEMORY * 3.0 / 10, DOWN);
         assertRecordedDefaults(recordDefaults(NodeMemoryConfig.class)
-                .setMaxQueryMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)).toString())
-                .setHeapHeadroom(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)).toString()));
+                .setMaxQueryMemoryPerNode(DataSize.ofBytes(defaultSize).toString())
+                .setHeapHeadroom(DataSize.ofBytes(defaultSize).toString()));
     }
 
     @Test

@@ -32,9 +32,9 @@ public abstract class ValueWindowFunction
     }
 
     @Override
-    public final void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd)
+    public final void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd, int excludedStart, int excludedEnd, int keptRow)
     {
-        processRow(output, frameStart, frameEnd, currentPosition);
+        processRow(output, frameStart, frameEnd, currentPosition, excludedStart, excludedEnd, keptRow);
 
         currentPosition++;
     }
@@ -49,11 +49,21 @@ public abstract class ValueWindowFunction
 
     /**
      * Process a row by outputting the result of the window function.
+     * <p>
+     * The window frame is the contiguous range of positions {@code [frameStart, frameEnd]}
+     * with the positions {@code [excludedStart, excludedEnd]} removed, as directed by the
+     * {@code EXCLUDE} clause of the frame specification. The excluded range is empty (excludes
+     * nothing) when {@code excludedStart > excludedEnd}. {@code keptRow}, when non-negative, is
+     * a single position within the excluded range that remains part of the frame (expressing
+     * {@code EXCLUDE TIES}).
      *
      * @param output the {@link BlockBuilder} to use for writing the output row
      * @param frameStart the position of the first row in the window frame
      * @param frameEnd the position of the last row in the window frame
      * @param currentPosition the current position for this row
+     * @param excludedStart the position of the first excluded row, or {@code 0} if no rows are excluded
+     * @param excludedEnd the position of the last excluded row, or {@code -1} if no rows are excluded
+     * @param keptRow a position within the excluded range that remains part of the frame, or {@code -1} if none
      */
-    public abstract void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition);
+    public abstract void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition, int excludedStart, int excludedEnd, int keptRow);
 }

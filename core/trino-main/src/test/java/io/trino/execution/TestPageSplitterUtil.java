@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.Type;
@@ -27,7 +28,6 @@ import java.util.List;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.SequencePageBuilder.createSequencePage;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.buffer.PageSplitterUtil.splitPage;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -50,8 +50,8 @@ public class TestPageSplitterUtil
         assertThat(pages).hasSizeGreaterThan(1);
         assertPageSize(pages, maxPageSizeInBytes);
         assertPositionCount(pages, positionCount);
-        MaterializedResult actual = toMaterializedResult(TEST_SESSION, types, pages);
-        MaterializedResult expected = toMaterializedResult(TEST_SESSION, types, ImmutableList.of(largePage));
+        MaterializedResult actual = toMaterializedResult(types, pages);
+        MaterializedResult expected = toMaterializedResult(types, ImmutableList.of(largePage));
         assertThat(actual).containsExactlyElementsOf(expected);
     }
 
@@ -95,8 +95,73 @@ public class TestPageSplitterUtil
         assertThat((int) first.getSizeInBytes()).isGreaterThan(maxPageSizeInBytes);
         assertThat((int) second.getSizeInBytes()).isGreaterThan(maxPageSizeInBytes);
         assertPositionCount(pages, positionCount);
-        MaterializedResult actual = toMaterializedResult(TEST_SESSION, types, pages);
-        MaterializedResult expected = toMaterializedResult(TEST_SESSION, types, ImmutableList.of(initialPage));
+        MaterializedResult actual = toMaterializedResult(types, pages);
+        MaterializedResult expected = toMaterializedResult(types, ImmutableList.of(initialPage));
         assertThat(actual).containsExactlyElementsOf(expected);
+    }
+
+    @Test
+    public void testSplitPageCountsSmallDictionaryAndIds()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR);
+        Page dictionaryPage = createDictionaryPage(2, 1000);
+        long maxPageSizeInBytes = 10_000;
+        assertThat(dictionaryPage.getSizeInBytes()).isGreaterThan(maxPageSizeInBytes);
+
+        List<Page> pages = splitPage(dictionaryPage, maxPageSizeInBytes);
+
+        assertThat(pages).containsExactly(dictionaryPage);
+        MaterializedResult actual = toMaterializedResult(types, pages);
+        MaterializedResult expected = toMaterializedResult(types, ImmutableList.of(dictionaryPage));
+        assertThat(actual).containsExactlyElementsOf(expected);
+    }
+
+    @Test
+    public void testSplitPageCountsLargeDictionaryFlattened()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR);
+        Page dictionaryPage = createDictionaryPage(1000, 10);
+        long maxPageSizeInBytes = 2_000;
+        assertThat(((DictionaryBlock) dictionaryPage.getBlock(0)).getDictionary().getSizeInBytes()).isGreaterThan(maxPageSizeInBytes);
+
+        List<Page> pages = splitPage(dictionaryPage, maxPageSizeInBytes);
+
+        assertThat(pages).containsExactly(dictionaryPage);
+        MaterializedResult actual = toMaterializedResult(types, pages);
+        MaterializedResult expected = toMaterializedResult(types, ImmutableList.of(dictionaryPage));
+        assertThat(actual).containsExactlyElementsOf(expected);
+    }
+
+    @Test
+    public void testSplitDictionaryPage()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR);
+        Page dictionaryPage = createDictionaryPage(2, 1000);
+        long maxPageSizeInBytes = 1_500;
+
+        List<Page> pages = splitPage(dictionaryPage, maxPageSizeInBytes);
+
+        assertThat(pages).hasSize(4);
+        for (Page page : pages) {
+            DictionaryBlock dictionaryBlock = (DictionaryBlock) page.getBlock(0);
+            assertThat(dictionaryBlock.getDictionary().getSizeInBytes() + Integer.BYTES * (long) dictionaryBlock.getPositionCount()).isLessThanOrEqualTo(maxPageSizeInBytes);
+        }
+        assertPositionCount(pages, 1000);
+        MaterializedResult actual = toMaterializedResult(types, pages);
+        MaterializedResult expected = toMaterializedResult(types, ImmutableList.of(dictionaryPage));
+        assertThat(actual).containsExactlyElementsOf(expected);
+    }
+
+    private static Page createDictionaryPage(int dictionarySize, int positionCount)
+    {
+        VariableWidthBlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, dictionarySize, dictionarySize * 100);
+        for (int entry = 0; entry < dictionarySize; entry++) {
+            dictionaryBuilder.writeEntry(wrappedBuffer(String.valueOf(entry % 10).repeat(100).getBytes(UTF_8)));
+        }
+        int[] ids = new int[positionCount];
+        for (int position = 0; position < positionCount; position++) {
+            ids[position] = position % dictionarySize;
+        }
+        return new Page(DictionaryBlock.create(positionCount, dictionaryBuilder.build(), ids));
     }
 }

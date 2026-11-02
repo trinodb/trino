@@ -54,6 +54,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
@@ -261,12 +262,12 @@ public class PinotMetadata
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         PinotTableHandle handle = (PinotTableHandle) table;
-        if (handle.limit().isPresent() && handle.limit().getAsLong() <= limit) {
+        if (handle.limit().isPresent() && handle.limit().orElseThrow() <= limit) {
             return Optional.empty();
         }
         Optional<DynamicTable> dynamicTable = handle.query();
         if (dynamicTable.isPresent() &&
-                (dynamicTable.get().limit().isEmpty() || dynamicTable.get().limit().getAsLong() > limit)) {
+                (dynamicTable.get().limit().isEmpty() || dynamicTable.get().limit().orElseThrow() > limit)) {
             dynamicTable = Optional.of(new DynamicTable(
                     dynamicTable.get().tableName(),
                     dynamicTable.get().suffix(),
@@ -349,6 +350,10 @@ public class PinotMetadata
     private boolean isFilterPushdownUnsupported(Domain domain)
     {
         ValueSet valueSet = domain.getValues();
+        if (valueSet instanceof FloatingPointValueSet floatingPoint && !floatingPoint.isAll() &&
+                floatingPoint.isNaNAllowed()) {
+            return true;
+        }
         boolean isNotNull = valueSet.isAll() && !domain.isNullAllowed();
         boolean isUnsupportedAlwaysFalse = domain.isNone() && !SUPPORTS_ALWAYS_FALSE.contains(domain.getType());
         boolean isInOrNull = !valueSet.getRanges().getOrderedRanges().isEmpty() && domain.isNullAllowed();

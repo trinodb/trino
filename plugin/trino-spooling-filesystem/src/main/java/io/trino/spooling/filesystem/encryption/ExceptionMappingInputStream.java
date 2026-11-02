@@ -34,7 +34,7 @@ public class ExceptionMappingInputStream
             return super.read();
         }
         catch (FileNotFoundException e) {
-            throw new RuntimeException("Segment not found or expired", e);
+            throw new IOException("Segment not found or expired", e);
         }
     }
 

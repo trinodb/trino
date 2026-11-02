@@ -13,32 +13,11 @@
  */
 package io.trino.operator.window.matcher;
 
-import java.util.Objects;
-
 import static java.lang.String.format;
 
-class Split
+record Split(int first, int second)
         implements Instruction
 {
-    private final int first;
-    private final int second;
-
-    public Split(int first, int second)
-    {
-        this.first = first;
-        this.second = second;
-    }
-
-    public int getFirst()
-    {
-        return first;
-    }
-
-    public int getSecond()
-    {
-        return second;
-    }
-
     @Override
     public String toString()
     {
@@ -49,25 +28,5 @@ class Split
     public Type type()
     {
         return Type.SPLIT;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        Split o = (Split) obj;
-        return first == o.first &&
-                second == o.second;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(first, second);
     }
 }

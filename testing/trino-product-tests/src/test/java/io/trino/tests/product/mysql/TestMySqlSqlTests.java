@@ -20,7 +20,9 @@ import io.trino.testing.containers.environment.Row;
 import io.trino.tests.product.TestGroup;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
 import java.sql.Date;
+import java.sql.Statement;
 import java.util.List;
 
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
@@ -183,5 +185,18 @@ class TestMySqlSqlTests
                 .containsOnly(List.of(
                         row(2, "Ann", "Turner", Date.valueOf("2000-05-28"), (short) 2, 2, "R&D", 5000),
                         row(3, "Martin", "Smith", Date.valueOf("2000-05-28"), (short) 2, 2, "R&D", 5000)));
+    }
+
+    @Test
+    void testCreateTableAsSelect(MySqlEnvironment environment)
+            throws Exception
+    {
+        try (Connection conn = environment.createTrinoConnection();
+                Statement stmt = conn.createStatement()) {
+            stmt.execute("DROP TABLE IF EXISTS mysql.test.nation_ctas_tmp");
+            int count = stmt.executeUpdate(
+                    "CREATE TABLE mysql.test.nation_ctas_tmp AS SELECT * FROM tpch.tiny.nation");
+            assertThat(count).isEqualTo(25);
+        }
     }
 }

@@ -68,8 +68,8 @@ public class AuthorizationRule
     private boolean matches(TrinoPrincipal newPrincipal)
     {
         return switch (newPrincipal.getType()) {
-            case USER -> newUserPattern.map(regex -> regex.matcher(newPrincipal.getName()).matches()).orElse(false);
-            case ROLE -> newRolePattern.map(regex -> regex.matcher(newPrincipal.getName()).matches()).orElse(false);
+            case USER -> newUserPattern.map(regex -> regex.matcher(newPrincipal.getPrincipalName()).matches()).orElse(false);
+            case ROLE -> newRolePattern.map(regex -> regex.matcher(newPrincipal.getPrincipalName()).matches()).orElse(false);
         };
     }
 

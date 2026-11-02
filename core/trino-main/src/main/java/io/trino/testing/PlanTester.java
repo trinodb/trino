@@ -32,6 +32,8 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.block.BlockJsonSerde;
+import io.trino.cache.CacheManagerConfig;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProviderModule;
@@ -219,7 +221,6 @@ import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.ShowStatsRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.testing.NullOutputOperator.NullOutputFactory;
-import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerConfig;
@@ -245,7 +246,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -281,9 +281,7 @@ import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitionin
 import static io.trino.spiller.SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
-import static io.trino.testing.TestingDirectTrinoClient.toMaterializedRows;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
@@ -343,12 +341,12 @@ public class PlanTester
     private final CoordinatorDynamicCatalogManager catalogManager;
     private final PluginManager pluginManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final CacheManagerRegistry cacheManagerRegistry;
     private final TaskManagerConfig taskManagerConfig;
     private final OptimizerConfig optimizerConfig;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final JsonCodec<Expression> expressionCodec;
     private final InternalConnectorExpressionEvaluator evaluator;
-    private boolean printPlan;
 
     public static PlanTester create(Session defaultSession)
     {
@@ -381,7 +379,9 @@ public class PlanTester
         this.optimizerConfig = new OptimizerConfig();
         LazyCatalogFactory catalogFactory = new LazyCatalogFactory();
         this.catalogFactory = catalogFactory;
-        this.catalogManager = new CoordinatorDynamicCatalogManager(new InMemoryCatalogStore(), catalogFactory, directExecutor());
+        SecretsResolver secretsResolver = new SecretsResolver(ImmutableMap.of());
+        this.cacheManagerRegistry = new CacheManagerRegistry(noop(), noopTracer(), secretsResolver, new CacheManagerConfig());
+        this.catalogManager = new CoordinatorDynamicCatalogManager(new InMemoryCatalogStore(), catalogFactory, cacheManagerRegistry, directExecutor());
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,
@@ -391,7 +391,6 @@ public class PlanTester
         TypeRegistry typeRegistry = new TypeRegistry(typeOperators, new FeaturesConfig());
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(TESTING_BLOCK_ENCODING_MANAGER, typeManager);
-        SecretsResolver secretsResolver = new SecretsResolver(ImmutableMap.of());
 
         this.globalFunctionCatalog = new GlobalFunctionCatalog(
                 () -> getPlannerContext().getMetadata(),
@@ -414,8 +413,7 @@ public class PlanTester
                 languageFunctionManager,
                 tableFunctionRegistry,
                 typeManager,
-                catalogManager,
-                new FeaturesConfig());
+                catalogManager);
         JsonMapper mapper = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(typeManager),
@@ -438,7 +436,7 @@ public class PlanTester
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
         FunctionManager functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
-        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer, expressionCodec, new FeaturesConfig());
+        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer, expressionCodec);
         this.evaluator = new InternalConnectorExpressionEvaluator(plannerContext);
         NodeInfo nodeInfo = new NodeInfo("test");
         catalogFactory.setCatalogFactory(new DefaultCatalogFactory(
@@ -456,7 +454,8 @@ public class PlanTester
                 nodeSchedulerConfig,
                 optimizerConfig,
                 secretsResolver,
-                evaluator));
+                evaluator,
+                cacheManagerRegistry));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
@@ -540,12 +539,13 @@ public class PlanTester
                 Optional.of(new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig(), secretsResolver)),
                 eventListenerManager,
                 new GroupProviderManager(secretsResolver),
-                new SessionPropertyDefaults(nodeInfo, accessControl, secretsResolver),
+                new SessionPropertyDefaults(nodeInfo, secretsResolver),
                 typeRegistry,
                 TESTING_BLOCK_ENCODING_MANAGER,
                 new HandleResolver(),
                 exchangeManagerRegistry,
-                spoolingManagerRegistry);
+                spoolingManagerRegistry,
+                cacheManagerRegistry);
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
         languageFunctionManager.setPlannerContext(plannerContext);
@@ -573,7 +573,9 @@ public class PlanTester
                 defaultSession.getResourceEstimates(),
                 defaultSession.getStart(),
                 defaultSession.getSystemProperties(),
+                ImmutableSet.of(),
                 defaultSession.getCatalogProperties(),
+                ImmutableMap.of(),
                 sessionPropertyManager,
                 defaultSession.getPreparedStatements(),
                 defaultSession.getProtocolHeaders(),
@@ -613,6 +615,7 @@ public class PlanTester
         notificationExecutor.shutdownNow();
         yieldExecutor.shutdownNow();
         catalogManager.stop();
+        cacheManagerRegistry.shutdown();
         finalizerService.destroy();
     }
 
@@ -719,12 +722,6 @@ public class PlanTester
                 .getConnector();
     }
 
-    public PlanTester printPlan()
-    {
-        printPlan = true;
-        return this;
-    }
-
     public <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
     {
         return inTransaction(getDefaultSession(), transactionSessionConsumer);
@@ -794,18 +791,6 @@ public class PlanTester
 
     private List<Driver> createDrivers(Session session, Plan plan, OutputFactory outputFactory)
     {
-        if (printPlan) {
-            String planText = textLogicalPlan(
-                    plan.getRoot(),
-                    plannerContext.getMetadata(),
-                    plannerContext.getFunctionManager(),
-                    plan.getStatsAndCosts(),
-                    session,
-                    0,
-                    false);
-            System.out.println("Query Plan:\n\n" + planText + "\u00A0\n");
-        }
-
         SubPlan subplan = createSubPlans(session, plan, true);
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected sub-plan to have no children");
@@ -1093,29 +1078,6 @@ public class PlanTester
         public Void result(List<String> columnNames)
         {
             return null;
-        }
-    }
-
-    public static final class MaterializedResultOutput
-            implements Output<MaterializedResult>
-    {
-        private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
-        private final AtomicReference<List<Type>> types = new AtomicReference<>();
-
-        @Override
-        public OutputFactory outputFactory()
-        {
-            return new PageConsumerOutputFactory(types -> {
-                this.types.set(types);
-                return page -> rows.addAll(toMaterializedRows(types, List.of(page)));
-            });
-        }
-
-        @Override
-        public MaterializedResult result(List<String> columnNames)
-        {
-            checkState(types.get() != null, "types were not set");
-            return new MaterializedResult(Optional.empty(), rows.build(), types.get(), columnNames);
         }
     }
 }

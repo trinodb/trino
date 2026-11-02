@@ -30,12 +30,12 @@ import io.trino.plugin.opa.schema.TrinoGrantPrincipal;
 import io.trino.plugin.opa.schema.TrinoIdentity;
 import io.trino.plugin.opa.schema.TrinoSchema;
 import io.trino.plugin.opa.schema.TrinoTable;
-import io.trino.plugin.opa.schema.TrinoUser;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
@@ -60,6 +60,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.opa.OpaHighLevelClient.buildQueryInputForSimpleResource;
+import static io.trino.plugin.opa.schema.TrinoUser.createUser;
 import static io.trino.spi.security.AccessDeniedException.denyCreateCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -75,10 +76,8 @@ import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
-import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
-import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
-import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowFunctions;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
@@ -92,6 +91,7 @@ public sealed class OpaAccessControl
     private final OpaHighLevelClient opaHighLevelClient;
     private final boolean allowPermissionManagementOperations;
     private final OpaPluginContext pluginContext;
+    private final Set<String> extraCredentialsKeys;
 
     @Inject
     public OpaAccessControl(LifeCycleManager lifeCycleManager, OpaHighLevelClient opaHighLevelClient, OpaConfig config, OpaPluginContext pluginContext)
@@ -100,6 +100,7 @@ public sealed class OpaAccessControl
         this.opaHighLevelClient = requireNonNull(opaHighLevelClient, "opaHighLevelClient is null");
         this.allowPermissionManagementOperations = config.getAllowPermissionManagementOperations();
         this.pluginContext = requireNonNull(pluginContext, "pluginContext is null");
+        this.extraCredentialsKeys = ImmutableSet.copyOf(config.getExtraCredentialsKeys());
     }
 
     @Override
@@ -109,7 +110,7 @@ public sealed class OpaAccessControl
                 buildQueryContext(identity),
                 "ImpersonateUser",
                 () -> denyImpersonateUser(identity.getUser(), userName),
-                OpaQueryInputResource.builder().user(new TrinoUser(userName)).build());
+                OpaQueryInputResource.builder().user(createUser(userName)).build());
     }
 
     @Override
@@ -124,7 +125,7 @@ public sealed class OpaAccessControl
     @Override
     public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner)
     {
-        opaHighLevelClient.queryAndEnforce(buildQueryContext(identity), "ViewQueryOwnedBy", AccessDeniedException::denyViewQuery, OpaQueryInputResource.builder().user(new TrinoUser(queryOwner)).build());
+        opaHighLevelClient.queryAndEnforce(buildQueryContext(identity), "ViewQueryOwnedBy", AccessDeniedException::denyViewQuery, OpaQueryInputResource.builder().user(createUser(queryOwner, extraCredentialsKeys)).build());
     }
 
     @Override
@@ -135,13 +136,13 @@ public sealed class OpaAccessControl
                 queryOwner -> buildQueryInputForSimpleResource(
                         buildQueryContext(identity),
                         "FilterViewQueryOwnedBy",
-                        OpaQueryInputResource.builder().user(new TrinoUser(queryOwner)).build()));
+                        OpaQueryInputResource.builder().user(createUser(queryOwner, extraCredentialsKeys)).build()));
     }
 
     @Override
     public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner)
     {
-        opaHighLevelClient.queryAndEnforce(buildQueryContext(identity), "KillQueryOwnedBy", AccessDeniedException::denyKillQuery, OpaQueryInputResource.builder().user(new TrinoUser(queryOwner)).build());
+        opaHighLevelClient.queryAndEnforce(buildQueryContext(identity), "KillQueryOwnedBy", AccessDeniedException::denyKillQuery, OpaQueryInputResource.builder().user(createUser(queryOwner, extraCredentialsKeys)).build());
     }
 
     @Override
@@ -251,7 +252,7 @@ public sealed class OpaAccessControl
         OpaQueryInput input = new OpaQueryInput(buildQueryContext(context), action);
 
         if (!opaHighLevelClient.queryOpa(input)) {
-            denySetSchemaAuthorization(schema.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("SCHEMA", List.of(schema.getCatalogName(), schema.getSchemaName())), principal);
         }
     }
 
@@ -424,7 +425,7 @@ public sealed class OpaAccessControl
         OpaQueryInput input = new OpaQueryInput(buildQueryContext(context), action);
 
         if (!opaHighLevelClient.queryOpa(input)) {
-            denySetTableAuthorization(table.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("TABLE", List.of(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), table.getSchemaTableName().getTableName())), principal);
         }
     }
 
@@ -494,7 +495,7 @@ public sealed class OpaAccessControl
         OpaQueryInput input = new OpaQueryInput(buildQueryContext(context), action);
 
         if (!opaHighLevelClient.queryOpa(input)) {
-            denySetViewAuthorization(view.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("VIEW", List.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName())), principal);
         }
     }
 
@@ -526,6 +527,12 @@ public sealed class OpaAccessControl
     public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Optional<Object>> properties)
     {
         checkTableAndPropertiesOperation(context, "SetMaterializedViewProperties", materializedView, properties, AccessDeniedException::denySetMaterializedViewProperties);
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewComment(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        checkTableOperation(context, "SetMaterializedViewComment", materializedView, AccessDeniedException::denyCommentMaterializedView);
     }
 
     @Override
@@ -802,11 +809,11 @@ public sealed class OpaAccessControl
 
     OpaQueryContext buildQueryContext(Identity trinoIdentity)
     {
-        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(trinoIdentity), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.empty());
+        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(trinoIdentity, extraCredentialsKeys), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.empty());
     }
 
     OpaQueryContext buildQueryContext(SystemSecurityContext securityContext)
     {
-        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(securityContext.getIdentity()), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.of(securityContext.getQueryId()));
+        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(securityContext.getIdentity(), extraCredentialsKeys), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.of(securityContext.getQueryId()));
     }
 }

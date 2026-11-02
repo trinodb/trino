@@ -40,8 +40,9 @@ import io.trino.tpch.LineItemGenerator;
 import io.trino.tpch.TpchColumnType;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -50,13 +51,16 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DEFAULT_READER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DEFAULT_WRITER_VERSION;
@@ -64,6 +68,7 @@ import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
+import static io.trino.plugin.deltalake.util.DeltaLakeWriteUtils.createDataFilePath;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -86,11 +91,11 @@ public class TestDeltaLakePageSink
     public void testPageSinkStats()
             throws Exception
     {
-        File tempDir = Files.createTempDirectory(null).toFile();
+        Path tempDir = Files.createTempDirectory(null);
         try {
             DeltaLakeWriterStats stats = new DeltaLakeWriterStats();
-            String tablePath = tempDir.getAbsolutePath() + "/test_table";
-            ConnectorPageSink pageSink = createPageSink(tablePath, stats);
+            Path tablePath = tempDir.resolve("test_table");
+            ConnectorPageSink pageSink = createPageSink(tablePath.toString(), stats, getColumnHandles());
 
             List<LineItemColumn> columns = ImmutableList.copyOf(LineItemColumn.values());
             List<Type> columnTypes = columns.stream()
@@ -125,23 +130,91 @@ public class TestDeltaLakePageSink
             assertThat(dataFileInfos).hasSize(1);
             DataFileInfo dataFileInfo = dataFileInfos.get(0);
 
-            List<File> files = ImmutableList.copyOf(new File(tablePath).listFiles((_, name) -> !name.endsWith(".crc")));
+            List<Path> files = listDataFiles(tablePath);
             assertThat(files).hasSize(1);
-            File outputFile = files.get(0);
+            Path outputFile = files.get(0);
+            String relativeOutputPath = tablePath.relativize(outputFile).toString();
 
             assertThat(round(stats.getInputPageSizeInBytes().getAllTime().getMax())).isEqualTo(page.getRetainedSizeInBytes());
 
             assertThat(dataFileInfo.statistics().getNumRecords()).isEqualTo(Optional.of(rows));
             assertThat(dataFileInfo.partitionValues()).isEqualTo(ImmutableList.of());
-            assertThat(dataFileInfo.size()).isEqualTo(outputFile.length());
-            assertThat(dataFileInfo.path()).isEqualTo(outputFile.getName());
+            assertThat(dataFileInfo.size()).isEqualTo(Files.size(outputFile));
+            assertThat(dataFileInfo.path())
+                    .isEqualTo(relativeOutputPath)
+                    .isEqualTo(createDataFilePath(outputFile.getFileName().toString()));
 
             Instant now = Instant.now();
             assertThat(dataFileInfo.creationTime() < now.toEpochMilli()).isTrue();
             assertThat(dataFileInfo.creationTime() > now.minus(1, MINUTES).toEpochMilli()).isTrue();
         }
         finally {
-            deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+            deleteRecursively(tempDir, ALLOW_INSECURE);
+        }
+    }
+
+    @Test
+    public void testPartitionedPageSinkUsesBinaryPath()
+            throws Exception
+    {
+        Path tempDir = Files.createTempDirectory(null);
+        try {
+            Path tablePath = tempDir.resolve("test_partitioned_table");
+            List<DeltaLakeColumnHandle> columns = ImmutableList.of(
+                    new DeltaLakeColumnHandle("value", BIGINT, OptionalInt.empty(), "value", BIGINT, REGULAR, Optional.empty()),
+                    new DeltaLakeColumnHandle("part", INTEGER, OptionalInt.empty(), "part", INTEGER, PARTITION_KEY, Optional.empty()));
+            ConnectorPageSink pageSink = createPageSink(tablePath.toString(), new DeltaLakeWriterStats(), columns);
+
+            PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT, INTEGER));
+            pageBuilder.declarePosition();
+            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), 42);
+            INTEGER.writeLong(pageBuilder.getBlockBuilder(1), 7);
+            pageSink.appendPage(pageBuilder.build()).get(10, TimeUnit.SECONDS);
+
+            DataFileInfo dataFileInfo = getOnlyDataFileInfo(pageSink);
+            Path outputFile = getOnlyElement(listDataFiles(tablePath));
+            String relativeOutputPath = tablePath.relativize(outputFile).toString();
+
+            assertThat(dataFileInfo.partitionValues()).containsExactly("7");
+            assertThat(dataFileInfo.path())
+                    .isEqualTo(relativeOutputPath)
+                    .isEqualTo(createDataFilePath(outputFile.getFileName().toString()))
+                    .doesNotContain("part=");
+        }
+        finally {
+            deleteRecursively(tempDir, ALLOW_INSECURE);
+        }
+    }
+
+    @Test
+    public void testBinaryPathCanBeDisabled()
+            throws Exception
+    {
+        Path tempDir = Files.createTempDirectory(null);
+        try {
+            Path tablePath = tempDir.resolve("test_partitioned_table");
+            List<DeltaLakeColumnHandle> columns = ImmutableList.of(
+                    new DeltaLakeColumnHandle("value", BIGINT, OptionalInt.empty(), "value", BIGINT, REGULAR, Optional.empty()),
+                    new DeltaLakeColumnHandle("part", INTEGER, OptionalInt.empty(), "part", INTEGER, PARTITION_KEY, Optional.empty()));
+            ConnectorPageSink pageSink = createPageSink(tablePath.toString(), new DeltaLakeWriterStats(), columns, false);
+
+            PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT, INTEGER));
+            pageBuilder.declarePosition();
+            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), 42);
+            INTEGER.writeLong(pageBuilder.getBlockBuilder(1), 7);
+            pageSink.appendPage(pageBuilder.build()).get(10, TimeUnit.SECONDS);
+
+            DataFileInfo dataFileInfo = getOnlyDataFileInfo(pageSink);
+            Path outputFile = getOnlyElement(listDataFiles(tablePath));
+            String relativeOutputPath = tablePath.relativize(outputFile).toString();
+
+            assertThat(dataFileInfo.partitionValues()).containsExactly("7");
+            assertThat(dataFileInfo.path())
+                    .isEqualTo(relativeOutputPath)
+                    .isEqualTo("part=7/" + outputFile.getFileName());
+        }
+        finally {
+            deleteRecursively(tempDir, ALLOW_INSECURE);
         }
     }
 
@@ -157,25 +230,32 @@ public class TestDeltaLakePageSink
         }
     }
 
-    private static ConnectorPageSink createPageSink(String outputPath, DeltaLakeWriterStats stats)
+    private static ConnectorPageSink createPageSink(String outputPath, DeltaLakeWriterStats stats, List<DeltaLakeColumnHandle> columns)
+    {
+        return createPageSink(outputPath, stats, columns, true);
+    }
+
+    private static ConnectorPageSink createPageSink(String outputPath, DeltaLakeWriterStats stats, List<DeltaLakeColumnHandle> columns, boolean objectStoreLayoutEnabled)
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
-        DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig();
+        DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig()
+                .setObjectStoreLayoutEnabled(objectStoreLayoutEnabled);
         DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
-        for (DeltaLakeColumnHandle column : getColumnHandles()) {
+        for (DeltaLakeColumnHandle column : columns) {
             deltaTable.addColumn(column.columnName(), serializeColumnType(NONE, new AtomicInteger(), column.type()), true, Optional.empty(), ImmutableMap.of());
         }
         String schemaString = serializeSchemaAsJson(deltaTable.build());
         DeltaLakeOutputTableHandle tableHandle = new DeltaLakeOutputTableHandle(
                 SCHEMA_NAME,
                 TABLE_NAME,
-                getColumnHandles(),
+                columns,
                 outputPath,
                 Optional.of(deltaLakeConfig.getDefaultCheckpointWritingInterval()),
                 true,
                 Optional.empty(),
                 Optional.of(false),
                 false,
+                objectStoreLayoutEnabled,
                 schemaString,
                 NONE,
                 OptionalInt.empty(),
@@ -198,6 +278,26 @@ public class TestDeltaLakePageSink
                 new NodeVersion("test-version"));
 
         return provider.createPageSink(transaction, SESSION, tableHandle, Optional.empty(), TESTING_PAGE_SINK_ID);
+    }
+
+    private static DataFileInfo getOnlyDataFileInfo(ConnectorPageSink pageSink)
+    {
+        JsonCodec<DataFileInfo> dataFileInfoCodec = new JsonCodecFactory().jsonCodec(DataFileInfo.class);
+        return getOnlyElement(getFutureValue(pageSink.finish()).stream()
+                .map(Slice::getInput)
+                .map(dataFileInfoCodec::fromJson)
+                .collect(toImmutableList()));
+    }
+
+    private static List<Path> listDataFiles(Path tablePath)
+            throws IOException
+    {
+        try (Stream<Path> files = Files.walk(tablePath)) {
+            return files
+                    .filter(Files::isRegularFile)
+                    .filter(path -> !path.getFileName().toString().endsWith(".crc"))
+                    .collect(toImmutableList());
+        }
     }
 
     private static List<DeltaLakeColumnHandle> getColumnHandles()

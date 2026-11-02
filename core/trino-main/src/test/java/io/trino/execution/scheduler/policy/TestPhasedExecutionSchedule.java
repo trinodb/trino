@@ -33,7 +33,6 @@ import io.trino.node.InternalNode;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Metrics;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -55,6 +54,7 @@ import static io.trino.execution.scheduler.policy.PlanUtils.createJoinPlanFragme
 import static io.trino.execution.scheduler.policy.PlanUtils.createTableScanPlanFragment;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -66,7 +66,7 @@ public class TestPhasedExecutionSchedule
     private final DynamicFilterService dynamicFilterService = new DynamicFilterService(
             createTestingMetadataManager(),
             createTestingFunctionManager(),
-            new TypeOperators(),
+            PLANNER_CONTEXT.getTypeManager(),
             new DynamicFilterConfig());
 
     @Test

@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.RowPageBuilder;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.AggregationMetrics;
+import io.trino.operator.UpdateMemory;
 import io.trino.operator.aggregation.Aggregator;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.plugin.ml.type.ClassifierParametricType;
@@ -86,6 +87,7 @@ public class TestLearnAggregations
     {
         aggregator.processPage(getPage());
         BlockBuilder finalOut = aggregator.getType().createBlockBuilder(null, 1);
+        aggregator.prepareFinal(UpdateMemory.NOOP);
         aggregator.evaluate(finalOut);
         Block block = finalOut.build();
         Slice slice = aggregator.getType().getSlice(block, 0);

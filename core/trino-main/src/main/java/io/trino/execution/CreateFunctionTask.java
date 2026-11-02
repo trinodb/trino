@@ -27,6 +27,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.sql.SqlEnvironmentConfig;
+import io.trino.sql.analyzer.TypeDescriptorTranslator;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateFunction;
@@ -35,6 +36,7 @@ import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.ParameterDeclaration;
 import io.trino.sql.tree.PropertiesCharacteristic;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
@@ -100,11 +102,40 @@ public class CreateFunctionTask
 
         accessControl.checkCanCreateFunction(session.toSecurityContext(), name);
 
+        String signatureToken = languageFunctionManager.getSignatureToken(function.getParameters());
+        boolean replace = metadata.languageFunctionExists(session, name, signatureToken);
+        if (!replace && statement.isReplace()) {
+            String legacyToken = languageFunctionManager.getLegacySignatureToken(function.getParameters());
+            if (!legacyToken.equals(signatureToken) && metadata.languageFunctionExists(session, name, legacyToken)) {
+                signatureToken = legacyToken;
+                replace = true;
+                // Preserve the selected overload's parameter types, while the new body and return type use current defaults.
+                function = new FunctionSpecification(
+                        function.getLocation().orElseThrow(),
+                        function.getName(),
+                        function.getParameters().stream()
+                                .map(parameter -> new ParameterDeclaration(
+                                        parameter.getLocation().orElseThrow(),
+                                        parameter.getName(),
+                                        TypeDescriptorTranslator.toDataType(TypeDescriptorTranslator.toPersistedTypeDescriptor(parameter.getType()))))
+                                .toList(),
+                        function.getReturnsClause(),
+                        function.getRoutineCharacteristics(),
+                        function.getStatement(),
+                        function.getDefinition());
+            }
+        }
+        if (replace) {
+            if (!statement.isReplace()) {
+                throw semanticException(ALREADY_EXISTS, statement, "Function already exists");
+            }
+            accessControl.checkCanDropFunction(session.toSecurityContext(), name);
+        }
+
         languageFunctionManager.verifyForCreate(session, function, functionManager, accessControl);
 
         function = materializeFunctionProperties(session, function, bindParameters(statement, parameters));
-
-        String signatureToken = languageFunctionManager.getSignatureToken(function.getParameters());
+        function = LanguageFunctionManager.canonicalizeFunctionTypes(function);
 
         String sql = functionToSql(function);
 
@@ -116,15 +147,6 @@ public class CreateFunctionTask
         Optional<String> owner = isRunAsInvoker(function) ? Optional.empty() : Optional.of(session.getUser());
 
         LanguageFunction languageFunction = new LanguageFunction(signatureToken, sql, path, owner);
-
-        boolean replace = false;
-        if (metadata.languageFunctionExists(session, name, signatureToken)) {
-            if (!statement.isReplace()) {
-                throw semanticException(ALREADY_EXISTS, statement, "Function already exists");
-            }
-            accessControl.checkCanDropFunction(session.toSecurityContext(), name);
-            replace = true;
-        }
 
         metadata.createLanguageFunction(session, name, languageFunction, replace);
 

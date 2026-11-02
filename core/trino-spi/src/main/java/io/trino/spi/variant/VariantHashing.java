@@ -21,12 +21,6 @@ import io.trino.spi.variant.Header.PrimitiveType;
 import java.lang.runtime.ExactConversionsSupport;
 
 import static io.trino.spi.variant.Header.BasicType.SHORT_STRING;
-import static io.trino.spi.variant.Header.PrimitiveType.DOUBLE;
-import static io.trino.spi.variant.Header.PrimitiveType.FLOAT;
-import static io.trino.spi.variant.Header.PrimitiveType.INT16;
-import static io.trino.spi.variant.Header.PrimitiveType.INT32;
-import static io.trino.spi.variant.Header.PrimitiveType.INT64;
-import static io.trino.spi.variant.Header.PrimitiveType.INT8;
 import static io.trino.spi.variant.Header.arrayFieldOffsetSize;
 import static io.trino.spi.variant.Header.arrayIsLarge;
 import static io.trino.spi.variant.Header.getBasicType;

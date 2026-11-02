@@ -13,7 +13,9 @@
  */
 package io.trino.metadata;
 
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeSyntax;
 
 import java.util.Optional;
 
@@ -27,6 +29,11 @@ public record ViewColumn(String name, TypeId type, Optional<String> comment)
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
         requireNonNull(comment, "comment is null");
+    }
+
+    public static ViewColumn fromType(String name, Type type, Optional<String> comment)
+    {
+        return new ViewColumn(name, TypeId.of(TypeSyntax.toSql(type.getTypeDescriptor())), comment);
     }
 
     @Override

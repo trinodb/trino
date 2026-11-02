@@ -83,7 +83,7 @@ public class BenchmarkEqualsConjunctsOperator
             layout.put(new Symbol(BIGINT, "$col_" + i), i);
         }
         Expression projection = generateComplexComparisonProjection(FIELDS_COUNT, COMPARISONS_COUNT);
-        compiledProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projection), layout.buildOrThrow()).get();
+        compiledProcessor = expressionCompiler.compilePageProcessor(TEST_SESSION, Optional.empty(), ImmutableList.of(projection), layout.buildOrThrow()).get();
     }
 
     private Expression generateComplexComparisonProjection(int fieldsCount, int comparisonsCount)

@@ -15,6 +15,7 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
@@ -44,9 +45,9 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -78,7 +79,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
     @Override
     public PlanNode optimize(PlanNode plan, Context context)
     {
-        return rewriteWith(new Rewriter(context.idAllocator(), context.symbolAllocator(), metadata), plan, null);
+        return rewriteWith(new Rewriter(context.idAllocator(), context.symbolAllocator(), metadata, context.session()), plan, null);
     }
 
     private static class Rewriter
@@ -87,12 +88,14 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
         private final Metadata metadata;
+        private final Session session;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Metadata metadata)
+        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Metadata metadata, Session session)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = requireNonNull(session, "session is null");
         }
 
         @Override
@@ -130,28 +133,28 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                     subqueryPlan,
                     ImmutableMap.of(
                             minValue, new Aggregation(
-                                    metadata.resolveBuiltinFunction("min", fromTypes(outputColumnType)),
+                                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "min", ImmutableList.of(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty()),
                             maxValue, new Aggregation(
-                                    metadata.resolveBuiltinFunction("max", fromTypes(outputColumnType)),
+                                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "max", ImmutableList.of(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty()),
                             countAllValue, new Aggregation(
-                                    metadata.resolveBuiltinFunction("count", emptyList()),
+                                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "count", emptyList()),
                                     ImmutableList.of(),
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
-                                    metadata.resolveBuiltinFunction("count", fromTypes(outputColumnType)),
+                                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "count", ImmutableList.of(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),
@@ -194,6 +197,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                     countAllValue.toSymbolReference(),
                     ImmutableList.of(equalityClause(
                             metadata,
+                            getCharVarcharCoercion(session),
                             matchOperand,
                             new Constant(BIGINT, 0L),
                             emptySetResult)),
@@ -202,7 +206,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                             new Case(
                                     ImmutableList.of(
                                             new WhenClause(
-                                                    comparison(metadata, NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
+                                                    comparison(metadata, getCharVarcharCoercion(session), NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
                                                     new Constant(BOOLEAN, null))),
                                     emptySetResult))));
         }
@@ -212,8 +216,8 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             if (mapOperator(quantifiedComparison) == EQUAL && quantifiedComparison.quantifier() == ALL) {
                 // A = ALL B <=> min B = max B && A = min B
                 return combineConjuncts(
-                        comparison(metadata, EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
-                        comparison(metadata, EQUAL, quantifiedComparison.value().toSymbolReference(), maxValue.toSymbolReference()));
+                        comparison(metadata, getCharVarcharCoercion(session), EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
+                        comparison(metadata, getCharVarcharCoercion(session), EQUAL, quantifiedComparison.value().toSymbolReference(), maxValue.toSymbolReference()));
             }
 
             if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(mapOperator(quantifiedComparison))) {
@@ -222,7 +226,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                 // A < ANY B <=> A < max B
                 // A > ANY B <=> A > min B
                 Symbol boundValue = shouldCompareValueWithLowerBound(quantifiedComparison) ? minValue : maxValue;
-                return comparison(metadata, mapOperator(quantifiedComparison), quantifiedComparison.value().toSymbolReference(), boundValue.toSymbolReference());
+                return comparison(metadata, getCharVarcharCoercion(session), mapOperator(quantifiedComparison), quantifiedComparison.value().toSymbolReference(), boundValue.toSymbolReference());
             }
             throw new IllegalArgumentException("Unsupported quantified comparison: " + quantifiedComparison);
         }

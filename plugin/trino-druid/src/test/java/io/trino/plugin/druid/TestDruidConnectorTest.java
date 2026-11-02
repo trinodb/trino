@@ -23,6 +23,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -77,7 +78,7 @@ public class TestDruidConnectorTest
                 .setInitialTables(ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER))
                 .build();
         // Pre-load a dataset with case-sensitive string values for testCaseSensitiveAggregationPushdown
-        MaterializedResult caseSensitiveRows = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VarcharType.createVarcharType(1), BIGINT, TIMESTAMP_MILLIS)
+        MaterializedResult caseSensitiveRows = MaterializedResult.resultBuilder(VarcharType.createVarcharType(1), BIGINT, TIMESTAMP_MILLIS)
                 .columnNames(List.of("string_col", "bigint_col", "__time"))
                 .row("A", 1, 0L)
                 .row("a", 2, 0L)
@@ -132,7 +133,7 @@ public class TestDruidConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")
@@ -167,18 +168,21 @@ public class TestDruidConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE druid.druid.orders (\n" +
-                        "   __time timestamp(3) NOT NULL,\n" +
-                        "   clerk varchar,\n" +
-                        "   comment varchar,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderdate varchar,\n" +
-                        "   orderkey bigint,\n" +
-                        "   orderpriority varchar,\n" +
-                        "   orderstatus varchar,\n" +
-                        "   shippriority bigint,\n" +
-                        "   totalprice double\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE druid.druid.orders (
+                           __time timestamp(3) NOT NULL,
+                           clerk varchar,
+                           comment varchar,
+                           custkey bigint,
+                           orderdate varchar,
+                           orderkey bigint,
+                           orderpriority varchar,
+                           orderstatus varchar,
+                           shippriority bigint,
+                           totalprice double
+                        )\
+                        """);
     }
 
     @Override
@@ -226,7 +230,7 @@ public class TestDruidConnectorTest
         copyAndIngestTpchData(materializedRows, druidServer, datasourceB);
 
         // Assert that only columns from datsourceA are returned
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")
@@ -241,7 +245,7 @@ public class TestDruidConnectorTest
         assertThat(query("DESCRIBE " + datasourceA)).result().matches(expectedColumns);
 
         // Assert that only columns from datsourceB are returned
-        expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        expectedColumns = MaterializedResult.resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk_x", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment_x", "varchar", "", "")
@@ -561,7 +565,7 @@ public class TestDruidConnectorTest
                 .matches("VALUES " +
                         "(BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar)), " +
                         "(BIGINT '1', BIGINT '574', CAST('AIR' AS varchar))")
-                .isNotFullyPushedDown(FilterNode.class);
+                .isFullyPushedDown();
     }
 
     @Test
@@ -607,7 +611,7 @@ public class TestDruidConnectorTest
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
         // GROUP BY above WHERE and LIMIT
         assertThat(query("SELECT regionkey, sum(nationkey) FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) GROUP BY regionkey")).isFullyPushedDown();
-        // GROUP BY above TopN - TopN pushdown not yet supported
+        // GROUP BY above TopN - TopN pushdown is only supported when ordering by __time
         assertThat(query("SELECT custkey, sum(totalprice) FROM (SELECT custkey, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY custkey")).isNotFullyPushedDown(project(node(TopNNode.class, anyTree(node(TableScanNode.class)))));
         // GROUP BY with WHERE on neither grouping nor aggregation column
         assertThat(query("SELECT nationkey, min(regionkey) FROM nation WHERE name = 'ARGENTINA' GROUP BY nationkey")).isFullyPushedDown();
@@ -723,17 +727,53 @@ public class TestDruidConnectorTest
         assertThat(query("SELECT sum(orderkey), sum(totalprice), sum(shippriority) FROM orders")).isFullyPushedDown();
         assertThat(query("SELECT avg(orderkey), avg(totalprice), avg(shippriority) FROM orders")).isFullyPushedDown();
 
+        // Druid orders NaN above numbers. An unbounded upper range needs a residual until the connector
+        // can render a NaN exclusion. A bounded range excludes NaN and permits aggregation pushdown.
         // WHERE on aggregation column
-        assertThat(query("SELECT min(orderkey), min(totalprice) FROM orders WHERE orderkey < 10 AND totalprice > 50000")).isFullyPushedDown();
+        assertThat(query("SELECT min(orderkey), min(totalprice) FROM orders WHERE orderkey < 10 AND totalprice > 50000")).isNotFullyPushedDown(AggregationNode.class, FilterNode.class);
+        assertThat(query("SELECT min(orderkey), min(totalprice) FROM orders WHERE orderkey < 10 AND totalprice > 50000 AND totalprice < 100000")).isFullyPushedDown();
         // WHERE on non-aggregation column
-        assertThat(query("SELECT min(orderkey) FROM orders WHERE totalprice > 50000")).isFullyPushedDown();
+        assertThat(query("SELECT min(orderkey) FROM orders WHERE totalprice > 50000")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class, FilterNode.class);
+        assertThat(query("SELECT min(orderkey) FROM orders WHERE totalprice > 50000 AND totalprice < 100000")).isFullyPushedDown();
         // GROUP BY
         assertThat(query("SELECT orderstatus, min(totalprice) FROM orders GROUP BY orderstatus")).isFullyPushedDown();
         // GROUP BY with WHERE on both grouping and aggregation column
-        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE orderstatus = 'F' AND totalprice > 50000 GROUP BY orderstatus")).isFullyPushedDown();
+        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE orderstatus = 'F' AND totalprice > 50000 GROUP BY orderstatus")).isNotFullyPushedDown(AggregationNode.class, FilterNode.class);
+        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE orderstatus = 'F' AND totalprice > 50000 AND totalprice < 100000 GROUP BY orderstatus")).isFullyPushedDown();
         // GROUP BY with WHERE on grouping column
         assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE orderstatus = 'F' GROUP BY orderstatus")).isFullyPushedDown();
         // GROUP BY with WHERE on aggregation column
-        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE totalprice > 50000 GROUP BY orderstatus")).isFullyPushedDown();
+        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE totalprice > 50000 GROUP BY orderstatus")).isNotFullyPushedDown(AggregationNode.class, FilterNode.class);
+        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE totalprice > 50000 AND totalprice < 100000 GROUP BY orderstatus")).isFullyPushedDown();
+    }
+
+    @Test
+    public void testTopNPushdownOnTimeColumn()
+    {
+        // __time is the only sort key Druid supports for a non-aggregating query
+        assertThat(query("SELECT __time FROM orders ORDER BY __time DESC LIMIT 10"))
+                .ordered()
+                .matches("SELECT CAST(orderdate AS timestamp(3)) FROM tpch.tiny.orders ORDER BY orderdate DESC LIMIT 10")
+                .isFullyPushedDown();
+        assertThat(query("SELECT __time FROM orders ORDER BY __time ASC LIMIT 10"))
+                .ordered()
+                .matches("SELECT CAST(orderdate AS timestamp(3)) FROM tpch.tiny.orders ORDER BY orderdate ASC LIMIT 10")
+                .isFullyPushedDown();
+        // __time is never null, so the requested null ordering does not matter
+        assertThat(query("SELECT __time FROM orders ORDER BY __time DESC NULLS FIRST LIMIT 10"))
+                .ordered()
+                .matches("SELECT CAST(orderdate AS timestamp(3)) FROM tpch.tiny.orders ORDER BY orderdate DESC LIMIT 10")
+                .isFullyPushedDown();
+        // with a pushed down predicate
+        assertThat(query("SELECT __time FROM orders WHERE orderkey < 1000 ORDER BY __time DESC LIMIT 10"))
+                .ordered()
+                .matches("SELECT CAST(orderdate AS timestamp(3)) FROM tpch.tiny.orders WHERE orderkey < 1000 ORDER BY orderdate DESC LIMIT 10")
+                .isFullyPushedDown();
+
+        // any other sort key stays in Trino
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10")).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query("SELECT orderkey FROM orders ORDER BY __time DESC, orderkey LIMIT 10")).isNotFullyPushedDown(TopNNode.class);
+        // TopN above LIMIT would put the ORDER BY on a subquery, which Druid does not honor
+        assertThat(query("SELECT __time FROM (SELECT __time FROM orders LIMIT 100) ORDER BY __time DESC LIMIT 10")).isNotFullyPushedDown(TopNNode.class);
     }
 }

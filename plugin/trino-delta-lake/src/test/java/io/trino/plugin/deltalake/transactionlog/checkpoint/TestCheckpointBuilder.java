@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.addFileEntry;
@@ -78,5 +80,35 @@ public class TestCheckpointBuilder
                 Set.of(addA2),
                 Set.of(removeB, removeC));
         assertThat(expectedCheckpoint).isEqualTo(builder.build());
+    }
+
+    @Test
+    public void testCheckpointBuilderWithDeletionVector()
+    {
+        MetadataEntry metadata = new MetadataEntry("1", "", "", new MetadataEntry.Format("", Map.of()), "", List.of(), Map.of(), 1);
+        ProtocolEntry protocol = new ProtocolEntry(3, 7, Optional.empty(), Optional.empty());
+
+        DeletionVectorEntry deletionVector = new DeletionVectorEntry("u", "hR{.8.y4^dHj2[P[Sd0J", OptionalInt.of(1), 34, 1);
+        AddFileEntry addWithDeletionVector = new AddFileEntry("a", Map.of(), 1, 1, true, Optional.empty(), Optional.empty(), Map.of(), Optional.of(deletionVector));
+        // The 'remove' entry tombstones the version of the file which has no deletion vector, a different logical file than the 'add' entry above
+        RemoveFileEntry remove = new RemoveFileEntry("a", Map.of(), 1, true, Optional.empty());
+
+        CheckpointEntries expectedCheckpoint = new CheckpointEntries(metadata, protocol, Set.of(), Set.of(addWithDeletionVector), Set.of(remove));
+
+        // Spark writes the 'add' before the 'remove'
+        CheckpointBuilder addBeforeRemove = new CheckpointBuilder();
+        addBeforeRemove.addLogEntry(metadataEntry(metadata));
+        addBeforeRemove.addLogEntry(protocolEntry(protocol));
+        addBeforeRemove.addLogEntry(addFileEntry(addWithDeletionVector));
+        addBeforeRemove.addLogEntry(removeFileEntry(remove));
+        assertThat(addBeforeRemove.build()).isEqualTo(expectedCheckpoint);
+
+        // Trino writes the 'remove' before the 'add'
+        CheckpointBuilder removeBeforeAdd = new CheckpointBuilder();
+        removeBeforeAdd.addLogEntry(metadataEntry(metadata));
+        removeBeforeAdd.addLogEntry(protocolEntry(protocol));
+        removeBeforeAdd.addLogEntry(removeFileEntry(remove));
+        removeBeforeAdd.addLogEntry(addFileEntry(addWithDeletionVector));
+        assertThat(removeBeforeAdd.build()).isEqualTo(expectedCheckpoint);
     }
 }

@@ -29,6 +29,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -78,6 +79,7 @@ import static io.trino.plugin.opa.TestHelpers.createColumnSchema;
 import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
 import static io.trino.plugin.opa.TestHelpers.createResponseHandlerForParallelColumnMasking;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestOpaAccessControl
@@ -128,6 +130,7 @@ final class TestOpaAccessControl
         testTableResourceActions("DropTable", OpaAccessControl::checkCanDropTable);
         testTableResourceActions("SetTableComment", OpaAccessControl::checkCanSetTableComment);
         testTableResourceActions("SetViewComment", OpaAccessControl::checkCanSetViewComment);
+        testTableResourceActions("SetMaterializedViewComment", OpaAccessControl::checkCanSetMaterializedViewComment);
         testTableResourceActions("SetColumnComment", OpaAccessControl::checkCanSetColumnComment);
         testTableResourceActions("ShowColumns", OpaAccessControl::checkCanShowColumns);
         testTableResourceActions("AddColumn", OpaAccessControl::checkCanAddColumn);
@@ -464,7 +467,10 @@ final class TestOpaAccessControl
         TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, "my_user");
 
         ThrowingMethodWrapper methodWrapper = new ThrowingMethodWrapper(
-                accessControl -> accessControl.checkCanSetSchemaAuthorization(TEST_SECURITY_CONTEXT, schema, principal));
+                accessControl -> accessControl.checkCanSetEntityAuthorization(
+                        TEST_SECURITY_CONTEXT,
+                        new EntityKindAndName("SCHEMA", ImmutableList.of(schema.getCatalogName(), schema.getSchemaName())),
+                        principal));
 
         String expectedRequest =
                 """
@@ -481,7 +487,7 @@ final class TestOpaAccessControl
                         "type": "%s"
                     }
                 }
-                """.formatted(schema.getCatalogName(), schema.getSchemaName(), principal.getName(), principal.getType());
+                """.formatted(schema.getCatalogName(), schema.getSchemaName(), principal.getPrincipalName(), principal.getType());
         assertAccessControlMethodBehaviour(methodWrapper, ImmutableSet.of(expectedRequest));
     }
 
@@ -522,7 +528,7 @@ final class TestOpaAccessControl
                         table.getCatalogName(),
                         table.getSchemaTableName().getSchemaName(),
                         table.getSchemaTableName().getTableName(),
-                        principal.getName(),
+                        principal.getPrincipalName(),
                         principal.getType());
         assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest));
     }
@@ -812,11 +818,11 @@ final class TestOpaAccessControl
             assertThat(expression.getCatalog()).contains("some_catalog");
             assertThat(expression.getSchema()).contains("some_schema");
         });
-        assertThat(result).map(
-                        viewExpression -> new OpaViewExpression(
-                                viewExpression.getExpression(),
-                                viewExpression.getSecurityIdentity()))
-                .containsExactlyInAnyOrderElementsOf(expectedExpressions);
+        assertEqualsIgnoreOrder(
+                result.stream()
+                        .map(viewExpression -> new OpaViewExpression(viewExpression.getExpression(), viewExpression.getSecurityIdentity()))
+                        .toList(),
+                expectedExpressions);
 
         String expectedRequest = String.format(
                 """
@@ -1054,6 +1060,133 @@ final class TestOpaAccessControl
         assertStringRequestsEqual(ImmutableSet.of(expectedActionRequest), mockClient.getRequests(), "/input/action");
     }
 
+    @Test
+    void testExtraCredentialsPropagation()
+    {
+        Identity identityWithCredentials = Identity.forUser("source-user")
+                .withGroups(ImmutableSet.of("some-group"))
+                .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "my-ai-app", "ai-scope", "read-only", "otherKey", "other-value"))
+                .build();
+
+        // The allow-list is applied independently by each buildQueryContext overload:
+        // checkCanExecuteQuery routes through buildQueryContext(Identity), while
+        // checkCanShowSchemas routes through buildQueryContext(SystemSecurityContext)
+        testExtraCredentialsPropagation(authorizer -> authorizer.checkCanExecuteQuery(identityWithCredentials, TEST_QUERY_ID));
+        testExtraCredentialsPropagation(authorizer -> authorizer.checkCanShowSchemas(new SystemSecurityContext(identityWithCredentials, TEST_QUERY_ID, Instant.now()), "some_catalog"));
+    }
+
+    private void testExtraCredentialsPropagation(Consumer<OpaAccessControl> operation)
+    {
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig().setExtraCredentialsKeys(ImmutableSet.of("ai-service", "ai-scope")), mockClient);
+        operation.accept(authorizer);
+
+        JsonNode extraCredentials = mockClient.getRequests().get(0).at("/input/context/identity/extraCredentials");
+        assertThat(extraCredentials.path("ai-service").asText()).isEqualTo("my-ai-app");
+        assertThat(extraCredentials.path("ai-scope").asText()).isEqualTo("read-only");
+        assertThat(extraCredentials.has("otherKey")).isFalse();
+    }
+
+    @Test
+    void testExtraCredentialsNotForwardedByDefault()
+    {
+        Identity identityWithCredentials = Identity.forUser("source-user")
+                .withGroups(ImmutableSet.of("some-group"))
+                .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "my-ai-app"))
+                .build();
+
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
+        authorizer.checkCanExecuteQuery(identityWithCredentials, TEST_QUERY_ID);
+
+        JsonNode identityNode = mockClient.getRequests().get(0).path("input").path("context").path("identity");
+        assertThat(identityNode.has("extraCredentials")).isFalse();
+    }
+
+    @Test
+    void testImpersonateUserExtraCredentialsPropagation()
+    {
+        Identity impersonator = Identity.forUser("impersonator")
+                .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "my-ai-app", "otherKey", "other-value"))
+                .build();
+
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig().setExtraCredentialsKeys(ImmutableSet.of("ai-service")), mockClient);
+        authorizer.checkCanImpersonateUser(impersonator, "impersonated-user");
+
+        JsonNode request = mockClient.getRequests().get(0);
+        JsonNode extraCredentials = request.at("/input/context/identity/extraCredentials");
+        assertThat(extraCredentials.path("ai-service").asText()).isEqualTo("my-ai-app");
+        assertThat(extraCredentials.has("otherKey")).isFalse();
+        // The impersonated user is identified by name only, so it carries no extra credentials of its own
+        JsonNode impersonatedUser = request.at("/input/action/resource/user");
+        assertThat(impersonatedUser.path("user").asText()).isEqualTo("impersonated-user");
+        assertThat(impersonatedUser.has("extraCredentials")).isFalse();
+    }
+
+    @Test
+    void testQueryOwnerExtraCredentialsPropagation()
+    {
+        Identity executor = Identity.forUser("executor-user")
+                .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "executor-ai-app", "otherKey", "executor-other-value"))
+                .build();
+        Identity queryOwner = Identity.forUser("query-owner")
+                .withGroups(ImmutableSet.of("owner-group"))
+                .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "owner-ai-app", "otherKey", "owner-other-value"))
+                .build();
+
+        OpaConfig configWithWhitelist = simpleOpaConfig().setExtraCredentialsKeys(ImmutableSet.of("ai-service"));
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
+        OpaAccessControl authorizer = createOpaAuthorizer(configWithWhitelist, mockClient);
+        authorizer.checkCanKillQueryOwnedBy(executor, queryOwner);
+
+        JsonNode request = mockClient.getRequests().get(0);
+        // The executor's own extra credentials are propagated in the identity context
+        JsonNode executorNode = request.path("input").path("context").path("identity");
+        assertThat(executorNode.path("user").asText()).isEqualTo("executor-user");
+        assertThat(executorNode.path("extraCredentials").path("ai-service").asText()).isEqualTo("executor-ai-app");
+        assertThat(executorNode.path("extraCredentials").has("otherKey")).isFalse();
+        // The query owner's extra credentials are propagated separately in the resource
+        JsonNode ownerNode = request.path("input").path("action").path("resource").path("user");
+        assertThat(ownerNode.path("user").asText()).isEqualTo("query-owner");
+        assertThat(ownerNode.path("extraCredentials").path("ai-service").asText()).isEqualTo("owner-ai-app");
+        assertThat(ownerNode.path("extraCredentials").has("otherKey")).isFalse();
+    }
+
+    @Test
+    void testViewQueryOwnedByForwardsOwnerExtraCredentials()
+    {
+        Identity queryOwner = Identity.forUser("query-owner")
+                .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "owner-ai-app", "otherKey", "owner-other-value"))
+                .build();
+
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig().setExtraCredentialsKeys(ImmutableSet.of("ai-service")), mockClient);
+        authorizer.checkCanViewQueryOwnedBy(TEST_IDENTITY, queryOwner);
+
+        JsonNode ownerNode = mockClient.getRequests().get(0).at("/input/action/resource/user");
+        assertThat(ownerNode.path("user").asText()).isEqualTo("query-owner");
+        assertThat(ownerNode.path("extraCredentials").path("ai-service").asText()).isEqualTo("owner-ai-app");
+        assertThat(ownerNode.path("extraCredentials").has("otherKey")).isFalse();
+    }
+
+    @Test
+    void testFilterViewQueryOwnedByForwardsOwnerExtraCredentials()
+    {
+        Identity queryOwner = Identity.forUser("query-owner")
+                .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "owner-ai-app", "otherKey", "owner-other-value"))
+                .build();
+
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig().setExtraCredentialsKeys(ImmutableSet.of("ai-service")), mockClient);
+        authorizer.filterViewQueryOwnedBy(TEST_IDENTITY, ImmutableList.of(queryOwner));
+
+        JsonNode ownerNode = mockClient.getRequests().get(0).at("/input/action/resource/user");
+        assertThat(ownerNode.path("user").asText()).isEqualTo("query-owner");
+        assertThat(ownerNode.path("extraCredentials").path("ai-service").asText()).isEqualTo("owner-ai-app");
+        assertThat(ownerNode.path("extraCredentials").has("otherKey")).isFalse();
+    }
+
     private void testGetColumnMasks(Map<ColumnSchema, String> columnResponseContent, Map<ColumnSchema, OpaViewExpression> expectedResult)
     {
         InstrumentedHttpClient httpClient = createMockHttpClient(
@@ -1069,12 +1202,12 @@ final class TestOpaAccessControl
 
     private void assertColumnMaskBehaviour(List<String> columnNames, Map<ColumnSchema, ViewExpression> actualResult, Map<ColumnSchema, OpaViewExpression> expectedResult, List<JsonNode> requests)
     {
-        assertThat(actualResult.entrySet().stream().map(entry -> {
+        assertEqualsIgnoreOrder(actualResult.entrySet().stream().map(entry -> {
             ViewExpression viewExpression = entry.getValue();
             assertThat(viewExpression.getCatalog()).contains(TEST_COLUMN_MASKING_TABLE_NAME.getCatalogName());
             assertThat(viewExpression.getSchema()).contains(TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getSchemaName());
             return Map.entry(entry.getKey(), new OpaViewExpression(viewExpression.getExpression(), viewExpression.getSecurityIdentity()));
-        })).containsExactlyInAnyOrderElementsOf(expectedResult.entrySet());
+        }).toList(), expectedResult.entrySet());
 
         Set<String> expectedRequests = columnNames.stream().map(columnName -> String.format(
                 """
@@ -1105,7 +1238,7 @@ final class TestOpaAccessControl
 
         assertThat(method.isAccessAllowed(createOpaAuthorizer(simpleOpaConfig(), permissiveMockClient))).isTrue();
         assertThat(method.isAccessAllowed(createOpaAuthorizer(simpleOpaConfig(), restrictiveMockClient))).isFalse();
-        assertThat(permissiveMockClient.getRequests()).containsExactlyInAnyOrderElementsOf(restrictiveMockClient.getRequests());
+        assertEqualsIgnoreOrder(permissiveMockClient.getRequests(), restrictiveMockClient.getRequests());
         assertStringRequestsEqual(expectedRequests, permissiveMockClient.getRequests(), "/input/action");
         assertAccessControlMethodThrowsForIllegalResponses(method::isAccessAllowed, simpleOpaConfig(), OPA_SERVER_URI);
     }

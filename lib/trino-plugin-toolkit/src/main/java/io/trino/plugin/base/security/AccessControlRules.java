@@ -81,11 +81,11 @@ public class AccessControlRules
 
     public boolean hasRoleRules()
     {
-        return schemaRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
-                tableRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
-                sessionPropertyRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
-                functionRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
-                procedureRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
+        return schemaRules.stream().anyMatch(rule -> rule.getIdentityMatcher().getRoleRegex().isPresent()) ||
+                tableRules.stream().anyMatch(rule -> rule.getIdentityMatcher().getRoleRegex().isPresent()) ||
+                sessionPropertyRules.stream().anyMatch(rule -> rule.getIdentityMatcher().getRoleRegex().isPresent()) ||
+                functionRules.stream().anyMatch(rule -> rule.getIdentityMatcher().getRoleRegex().isPresent()) ||
+                procedureRules.stream().anyMatch(rule -> rule.getIdentityMatcher().getRoleRegex().isPresent()) ||
                 authorizationRules.stream().anyMatch(rule -> rule.getOriginalRolePattern().isPresent()) ||
                 authorizationRules.stream().anyMatch(rule -> rule.getNewRolePattern().isPresent());
     }

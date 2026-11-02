@@ -290,6 +290,18 @@ a few caveats:
     `bigquery.rpc-retry-delay-multiplier` to calculate the retry delay
     for the next RPC call.
   - `1.0`
+* - `bigquery.write-retry-max-attempts`
+  - The maximum number of attempts for a Storage Write API append request,
+    including the initial attempt.
+  - `5`
+* - `bigquery.write-retry-initial-delay`
+  - The initial backoff [duration](prop-type-duration) before retrying a
+    failed Storage Write API append request.
+  - `500ms`
+* - `bigquery.write-retry-max-delay`
+  - The maximum backoff [duration](prop-type-duration) between retries of a
+    failed Storage Write API append request.
+  - `30s`
 * - `bigquery.rpc-proxy.enabled`
   - Use a proxy for communication with BigQuery.
   - `false`
@@ -497,6 +509,19 @@ the following features:
 - {doc}`/sql/comment`
 
 ```{include} sql-delete-limitation.fragment
+```
+
+### Schema properties
+
+The connector supports setting the location of a schema when it is created with
+the {doc}`/sql/create-schema` statement and the `location` schema property. The
+value must be a [BigQuery dataset location](https://cloud.google.com/bigquery/docs/locations),
+for example `US`, `EU`, or `asia-northeast1`. When the property is omitted,
+BigQuery applies its own default location.
+
+```sql
+CREATE SCHEMA example.example_schema
+WITH (location = 'asia-northeast1');
 ```
 
 ### Wildcard table

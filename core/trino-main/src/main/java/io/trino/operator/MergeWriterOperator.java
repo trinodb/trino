@@ -18,6 +18,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -79,8 +81,9 @@ public class MergeWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, MergeWriterOperator.class.getSimpleName());
-            ConnectorMergeSink mergeSink = pageSinkManager.createMergeSink(session, target.getMergeHandle().orElseThrow(), tableCredentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
-            return new MergeWriterOperator(context, mergeSink, pagePreprocessor);
+            LocalMemoryContext mergeSinkMemoryContext = context.newLocalUserMemoryContext(MergeWriterOperator.class.getSimpleName());
+            ConnectorMergeSink mergeSink = pageSinkManager.createMergeSink(session, target.getMergeHandle().orElseThrow(), tableCredentials, PageSinkId.fromTaskId(driverContext.getTaskId()), mergeSinkMemoryContext::setBytes);
+            return new MergeWriterOperator(context, mergeSink, pagePreprocessor, mergeSinkMemoryContext);
         }
 
         @Override
@@ -104,18 +107,21 @@ public class MergeWriterOperator
     private final OperatorContext operatorContext;
     private State state = State.RUNNING;
     private final ConnectorMergeSink mergeSink;
+    private final LocalMemoryContext mergeSinkMemoryContext;
     private final Function<Page, Page> pagePreprocessor;
     private ListenableFuture<Collection<Slice>> finishFuture;
     private ListenableFuture<Void> blockedFutureView;
     private long rowCount;
     private long writtenBytes;
+    private boolean committed;
     private boolean closed;
 
-    public MergeWriterOperator(OperatorContext operatorContext, ConnectorMergeSink mergeSink, Function<Page, Page> pagePreprocessor)
+    public MergeWriterOperator(OperatorContext operatorContext, ConnectorMergeSink mergeSink, Function<Page, Page> pagePreprocessor, LocalMemoryContext mergeSinkMemoryContext)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.mergeSink = requireNonNull(mergeSink, "mergeSink is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
+        this.mergeSinkMemoryContext = requireNonNull(mergeSinkMemoryContext, "mergeSinkMemoryContext is null");
     }
 
     @Override
@@ -171,6 +177,7 @@ public class MergeWriterOperator
         state = State.FINISHED;
 
         Collection<Slice> fragments = getFutureValue(finishFuture);
+        committed = true;
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
@@ -227,12 +234,20 @@ public class MergeWriterOperator
 
     @Override
     public void close()
+            throws Exception
     {
+        // closer runs in reverse registration order, so the sink memory is released after the abort completes
+        AutoCloseableCloser closer = AutoCloseableCloser.create();
+        closer.register(mergeSinkMemoryContext::close);
         if (!closed) {
             closed = true;
+            if (!committed) {
+                closer.register(mergeSink::abort);
+            }
             if (finishFuture != null) {
-                finishFuture.cancel(true);
+                closer.register(() -> finishFuture.cancel(true));
             }
         }
+        closer.close();
     }
 }

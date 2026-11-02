@@ -121,11 +121,6 @@ public abstract class ColumnChunkMetadata
 
     private long bloomFilterOffset = -1;
 
-    protected ColumnChunkMetadata(ColumnChunkProperties columnChunkProperties)
-    {
-        this(null, columnChunkProperties);
-    }
-
     protected ColumnChunkMetadata(EncodingStats encodingStats, ColumnChunkProperties columnChunkProperties)
     {
         this.encodingStats = encodingStats;

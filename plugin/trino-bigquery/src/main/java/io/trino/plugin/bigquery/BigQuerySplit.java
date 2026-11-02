@@ -28,6 +28,7 @@ import static java.util.Objects.requireNonNull;
 
 public record BigQuerySplit(
         Mode mode,
+        String traceId,
         String streamName,
         String schemaString,
         List<BigQueryColumnHandle> columns,
@@ -44,6 +45,7 @@ public record BigQuerySplit(
     public BigQuerySplit
     {
         requireNonNull(mode, "mode is null");
+        requireNonNull(traceId, "traceId is null");
         requireNonNull(streamName, "streamName cannot be null");
         requireNonNull(schemaString, "schemaString cannot be null");
         columns = ImmutableList.copyOf(requireNonNull(columns, "columns cannot be null"));
@@ -51,19 +53,19 @@ public record BigQuerySplit(
         requireNonNull(dataSize, "dataSize is null");
     }
 
-    static BigQuerySplit forStream(String streamName, String schemaString, List<BigQueryColumnHandle> columns, OptionalInt dataSize)
+    static BigQuerySplit forStream(String traceId, String streamName, String schemaString, List<BigQueryColumnHandle> columns, OptionalInt dataSize)
     {
-        return new BigQuerySplit(STORAGE, streamName, schemaString, columns, NO_ROWS_TO_GENERATE, Optional.empty(), dataSize);
+        return new BigQuerySplit(STORAGE, traceId, streamName, schemaString, columns, NO_ROWS_TO_GENERATE, Optional.empty(), dataSize);
     }
 
     static BigQuerySplit forViewStream(List<BigQueryColumnHandle> columns, Optional<String> filter)
     {
-        return new BigQuerySplit(QUERY, "", "", columns, NO_ROWS_TO_GENERATE, filter, OptionalInt.empty());
+        return new BigQuerySplit(QUERY, "", "", "", columns, NO_ROWS_TO_GENERATE, filter, OptionalInt.empty());
     }
 
     static BigQuerySplit emptyProjection(long numberOfRows)
     {
-        return new BigQuerySplit(STORAGE, "", "", ImmutableList.of(), numberOfRows, Optional.empty(), OptionalInt.of(0));
+        return new BigQuerySplit(STORAGE, "", "", "", ImmutableList.of(), numberOfRows, Optional.empty(), OptionalInt.of(0));
     }
 
     @Override

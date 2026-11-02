@@ -54,7 +54,6 @@ import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -97,7 +96,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.optimizations.PropertyDerivations.isRoundRobin;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
@@ -376,7 +375,8 @@ public final class StreamPropertyDerivations
 
             return switch (node.getType()) {
                 case GATHER -> StreamProperties.singleStream();
-                case REPARTITION -> node.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ?
+                // round robin places rows independently of their values
+                case REPARTITION -> isRoundRobin(node.getPartitioningScheme().getPartitioning().getHandle()) ?
                         new StreamProperties(FIXED, Optional.empty(), false) :
                         new StreamProperties(
                                 FIXED,
@@ -418,8 +418,8 @@ public final class StreamPropertyDerivations
         {
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
             for (Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-                if (assignment.getValue() instanceof Reference) {
-                    inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
+                if (assignment.getValue() instanceof Reference reference) {
+                    inputToOutput.put(Symbol.from(reference), assignment.getKey());
                 }
             }
             return inputToOutput;
@@ -495,12 +495,6 @@ public final class StreamPropertyDerivations
 
         @Override
         public StreamProperties visitSimpleTableExecuteNode(SimpleTableExecuteNode node, List<StreamProperties> context)
-        {
-            return StreamProperties.singleStream();
-        }
-
-        @Override
-        public StreamProperties visitRefreshMaterializedView(RefreshMaterializedViewNode node, List<StreamProperties> inputProperties)
         {
             return StreamProperties.singleStream();
         }
@@ -830,9 +824,9 @@ public final class StreamPropertyDerivations
             return distribution;
         }
 
-        public boolean isExactlyPartitionedOn(Iterable<Symbol> columns)
+        public boolean isExactlyPartitionedOn(List<Symbol> columns)
         {
-            return partitioningColumns.isPresent() && columns.equals(ImmutableList.copyOf(partitioningColumns.get()));
+            return partitioningColumns.isPresent() && partitioningColumns.get().equals(columns);
         }
 
         public boolean isPartitionedOn(Iterable<Symbol> columns)

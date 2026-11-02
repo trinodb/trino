@@ -161,8 +161,7 @@ public class HashSemiJoinOperator
 
             if (channelSet == null) {
                 if (!channelSetFuture.isDone()) {
-                    // This will materialize page, but it shouldn't matter for the first page
-                    localMemoryContext.setBytes(inputPage.getSizeInBytes());
+                    localMemoryContext.setBytes(inputPage.getRetainedSizeInBytes());
                     return blocked(asVoid(channelSetFuture));
                 }
                 checkSuccess(channelSetFuture, "ChannelSet building failed");

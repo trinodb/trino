@@ -32,10 +32,8 @@ public class SchemaAccessControlRule
             Optional.empty());
 
     private final boolean owner;
-    private final Optional<Pattern> userRegex;
-    private final Optional<Pattern> roleRegex;
-    private final Optional<Pattern> groupRegex;
-    private final Optional<Pattern> schemaRegex;
+    private final IdentityMatcher identityMatcher;
+    private final Optional<UserSubstitutingPattern> schemaPattern;
 
     @JsonCreator
     public SchemaAccessControlRule(
@@ -43,21 +41,17 @@ public class SchemaAccessControlRule
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
-            @JsonProperty("schema") Optional<Pattern> schemaRegex)
+            @JsonProperty("schema") Optional<UserSubstitutingPattern> schemaPattern)
     {
         this.owner = owner;
-        this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
-        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
-        this.schemaRegex = requireNonNull(schemaRegex, "schemaRegex is null");
+        this.identityMatcher = new IdentityMatcher(userRegex, roleRegex, groupRegex);
+        this.schemaPattern = requireNonNull(schemaPattern, "schemaPattern is null");
     }
 
     public Optional<Boolean> match(String user, Set<String> roles, Set<String> groups, String schema)
     {
-        if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
-                schemaRegex.map(regex -> regex.matcher(schema).matches()).orElse(true)) {
+        if (identityMatcher.matches(user, roles, groups) &&
+                schemaPattern.map(pattern -> pattern.matches(user, schema)).orElse(true)) {
             return Optional.of(owner);
         }
         return Optional.empty();
@@ -68,7 +62,7 @@ public class SchemaAccessControlRule
         if (!owner) {
             return Optional.empty();
         }
-        return Optional.of(new AnySchemaPermissionsRule(userRegex, roleRegex, groupRegex, schemaRegex));
+        return Optional.of(new AnySchemaPermissionsRule(identityMatcher, schemaPattern));
     }
 
     boolean isOwner()
@@ -76,23 +70,13 @@ public class SchemaAccessControlRule
         return owner;
     }
 
-    Optional<Pattern> getUserRegex()
+    IdentityMatcher getIdentityMatcher()
     {
-        return userRegex;
+        return identityMatcher;
     }
 
-    Optional<Pattern> getGroupRegex()
+    Optional<UserSubstitutingPattern> getSchemaPattern()
     {
-        return groupRegex;
-    }
-
-    public Optional<Pattern> getRoleRegex()
-    {
-        return roleRegex;
-    }
-
-    Optional<Pattern> getSchemaRegex()
-    {
-        return schemaRegex;
+        return schemaPattern;
     }
 }

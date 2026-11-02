@@ -139,6 +139,20 @@ After this period the coordinator will make its best effort to stop the
 query. Note that some operations in planning phase are not easily cancellable
 and may not terminate immediately.
 
+## `query.max-initial-plan-nodes`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `100000`
+- **Minimum value:** `1`
+- **Session property:** `query_max_initial_plan_nodes`
+
+The maximum number of nodes in the query plan before it is optimized. Every
+reference to a view or a `WITH` query is expanded into a separate copy of its
+plan, so a query that references the same views many times, directly or
+through nested views, can produce a plan that grows exponentially and exhausts
+coordinator memory. A query exceeding this limit fails with
+`QUERY_PLAN_TOO_LARGE`.
+
 ## `query.max-run-time`
 
 - **Type:** {ref}`prop-type-duration`
@@ -167,6 +181,14 @@ resource usage.
 The maximum physical size of data that can be written by a query during its execution.
 When this limit is reached, query processing is terminated to prevent excessive
 resource usage.
+
+## `query.max-output-data-size`
+
+- **Type:** {ref}`prop-type-data-size`
+
+The maximum size of the output data that a query can produce during its execution.
+When this limit is exceeded, query processing is terminated. This limit protects
+against queries that return excessively large result sets to the client.
 
 ## `query.max-stage-count`
 

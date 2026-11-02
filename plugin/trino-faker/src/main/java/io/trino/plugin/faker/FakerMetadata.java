@@ -380,6 +380,7 @@ public class FakerMetadata
         int columnId = 0;
         for (; columnId < tableMetadata.getColumns().size(); columnId++) {
             ColumnMetadata column = tableMetadata.getColumns().get(columnId);
+            IntervalValues.checkSupported(column.getType());
             columns.add(new ColumnInfo(
                     FakerColumnHandle.of(columnId, column, tableNullProbability),
                     column));
@@ -772,6 +773,9 @@ public class FakerMetadata
     @Override
     public Collection<FunctionMetadata> getFunctions(ConnectorSession session, SchemaFunctionName name)
     {
+        if (!name.schemaName().equals(SCHEMA_NAME)) {
+            return List.of();
+        }
         return functionBundle.getFunctions().stream()
                 .filter(function -> function.getCanonicalName().equals(name.functionName()))
                 .collect(toImmutableList());

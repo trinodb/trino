@@ -28,6 +28,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
@@ -63,6 +64,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.scalar.BenchmarkArrayFilter.ExactArrayFilterFunction.EXACT_ARRAY_FILTER_FUNCTION;
@@ -73,8 +75,6 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.TypeDescriptor.arrayType;
-import static io.trino.spi.type.TypeDescriptor.functionType;
 import static io.trino.spi.type.TypeTemplates.fromTypeDescriptor;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
@@ -162,7 +162,7 @@ public class BenchmarkArrayFilter
             }
 
             List<Expression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, layoutBuilder.buildOrThrow()).get();
+            pageProcessor = compiler.compilePageProcessor(TEST_SESSION, Optional.empty(), projections, layoutBuilder.buildOrThrow()).get();
             page = new Page(blocks);
         }
 
@@ -232,7 +232,7 @@ public class BenchmarkArrayFilter
             }
 
             List<Expression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, layoutBuilder.buildOrThrow()).get();
+            pageProcessor = compiler.compilePageProcessor(TEST_SESSION, Optional.empty(), projections, layoutBuilder.buildOrThrow()).get();
             page = new Page(blocks);
         }
 
@@ -292,7 +292,7 @@ public class BenchmarkArrayFilter
         }
 
         @Override
-        protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+        public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
         {
             Type type = ((ArrayType) boundSignature.getReturnType()).getElementType();
             return new ChoicesSpecializedSqlScalarFunction(
@@ -347,7 +347,7 @@ public class BenchmarkArrayFilter
         }
 
         @Override
-        protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+        public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
         {
             Type type = ((ArrayType) boundSignature.getReturnType()).getElementType();
             return new ChoicesSpecializedSqlScalarFunction(

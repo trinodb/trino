@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.Name;
 import io.trino.spi.function.ScalarFunction;
@@ -35,6 +36,22 @@ public final class CustomFunctions
     public static long customAdd(@SqlType(StandardTypes.BIGINT) long x, @SqlType(StandardTypes.BIGINT) long y)
     {
         return x + y;
+    }
+
+    @ScalarFunction("custom_varchar_bound")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.BIGINT)
+    public static long customVarcharBoundLong(@LiteralParameter("x") long x, @SqlType("varchar(x)") Slice slice)
+    {
+        return x;
+    }
+
+    @ScalarFunction("custom_char_bound")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.BIGINT)
+    public static long customCharBoundInt(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
+    {
+        return x;
     }
 
     @ScalarFunction("custom_is_null")

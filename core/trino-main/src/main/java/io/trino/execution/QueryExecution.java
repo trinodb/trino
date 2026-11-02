@@ -30,6 +30,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.Plan;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.function.Consumer;
@@ -85,6 +86,11 @@ public interface QueryExecution
      * be taken to avoid leaking {@code this} when adding a listener in a constructor.
      */
     void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener);
+
+    default Optional<Map<String, Long>> callResult()
+    {
+        return Optional.empty();
+    }
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {

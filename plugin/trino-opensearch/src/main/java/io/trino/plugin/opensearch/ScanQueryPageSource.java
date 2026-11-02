@@ -293,7 +293,7 @@ public class ScanQueryPageSource
         @Override
         protected SearchHit computeNext()
         {
-            if (limit.isPresent() && totalRecordCount == limit.getAsLong()) {
+            if (limit.isPresent() && totalRecordCount == limit.orElseThrow()) {
                 // No more record is necessary.
                 return endOfData();
             }

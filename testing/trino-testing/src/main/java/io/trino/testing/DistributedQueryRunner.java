@@ -676,6 +676,14 @@ public final class DistributedQueryRunner
     }
 
     @Override
+    public void loadBlobCacheManager(String name, Map<String, String> properties)
+    {
+        for (TestingTrinoServer server : servers) {
+            server.loadBlobCacheManager(name, properties);
+        }
+    }
+
+    @Override
     public void loadSpoolingManager(String name, Map<String, String> properties)
     {
         for (TestingTrinoServer server : servers) {
@@ -744,6 +752,9 @@ public final class DistributedQueryRunner
         private boolean withTracing;
         private Optional<String> exchangeType = Optional.empty();
         private Optional<Map<String, String>> exchangeProperties = Optional.empty();
+        private Optional<String> blobCacheType = Optional.empty();
+        private Optional<Map<String, String>> blobCacheProperties = Optional.empty();
+        private final ImmutableList.Builder<Plugin> plugins = ImmutableList.builder();
         private int workerCount = 2;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
@@ -894,21 +905,6 @@ public final class DistributedQueryRunner
         }
 
         @CanIgnoreReturnValue
-        public SELF registerResource(AutoCloseable closeable)
-        {
-            checkState(extraCloseables != null, "query runner is already built");
-            extraCloseables.add(requireNonNull(closeable, "closeable is null"));
-            return self();
-        }
-
-        @CanIgnoreReturnValue
-        public SELF registerResources(Iterable<? extends AutoCloseable> closeables)
-        {
-            closeables.forEach(this::registerResource);
-            return self();
-        }
-
-        @CanIgnoreReturnValue
         public SELF withTracing()
         {
             this.withTracing = true;
@@ -932,6 +928,19 @@ public final class DistributedQueryRunner
             }
             this.exchangeType = Optional.of(exchangeType);
             this.exchangeProperties = properties;
+            return self();
+        }
+
+        public SELF withBlobCache(String type, Map<String, String> properties)
+        {
+            this.blobCacheType = Optional.of(type);
+            this.blobCacheProperties = Optional.of(ImmutableMap.copyOf(properties));
+            return self();
+        }
+
+        public SELF withPlugin(Plugin plugin)
+        {
+            plugins.add(plugin);
             return self();
         }
 
@@ -1019,6 +1028,14 @@ public final class DistributedQueryRunner
                         }
                         default -> throw new IllegalArgumentException("Unknow exchange type: " + exchangeType);
                     }
+                }
+
+                for (Plugin plugin : plugins.build()) {
+                    queryRunner.installPlugin(plugin);
+                }
+
+                if (blobCacheType.isPresent()) {
+                    queryRunner.loadBlobCacheManager(blobCacheType.orElseThrow(), blobCacheProperties.orElseThrow());
                 }
 
                 additionalSetup.accept(queryRunner);

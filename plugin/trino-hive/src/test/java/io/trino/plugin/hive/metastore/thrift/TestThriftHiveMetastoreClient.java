@@ -50,6 +50,7 @@ public class TestThriftHiveMetastoreClient
                 new AtomicInteger(),
                 new AtomicInteger(),
                 new AtomicInteger(),
+                new AtomicInteger(),
                 new AtomicInteger());
         assertThat(connectionCount.get()).isEqualTo(1);
 
@@ -117,6 +118,12 @@ public class TestThriftHiveMetastoreClient
 
         @Override
         public void checkReadBytesAvailable(long numBytes)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void resetMessageSizeAndConsumedBytes(long size)
         {
             throw new UnsupportedOperationException();
         }

@@ -142,10 +142,13 @@ public class TestSharedGlueMetastore
     @Override
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
-        String expectedHiveCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "WITH (\n" +
-                "   location = '%s'\n" +
-                ")";
+        String expectedHiveCreateSchema =
+                """
+                CREATE SCHEMA %s.%s
+                WITH (
+                   location = '%s'
+                )\
+                """;
 
         return format(expectedHiveCreateSchema, catalogName, tpchSchema, schemaLocation);
     }
@@ -153,10 +156,13 @@ public class TestSharedGlueMetastore
     @Override
     protected String getExpectedIcebergCreateSchema(String catalogName)
     {
-        String expectedIcebergCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "WITH (\n" +
-                "   location = '%s'\n" +
-                ")";
+        String expectedIcebergCreateSchema =
+                """
+                CREATE SCHEMA %s.%s
+                WITH (
+                   location = '%s'
+                )\
+                """;
         return format(expectedIcebergCreateSchema, catalogName, tpchSchema, schemaLocation);
     }
 }

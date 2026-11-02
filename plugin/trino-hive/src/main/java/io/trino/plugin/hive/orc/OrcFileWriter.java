@@ -214,7 +214,7 @@ public final class OrcFileWriter
     private void updateAcidUserMetadata()
     {
         int bucketValue = computeBucketValue(bucketNumber.orElse(0), 0);
-        long writeId = maxWriteId.isPresent() ? maxWriteId.getAsLong() : transaction.getWriteId();
+        long writeId = maxWriteId.isPresent() ? maxWriteId.orElseThrow() : transaction.getWriteId();
         int stripeRowCount = orcWriter.getStripeRowCount();
         Map<String, String> userMetadata = new HashMap<>();
         switch (writerKind) {
@@ -238,7 +238,7 @@ public final class OrcFileWriter
     public void rollback()
     {
         try (Closeable _ = rollbackAction::run) {
-            orcWriter.close();
+            orcWriter.abort();
         }
         catch (Exception e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);

@@ -114,6 +114,8 @@ import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FINITE_FLOATING_POINT_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FLOATING_POINT_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -190,6 +192,8 @@ public class OracleClient
     public static final int ORACLE_CHAR_MAX_CHARS = ORACLE_CHAR_MAX_BYTES / MAX_BYTES_PER_CHAR;
 
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
+    // Oracle JDBC reports columnSize=0 for NUMBER expressions (e.g. COUNT(*), SUM(), EXTRACT(...)) in passthrough queries
+    private static final int EXPRESSION_NUMBER_COLUMN_SIZE = 0;
 
     private static final int TRINO_BIGINT_TYPE = 832_424_001;
 
@@ -541,17 +545,17 @@ public class OracleClient
                     REAL,
                     (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
                     oracleRealWriteFunction(),
-                    FULL_PUSHDOWN));
+                    FLOATING_POINT_PUSHDOWN));
 
             case OracleTypes.BINARY_DOUBLE, OracleTypes.FLOAT -> Optional.of(ColumnMapping.doubleMapping(
                     DOUBLE,
                     ResultSet::getDouble,
                     oracleDoubleWriteFunction(),
-                    FULL_PUSHDOWN));
+                    typeHandle.jdbcType() == OracleTypes.FLOAT ? FINITE_FLOATING_POINT_PUSHDOWN : FLOATING_POINT_PUSHDOWN));
             case OracleTypes.NUMBER -> {
                 int columnSize = typeHandle.requiredColumnSize();
                 int decimalDigits = typeHandle.requiredDecimalDigits();
-                if (columnSize != PRECISION_OF_UNSPECIFIED_NUMBER) {
+                if (columnSize != PRECISION_OF_UNSPECIFIED_NUMBER && columnSize != EXPRESSION_NUMBER_COLUMN_SIZE) {
                     int scale = decimalDigits;
                     // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                     // Map decimal(p, s) with s>p, to decimal(s, s).

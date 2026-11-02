@@ -51,6 +51,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -116,7 +117,7 @@ public class TestRowNumberOperator
                 10,
                 hashStrategyCompiler);
 
-        MaterializedResult expectedResult = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedResult = resultBuilder(DOUBLE, BIGINT)
                 .row(0.3, 1L)
                 .row(0.4, 1L)
                 .row(0.5, 1L)
@@ -134,8 +135,8 @@ public class TestRowNumberOperator
         assertThat(rowNumberColumn.getPositionCount()).isEqualTo(10);
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
-        assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expectedResult.getMaterializedRows());
+        MaterializedResult actual = toMaterializedResult(ImmutableList.of(DOUBLE, BIGINT), pages);
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expectedResult.getMaterializedRows());
     }
 
     @Test
@@ -204,21 +205,21 @@ public class TestRowNumberOperator
                 10,
                 hashStrategyCompiler);
 
-        MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedPartition1 = resultBuilder(DOUBLE, BIGINT)
                 .row(0.3, 1L)
                 .row(0.4, 1L)
                 .row(0.5, 1L)
                 .row(0.6, 1L)
                 .build();
 
-        MaterializedResult expectedPartition2 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedPartition2 = resultBuilder(DOUBLE, BIGINT)
                 .row(0.2, 2L)
                 .row(0.7, 2L)
                 .row(0.8, 2L)
                 .row(0.9, 2L)
                 .build();
 
-        MaterializedResult expectedPartition3 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedPartition3 = resultBuilder(DOUBLE, BIGINT)
                 .row(0.1, 3L)
                 .row(0.19, 3L)
                 .build();
@@ -228,7 +229,7 @@ public class TestRowNumberOperator
         assertThat(rowNumberColumn.getPositionCount()).isEqualTo(10);
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(ImmutableList.of(DOUBLE, BIGINT), pages);
         Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         Set<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
         Set<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
@@ -269,21 +270,21 @@ public class TestRowNumberOperator
                 10,
                 hashStrategyCompiler);
 
-        MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedPartition1 = resultBuilder(DOUBLE, BIGINT)
                 .row(0.3, 1L)
                 .row(0.4, 1L)
                 .row(0.5, 1L)
                 .row(0.6, 1L)
                 .build();
 
-        MaterializedResult expectedPartition2 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedPartition2 = resultBuilder(DOUBLE, BIGINT)
                 .row(0.2, 2L)
                 .row(0.7, 2L)
                 .row(0.8, 2L)
                 .row(0.9, 2L)
                 .build();
 
-        MaterializedResult expectedPartition3 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedPartition3 = resultBuilder(DOUBLE, BIGINT)
                 .row(0.1, 3L)
                 .row(0.19, 3L)
                 .build();
@@ -297,7 +298,7 @@ public class TestRowNumberOperator
         }
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(ImmutableList.of(DOUBLE, BIGINT), pages);
         Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         Set<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
         Set<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
@@ -337,7 +338,7 @@ public class TestRowNumberOperator
                 10,
                 hashStrategyCompiler);
 
-        MaterializedResult expectedRows = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
+        MaterializedResult expectedRows = resultBuilder(DOUBLE, BIGINT, BIGINT)
                 .row(0.3, 1L)
                 .row(0.2, 2L)
                 .row(0.1, 3L)
@@ -355,7 +356,7 @@ public class TestRowNumberOperator
         assertThat(rowNumberColumn.getPositionCount()).isEqualTo(3);
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(ImmutableList.of(DOUBLE, BIGINT), pages);
         assertThat(actual.getMaterializedRows()).hasSize(3);
         Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         Set<?> expectedRowsSet = ImmutableSet.copyOf(expectedRows.getMaterializedRows());

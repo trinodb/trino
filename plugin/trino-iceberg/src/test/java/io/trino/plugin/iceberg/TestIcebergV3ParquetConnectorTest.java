@@ -13,11 +13,38 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
 class TestIcebergV3ParquetConnectorTest
         extends BaseIcebergParquetConnectorTest
 {
     TestIcebergV3ParquetConnectorTest()
     {
         super(3);
+    }
+
+    @Test
+    void testNullNestedRowWithVariantRoundTrip()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_null_nested_row_with_variant_",
+                "AS SELECT CAST(NULL AS ROW(b ROW(c VARCHAR, d VARIANT))) AS a")) {
+            assertThat(query("SELECT a IS NULL FROM " + table.getName()))
+                    .matches("VALUES true");
+        }
+    }
+
+    @Test
+    void testNullMapWithVariantValueRoundTrip()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_null_map_with_variant_value_",
+                "AS SELECT CAST(NULL AS MAP(VARCHAR, VARIANT)) AS a")) {
+            assertThat(query("SELECT a IS NULL FROM " + table.getName()))
+                    .matches("VALUES true");
+        }
     }
 }

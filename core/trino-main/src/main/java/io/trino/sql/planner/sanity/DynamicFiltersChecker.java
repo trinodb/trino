@@ -105,7 +105,7 @@ public class DynamicFiltersChecker
                 List<DynamicFilters.Descriptor> nonPushedDownFilters = node
                         .getFilter()
                         .map(DynamicFilters::extractDynamicFilters)
-                        .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
+                        .map(DynamicFilters.ExtractResult::dynamicConjuncts)
                         .orElse(ImmutableList.of());
                 verify(nonPushedDownFilters.isEmpty(), "Dynamic filters %s present in join filter predicate were not pushed down.", nonPushedDownFilters);
 

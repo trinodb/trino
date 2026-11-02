@@ -29,7 +29,7 @@ import org.testcontainers.toxiproxy.ToxiproxyContainer;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.exception.SdkClientException;
-import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.http.apache5.Apache5HttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -54,8 +54,8 @@ import static java.lang.Math.toIntExact;
 import static java.lang.Thread.sleep;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.AssertionsForClassTypes.fail;
-import static org.assertj.core.api.AssertionsForClassTypes.within;
+import static org.assertj.core.api.Assertions.fail;
+import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
 @TestInstance(PER_METHOD)
@@ -102,7 +102,7 @@ public class TestS3Retries
                 .forcePathStyle(true)
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(FLOCI_ACCESS_KEY, FLOCI_SECRET_KEY)))
-                .httpClient(ApacheHttpClient.builder()
+                .httpClient(Apache5HttpClient.builder()
                         // react to timeouts faster so that the test completes faster
                         .socketTimeout(Duration.ofSeconds(1))
                         // Limit connection reuse. toxiproxy probability-based circuit breaking works on per-TCP connection basis
@@ -200,7 +200,8 @@ public class TestS3Retries
                         config.getSseCustomerKey()),
                 Optional.empty(),
                 config.getStorageClass(),
-                config.getCannedAcl());
+                config.getCannedAcl(),
+                config.getChecksumAlgorithm());
 
         // The toxicity is randomized, so iterate for more determinism
         for (int iteration = 0; iteration < attempts; iteration++) {

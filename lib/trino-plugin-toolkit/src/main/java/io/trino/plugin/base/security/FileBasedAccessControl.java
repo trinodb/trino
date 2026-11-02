@@ -52,6 +52,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
+import static io.trino.spi.security.AccessDeniedException.denyCommentMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateBranch;
@@ -92,15 +93,13 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTableBranchPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
-import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
-import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
-import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowBranches;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
@@ -185,10 +184,10 @@ public class FileBasedAccessControl
     public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, TrinoPrincipal principal)
     {
         if (!isSchemaOwner(context, schemaName)) {
-            denySetSchemaAuthorization(schemaName, principal);
+            denySetEntityAuthorization(new EntityKindAndName("SCHEMA", List.of(schemaName)), principal);
         }
         if (!checkCanSetAuthorization(context, principal)) {
-            denySetSchemaAuthorization(schemaName, principal);
+            denySetEntityAuthorization(new EntityKindAndName("SCHEMA", List.of(schemaName)), principal);
         }
     }
 
@@ -372,10 +371,10 @@ public class FileBasedAccessControl
     public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
     {
         if (!checkTablePermission(context, tableName, OWNERSHIP)) {
-            denySetTableAuthorization(tableName.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("TABLE", List.of(tableName.getSchemaName(), tableName.getTableName())), principal);
         }
         if (!checkCanSetAuthorization(context, principal)) {
-            denySetTableAuthorization(tableName.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("TABLE", List.of(tableName.getSchemaName(), tableName.getTableName())), principal);
         }
     }
 
@@ -387,18 +386,25 @@ public class FileBasedAccessControl
         }
 
         ConnectorIdentity identity = context.getIdentity();
-        boolean allowed = tableRules.stream()
-                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
-                .map(rule -> rule.canSelectColumns(columnNames))
+        TableAccessControlRule rule = tableRules.stream()
+                .filter(tableRule -> tableRule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
                 .findFirst()
-                .orElse(false);
-        if (!allowed) {
+                .orElse(null);
+        if (rule == null) {
             denySelectTable(tableName.toString(), branch);
+        }
+        if (!rule.canSelectColumns(columnNames)) {
+            Set<String> deniedColumns = rule.getDeniedColumns(columnNames);
+            if (deniedColumns.isEmpty()) {
+                denySelectTable(tableName.toString(), branch);
+            }
+            else {
+                denySelectColumns(tableName.toString(), deniedColumns, branch.orElse(null));
+            }
         }
     }
 
     @Deprecated
-    @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         checkCanSelectFromColumns(context, tableName, Optional.empty(), columnNames);
@@ -412,26 +418,12 @@ public class FileBasedAccessControl
         }
     }
 
-    @Deprecated
-    @Override
-    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        checkCanInsertIntoTable(context, tableName, Optional.empty());
-    }
-
     @Override
     public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
         if (!checkTablePermission(context, tableName, DELETE)) {
             denyDeleteTable(tableName.toString(), branch);
         }
-    }
-
-    @Deprecated
-    @Override
-    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        checkCanDeleteFromTable(context, tableName, Optional.empty());
     }
 
     @Override
@@ -448,13 +440,6 @@ public class FileBasedAccessControl
         if (!checkTablePermission(context, tableName, UPDATE)) {
             denyUpdateTableColumns(tableName.toString(), branch, updatedColumns);
         }
-    }
-
-    @Deprecated
-    @Override
-    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
-    {
-        checkCanUpdateTableColumns(context, tableName, Optional.empty(), updatedColumns);
     }
 
     @Override
@@ -488,10 +473,10 @@ public class FileBasedAccessControl
     public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
     {
         if (!checkTablePermission(context, viewName, OWNERSHIP)) {
-            denySetViewAuthorization(viewName.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
         }
         if (!checkCanSetAuthorization(context, principal)) {
-            denySetViewAuthorization(viewName.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
         }
     }
 
@@ -524,7 +509,6 @@ public class FileBasedAccessControl
     }
 
     @Deprecated
-    @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         checkCanCreateViewWithSelectFromColumns(context, tableName, Optional.empty(), columnNames);
@@ -580,6 +564,14 @@ public class FileBasedAccessControl
     {
         if (!checkTablePermission(context, materializedViewName, OWNERSHIP)) {
             denySetMaterializedViewProperties(materializedViewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewComment(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        if (!checkTablePermission(context, materializedViewName, OWNERSHIP)) {
+            denyCommentMaterializedView(materializedViewName.toString());
         }
     }
 

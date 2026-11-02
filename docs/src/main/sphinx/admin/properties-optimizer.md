@@ -1,5 +1,15 @@
 # Optimizer properties
 
+## `optimizer.function-preimages-enabled`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `true`
+- **Session property:** `function_preimages_enabled`
+
+Use function preimages to translate predicates and dynamic filters on functions and casts of a column,
+such as `year(date_column) = 2025`, into ranges on the column itself. Set to `false` to use the previous
+implementation.
+
 ## `optimizer.dictionary-aggregation`
 
 - **Type:** {ref}`prop-type-boolean`
@@ -106,6 +116,8 @@ for any reason a cost could not be computed, the `ELIMINATE_CROSS_JOINS` strateg
 
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `8`
+- **Minimum value:** `2`
+- **Maximum value:** `62`
 - **Session property:** `max_reordered_joins`
 
 When optimizer.join-reordering-strategy is set to cost-based, this property determines

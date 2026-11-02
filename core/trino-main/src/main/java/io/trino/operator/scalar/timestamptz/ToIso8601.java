@@ -55,20 +55,20 @@ public final class ToIso8601
     @LiteralParameters({"p", "n"})
     @SqlType("varchar(n)")
     @Constraint(variable = "n", expression = RESULT_LENGTH)
-    public static Slice toIso8601(@LiteralParameter("p") long precision, @SqlType("timestamp(p) with time zone") long packedEpochMillis)
+    public static Slice toIso8601(@LiteralParameter("p") int precision, @SqlType("timestamp(p) with time zone") long packedEpochMillis)
     {
         long epochMillis = unpackMillisUtc(packedEpochMillis);
         ZoneId zoneId = unpackZoneKey(packedEpochMillis).getZoneId();
 
-        return utf8Slice(format((int) precision, epochMillis, 0, zoneId));
+        return utf8Slice(format(precision, epochMillis, 0, zoneId));
     }
 
     @LiteralParameters({"p", "n"})
     @SqlType("varchar(n)")
     @Constraint(variable = "n", expression = RESULT_LENGTH)
-    public static Slice toIso8601(@LiteralParameter("p") long precision, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
+    public static Slice toIso8601(@LiteralParameter("p") int precision, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
-        return utf8Slice(format((int) precision, timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId()));
+        return utf8Slice(format(precision, timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId()));
     }
 
     private static String format(int precision, long epochMillis, int picosOfMilli, ZoneId zoneId)

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 import io.trino.Session;
@@ -38,18 +37,6 @@ public final class H2QueryRunner
     private H2QueryRunner() {}
 
     private static final String TPCH_SCHEMA = "tpch";
-
-    public static QueryRunner createH2QueryRunner(TpchTable<?>... tables)
-            throws Exception
-    {
-        return createH2QueryRunner(ImmutableList.copyOf(tables));
-    }
-
-    public static QueryRunner createH2QueryRunner(Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return createH2QueryRunner(tables, TestingH2JdbcModule.createProperties());
-    }
 
     public static QueryRunner createH2QueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> properties)
             throws Exception

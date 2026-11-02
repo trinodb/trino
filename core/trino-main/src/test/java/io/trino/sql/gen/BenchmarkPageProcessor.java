@@ -49,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
@@ -92,6 +93,7 @@ public class BenchmarkPageProcessor
         Expression projectExpression = createProjectExpression(functionResolution);
         ExpressionCompiler expressionCompiler = functionResolution.getExpressionCompiler();
         compiledProcessor = expressionCompiler.compilePageProcessor(
+                TEST_SESSION,
                 Optional.of(filterExpression),
                 ImmutableList.of(projectExpression),
                 ImmutableMap.of(

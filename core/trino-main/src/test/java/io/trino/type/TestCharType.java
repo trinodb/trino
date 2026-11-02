@@ -24,8 +24,12 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static io.airlift.slice.SliceUtf8.codePointToUtf8;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.type.CharType.createCharType;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MIN_CODE_POINT;
@@ -104,6 +108,34 @@ public class TestCharType
     public void testPreviousValue()
     {
         assertThat(type.getPreviousValue(getSampleValue()))
+                .isEqualTo(Optional.of(utf8Slice("apple" + " ".repeat(94) + "\u001F")));
+
+        CharType charType = createCharType(3);
+        assertThat(charType.getPreviousValue(utf8Slice("abc")))
+                .isEqualTo(Optional.of(utf8Slice("abb")));
+        assertThat(charType.getPreviousValue(utf8Slice("ab")))
+                .isEqualTo(Optional.of(utf8Slice("ab\u001F")));
+        assertThat(charType.getPreviousValue(EMPTY_SLICE))
+                .isEqualTo(Optional.of(utf8Slice("  \u001F")));
+        assertThat(charType.getPreviousValue(utf8Slice("a\0\0")))
+                .isEqualTo(Optional.of(utf8Slice("`" + Character.toString(MAX_CODE_POINT).repeat(2))));
+        assertThat(charType.getPreviousValue(utf8Slice(Character.toString(MIN_CODE_POINT).repeat(3))))
+                .isEmpty();
+
+        // the surrogate range has no UTF-8 encoding, so U+D7FF precedes U+E000
+        assertThat(createCharType(2).getPreviousValue(utf8Slice("a\uE000")))
+                .isEqualTo(Optional.of(utf8Slice("a\uD7FF")));
+
+        assertThat(createCharType(0).getPreviousValue(EMPTY_SLICE))
+                .isEmpty();
+        assertThat(createCharType(101).getPreviousValue(utf8Slice("abc")))
+                .isEmpty();
+
+        // a value that is not valid UTF-8 has no known neighbors
+        assertThat(charType.getPreviousValue(wrappedBuffer((byte) 0xC3)))
+                .isEmpty();
+        // an overlong encoding of the lowest code point is not valid UTF-8 either
+        assertThat(charType.getPreviousValue(wrappedBuffer((byte) 0xC0, (byte) 0x80)))
                 .isEmpty();
     }
 
@@ -111,6 +143,34 @@ public class TestCharType
     public void testNextValue()
     {
         assertThat(type.getNextValue(getSampleValue()))
+                .isEqualTo(Optional.of(utf8Slice("apple" + " ".repeat(94) + "!")));
+
+        CharType charType = createCharType(3);
+        assertThat(charType.getNextValue(utf8Slice("abc")))
+                .isEqualTo(Optional.of(utf8Slice("abd")));
+        assertThat(charType.getNextValue(utf8Slice("ab")))
+                .isEqualTo(Optional.of(utf8Slice("ab!")));
+        assertThat(charType.getNextValue(EMPTY_SLICE))
+                .isEqualTo(Optional.of(utf8Slice("  !")));
+        assertThat(charType.getNextValue(utf8Slice("`" + Character.toString(MAX_CODE_POINT).repeat(2))))
+                .isEqualTo(Optional.of(utf8Slice("a\0\0")));
+        assertThat(charType.getNextValue(utf8Slice(Character.toString(MAX_CODE_POINT).repeat(3))))
+                .isEmpty();
+
+        // the surrogate range has no UTF-8 encoding, so U+E000 follows U+D7FF
+        assertThat(createCharType(2).getNextValue(utf8Slice("a\uD7FF")))
+                .isEqualTo(Optional.of(utf8Slice("a\uE000")));
+
+        assertThat(createCharType(0).getNextValue(EMPTY_SLICE))
+                .isEmpty();
+        assertThat(createCharType(101).getNextValue(utf8Slice("abc")))
+                .isEmpty();
+
+        // a value that is not valid UTF-8 has no known neighbors
+        assertThat(charType.getNextValue(wrappedBuffer((byte) 0xC3)))
+                .isEmpty();
+        // an overlong encoding of the lowest code point is not valid UTF-8 either
+        assertThat(charType.getNextValue(wrappedBuffer((byte) 0xC0, (byte) 0x80)))
                 .isEmpty();
     }
 }

@@ -44,4 +44,10 @@ public interface OrcDataSink
     @Override
     void close()
             throws IOException;
+
+    /**
+     * Discards the data written to this sink without creating the ORC file
+     */
+    void abort()
+            throws IOException;
 }

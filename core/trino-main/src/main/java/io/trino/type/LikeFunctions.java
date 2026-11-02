@@ -40,9 +40,9 @@ public final class LikeFunctions
     @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true, neverFails = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean likeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) LikePattern pattern)
+    public static boolean likeChar(@LiteralParameter("x") int x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) LikePattern pattern)
     {
-        return likeVarchar(padSpaces(value, x.intValue()), pattern);
+        return likeVarchar(padSpaces(value, x), pattern);
     }
 
     // TODO: this should not be callable from SQL

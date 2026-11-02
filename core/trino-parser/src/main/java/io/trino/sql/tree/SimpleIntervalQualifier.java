@@ -17,22 +17,22 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.OptionalInt;
+import java.util.Optional;
 
 public final class SimpleIntervalQualifier
         extends IntervalQualifier
 {
-    private final OptionalInt precision;
+    private final Optional<DataTypeParameter> precision;
     private final IntervalField field;
 
-    public SimpleIntervalQualifier(NodeLocation location, OptionalInt precision, IntervalField field)
+    public SimpleIntervalQualifier(NodeLocation location, Optional<DataTypeParameter> precision, IntervalField field)
     {
         super(location);
         this.precision = precision;
         this.field = field;
     }
 
-    public OptionalInt getPrecision()
+    public Optional<DataTypeParameter> getPrecision()
     {
         return precision;
     }
@@ -45,7 +45,7 @@ public final class SimpleIntervalQualifier
     @Override
     public List<? extends Node> getChildren()
     {
-        return ImmutableList.of();
+        return precision.map(parameter -> ImmutableList.<Node>of(parameter)).orElseGet(ImmutableList::of);
     }
 
     @Override
@@ -72,15 +72,15 @@ public final class SimpleIntervalQualifier
     @Override
     public String toString()
     {
-        if (field instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
+        if (field instanceof IntervalField.Second(Optional<DataTypeParameter> fractionalPrecision) && fractionalPrecision.isPresent()) {
             return field.name() +
                     "(" +
-                    (precision.isPresent() ? precision.getAsInt() : "_") +
+                    precision.map(Object::toString).orElse("_") +
                     ", " +
-                    fractionalPrecision.getAsInt() +
+                    fractionalPrecision.get() +
                     ")";
         }
 
-        return field.name() + (precision.isPresent() ? "(" + precision.getAsInt() + ")" : "");
+        return field.name() + precision.map(parameter -> "(" + parameter + ")").orElse("");
     }
 }

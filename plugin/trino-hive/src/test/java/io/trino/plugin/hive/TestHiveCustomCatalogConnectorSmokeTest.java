@@ -134,7 +134,7 @@ public class TestHiveCustomCatalogConnectorSmokeTest
                            comment varchar(152)
                         )
                         WITH (
-                           format = 'ORC'
+                           format = 'PARQUET'
                         )\
                         """);
     }

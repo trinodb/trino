@@ -44,6 +44,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -56,7 +57,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Files.createParentDirs;
-import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -210,7 +210,7 @@ public abstract class BaseCostBasedPlanTest
                                     "src/test/resources",
                                     getQueryPlanResourcePath(queryResourcePath));
                             createParentDirs(queryPlanWritePath.toFile());
-                            write(generateQueryPlan(readQuery(queryResourcePath)).getBytes(UTF_8), queryPlanWritePath.toFile());
+                            Files.writeString(queryPlanWritePath, generateQueryPlan(readQuery(queryResourcePath)));
                             log.info("Generated expected plan for query: %s", queryResourcePath);
                         }
                         catch (IOException e) {
@@ -349,7 +349,7 @@ public abstract class BaseCostBasedPlanTest
         public Void visitFilter(FilterNode node, Integer indent)
         {
             DynamicFilters.ExtractResult filters = extractDynamicFilters(node.getPredicate());
-            String inputs = filters.getDynamicConjuncts().stream()
+            String inputs = filters.dynamicConjuncts().stream()
                     .map(descriptor -> ((Reference) descriptor.getInput()).name() + "::" + descriptor.getOperator())
                     .collect(joining(", "));
 

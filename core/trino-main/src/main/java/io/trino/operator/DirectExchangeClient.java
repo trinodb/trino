@@ -49,7 +49,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -77,7 +76,7 @@ public class DirectExchangeClient
     @GuardedBy("this")
     private final Set<HttpPageBufferClient> runningClients = new LinkedHashSet<>();
 
-    private final Set<HttpPageBufferClient> completedClients = newConcurrentHashSet();
+    private final Set<HttpPageBufferClient> completedClients = ConcurrentHashMap.newKeySet();
     private final DirectExchangeBuffer buffer;
 
     @GuardedBy("this")

@@ -50,7 +50,6 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = OutputNode.class, name = "output"),
         @JsonSubTypes.Type(value = PatternRecognitionNode.class, name = "patternRecognition"),
         @JsonSubTypes.Type(value = ProjectNode.class, name = "project"),
-        @JsonSubTypes.Type(value = RefreshMaterializedViewNode.class, name = "refreshMaterializedView"),
         @JsonSubTypes.Type(value = RemoteSourceNode.class, name = "remoteSource"),
         @JsonSubTypes.Type(value = RowNumberNode.class, name = "rowNumber"),
         @JsonSubTypes.Type(value = SampleNode.class, name = "sample"),

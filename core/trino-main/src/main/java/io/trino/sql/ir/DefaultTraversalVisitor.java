@@ -130,8 +130,8 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitCase(Case node, C context)
     {
         for (WhenClause clause : node.whenClauses()) {
-            process(clause.getOperand(), context);
-            process(clause.getResult(), context);
+            process(clause.operand(), context);
+            process(clause.result(), context);
         }
 
         process(node.defaultValue(), context);

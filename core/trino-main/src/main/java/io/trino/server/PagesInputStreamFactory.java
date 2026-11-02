@@ -54,7 +54,6 @@ public class PagesInputStreamFactory
 
             for (Slice page : serializedPages) {
                 page.getInput().transferTo(stream);
-                stream.flush();
             }
         }
         catch (IOException | UncheckedIOException e) {

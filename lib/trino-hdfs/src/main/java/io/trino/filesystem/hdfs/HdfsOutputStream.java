@@ -14,37 +14,33 @@
 package io.trino.filesystem.hdfs;
 
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
-import java.io.OutputStream;
 
+import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
 import static java.util.Objects.requireNonNull;
 
 class HdfsOutputStream
-        extends FSDataOutputStream
+        extends TrinoOutputStream
 {
     private final Location location;
+    private final FSDataOutputStream out;
     private final HdfsEnvironment environment;
-    private final ConnectorIdentity identity;
+    private final HdfsContext context;
     private boolean closed;
 
     public HdfsOutputStream(Location location, FSDataOutputStream out, HdfsEnvironment environment, HdfsContext context)
     {
-        super(out, null, out.getPos());
         this.location = requireNonNull(location, "location is null");
-        this.environment = environment;
-        this.identity = context.getIdentity();
-    }
-
-    @Override
-    public OutputStream getWrappedStream()
-    {
-        // return the originally wrapped stream, not the delegate
-        return ((FSDataOutputStream) super.getWrappedStream()).getWrappedStream();
+        this.out = requireNonNull(out, "out is null");
+        this.environment = requireNonNull(environment, "environment is null");
+        this.context = requireNonNull(context, "context is null");
     }
 
     @Override
@@ -53,8 +49,8 @@ class HdfsOutputStream
     {
         ensureOpen();
         // handle Kerberos ticket refresh during long write operations
-        environment.doAs(identity, () -> {
-            super.write(b);
+        environment.doAs(context.getIdentity(), () -> {
+            out.write(b);
             return null;
         });
     }
@@ -65,8 +61,8 @@ class HdfsOutputStream
     {
         ensureOpen();
         // handle Kerberos ticket refresh during long write operations
-        environment.doAs(identity, () -> {
-            super.write(b, off, len);
+        environment.doAs(context.getIdentity(), () -> {
+            out.write(b, off, len);
             return null;
         });
     }
@@ -76,15 +72,33 @@ class HdfsOutputStream
             throws IOException
     {
         ensureOpen();
-        super.flush();
+        out.flush();
     }
 
     @Override
     public void close()
             throws IOException
     {
+        if (!closed) {
+            closed = true;
+            out.close();
+        }
+    }
+
+    @Override
+    public void abort()
+            throws IOException
+    {
+        if (closed) {
+            return;
+        }
         closed = true;
-        super.close();
+        // close fails if another writer replaced the file, so the file is deleted only after a successful close
+        out.close();
+        // the file is created exclusively when this stream is opened
+        Path file = hadoopPath(location);
+        FileSystem fileSystem = environment.getFileSystem(context, file);
+        environment.doAs(context.getIdentity(), () -> fileSystem.delete(file, false));
     }
 
     private void ensureOpen()

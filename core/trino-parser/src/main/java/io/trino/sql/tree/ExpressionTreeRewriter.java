@@ -33,11 +33,6 @@ public final class ExpressionTreeRewriter<C>
         return new ExpressionTreeRewriter<>(rewriter).rewrite(node, null);
     }
 
-    public static <C, T extends Expression> T rewriteWith(ExpressionRewriter<C> rewriter, T node, C context)
-    {
-        return new ExpressionTreeRewriter<>(rewriter).rewrite(node, context);
-    }
-
     public ExpressionTreeRewriter(ExpressionRewriter<C> rewriter)
     {
         this.rewriter = rewriter;
@@ -668,6 +663,7 @@ public final class ExpressionTreeRewriter<C>
                             frame.getType(),
                             start,
                             rewrittenEnd,
+                            frame.getExclusion(),
                             frame.getMeasures(),
                             frame.getAfterMatchSkipTo(),
                             frame.getPatternSearchMode(),
@@ -944,6 +940,25 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
+            return node;
+        }
+
+        @Override
+        protected Expression visitIntervalValueExpression(IntervalValueExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteIntervalValueExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression left = rewrite(node.getLeft(), context.get());
+            Expression right = rewrite(node.getRight(), context.get());
+            IntervalDataType type = rewrite(node.getType(), context.get());
+            if (left != node.getLeft() || right != node.getRight() || type != node.getType()) {
+                return new IntervalValueExpression(node.getLocation().orElseThrow(), left, right, type);
+            }
             return node;
         }
 
@@ -1268,6 +1283,27 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitJsonConstructor(JsonConstructor node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonConstructor(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression expression = rewrite(node.getExpression(), context.get());
+            if (node.getExpression() != expression) {
+                return new JsonConstructor(
+                        node.getLocation().orElseThrow(),
+                        expression,
+                        node.getFormat());
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitJsonQuery(JsonQuery node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
@@ -1288,6 +1324,30 @@ public final class ExpressionTreeRewriter<C>
                         node.getWrapperBehavior(),
                         node.getQuotesBehavior(),
                         node.getEmptyBehavior(),
+                        node.getErrorBehavior());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitJsonSerialize(JsonSerialize node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonSerialize(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression expression = rewrite(node.getExpression(), context.get());
+            if (node.getExpression() != expression) {
+                return new JsonSerialize(
+                        node.getLocation().orElseThrow(),
+                        expression,
+                        node.getInputFormat(),
+                        node.getReturnedType(),
+                        node.getOutputFormat(),
                         node.getErrorBehavior());
             }
 

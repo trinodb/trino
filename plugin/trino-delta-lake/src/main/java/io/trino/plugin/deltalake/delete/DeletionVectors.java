@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.delete;
 
 import com.google.common.base.CharMatcher;
-import io.delta.kernel.internal.deletionvectors.Base85Codec;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInput;
@@ -26,6 +25,7 @@ import org.roaringbitmap.RoaringBitmap;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -34,9 +34,9 @@ import java.util.zip.Checksum;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.delta.kernel.internal.deletionvectors.Base85Codec.decodeUUID;
-import static io.delta.kernel.internal.deletionvectors.Base85Codec.encodeUUID;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.delete.Base85Codec.decodeUUID;
+import static io.trino.plugin.deltalake.delete.Base85Codec.encodeUUID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.toIntExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
@@ -149,6 +149,15 @@ public final class DeletionVectors
         String encodedUuid = pathOrInlineDv.substring(randomPrefixLength);
         UUID uuid = decodeUUID(encodedUuid);
         return "%sdeletion_vector_%s.bin".formatted(prefix, uuid);
+    }
+
+    // Path relative to the table location, present only for deletion vectors stored by UUID
+    public static Optional<String> relativePath(DeletionVectorEntry deletionVector)
+    {
+        if (!UUID_MARKER.equals(deletionVector.storageType())) {
+            return Optional.empty();
+        }
+        return Optional.of(toFileName(deletionVector.pathOrInlineDv()));
     }
 
     public static ByteBuffer readDeletionVector(TrinoInputFile inputFile, int offset, int expectedSize)

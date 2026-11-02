@@ -21,6 +21,8 @@ import io.trino.spi.HostAddress;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,12 +41,25 @@ public class TestStableHostAddressProvider
 {
     private static final int KEY_COUNT = 10_000;
     private static final int PREFERRED_HOSTS = 2;
+    private static final String KEY = "s3://bucket/data/file.parquet:0:1024";
 
     @Test
     public void testEmptyWhenNoWorkerNodes()
     {
         StableHostAddressProvider provider = createProvider(TestingInternalNodeManager.createDefault());
         assertThat(provider.getHosts("s3://bucket/data/file.parquet:0:1024")).isEmpty();
+    }
+
+    @Test
+    public void testNodesSampledOnFirstUseNotAtConstruction()
+    {
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault();
+        StableHostAddressProvider provider = createProvider(nodeManager);
+
+        // Sampling in the constructor would cache the empty startup set for the whole refresh
+        // window, hiding workers that register just after it.
+        nodeManager.addNodes(node(0));
+        assertThat(provider.getHosts(KEY)).containsExactly(node(0).getHostAndPort());
     }
 
     @Test
@@ -93,6 +108,71 @@ public class TestStableHostAddressProvider
         long min = perHost.values().stream().mapToLong(Long::longValue).min().orElseThrow();
         // rendezvous hashing spreads keys evenly; no node should absorb a disproportionate share
         assertThat((double) max / min).isLessThan(1.2);
+    }
+
+    @Test
+    public void testDistributionAcrossClusterSizes()
+    {
+        for (int nodeCount : new int[] {2, 4, 8, 16, 32}) {
+            StableHostAddressProvider provider = singleHostProvider(createNodeManager(nodeCount));
+            Map<HostAddress, Long> perHost = keys().stream()
+                    .flatMap(key -> provider.getHosts(key).stream())
+                    .collect(groupingBy(host -> host, counting()));
+            assertThat(perHost).hasSize(nodeCount);
+            long max = perHost.values().stream().mapToLong(Long::longValue).max().orElseThrow();
+            long min = perHost.values().stream().mapToLong(Long::longValue).min().orElseThrow();
+            // Per-key rendezvous keeps per-worker load even at every cluster size
+            assertThat((double) max / min).isLessThan(1.5);
+        }
+    }
+
+    @Test
+    public void testAssignmentIndependentOfNodeOrder()
+    {
+        List<InternalNode> nodes = range(0, 10).mapToObj(TestStableHostAddressProvider::node).collect(toImmutableList());
+        List<InternalNode> reversed = new ArrayList<>(nodes);
+        Collections.reverse(reversed);
+        StableHostAddressProvider ascending = createProvider(TestingInternalNodeManager.createDefault(ImmutableSet.copyOf(nodes)));
+        StableHostAddressProvider descending = createProvider(TestingInternalNodeManager.createDefault(ImmutableSet.copyOf(reversed)));
+
+        for (String key : keys()) {
+            assertThat(ascending.getHosts(key)).isEqualTo(descending.getHosts(key));
+        }
+    }
+
+    @Test
+    public void testRemoveThenReAddRestoresAssignments()
+    {
+        TestingInternalNodeManager nodeManager = createNodeManager(10);
+        StableHostAddressProvider provider = createProvider(nodeManager);
+        Map<String, List<HostAddress>> before = snapshotAssignments(provider);
+
+        nodeManager.removeNode(node(3));
+        provider.refreshSnapshot();
+        nodeManager.addNodes(node(3));
+        provider.refreshSnapshot();
+
+        assertThat(snapshotAssignments(provider)).isEqualTo(before);
+    }
+
+    @Test
+    public void testAddingNodeMovesKeysOnlyToNewNode()
+    {
+        TestingInternalNodeManager nodeManager = createNodeManager(10);
+        StableHostAddressProvider provider = singleHostProvider(nodeManager);
+        Map<String, List<HostAddress>> before = snapshotAssignments(provider);
+
+        HostAddress addedHost = node(10).getHostAndPort();
+        nodeManager.addNodes(node(10));
+        provider.refreshSnapshot();
+        Map<String, List<HostAddress>> after = snapshotAssignments(provider);
+
+        long moved = before.keySet().stream()
+                .filter(key -> !before.get(key).equals(after.get(key)))
+                .peek(key -> assertThat(after.get(key)).containsExactly(addedHost))
+                .count();
+        // adding a node only pulls keys onto it; existing workers never swap keys among themselves
+        assertThat(moved).isPositive();
     }
 
     @Test
@@ -163,6 +243,13 @@ public class TestStableHostAddressProvider
         return new StableHostAddressProvider(
                 new DefaultNodeManager(CURRENT_NODE, nodeManager, includeCoordinator),
                 new StableHostAddressProviderConfig().setPreferredHostsCount(PREFERRED_HOSTS));
+    }
+
+    private static StableHostAddressProvider singleHostProvider(TestingInternalNodeManager nodeManager)
+    {
+        return new StableHostAddressProvider(
+                new DefaultNodeManager(CURRENT_NODE, nodeManager, false),
+                new StableHostAddressProviderConfig().setPreferredHostsCount(1));
     }
 
     private static Set<HostAddress> allHosts(StableHostAddressProvider provider)

@@ -90,7 +90,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
                 .buildClient();
         this.azureContainerClient = blobServiceClient.getBlobContainerClient(container);
 
-        String abfsSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("io/trino/plugin/deltalake/hdp3.1-core-site.xml.abfs-template"), UTF_8)
+        String abfsSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("io/trino/plugin/deltalake/core-site.xml.abfs-template"), UTF_8)
                 .replace("%ABFS_ACCESS_KEY%", accessKey)
                 .replace("%ABFS_ACCOUNT%", account);
 
@@ -102,7 +102,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         HiveHadoop hiveHadoop = HiveHadoop.builder()
                 .withImage(HIVE3_IMAGE)
                 .withNetwork(closeAfterClass(newNetwork()))
-                .withFilesToMount(ImmutableMap.of("/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()))
+                .withFilesToMount(ImmutableMap.of("/opt/hadoop/etc/hadoop/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()))
                 .build();
         hiveHadoop.start();
         return hiveHadoop; // closed by superclass

@@ -17,6 +17,21 @@ All types define the `getJavaType()` method, frequently referred to as the
 and to store them in a `Block`. For example, this is the type used in
 the Java code that implements functions that produce or consume this `Type`.
 
+### JSON connector values
+
+The native Java type of SQL `JSON` is `io.trino.json.Json`, provided by the
+`io.trino:trino-json` library. It is no longer `Slice`. Connectors using
+`RecordCursor` must return JSON values from `getObject`, and native block writes
+such as `TypeUtils.writeNativeValue` must receive a `Json` value. Returning text
+from `getSlice` alone does not satisfy the native cursor contract.
+
+Use `JsonItems.fromText` to parse UTF-8 JSON text. `Json.unchecked` wraps text that
+the connector has already validated and defers structural parsing. The type's
+`writeSlice` method also accepts JSON text; `getSlice` returns JSON text. These
+text APIs do not expose the private typed encoding. Text cannot retain SQL
+datetime tags or all native numeric metadata, so keep `Json` values intact when
+passing them between native execution components.
+
 ## Native encoding
 
 The interpretation of a value in its native container type form is defined by its
@@ -52,6 +67,17 @@ supported. A `Signature` therefore declares its type and numeric variables once 
 expresses every argument and return position as a template over them.
 
 ## Type id
+
+Use `TypeSyntax.toSql` or `Type.getDisplayName()` for SQL spelling.
+`TypeDescriptor.toString()` and `TypeTemplate.render()` use an internal
+structural representation, which can differ from SQL syntax. `Type.getTypeId()`
+continues to use SQL spelling.
+
+The internal base names of zoned datetime and interval types are
+`$timestamp_tz`, `$time_tz`, `$interval_day_time`, and `$interval_year_month`.
+They must not be exposed as SQL type names. The corresponding `StandardTypes`
+and zoned datetime `NAME` constants changed values. Java inlines these constants,
+so plugins compiled against their previous values must be rebuilt.
 
 A `TypeId` is the opaque identifier under which a type is persisted, for example in
 the catalog properties of a materialized view. It wraps the rendered form of the

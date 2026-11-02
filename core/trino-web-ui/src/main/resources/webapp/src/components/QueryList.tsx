@@ -61,16 +61,15 @@ const ACTIVE_QUERY_STATES = [
 
 const SORT_TYPE = {
     PROGRESS: (queryInfo: QueryInfo) => {
-        let value = 0
         const index = ACTIVE_QUERY_STATES.findIndex((state) => state === queryInfo.state)
         if (index !== -1) {
-            value = (ACTIVE_QUERY_STATES.length - index) * 1e15
+            return (
+                (ACTIVE_QUERY_STATES.length - index) * 1e15 +
+                (100 - (queryInfo.queryStats.progressPercentage ?? 100)) * 1e12 +
+                Date.parse(queryInfo.queryStats.createTime)
+            )
         }
-        return (
-            value +
-            (100 - (queryInfo.queryStats.progressPercentage ?? 100)) * 1e12 +
-            Date.parse(queryInfo.queryStats.createTime)
-        )
+        return Date.parse(queryInfo.queryStats.endTime)
     },
     CREATED: (queryInfo: QueryInfo) => Date.parse(queryInfo.queryStats.createTime),
     ELAPSED: (queryInfo: QueryInfo) => parseDuration(queryInfo.queryStats.elapsedTime),

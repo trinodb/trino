@@ -24,7 +24,10 @@ import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -43,10 +46,13 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 /**
  * Test {@link io.trino.sql.query.QueryAssertions}.
  */
+// H2 does not support concurrent DDL: https://github.com/h2database/h2database/issues/2913#issuecomment-704267549
+@Execution(SAME_THREAD)
 public class TestQueryAssertions
         extends AbstractTestQueryFramework
 {
@@ -101,6 +107,75 @@ public class TestQueryAssertions
     {
         assertThat(query("SELECT name FROM nation WHERE nationkey = 3"))
                 .matches("VALUES CAST('CANADA' AS varchar(25))");
+    }
+
+    @Test
+    public void testMatchesMismatchedRows()
+    {
+        QueryAssert queryAssert = assertThat(query("VALUES 1, 1, 1, 2, 3"));
+        assertThatThrownBy(() -> queryAssert.matches("VALUES 1, 2, 2, 4"))
+                .hasMessageContaining(
+                        """
+                        Rows for query [VALUES 1, 1, 1, 2, 3] do not match: 3 unexpected, 2 missing (actual count: 5, expected count: 4)
+                        Unexpected:
+                          [1] (2 times)
+                          [3]
+                        Missing:
+                          [2]
+                          [4]
+                        """);
+    }
+
+    @Test
+    public void testMatchesMismatchedRowsOnlyMissing()
+    {
+        QueryAssert queryAssert = assertThat(query("VALUES 1"));
+        assertThatThrownBy(() -> queryAssert.matches("VALUES 1, 2"))
+                .hasMessageContaining(
+                        """
+                        Rows for query [VALUES 1] do not match: 0 unexpected, 1 missing (actual count: 1, expected count: 2)
+                        Missing:
+                          [2]
+                        """);
+    }
+
+    @Test
+    public void testMatchesMismatchedRowsLimitsReportedRows()
+    {
+        QueryAssert queryAssert = assertThat(query("SELECT x FROM UNNEST(sequence(1, 1000)) t(x)"));
+        assertThatThrownBy(() -> queryAssert.matches("SELECT x FROM UNNEST(sequence(2, 1001)) t(x)"))
+                .hasMessageContaining(
+                        """
+                        do not match: 1 unexpected, 1 missing (actual count: 1000, expected count: 1000)
+                        Unexpected:
+                          [1]
+                        Missing:
+                          [1001]
+                        """);
+
+        assertThatThrownBy(() -> queryAssert.matches("SELECT x FROM UNNEST(sequence(1001, 2000)) t(x)"))
+                .hasMessageContaining(
+                        """
+                        do not match: 1000 unexpected, 1000 missing (actual count: 1000, expected count: 1000)
+                        Unexpected (first 100 of 1000 distinct):
+                          [1]
+                          [2]
+                        """)
+                .hasMessageContaining(
+                        """
+                          [100]
+                        Missing (first 100 of 1000 distinct):
+                          [1001]
+                        """)
+                .hasMessageNotContaining("[101]");
+    }
+
+    @Test
+    @Timeout(60)
+    public void testMatchesLargeResultInDifferentOrder()
+    {
+        @Language("SQL") String rows = "SELECT a * 1000 + b FROM UNNEST(sequence(0, 499)) t(a) CROSS JOIN UNNEST(sequence(0, 999)) u(b)";
+        assertThat(query(rows)).matches(rows + " ORDER BY 1 DESC");
     }
 
     @Test
@@ -228,18 +303,14 @@ public class TestQueryAssertions
 
         QueryAssert queryAssert = assertThat(query("SELECT X'001234'"));
         assertThatThrownBy(() -> queryAssert.matches("VALUES X'001299'"))
-                .hasMessageMatching(
-                        "(?s).*" +
-                                "\\Q" +
-                                "Expecting actual:\n" +
-                                "  ([0, 18, 52])\n" +
-                                "to contain exactly in any order:\n" +
-                                "  [([0, 18, -103])]\n" +
-                                "elements not found:\n" +
-                                "  ([0, 18, -103])\n" +
-                                "and elements not expected:\n" +
-                                "  ([0, 18, 52])" +
-                                "\\E.*");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT X'001234'] do not match: 1 unexpected, 1 missing (actual count: 1, expected count: 1)
+                        Unexpected:
+                          [X'00 12 34']
+                        Missing:
+                          [X'00 12 99']
+                        """);
     }
 
     @Test
@@ -250,18 +321,14 @@ public class TestQueryAssertions
 
         QueryAssert queryAssert = assertThat(query("SELECT CAST(ROW(X'001234') AS ROW(foo varbinary))"));
         assertThatThrownBy(() -> queryAssert.matches("SELECT CAST(ROW(X'001299') AS ROW(foo varbinary))"))
-                .hasMessageMatching(
-                        "(?s).*" +
-                                "\\Q" +
-                                "Expecting actual:\n" +
-                                "  ([X'00 12 34'])\n" +
-                                "to contain exactly in any order:\n" +
-                                "  [([X'00 12 99'])]\n" +
-                                "elements not found:\n" +
-                                "  ([X'00 12 99'])\n" +
-                                "and elements not expected:\n" +
-                                "  ([X'00 12 34'])" +
-                                "\\E.*");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT CAST(ROW(X'001234') AS ROW(foo varbinary))] do not match: 1 unexpected, 1 missing (actual count: 1, expected count: 1)
+                        Unexpected:
+                          [[X'00 12 34']]
+                        Missing:
+                          [[X'00 12 99']]
+                        """);
     }
 
     /**
@@ -277,10 +344,14 @@ public class TestQueryAssertions
 
         QueryAssert queryAssert = assertThat(query("SELECT TIME '01:23:45.123456789012'"));
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIME '01:23:45.123456789013'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (01:23:45.123456789012)\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [(01:23:45.123456789013)]");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT TIME '01:23:45.123456789012'] do not match: 1 unexpected, 1 missing (actual count: 1, expected count: 1)
+                        Unexpected:
+                          [01:23:45.123456789012]
+                        Missing:
+                          [01:23:45.123456789013]
+                        """);
     }
 
     /**
@@ -297,16 +368,24 @@ public class TestQueryAssertions
         QueryAssert queryAssert = assertThat(query("SELECT TIME '01:23:45.123456789012 +05:07'"));
         // different second fraction
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIME '01:23:45.123456789013 +05:07'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (01:23:45.123456789012+05:07)\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [(01:23:45.123456789013+05:07)]");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT TIME '01:23:45.123456789012 +05:07'] do not match: 1 unexpected, 1 missing (actual count: 1, expected count: 1)
+                        Unexpected:
+                          [01:23:45.123456789012+05:07]
+                        Missing:
+                          [01:23:45.123456789013+05:07]
+                        """);
         // different zone
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIME '01:23:45.123456789012 +05:42'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (01:23:45.123456789012+05:07)\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [(01:23:45.123456789012+05:42)]");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT TIME '01:23:45.123456789012 +05:07'] do not match: 1 unexpected, 1 missing (actual count: 1, expected count: 1)
+                        Unexpected:
+                          [01:23:45.123456789012+05:07]
+                        Missing:
+                          [01:23:45.123456789012+05:42]
+                        """);
     }
 
     /**
@@ -322,10 +401,14 @@ public class TestQueryAssertions
 
         QueryAssert queryAssert = assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012'"));
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789013'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (2017-01-02 09:12:34.123456789012)\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [(2017-01-02 09:12:34.123456789013)]");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012'] do not match: 1 unexpected, 1 missing (actual count: 1, expected count: 1)
+                        Unexpected:
+                          [2017-01-02 09:12:34.123456789012]
+                        Missing:
+                          [2017-01-02 09:12:34.123456789013]
+                        """);
     }
 
     /**
@@ -342,16 +425,24 @@ public class TestQueryAssertions
         QueryAssert queryAssert = assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Warsaw'"));
         // different second fraction
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789013 Europe/Warsaw'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (2017-01-02 09:12:34.123456789012 Europe/Warsaw)\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [(2017-01-02 09:12:34.123456789013 Europe/Warsaw)]");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Warsaw'] do not match: 1 unexpected, 1 missing (actual count: 1, expected count: 1)
+                        Unexpected:
+                          [2017-01-02 09:12:34.123456789012 Europe/Warsaw]
+                        Missing:
+                          [2017-01-02 09:12:34.123456789013 Europe/Warsaw]
+                        """);
         // different zone
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Paris'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (2017-01-02 09:12:34.123456789012 Europe/Warsaw)\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [(2017-01-02 09:12:34.123456789012 Europe/Paris)]");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Warsaw'] do not match: 1 unexpected, 1 missing (actual count: 1, expected count: 1)
+                        Unexpected:
+                          [2017-01-02 09:12:34.123456789012 Europe/Warsaw]
+                        Missing:
+                          [2017-01-02 09:12:34.123456789012 Europe/Paris]
+                        """);
     }
 
     @Test
@@ -362,15 +453,19 @@ public class TestQueryAssertions
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
         assertThatThrownBy(() -> assertThat(query("SELECT name FROM nation WHERE rand() = 42")).isFullyPushedDown())
                 .hasMessageContaining(
-                        "Plan does not match, expected [\n" +
-                                "\n" +
-                                "- node(OutputNode)\n")
+                        """
+                        Plan does not match, expected [
+
+                        - node(OutputNode)
+                        """)
                 .hasMessageContaining(
-                        "\n" +
-                                "\n" +
-                                "] but found [\n" +
-                                "\n" +
-                                "Output[columnNames = [name]]\n");
+                        """
+
+
+                        ] but found [
+
+                        Output[columnNames = [name]]
+                        """);
     }
 
     @Test
@@ -391,15 +486,19 @@ public class TestQueryAssertions
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
         assertThatThrownBy(() -> assertThat(query(sessionWithAggregationPushdown, "SELECT count(*) FROM nation WHERE rand() = 42")).isFullyPushedDown())
                 .hasMessageContaining(
-                        "Plan does not match, expected [\n" +
-                                "\n" +
-                                "- node(OutputNode)\n")
+                        """
+                        Plan does not match, expected [
+
+                        - node(OutputNode)
+                        """)
                 .hasMessageContaining(
-                        "\n" +
-                                "\n" +
-                                "] but found [\n" +
-                                "\n" +
-                                "Output[columnNames = [_col0]]\n");
+                        """
+
+
+                        ] but found [
+
+                        Output[columnNames = [_col0]]
+                        """);
     }
 
     @Test
@@ -410,15 +509,19 @@ public class TestQueryAssertions
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
         assertThatThrownBy(() -> assertThat(query("SELECT 1 WHERE true")).isReplacedWithEmptyValues())
                 .hasMessageContaining(
-                        "Plan does not match, expected [\n" +
-                                "\n" +
-                                "- node(OutputNode)\n")
+                        """
+                        Plan does not match, expected [
+
+                        - node(OutputNode)
+                        """)
                 .hasMessageContaining(
-                        "\n" +
-                                "\n" +
-                                "] but found [\n" +
-                                "\n" +
-                                "Output[columnNames = [_col0]]\n");
+                        """
+
+
+                        ] but found [
+
+                        Output[columnNames = [_col0]]
+                        """);
     }
 
     @Test
@@ -429,16 +532,20 @@ public class TestQueryAssertions
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
         assertThatThrownBy(() -> assertThat(query("SELECT name FROM nation")).isNotFullyPushedDown(FilterNode.class))
                 .hasMessageContaining(
-                        "Plan does not match, expected [\n" +
-                                "\n" +
-                                "- anyTree\n" +
-                                "    - node(FilterNode)\n")
+                        """
+                        Plan does not match, expected [
+
+                        - anyTree
+                            - node(FilterNode)
+                        """)
                 .hasMessageContaining(
-                        "\n" +
-                                "\n" +
-                                "] but found [\n" +
-                                "\n" +
-                                "Output[columnNames = [name]]\n");
+                        """
+
+
+                        ] but found [
+
+                        Output[columnNames = [name]]
+                        """);
     }
 
     @Test

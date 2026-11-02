@@ -16,6 +16,7 @@ package io.trino.filesystem.hdfs;
 import io.airlift.stats.TimeStat;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.hdfs.CallStats;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
@@ -51,7 +52,7 @@ class HdfsOutputFile
     }
 
     @Override
-    public OutputStream create(AggregatedMemoryContext memoryContext)
+    public TrinoOutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException
     {
         requireNonNull(memoryContext, "memoryContext is null");
@@ -68,7 +69,7 @@ class HdfsOutputFile
         }
     }
 
-    private OutputStream create(boolean overwrite)
+    private TrinoOutputStream create(boolean overwrite)
             throws IOException
     {
         createFileCallStat.newCall();
@@ -87,7 +88,7 @@ class HdfsOutputFile
         }
     }
 
-    private OutputStream create(ExceptionAction<FSDataOutputStream> action)
+    private TrinoOutputStream create(ExceptionAction<FSDataOutputStream> action)
             throws IOException
     {
         FSDataOutputStream out = environment.doAs(context.getIdentity(), action);

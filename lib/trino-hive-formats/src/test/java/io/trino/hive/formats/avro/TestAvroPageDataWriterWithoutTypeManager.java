@@ -133,7 +133,7 @@ public class TestAvroPageDataWriterWithoutTypeManager
                         expectedRLERow, 2),
                 DictionaryBlock.create(
                         2,
-                        expectedDictionaryRow,
+                        expectedDictionaryRow.copyWithAppendedNull(),
                         new int[] {0, 0}));
 
         Location testLocation = createLocalTempLocation();

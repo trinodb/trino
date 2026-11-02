@@ -528,19 +528,22 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    public synchronized void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
     {
         checkArgument(viewProperties.isEmpty(), "This connector does not support creating views with properties");
         checkSchemaExists(viewName.getSchemaName());
-        if (tableIds.containsKey(viewName) && !replace) {
+        if (saveMode != SaveMode.REPLACE && tableIds.containsKey(viewName) && !views.containsKey(viewName)) {
             throw new TrinoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
 
-        if (replace) {
+        if (saveMode == SaveMode.REPLACE) {
             views.put(viewName, definition);
         }
         else if (views.putIfAbsent(viewName, definition) != null) {
-            throw new TrinoException(ALREADY_EXISTS, "View already exists: " + viewName);
+            if (saveMode == SaveMode.FAIL) {
+                throw new TrinoException(ALREADY_EXISTS, "View already exists: " + viewName);
+            }
+            return;
         }
         tableIds.put(viewName, nextTableId.getAndIncrement());
     }
@@ -677,7 +680,7 @@ public class MemoryMetadata
     {
         MemoryTableHandle table = (MemoryTableHandle) handle;
 
-        if (table.limit().isPresent() && table.limit().getAsLong() <= limit) {
+        if (table.limit().isPresent() && table.limit().orElseThrow() <= limit) {
             return Optional.empty();
         }
 
@@ -689,7 +692,7 @@ public class MemoryMetadata
     {
         MemoryTableHandle table = (MemoryTableHandle) handle;
 
-        if ((table.sampleRatio().isPresent() && table.sampleRatio().getAsDouble() == sampleRatio) || sampleType != SYSTEM || table.limit().isPresent()) {
+        if ((table.sampleRatio().isPresent() && table.sampleRatio().orElseThrow() == sampleRatio) || sampleType != SYSTEM || table.limit().isPresent()) {
             return Optional.empty();
         }
 
@@ -700,7 +703,7 @@ public class MemoryMetadata
     @Override
     public boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return true;
+        return ((MemoryTableHandle) tableHandle).sampleRatio().isEmpty();
     }
 
     @Override

@@ -38,11 +38,18 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalUnit;
 import java.util.Arrays;
 import java.util.Date;
@@ -77,11 +84,11 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 abstract class BaseTestHiveOnDataLake
         extends AbstractTestQueryFramework
 {
-    private static final String HIVE_TEST_SCHEMA = "hive_datalake";
+    protected static final String HIVE_TEST_SCHEMA = "hive_datalake";
     private static final DataSize HIVE_S3_STREAMING_PART_SIZE = DataSize.of(5, MEGABYTE);
 
-    private final HiveFlociDataLake hiveFlociDataLake;
-    private final String bucketName;
+    protected final HiveFlociDataLake hiveFlociDataLake;
+    protected final String bucketName;
 
     private HiveMetastore metastoreClient;
 
@@ -148,7 +155,7 @@ abstract class BaseTestHiveOnDataLake
 
         assertThat(query("DESCRIBE " + viewName)).result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row("id", "integer", "", "")
                         .row("name", "varchar", "", "comment")
                         .row("ds", "date", "", "test comment")
@@ -156,7 +163,7 @@ abstract class BaseTestHiveOnDataLake
 
         assertThat(query("DESCRIBE " + partitionedViewName)).result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row("name", "varchar", "", "comment")
                         .row("ds", "date", "", "test comment")
                         .build());
@@ -583,7 +590,8 @@ abstract class BaseTestHiveOnDataLake
                         "    col1 varchar, " +
                         "    col2 varchar, " +
                         "    regionkey bigint) " +
-                        "    WITH (partitioned_by=ARRAY['regionkey'])",
+                        // ORC so the file-size thresholds below hit the intended S3 multipart-upload code paths
+                        "    WITH (format='ORC', partitioned_by=ARRAY['regionkey'])",
                 testTable));
 
         long partSizeInBytes = HIVE_S3_STREAMING_PART_SIZE.toBytes();
@@ -1664,6 +1672,105 @@ abstract class BaseTestHiveOnDataLake
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
     }
 
+    @ParameterizedTest
+    @CsvSource(value = {
+            "yyyy-MM,DAYS,2020-10-01,2020-12-01,2021-02-01",
+            "yyyy-MM,HOURS,2020-10-01,2020-12-01,2021-02-01",
+            "yyyy-MM,MINUTES,2020-10-01,2020-12-01,2021-02-01",
+            "yyyy-MM,SECONDS,2020-10-01,2020-12-01,2021-02-01",
+            "'abc'-yyyy-MM,DAYS,2020-10-01,2020-12-01,2021-02-01",
+            "yyyy-MM-'abc',DAYS,2020-10-01,2020-12-01,2021-02-01",
+            "yyyy,DAYS,2020-01-01,2021-01-01,2022-01-01",
+            "yyyy,HOURS,2020-01-01,2021-01-01,2022-01-01",
+            "yyyy,MINUTES,2020-01-01,2021-01-01,2022-01-01",
+            "yyyy,SECONDS,2020-01-01,2021-01-01,2022-01-01",
+            "'abc'-yyyy,DAYS,2020-01-01,2021-01-01,2022-01-01",
+            "yyyy-'abc',DAYS,2020-01-01,2021-01-01,2022-01-01",
+            "yyyy-'Q'Q,DAYS,2020-07-01,2020-10-01,2021-01-01",
+    }, quoteCharacter = '"')
+    public void testDatePartitionProjectionOnVarcharColumnWithYearOrMonthFormat(String pattern, ChronoUnit intervalUnit, LocalDate firstDate, LocalDate secondDate, LocalDate thirdDate)
+    {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+        String beforeRange = firstDate.minusMonths(1).format(formatter);
+        String first = firstDate.format(formatter);
+        String second = secondDate.format(formatter);
+        String third = thirdDate.format(formatter);
+        String afterRange = thirdDate.plusYears(1).format(formatter);
+        String tableName = getFullyQualifiedTestTableName(getRandomTestTableName());
+        assertUpdate(
+                """
+                CREATE TABLE %s (
+                    name varchar,
+                    projected_date varchar WITH (
+                        partition_projection_type = 'date',
+                        partition_projection_format = '%s',
+                        partition_projection_range = ARRAY['%s', '%s'],
+                        partition_projection_interval_unit = '%s'
+                    )
+                ) WITH (
+                    partitioned_by = ARRAY['projected_date'],
+                    partition_projection_enabled = true
+                )
+                """.formatted(tableName, pattern.replace("'", "''"), first, third, intervalUnit.name()));
+        assertUpdate("INSERT INTO %s VALUES ('before', '%s'), ('first', '%s'), ('second', '%s'), ('third', '%s'), ('after', '%s')".formatted(tableName, beforeRange, first, second, third, afterRange), 5);
+
+        assertQuery("SELECT name FROM " + tableName, "VALUES 'first', 'second', 'third'");
+        assertQuery("SELECT name FROM %s WHERE projected_date = '%s'".formatted(tableName, second), "VALUES 'second'");
+        assertQuery("SELECT name FROM %s WHERE projected_date >= '%s'".formatted(tableName, second), "VALUES 'second', 'third'");
+    }
+
+    @Test
+    public void testDatePartitionProjectionWithWeekFormat()
+    {
+        assertQueryFails(
+                """
+                CREATE TABLE %s (
+                    name varchar,
+                    projected_week varchar WITH (
+                        partition_projection_type = 'date',
+                        partition_projection_format = 'yyyy-ww',
+                        partition_projection_range = ARRAY['2020-01', '2021-01'],
+                        partition_projection_interval_unit = 'DAYS'
+                    )
+                ) WITH (
+                    partitioned_by = ARRAY['projected_week'],
+                    partition_projection_enabled = true
+                )
+                """.formatted(getFullyQualifiedTestTableName(getRandomTestTableName())),
+                "Column projection for column 'projected_week' failed\\. Property: 'partition_projection_format' value 'yyyy-ww' is invalid: " +
+                        "a format without a day must have year, quarter, or month precision");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"MONTHS", "YEARS", "WEEKS"})
+    public void testDatePartitionProjectionWithYearOrMonthFormatRejectsUnsupportedInterval(String intervalUnit)
+    {
+        String intervalUnitProperty = Optional.ofNullable(intervalUnit)
+                .map(unit -> ", partition_projection_interval_unit = '%s'".formatted(unit))
+                .orElse("");
+        for (String pattern : ImmutableList.of("yyyy-MM", "'abc'-yyyy-MM", "yyyy-MM-'abc'", "yyyy", "'abc'-yyyy", "yyyy-'abc'")) {
+            assertQueryFails(
+                    """
+                    CREATE TABLE %s (
+                        name varchar,
+                        projected_month varchar WITH (
+                            partition_projection_type = 'date',
+                            partition_projection_format = '%s',
+                            partition_projection_range = ARRAY['NOW-1DAY', 'NOW']
+                            %s
+                        )
+                    ) WITH (
+                        partitioned_by = ARRAY['projected_month'],
+                        partition_projection_enabled = true
+                    )
+                    """.formatted(getFullyQualifiedTestTableName(getRandomTestTableName()), pattern.replace("'", "''"), intervalUnitProperty),
+                    "Column projection for column 'projected_month' failed. " +
+                            "Property: 'partition_projection_interval_unit' value '%s' is invalid. Available options: \\[Days, Hours, Minutes, Seconds\\]"
+                                    .formatted(Optional.ofNullable(intervalUnit).map(ChronoUnit::valueOf).orElse(ChronoUnit.MONTHS)));
+        }
+    }
+
     @Test
     public void testDatePartitionProjectionOnVarcharColumnWithIntervalExpression()
     {
@@ -2364,6 +2471,7 @@ abstract class BaseTestHiveOnDataLake
         hiveFlociDataLake.runOnHive("CREATE DATABASE %2$s LOCATION 's3a://%1$s/%2$s'".formatted(bucketName, schemaName));
         try {
             hiveFlociDataLake.runOnHive("CREATE TABLE " + schemaName + "." + icebergTableName + " TBLPROPERTIES ('table_type'='iceberg') AS SELECT 1 a");
+            assertUpdate("CALL system.flush_metadata_cache()");
 
             assertQueryFails("DROP SCHEMA " + schemaName + " CASCADE", "\\QCannot query Iceberg table '%s.%s'".formatted(schemaName, icebergTableName));
 
@@ -2373,6 +2481,22 @@ abstract class BaseTestHiveOnDataLake
         }
         finally {
             hiveFlociDataLake.runOnHive("DROP DATABASE IF EXISTS " + schemaName + " CASCADE");
+        }
+    }
+
+    @Test
+    public void testSyncPartitionMetadataWithNonHiveTable()
+    {
+        String tableName = "test_sync_partition_metadata_iceberg_table" + randomNameSuffix();
+
+        hiveFlociDataLake.runOnHive("CREATE TABLE %s.%s (a int) PARTITIONED BY (part int) TBLPROPERTIES ('table_type'='iceberg')".formatted(HIVE_TEST_SCHEMA, tableName));
+        try {
+            assertQueryFails(
+                    "CALL system.sync_partition_metadata(schema_name => '%s', table_name => '%s', mode => 'FULL')".formatted(HIVE_TEST_SCHEMA, tableName),
+                    "\\QNot a Hive table '%s.%s'".formatted(HIVE_TEST_SCHEMA, tableName));
+        }
+        finally {
+            hiveFlociDataLake.runOnHive("DROP TABLE IF EXISTS %s.%s".formatted(HIVE_TEST_SCHEMA, tableName));
         }
     }
 
@@ -2503,7 +2627,7 @@ abstract class BaseTestHiveOnDataLake
         assertThat(query("SHOW FUNCTIONS"))
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "double", "double", "scalar", true, "t88")
                         .build());
@@ -2522,7 +2646,7 @@ abstract class BaseTestHiveOnDataLake
         assertThat(query("SHOW FUNCTIONS"))
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "bigint", "bigint", "scalar", true, "")
                         .row(name, "double", "double", "scalar", true, "t88")
@@ -2621,7 +2745,7 @@ abstract class BaseTestHiveOnDataLake
                 .assertThat()
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row("POLAND", "Test Data", 25L, 5L)
                         .row("CZECH", "Test Data", 26L, 5L)
                         .build());
@@ -2634,7 +2758,7 @@ abstract class BaseTestHiveOnDataLake
                 .assertThat()
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row("POLAND", "Overwrite", 25L, 5L)
                         .build());
         computeActual(format("DROP TABLE %s", testTable));
@@ -2707,14 +2831,14 @@ abstract class BaseTestHiveOnDataLake
                 .assertThat()
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(114L * scaleFactorInThousands * 1000)
                         .build());
         query(format("SELECT \"$file_size\" BETWEEN %d AND %d FROM %s", fileSizeRangeStart, fileSizeRangeEnd, testTable))
                 .assertThat()
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(true)
                         .build());
     }

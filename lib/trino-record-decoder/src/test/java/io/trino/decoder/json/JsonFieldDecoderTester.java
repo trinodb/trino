@@ -15,7 +15,6 @@ package io.trino.decoder.json;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonMapperProvider;
-import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.FieldValueProvider;
@@ -82,16 +81,6 @@ public class JsonFieldDecoderTester
                 .describedAs(format("expected non null when decoding %s as %s", jsonValue, type))
                 .isFalse();
         assertThat(decodedValue.getDouble()).isEqualTo(expectedValue);
-    }
-
-    public void assertDecodedAs(String jsonValue, Type type, Slice expectedValue)
-    {
-        checkArgument(type.getJavaType() == Slice.class, "Wrong (not Slice based) Trino type '%s'", type);
-        FieldValueProvider decodedValue = decode(Optional.of(jsonValue), type);
-        assertThat(decodedValue.isNull())
-                .describedAs(format("expected non null when decoding %s as %s", jsonValue, type))
-                .isFalse();
-        assertThat(decodedValue.getSlice()).isEqualTo(expectedValue);
     }
 
     public void assertDecodedAs(String jsonValue, Type type, boolean expectedValue)

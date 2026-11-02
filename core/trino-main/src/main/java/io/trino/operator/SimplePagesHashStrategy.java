@@ -65,8 +65,8 @@ public class SimplePagesHashStrategy
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
         this.hashChannels = Ints.toArray(requireNonNull(hashChannels, "hashChannels is null"));
         this.sortChannel = requireNonNull(sortChannel, "sortChannel is null").isEmpty() ? OptionalInt.empty() : OptionalInt.of(sortChannel.get());
-        if (this.sortChannel.isPresent() && types.get(this.sortChannel.getAsInt()).isOrderable()) {
-            this.comparisonOperator = blockTypeOperators.getComparisonUnorderedLastOperator(types.get(this.sortChannel.getAsInt()));
+        if (this.sortChannel.isPresent() && types.get(this.sortChannel.orElseThrow()).isOrderable()) {
+            this.comparisonOperator = blockTypeOperators.getComparisonUnorderedLastOperator(types.get(this.sortChannel.orElseThrow()));
         }
         else {
             this.comparisonOperator = null;
@@ -260,6 +260,6 @@ public class SimplePagesHashStrategy
 
     private int getSortChannel()
     {
-        return sortChannel.getAsInt();
+        return sortChannel.orElseThrow();
     }
 }

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.QualifiedObjectName;
@@ -45,6 +46,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -123,6 +125,7 @@ public class ApplyTableScanRedirection
             if (!sourceType.equals(redirectedType)) {
                 Symbol redirectedSymbol = context.getSymbolAllocator().newSymbol(destinationColumn, redirectedType);
                 Cast cast = getCast(
+                        context.getSession(),
                         destinationTable,
                         destinationColumn,
                         redirectedType,
@@ -183,6 +186,7 @@ public class ApplyTableScanRedirection
             if (!domainType.equals(redirectedType)) {
                 Symbol redirectedSymbol = context.getSymbolAllocator().newSymbol(destinationColumn, redirectedType);
                 Cast cast = getCast(
+                        context.getSession(),
                         destinationTable,
                         destinationColumn,
                         redirectedType,
@@ -218,7 +222,7 @@ public class ApplyTableScanRedirection
                         newAssignments.keySet(),
                         casts.buildOrThrow(),
                         newScanNode),
-                domainTranslator.toPredicate(transformedConstraint));
+                domainTranslator.toPredicate(getCharVarcharCoercion(context.getSession()), transformedConstraint));
 
         return Result.ofPlanNode(applyProjection(
                 context.getIdAllocator(),
@@ -247,6 +251,7 @@ public class ApplyTableScanRedirection
     }
 
     private Cast getCast(
+            Session session,
             CatalogSchemaTableName destinationTable,
             String destinationColumn,
             Type destinationType,
@@ -256,7 +261,7 @@ public class ApplyTableScanRedirection
             Type sourceType)
     {
         try {
-            plannerContext.getMetadata().getCoercion(destinationType, sourceType);
+            plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), destinationType, sourceType);
         }
         catch (TrinoException e) {
             throw new TrinoException(FUNCTION_NOT_FOUND, format(
@@ -270,6 +275,6 @@ public class ApplyTableScanRedirection
                     sourceType));
         }
 
-        return cast(plannerContext.getTypeManager(), destinationSymbol.toSymbolReference(), sourceType);
+        return cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), destinationSymbol.toSymbolReference(), sourceType);
     }
 }

@@ -17,7 +17,6 @@ import io.airlift.json.JsonCodec;
 import io.trino.filesystem.Location;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,7 +27,6 @@ public class DeltaLakePageSink
         extends AbstractDeltaLakePageSink
 {
     public DeltaLakePageSink(
-            TypeOperators typeOperators,
             List<DeltaLakeColumnHandle> inputColumns,
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
@@ -37,14 +35,14 @@ public class DeltaLakePageSink
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             Location tableLocation,
             Optional<DeltaLakeTableCredentials> tableCredentials,
+            boolean objectStoreLayoutEnabled,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
             String trinoVersion,
             DeltaLakeParquetSchemaMapping parquetSchemaMapping,
             boolean useDeltaLengthByteArrayEncoding)
     {
-        super(typeOperators,
-                inputColumns,
+        super(inputColumns,
                 originalPartitionColumns,
                 pageIndexerFactory,
                 fileSystemFactory,
@@ -52,7 +50,7 @@ public class DeltaLakePageSink
                 dataFileInfoCodec,
                 tableLocation,
                 tableCredentials,
-                tableLocation,
+                objectStoreLayoutEnabled,
                 session,
                 stats,
                 trinoVersion,

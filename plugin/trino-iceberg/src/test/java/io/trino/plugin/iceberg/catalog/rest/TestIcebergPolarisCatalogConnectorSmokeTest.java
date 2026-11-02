@@ -20,14 +20,12 @@ import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
-import io.trino.plugin.iceberg.IcebergConnector;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.minio.MinioClient;
 import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -37,15 +35,13 @@ import org.junit.jupiter.api.parallel.Isolated;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static java.lang.String.format;
-import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -96,8 +92,8 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.oauth2.scope", "PRINCIPAL_ROLE:ALL")
                 .addIcebergProperty("iceberg.rest-catalog.http-headers", TestingPolarisCatalog.POLARIS_REALM_HEADER + ": " + TestingPolarisCatalog.POLARIS_REALM_NAME)
                 .addIcebergProperty("iceberg.rest-catalog.vended-credentials-enabled", "true")
-                .addIcebergProperty("s3.region", MINIO_REGION)
-                .addIcebergProperty("s3.endpoint", polarisCatalog.minio().getMinioAddress())
+                .addIcebergProperty("s3.region", FLOCI_REGION)
+                .addIcebergProperty("s3.endpoint", polarisCatalog.floci().endpoint().toString())
                 .addIcebergProperty("s3.path-style-access", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
@@ -110,11 +106,11 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
         fileSystem = new S3FileSystemFactory(
                 OpenTelemetry.noop(),
                 new S3FileSystemConfig()
-                        .setRegion(MINIO_REGION)
-                        .setEndpoint(polarisCatalog.minio().getMinioAddress())
+                        .setRegion(FLOCI_REGION)
+                        .setEndpoint(polarisCatalog.floci().endpoint().toString())
                         .setPathStyleAccess(true)
-                        .setAwsAccessKey(MINIO_ROOT_USER)
-                        .setAwsSecretKey(MINIO_ROOT_PASSWORD),
+                        .setAwsAccessKey(FLOCI_ACCESS_KEY)
+                        .setAwsSecretKey(FLOCI_SECRET_KEY),
                 new S3FileSystemStats()).create(SESSION);
     }
 
@@ -138,7 +134,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
 
     private BaseTable loadTable(String tableName)
     {
-        TrinoCatalogFactory catalogFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector("iceberg")).getInjector().getInstance(TrinoCatalogFactory.class);
+        TrinoCatalogFactory catalogFactory = getConnectorService(getQueryRunner(), TrinoCatalogFactory.class);
         TrinoCatalog trinoCatalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
         return trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
     }
@@ -152,20 +148,12 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        try (MinioClient minioClient = polarisCatalog.minio().createMinioClient()) {
-            String prefix = "s3://" + bucketName + "/";
-            String key = location.substring(prefix.length());
-            return !minioClient.listObjects(bucketName, key).isEmpty();
+        try {
+            return fileSystem.directoryExists(Location.of(location)).orElse(false);
         }
-    }
-
-    @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        if (format == PARQUET) {
-            return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
-        return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
 
     @Override
@@ -318,7 +306,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     public void testDropTableWithMissingMetadataFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
-                .hasMessageMatching("Failed to load table: (.*)");
+                .hasMessageContaining("Failed to load table");
     }
 
     @Test
@@ -342,7 +330,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     public void testDropTableWithNonExistentTableLocation()
     {
         assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
-                .hasMessageMatching("Failed to load table: (.*)");
+                .hasMessageContaining("Failed to load table");
     }
 
     @Test

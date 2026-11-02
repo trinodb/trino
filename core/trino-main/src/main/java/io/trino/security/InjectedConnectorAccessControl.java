@@ -237,7 +237,6 @@ public class InjectedConnectorAccessControl
     }
 
     @Deprecated
-    @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         checkArgument(context == null, "context must be null");
@@ -251,14 +250,6 @@ public class InjectedConnectorAccessControl
         accessControl.checkCanInsertIntoTable(securityContext, getQualifiedObjectName(tableName), branch);
     }
 
-    @Deprecated
-    @Override
-    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        checkArgument(context == null, "context must be null");
-        accessControl.checkCanInsertIntoTable(securityContext, getQualifiedObjectName(tableName), Optional.empty());
-    }
-
     @Override
     public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
@@ -266,27 +257,11 @@ public class InjectedConnectorAccessControl
         accessControl.checkCanDeleteFromTable(securityContext, getQualifiedObjectName(tableName), branch);
     }
 
-    @Deprecated
-    @Override
-    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        checkArgument(context == null, "context must be null");
-        accessControl.checkCanDeleteFromTable(securityContext, getQualifiedObjectName(tableName), Optional.empty());
-    }
-
     @Override
     public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> updatedColumns)
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanUpdateTableColumns(securityContext, getQualifiedObjectName(tableName), branch, updatedColumns);
-    }
-
-    @Deprecated
-    @Override
-    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
-    {
-        checkArgument(context == null, "context must be null");
-        accessControl.checkCanUpdateTableColumns(securityContext, getQualifiedObjectName(tableName), Optional.empty(), updatedColumns);
     }
 
     @Override
@@ -332,7 +307,6 @@ public class InjectedConnectorAccessControl
     }
 
     @Deprecated
-    @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         checkArgument(context == null, "context must be null");
@@ -379,6 +353,13 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanSetMaterializedViewProperties(securityContext, getQualifiedObjectName(materializedViewName), properties);
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewComment(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanSetMaterializedViewComment(securityContext, getQualifiedObjectName(materializedViewName));
     }
 
     @Override
@@ -628,11 +609,6 @@ public class InjectedConnectorAccessControl
     private QualifiedObjectName getQualifiedObjectName(SchemaTableName schemaTableName)
     {
         return new QualifiedObjectName(catalogName, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-    }
-
-    private QualifiedObjectName getQualifiedObjectName(SchemaRoutineName schemaRoutineName)
-    {
-        return new QualifiedObjectName(catalogName, schemaRoutineName.getSchemaName(), schemaRoutineName.getRoutineName());
     }
 
     private List<String> getQualifiedObjectNameParts(SchemaTableName schemaTableName)

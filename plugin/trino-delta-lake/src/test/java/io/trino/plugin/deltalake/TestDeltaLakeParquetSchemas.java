@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.deltalake.DeltaLakeParquetSchemas.createParquetSchemaMapping;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
@@ -65,6 +66,36 @@ public class TestDeltaLakeParquetSchemas
                 .buildOrThrow();
 
         assertParquetSchemaMappingCreationAccuracy(jsonSchema, columnMappingMode, partitionColumnNames, expectedMessageType, expectedPrimitiveTypes);
+    }
+
+    @Test
+    public void testTimestampFieldColumnMappingNoneUnpartitioned()
+    {
+        @Language("JSON")
+        String jsonSchema =
+                """
+                {
+                    "type": "struct",
+                    "fields": [
+                        {
+                            "name": "a_timestamp",
+                            "type": "timestamp",
+                            "nullable": true,
+                            "metadata": {}
+                        }
+                    ]
+                }
+                """;
+        org.apache.parquet.schema.Type expectedMessageType = Types.buildMessage()
+                .addField(Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, OPTIONAL)
+                        .as(LogicalTypeAnnotation.timestampType(true, LogicalTypeAnnotation.TimeUnit.MICROS))
+                        .named("a_timestamp"))
+                .named("trino_schema");
+        Map<List<String>, Type> expectedPrimitiveTypes = ImmutableMap.<List<String>, Type>builder()
+                .put(List.of("a_timestamp"), TIMESTAMP_TZ_MICROS)
+                .buildOrThrow();
+
+        assertParquetSchemaMappingCreationAccuracy(jsonSchema, DeltaLakeSchemaSupport.ColumnMappingMode.NONE, ImmutableList.of(), expectedMessageType, expectedPrimitiveTypes);
     }
 
     @Test

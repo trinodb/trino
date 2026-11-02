@@ -17,11 +17,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import io.airlift.units.DataSize;
 
+import java.math.BigDecimal;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.Double.parseDouble;
+import static java.math.RoundingMode.FLOOR;
 import static java.util.Objects.requireNonNull;
 
 public class HeapSizeParser
@@ -48,8 +49,16 @@ public class HeapSizeParser
         checkState(maxHeapMemory > 0, "maxHeapMemory must be positive");
 
         if (value.endsWith(RELATIVE_SUFFIX)) {
-            double multiplier = parseDouble(value.substring(0, value.length() - RELATIVE_SUFFIX.length()).trim()) / 100.0;
-            return checkHeapSizeMemory(DataSize.ofBytes(Math.round(maxHeapMemory * multiplier)).succinct(), maxHeapMemory);
+            BigDecimal percentage = new BigDecimal(value.substring(0, value.length() - RELATIVE_SUFFIX.length()).trim());
+            checkArgument(percentage.signum() > 0, "Heap size cannot be less than or equal to 0");
+            checkArgument(percentage.compareTo(BigDecimal.valueOf(100)) <= 0, "Heap size cannot be greater than maximum heap size");
+            // Round down, as rounding each value to the nearest byte could make percentages summing
+            // to 100% exceed the heap and fail validation. At most one byte per value is left unused.
+            long bytes = BigDecimal.valueOf(maxHeapMemory)
+                    .multiply(percentage)
+                    .divide(BigDecimal.valueOf(100), 0, FLOOR)
+                    .longValueExact();
+            return checkHeapSizeMemory(DataSize.ofBytes(bytes).succinct(), maxHeapMemory);
         }
 
         return checkHeapSizeMemory(DataSize.valueOf(value), maxHeapMemory);

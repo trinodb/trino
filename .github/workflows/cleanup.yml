@@ -2,9 +2,13 @@ name: cleanup
 
 on:
   # Triggered on every PR merge or close (but with the code and workflow as present in the base of the merge instead of the merge commmit)
-  pull_request_target:
+  # Safe despite the read-write token: no code from the PR is checked out or executed, see NOTE below
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types:
       - closed
+
+permissions:
+  actions: write # to cancel workflow runs of closed PRs
 
 # NOTE: Do not check out/execute code from the PR since a read-write token is present due to pull_request_target
 jobs:

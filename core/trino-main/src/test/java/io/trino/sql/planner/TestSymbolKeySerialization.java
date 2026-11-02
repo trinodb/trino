@@ -49,6 +49,7 @@ class TestSymbolKeySerialization
         assertThat(SYMBOL_KEY_CODEC.fromJson(SYMBOL_KEY_CODEC.toJson(symbols)))
                 .isEqualTo(symbols);
 
+        // The type segment is the serialized type id (SQL spelling), prefixed by its length.
         assertThat(SYMBOL_KEY_CODEC.toJson(symbols))
                 .contains("7|integer|a")
                 .contains("7|varchar|b")

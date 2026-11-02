@@ -14,7 +14,6 @@
 package io.trino.metadata;
 
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
@@ -64,6 +63,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
@@ -84,8 +84,8 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.Collection;
 import java.util.List;
@@ -116,6 +116,12 @@ public interface Metadata
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
     Optional<TableExecuteHandle> getTableHandleForExecute(
+            Session session,
+            TableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties);
+
+    Optional<TableExecuteHandle> getTableHandleForMaterializedViewExecute(
             Session session,
             TableHandle tableHandle,
             String procedureName,
@@ -418,16 +424,6 @@ public interface Metadata
     Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
-     * Returns true if materialized view refresh should be delegated to connector
-     */
-    boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName);
-
-    /**
-     * Refresh materialized view
-     */
-    ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName);
-
-    /**
      * Begin refresh materialized view query
      */
     InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType);
@@ -493,7 +489,7 @@ public interface Metadata
     /**
      * Finish merge query
      */
-    void finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+    Optional<ConnectorOutputMetadata> finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
      * Returns a catalog handle for the specified catalog name.
@@ -547,7 +543,7 @@ public interface Metadata
     /**
      * Creates the specified view with the specified view definition.
      */
-    void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, boolean replace);
+    void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, SaveMode saveMode);
 
     /**
      * Rename the specified view.
@@ -781,19 +777,21 @@ public interface Metadata
 
     Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName catalogSchemaFunctionName);
 
-    ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes);
+    ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes);
 
-    ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
-    default ResolvedFunction getCoercion(Type fromType, Type toType)
+    default ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
     {
-        return getCoercion(CAST, fromType, toType);
+        return getCoercion(charVarcharCoercion, CAST, fromType, toType);
     }
 
-    ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType);
+    ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType);
 
-    ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType);
+    ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType);
+
+    Optional<DomainProjection> getDomainProjection(Session session, ResolvedFunction resolvedFunction);
 
     ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 
@@ -873,6 +871,11 @@ public interface Metadata
      * Sets the properties of the specified materialized view.
      */
     void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties);
+
+    /**
+     * Sets the comment of the specified materialized view.
+     */
+    void setMaterializedViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment);
 
     /**
      * Comments to the specified materialized view column.

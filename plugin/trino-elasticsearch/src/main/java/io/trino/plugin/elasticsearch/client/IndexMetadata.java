@@ -29,7 +29,7 @@ public record IndexMetadata(ObjectType schema)
         requireNonNull(schema, "schema is null");
     }
 
-    public record Field(boolean asRawJson, boolean isArray, String name, Type type)
+    public record Field(boolean asRawJson, boolean isArray, String name, Type type, boolean supportsPredicates, boolean supportsTopNAndAggregations)
     {
         public Field
         {

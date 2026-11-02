@@ -34,6 +34,7 @@ public enum BigQueryErrorCode
     BIGQUERY_BAD_WRITE(8, EXTERNAL),
     BIGQUERY_LISTING_TABLE_ERROR(9, EXTERNAL),
     BIGQUERY_CREATE_READ_SESSION_ERROR(10, EXTERNAL),
+    BIGQUERY_CREATE_SCHEMA(11, EXTERNAL),
     /**/;
 
     private final ErrorCode errorCode;

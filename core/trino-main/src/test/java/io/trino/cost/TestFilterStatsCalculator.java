@@ -16,6 +16,7 @@ package io.trino.cost;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.json.JsonItems;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
@@ -44,7 +45,9 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.function.Consumer;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.FILTER_CONJUNCTION_INDEPENDENCE_FACTOR;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -312,6 +315,16 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(2)
                                 .nullsFraction(0));
 
+        // A null term matches no rows
+        assertExpression(new Logical(OR, ImmutableList.of(comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 1.0)), comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 3.0)), new Constant(BOOLEAN, null))))
+                .outputRowsCount(37.5)
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(1)
+                                .highValue(3)
+                                .distinctValuesCount(2)
+                                .nullsFraction(0));
+
         assertExpression(new Logical(OR, ImmutableList.of(comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 1.0)), comparison(EQUAL, new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b"))), comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 3.0)))))
                 .outputRowsCount(37.5)
                 .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
@@ -362,7 +375,7 @@ public class TestFilterStatsCalculator
                 .symbolStats(new Symbol(DOUBLE, "y"), SymbolStatsAssertion::emptyRange);
 
         // first argument unknown
-        assertExpression(new Logical(AND, ImmutableList.of(new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new Reference(DOUBLE, "x"))), comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)))))
+        assertExpression(new Logical(AND, ImmutableList.of(new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonItems.fromText(JsonTypeUtil.jsonParse(Slices.utf8Slice("[]")))), new Reference(DOUBLE, "x"))), comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)))))
                 .outputRowsCount(337.5)
                 .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
@@ -371,7 +384,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0));
 
         // second argument unknown
-        assertExpression(new Logical(AND, ImmutableList.of(comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)), new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new Reference(DOUBLE, "x"))))))
+        assertExpression(new Logical(AND, ImmutableList.of(comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)), new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonItems.fromText(JsonTypeUtil.jsonParse(Slices.utf8Slice("[]")))), new Reference(DOUBLE, "x"))))))
                 .outputRowsCount(337.5)
                 .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
@@ -381,8 +394,8 @@ public class TestFilterStatsCalculator
 
         // both arguments unknown
         assertExpression(new Logical(AND, ImmutableList.of(
-                new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[11]"))), new Reference(DOUBLE, "x"))),
-                new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[13]"))), new Reference(DOUBLE, "x"))))))
+                new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonItems.fromText(JsonTypeUtil.jsonParse(Slices.utf8Slice("[11]")))), new Reference(DOUBLE, "x"))),
+                new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonItems.fromText(JsonTypeUtil.jsonParse(Slices.utf8Slice("[13]")))), new Reference(DOUBLE, "x"))))))
                 .outputRowsCountUnknown();
 
         assertExpression(new Logical(AND, ImmutableList.of(new In(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("c")))), comparison(EQUAL, new Reference(DOUBLE, "unknownRange"), new Constant(DOUBLE, 3.0)))))
@@ -573,7 +586,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0))
                 .symbolStats(new Symbol(DOUBLE, "y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
 
-        assertExpression(not(new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new Reference(DOUBLE, "x")))))
+        assertExpression(not(new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonItems.fromText(JsonTypeUtil.jsonParse(Slices.utf8Slice("[]")))), new Reference(DOUBLE, "x")))))
                 .outputRowsCountUnknown();
     }
 
@@ -927,6 +940,6 @@ public class TestFilterStatsCalculator
 
     private Expression not(Expression value)
     {
-        return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), value);
+        return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), value);
     }
 }

@@ -14,6 +14,7 @@ code](https://github.com/trinodb/trino/blob/master/.github/DEVELOPMENT.md).
 develop/spi-overview
 develop/tests
 develop/connectors
+develop/value-domains
 develop/example-http
 develop/example-jdbc
 develop/insert
@@ -26,6 +27,7 @@ develop/password-authenticator
 develop/certificate-authenticator
 develop/header-authenticator
 develop/group-provider
+develop/secrets-provider
 develop/event-listener
 develop/client-protocol
 ```

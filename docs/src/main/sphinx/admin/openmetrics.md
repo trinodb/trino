@@ -197,7 +197,7 @@ Configure metrics retrieval from the workers in your Prometheus configuration:
         - role: pod
       relabel_configs:
       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_trino_scrape]
-        action: keep # scrape only pods with the trino scrape anotation
+        action: keep # scrape only pods with the trino scrape annotation
         regex: true
       - source_labels: [__meta_kubernetes_pod_container_name]
         action: keep # dont try to scrape non trino container
@@ -220,7 +220,7 @@ Configure metrics retrieval from the workers in your Prometheus configuration:
       metric_relabel_configs:
           - source_labels: [__name__]
             regex: ".+_FifteenMinute.+|.+_FiveMinute.+|.+IterativeOptimizer.+|.*io_airlift_http_client_type_HttpClient.+"
-            action: drop # droping some highly granular metrics 
+            action: drop # dropping some highly granular metrics 
           - source_labels: [__meta_kubernetes_pod_name]
             regex: ".+"
             target_label: pod
@@ -252,7 +252,7 @@ configuration:
         - role: pod
       relabel_configs:
       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_trino_scrape]
-        action: keep # scrape only pods with the trino scrape anotation
+        action: keep # scrape only pods with the trino scrape annotation
         regex: true
       - source_labels: [__meta_kubernetes_pod_container_name]
         action: keep # dont try to scrape non trino container
@@ -278,7 +278,7 @@ configuration:
       metric_relabel_configs:
           - source_labels: [__name__]
             regex: ".+_FifteenMinute.+|.+_FiveMinute.+|.+IterativeOptimizer.+|.*io_airlift_http_client_type_HttpClient.+"
-            action: drop # droping some highly granular metrics 
+            action: drop # dropping some highly granular metrics 
           - source_labels: [__meta_kubernetes_pod_name]
             regex: ".+"
             target_label: pod

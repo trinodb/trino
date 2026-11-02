@@ -109,12 +109,12 @@ public class TestLikeFunctions
     public void testLikeChar()
     {
         LikePattern matcher = LikePattern.compile(utf8Slice("f%b__").toStringUtf8(), Optional.empty());
-        assertThat(likeChar(6L, utf8Slice("foobar"), matcher)).isTrue();
-        assertThat(likeChar(6L, offsetHeapSlice("foobar"), matcher)).isTrue();
-        assertThat(likeChar(6L, utf8Slice("foob"), matcher)).isTrue();
-        assertThat(likeChar(6L, offsetHeapSlice("foob"), matcher)).isTrue();
-        assertThat(likeChar(7L, utf8Slice("foob"), matcher)).isFalse();
-        assertThat(likeChar(7L, offsetHeapSlice("foob"), matcher)).isFalse();
+        assertThat(likeChar(6, utf8Slice("foobar"), matcher)).isTrue();
+        assertThat(likeChar(6, offsetHeapSlice("foobar"), matcher)).isTrue();
+        assertThat(likeChar(6, utf8Slice("foob"), matcher)).isTrue();
+        assertThat(likeChar(6, offsetHeapSlice("foob"), matcher)).isTrue();
+        assertThat(likeChar(7, utf8Slice("foob"), matcher)).isFalse();
+        assertThat(likeChar(7, offsetHeapSlice("foob"), matcher)).isFalse();
 
         // pattern shorter than value length
         assertThat(assertions.expression("a LIKE 'foo'")

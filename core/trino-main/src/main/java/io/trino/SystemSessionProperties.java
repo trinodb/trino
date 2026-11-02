@@ -33,6 +33,7 @@ import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +55,8 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.type.CharVarcharCoercion.LEGACY;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -82,6 +85,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_SCAN_PHYSICAL_BYTES = "query_max_scan_physical_bytes";
     public static final String QUERY_MAX_WRITE_PHYSICAL_SIZE = "query_max_write_physical_size";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
+    public static final String QUERY_MAX_INITIAL_PLAN_NODES = "query_max_initial_plan_nodes";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String SCALE_WRITERS = "scale_writers";
@@ -145,6 +149,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String FILTERING_SEMI_JOIN_TO_INNER = "rewrite_filtering_semi_join_to_inner_join";
+    public static final String FUNCTION_PREIMAGES_ENABLED = "function_preimages_enabled";
     public static final String OPTIMIZE_DUPLICATE_INSENSITIVE_JOINS = "optimize_duplicate_insensitive_joins";
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
     public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
@@ -154,9 +159,11 @@ public final class SystemSessionProperties
     public static final String MERGE_PROJECT_WITH_VALUES = "merge_project_with_values";
     public static final String TIME_ZONE_ID = "time_zone_id";
     public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
+    public static final String LEGACY_VARCHAR_TO_CHAR_COERCION = "legacy_varchar_to_char_coercion";
     public static final String INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED = "incremental_hash_array_load_factor_enabled";
     public static final String MAX_PARTIAL_TOP_N_MEMORY = "max_partial_top_n_memory";
     public static final String RETRY_POLICY = "retry_policy";
+    public static final String DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED = "direct_trino_client_fault_tolerant_execution_enabled";
     public static final String QUERY_RETRY_ATTEMPTS = "query_retry_attempts";
     public static final String TASK_RETRY_ATTEMPTS_PER_TASK = "task_retry_attempts_per_task";
     public static final String MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY = "max_tasks_waiting_for_execution_per_query";
@@ -427,6 +434,12 @@ public final class SystemSessionProperties
                         "Temporary: Maximum number of stages a query can have",
                         queryManagerConfig.getMaxStageCount(),
                         true),
+                integerProperty(
+                        QUERY_MAX_INITIAL_PLAN_NODES,
+                        "Maximum number of nodes in the query plan before optimization",
+                        queryManagerConfig.getMaxInitialPlanNodes(),
+                        value -> validateIntegerValue(value, QUERY_MAX_INITIAL_PLAN_NODES, 1, false),
+                        false),
                 booleanProperty(
                         DICTIONARY_AGGREGATION,
                         "Enable optimization for aggregations on dictionaries",
@@ -479,6 +492,9 @@ public final class SystemSessionProperties
                             int intValue = (int) value;
                             if (intValue < 2) {
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 2: %s", MAX_REORDERED_JOINS, intValue));
+                            }
+                            if (intValue > 62) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be less than or equal to 62: %s", MAX_REORDERED_JOINS, intValue));
                             }
                             return intValue;
                         },
@@ -717,6 +733,11 @@ public final class SystemSessionProperties
                         optimizerConfig.isRewriteFilteringSemiJoinToInnerJoin(),
                         false),
                 booleanProperty(
+                        FUNCTION_PREIMAGES_ENABLED,
+                        "Use function preimages",
+                        optimizerConfig.isFunctionPreimagesEnabled(),
+                        false),
+                booleanProperty(
                         OPTIMIZE_DUPLICATE_INSENSITIVE_JOINS,
                         "Optimize duplicate insensitive joins",
                         optimizerConfig.isOptimizeDuplicateInsensitiveJoins(),
@@ -772,6 +793,11 @@ public final class SystemSessionProperties
                         featuresConfig.isLegacyCatalogRoles(),
                         true),
                 booleanProperty(
+                        LEGACY_VARCHAR_TO_CHAR_COERCION,
+                        "Implicitly coerce varchar to char, instead of char to varchar",
+                        featuresConfig.isLegacyVarcharToCharCoercion(),
+                        true),
+                booleanProperty(
                         INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED,
                         "Use smaller load factor for small hash arrays in order to improve performance",
                         featuresConfig.isIncrementalHashArrayLoadFactorEnabled(),
@@ -792,6 +818,11 @@ public final class SystemSessionProperties
                             }
                         },
                         true),
+                booleanProperty(
+                        DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED,
+                        "Allow DirectTrinoClient to consume results of queries running under fault-tolerant execution; when disabled such queries are forced to retry_policy=NONE",
+                        queryManagerConfig.isDirectTrinoClientFaultTolerantExecutionEnabled(),
+                        false),
                 integerProperty(
                         QUERY_RETRY_ATTEMPTS,
                         "Maximum number of query retry attempts",
@@ -805,7 +836,7 @@ public final class SystemSessionProperties
                             if (value < 0 || value > MAX_TASK_RETRY_ATTEMPTS) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be greater than or equal to 0 and not not greater than %s", TASK_RETRY_ATTEMPTS_PER_TASK, MAX_TASK_RETRY_ATTEMPTS));
+                                        format("%s must be greater than or equal to 0 and not greater than %s", TASK_RETRY_ATTEMPTS_PER_TASK, MAX_TASK_RETRY_ATTEMPTS));
                             }
                         },
                         false),
@@ -1326,6 +1357,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_MAX_STAGE_COUNT, Integer.class);
     }
 
+    public static int getQueryMaxInitialPlanNodes(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_INITIAL_PLAN_NODES, Integer.class);
+    }
+
     public static boolean isUseTableScanNodePartitioning(Session session)
     {
         return session.getSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, Boolean.class);
@@ -1489,8 +1525,10 @@ public final class SystemSessionProperties
 
     public static boolean isDistributedSortEnabled(Session session)
     {
-        if (getRetryPolicy(session) != RetryPolicy.NONE) {
-            // distributed sort is not supported with failure recovery capabilities enabled
+        if (getRetryPolicy(session) == RetryPolicy.TASK) {
+            // distributed sort requires all stages of the query to run concurrently, which
+            // task-level retries do not guarantee (stages may run independently). Query-level
+            // retries re-run the whole query with pipelined execution, so they are compatible.
             return false;
         }
 
@@ -1677,6 +1715,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, Boolean.class);
     }
 
+    public static boolean isFunctionPreimagesEnabled(Session session)
+    {
+        return session.getSystemProperty(FUNCTION_PREIMAGES_ENABLED, Boolean.class);
+    }
+
     public static boolean isOptimizeDuplicateInsensitiveJoins(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_DUPLICATE_INSENSITIVE_JOINS, Boolean.class);
@@ -1720,6 +1763,11 @@ public final class SystemSessionProperties
     public static boolean isLegacyCatalogRoles(Session session)
     {
         return session.getSystemProperty(LEGACY_CATALOG_ROLES, Boolean.class);
+    }
+
+    public static CharVarcharCoercion getCharVarcharCoercion(Session session)
+    {
+        return session.getSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, Boolean.class) ? LEGACY : SQL_STANDARD;
     }
 
     public static boolean isIncrementalHashArrayLoadFactorEnabled(Session session)

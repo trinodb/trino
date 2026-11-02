@@ -27,9 +27,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.Duration.succinctDuration;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Lightweight version of QueryStats. Parts of the web UI depend on the fields
@@ -205,47 +203,6 @@ public class BasicQueryStats
                 queryStats.getBlockedReasons(),
                 queryStats.getProgressPercentage(),
                 queryStats.getRunningPercentage());
-    }
-
-    public static BasicQueryStats immediateFailureQueryStats()
-    {
-        Instant now = Instant.now();
-        return new BasicQueryStats(
-                now,
-                now,
-                succinctDuration(0, MILLISECONDS),
-                succinctDuration(0, MILLISECONDS),
-                succinctDuration(0, MILLISECONDS),
-                succinctDuration(0, MILLISECONDS),
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
-                0,
-                0,
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
-                succinctDuration(0, MILLISECONDS),
-                succinctDuration(0, MILLISECONDS),
-                succinctDuration(0, MILLISECONDS),
-                succinctDuration(0, MILLISECONDS),
-                succinctDuration(0, MILLISECONDS),
-                succinctDuration(0, MILLISECONDS),
-                succinctDuration(0, MILLISECONDS),
-                succinctDuration(0, MILLISECONDS),
-                false,
-                ImmutableSet.of(),
-                OptionalDouble.empty(),
-                OptionalDouble.empty());
     }
 
     @JsonProperty

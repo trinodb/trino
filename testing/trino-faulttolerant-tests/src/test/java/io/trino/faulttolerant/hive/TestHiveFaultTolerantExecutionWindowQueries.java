@@ -13,7 +13,7 @@
  */
 package io.trino.faulttolerant.hive;
 
-import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestFaultTolerantExecutionWindowQueries;
 import io.trino.testing.QueryRunner;
@@ -22,7 +22,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.util.Map;
 
-import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.NONE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -30,18 +30,18 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestHiveFaultTolerantExecutionWindowQueries
         extends AbstractTestFaultTolerantExecutionWindowQueries
 {
-    private MinioStorage minioStorage;
+    private FlociStorage storage;
 
     @Override
     protected QueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
-        minioStorage.start();
+        storage = new FlociStorage("test-exchange-spooling-" + randomNameSuffix(), NONE);
+        storage.start();
 
         return HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
-                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
+                .withExchange("filesystem", storage.getExchangeManagerProperties())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
@@ -50,9 +50,9 @@ public class TestHiveFaultTolerantExecutionWindowQueries
     public void destroy()
             throws Exception
     {
-        if (minioStorage != null) {
-            minioStorage.close();
-            minioStorage = null;
+        if (storage != null) {
+            storage.close();
+            storage = null;
         }
     }
 }

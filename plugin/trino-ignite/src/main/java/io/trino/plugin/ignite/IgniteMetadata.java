@@ -23,7 +23,6 @@ import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
-import io.trino.plugin.jdbc.TimestampTimeZoneDomain;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -64,9 +63,9 @@ public class IgniteMetadata
     private static final String IGNITE_DUMMY_ID = "dummy_id";
     private final JdbcClient igniteClient;
 
-    public IgniteMetadata(JdbcClient igniteClient, TimestampTimeZoneDomain timestampTimeZoneDomain, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public IgniteMetadata(JdbcClient igniteClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
-        super(igniteClient, timestampTimeZoneDomain, false, jdbcQueryEventListeners);
+        super(igniteClient, false, jdbcQueryEventListeners);
         this.igniteClient = requireNonNull(igniteClient, "igniteClient is null");
     }
 
@@ -175,13 +174,15 @@ public class IgniteMetadata
     }
 
     @Override
-    public void finishMerge(
+    public Optional<ConnectorOutputMetadata> finishMerge(
             ConnectorSession session,
             ConnectorMergeTableHandle tableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics)
-    {}
+    {
+        return Optional.empty();
+    }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
@@ -232,7 +233,7 @@ public class IgniteMetadata
         if (replace) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
-        return igniteClient.beginCreateTable(session, tableMetadata, rollbackActions::add);
+        return igniteClient.beginCreateTable(session, tableMetadata, this::addRollbackAction);
     }
 
     @Override

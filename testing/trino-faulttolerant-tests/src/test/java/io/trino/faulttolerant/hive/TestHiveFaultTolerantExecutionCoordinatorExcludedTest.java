@@ -14,7 +14,7 @@
 package io.trino.faulttolerant.hive;
 
 import io.trino.Session;
-import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
@@ -28,7 +28,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.List;
 
-import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.NONE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -41,19 +41,19 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestHiveFaultTolerantExecutionCoordinatorExcludedTest
         extends AbstractTestQueryFramework
 {
-    private MinioStorage minioStorage;
+    private FlociStorage storage;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
-        minioStorage.start();
+        storage = new FlociStorage("test-exchange-spooling-" + randomNameSuffix(), NONE);
+        storage.start();
 
         return HiveQueryRunner.builder()
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
                 .addCoordinatorProperty("node-scheduler.include-coordinator", "false")
-                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
+                .withExchange("filesystem", storage.getExchangeManagerProperties())
                 .setInitialTables(List.of(TpchTable.NATION))
                 .build();
     }
@@ -122,9 +122,9 @@ public class TestHiveFaultTolerantExecutionCoordinatorExcludedTest
     public void destroy()
             throws Exception
     {
-        if (minioStorage != null) {
-            minioStorage.close();
-            minioStorage = null;
+        if (storage != null) {
+            storage.close();
+            storage = null;
         }
     }
 }

@@ -54,7 +54,7 @@ public abstract class BaseSqlServerTransactionIsolationTest
     {
         assertUpdate("CREATE TABLE ctas_describe AS SELECT regionkey, nationkey, comment FROM tpch.tiny.nation", "SELECT count(*) FROM nation");
 
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("regionkey", "bigint", "", "")
                 .row("nationkey", "bigint", "", "")
                 .row("comment", "varchar(152)", "", "")
@@ -63,7 +63,7 @@ public abstract class BaseSqlServerTransactionIsolationTest
         MaterializedResult actualColumns = computeActual("DESCRIBE ctas_describe");
         assertThat(actualColumns).isEqualTo(expectedColumns);
 
-        MaterializedResult expectedTables = MaterializedResult.resultBuilder(getSession(), VARCHAR)
+        MaterializedResult expectedTables = MaterializedResult.resultBuilder(VARCHAR)
                 .row("ctas_describe")
                 .build();
 

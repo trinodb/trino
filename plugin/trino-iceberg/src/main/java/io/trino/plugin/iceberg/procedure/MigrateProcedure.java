@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.airlift.log.Logger;
+import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.Column;
@@ -58,11 +60,13 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -87,11 +91,13 @@ import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.procedure.MigrationUtils.buildDataFiles;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -162,17 +168,17 @@ public class MigrateProcedure
                 MIGRATE.bindTo(this));
     }
 
-    public void migrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
+    public Map<String, Long> migrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
     {
         // this line guarantees that classLoader that we stored in the field will be used inside try/catch
         // as we captured reference to PluginClassLoader during initialization of this class
         // we can use it now to correctly execute the procedure
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doMigrate(session, schemaName, tableName, recursiveDirectory);
+            return doMigrate(session, schemaName, tableName, recursiveDirectory);
         }
     }
 
-    public void doMigrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
+    public Map<String, Long> doMigrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
     {
         SchemaTableName sourceTableName = new SchemaTableName(schemaName, tableName);
         TrinoCatalog catalog = catalogFactory.create(session.getIdentity());
@@ -205,8 +211,12 @@ public class MigrateProcedure
 
         Map<String, String> properties = icebergTableProperties(location, hiveTable.getParameters(), nameMapping, toIcebergFileFormat(storageFormat));
         PartitionSpec partitionSpec = parsePartitionFields(schema, hiveTable);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        Location metadataLocation = Location.of(location).appendPath("metadata");
+        Set<Location> existingMetadataFiles = Set.copyOf(listFiles(fileSystem, metadataLocation));
+        PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
+        boolean metastoreReplaced = false;
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
             if (hiveTable.getPartitionColumns().isEmpty()) {
                 log.debug("Building data files from %s", location);
@@ -242,18 +252,68 @@ public class MigrateProcedure
             append.commit();
 
             log.debug("Set preparatory table properties in a metastore for migrations");
-            PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
             io.trino.metastore.Table newTable = io.trino.metastore.Table.builder(hiveTable)
                     .setParameter(METADATA_LOCATION_PROP, location)
                     .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
                     .build();
             metastore.replaceTable(schemaName, tableName, newTable, principalPrivileges, ImmutableMap.of());
+            metastoreReplaced = true;
 
-            transaction.commitTransaction();
+            try {
+                transaction.commitTransaction();
+            }
+            catch (CommitFailedException e) {
+                throw new TrinoException(TRANSACTION_CONFLICT, "Failed to migrate table", e);
+            }
             log.debug("Successfully migrated %s table to Iceberg format", sourceTableName);
+
+            return ImmutableMap.<String, Long>builder()
+                    .put("added_data_files_count", (long) dataFiles.size())
+                    .buildOrThrow();
         }
         catch (Exception e) {
+            boolean hiveTableRestored = true;
+            if (metastoreReplaced) {
+                try {
+                    metastore.replaceTable(schemaName, tableName, hiveTable, principalPrivileges, ImmutableMap.of());
+                }
+                catch (Exception restoreFailure) {
+                    hiveTableRestored = false;
+                    e.addSuppressed(restoreFailure);
+                }
+            }
+            if (hiveTableRestored) {
+                cleanupMetadataFiles(fileSystem, metadataLocation, existingMetadataFiles, e);
+            }
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to migrate table", e);
+        }
+    }
+
+    private static void cleanupMetadataFiles(TrinoFileSystem fileSystem, Location metadataLocation, Set<Location> existingFiles, Exception failure)
+    {
+        try {
+            List<Location> newFiles = listFiles(fileSystem, metadataLocation).stream()
+                    .filter(file -> !existingFiles.contains(file))
+                    .collect(toImmutableList());
+            fileSystem.deleteFiles(newFiles);
+        }
+        catch (Exception e) {
+            failure.addSuppressed(e);
+        }
+    }
+
+    private static List<Location> listFiles(TrinoFileSystem fileSystem, Location directory)
+    {
+        try {
+            ImmutableList.Builder<Location> files = ImmutableList.builder();
+            FileIterator iterator = fileSystem.listFiles(directory);
+            while (iterator.hasNext()) {
+                files.add(iterator.next().location());
+            }
+            return files.build();
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to list files", e);
         }
     }
 

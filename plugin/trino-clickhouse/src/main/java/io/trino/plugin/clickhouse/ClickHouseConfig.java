@@ -16,12 +16,16 @@ package io.trino.plugin.clickhouse;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import jakarta.validation.constraints.AssertTrue;
+
+import java.util.Optional;
 
 @DefunctConfig("clickhouse.legacy-driver")
 public class ClickHouseConfig
 {
     // TODO (https://github.com/trinodb/trino/issues/7102) reconsider default behavior
     private boolean mapStringAsVarchar;
+    private Optional<String> clusterName = Optional.empty();
 
     public boolean isMapStringAsVarchar()
     {
@@ -34,5 +38,24 @@ public class ClickHouseConfig
     {
         this.mapStringAsVarchar = mapStringAsVarchar;
         return this;
+    }
+
+    public Optional<String> getClusterName()
+    {
+        return clusterName;
+    }
+
+    @Config("clickhouse.cluster-name")
+    @ConfigDescription("Name of the ClickHouse cluster on which DDL statements are executed")
+    public ClickHouseConfig setClusterName(String clusterName)
+    {
+        this.clusterName = Optional.ofNullable(clusterName);
+        return this;
+    }
+
+    @AssertTrue(message = "clickhouse.cluster-name must not be blank")
+    public boolean isClusterNameValid()
+    {
+        return clusterName.map(name -> !name.isBlank()).orElse(true);
     }
 }

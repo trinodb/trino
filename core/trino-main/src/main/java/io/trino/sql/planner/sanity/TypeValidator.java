@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.ir.Cast.Kind.CONVERT;
 import static io.trino.sql.ir.Cast.Kind.REINTERPRET;
 
@@ -61,7 +62,7 @@ public final class TypeValidator
     {
         plan.accept(new Visitor(), null);
 
-        TypeCoercion typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+        TypeCoercion typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, getCharVarcharCoercion(session));
         for (Expression expression : ExpressionExtractor.extractExpressions(plan)) {
             for (Expression node : Traverser.forTree((SuccessorsFunction<Expression>) Expression::children).depthFirstPreOrder(expression)) {
                 if (node instanceof Cast cast) {

@@ -45,6 +45,7 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.SystemSessionProperties.MAX_REORDERED_JOINS;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -62,6 +63,7 @@ import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -674,6 +676,19 @@ public class TestReorderJoins
                                         .distributionType(REPLICATED)
                                         .left(values(ImmutableMap.of("B1", 0)))
                                         .right(values(ImmutableMap.of("A1", 0))))));
+    }
+
+    @Test
+    public void testRejectsMaxReorderedJoinsAboveEnumerationLimit()
+    {
+        // JoinNodeFlattener turns max_reordered_joins into that many + 1 sources, and the bit-mask
+        // enumerator only handles 63 sources, so the property is capped at 62. Above that the join
+        // enumerator would fail the query during planning, so the value is rejected up front.
+        assertThatThrownBy(() -> assertReorderJoins()
+                .setSystemProperty(MAX_REORDERED_JOINS, "63")
+                .on(p -> p.values(p.symbol("a", BIGINT)))
+                .matches(values("a")))
+                .hasMessageContaining("max_reordered_joins must be less than or equal to 62: 63");
     }
 
     private RuleBuilder assertReorderJoins()

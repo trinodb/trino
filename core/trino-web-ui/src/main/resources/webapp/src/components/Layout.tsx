@@ -17,7 +17,6 @@ import {
     Avatar,
     AppBar,
     Box,
-    Container,
     IconButton,
     List,
     ListItem,
@@ -375,15 +374,14 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                         {routers.map((routerItem: RouterItem) =>
                             routerItem.hidden ? null : (
                                 <ListItem key={routerItem.text} disablePadding>
-                                    {/*@ts-expect-error TS2769*/}
                                     <ListItemButton
                                         key={routerItem.itemKey}
                                         component={Link}
-                                        to={routerItem.routeProps.path}
+                                        to={routerItem.routeProps.path ?? '/'}
                                         selected={routerItem.itemKey === selectedDrawerItemKey}
                                     >
                                         <ListItemIcon>{routerItem.icon}</ListItemIcon>
-                                        <ListItemText primary={routerItem.text} />
+                                        {drawerOpen && <ListItemText primary={routerItem.text} />}
                                     </ListItemButton>
                                 </ListItem>
                             )
@@ -398,7 +396,7 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
             </Drawer>
             <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
                 <Toolbar />
-                <Container maxWidth="lg">{props.children}</Container>
+                <Box sx={{ flexGrow: 1, px: 3 }}>{props.children}</Box>
             </Box>
         </Box>
     )

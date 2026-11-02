@@ -13,36 +13,13 @@
  */
 package io.trino.orc;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
-public final class OrcDataSourceId
+public record OrcDataSourceId(String id)
 {
-    private final String id;
-
-    public OrcDataSourceId(String id)
+    public OrcDataSourceId
     {
-        this.id = requireNonNull(id, "id is null");
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        OrcDataSourceId that = (OrcDataSourceId) o;
-        return Objects.equals(id, that.id);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(id);
+        requireNonNull(id, "id is null");
     }
 
     @Override

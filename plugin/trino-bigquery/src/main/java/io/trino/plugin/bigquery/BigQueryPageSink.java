@@ -14,6 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.api.core.ApiFuture;
+import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
@@ -55,9 +56,11 @@ public class BigQueryPageSink
     private final List<Type> columnTypes;
     private final ConnectorPageSinkId pageSinkId;
     private final Optional<String> pageSinkIdColumnName;
+    private final RetrySettings retrySettings;
 
     public BigQueryPageSink(
             BigQueryWriteClient client,
+            RetrySettings retrySettings,
             RemoteTableName remoteTableName,
             List<String> columnNames,
             List<Type> columnTypes,
@@ -66,6 +69,7 @@ public class BigQueryPageSink
             Optional<String> pageSinkIdColumnName)
     {
         this.client = requireNonNull(client, "client is null");
+        this.retrySettings = requireNonNull(retrySettings, "retrySettings is null");
         requireNonNull(remoteTableName, "remoteTableName is null");
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
@@ -106,7 +110,7 @@ public class BigQueryPageSink
     private void insertWithCommitted(JSONArray batch)
     {
         WriteStream stream = writeStream.updateAndGet(this::getOrCreateWriteStream);
-        try (JsonStreamWriter writer = JsonStreamWriter.newBuilder(stream.getName(), stream.getTableSchema(), client).build()) {
+        try (JsonStreamWriter writer = JsonStreamWriter.newBuilder(stream.getName(), stream.getTableSchema(), client).setRetrySettings(retrySettings).build()) {
             ApiFuture<AppendRowsResponse> future = writer.append(batch);
             AppendRowsResponse response = future.get(); // Throw error
             if (response.hasError()) {

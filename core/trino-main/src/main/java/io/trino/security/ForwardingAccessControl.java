@@ -339,6 +339,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewComment(SecurityContext context, QualifiedObjectName materializedViewName)
+    {
+        delegate().checkCanSetMaterializedViewComment(context, materializedViewName);
+    }
+
+    @Override
     public void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption)
     {
         delegate().checkCanGrantSchemaPrivilege(context, privilege, schemaName, grantee, grantOption);

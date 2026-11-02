@@ -1,4 +1,4 @@
-# Release xyz (dd MMM 2025)
+# Release xyz (dd MMM 2026)
 
 ## General
 
@@ -78,8 +78,8 @@
 
 ## SQL Server connector
 
-## TPC-H connector
-
 ## TPC-DS connector
+
+## TPC-H connector
 
 ## SPI

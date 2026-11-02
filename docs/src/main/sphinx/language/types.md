@@ -767,15 +767,155 @@ SELECT TIMESTAMP '2001-08-22 03:04:05.321 America/New_York';
 
 ### `INTERVAL YEAR TO MONTH`
 
-Span of years and months.
+Span of years and months. The qualifier is one of `YEAR`, `MONTH`, or
+`YEAR TO MONTH`.
 
 Example: `INTERVAL '3' MONTH`
 
 ### `INTERVAL DAY TO SECOND`
 
-Span of days, hours, minutes, seconds and milliseconds.
+Span of days, hours, minutes, and seconds, down to picosecond resolution. The
+qualifier is a single field — `DAY`, `HOUR`, `MINUTE`, or `SECOND` — or a range
+such as `DAY TO SECOND` or `HOUR TO MINUTE`. The leading field carries a
+[](interval-leading-precision), and a trailing `SECOND` field carries a
+[](interval-fractional-seconds-precision).
 
 Example: `INTERVAL '2' DAY`
+
+(interval-leading-precision)=
+### Interval leading precision
+
+The leading field of an interval has a *precision*: the maximum number of decimal
+digits it may hold, written in parentheses after the field, much like the
+precision of a `DECIMAL`.
+
+```
+INTERVAL DAY(3)             -- holds up to 999 days
+INTERVAL DAY(9) TO SECOND
+INTERVAL YEAR(2) TO MONTH
+```
+
+The precision comes from one of three sources:
+
+- A **bare qualifier** — written without parentheses, as in `INTERVAL DAY`, an
+  interval column type, or a cast target — has the implicit precision `2`, so it
+  holds up to 99 of the leading field.
+- An **interval literal** infers its precision from the value, so
+  `INTERVAL '340' DAY` has the type `INTERVAL DAY(3)`. Inference includes carries
+  from rounding fractional seconds: `INTERVAL '9.9999999999995' SECOND` rounds
+  to `10` seconds and has type `INTERVAL SECOND(2, 12)`.
+- A **derived interval** — the result of interval arithmetic, or of subtracting
+  two datetimes — uses the *field maximum*, the precision sufficient to represent
+  any value the field can store: `DAY(9)`, `HOUR(10)`, `MINUTE(12)`, `SECOND(13)`,
+  `YEAR(9)`, or `MONTH(10)`. For example, `current_timestamp - ts` has the type
+  `INTERVAL DAY(9) TO SECOND`.
+
+A value that does not fit the declared leading precision is rejected with an
+*interval field overflow* error. For instance, `INTERVAL '340' DAY(2)` and
+`CAST('340' AS INTERVAL DAY(2))` both fail because 340 does not fit two digits,
+and `CAST(x AS INTERVAL DAY)` fails for any value of 100 days or more.
+
+(interval-fractional-seconds-precision)=
+### Interval fractional-seconds precision
+
+When the trailing field of a day-time interval is `SECOND`, it also carries a
+*fractional-seconds precision*: the number of digits kept after the decimal point,
+from `0` to `12` (picoseconds). It is the second argument of `SECOND`, written
+after the leading precision:
+
+```
+INTERVAL SECOND(13, 2)        -- two fractional digits
+INTERVAL DAY(9) TO SECOND(6)  -- microsecond precision
+INTERVAL DAY TO SECOND(12)    -- picosecond precision
+```
+
+A `SECOND` *type* written without a fractional precision — a column type or a
+cast target such as `CAST(x AS INTERVAL DAY TO SECOND)` — defaults to `6`
+(microseconds), so `INTERVAL DAY TO SECOND` is `INTERVAL DAY(2) TO SECOND(6)`. A
+qualifier whose trailing field is not `SECOND`, such as `DAY TO MINUTE`, has no
+fractional-seconds precision.
+
+An interval *literal* with the single-field `SECOND` qualifier and no fractional
+precision infers it from the number of fractional digits in the value:
+`INTERVAL '1.123' SECOND` is `INTERVAL SECOND(1, 3)` and `INTERVAL '5'
+SECOND` is `INTERVAL SECOND(1, 0)`. (The leading precision is likewise inferred
+from the value's whole-part digits.) Composite qualifiers retain the default of
+six fractional digits, so `INTERVAL '1 00:00:00.123' DAY TO SECOND` has type
+`INTERVAL DAY(1) TO SECOND(6)`.
+
+A value is rounded to its declared precision, with ties toward positive infinity,
+and renders with exactly
+that many fractional digits:
+
+```sql
+SELECT CAST(INTERVAL '1.2345' SECOND(13, 2) AS VARCHAR);  -- 1.23
+SELECT CAST(INTERVAL '1.9'    SECOND(13, 0) AS VARCHAR);  -- 2
+SELECT CAST(INTERVAL '1.5'    SECOND       AS VARCHAR);   -- 1.5
+```
+
+A **derived interval** keeps the fractional-seconds precision of its operands —
+the wider of the two for interval arithmetic, and at least six fractional digits
+when subtracting two datetimes — so `timestamp(9)` values yield a difference of
+type `INTERVAL DAY(9) TO SECOND(9)` that preserves all nine digits.
+
+Casting an interval to `VARCHAR` formats only the fields in its qualifier, so the
+string can be cast back to the same interval type. Casting to a qualifier with a
+more significant trailing field truncates the discarded fields toward zero. For
+example, casting 25 hours to `INTERVAL DAY` produces one day, and casting 13 months
+to `INTERVAL YEAR` produces one year.
+
+Multiplication and division preserve the interval qualifier and fractional
+precision. Fields below the trailing field are discarded; for example,
+`INTERVAL '1' DAY / 2` is zero days. Use a qualifier ending in `SECOND` when the
+result must retain fractions of a day.
+Results ending in `SECOND` round directly to their fractional precision, with
+midpoint ties toward positive infinity.
+
+Within an interval family, common types preserve the range of both operands.
+For example, combining `MINUTE(4)` with `HOUR(1)` requires `HOUR(3) TO MINUTE`,
+since 9999 minutes contain 166 whole hours.
+
+Fractional seconds in interval literals and strings cast to intervals must
+contain only decimal digits, including digits beyond picosecond precision.
+Other trailing characters and repeated signs are rejected. Day-time leading-field
+overflow reports `NUMERIC_VALUE_OUT_OF_RANGE`, including values too large for a
+64-bit integer.
+
+Older stored view and function signatures using the bare `interval day to second`
+and `interval year to month` types retain their historical ranges when read:
+`DAY(9) TO SECOND(3)` and `YEAR(9) TO MONTH`. Newly declared SQL types use the
+defaults above, and newly written type metadata includes explicit precisions.
+Readers must support the new syntax to read new parametric interval metadata;
+client capability negotiation does not make it readable by older servers.
+
+Stored view, materialized-view, and function bodies also preserve the legacy
+meaning of those bare types in casts and declarations. Newly stored SQL makes
+its interval type precisions explicit. Interval literals in stored bodies use
+the current qualifier, extraction, and arithmetic rules; for example,
+`INTERVAL '1' DAY / 2` evaluates to zero days there as well. Refreshing a view and
+recreating it from `SHOW CREATE VIEW` preserve its historical cast defaults.
+`SHOW CREATE FUNCTION` likewise makes historical interval declarations explicit
+so that recreating a function preserves them. `DROP FUNCTION` and
+`CREATE OR REPLACE FUNCTION` try the current parameter type defaults first, then
+the legacy defaults if no matching function exists. Replacement through the
+legacy fallback preserves the existing parameter types; its new body and return
+type use current defaults.
+
+This stored-SQL compatibility applies to view, materialized-view, and function
+definitions. Row filters, check constraints, and column masks use current SQL
+type defaults. Specify interval precisions explicitly in those expressions to
+preserve their intended ranges and fractional precision across upgrades.
+
+Day-time intervals store a signed 64-bit count of microseconds, with additional
+fractional digits for precisions above six. This has a smaller duration range
+than the former millisecond representation: about 292,000 years in either
+direction. Timestamp differences outside that range fail with an overflow error.
+Older clients receive rounded millisecond values, including interval map keys.
+
+Text conversion rounds the entire fractional input once to the declared precision,
+including digits beyond twelve, with ties toward positive infinity. Multiplication
+and division by `DOUBLE '1.0'` preserve the interval exactly; other floating-point
+scaling can lose precision.
 
 (structural-data-types)=
 ## Structural

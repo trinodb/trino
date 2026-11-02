@@ -830,12 +830,6 @@ public class TestHashDistributionSplitAssigner
             return this;
         }
 
-        public PartitionMappingTester withPartitionToNodeMap(Optional<List<InternalNode>> partitionToNodeMap)
-        {
-            this.partitionToNodeMap = partitionToNodeMap;
-            return this;
-        }
-
         public PartitionMappingTester withTargetPartitionSizeInBytes(long targetPartitionSizeInBytes)
         {
             this.targetPartitionSizeInBytes = targetPartitionSizeInBytes;

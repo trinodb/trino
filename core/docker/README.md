@@ -50,11 +50,13 @@ then the default single node configuration will be used.
 
 #### `node.id`
 
-The container supplied `run-trino` command will set the config property
-`node.id` to the hostname of the container if it is not specified in the
-`node.properties` file. This allows for `node.properties` to be a static file
-across all worker nodes if desired. Additionally this has the added benefit of
-`node.id` being consistent, predictable, and stable through restarts.
+The default `node.properties` sets `node.id` to `${ENV:HOSTNAME}`, which resolves
+to the hostname of the container. This allows for `node.properties` to be a
+static file across all worker nodes if desired. Additionally this has the added
+benefit of `node.id` being consistent, predictable, and stable through restarts.
+
+If you mount your own `node.properties`, include that line to keep this
+behaviour; otherwise Trino generates a random `node.id` on every start.
 
 #### `node.data-dir`
 

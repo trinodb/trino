@@ -54,7 +54,7 @@ final class OutputBufferMemoryManager
     // guarded by "this" for updates
     private volatile ListenableFuture<Void> blockedOnMemory = NOT_BLOCKED;
 
-    private final Ticker ticker = Ticker.systemTicker();
+    private final Ticker ticker;
 
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
@@ -70,11 +70,18 @@ final class OutputBufferMemoryManager
 
     public OutputBufferMemoryManager(long maxBufferedBytes, Lazy<LocalMemoryContext> memoryContextSupplier, Executor notificationExecutor)
     {
+        this(maxBufferedBytes, memoryContextSupplier, notificationExecutor, Ticker.systemTicker());
+    }
+
+    @VisibleForTesting
+    OutputBufferMemoryManager(long maxBufferedBytes, Lazy<LocalMemoryContext> memoryContextSupplier, Executor notificationExecutor, Ticker ticker)
+    {
         requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
         checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be > 0");
         this.maxBufferedBytes = maxBufferedBytes;
         this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
         this.lastBufferUtilizationRecordTime = ticker.read();
         this.lastBufferUtilization = 0;
     }
@@ -137,8 +144,12 @@ final class OutputBufferMemoryManager
     private synchronized void recordBufferUtilization(long currentBufferedBytes)
     {
         long recordTime = ticker.read();
-        bufferUtilization.add(lastBufferUtilization, (double) recordTime - this.lastBufferUtilizationRecordTime);
-        lastBufferUtilizationRecordTime = recordTime;
+        long elapsed = recordTime - lastBufferUtilizationRecordTime;
+        // TDigest rejects non-positive weights
+        if (elapsed > 0) {
+            bufferUtilization.add(lastBufferUtilization, elapsed);
+            lastBufferUtilizationRecordTime = recordTime;
+        }
         lastBufferUtilization = getUtilization(currentBufferedBytes);
     }
 

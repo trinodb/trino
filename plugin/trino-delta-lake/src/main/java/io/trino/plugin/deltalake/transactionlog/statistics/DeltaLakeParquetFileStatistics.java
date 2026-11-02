@@ -31,6 +31,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.toCanonicalNameKeyedMap;
+import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeParquetFileStatistics
         implements DeltaLakeFileStatistics
@@ -42,6 +43,7 @@ public class DeltaLakeParquetFileStatistics
     private final Optional<Map<CanonicalColumnName, Object>> minValues;
     private final Optional<Map<CanonicalColumnName, Object>> maxValues;
     private final Optional<Map<CanonicalColumnName, Object>> nullCount;
+    private final Optional<Boolean> tightBounds;
 
     public DeltaLakeParquetFileStatistics(
             Optional<Long> numRecords,
@@ -49,12 +51,26 @@ public class DeltaLakeParquetFileStatistics
             Optional<Map<String, Object>> maxValues,
             Optional<Map<String, Object>> nullCount)
     {
-        this.numRecords = numRecords;
+        this(numRecords, minValues, maxValues, nullCount, Optional.empty());
+    }
+
+    public DeltaLakeParquetFileStatistics(
+            Optional<Long> numRecords,
+            Optional<Map<String, Object>> minValues,
+            Optional<Map<String, Object>> maxValues,
+            Optional<Map<String, Object>> nullCount,
+            Optional<Boolean> tightBounds)
+    {
+        this.numRecords = requireNonNull(numRecords, "numRecords is null");
+        requireNonNull(minValues, "minValues is null");
+        requireNonNull(maxValues, "maxValues is null");
+        requireNonNull(nullCount, "nullCount is null");
         // Re-use CanonicalColumnName for min/max/null maps to benefit from cached hashCode
         Map<String, CanonicalColumnName> canonicalColumnNames = DeltaLakeFileStatistics.getCanonicalColumnNames(minValues, maxValues, nullCount);
         this.minValues = minValues.map(minValuesMap -> toCanonicalNameKeyedMap(minValuesMap, canonicalColumnNames));
         this.maxValues = maxValues.map(maxValuesMap -> toCanonicalNameKeyedMap(maxValuesMap, canonicalColumnNames));
         this.nullCount = nullCount.map(nullCountMap -> toCanonicalNameKeyedMap(nullCountMap, canonicalColumnNames));
+        this.tightBounds = requireNonNull(tightBounds, "tightBounds is null");
     }
 
     @Override
@@ -79,6 +95,12 @@ public class DeltaLakeParquetFileStatistics
     public Optional<Map<String, Object>> getNullCount()
     {
         return nullCount.map(TransactionLogAccess::toOriginalNameKeyedMap);
+    }
+
+    @Override
+    public Optional<Boolean> getTightBounds()
+    {
+        return tightBounds;
     }
 
     @Override
@@ -169,13 +191,14 @@ public class DeltaLakeParquetFileStatistics
         return Objects.equals(numRecords, that.numRecords) &&
                 Objects.equals(minValues, that.minValues) &&
                 Objects.equals(maxValues, that.maxValues) &&
-                Objects.equals(nullCount, that.nullCount);
+                Objects.equals(nullCount, that.nullCount) &&
+                Objects.equals(tightBounds, that.tightBounds);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(numRecords, minValues, maxValues, nullCount);
+        return Objects.hash(numRecords, minValues, maxValues, nullCount, tightBounds);
     }
 
     @Override
@@ -186,6 +209,7 @@ public class DeltaLakeParquetFileStatistics
                 .add("minValues", minValues)
                 .add("maxValues", maxValues)
                 .add("nullCount", nullCount)
+                .add("tightBounds", tightBounds)
                 .toString();
     }
 }

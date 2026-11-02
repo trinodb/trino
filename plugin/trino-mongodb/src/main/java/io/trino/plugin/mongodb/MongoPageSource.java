@@ -19,6 +19,7 @@ import com.google.common.primitives.SignedBytes;
 import com.mongodb.DBRef;
 import com.mongodb.client.MongoCursor;
 import io.airlift.slice.Slice;
+import io.trino.json.JsonItems;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -61,7 +62,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.mongodb.MongoErrorCode.MONGODB_INVALID_TYPE;
 import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
 import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
@@ -236,7 +236,7 @@ public class MongoPageSource
                     type.writeObject(output, Decimals.encodeScaledValue(result, decimalType.getScale()));
                 }
             }
-            else if (javaType == Slice.class) {
+            else if (javaType == Slice.class || isJsonType(type)) {
                 writeSlice(output, type, value);
             }
             else if (javaType == Block.class || javaType == SqlMap.class || javaType == SqlRow.class) {
@@ -287,7 +287,7 @@ public class MongoPageSource
             type.writeObject(output, encodeScaledValue(((Decimal128) value).bigDecimalValue(), decimalType.getScale()));
         }
         else if (isJsonType(type)) {
-            type.writeSlice(output, jsonParse(utf8Slice(toVarcharValue(value))));
+            type.writeObject(output, JsonItems.fromText(utf8Slice(toVarcharValue(value))));
         }
         else {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getDisplayName());

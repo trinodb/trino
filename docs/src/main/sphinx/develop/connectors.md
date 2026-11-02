@@ -160,7 +160,7 @@ WHERE url = 'https://github.com/trinodb/trino.git'
 (connector-metadata)=
 ## ConnectorMetadata
 
-The connector metadata interface allows Trino to get a lists of schemas,
+The connector metadata interface allows Trino to get a list of schemas,
 tables, columns, and other metadata about a particular data source.
 
 A basic read-only connector should implement the following methods:
@@ -323,8 +323,9 @@ constraint has already been applied.
 A constraint contains the following elements:
 
 - A `TupleDomain` defining the mapping between columns and their domains.
-  A `Domain` is either a list of possible values, or a list of ranges, and
-  also contains information about nullability.
+  A `Domain` contains a typed value set and its null allowance. See
+  [](value-domains) for representations, NaN membership, and the connector
+  compatibility boundary.
 - Expression for pushing down function calls.
 - Map of assignments from variables in the expression to columns.
 - (optional) Predicate which tests a map of columns and their values;

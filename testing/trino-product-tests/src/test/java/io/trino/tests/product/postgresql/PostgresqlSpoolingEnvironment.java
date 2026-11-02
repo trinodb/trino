@@ -16,13 +16,14 @@ package io.trino.tests.product.postgresql;
 import io.trino.testing.containers.Floci;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.images.builder.Transferable;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.trino.TrinoContainer;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -42,7 +43,7 @@ public class PostgresqlSpoolingEnvironment
     private static final String SPOOLING_BUCKET = "spooling";
 
     private Network network;
-    private PostgreSQLContainer<?> postgresql;
+    private PostgreSQLContainer postgresql;
     private Floci floci;
     private TrinoContainer trino;
 
@@ -55,7 +56,7 @@ public class PostgresqlSpoolingEnvironment
 
         network = Network.newNetwork();
 
-        postgresql = new PostgreSQLContainer<>("postgres:11")
+        postgresql = new PostgreSQLContainer("postgres:11")
                 .withNetwork(network)
                 .withNetworkAliases("postgresql")
                 .withDatabaseName("test")
@@ -104,17 +105,19 @@ public class PostgresqlSpoolingEnvironment
                 Transferable.of(spoolingManagerConfig),
                 "/etc/trino/spooling-manager.properties");
 
-        // Enable spooling in config.properties by adding an init script
-        String enableSpoolingScript =
-                """
-                #!/bin/bash
-                echo "protocol.spooling.enabled=true" >> /etc/trino/config.properties
-                echo "protocol.spooling.shared-secret-key=jxTKysfCBuMZtFqUf8UJDQ1w9ez8rynEJsJqgJf66u0=" >> /etc/trino/config.properties
-                echo "protocol.spooling.retrieval-mode=storage" >> /etc/trino/config.properties
-                """;
         trino.withCopyToContainer(
-                Transferable.of(enableSpoolingScript, 0755),
-                "/docker/trino-init.d/enable_spooling.sh");
+                Transferable.of(
+                        """
+                        coordinator=true
+                        node-scheduler.include-coordinator=true
+                        discovery.uri=http://localhost:8080
+                        catalog.management=${ENV:CATALOG_MANAGEMENT}
+                        protocol.spooling.enabled=true
+                        protocol.spooling.shared-secret-key=jxTKysfCBuMZtFqUf8UJDQ1w9ez8rynEJsJqgJf66u0=
+                        protocol.spooling.retrieval-mode=coordinator_proxy
+                        protocol.spooling.inlining.enabled=false
+                        """),
+                "/etc/trino/config.properties");
 
         TrinoProductTestContainer.startAndWait(trino);
 
@@ -230,6 +233,11 @@ public class PostgresqlSpoolingEnvironment
             throws SQLException
     {
         return TrinoProductTestContainer.createConnection(trino, user);
+    }
+
+    public List<String> listSpooledSegments()
+    {
+        return floci.listObjects(SPOOLING_BUCKET, "");
     }
 
     @Override

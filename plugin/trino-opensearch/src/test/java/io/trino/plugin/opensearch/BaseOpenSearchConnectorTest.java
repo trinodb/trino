@@ -25,14 +25,12 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.apache.http.HttpHost;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.opensearch.client.Request;
-import org.opensearch.client.RestClient;
 import org.opensearch.client.RestHighLevelClient;
 
 import java.io.IOException;
@@ -42,11 +40,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static io.trino.plugin.opensearch.RestClientUtils.createClient;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -74,8 +74,8 @@ public abstract class BaseOpenSearchConnectorTest
     {
         opensearch = new OpenSearchServer(image, false, ImmutableMap.of());
         HostAndPort address = opensearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
+        client = createClient(address);
         jmxBaseName = randomNameSuffix();
 
         return OpenSearchQueryRunner.builder(opensearch.getAddress())
@@ -160,7 +160,7 @@ public abstract class BaseOpenSearchConnectorTest
     {
         // The column metadata for the OpenSearch connector tables are provided
         // based on the column name in alphabetical order.
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("clerk", "varchar", "", "")
                 .row("comment", "varchar", "", "")
                 .row("custkey", "bigint", "", "")
@@ -656,7 +656,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM " + indexName + " " +
                 "ORDER BY order_field");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
                 .row(null, null, "\"Check out the bi-weekly Trino Community Broadcast https://trino.io/broadcast/\"", null, null, null, "5309")
                 .build();
@@ -675,7 +675,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM " + indexName + " " +
                 "ORDER BY order_field");
 
-        MaterializedResult nestedExpected = resultBuilder(getSession(), nestedRows.getTypes())
+        MaterializedResult nestedExpected = resultBuilder(nestedRows.getTypes())
                 .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
                 .row(null, null, "\"Join the Trino Slack: https://trino.io/slack.html\"", null, null, null, "867")
                 .build();
@@ -694,7 +694,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM " + indexName + " " +
                 "ORDER BY order_field");
 
-        MaterializedResult arrayExpected = resultBuilder(getSession(), arrayRows.getTypes())
+        MaterializedResult arrayExpected = resultBuilder(arrayRows.getTypes())
                 .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
                 .row(null, null, "\"If you like Presto, you'll love Trino: https://trino.io/slack.html\"", null, null, null, "321")
                 .build();
@@ -713,7 +713,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM " + indexName + " " +
                 "ORDER BY order_field");
 
-        MaterializedResult rawRowsExpected = resultBuilder(getSession(), rawRows.getTypes())
+        MaterializedResult rawRowsExpected = resultBuilder(rawRows.getTypes())
                 .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
                 .row(null, null, "\"The founders and core contributors of Presto, and are now working on Trino: https://trino.io/blog/2020/12/27/announcing-trino.html\"", null, null, null, "654")
                 .build();
@@ -816,7 +816,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM " + indexName + " " +
                 "ORDER BY order_field");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row("\"dGVzdA==\"", "true", "123", "123", "123", "123", "123.0", "123.0")
                 .build();
         assertThat(rows.getTypes())
@@ -877,7 +877,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "es_timestamp " +
                 "FROM " + indexName);
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row("\"dGVzdA==\"", "true", "123")
                 .build();
 
@@ -1234,7 +1234,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "scaled_float_column " +
                 "FROM types");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(
                         true,
                         1.0f,
@@ -1276,7 +1276,7 @@ public abstract class BaseOpenSearchConnectorTest
                 .buildOrThrow());
 
         MaterializedResult rows = computeActual("SELECT * FROM unsupported_types");
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(1L)
                 .build();
 
@@ -1311,7 +1311,7 @@ public abstract class BaseOpenSearchConnectorTest
 
         MaterializedResult rows = computeActual("SELECT boolean_column FROM booleans");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(true)
                 .row(true)
                 .row(false)
@@ -1319,7 +1319,7 @@ public abstract class BaseOpenSearchConnectorTest
                 .row(false)
                 .build();
 
-        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+        assertEqualsIgnoreOrder(rows.getMaterializedRows(), expected.getMaterializedRows());
     }
 
     @Test
@@ -1348,14 +1348,14 @@ public abstract class BaseOpenSearchConnectorTest
 
         MaterializedResult rows = computeActual("SELECT timestamp_column FROM timestamps");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(LocalDateTime.parse("2015-01-01T00:00:00"))
                 .row(LocalDateTime.parse("2015-01-01T12:10:30"))
                 .row(LocalDateTime.parse("2015-01-01T00:00:00.001"))
                 .row(LocalDateTime.parse("2015-01-01T00:00:00.001"))
                 .build();
 
-        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+        assertEqualsIgnoreOrder(rows.getMaterializedRows(), expected.getMaterializedRows());
     }
 
     @Test
@@ -1429,7 +1429,7 @@ public abstract class BaseOpenSearchConnectorTest
                 FROM scaled_float_type
                 WHERE scaled_float_column = 123.46
                 """))
-                .result().matches(resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
+                .result().matches(resultBuilder(ImmutableList.of(VARCHAR, DOUBLE))
                         .row("bar", 123.46d)
                         .build());
     }
@@ -1468,7 +1468,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "long_column " +
                 "FROM coercions");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(1.0f, 1.0d, 1, 1L)
                 .build();
 
@@ -1743,7 +1743,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "field.ipv6_column " +
                 "FROM types_nested");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(true,
                         1.0f,
                         1.0d,
@@ -1821,7 +1821,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "nested_field.ipv6_column " +
                 "FROM nested_type_nested");
 
-        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+        MaterializedResult expected = resultBuilder(rows.getTypes())
                 .row(true,
                         1.0f,
                         1.0d,
@@ -1993,13 +1993,16 @@ public abstract class BaseOpenSearchConnectorTest
 
         // use aggregations
         @Language("JSON")
-        String query = "{\n" +
-                "    \"size\": 0,\n" +
-                "    \"aggs\" : {\n" +
-                "        \"max_orderkey\" : { \"max\" : { \"field\" : \"orderkey\" } },\n" +
-                "        \"sum_orderkey\" : { \"sum\" : { \"field\" : \"orderkey\" } }\n" +
-                "    }\n" +
-                "}";
+        String query =
+                """
+                {
+                    "size": 0,
+                    "aggs" : {
+                        "max_orderkey" : { "max" : { "field" : "orderkey" } },
+                        "sum_orderkey" : { "sum" : { "field" : "orderkey" } }
+                    }
+                }
+                """;
 
         assertThat(query(format("WITH data(r) AS (" +
                 "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +

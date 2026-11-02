@@ -20,7 +20,11 @@ import io.trino.Session;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.plugin.base.metrics.DistributionSnapshot;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.testing.BaseConnectorSmokeTest;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
@@ -119,19 +123,6 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "\\)");
     }
 
-    @Test
-    public void testHiddenPathColumn()
-    {
-        try (TestTable table = newTrinoTable("hidden_file_path", "(a int, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {
-            String filePath = (String) computeScalar(format("SELECT file_path FROM \"%s$files\"", table.getName()));
-
-            assertQuery("SELECT DISTINCT \"$path\" FROM " + table.getName(), "VALUES " + "'" + filePath + "'");
-
-            // Check whether the "$path" hidden column is correctly evaluated in the filter expression
-            assertQuery(format("SELECT a FROM %s WHERE \"$path\" = '%s'", table.getName(), filePath), "VALUES 1");
-        }
-    }
-
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(4)
     @Timeout(120)
@@ -173,7 +164,12 @@ public abstract class BaseIcebergConnectorSmokeTest
             });
             List<String> expectedValues = expectedRows.filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
             assertThat(expectedValues).as("Expected at least one delete operation to pass").hasSizeLessThan(rows.size());
-            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES " + String.join(", ", expectedValues));
+            if (expectedValues.isEmpty()) {
+                assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+            }
+            else {
+                assertThat(query("SELECT * FROM " + tableName)).matches("VALUES " + String.join(", ", expectedValues));
+            }
         }
         finally {
             executor.shutdownNow();
@@ -545,37 +541,6 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     @Test
-    public void testSortedNationTable()
-    {
-        try (TestTable table = newTrinoTable(
-                "test_sorted_nation_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS SELECT * FROM nation WITH NO DATA")) {
-            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
-            }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
-        }
-    }
-
-    @Test
-    public void testFileSortingWithLargerTable()
-    {
-        // Using a larger table forces buffered data to be written to disk
-        try (TestTable table = newTrinoTable(
-                "test_sorted_lineitem_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
-            assertUpdate(
-                    "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",
-                    "VALUES 60175");
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
-            }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM lineitem");
-        }
-    }
-
-    @Test
     public void testDropTableWithMissingMetadataFile()
             throws Exception
     {
@@ -681,6 +646,27 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     @Test
+    public void testDropTablePreservesDataWhenGcDisabled()
+            throws Exception
+    {
+        String tableName = "test_drop_table_gc_disabled_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id integer) WITH (gc_enabled = false)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1), (2)", 2);
+
+        Location tableLocation = Location.of(getTableLocation(tableName));
+        Location tableDataPath = tableLocation.appendPath("data");
+        FileIterator dataFilesBeforeDrop = fileSystem.listFiles(tableDataPath);
+        assertThat(dataFilesBeforeDrop.hasNext()).isTrue();
+        Location dataFile = dataFilesBeforeDrop.next().location();
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(fileSystem.newInputFile(dataFile).exists())
+                .describedAs("Data files should be preserved when gc.enabled = false at DROP time")
+                .isTrue();
+    }
+
+    @Test
     public void testDropTableWithNonExistentTableLocation()
             throws Exception
     {
@@ -747,8 +733,6 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertQueryFails(session, "EXPLAIN " + query, failureMessage);
         assertUpdate(session, "DROP TABLE " + tableName);
     }
-
-    protected abstract boolean isFileSorted(Location path, String sortColumnName);
 
     @Test
     public void testTableChangesFunction()
@@ -931,6 +915,21 @@ public abstract class BaseIcebergConnectorSmokeTest
                     .projected("column_name", "distinct_values_count")
                     .matches("VALUES (VARCHAR 'id', 3e0), (null, null)");
         }
+    }
+
+    @Test
+    public void testFileSystemMetrics()
+    {
+        QueryRunner.MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(getSession(), "SELECT * FROM region");
+        Map<String, Metrics> catalogMetrics = getQueryRunner().getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(result.queryId())
+                .getQueryStats()
+                .getCatalogMetadataMetrics();
+        assertThat(catalogMetrics).containsKey("iceberg");
+        Map<String, Metric<?>> metrics = catalogMetrics.get("iceberg").getMetrics();
+        assertThat(metrics.keySet()).anyMatch(key -> key.startsWith("filesystem.catalog."));
+        assertThat(((DistributionSnapshot) metrics.get("filesystem.catalog.all.time.distribution")).total()).isGreaterThan(0);
     }
 
     protected void verifyAnalyzeFailurePermissible(Exception e)

@@ -207,7 +207,14 @@ public class CallTask
         stateMachine.setRoutines(ImmutableList.of(new RoutineInfo(procedureName.objectName(), session.getUser())));
 
         try {
-            procedure.getMethodHandle().invokeWithArguments(arguments);
+            Object result = procedure.getMethodHandle().invokeWithArguments(arguments);
+            if (procedure.getMethodHandle().type().returnType() == Map.class && result != null) {
+                @SuppressWarnings("unchecked")
+                Map<String, Long> metrics = (Map<String, Long>) result;
+                if (!metrics.isEmpty()) {
+                    stateMachine.setCallResult(metrics);
+                }
+            }
         }
         catch (Throwable t) {
             if (t instanceof InterruptedException) {

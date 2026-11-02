@@ -64,6 +64,28 @@ public class TestMarkdownTablePrinter
     }
 
     @Test
+    public void testMarkdownPrintingEscapedColumnNames()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.of(
+                column("first|name", VARCHAR),
+                column("line\nbreak", VARCHAR),
+                column("**quantity**", BIGINT));
+        StringWriter writer = new StringWriter();
+        OutputPrinter printer = new MarkdownTablePrinter(columns, writer);
+
+        printer.printRows(rows(row("ok", "here", 7)), true);
+        printer.finish();
+
+        String expected = "" +
+                "| first\\|name | line<br>break | \\*\\*quantity\\*\\* |\n" +
+                "| ----------- | ------------- | ----------------:|\n" +
+                "| ok          | here          |                7 |\n";
+
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
+    }
+
+    @Test
     public void testMarkdownPrintingOneRow()
             throws Exception
     {

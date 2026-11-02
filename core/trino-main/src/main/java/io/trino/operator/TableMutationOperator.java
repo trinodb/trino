@@ -132,7 +132,7 @@ public class TableMutationOperator
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
         page.declarePosition();
         if (count.isPresent()) {
-            BIGINT.writeLong(rowsBuilder, count.getAsLong());
+            BIGINT.writeLong(rowsBuilder, count.orElseThrow());
         }
         else {
             rowsBuilder.appendNull();

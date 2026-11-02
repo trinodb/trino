@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineSerializer;
 import io.trino.hive.formats.line.LineSerializerFactory;
@@ -39,7 +40,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -119,7 +119,7 @@ public abstract class LineFileWriterFactory
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             AggregatedMemoryContext outputStreamMemoryContext = newSimpleAggregatedMemoryContext();
-            OutputStream outputStream = fileSystem.newOutputFile(location).create(outputStreamMemoryContext);
+            TrinoOutputStream outputStream = fileSystem.newOutputFile(location).create(outputStreamMemoryContext);
 
             LineWriter lineWriter = lineWriterFactory.createLineWriter(session, outputStream, compressionCodec.getHiveCompressionKind());
 
@@ -128,6 +128,7 @@ public abstract class LineFileWriterFactory
                 lineWriter.write(header.get());
             }
             return Optional.of(new LineFileWriter(
+                    outputStream,
                     lineWriter,
                     lineSerializer,
                     () -> fileSystem.deleteFile(location),

@@ -97,4 +97,13 @@ public class TestS3FileSystemS3Mock
         assertThatThrownBy(super::testReadingEmptyFile)
                 .hasMessageContaining("Failed to open S3 file: s3://test-bucket/inputStream/");
     }
+
+    @Test
+    @Override
+    public void testOutputStreamAbort()
+    {
+        // this is S3Mock bug, aborting a multipart upload removes the existing object with the same key
+        assertThatThrownBy(super::testOutputStreamAbort)
+                .hasMessageContaining("FileNotFoundException: s3://test-bucket/outputStreamAbort/");
+    }
 }

@@ -14,6 +14,9 @@
 package io.trino.plugin.iceberg.encryption;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -73,6 +76,7 @@ abstract class BaseIcebergEncryptionFlociTest
     {
         hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
         hiveFlociDataLake.start();
+        onFlociStarted();
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
@@ -87,14 +91,17 @@ abstract class BaseIcebergEncryptionFlociTest
                                 .put("s3.region", FLOCI_REGION)
                                 .put("s3.path-style-access", "true")
                                 .put("s3.streaming.part-size", "5MB")
+                                .putAll(kmsProperties())
                                 .buildOrThrow())
                 .setAdditionalOverrideModule(binder -> {
                     kmsKeyId = kmsKey();
                     kmsClient = kmsClient();
                     encryptionManagerFactory = new DefaultEncryptionManagerFactory(Optional.of(kmsClient));
-                    newOptionalBinder(binder, EncryptionManagerFactory.class)
-                            .setBinding()
-                            .toInstance(encryptionManagerFactory);
+                    if (kmsProperties().isEmpty()) {
+                        newOptionalBinder(binder, EncryptionManagerFactory.class)
+                                .setBinding()
+                                .toInstance(encryptionManagerFactory);
+                    }
                 })
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
@@ -112,9 +119,16 @@ abstract class BaseIcebergEncryptionFlociTest
         catalog = getTrinoCatalog(getHiveMetastore(getQueryRunner()), getFileSystemFactory(getQueryRunner()), "iceberg", encryptionManagerFactory);
     }
 
+    protected void onFlociStarted() {}
+
     protected abstract String kmsKey();
 
     protected abstract KeyManagementClient kmsClient();
+
+    protected Map<String, String> kmsProperties()
+    {
+        return ImmutableMap.of();
+    }
 
     @Test
     void testReadEncryptedParquetTable()
@@ -141,6 +155,39 @@ abstract class BaseIcebergEncryptionFlociTest
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS tpch." + tableName);
+        }
+    }
+
+    @Test
+    void testRemoveOrphanFilesOnEncryptedTable()
+            throws Exception
+    {
+        String tableName = "enc_orphan_files_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+
+        createIcebergTable(schemaTableName, TABLE_SCHEMA);
+        try {
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+            setTableEncryptionKey(table, schemaTableName);
+            EncryptionManager encryptionManager = createEncryptionManager(kmsKeyId, kmsClient);
+            table.newFastAppend().appendFile(writeEncryptedDataFile(table, encryptionManager, createTestRecords(TABLE_SCHEMA, 100))).commit();
+            invalidateTableCache(schemaTableName);
+            assertThat(catalog.loadTable(SESSION, schemaTableName).currentSnapshot().keyId()).isNotNull();
+
+            TrinoFileSystem fileSystem = getFileSystemFactory(getQueryRunner()).create(SESSION);
+            Location orphanFile = Location.of(table.location()).appendPath("data/orphan.parquet");
+            fileSystem.newOutputFile(orphanFile).createOrOverwrite(new byte[123]);
+
+            Session session = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", "remove_orphan_files_min_retention", "0s")
+                    .build();
+            assertQuerySucceeds(session, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
+
+            assertThat(fileSystem.newInputFile(orphanFile).exists()).isFalse();
+            assertThat(computeScalar("SELECT count(*) FROM " + tableName)).isEqualTo(100L);
+        }
+        finally {
+            assertUpdate("DROP TABLE tpch." + tableName);
         }
     }
 

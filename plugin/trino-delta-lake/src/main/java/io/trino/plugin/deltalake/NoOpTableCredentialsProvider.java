@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.plugin.deltalake.metastore.FileSystemCredentials;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 
 import java.util.Optional;
@@ -21,7 +22,7 @@ public class NoOpTableCredentialsProvider
         implements DeltaLakeTableCredentialsProvider
 {
     @Override
-    public Optional<DeltaLakeTableCredentials> getTableCredentials(VendedCredentialsHandle credentialsHandle)
+    public Optional<FileSystemCredentials> getTableCredentials(VendedCredentialsHandle credentialsHandle)
     {
         return Optional.empty();
     }

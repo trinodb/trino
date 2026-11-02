@@ -46,26 +46,31 @@ import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
+import io.trino.type.LongInterval;
 
 import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.parseTimeWithTimeZone;
 import static io.trino.type.DateTimes.parseTimestamp;
 import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
+import static io.trino.type.IntervalCasts.checkLeadingFieldPrecision;
+import static io.trino.type.IntervalCasts.roundToLongInterval;
+import static io.trino.type.IntervalCasts.roundToShortInterval;
 import static io.trino.type.JsonType.JSON;
-import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
+import static io.trino.util.DateTimeUtils.parseDayTimeIntervalToPicos;
 import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
 import static java.util.Objects.requireNonNull;
 
 public final class LiteralInterpreter
 {
     private final PlannerContext plannerContext;
+    private final Session session;
     private final ConnectorSession connectorSession;
     private final InterpretedFunctionInvoker functionInvoker;
 
@@ -74,6 +79,7 @@ public final class LiteralInterpreter
     public LiteralInterpreter(PlannerContext plannerContext, Session session)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
         this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
     }
@@ -148,10 +154,10 @@ public final class LiteralInterpreter
                         boolean isJson = JSON.equals(type);
                         ResolvedFunction resolvedFunction;
                         if (isJson) {
-                            resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction("json_parse", fromTypes(VARCHAR));
+                            resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "json_parse", ImmutableList.of(VARCHAR));
                         }
                         else {
-                            resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
+                            resolvedFunction = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), VARCHAR, type);
                         }
                         return evaluatedNode -> functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(evaluatedNode.getValue())));
                     });
@@ -161,12 +167,8 @@ public final class LiteralInterpreter
         }
 
         @Override
-        protected Long visitIntervalLiteral(IntervalLiteral node, Void context)
+        protected Object visitIntervalLiteral(IntervalLiteral node, Void context)
         {
-            // TODO: the value should be interpreted according to the analyzed type. However, currently the analyzed type
-            //       is hard-coded to either INTERVAL DAY TO SECOND or INTERVAL YEAR TO MONTH, as arbitrary precision
-            //       invervals are not yet supported in the underlying type system.
-
             IntervalField start = switch (node.qualifier()) {
                 case SimpleIntervalQualifier simple -> simple.getField();
                 case CompositeIntervalQualifier composite -> composite.getFrom();
@@ -177,11 +179,27 @@ public final class LiteralInterpreter
                 case CompositeIntervalQualifier composite -> Optional.of(composite.getTo());
             };
 
-            return switch (type) {
-                case IntervalDayTimeType _ -> node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), start, end);
-                case IntervalYearMonthType _ -> node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), start, end);
+            int sign = node.getSign().multiplier();
+            // Enforce leading precision after rounding, including a carry into the leading field.
+            switch (type) {
+                case IntervalDayTimeType intervalType -> {
+                    long[] picos = parseDayTimeIntervalToPicos(node.getValue(), intervalType.getStartField(), intervalType.getEndField(), intervalType.getFractionalPrecision(), sign);
+                    if (intervalType.isShort()) {
+                        long value = roundToShortInterval(picos[0], picos[1], intervalType.getFractionalPrecision());
+                        checkLeadingFieldPrecision(value, type);
+                        return value;
+                    }
+                    LongInterval value = roundToLongInterval(picos[0], picos[1], intervalType.getFractionalPrecision());
+                    checkLeadingFieldPrecision(value.getMicros(), value.getPicosOfMicro(), type);
+                    return value;
+                }
+                case IntervalYearMonthType _ -> {
+                    long value = sign * parseYearMonthInterval(node.getValue(), start, end);
+                    checkLeadingFieldPrecision(value, type);
+                    return value;
+                }
                 default -> throw new UnsupportedOperationException("Unhandled interval type: " + type);
-            };
+            }
         }
 
         @Override

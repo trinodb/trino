@@ -28,6 +28,7 @@ import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
@@ -62,7 +63,6 @@ import java.util.List;
 import java.util.Random;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -91,6 +91,8 @@ import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
@@ -166,6 +168,10 @@ class FakerPageSource
             List<Object> values = column.domain().getValues().getDiscreteSet();
             ObjectWriter singleValueWriter = objectWriter(column.type());
             return blockBuilder -> singleValueWriter.accept(blockBuilder, values.get(random.nextInt(values.size())));
+        }
+        if (column.domain().getValues() instanceof FloatingPointValueSet floatingPoint && !floatingPoint.isAll() &&
+                (floatingPoint.asRanges().isEmpty() || floatingPoint.isAllOrderedValues())) {
+            throw new TrinoException(INVALID_ROW_FILTER, "Non-discrete NaN constraints are not supported for generated columns");
         }
         Generator generator;
         if (!column.step().isNone()) {
@@ -306,10 +312,10 @@ class FakerPageSource
             DoubleRange range = DoubleRange.of(genericRange, (double) handle.step().getSingleValue());
             return (blockBuilder, rowId) -> DOUBLE.writeDouble(blockBuilder, range.at(rowId));
         }
-        if (type.getBaseName().equals(StandardTypes.INTERVAL_DAY_TO_SECOND) || type.getBaseName().equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
-            // step is seconds or months
-            IntRange range = IntRange.of(genericRange, (long) handle.step().getSingleValue());
-            return (blockBuilder, rowId) -> type.writeLong(blockBuilder, range.at(rowId));
+        if (IntervalValues.isInterval(type)) {
+            IntervalValues.Bounds bounds = IntervalValues.bounds(type, genericRange);
+            long step = (long) handle.step().getSingleValue();
+            return (blockBuilder, rowId) -> type.writeLong(blockBuilder, bounds.at(rowId, step));
         }
         if (type instanceof TimestampType timestampType) {
             if (timestampType.isShort()) {
@@ -370,19 +376,21 @@ class FakerPageSource
             };
         }
         if (type instanceof ArrayType arrayType) {
-            ArrayBlockBuilder arrayBlockBuilder = arrayType.createBlockBuilder(null, 0);
+            ArrayBlockBuilder arrayBlockBuilder = arrayType.createBlockBuilder(null, 1);
             arrayBlockBuilder.buildEntry(_ -> {});
             ArrayBlock emptyBlock = (ArrayBlock) arrayBlockBuilder.build();
             return blockBuilder -> blockBuilder.append(emptyBlock, 0);
         }
         if (type instanceof MapType mapType) {
-            MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 0);
+            MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
             mapBlockBuilder.buildEntry((_, _) -> {});
             MapBlock emptyBlock = (MapBlock) mapBlockBuilder.build();
             return blockBuilder -> blockBuilder.append(emptyBlock, 0);
         }
         if (type.getBaseName().equals(StandardTypes.JSON)) {
-            return blockBuilder -> type.writeSlice(blockBuilder, EMPTY_SLICE);
+            // An empty slice is not a valid JSON document and would fail the parse on read;
+            // the JSON null literal is the canonical empty value.
+            return blockBuilder -> type.writeSlice(blockBuilder, Slices.utf8Slice("null"));
         }
 
         Range genericRange = handle.domain().getValues().getRanges().getSpan();
@@ -431,13 +439,12 @@ class FakerPageSource
             return blockBuilder -> DOUBLE.writeDouble(blockBuilder, range.low == range.high ? range.low : random.nextDouble(range.low, range.high));
         }
         // not supported: HYPER_LOG_LOG, QDIGEST, TDIGEST, P4_HYPER_LOG_LOG
-        if (type.getBaseName().equals(StandardTypes.INTERVAL_DAY_TO_SECOND)) {
-            LongRange range = LongRange.of(genericRange);
-            return blockBuilder -> type.writeLong(blockBuilder, numberBetween(range.low, range.high));
-        }
-        if (type.getBaseName().equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
-            IntRange range = IntRange.of(genericRange);
-            return blockBuilder -> type.writeLong(blockBuilder, numberBetween(range.low, range.high));
+        if (IntervalValues.isInterval(type)) {
+            IntervalValues.Bounds bounds = IntervalValues.bounds(type, genericRange);
+            // Shift the sampling interval when its inclusive upper bound cannot be incremented.
+            return blockBuilder -> type.writeLong(blockBuilder, (bounds.high() == Long.MAX_VALUE
+                    ? numberBetween(bounds.low() - 1, bounds.high()) + 1
+                    : numberBetween(bounds.low(), bounds.high() + 1)) * bounds.quantum());
         }
         if (type instanceof TimestampType timestampType) {
             return timestampGenerator(genericRange, timestampType);
@@ -522,10 +529,8 @@ class FakerPageSource
             return (blockBuilder, value) -> DOUBLE.writeDouble(blockBuilder, (Double) value);
         }
         // not supported: HYPER_LOG_LOG, QDIGEST, TDIGEST, P4_HYPER_LOG_LOG
-        if (type.getBaseName().equals(StandardTypes.INTERVAL_DAY_TO_SECOND)) {
-            return (blockBuilder, value) -> type.writeLong(blockBuilder, (Long) value);
-        }
-        if (type.getBaseName().equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
+        if (IntervalValues.isInterval(type)) {
+            IntervalValues.checkSupported(type);
             return (blockBuilder, value) -> type.writeLong(blockBuilder, (Long) value);
         }
         if (type instanceof TimestampType tzType) {
@@ -603,6 +608,8 @@ class FakerPageSource
                 tzType.writeObject(blockBuilder, new LongTimestamp(epochMicros * range.factor, 0));
             };
         }
+        // numberBetween excludes the high bound
+        int picosOfMicroHigh = (int) POWERS_OF_TEN[tzType.getPrecision() - 6];
         return blockBuilder -> {
             long epochMicros = numberBetween(range.low.getEpochMicros(), range.high.getEpochMicros());
             int picosOfMicro;
@@ -611,13 +618,13 @@ class FakerPageSource
                         range.low.getPicosOfMicro(),
                         range.low.getEpochMicros() == range.high.getEpochMicros() ?
                                 range.high.getPicosOfMicro()
-                                : (int) POWERS_OF_TEN[tzType.getPrecision() - 6] - 1);
+                                : picosOfMicroHigh);
             }
             else if (epochMicros == range.high.getEpochMicros()) {
                 picosOfMicro = numberBetween(0, range.high.getPicosOfMicro());
             }
             else {
-                picosOfMicro = numberBetween(0, (int) POWERS_OF_TEN[tzType.getPrecision() - 6] - 1);
+                picosOfMicro = numberBetween(0, picosOfMicroHigh);
             }
             tzType.writeObject(blockBuilder, new LongTimestamp(epochMicros, picosOfMicro * range.factor));
         };
@@ -633,19 +640,20 @@ class FakerPageSource
             };
         }
         LongTimestampWithTimeZoneRange range = LongTimestampWithTimeZoneRange.of(genericRange, tzType.getPrecision());
-        int picosOfMilliHigh = (int) POWERS_OF_TEN[tzType.getPrecision() - 3] - 1;
+        // numberBetween excludes the high bound
+        int picosOfMilliHigh = (int) POWERS_OF_TEN[tzType.getPrecision() - 3];
         return blockBuilder -> {
-            long millis = numberBetween(range.low.getEpochMillis(), range.high.getEpochMillis());
+            long millis = numberBetween(range.lowEpochMillis(), range.highEpochMillis());
             int picosOfMilli;
-            if (millis == range.low.getEpochMillis()) {
+            if (millis == range.lowEpochMillis()) {
                 picosOfMilli = numberBetween(
-                        range.low.getPicosOfMilli(),
-                        range.low.getEpochMillis() == range.high.getEpochMillis() ?
-                                range.high.getPicosOfMilli()
+                        range.lowPicosOfMilli(),
+                        range.lowEpochMillis() == range.highEpochMillis() ?
+                                range.highPicosOfMilli()
                                 : picosOfMilliHigh);
             }
-            else if (millis == range.high.getEpochMillis()) {
-                picosOfMilli = numberBetween(0, range.high.getPicosOfMilli());
+            else if (millis == range.highEpochMillis()) {
+                picosOfMilli = numberBetween(0, range.highPicosOfMilli());
             }
             else {
                 picosOfMilli = numberBetween(0, picosOfMilliHigh);
@@ -875,14 +883,16 @@ class FakerPageSource
                 return new LongTimestampRange(low, high, factor, step);
             }
             factor = (int) POWERS_OF_TEN[12 - precision];
-            int lowPicosOfMicro = roundDiv(low.getPicosOfMicro(), factor) + (!range.isLowUnbounded() && !range.isLowInclusive() ? 1 : 0);
+            int unitsPerMicro = PICOSECONDS_PER_MICROSECOND / factor;
+            // an unbounded bound keeps the extreme epoch value, so its fraction must not carry
+            int lowPicosOfMicro = range.isLowUnbounded() ? 0 : roundDiv(low.getPicosOfMicro(), factor) + (range.isLowInclusive() ? 0 : 1);
+            int highPicosOfMicro = range.isHighUnbounded() ? unitsPerMicro - 1 : roundDiv(high.getPicosOfMicro(), factor) + (range.isHighInclusive() ? 1 : 0);
             low = new LongTimestamp(
-                    low.getEpochMicros() - (lowPicosOfMicro < 0 ? 1 : 0),
-                    (lowPicosOfMicro + factor) % factor);
-            int highPicosOfMicro = roundDiv(high.getPicosOfMicro(), factor) + (!range.isHighUnbounded() && range.isHighInclusive() ? 1 : 0);
+                    low.getEpochMicros() + floorDiv(lowPicosOfMicro, unitsPerMicro),
+                    floorMod(lowPicosOfMicro, unitsPerMicro));
             high = new LongTimestamp(
-                    high.getEpochMicros() + (highPicosOfMicro > factor ? 1 : 0),
-                    highPicosOfMicro % factor);
+                    high.getEpochMicros() + floorDiv(highPicosOfMicro, unitsPerMicro),
+                    floorMod(highPicosOfMicro, unitsPerMicro));
             return new LongTimestampRange(low, high, factor, step);
         }
 
@@ -923,7 +933,11 @@ class FakerPageSource
         }
     }
 
-    private record LongTimestampWithTimeZoneRange(LongTimestampWithTimeZone low, LongTimestampWithTimeZone high, int factor, short defaultTZ, long step)
+    /**
+     * The bounds are exclusive at one end and the picoseconds are scaled down by {@code factor}, so neither bound is
+     * necessarily a value that {@code timestamp with time zone} can represent. They are kept as plain numbers.
+     */
+    private record LongTimestampWithTimeZoneRange(long lowEpochMillis, int lowPicosOfMilli, long highEpochMillis, int highPicosOfMilli, int factor, short defaultTZ, long step)
     {
         static LongTimestampWithTimeZoneRange of(Range range, int precision)
         {
@@ -943,25 +957,28 @@ class FakerPageSource
                 throw new TrinoException(INVALID_ROW_FILTER, "Range boundaries for timestamp with time zone columns must have the same time zone");
             }
             int factor = (int) POWERS_OF_TEN[12 - precision];
-            int lowPicosOfMilli = roundDiv(low.getPicosOfMilli(), factor) + (!range.isLowUnbounded() && !range.isLowInclusive() ? 1 : 0);
-            low = fromEpochMillisAndFraction(
-                    low.getEpochMillis() - (lowPicosOfMilli < 0 ? 1 : 0),
-                    (lowPicosOfMilli + factor) % factor,
-                    low.getTimeZoneKey());
-            int highPicosOfMilli = roundDiv(high.getPicosOfMilli(), factor) + (!range.isHighUnbounded() && range.isHighInclusive() ? 1 : 0);
-            high = fromEpochMillisAndFraction(
-                    high.getEpochMillis() + (highPicosOfMilli > factor ? 1 : 0),
-                    highPicosOfMilli % factor,
-                    high.getTimeZoneKey());
-            return new LongTimestampWithTimeZoneRange(low, high, factor, defaultTZ, step);
+            int unitsPerMilli = PICOSECONDS_PER_MILLISECOND / factor;
+            // an unbounded bound keeps the extreme epoch value, so its fraction must not carry
+            int lowPicos = range.isLowUnbounded() ? 0 : roundDiv(low.getPicosOfMilli(), factor) + (range.isLowInclusive() ? 0 : 1);
+            int highPicos = range.isHighUnbounded() ? unitsPerMilli - 1 : roundDiv(high.getPicosOfMilli(), factor) + (range.isHighInclusive() ? 1 : 0);
+            return new LongTimestampWithTimeZoneRange(
+                    low.getEpochMillis() + floorDiv(lowPicos, unitsPerMilli),
+                    floorMod(lowPicos, unitsPerMilli),
+                    high.getEpochMillis() + floorDiv(highPicos, unitsPerMilli),
+                    floorMod(highPicos, unitsPerMilli),
+                    factor,
+                    defaultTZ,
+                    step);
         }
 
         LongTimestampWithTimeZone at(long index, long stepFactor)
         {
             // TODO support nanosecond increments
             // TODO handle exclusive high
-            long millis = low.getEpochMillis() + roundDiv(index * step, stepFactor);
-            return fromEpochMillisAndFraction(step > 0 ? Math.min(millis, high.getEpochMillis()) : Math.max(millis, high.getEpochMillis()), 0, defaultTZ);
+            long millis = lowEpochMillis + roundDiv(index * step, stepFactor);
+            // highEpochMillis is exclusive when no picoseconds of it are included
+            long lastEpochMillis = highPicosOfMilli > 0 ? highEpochMillis : highEpochMillis - 1;
+            return fromEpochMillisAndFraction(step > 0 ? Math.min(millis, lastEpochMillis) : Math.max(millis, lastEpochMillis), 0, defaultTZ);
         }
     }
 

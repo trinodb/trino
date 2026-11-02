@@ -39,6 +39,7 @@ import java.util.Map;
 
 import static io.openlineage.client.OpenLineage.RunEvent.EventType.COMPLETE;
 import static io.openlineage.client.OpenLineage.RunEvent.EventType.START;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -1145,11 +1146,7 @@ public class TestOpenLineageEventsFromQueries
                 .satisfies(output -> assertThat(output.getFacets().getColumnLineage())
                         .satisfies(columnLineageFacet -> {
                             if (tableType.hasColumnLineageDataset()) {
-                                assertThat(columnLineageFacet.getDataset())
-                                        .hasSize(expectedDatasetInputFields.size());
-                                assertThat(columnLineageFacet.getDataset())
-                                        .usingRecursiveFieldByFieldElementComparator()
-                                        .containsExactlyInAnyOrderElementsOf(expectedDatasetInputFields);
+                                assertEqualsIgnoreOrder(columnLineageFacet.getDataset(), expectedDatasetInputFields);
                             }
                         }))
                 .satisfies(output -> assertThat(output.getFacets().getSchema())

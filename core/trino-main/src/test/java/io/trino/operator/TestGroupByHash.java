@@ -524,14 +524,15 @@ public class TestGroupByHash
     {
         GroupByHash groupByHash = createGroupByHash(
                 TEST_SESSION,
-                ImmutableList.of(BIGINT, BIGINT),
+                ImmutableList.of(BIGINT, BIGINT, BIGINT),
                 false,
                 100,
                 new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())),
                 NOOP);
         Block firstBlock = BlockAssertions.createLongDictionaryBlock(0, 1000, 10);
         Block secondBlock = BlockAssertions.createLongDictionaryBlock(0, 1000, 10);
-        Page page = new Page(firstBlock, secondBlock);
+        Block rleBlock = BlockAssertions.createRepeatedValuesBlock(0, 1000);
+        Page page = new Page(firstBlock, secondBlock, rleBlock);
 
         Work<?> work = groupByHash.addPage(page);
         assertThat(work).isInstanceOf(FlatGroupByHash.AddLowCardinalityDictionaryPageWork.class);
@@ -540,7 +541,7 @@ public class TestGroupByHash
 
         firstBlock = BlockAssertions.createLongDictionaryBlock(10, 1000, 5);
         secondBlock = BlockAssertions.createLongDictionaryBlock(10, 1000, 7);
-        page = new Page(firstBlock, secondBlock);
+        page = new Page(firstBlock, secondBlock, rleBlock);
 
         groupByHash.addPage(page).process();
         assertThat(groupByHash.getGroupCount()).isEqualTo(45); // Old 10 groups and 35 new
@@ -549,7 +550,7 @@ public class TestGroupByHash
     @Test
     public void testLowCardinalityDictionariesGetGroupIds()
     {
-        // Compare group ids results from page with dictionaries only (processed via low cardinality work) and the same page processed normally
+        // Compare group ids results from page with dictionaries and RLE (processed via low cardinality work) and the same page processed normally
         GroupByHash groupByHash = createGroupByHash(
                 TEST_SESSION,
                 ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT, BIGINT),
@@ -560,24 +561,26 @@ public class TestGroupByHash
 
         GroupByHash lowCardinalityGroupByHash = createGroupByHash(
                 TEST_SESSION,
-                ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT),
+                ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT, BIGINT),
                 false,
                 100,
                 new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())),
                 NOOP);
-        Block sameValueBlock = BlockAssertions.createLongRepeatBlock(0, 100);
-        Block block1 = BlockAssertions.createLongDictionaryBlock(0, 100, 1);
+        Block rleBlock = BlockAssertions.createRepeatedValuesBlock(0, 100);
+        Block flatSameValueBlock = new LongArrayBlock(100, Optional.empty(), new long[100]);
+        Block block1 = BlockAssertions.createLongDictionaryBlock(0, 100, 2);
         Block block2 = BlockAssertions.createLongDictionaryBlock(0, 100, 2);
-        Block block3 = BlockAssertions.createLongDictionaryBlock(0, 100, 3);
-        Block block4 = BlockAssertions.createLongDictionaryBlock(0, 100, 4);
-        // Combining block 2 and 4 will result in only 4 distinct values since 2 and 4 are not coprime
+        Block block3 = BlockAssertions.createLongDictionaryBlock(0, 100, 2);
+        Block block4 = BlockAssertions.createLongDictionaryBlock(0, 100, 3);
+        // The 24 possible dictionary combinations are within the low cardinality threshold
 
-        Page lowCardinalityPage = new Page(block1, block2, block3, block4);
-        Page page = new Page(block1, block2, block3, block4, sameValueBlock); // sameValueBlock will prevent low cardinality optimization to fire
+        Page lowCardinalityPage = new Page(block1, block2, block3, block4, rleBlock);
+        Page page = new Page(block1, block2, block3, block4, flatSameValueBlock);
 
         Work<int[]> lowCardinalityWork = lowCardinalityGroupByHash.getGroupIds(lowCardinalityPage);
         assertThat(lowCardinalityWork).isInstanceOf(FlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
         Work<int[]> work = groupByHash.getGroupIds(page);
+        assertThat(work).isInstanceOf(FlatGroupByHash.GetNonDictionaryGroupIdsWork.class);
 
         lowCardinalityWork.process();
         work.process();
@@ -627,13 +630,13 @@ public class TestGroupByHash
     public void testProperWorkTypesSelected()
     {
         Block bigintBlock = createLongsBlock(1, 2, 3, 4, 5, 6, 7, 8);
-        Block bigintDictionaryBlock = BlockAssertions.createLongDictionaryBlock(0, 8);
+        Block bigintDictionaryBlock = BlockAssertions.createLongDictionaryBlock(0, 16, 2);
         Block bigintRleBlock = BlockAssertions.createRepeatedValuesBlock(42, 8);
         Block varcharBlock = BlockAssertions.createStringsBlock("1", "2", "3", "4", "5", "6", "7", "8");
-        Block varcharDictionaryBlock = BlockAssertions.createStringDictionaryBlock(1, 8);
+        Block varcharDictionaryBlock = BlockAssertions.createStringDictionaryBlock(1, 16, 2);
         Block varcharRleBlock = RunLengthEncodedBlock.create(new VariableWidthBlock(1, Slices.EMPTY_SLICE, new int[] {0, 1}, Optional.empty()), 8);
-        Block bigintBigDictionaryBlock = BlockAssertions.createLongDictionaryBlock(1, 8, 1000);
-        Block bigintSingletonDictionaryBlock = BlockAssertions.createLongDictionaryBlock(1, 500000, 1);
+        Block bigintBigDictionaryBlock = BlockAssertions.createLongDictionaryBlock(1, 16, 1000);
+        Block bigintSmallDictionaryBlock = BlockAssertions.createLongDictionaryBlock(1, 500000, 2);
         Block bigintHugeDictionaryBlock = BlockAssertions.createLongDictionaryBlock(1, 500000, 66000); // Above Short.MAX_VALUE
 
         Page singleBigintPage = new Page(bigintBlock);
@@ -651,11 +654,13 @@ public class TestGroupByHash
 
         Page lowCardinalityDictionaryPage = new Page(bigintDictionaryBlock, varcharDictionaryBlock);
         assertGroupByHashWork(lowCardinalityDictionaryPage, ImmutableList.of(BIGINT, VARCHAR), FlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
+        Page lowCardinalityDictionaryAndRlePage = new Page(BlockAssertions.createRepeatedValuesBlock(42, 16), varcharDictionaryBlock);
+        assertGroupByHashWork(lowCardinalityDictionaryAndRlePage, ImmutableList.of(BIGINT, VARCHAR), FlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
         Page highCardinalityDictionaryPage = new Page(bigintDictionaryBlock, bigintBigDictionaryBlock);
         assertGroupByHashWork(highCardinalityDictionaryPage, ImmutableList.of(BIGINT, VARCHAR), FlatGroupByHash.GetNonDictionaryGroupIdsWork.class);
 
         // Cardinality above Short.MAX_VALUE
-        Page lowCardinalityHugeDictionaryPage = new Page(bigintSingletonDictionaryBlock, bigintHugeDictionaryBlock);
+        Page lowCardinalityHugeDictionaryPage = new Page(bigintSmallDictionaryBlock, bigintHugeDictionaryBlock);
         assertGroupByHashWork(lowCardinalityHugeDictionaryPage, ImmutableList.of(BIGINT, BIGINT), FlatGroupByHash.GetNonDictionaryGroupIdsWork.class);
     }
 

@@ -13,6 +13,8 @@
  */
 package io.trino.operator.scalar.timestamp;
 
+import io.trino.operator.scalar.preimage.TimestampDatePreimage;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
@@ -24,6 +26,7 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
 import static java.lang.Math.floorDiv;
 
+@FunctionPreimage(TimestampDatePreimage.class)
 @ScalarOperator(value = CAST, neverFails = true)
 @ScalarFunction(value = "date", neverFails = true)
 public final class TimestampToDateCast

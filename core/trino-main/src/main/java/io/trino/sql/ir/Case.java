@@ -36,15 +36,15 @@ public record Case(List<WhenClause> whenClauses, Expression defaultValue)
         requireNonNull(defaultValue, "defaultValue is null");
 
         for (WhenClause clause : whenClauses) {
-            validateType(BOOLEAN, clause.getOperand());
-            validateType(defaultValue.type(), clause.getResult());
+            validateType(BOOLEAN, clause.operand());
+            validateType(defaultValue.type(), clause.result());
         }
     }
 
     @Override
     public Type type()
     {
-        return whenClauses.getFirst().getResult().type();
+        return whenClauses.getFirst().result().type();
     }
 
     @Override
@@ -58,8 +58,8 @@ public record Case(List<WhenClause> whenClauses, Expression defaultValue)
     {
         ImmutableList.Builder<Expression> builder = ImmutableList.builder();
         whenClauses.forEach(clause -> {
-            builder.add(clause.getOperand());
-            builder.add(clause.getResult());
+            builder.add(clause.operand());
+            builder.add(clause.result());
         });
 
         builder.add(defaultValue);

@@ -782,11 +782,6 @@ public class GroupedTopNRankAccumulator
             buffer.increment(index * POSITIONS_PER_ENTRY + PEER_GROUP_COUNT_OFFSET);
         }
 
-        public void addPeerGroupCount(long index, long delta)
-        {
-            buffer.add(index * POSITIONS_PER_ENTRY + PEER_GROUP_COUNT_OFFSET, delta);
-        }
-
         public long getLeftChildHeapIndex(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY + LEFT_CHILD_HEAP_INDEX_OFFSET);

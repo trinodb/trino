@@ -76,7 +76,7 @@ public class TestStringFunctions
     @ScalarFunction(value = "vl", deterministic = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
-    public static long varcharLength(@LiteralParameter("x") Long param, @SqlType("varchar(x)") Slice slice)
+    public static long varcharLength(@LiteralParameter("x") long param, @SqlType("varchar(x)") Slice slice)
     {
         return param;
     }
@@ -397,6 +397,16 @@ public class TestStringFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("hamming_distance", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u4FE1\u5FF5\u5E0C\u671B'")::evaluate)
                 .hasMessage("The input strings to hamming_distance function must have the same length");
+
+        // NUL (U+0000) is a valid single-byte code point and must be advanced past like any other character
+        assertThat(assertions.function("hamming_distance", "chr(0)", "chr(0)"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("hamming_distance", "chr(0)", "'a'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("hamming_distance", "'a' || chr(0) || 'c'", "'a' || chr(0) || 'd'"))
+                .isEqualTo(1L);
     }
 
     @Test
@@ -569,6 +579,16 @@ public class TestStringFunctions
         assertThat(assertions.function("reverse", "'\uD801\uDC2Dend'"))
                 .hasType(createVarcharType(4))
                 .isEqualTo("dne\uD801\uDC2D");
+
+        // input with leading whitespace
+        assertThat(assertions.function("reverse", "' a'"))
+                .hasType(createVarcharType(2))
+                .isEqualTo("a ");
+
+        // input with trailing whitespace
+        assertThat(assertions.function("reverse", "'a '"))
+                .hasType(createVarcharType(2))
+                .isEqualTo(" a");
     }
 
     @Test
@@ -614,6 +634,16 @@ public class TestStringFunctions
         assertThat(assertions.function("reverse", "CAST('\uD801\uDC2Dend' AS CHAR(6))"))
                 .hasType(createCharType(6))
                 .isEqualTo("  dne\uD801\uDC2D");
+
+        // input with leading whitespace
+        assertThat(assertions.function("reverse", "CAST(' a' AS CHAR(2))"))
+                .hasType(createCharType(2))
+                .isEqualTo("a ");
+
+        // input with trailing whitespace
+        assertThat(assertions.function("reverse", "CAST('a' AS CHAR(2))"))
+                .hasType(createCharType(2))
+                .isEqualTo(" a");
     }
 
     @Test
@@ -1229,6 +1259,17 @@ public class TestStringFunctions
     @Test
     public void testSplit()
     {
+        assertThat(assertions.function("split", "''", "'.'"))
+                .isEqualTo(ImmutableList.of(""));
+        assertThat(assertions.function("split", "'abc'", "'abcdef'", "2147483647"))
+                .isEqualTo(ImmutableList.of("abc"));
+        assertThat(assertions.function("split", "'aaaaa'", "'aa'"))
+                .isEqualTo(ImmutableList.of("", "", "a"));
+        assertThat(assertions.function("split", "'" + "a.".repeat(1000) + "'", "'.'"))
+                .isEqualTo(ImmutableList.builder().addAll(nCopies(1000, "a")).add("").build());
+        assertThat(assertions.function("split", "'" + "a.".repeat(1000) + "'", "'.'", "2"))
+                .isEqualTo(ImmutableList.of("a", "a.".repeat(999)));
+
         assertThat(assertions.function("split", "'a.b.c'", "'.'"))
                 .hasType(new ArrayType(createVarcharType(5)))
                 .isEqualTo(ImmutableList.of("a", "b", "c"));
@@ -1978,7 +2019,7 @@ public class TestStringFunctions
 
         assertThat(assertions.function("rtrim", "CAST('abc def' AS CHAR(7))", "'def'"))
                 .hasType(createVarcharType(7))
-                .isEqualTo("abc");
+                .isEqualTo("abc ");
 
         // non latin characters
         assertThat(assertions.function("rtrim", "'\u017a\u00f3\u0142\u0107'", "'\u0107\u0142'"))

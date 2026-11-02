@@ -42,60 +42,18 @@ public final class MoreMath
         return diff / Math.min(absA + absB, Double.MAX_VALUE) < epsilon;
     }
 
-    /**
-     * See http://floating-point-gui.de/errors/comparison/
-     */
-    public static boolean nearlyEqual(float a, float b, float epsilon)
-    {
-        float absA = Math.abs(a);
-        float absB = Math.abs(b);
-        float diff = Math.abs(a - b);
-
-        if (a == b) { // shortcut, handles infinities
-            return true;
-        }
-        if (a == 0 || b == 0 || diff < Float.MIN_NORMAL) {
-            // a or b is zero or both are extremely close to it
-            // relative error is less meaningful here
-            return diff < (epsilon * Float.MIN_NORMAL);
-        } // use relative error
-        return diff / Math.min(absA + absB, Float.MAX_VALUE) < epsilon;
-    }
-
     public static double min(double... values)
     {
         return DoubleStream.of(values)
                 .min()
-                .getAsDouble();
+                .orElseThrow();
     }
 
     public static double max(double... values)
     {
         return DoubleStream.of(values)
                 .max()
-                .getAsDouble();
-    }
-
-    public static double rangeMin(double left, double right)
-    {
-        if (isNaN(left)) {
-            return right;
-        }
-        if (isNaN(right)) {
-            return left;
-        }
-        return min(left, right);
-    }
-
-    public static double rangeMax(double left, double right)
-    {
-        if (isNaN(left)) {
-            return right;
-        }
-        if (isNaN(right)) {
-            return left;
-        }
-        return max(left, right);
+                .orElseThrow();
     }
 
     public static double firstNonNaN(double... values)

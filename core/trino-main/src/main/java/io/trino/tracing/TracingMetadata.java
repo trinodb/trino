@@ -15,7 +15,6 @@ package io.trino.tracing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
@@ -96,6 +95,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
@@ -116,8 +116,8 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.Collection;
 import java.util.List;
@@ -212,6 +212,16 @@ public class TracingMetadata
                 .setAttribute(TrinoAttributes.PROCEDURE, procedureName);
         try (var _ = scopedSpan(span)) {
             return delegate.getTableHandleForExecute(session, tableHandle, procedureName, executeProperties);
+        }
+    }
+
+    @Override
+    public Optional<TableExecuteHandle> getTableHandleForMaterializedViewExecute(Session session, TableHandle tableHandle, String procedureName, Map<String, Object> executeProperties)
+    {
+        Span span = startSpan("getTableHandleForMaterializedViewExecute", tableHandle)
+                .setAttribute(TrinoAttributes.PROCEDURE, procedureName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandleForMaterializedViewExecute(session, tableHandle, procedureName, executeProperties);
         }
     }
 
@@ -758,24 +768,6 @@ public class TracingMetadata
     }
 
     @Override
-    public boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName)
-    {
-        Span span = startSpan("delegateMaterializedViewRefreshToConnector", viewName);
-        try (var _ = scopedSpan(span)) {
-            return delegate.delegateMaterializedViewRefreshToConnector(session, viewName);
-        }
-    }
-
-    @Override
-    public ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName)
-    {
-        Span span = startSpan("refreshMaterializedView", viewName);
-        try (var _ = scopedSpan(span)) {
-            return delegate.refreshMaterializedView(session, viewName);
-        }
-    }
-
-    @Override
     public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType)
     {
         Span span = startSpan("beginRefreshMaterializedView", tableHandle);
@@ -882,14 +874,14 @@ public class TracingMetadata
     }
 
     @Override
-    public void finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         Span span = startSpan("finishMerge", tableHandle.tableHandle().catalogHandle().getCatalogName());
         if (span.isRecording()) {
             span.setAttribute(TrinoAttributes.TABLE, tableHandle.tableHandle().connectorHandle().toString());
         }
         try (var _ = scopedSpan(span)) {
-            delegate.finishMerge(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
+            return delegate.finishMerge(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
         }
     }
 
@@ -993,11 +985,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, boolean replace)
+    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, SaveMode saveMode)
     {
         Span span = startSpan("createView", viewName);
         try (var _ = scopedSpan(span)) {
-            delegate.createView(session, viewName, definition, properties, replace);
+            delegate.createView(session, viewName, definition, properties, saveMode);
         }
     }
 
@@ -1373,42 +1365,48 @@ public class TracingMetadata
     }
 
     @Override
-    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes)
     {
         Span span = startSpan("resolveBuiltinFunction")
                 .setAttribute(TrinoAttributes.FUNCTION, name);
         try (var _ = scopedSpan(span)) {
-            return delegate.resolveBuiltinFunction(name, parameterTypes);
+            return delegate.resolveBuiltinFunction(charVarcharCoercion, name, parameterTypes);
         }
     }
 
     @Override
-    public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         // no tracing since it doesn't call any connector
-        return delegate.resolveOperator(operatorType, argumentTypes);
+        return delegate.resolveOperator(charVarcharCoercion, operatorType, argumentTypes);
     }
 
     @Override
-    public ResolvedFunction getCoercion(Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
-        return delegate.getCoercion(fromType, toType);
+        return delegate.getCoercion(charVarcharCoercion, fromType, toType);
     }
 
     @Override
-    public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
-        return delegate.getCoercion(operatorType, fromType, toType);
+        return delegate.getCoercion(charVarcharCoercion, operatorType, fromType, toType);
     }
 
     @Override
-    public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
-        return delegate.getCoercion(name, fromType, toType);
+        return delegate.getCoercion(charVarcharCoercion, name, fromType, toType);
+    }
+
+    @Override
+    public Optional<DomainProjection> getDomainProjection(Session session, ResolvedFunction resolvedFunction)
+    {
+        return delegate.getDomainProjection(session, resolvedFunction);
     }
 
     @Override
@@ -1606,6 +1604,15 @@ public class TracingMetadata
         Span span = startSpan("setMaterializedViewProperties", viewName);
         try (var _ = scopedSpan(span)) {
             delegate.setMaterializedViewProperties(session, viewName, properties);
+        }
+    }
+
+    @Override
+    public void setMaterializedViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
+    {
+        Span span = startSpan("setMaterializedViewComment", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.setMaterializedViewComment(session, viewName, comment);
         }
     }
 
@@ -1905,19 +1912,10 @@ public class TracingMetadata
                     entity.entityKind(),
                     entity.name(),
                     grantee.getType(),
-                    grantee.getName(),
+                    grantee.getPrincipalName(),
                     privileges.stream().map(EntityPrivilege::name).collect(Collectors.joining("-")),
                     grantOption ? "-grantOption" : "");
             span.setAttribute(TrinoAttributes.PRIVILEGE_GRANT, grant);
-        }
-        return span;
-    }
-
-    private Span startSpan(String methodName, EntityKindAndName entity)
-    {
-        Span span = startSpan(methodName);
-        if (span.isRecording()) {
-            span.setAttribute(TrinoAttributes.ENTITY, String.format("%s-%s", entity.entityKind(), entity.name()));
         }
         return span;
     }

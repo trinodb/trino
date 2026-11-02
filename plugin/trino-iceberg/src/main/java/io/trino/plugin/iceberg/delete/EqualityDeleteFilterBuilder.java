@@ -15,20 +15,17 @@ package io.trino.plugin.iceberg.delete;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
-import io.trino.plugin.iceberg.IcebergColumnHandle;
-
-import java.util.List;
 
 @ThreadSafe
 public interface EqualityDeleteFilterBuilder
 {
-    ListenableFuture<?> readEqualityDeletes(DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider);
+    ListenableFuture<?> readEqualityDeletes(DeleteFile deleteFile, DeletePageSourceProvider deletePageSourceProvider);
 
     /**
      * Builds the EqualityDeleteFilter.
      * After building the EqualityDeleteFilter, additional rows can be added to this builder, and the filter can be rebuilt.
      */
-    DeleteFilter build();
+    EqualityDeleteFilter build();
 
     long getEstimatedSizeInBytes();
 }

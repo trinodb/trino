@@ -35,31 +35,53 @@ import io.trino.parquet.reader.PageReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.TestingParquetDataSource;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
+import io.trino.spi.variant.Header;
+import io.trino.spi.variant.Variant;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.format.CompressionCodec;
+import org.apache.parquet.format.LogicalTypes;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Types;
 import org.assertj.core.data.Percentage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,7 +99,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
 import static io.trino.parquet.BloomFilterStore.hasBloomFilter;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
@@ -86,16 +107,34 @@ import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.parquet.metadata.HiddenColumnChunkMetadata.isHiddenColumn;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VariantType.VARIANT;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.listType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.mapType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.stringType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.variantType;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
@@ -103,6 +142,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetWriter
 {
+    private static final MessageType VARIANT_SCHEMA = Types.buildMessage()
+            .optionalGroup().as(variantType(Header.VERSION))
+            .required(BINARY).named("metadata")
+            .required(BINARY).named("value")
+            .named("v")
+            .named("trino_schema");
+    private static final RowType VARIANT_ROW_TYPE = rowType(field("v", VARIANT), field("i", INTEGER));
+
     @Test
     public void testCreatedByIsParsable()
             throws VersionParser.VersionParseException, IOException
@@ -310,7 +357,7 @@ public class TestParquetWriter
 
         List<BlockMetadata> rowGroups = writeParquetAndReadRowGroups(
                 ParquetWriterOptions.builder()
-                        .setMaxBlockSize(DataSize.ofBytes(1000))
+                        .setMaxBlockSize(DataSize.ofBytes(500))
                         .setMaxRowGroupRowCount(500)
                         .build(),
                 types,
@@ -350,7 +397,7 @@ public class TestParquetWriter
 
         String threeByteCodePoint = new String(Character.toChars(0x20AC));
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
-        Slice minB = Slices.utf8Slice(threeByteCodePoint.repeat(300)); // truncation in middle of unicode bytes
+        Slice minB = Slices.utf8Slice(threeByteCodePoint.repeat(400)); // truncation in middle of unicode bytes
         Block blockB = VARCHAR.createBlockBuilder(null, 2)
                 .writeEntry(minB)
                 // start with maxCodePoint to make it max value in stats
@@ -375,7 +422,7 @@ public class TestParquetWriter
         assertThat(chunkMetaData.getStatistics().getMaxBytes()).isEqualTo(truncatedMax.getBytes());
 
         chunkMetaData = blockMetaData.columns().get(1);
-        Slice truncatedMin = varcharToVarcharSaturatedFloorCast(1024, minB);
+        Slice truncatedMin = Slices.utf8Slice(threeByteCodePoint.repeat(341));
         assertThat(chunkMetaData.getStatistics().getMinBytes()).isEqualTo(truncatedMin.getBytes());
         truncatedMax = Slices.utf8Slice(maxCodePoint + "d".repeat(1016) + "e");
         assertThat(chunkMetaData.getStatistics().getMaxBytes()).isEqualTo(truncatedMax.getBytes());
@@ -392,7 +439,7 @@ public class TestParquetWriter
         ParquetDataSource dataSource = new TestingParquetDataSource(
                 writeParquetFile(
                         ParquetWriterOptions.builder()
-                                .setMaxBlockSize(DataSize.of(12, KILOBYTE))
+                                .setMaxBlockSize(DataSize.of(4, KILOBYTE))
                                 .build(),
                         types,
                         columnNames,
@@ -501,6 +548,159 @@ public class TestParquetWriter
         long actualWrittenBytes = outputStream.size();
 
         assertThat(estimatedWrittenBytes).isCloseTo(actualWrittenBytes, Percentage.withPercentage(10));
+    }
+
+    @Test
+    public void testEstimatedWrittenBytesForOpenDictionaryPages()
+            throws IOException
+    {
+        int rowCount = 42_000;
+        int dictionaryColumnCount = 125;
+        int plainColumnCount = 43;
+        int columnCount = dictionaryColumnCount + plainColumnCount;
+        List<String> columnNames = IntStream.range(0, columnCount)
+                .mapToObj("column_%s"::formatted)
+                .collect(toImmutableList());
+        List<Type> types = Collections.nCopies(columnCount, VARCHAR);
+
+        BlockBuilder dictionaryBlockBuilder = VARCHAR.createBlockBuilder(null, rowCount);
+        BlockBuilder plainBlockBuilder = VARCHAR.createBlockBuilder(null, rowCount);
+        for (int position = 0; position < rowCount; position++) {
+            if (position % 8 == 0) {
+                dictionaryBlockBuilder.appendNull();
+            }
+            else {
+                VARCHAR.writeString(dictionaryBlockBuilder, "dimension-%02d".formatted(position % 16));
+            }
+            VARCHAR.writeString(plainBlockBuilder, "payload-%05d-payload-%05d".formatted(position, position));
+        }
+        Block dictionaryBlock = dictionaryBlockBuilder.build();
+        Block plainBlock = plainBlockBuilder.build();
+        Block[] blocks = new Block[columnCount];
+        for (int column = 0; column < dictionaryColumnCount; column++) {
+            blocks[column] = dictionaryBlock;
+        }
+        for (int column = dictionaryColumnCount; column < columnCount; column++) {
+            blocks[column] = plainBlock;
+        }
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ParquetWriter writer = createParquetWriter(
+                outputStream,
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.of(8, MEGABYTE))
+                        .setMaxPageValueCount(50_000)
+                        .setMaxBlockSize(DataSize.of(150, MEGABYTE))
+                        .build(),
+                types,
+                columnNames,
+                CompressionCodec.ZSTD);
+        writer.write(new Page(blocks));
+
+        long estimatedWrittenBytes = writer.getEstimatedWrittenBytes();
+        writer.close();
+        long actualWrittenBytes = outputStream.size();
+
+        assertThat(actualWrittenBytes).isLessThan(DataSize.of(64, MEGABYTE).toBytes());
+        assertThat(estimatedWrittenBytes).isLessThan(DataSize.of(64, MEGABYTE).toBytes());
+        assertThat(estimatedWrittenBytes).isBetween(actualWrittenBytes, actualWrittenBytes + DataSize.of(56, MEGABYTE).toBytes());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testDictionaryEstimateDoesNotUseDataPageCompression(boolean writeOpenPage)
+            throws IOException
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ParquetWriter writer = createParquetWriter(
+                outputStream,
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.of(64, MEGABYTE))
+                        .setMaxPageValueCount(20_000)
+                        .setMaxBlockSize(DataSize.of(128, MEGABYTE))
+                        .build(),
+                ImmutableList.of(VARBINARY),
+                ImmutableList.of("column"),
+                CompressionCodec.ZSTD);
+
+        writer.write(dictionaryVarbinaryPage(20_000, 900, 1024, false));
+        if (writeOpenPage) {
+            writer.write(dictionaryVarbinaryPage(10_000, 900, 1024, false));
+        }
+        long estimatedWrittenBytes = writer.getEstimatedWrittenBytes();
+
+        writer.close();
+        long actualWrittenBytes = outputStream.size();
+
+        assertThat(Math.abs(estimatedWrittenBytes - actualWrittenBytes)).isLessThan(DataSize.of(64, KILOBYTE).toBytes());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testEstimatedWrittenBytesUsesDictionaryCompressionHistory(boolean compressibleDictionary)
+            throws IOException
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ParquetWriter writer = createParquetWriter(
+                outputStream,
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.of(64, MEGABYTE))
+                        .setMaxPageValueCount(20_000)
+                        .setMaxBlockSize(DataSize.of(128, MEGABYTE))
+                        .setMaxRowGroupRowCount(20_000)
+                        .build(),
+                ImmutableList.of(VARBINARY),
+                ImmutableList.of("column"),
+                CompressionCodec.ZSTD);
+
+        writer.write(dictionaryVarbinaryPage(20_000, 900, 1024, compressibleDictionary));
+        long firstRowGroupWrittenBytes = writer.getEstimatedWrittenBytes();
+        writer.write(dictionaryVarbinaryPage(10_000, 900, 1024, compressibleDictionary));
+        long estimatedWrittenBytes = writer.getEstimatedWrittenBytes();
+
+        writer.close();
+        long actualWrittenBytes = outputStream.size();
+
+        assertThat(Math.abs(estimatedWrittenBytes - actualWrittenBytes)).isLessThan(DataSize.of(64, KILOBYTE).toBytes());
+        if (compressibleDictionary) {
+            assertThat(estimatedWrittenBytes - firstRowGroupWrittenBytes).isLessThan(DataSize.of(64, KILOBYTE).toBytes());
+        }
+        else {
+            assertThat(estimatedWrittenBytes - firstRowGroupWrittenBytes).isGreaterThan(DataSize.of(800, KILOBYTE).toBytes());
+        }
+    }
+
+    @Test
+    public void testDictionaryCompressionHistoryIsIndependentFromDataPageHistory()
+            throws IOException
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ParquetWriter writer = createParquetWriter(
+                outputStream,
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.of(64, MEGABYTE))
+                        .setMaxPageValueCount(20_000)
+                        .setMaxBlockSize(DataSize.of(128, MEGABYTE))
+                        .setMaxRowGroupRowCount(20_000)
+                        .build(),
+                ImmutableList.of(VARBINARY, VARBINARY),
+                ImmutableList.of("dictionary", "data"),
+                CompressionCodec.ZSTD);
+
+        writer.write(new Page(
+                dictionaryVarbinaryBlock(20_000, 900, 1024, false),
+                compressibleUniqueVarbinaryBlock(20_000, 256)));
+        long firstRowGroupWrittenBytes = writer.getEstimatedWrittenBytes();
+        writer.write(new Page(
+                dictionaryVarbinaryBlock(10_000, 900, 1024, false),
+                compressibleUniqueVarbinaryBlock(10_000, 256)));
+        long estimatedWrittenBytes = writer.getEstimatedWrittenBytes();
+
+        writer.close();
+        long actualWrittenBytes = outputStream.size();
+
+        assertThat(estimatedWrittenBytes - firstRowGroupWrittenBytes).isGreaterThan(DataSize.of(800, KILOBYTE).toBytes());
+        assertThat(Math.abs(estimatedWrittenBytes - actualWrittenBytes)).isLessThan(DataSize.of(64, KILOBYTE).toBytes());
     }
 
     @Test
@@ -751,6 +951,435 @@ public class TestParquetWriter
         assertThat(readBackBuilder.build()).isEqualTo(sliceValues);
     }
 
+    @Test
+    public void testLongDecimalRoundTrip()
+            throws Exception
+    {
+        // long decimals are stored as FIXED_LEN_BYTE_ARRAY of ceil(precision) bytes, from 9 bytes at precision 19 up to 16 bytes at precision 38
+        for (int precision = 19; precision <= Decimals.MAX_PRECISION; precision++) {
+            DecimalType decimalType = DecimalType.createDecimalType(precision, 0);
+            List<Int128> values = longDecimalBoundaryValues(precision);
+
+            List<Type> types = ImmutableList.of(decimalType);
+            List<String> columnNames = ImmutableList.of("column");
+            BlockBuilder blockBuilder = decimalType.createBlockBuilder(null, values.size());
+            for (Int128 value : values) {
+                decimalType.writeObject(blockBuilder, value);
+            }
+
+            ParquetDataSource dataSource = new TestingParquetDataSource(
+                    writeParquetFile(
+                            ParquetWriterOptions.builder().build(),
+                            types,
+                            columnNames,
+                            ImmutableList.of(new Page(blockBuilder.build()))),
+                    ParquetReaderOptions.defaultOptions());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+
+            ImmutableList.Builder<Int128> readBackBuilder = ImmutableList.builder();
+            try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, types, columnNames)) {
+                SourcePage page;
+                while ((page = reader.nextPage()) != null) {
+                    Block block = page.getBlock(0);
+                    for (int position = 0; position < page.getPositionCount(); position++) {
+                        readBackBuilder.add((Int128) decimalType.getObject(block, position));
+                    }
+                }
+            }
+            assertThat(readBackBuilder.build()).describedAs("precision %s", precision).isEqualTo(values);
+        }
+    }
+
+    @Test
+    public void testVariantMetadataFirstRoundTrip()
+            throws IOException
+    {
+        // The spec identifies the fields by name. This file lists metadata before value, as in the spec's example schema.
+        List<Variant> values = ImmutableList.of(
+                Variant.ofObject(ImmutableMap.of(Slices.utf8Slice("key"), Variant.ofString("value"))),
+                Variant.ofInt(42),
+                Variant.ofString("hello"));
+
+        assertThat(writeAndReadColumn(VARIANT_SCHEMA, ImmutableMap.of(), VARIANT, variantBlock(values)))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testVariantMetadataFirstShortStringReadAsJson()
+            throws IOException
+    {
+        // A short string whose length is a multiple of 4 has a value header that also passes the metadata version check,
+        // so reading the fields swapped returns an empty string instead of failing
+        List<Variant> values = ImmutableList.of(Variant.ofString("abcd"), Variant.ofString("abcdefgh"));
+
+        assertThat(writeAndReadColumn(VARIANT_SCHEMA, ImmutableMap.of(), JSON, variantBlock(values)))
+                .containsExactly("\"abcd\"", "\"abcdefgh\"");
+    }
+
+    @Test
+    public void testVariantMetadataFirstReadAsJson()
+            throws IOException
+    {
+        // The reader grows its batches from a single row, so the null is followed by a value in the same batch
+        List<Variant> values = Arrays.asList(
+                Variant.ofObject(ImmutableMap.of(Slices.utf8Slice("key"), Variant.ofString("value"))),
+                null,
+                Variant.ofInt(42),
+                Variant.ofString("hello"));
+
+        assertThat(writeAndReadColumn(VARIANT_SCHEMA, ImmutableMap.of(), JSON, variantBlock(values)))
+                .containsExactly("{\"key\":\"value\"}", null, "42", "\"hello\"");
+    }
+
+    @Test
+    public void testVariantNullRoundTrip()
+            throws IOException
+    {
+        List<Variant> values = Arrays.asList(
+                Variant.ofObject(ImmutableMap.of(Slices.utf8Slice("key"), Variant.ofString("value"))),
+                null,
+                Variant.ofInt(42),
+                Variant.ofString("hello"),
+                null);
+
+        assertThat(writeAndReadColumn(VARIANT_SCHEMA, ImmutableMap.of(), VARIANT, variantBlock(values)))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testVariantArrayNullElementRoundTrip()
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .optionalGroup().as(listType())
+                .repeatedGroup()
+                .optionalGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("element")
+                .named("list")
+                .named("a")
+                .named("trino_schema");
+        List<List<Variant>> values = Arrays.asList(
+                Arrays.asList(Variant.ofInt(1), null, Variant.ofString("hello")),
+                null,
+                ImmutableList.of(),
+                Arrays.asList(null, Variant.ofInt(2)));
+
+        assertThat(writeAndReadColumn(schema, ImmutableMap.of(), new ArrayType(VARIANT), variantArrayBlock(values)))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testVariantArrayRequiredElementRoundTrip()
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .optionalGroup().as(listType())
+                .repeatedGroup()
+                .requiredGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("element")
+                .named("list")
+                .named("a")
+                .named("trino_schema");
+        // The reader grows its batches from a single row, so the empty and null arrays are each followed by values in the same batch
+        List<List<Variant>> values = Arrays.asList(
+                ImmutableList.of(Variant.ofInt(1)),
+                ImmutableList.of(),
+                ImmutableList.of(Variant.ofInt(2), Variant.ofString("hello")),
+                null,
+                ImmutableList.of(Variant.ofInt(3)));
+
+        assertThat(writeAndReadColumn(schema, ImmutableMap.of(), new ArrayType(VARIANT), variantArrayBlock(values)))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testVariantRowFieldNullRoundTrip()
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .optionalGroup()
+                .optionalGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("v")
+                .optional(INT32).named("i")
+                .named("r")
+                .named("trino_schema");
+        // The reader grows its batches from a single row, so the null variant and the null row are each followed by a value in the same batch
+        List<List<Object>> values = Arrays.asList(
+                Arrays.asList(Variant.ofInt(1), 1),
+                Arrays.asList(null, 2),
+                Arrays.asList(Variant.ofString("hello"), 3),
+                null,
+                Arrays.asList(Variant.ofInt(4), 4));
+
+        assertThat(writeAndReadColumn(schema, ImmutableMap.of(ImmutableList.of("r", "i"), INTEGER), VARIANT_ROW_TYPE, variantRowBlock(values)))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testVariantRowRequiredFieldRoundTrip()
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .optionalGroup()
+                .requiredGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("v")
+                .optional(INT32).named("i")
+                .named("r")
+                .named("trino_schema");
+        // The reader grows its batches from a single row, so each null row is followed by a value in the same batch
+        List<List<Object>> values = Arrays.asList(
+                Arrays.asList(Variant.ofInt(1), 1),
+                null,
+                Arrays.asList(Variant.ofString("hello"), 3),
+                null,
+                Arrays.asList(Variant.ofInt(4), 4));
+
+        assertThat(writeAndReadColumn(schema, ImmutableMap.of(ImmutableList.of("r", "i"), INTEGER), VARIANT_ROW_TYPE, variantRowBlock(values)))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testVariantMapNullValueRoundTrip()
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .optionalGroup().as(mapType())
+                .repeatedGroup()
+                .required(BINARY).as(stringType()).named("key")
+                .optionalGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("value")
+                .named("key_value")
+                .named("m")
+                .named("trino_schema");
+        MapType mapType = new MapType(VARCHAR, VARIANT, new TypeOperators());
+        Map<String, Variant> nullValueFirst = new LinkedHashMap<>();
+        nullValueFirst.put("a", null);
+        nullValueFirst.put("b", Variant.ofInt(2));
+        List<Map<String, Variant>> values = Arrays.asList(
+                nullValueFirst,
+                null,
+                ImmutableMap.of(),
+                ImmutableMap.of("c", Variant.ofString("hello")));
+        MapBlockBuilder blockBuilder = mapType.createBlockBuilder(null, values.size());
+        for (Map<String, Variant> map : values) {
+            if (map == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                blockBuilder.buildEntry((keyBuilder, valueBuilder) -> map.forEach((key, value) -> {
+                    VARCHAR.writeSlice(keyBuilder, Slices.utf8Slice(key));
+                    writeVariant(valueBuilder, value);
+                }));
+            }
+        }
+
+        assertThat(writeAndReadColumn(schema, ImmutableMap.of(ImmutableList.of("m", "key_value", "key"), VARCHAR), mapType, blockBuilder.build()))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testWriteVariantLogicalType()
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .optionalGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("v")
+                .optionalGroup()
+                .optionalGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("v")
+                .named("r")
+                .named("trino_schema");
+        RowBlockBuilder rowBuilder = rowType(field("v", VARIANT)).createBlockBuilder(null, 1);
+        rowBuilder.buildEntry(fieldBuilders -> writeVariant(fieldBuilders.getFirst(), Variant.ofInt(42)));
+        Page page = new Page(variantBlock(ImmutableList.of(Variant.ofInt(42))), rowBuilder.build());
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(ParquetWriterOptions.builder().build(), schema, ImmutableMap.of(), ImmutableList.of(page)),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+
+        // Readers that infer the schema from the footer need the annotation to recognize the group as a variant
+        assertThat(parquetMetadata.getParquetMetadata().getSchema())
+                .filteredOn(element -> element.getName().equals("v"))
+                .hasSize(2)
+                .allSatisfy(element -> assertThat(element.getLogicalType()).isEqualTo(LogicalTypes.VARIANT(Header.VERSION)));
+        MessageType fileSchema = parquetMetadata.getFileMetaData().getSchema();
+        assertThat(fileSchema.getType("v").getLogicalTypeAnnotation()).isEqualTo(variantType(Header.VERSION));
+        assertThat(fileSchema.getType("r").asGroupType().getType("v").getLogicalTypeAnnotation()).isEqualTo(variantType(Header.VERSION));
+    }
+
+    private static Block variantBlock(List<Variant> values)
+    {
+        BlockBuilder blockBuilder = VARIANT.createBlockBuilder(null, values.size());
+        values.forEach(value -> writeVariant(blockBuilder, value));
+        return blockBuilder.build();
+    }
+
+    private static Block variantArrayBlock(List<List<Variant>> values)
+    {
+        ArrayBlockBuilder blockBuilder = new ArrayType(VARIANT).createBlockBuilder(null, values.size());
+        for (List<Variant> array : values) {
+            if (array == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                blockBuilder.buildEntry(elementBuilder -> array.forEach(element -> writeVariant(elementBuilder, element)));
+            }
+        }
+        return blockBuilder.build();
+    }
+
+    private static Block variantRowBlock(List<List<Object>> values)
+    {
+        RowBlockBuilder blockBuilder = VARIANT_ROW_TYPE.createBlockBuilder(null, values.size());
+        for (List<Object> row : values) {
+            if (row == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                blockBuilder.buildEntry(fieldBuilders -> {
+                    writeVariant(fieldBuilders.get(0), (Variant) row.get(0));
+                    INTEGER.writeLong(fieldBuilders.get(1), (Integer) row.get(1));
+                });
+            }
+        }
+        return blockBuilder.build();
+    }
+
+    private static void writeVariant(BlockBuilder blockBuilder, Variant value)
+    {
+        if (value == null) {
+            blockBuilder.appendNull();
+        }
+        else {
+            VARIANT.writeObject(blockBuilder, value);
+        }
+    }
+
+    private static List<Object> writeAndReadColumn(MessageType schema, Map<List<String>, Type> primitiveTypes, Type type, Block block)
+            throws IOException
+    {
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(ParquetWriterOptions.builder().build(), schema, primitiveTypes, ImmutableList.of(new Page(block))),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        String columnName = getOnlyElement(schema.getFields()).getName();
+        List<Object> values = new ArrayList<>();
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, ImmutableList.of(type), ImmutableList.of(columnName))) {
+            SourcePage page;
+            while ((page = reader.nextPage()) != null) {
+                Block readBlock = page.getBlock(0);
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    values.add(type.getObjectValue(readBlock, position));
+                }
+            }
+        }
+        return values;
+    }
+
+    private static List<Int128> longDecimalBoundaryValues(int precision)
+    {
+        BigInteger max = BigInteger.TEN.pow(precision).subtract(BigInteger.ONE);
+        return Stream.of(
+                        BigInteger.ZERO,
+                        BigInteger.ONE,
+                        BigInteger.ONE.negate(),
+                        max,
+                        max.negate(),
+                        max.shiftRight(1),
+                        max.shiftRight(1).negate(),
+                        BigInteger.valueOf(Long.MAX_VALUE).min(max),
+                        BigInteger.valueOf(Long.MIN_VALUE).max(max.negate()),
+                        BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE).min(max))
+                .map(Int128::valueOf)
+                .collect(toImmutableList());
+    }
+
+    @ParameterizedTest
+    @MethodSource("timestampTzRoundTripParams")
+    public void testTimestampTzRoundTrip(TimestampWithTimeZoneType type, LogicalTypeAnnotation.TimeUnit expectedTimeUnit)
+            throws IOException
+    {
+        List<Object> values = generateTimestampTzValues(type, 1_000);
+        List<String> columnNames = ImmutableList.of("timestamp_tz");
+        List<Type> types = ImmutableList.of(type);
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, values)),
+                ParquetReaderOptions.defaultOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+
+        PrimitiveType parquetType = parquetMetadata.getFileMetaData().getSchema().getType(0).asPrimitiveType();
+        assertThat(parquetType.getLogicalTypeAnnotation())
+                .isEqualTo(LogicalTypeAnnotation.timestampType(true, expectedTimeUnit));
+
+        ImmutableList.Builder<Object> readBackBuilder = ImmutableList.builder();
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, types, columnNames)) {
+            SourcePage page;
+            while ((page = reader.nextPage()) != null) {
+                Block block = page.getBlock(0);
+                for (int i = 0; i < page.getPositionCount(); i++) {
+                    readBackBuilder.add(readTimestampTzValue(type, block, i));
+                }
+            }
+        }
+        assertThat(readBackBuilder.build()).isEqualTo(values);
+    }
+
+    public static Stream<Arguments> timestampTzRoundTripParams()
+    {
+        return Stream.of(
+                Arguments.of(TIMESTAMP_TZ_MILLIS, LogicalTypeAnnotation.TimeUnit.MILLIS),
+                Arguments.of(TIMESTAMP_TZ_MICROS, LogicalTypeAnnotation.TimeUnit.MICROS),
+                Arguments.of(TIMESTAMP_TZ_NANOS, LogicalTypeAnnotation.TimeUnit.NANOS));
+    }
+
+    private static List<Object> generateTimestampTzValues(TimestampWithTimeZoneType type, int count)
+    {
+        return LongStream.range(0, count)
+                .mapToObj(i -> {
+                    if (type.isShort()) {
+                        return packDateTimeWithZone(i, UTC_KEY);
+                    }
+                    int picosOfMilli;
+                    if (type.getPrecision() <= 6) {
+                        picosOfMilli = (int) ((i % MICROSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MICROSECOND);
+                    }
+                    else {
+                        picosOfMilli = (int) ((i % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND);
+                    }
+                    return LongTimestampWithTimeZone.fromEpochMillisAndFraction(i, picosOfMilli, UTC_KEY);
+                })
+                .collect(toImmutableList());
+    }
+
+    private static Object readTimestampTzValue(TimestampWithTimeZoneType type, Block block, int position)
+    {
+        if (type.isShort()) {
+            return type.getLong(block, position);
+        }
+        return type.getObject(block, position);
+    }
+
     public static Stream<Arguments> testWriteBloomFiltersParams()
     {
         int size = 2000;
@@ -798,6 +1427,52 @@ public class TestParquetWriter
             blocks[column] = blockBuilder.build();
         }
         return new Page(blocks);
+    }
+
+    private static Page dictionaryVarbinaryPage(int positionCount, int dictionarySize, int valueSize, boolean compressible)
+    {
+        return new Page(dictionaryVarbinaryBlock(positionCount, dictionarySize, valueSize, compressible));
+    }
+
+    private static Block dictionaryVarbinaryBlock(int positionCount, int dictionarySize, int valueSize, boolean compressible)
+    {
+        Random random = new Random(42);
+        Slice[] dictionary = new Slice[dictionarySize];
+        for (int index = 0; index < dictionarySize; index++) {
+            byte[] bytes = new byte[valueSize];
+            if (compressible) {
+                Arrays.fill(bytes, (byte) 'x');
+            }
+            else {
+                random.nextBytes(bytes);
+            }
+            bytes[0] = (byte) (index >>> 24);
+            bytes[1] = (byte) (index >>> 16);
+            bytes[2] = (byte) (index >>> 8);
+            bytes[3] = (byte) index;
+            dictionary[index] = Slices.wrappedBuffer(bytes);
+        }
+
+        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            VARBINARY.writeSlice(blockBuilder, dictionary[position % dictionarySize]);
+        }
+        return blockBuilder.build();
+    }
+
+    private static Block compressibleUniqueVarbinaryBlock(int positionCount, int valueSize)
+    {
+        byte[] bytes = new byte[valueSize];
+        Arrays.fill(bytes, (byte) 'x');
+        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            bytes[0] = (byte) (position >>> 24);
+            bytes[1] = (byte) (position >>> 16);
+            bytes[2] = (byte) (position >>> 8);
+            bytes[3] = (byte) position;
+            VARBINARY.writeSlice(blockBuilder, Slices.wrappedBuffer(bytes));
+        }
+        return blockBuilder.build();
     }
 
     private static List<BlockMetadata> writeParquetAndReadRowGroups(ParquetWriterOptions writerOptions, List<Type> types, List<String> columnNames, List<Page> inputPages)

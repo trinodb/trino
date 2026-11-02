@@ -1507,7 +1507,7 @@ public class TestPythonFunctions
                 $$
                 SELECT add_months(interval '5-9' year to month)
                 """))
-                .matches("VALUES interval '9-3' year to month");
+                .matches("VALUES interval '9-3' year(2) to month");
 
         assertThat(assertions.query(
                 """
@@ -1544,7 +1544,7 @@ public class TestPythonFunctions
                 $$
                 SELECT get_interval(interval '5 9:23:56.123' day to second)
                 """))
-                .matches("VALUES (interval '3 18:42:33.889' day to second)");
+                .matches("VALUES (interval '3 18:42:33.889' day(2) to second)");
 
         assertThat(assertions.query(
                 """
@@ -1565,6 +1565,50 @@ public class TestPythonFunctions
     }
 
     @Test
+    public void testRejectLongIntervals()
+    {
+        for (String type : new String[] {
+                "interval second(4,9)",
+                "array(interval second(4,9))",
+                "map(varchar, interval second(4,9))",
+                "map(interval second(4,9), varchar)",
+                "row(value interval second(4,9))",
+        }) {
+            assertThat(assertions.query(
+                    """
+                    WITH FUNCTION consume(x %s)
+                    RETURNS boolean
+                    LANGUAGE PYTHON
+                    WITH (handler = 'consume')
+                    AS $$
+                    def consume(x):
+                        return True
+                    $$
+                    SELECT consume(CAST(NULL AS %s))
+                    """.formatted(type, type)))
+                    .failure()
+                    .hasErrorCode(NOT_SUPPORTED)
+                    .hasMessageContaining("Day-time intervals with fractional precision above 6 are not supported in Python functions");
+
+            assertThat(assertions.query(
+                    """
+                    WITH FUNCTION produce()
+                    RETURNS %s
+                    LANGUAGE PYTHON
+                    WITH (handler = 'produce')
+                    AS $$
+                    def produce():
+                        return None
+                    $$
+                    SELECT produce()
+                    """.formatted(type)))
+                    .failure()
+                    .hasErrorCode(NOT_SUPPORTED)
+                    .hasMessageContaining("Day-time intervals with fractional precision above 6 are not supported in Python functions");
+        }
+    }
+
+    @Test
     public void testTypeJson()
     {
         assertThat(assertions.query(
@@ -1576,7 +1620,7 @@ public class TestPythonFunctions
                 AS $$
                 import json
                 def update_json(x):
-                    assert x == '{"bar":456,"foo":123}'
+                    assert x == '{"foo":123,"bar":456}'
                     v = json.loads(x)
                     v['abc'] = 'xyz'
                     return json.dumps(v)
@@ -1585,7 +1629,7 @@ public class TestPythonFunctions
                 """))
                 .matches(
                         """
-                        VALUES json '{"abc": "xyz", "bar": 456, "foo": 123}'
+                        VALUES json '{"foo": 123, "bar": 456, "abc": "xyz"}'
                         """);
 
         assertThat(assertions.query(
@@ -2004,7 +2048,7 @@ public class TestPythonFunctions
                         datetime(2024, 5, 6, 11, 42, 54, 123457, timezone(timedelta(hours=-7))),
                         67,
                         timedelta(days=5, hours=9, minutes=23, seconds=56, milliseconds=123),
-                        '{"bar":456,"foo":123}',
+                        '{"foo":123,"bar":456}',
                         UUID('6b5f5b65-67e4-43b0-8ee3-586cd49f58a1'),
                         ip_address('12.34.56.78'))
                     return x
@@ -2059,9 +2103,9 @@ public class TestPythonFunctions
                             timestamp '2024-05-06 11:42:54.12346',
                             timestamp '2024-05-06 11:42:54.123-07:00',
                             timestamp '2024-05-06 11:42:54.12346-07:00',
-                            interval '5-7' year to month,
-                            interval '5 09:23:56.123' day to second,
-                            json '{"bar": 456, "foo": 123}',
+                            interval '5-7' year(2) to month,
+                            interval '5 09:23:56.123' day(2) to second,
+                            json '{"foo": 123, "bar": 456}',
                             uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
                             ipaddress '12.34.56.78')
                         """);

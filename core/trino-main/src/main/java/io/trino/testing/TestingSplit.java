@@ -40,11 +40,6 @@ public class TestingSplit
         return new TestingSplit(false, ImmutableList.of(localHost));
     }
 
-    public static TestingSplit createEmptySplit()
-    {
-        return new TestingSplit(false, ImmutableList.of());
-    }
-
     public static TestingSplit createRemoteSplit()
     {
         return new TestingSplit(true, ImmutableList.of());

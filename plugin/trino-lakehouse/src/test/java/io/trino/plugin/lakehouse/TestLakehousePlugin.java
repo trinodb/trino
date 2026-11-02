@@ -15,26 +15,63 @@ package io.trino.plugin.lakehouse;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
+import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestLakehousePlugin
 {
     @Test
     void testCreateConnector()
     {
+        assertCreateConnector(ImmutableMap.of());
+    }
+
+    @Test
+    void testCreateConnectorWithIcebergObjectStoreLayout()
+    {
+        assertCreateConnector(ImmutableMap.of(
+                "iceberg.object-store-layout.enabled", "true",
+                "delta.object-store-layout.enabled", "false"));
+    }
+
+    @Test
+    void testCreateConnectorWithDeltaObjectStoreLayout()
+    {
+        assertCreateConnector(ImmutableMap.of(
+                "iceberg.object-store-layout.enabled", "false",
+                "delta.object-store-layout.enabled", "true"));
+    }
+
+    private static void assertCreateConnector(Map<String, String> config)
+    {
         Plugin plugin = new LakehousePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create(
-                        "test",
-                        ImmutableMap.<String, String>builder()
-                                .put("hive.metastore.uri", "thrift://foo:1234")
-                                .put("bootstrap.quiet", "true")
-                                .buildOrThrow(),
-                        new TestingConnectorContext())
-                .shutdown();
+        Connector connector = factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("bootstrap.quiet", "true")
+                        .putAll(config)
+                        .buildOrThrow(),
+                new TestingConnectorContext());
+        try {
+            assertThat(connector.getTableProperties())
+                    .filteredOn(property -> property.getName().equals("object_store_layout_enabled"))
+                    .singleElement()
+                    .satisfies(property -> {
+                        assertThat(property.getDescription()).isEqualTo("Set to true to enable object store file layout");
+                        assertThat(property.getDefaultValue()).isNull();
+                    });
+        }
+        finally {
+            connector.shutdown();
+        }
     }
 }

@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -719,6 +720,39 @@ public class TestWindowFrameRange
                         "(INTERVAL '1' month, ARRAY[INTERVAL '1' month, INTERVAL '2' month]), " +
                         "(INTERVAL '2' month, ARRAY[INTERVAL '1' month, INTERVAL '2' month]), " +
                         "(INTERVAL '5' year, ARRAY[INTERVAL '5' year])");
+    }
+
+    /**
+     * A {@code number} is not accepted as the sort key type or the frame bound type of a RANGE frame with offsets,
+     * even though it is a numeric type. Frames without offsets do not constrain the sort key type.
+     */
+    @Test
+    public void testNumber()
+    {
+        // TODO: support number as the sort key type and the frame bound type of a RANGE frame with offsets
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) " +
+                "FROM (VALUES CAST(1 AS number), CAST(2 AS number)) t(a)"))
+                .failure()
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:35: Window frame of type RANGE PRECEDING or FOLLOWING requires that sort item type be numeric, datetime or interval (actual: number)");
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE BETWEEN CAST(1 AS number) PRECEDING AND CURRENT ROW) " +
+                "FROM (VALUES 1, 2) t(a)"))
+                .failure()
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:51: Window frame RANGE value type (number) not compatible with sort item type (integer)");
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE UNBOUNDED PRECEDING) " +
+                "FROM (VALUES CAST(1 AS number), CAST(2 AS number)) t(a)"))
+                .matches("VALUES " +
+                        "ARRAY[CAST(1 AS number)], " +
+                        "ARRAY[CAST(1 AS number), CAST(2 AS number)]");
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) " +
+                "FROM (VALUES CAST(1 AS number), CAST(2 AS number)) t(a)"))
+                .matches("VALUES " +
+                        "ARRAY[CAST(1 AS number)], " +
+                        "ARRAY[CAST(1 AS number), CAST(2 AS number)]");
     }
 
     @Test

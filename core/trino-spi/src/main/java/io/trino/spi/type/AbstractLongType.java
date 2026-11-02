@@ -50,9 +50,9 @@ public abstract class AbstractLongType
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(AbstractLongType.class, lookup(), long.class);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
-    public AbstractLongType(TypeDescriptor signature)
+    public AbstractLongType(TypeDescriptor descriptor)
     {
-        super(signature, long.class, LongArrayBlock.class);
+        super(descriptor, long.class, LongArrayBlock.class);
     }
 
     @Override

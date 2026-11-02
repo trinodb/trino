@@ -87,7 +87,7 @@ public class TestDropTableTask
     public void testDropTableOnView()
     {
         QualifiedName viewName = qualifiedName("existing_view");
-        metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropTable(viewName, false)))
                 .hasErrorCode(GENERIC_USER_ERROR)
@@ -98,7 +98,7 @@ public class TestDropTableTask
     public void testDropTableIfExistsOnView()
     {
         QualifiedName viewName = qualifiedName("existing_view");
-        metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropTable(viewName, true)))
                 .hasErrorCode(GENERIC_USER_ERROR)

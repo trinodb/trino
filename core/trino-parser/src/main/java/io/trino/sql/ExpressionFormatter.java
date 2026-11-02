@@ -40,6 +40,7 @@ import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.CurrentUser;
+import io.trino.sql.tree.DataTypeParameter;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DereferenceExpression;
@@ -64,13 +65,16 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IntervalValueExpression;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -123,7 +127,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -421,12 +424,12 @@ public final class ExpressionFormatter
         @Override
         protected String visitSimpleIntervalQualifier(SimpleIntervalQualifier node, Void context)
         {
-            if (node.getField() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
+            if (node.getField() instanceof IntervalField.Second(Optional<DataTypeParameter> fractionalPrecision) && fractionalPrecision.isPresent()) {
                 checkArgument(node.getPrecision().isPresent(), "Leading precision is required when fractional precision is specified");
-                return "SECOND(" + node.getPrecision().getAsInt() + ", " + fractionalPrecision.getAsInt() + ")";
+                return "SECOND(" + node.getPrecision().get() + ", " + fractionalPrecision.get() + ")";
             }
 
-            return node.getField().name() + (node.getPrecision().isPresent() ? "(" + node.getPrecision().getAsInt() + ")" : "");
+            return node.getField().name() + node.getPrecision().map(precision -> "(" + precision + ")").orElse("");
         }
 
         @Override
@@ -435,12 +438,12 @@ public final class ExpressionFormatter
             StringBuilder result = new StringBuilder();
             result.append(node.getFrom().name());
             if (node.getPrecision().isPresent()) {
-                result.append("(").append(node.getPrecision().getAsInt()).append(")");
+                result.append("(").append(node.getPrecision().get()).append(")");
             }
             result.append(" TO ");
             result.append(node.getTo().name());
-            if (node.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
-                result.append("(").append(fractionalPrecision.getAsInt()).append(")");
+            if (node.getTo() instanceof IntervalField.Second(Optional<DataTypeParameter> fractionalPrecision) && fractionalPrecision.isPresent()) {
+                result.append("(").append(fractionalPrecision.get()).append(")");
             }
             return result.toString();
         }
@@ -760,6 +763,12 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitIntervalValueExpression(IntervalValueExpression node, Void context)
+        {
+            return "((" + process(node.getLeft(), context) + " - " + process(node.getRight(), context) + ") " + process(node.getType().qualifier(), context) + ")";
+        }
+
+        @Override
         public String visitCast(Cast node, Void context)
         {
             return (node.isSafe() ? "TRY_CAST" : "CAST") +
@@ -946,6 +955,12 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitJsonConstructor(JsonConstructor node, Void context)
+        {
+            return "JSON(" + formatJsonExpression(node.getExpression(), Optional.of(node.getFormat())) + ")";
+        }
+
+        @Override
         protected String visitJsonQuery(JsonQuery node, Void context)
         {
             StringBuilder builder = new StringBuilder();
@@ -979,6 +994,30 @@ public final class ExpressionFormatter
                     .append(" ON ERROR")
                     .append(")");
 
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitJsonSerialize(JsonSerialize node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("JSON_SERIALIZE(")
+                    .append(formatJsonExpression(node.getExpression(), Optional.of(node.getInputFormat())));
+
+            if (node.getReturnedType().isPresent()) {
+                builder.append(" RETURNING ")
+                        .append(process(node.getReturnedType().get()))
+                        .append(node.getOutputFormat().map(value -> " FORMAT " + value).orElse(""));
+            }
+
+            // Emit ON ERROR only when it differs from the default (ERROR), so unchanged
+            // expressions round-trip to their original SQL.
+            if (node.getErrorBehavior() != JsonSerialize.OnErrorBehavior.ERROR) {
+                builder.append(" ").append(node.getErrorBehavior()).append(" ON ERROR");
+            }
+
+            builder.append(")");
             return builder.toString();
         }
 
@@ -1188,6 +1227,13 @@ public final class ExpressionFormatter
         }
         else {
             builder.append(formatFrameBound(windowFrame.getStart()));
+        }
+
+        switch (windowFrame.getExclusion()) {
+            case CURRENT_ROW -> builder.append(" EXCLUDE CURRENT ROW");
+            case GROUP -> builder.append(" EXCLUDE GROUP");
+            case TIES -> builder.append(" EXCLUDE TIES");
+            case NO_OTHERS -> {} // the default; an absent clause parses back to NO_OTHERS, so leave it unprinted
         }
 
         windowFrame.getAfterMatchSkipTo().ifPresent(skipTo ->

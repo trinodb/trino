@@ -16,6 +16,8 @@ package io.trino.operator.output;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.operator.OperatorContext;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -25,6 +27,7 @@ import java.util.Queue;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static java.util.Objects.requireNonNull;
 
 public class PagePartitionerPool
@@ -58,8 +61,20 @@ public class PagePartitionerPool
         return free.isEmpty() ? pagePartitionerSupplier.get() : free.poll();
     }
 
-    public void release(PagePartitioner pagePartitioner)
+    /**
+     * Returns the {@link PagePartitioner} to the pool or closes it. It is closed if preparing it for release fails.
+     */
+    public Metrics release(PagePartitioner pagePartitioner, OperatorContext operatorContext)
     {
+        Metrics metrics;
+        try {
+            metrics = pagePartitioner.prepareForRelease(operatorContext);
+        }
+        catch (Throwable e) {
+            closeAllSuppress(e, pagePartitioner);
+            throw e;
+        }
+
         // pagePartitioner.close can take a long time (flush->serialization), we want to keep it out of the synchronized block
         boolean shouldRetain;
         synchronized (this) {
@@ -71,6 +86,7 @@ public class PagePartitionerPool
         if (!shouldRetain) {
             pagePartitioner.close();
         }
+        return metrics;
     }
 
     public void close()

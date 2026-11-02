@@ -16,12 +16,14 @@ package io.trino.operator;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -302,6 +304,112 @@ public class TestRowReferencePageManager
             assertThat(extractValue(pageManager, id2)).isEqualTo(2L);
             assertThat(id0).isEqualTo(id2);
         }
+    }
+
+    @Test
+    public void testRetainedSizeAccounting()
+    {
+        RowReferencePageManager pageManager = new RowReferencePageManager();
+
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 2, 1_000_000);
+        VARCHAR.writeString(blockBuilder, "a");
+        VARCHAR.writeString(blockBuilder, "b");
+        Page page = new Page(blockBuilder.build());
+        long retainedBefore = page.getRetainedSizeInBytes();
+        assertThat(retainedBefore).isGreaterThan(1_000_000);
+
+        long id0;
+        long id1;
+        try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page)) {
+            assertThat(cursor.advance()).isTrue();
+            id0 = cursor.allocateRowId();
+            assertThat(cursor.advance()).isTrue();
+            id1 = cursor.allocateRowId();
+        }
+        assertThat(pageManager.getPageBytes()).isGreaterThanOrEqualTo(retainedBefore);
+
+        // Fully referenced page is still a compaction candidate because of the slack
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(1);
+        pageManager.compactIfNeeded();
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(0);
+        assertThat(pageManager.getPageBytes()).isLessThan(retainedBefore / 100);
+        assertThat(extractString(pageManager, id0)).isEqualTo("a");
+        assertThat(extractString(pageManager, id1)).isEqualTo("b");
+
+        pageManager.dereference(id0);
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(0);
+        assertThat(extractString(pageManager, id1)).isEqualTo("b");
+
+        pageManager.dereference(id1);
+        assertThat(pageManager.getPageBytes()).isEqualTo(0);
+    }
+
+    @Test
+    public void testBuilderResetSkewCompaction()
+    {
+        RowReferencePageManager pageManager = new RowReferencePageManager();
+
+        // Builder sized to 1.25x the value, matching the block builder reset skew
+        int valueLength = 1_000_000;
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1, valueLength * 5 / 4);
+        VARCHAR.writeString(blockBuilder, "z".repeat(valueLength));
+        Page page = new Page(blockBuilder.build());
+        long retainedBefore = page.getRetainedSizeInBytes();
+        assertThat(retainedBefore).isGreaterThan(valueLength * 5L / 4);
+
+        long id;
+        try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page)) {
+            assertThat(cursor.advance()).isTrue();
+            id = cursor.allocateRowId();
+        }
+        assertThat(pageManager.getPageBytes()).isGreaterThanOrEqualTo(retainedBefore);
+
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(1);
+        pageManager.compactIfNeeded();
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(0);
+        assertThat(pageManager.getPageBytes()).isLessThan(valueLength + 4096);
+        assertThat(extractString(pageManager, id)).hasSize(valueLength);
+    }
+
+    @Test
+    public void testSharedDictionaryPages()
+    {
+        RowReferencePageManager pageManager = new RowReferencePageManager();
+
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 2);
+        VARCHAR.writeString(blockBuilder, "x".repeat(100_000));
+        VARCHAR.writeString(blockBuilder, "y".repeat(100_000));
+        Block dictionary = blockBuilder.build();
+        Page page0 = new Page(DictionaryBlock.create(1, dictionary, new int[] {0}));
+        Page page1 = new Page(DictionaryBlock.create(1, dictionary, new int[] {1}));
+
+        long id0;
+        long id1;
+        try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page0)) {
+            assertThat(cursor.advance()).isTrue();
+            id0 = cursor.allocateRowId();
+        }
+        try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page1)) {
+            assertThat(cursor.advance()).isTrue();
+            id1 = cursor.allocateRowId();
+        }
+
+        // Each page is charged for the whole shared dictionary until it is copied
+        long pageBytesBeforeCompaction = pageManager.getPageBytes();
+        assertThat(pageBytesBeforeCompaction).isGreaterThanOrEqualTo(2 * dictionary.getRetainedSizeInBytes());
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(2);
+        pageManager.compactIfNeeded();
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(0);
+        assertThat(pageManager.getPageBytes()).isLessThan(pageBytesBeforeCompaction / 2 + 1024);
+        assertThat(extractString(pageManager, id0)).isEqualTo("x".repeat(100_000));
+        assertThat(extractString(pageManager, id1)).isEqualTo("y".repeat(100_000));
+    }
+
+    private static String extractString(RowReferencePageManager pageManager, long rowId)
+    {
+        Page page = pageManager.getPage(rowId);
+        int position = pageManager.getPosition(rowId);
+        return VARCHAR.getSlice(page.getBlock(0), position).toStringUtf8();
     }
 
     private static long extractValue(RowReferencePageManager pageManager, long rowId)

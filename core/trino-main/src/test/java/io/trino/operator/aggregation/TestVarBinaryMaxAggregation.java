@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -24,6 +23,7 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
+import static com.google.common.collect.Comparators.max;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
@@ -49,7 +49,7 @@ public class TestVarBinaryMaxAggregation
         Slice max = null;
         for (int i = start; i < start + length; i++) {
             Slice slice = Slices.wrappedBuffer(Ints.toByteArray(i));
-            max = (max == null) ? slice : Ordering.natural().max(max, slice);
+            max = (max == null) ? slice : max(max, slice);
         }
         return max.toStringUtf8();
     }

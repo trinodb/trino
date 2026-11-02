@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -47,10 +49,10 @@ public class TestTpcds
                 "SELECT c_first_name, c_last_name, ca_address_sk, ca_gmt_offset " +
                         "FROM customer JOIN customer_address ON c_current_addr_sk = ca_address_sk " +
                         "WHERE ca_address_sk = 4");
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 // note that c_first_name and c_last_name are both of type CHAR(X) so the results
                 // are padded with whitespace
-                .row("James               ", "Brown                         ", 4L, new BigDecimal("-7.00"))
+                .row("James               ", "Brown                         ", 4, new BigDecimal("-7.00"))
                 .build();
         assertThat(actual).containsExactlyElementsOf(expected);
 
@@ -58,10 +60,22 @@ public class TestTpcds
                 "SELECT c_first_name, c_last_name " +
                         "FROM customer JOIN customer_address ON c_current_addr_sk = ca_address_sk " +
                         "WHERE ca_address_sk = 4 AND ca_gmt_offset = DECIMAL '-7.00'");
-        expected = resultBuilder(getSession(), actual.getTypes())
+        expected = resultBuilder(actual.getTypes())
                 .row("James               ", "Brown                         ")
                 .build();
         assertThat(actual).containsExactlyElementsOf(expected);
+    }
+
+    @Test
+    public void testIdentifierType()
+    {
+        MaterializedResult actual = computeActual("SELECT r_reason_sk FROM sf3000.reason WHERE r_reason_sk = 1");
+        assertThat(actual.getTypes()).containsExactly(INTEGER);
+        assertThat(actual.getOnlyValue()).isEqualTo(1);
+
+        actual = computeActual("SELECT r_reason_sk FROM sf10000.reason WHERE r_reason_sk = 1");
+        assertThat(actual.getTypes()).containsExactly(BIGINT);
+        assertThat(actual.getOnlyValue()).isEqualTo(1L);
     }
 
     @Test

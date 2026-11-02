@@ -148,4 +148,18 @@ public abstract class TFilterTransport
     {
         transport.checkReadBytesAvailable(numBytes);
     }
+
+    @Override
+    public void resetMessageSizeAndConsumedBytes(long size)
+            throws TTransportException
+    {
+        transport.resetMessageSizeAndConsumedBytes(size);
+    }
+
+    @Override
+    public void resetMessageSizeAndConsumedBytes()
+            throws TTransportException
+    {
+        transport.resetMessageSizeAndConsumedBytes();
+    }
 }

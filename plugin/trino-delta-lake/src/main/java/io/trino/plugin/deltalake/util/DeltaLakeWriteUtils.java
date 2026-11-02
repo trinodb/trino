@@ -15,14 +15,16 @@ package io.trino.plugin.deltalake.util;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
+import com.google.common.hash.HashFunction;
+import io.trino.metastore.Partitions;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -31,13 +33,15 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.hash.Hashing.murmur3_32_fixed;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static io.trino.metastore.Partitions.escapePathName;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.readBigDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -46,17 +50,23 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 // Copied from io.trino.plugin.hive.util.HiveWriteUtils
 public final class DeltaLakeWriteUtils
 {
+    private static final int DATA_FILE_HASH_BITS = 20;
+    private static final HashFunction DATA_FILE_HASH_FUNCTION = murmur3_32_fixed();
+
     private static final DateTimeFormatter DELTA_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DELTA_TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
             .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
@@ -64,6 +74,61 @@ public final class DeltaLakeWriteUtils
             .toFormatter();
 
     private DeltaLakeWriteUtils() {}
+
+    public static String createDataFilePath(String fileName)
+    {
+        requireNonNull(fileName, "fileName is null");
+
+        int hash = DATA_FILE_HASH_FUNCTION.hashString(fileName, UTF_8).asInt();
+        String binaryHash = Integer.toBinaryString(hash | Integer.MIN_VALUE);
+        binaryHash = binaryHash.substring(binaryHash.length() - DATA_FILE_HASH_BITS);
+        return "%s/%s/%s/%s/%s".formatted(
+                binaryHash.substring(0, 4),
+                binaryHash.substring(4, 8),
+                binaryHash.substring(8, 12),
+                binaryHash.substring(12),
+                fileName);
+    }
+
+    public static String createDataFilePath(
+            String fileName,
+            boolean objectStoreLayoutEnabled,
+            List<String> partitionColumnNames,
+            List<String> partitionValues)
+    {
+        requireNonNull(fileName, "fileName is null");
+        requireNonNull(partitionColumnNames, "partitionColumnNames is null");
+        requireNonNull(partitionValues, "partitionValues is null");
+        checkArgument(partitionColumnNames.size() == partitionValues.size(), "partitionColumnNames and partitionValues sizes do not match");
+
+        if (objectStoreLayoutEnabled) {
+            return createDataFilePath(fileName);
+        }
+        if (partitionColumnNames.isEmpty()) {
+            return fileName;
+        }
+        return makePartName(partitionColumnNames, partitionValues) + "/" + fileName;
+    }
+
+    /**
+     * Copy of {@link Partitions#makePartName} modified to preserve case of partition columns.
+     */
+    private static String makePartName(List<String> partitionColumns, List<String> partitionValues)
+    {
+        StringBuilder name = new StringBuilder();
+
+        for (int i = 0; i < partitionColumns.size(); ++i) {
+            if (i > 0) {
+                name.append("/");
+            }
+
+            name.append(escapePathName(partitionColumns.get(i)));
+            name.append('=');
+            name.append(escapePathName(partitionValues.get(i)));
+        }
+
+        return name.toString();
+    }
 
     public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)
     {
@@ -119,9 +184,12 @@ public final class DeltaLakeWriteUtils
             int nanosOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
             return LocalDateTime.ofEpochSecond(epochSeconds, nanosOfSecond, ZoneOffset.UTC).format(DELTA_TIMESTAMP_FORMATTER);
         }
-        if (TIMESTAMP_TZ_MILLIS.equals(type)) {
-            long epochMillis = unpackMillisUtc(type.getLong(block, position));
-            return LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneOffset.UTC).format(DELTA_TIMESTAMP_FORMATTER);
+        if (TIMESTAMP_TZ_MICROS.equals(type)) {
+            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) type.getObject(block, position);
+            long epochMicros = timestamp.getEpochMillis() * MICROSECONDS_PER_MILLISECOND + timestamp.getPicosOfMilli() / PICOSECONDS_PER_MICROSECOND;
+            long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+            int nanosOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+            return LocalDateTime.ofEpochSecond(epochSeconds, nanosOfSecond, ZoneOffset.UTC).format(DELTA_TIMESTAMP_FORMATTER);
         }
         if (type instanceof DecimalType decimalType) {
             return readBigDecimal(decimalType, block, position).stripTrailingZeros().toPlainString();

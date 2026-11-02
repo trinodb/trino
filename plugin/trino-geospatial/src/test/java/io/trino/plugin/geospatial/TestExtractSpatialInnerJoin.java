@@ -27,6 +27,8 @@ import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -89,7 +91,7 @@ public class TestExtractSpatialInnerJoin
                     Symbol name1 = p.symbol("name_1", BIGINT);
                     Symbol name2 = p.symbol("name_2", BIGINT);
                     return p.filter(
-                            not(FUNCTIONS.getMetadata(), containsCall(geometryFromTextCall(wkt), point.toSymbolReference())),
+                            not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), containsCall(geometryFromTextCall(wkt), point.toSymbolReference())),
                             p.join(INNER,
                                     p.values(wkt, name1),
                                     p.values(point, name2)));

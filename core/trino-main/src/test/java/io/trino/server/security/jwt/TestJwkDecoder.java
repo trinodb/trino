@@ -46,28 +46,30 @@ public class TestJwkDecoder
     @Test
     public void testReadRsaKeys()
     {
-        Map<String, PublicKey> keys = decodeKeys("" +
-                "{\n" +
-                "  \"keys\": [\n" +
-                "    {\n" +
-                "      \"e\": \"AQAB\",\n" +
-                "      \"n\": \"mvj-0waJ2owQlFWrlC06goLs9PcNehIzCF0QrkdsYZJXOsipcHCFlXBsgQIdTdLvlCzNI07jSYA-zggycYi96lfDX-FYv_CqC8dRLf9TBOPvUgCyFMCFNUTC69hsrEYMR_J79Wj0MIOffiVr6eX-AaCG3KhBMZMh15KCdn3uVrl9coQivy7bk2Uw-aUJ_b26C0gWYj1DnpO4UEEKBk1X-lpeUMh0B_XorqWeq0NYK2pN6CoEIh0UrzYKlGfdnMU1pJJCsNxMiha-Vw3qqxez6oytOV_AswlWvQc7TkSX6cHfqepNskQb7pGxpgQpy9sA34oIxB_S-O7VS7_h0Qh4vQ\",\n" +
-                "      \"alg\": \"RS256\",\n" +
-                "      \"use\": \"sig\",\n" +
-                "      \"kty\": \"RSA\",\n" +
-                "      \"kid\": \"example-rsa\"\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"kty\": \"EC\",\n" +
-                "      \"use\": \"sig\",\n" +
-                "      \"crv\": \"P-256\",\n" +
-                "      \"kid\": \"example-ec\",\n" +
-                "      \"x\": \"W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y\",\n" +
-                "      \"y\": \"XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg\",\n" +
-                "      \"alg\": \"ES256\"\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}");
+        Map<String, PublicKey> keys = decodeKeys(
+                """
+                {
+                  "keys": [
+                    {
+                      "e": "AQAB",
+                      "n": "mvj-0waJ2owQlFWrlC06goLs9PcNehIzCF0QrkdsYZJXOsipcHCFlXBsgQIdTdLvlCzNI07jSYA-zggycYi96lfDX-FYv_CqC8dRLf9TBOPvUgCyFMCFNUTC69hsrEYMR_J79Wj0MIOffiVr6eX-AaCG3KhBMZMh15KCdn3uVrl9coQivy7bk2Uw-aUJ_b26C0gWYj1DnpO4UEEKBk1X-lpeUMh0B_XorqWeq0NYK2pN6CoEIh0UrzYKlGfdnMU1pJJCsNxMiha-Vw3qqxez6oytOV_AswlWvQc7TkSX6cHfqepNskQb7pGxpgQpy9sA34oIxB_S-O7VS7_h0Qh4vQ",
+                      "alg": "RS256",
+                      "use": "sig",
+                      "kty": "RSA",
+                      "kid": "example-rsa"
+                    },
+                    {
+                      "kty": "EC",
+                      "use": "sig",
+                      "crv": "P-256",
+                      "kid": "example-ec",
+                      "x": "W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y",
+                      "y": "XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg",
+                      "alg": "ES256"
+                    }
+                  ]
+                }
+                """);
         assertThat(keys).hasSize(2);
         assertThat(keys.get("example-rsa")).isInstanceOf(JwkRsaPublicKey.class);
         assertThat(keys.get("example-ec")).isInstanceOf(JwkEcPublicKey.class);
@@ -76,100 +78,110 @@ public class TestJwkDecoder
     @Test
     public void testNoKeyId()
     {
-        Map<String, PublicKey> keys = decodeKeys("" +
-                "{\n" +
-                "  \"keys\": [\n" +
-                "    {\n" +
-                "      \"e\": \"AQAB\",\n" +
-                "      \"n\": \"mvj-0waJ2owQlFWrlC06goLs9PcNehIzCF0QrkdsYZJXOsipcHCFlXBsgQIdTdLvlCzNI07jSYA-zggycYi96lfDX-FYv_CqC8dRLf9TBOPvUgCyFMCFNUTC69hsrEYMR_J79Wj0MIOffiVr6eX-AaCG3KhBMZMh15KCdn3uVrl9coQivy7bk2Uw-aUJ_b26C0gWYj1DnpO4UEEKBk1X-lpeUMh0B_XorqWeq0NYK2pN6CoEIh0UrzYKlGfdnMU1pJJCsNxMiha-Vw3qqxez6oytOV_AswlWvQc7TkSX6cHfqepNskQb7pGxpgQpy9sA34oIxB_S-O7VS7_h0Qh4vQ\",\n" +
-                "      \"alg\": \"RS256\",\n" +
-                "      \"use\": \"sig\",\n" +
-                "      \"kty\": \"RSA\"\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"kty\": \"EC\",\n" +
-                "      \"use\": \"sig\",\n" +
-                "      \"crv\": \"P-256\",\n" +
-                "      \"x\": \"W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y\",\n" +
-                "      \"y\": \"XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg\",\n" +
-                "      \"alg\": \"ES256\"\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}");
+        Map<String, PublicKey> keys = decodeKeys(
+                """
+                {
+                  "keys": [
+                    {
+                      "e": "AQAB",
+                      "n": "mvj-0waJ2owQlFWrlC06goLs9PcNehIzCF0QrkdsYZJXOsipcHCFlXBsgQIdTdLvlCzNI07jSYA-zggycYi96lfDX-FYv_CqC8dRLf9TBOPvUgCyFMCFNUTC69hsrEYMR_J79Wj0MIOffiVr6eX-AaCG3KhBMZMh15KCdn3uVrl9coQivy7bk2Uw-aUJ_b26C0gWYj1DnpO4UEEKBk1X-lpeUMh0B_XorqWeq0NYK2pN6CoEIh0UrzYKlGfdnMU1pJJCsNxMiha-Vw3qqxez6oytOV_AswlWvQc7TkSX6cHfqepNskQb7pGxpgQpy9sA34oIxB_S-O7VS7_h0Qh4vQ",
+                      "alg": "RS256",
+                      "use": "sig",
+                      "kty": "RSA"
+                    },
+                    {
+                      "kty": "EC",
+                      "use": "sig",
+                      "crv": "P-256",
+                      "x": "W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y",
+                      "y": "XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg",
+                      "alg": "ES256"
+                    }
+                  ]
+                }
+                """);
         assertThat(keys).isEmpty();
     }
 
     @Test
     public void testRsaNoModulus()
     {
-        Map<String, PublicKey> keys = decodeKeys("" +
-                "{\n" +
-                "  \"keys\": [\n" +
-                "    {\n" +
-                "      \"e\": \"AQAB\",\n" +
-                "      \"alg\": \"RS256\",\n" +
-                "      \"use\": \"sig\",\n" +
-                "      \"kty\": \"RSA\",\n" +
-                "      \"kid\": \"2c6fa6f5950a7ce465fcf247aa0b094828ac952c\"\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}");
+        Map<String, PublicKey> keys = decodeKeys(
+                """
+                {
+                  "keys": [
+                    {
+                      "e": "AQAB",
+                      "alg": "RS256",
+                      "use": "sig",
+                      "kty": "RSA",
+                      "kid": "2c6fa6f5950a7ce465fcf247aa0b094828ac952c"
+                    }
+                  ]
+                }
+                """);
         assertThat(keys).isEmpty();
     }
 
     @Test
     public void testRsaNoExponent()
     {
-        Map<String, PublicKey> keys = decodeKeys("" +
-                "{\n" +
-                "  \"keys\": [\n" +
-                "    {\n" +
-                "      \"n\": \"mvj-0waJ2owQlFWrlC06goLs9PcNehIzCF0QrkdsYZJXOsipcHCFlXBsgQIdTdLvlCzNI07jSYA-zggycYi96lfDX-FYv_CqC8dRLf9TBOPvUgCyFMCFNUTC69hsrEYMR_J79Wj0MIOffiVr6eX-AaCG3KhBMZMh15KCdn3uVrl9coQivy7bk2Uw-aUJ_b26C0gWYj1DnpO4UEEKBk1X-lpeUMh0B_XorqWeq0NYK2pN6CoEIh0UrzYKlGfdnMU1pJJCsNxMiha-Vw3qqxez6oytOV_AswlWvQc7TkSX6cHfqepNskQb7pGxpgQpy9sA34oIxB_S-O7VS7_h0Qh4vQ\",\n" +
-                "      \"alg\": \"RS256\",\n" +
-                "      \"use\": \"sig\",\n" +
-                "      \"kty\": \"RSA\",\n" +
-                "      \"kid\": \"2c6fa6f5950a7ce465fcf247aa0b094828ac952c\"\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}");
+        Map<String, PublicKey> keys = decodeKeys(
+                """
+                {
+                  "keys": [
+                    {
+                      "n": "mvj-0waJ2owQlFWrlC06goLs9PcNehIzCF0QrkdsYZJXOsipcHCFlXBsgQIdTdLvlCzNI07jSYA-zggycYi96lfDX-FYv_CqC8dRLf9TBOPvUgCyFMCFNUTC69hsrEYMR_J79Wj0MIOffiVr6eX-AaCG3KhBMZMh15KCdn3uVrl9coQivy7bk2Uw-aUJ_b26C0gWYj1DnpO4UEEKBk1X-lpeUMh0B_XorqWeq0NYK2pN6CoEIh0UrzYKlGfdnMU1pJJCsNxMiha-Vw3qqxez6oytOV_AswlWvQc7TkSX6cHfqepNskQb7pGxpgQpy9sA34oIxB_S-O7VS7_h0Qh4vQ",
+                      "alg": "RS256",
+                      "use": "sig",
+                      "kty": "RSA",
+                      "kid": "2c6fa6f5950a7ce465fcf247aa0b094828ac952c"
+                    }
+                  ]
+                }
+                """);
         assertThat(keys).isEmpty();
     }
 
     @Test
     public void testRsaInvalidModulus()
     {
-        Map<String, PublicKey> keys = decodeKeys("" +
-                "{\n" +
-                "  \"keys\": [\n" +
-                "    {\n" +
-                "      \"e\": \"AQAB\",\n" +
-                "      \"n\": \"!!INVALID!!\",\n" +
-                "      \"alg\": \"RS256\",\n" +
-                "      \"use\": \"sig\",\n" +
-                "      \"kty\": \"RSA\",\n" +
-                "      \"kid\": \"2c6fa6f5950a7ce465fcf247aa0b094828ac952c\"\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}");
+        Map<String, PublicKey> keys = decodeKeys(
+                """
+                {
+                  "keys": [
+                    {
+                      "e": "AQAB",
+                      "n": "!!INVALID!!",
+                      "alg": "RS256",
+                      "use": "sig",
+                      "kty": "RSA",
+                      "kid": "2c6fa6f5950a7ce465fcf247aa0b094828ac952c"
+                    }
+                  ]
+                }
+                """);
         assertThat(keys).isEmpty();
     }
 
     @Test
     public void testRsaInvalidExponent()
     {
-        Map<String, PublicKey> keys = decodeKeys("" +
-                "{\n" +
-                "  \"keys\": [\n" +
-                "    {\n" +
-                "      \"e\": \"!!INVALID!!\",\n" +
-                "      \"n\": \"mvj-0waJ2owQlFWrlC06goLs9PcNehIzCF0QrkdsYZJXOsipcHCFlXBsgQIdTdLvlCzNI07jSYA-zggycYi96lfDX-FYv_CqC8dRLf9TBOPvUgCyFMCFNUTC69hsrEYMR_J79Wj0MIOffiVr6eX-AaCG3KhBMZMh15KCdn3uVrl9coQivy7bk2Uw-aUJ_b26C0gWYj1DnpO4UEEKBk1X-lpeUMh0B_XorqWeq0NYK2pN6CoEIh0UrzYKlGfdnMU1pJJCsNxMiha-Vw3qqxez6oytOV_AswlWvQc7TkSX6cHfqepNskQb7pGxpgQpy9sA34oIxB_S-O7VS7_h0Qh4vQ\",\n" +
-                "      \"alg\": \"RS256\",\n" +
-                "      \"use\": \"sig\",\n" +
-                "      \"kty\": \"RSA\",\n" +
-                "      \"kid\": \"2c6fa6f5950a7ce465fcf247aa0b094828ac952c\"\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}");
+        Map<String, PublicKey> keys = decodeKeys(
+                """
+                {
+                  "keys": [
+                    {
+                      "e": "!!INVALID!!",
+                      "n": "mvj-0waJ2owQlFWrlC06goLs9PcNehIzCF0QrkdsYZJXOsipcHCFlXBsgQIdTdLvlCzNI07jSYA-zggycYi96lfDX-FYv_CqC8dRLf9TBOPvUgCyFMCFNUTC69hsrEYMR_J79Wj0MIOffiVr6eX-AaCG3KhBMZMh15KCdn3uVrl9coQivy7bk2Uw-aUJ_b26C0gWYj1DnpO4UEEKBk1X-lpeUMh0B_XorqWeq0NYK2pN6CoEIh0UrzYKlGfdnMU1pJJCsNxMiha-Vw3qqxez6oytOV_AswlWvQc7TkSX6cHfqepNskQb7pGxpgQpy9sA34oIxB_S-O7VS7_h0Qh4vQ",
+                      "alg": "RS256",
+                      "use": "sig",
+                      "kty": "RSA",
+                      "kid": "2c6fa6f5950a7ce465fcf247aa0b094828ac952c"
+                    }
+                  ]
+                }
+                """);
         assertThat(keys).isEmpty();
     }
 
@@ -215,18 +227,20 @@ public class TestJwkDecoder
     @Test
     public void testEcKey()
     {
-        Map<String, PublicKey> keys = decodeKeys("" +
-                "{\n" +
-                "  \"keys\": [\n" +
-                "    {\n" +
-                "      \"kid\": \"test-ec\",\n" +
-                "      \"kty\": \"EC\",\n" +
-                "      \"crv\": \"P-256\",\n" +
-                "      \"x\": \"W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y\",\n" +
-                "      \"y\": \"XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg\"\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}");
+        Map<String, PublicKey> keys = decodeKeys(
+                """
+                {
+                  "keys": [
+                    {
+                      "kid": "test-ec",
+                      "kty": "EC",
+                      "crv": "P-256",
+                      "x": "W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y",
+                      "y": "XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg"
+                    }
+                  ]
+                }
+                """);
         assertThat(keys).hasSize(1);
         assertThat(keys.get("test-ec")).isInstanceOf(JwkEcPublicKey.class);
     }
@@ -234,54 +248,60 @@ public class TestJwkDecoder
     @Test
     public void testEcInvalidCurve()
     {
-        Map<String, PublicKey> keys = decodeKeys("" +
-                "{\n" +
-                "  \"keys\": [\n" +
-                "    {\n" +
-                "      \"kid\": \"test-ec\",\n" +
-                "      \"kty\": \"EC\",\n" +
-                "      \"crv\": \"taco\",\n" +
-                "      \"x\": \"W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y\",\n" +
-                "      \"y\": \"XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg\"\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}");
+        Map<String, PublicKey> keys = decodeKeys(
+                """
+                {
+                  "keys": [
+                    {
+                      "kid": "test-ec",
+                      "kty": "EC",
+                      "crv": "taco",
+                      "x": "W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y",
+                      "y": "XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg"
+                    }
+                  ]
+                }
+                """);
         assertThat(keys).isEmpty();
     }
 
     @Test
     public void testEcInvalidX()
     {
-        Map<String, PublicKey> keys = decodeKeys("" +
-                "{\n" +
-                "  \"keys\": [\n" +
-                "    {\n" +
-                "      \"kid\": \"test-ec\",\n" +
-                "      \"kty\": \"EC\",\n" +
-                "      \"crv\": \"P-256\",\n" +
-                "      \"x\": \"!!INVALID!!\",\n" +
-                "      \"y\": \"XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg\"\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}");
+        Map<String, PublicKey> keys = decodeKeys(
+                """
+                {
+                  "keys": [
+                    {
+                      "kid": "test-ec",
+                      "kty": "EC",
+                      "crv": "P-256",
+                      "x": "!!INVALID!!",
+                      "y": "XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg"
+                    }
+                  ]
+                }
+                """);
         assertThat(keys).isEmpty();
     }
 
     @Test
     public void testEcInvalidY()
     {
-        Map<String, PublicKey> keys = decodeKeys("" +
-                "{\n" +
-                "  \"keys\": [\n" +
-                "    {\n" +
-                "      \"kid\": \"test-ec\",\n" +
-                "      \"kty\": \"EC\",\n" +
-                "      \"crv\": \"P-256\",\n" +
-                "      \"x\": \"W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y\",\n" +
-                "      \"y\": \"!!INVALID!!\"\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}");
+        Map<String, PublicKey> keys = decodeKeys(
+                """
+                {
+                  "keys": [
+                    {
+                      "kid": "test-ec",
+                      "kty": "EC",
+                      "crv": "P-256",
+                      "x": "W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y",
+                      "y": "!!INVALID!!"
+                    }
+                  ]
+                }
+                """);
         assertThat(keys).isEmpty();
     }
 

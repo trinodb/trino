@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -78,7 +77,7 @@ public class NodeTaskMap
 
     private static class NodeTasks
     {
-        private final Set<RemoteTask> remoteTasks = Sets.newConcurrentHashSet();
+        private final Set<RemoteTask> remoteTasks = ConcurrentHashMap.newKeySet();
         private final AtomicInteger nodeTotalPartitionedSplitCount = new AtomicInteger();
         private final AtomicLong nodeTotalPartitionedSplitWeight = new AtomicLong();
         private final FinalizerService finalizerService;

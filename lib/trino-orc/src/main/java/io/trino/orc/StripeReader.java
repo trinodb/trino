@@ -135,7 +135,7 @@ public class StripeReader
 
         // handle stripes with more than one row group
         boolean invalidCheckPoint = false;
-        if (rowsInRowGroup.isPresent() && stripe.getNumberOfRows() > rowsInRowGroup.getAsInt()) {
+        if (rowsInRowGroup.isPresent() && stripe.getNumberOfRows() > rowsInRowGroup.orElseThrow()) {
             // determine ranges of the stripe to read
             Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));

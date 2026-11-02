@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.kafka.encoder.raw;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.kafka.encoder.AbstractRowEncoder;
 import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
@@ -43,6 +42,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 public class RawRowEncoder
         extends AbstractRowEncoder
@@ -214,7 +214,7 @@ public class RawRowEncoder
                     declaredFieldType.name(),
                     columnName,
                     columnType,
-                    Joiner.on("/").join(allowedFieldTypes));
+                    Arrays.stream(allowedFieldTypes).map(Object::toString).collect(joining("/")));
         }
 
         public String getName()

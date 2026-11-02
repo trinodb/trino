@@ -36,6 +36,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -166,6 +167,14 @@ public final class IcebergSystemTablePageSource
     public void appendVarchar(String value)
     {
         VARCHAR.writeString(nextColumn(), value);
+    }
+
+    public void appendJson(String value)
+    {
+        // The value is canonical JSON text; write it through the JSON type so it is stored in
+        // the type's own block representation rather than a plain variable-width block.
+        Type type = types.get(currentChannel);
+        type.writeSlice(nextColumn(), utf8Slice(value));
     }
 
     public void appendVarcharVarcharMap(Map<String, String> values)

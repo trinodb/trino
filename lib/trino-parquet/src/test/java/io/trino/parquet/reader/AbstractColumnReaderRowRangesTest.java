@@ -38,7 +38,7 @@ import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainI
 import org.apache.parquet.column.values.fallback.FallbackValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
-import org.apache.parquet.internal.filter2.columnindex.RowRanges;
+import org.apache.parquet.filter2.columnindex.RowRanges;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;

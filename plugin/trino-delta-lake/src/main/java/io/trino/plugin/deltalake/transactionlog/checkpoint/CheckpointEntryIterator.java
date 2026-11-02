@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.math.LongMath;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
@@ -51,6 +50,7 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -78,7 +78,6 @@ import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_DAY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
@@ -92,16 +91,11 @@ import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPr
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
-import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Objects.requireNonNull;
 
 public class CheckpointEntryIterator
@@ -153,7 +147,6 @@ public class CheckpointEntryIterator
 
     private MetadataEntry metadataEntry;
     private ProtocolEntry protocolEntry;
-    private boolean deletionVectorsEnabled;
     private List<DeltaLakeColumnMetadata> schema;
     private List<DeltaLakeColumnMetadata> columnsWithMinMaxStats;
     private SourcePage page;
@@ -189,7 +182,6 @@ public class CheckpointEntryIterator
             this.metadataEntry = metadataEntry.get();
             checkArgument(protocolEntry.isPresent(), "Protocol entry must be provided when reading ADD entries from Checkpoint files");
             this.protocolEntry = protocolEntry.get();
-            deletionVectorsEnabled = isDeletionVectorEnabled(this.metadataEntry, this.protocolEntry);
             checkArgument(addStatsMinMaxColumnFilter.isPresent(), "addStatsMinMaxColumnFilter must be provided when reading ADD entries from Checkpoint files");
             this.schema = extractSchema(this.metadataEntry, this.protocolEntry, typeManager);
             this.columnsWithMinMaxStats = columnsWithStats(schema, this.metadataEntry.getOriginalPartitionColumns());
@@ -461,7 +453,7 @@ public class CheckpointEntryIterator
             return null;
         }
         RowType type = removeType.orElseThrow();
-        int removeFields = 4;
+        int removeFields = 5;
         SqlRow removeEntryRow = getRow(block, pagePosition);
         log.debug("Block %s has %s fields", block, removeEntryRow.getFieldCount());
         if (removeEntryRow.getFieldCount() != removeFields) {
@@ -470,11 +462,8 @@ public class CheckpointEntryIterator
                     format("Expected block %s to have %d children, but found %s", block, removeFields, removeEntryRow.getFieldCount()));
         }
         CheckpointFieldReader remove = new CheckpointFieldReader(removeEntryRow, type);
-        Optional<DeletionVectorEntry> deletionVector = Optional.empty();
-        if (deletionVectorsEnabled) {
-            deletionVector = Optional.ofNullable(remove.getRow("deletionVector"))
-                    .map(row -> parseDeletionVectorFromParquet(row, removeDeletionVectorType.orElseThrow()));
-        }
+        Optional<DeletionVectorEntry> deletionVector = Optional.ofNullable(remove.getRow("deletionVector"))
+                .map(row -> parseDeletionVectorFromParquet(row, removeDeletionVectorType.orElseThrow()));
         RemoveFileEntry result = new RemoveFileEntry(
                 remove.getString("path"),
                 remove.getMap(stringMap, "partitionValues"),
@@ -536,11 +525,8 @@ public class CheckpointEntryIterator
             long modificationTime = addReader.getLong("modificationTime");
             boolean dataChange = addReader.getBoolean("dataChange");
 
-            Optional<DeletionVectorEntry> deletionVector = Optional.empty();
-            if (deletionVectorsEnabled) {
-                deletionVector = Optional.ofNullable(addReader.getRow("deletionVector"))
-                        .map(row -> parseDeletionVectorFromParquet(row, addDeletionVectorType.orElseThrow()));
-            }
+            Optional<DeletionVectorEntry> deletionVector = Optional.ofNullable(addReader.getRow("deletionVector"))
+                    .map(row -> parseDeletionVectorFromParquet(row, addDeletionVectorType.orElseThrow()));
 
             Optional<DeltaLakeParquetFileStatistics> parsedStats = Optional.ofNullable(addReader.getRow("stats_parsed"))
                     .map(row -> parseStatisticsFromParquet(row, addParsedStatsFieldType.orElseThrow()));
@@ -593,12 +579,14 @@ public class CheckpointEntryIterator
             maxValues = Optional.of(parseMinMax(stats.getRow("maxValues"), columnsWithMinMaxStats));
         }
         nullCount = Optional.of(parseNullCount(stats.getRow("nullCount"), schema));
+        Optional<Boolean> tightBounds = stats.getOptionalBoolean("tightBounds");
 
         return new DeltaLakeParquetFileStatistics(
                 Optional.of(numRecords),
                 minValues,
                 maxValues,
-                nullCount);
+                nullCount,
+                tightBounds);
     }
 
     private Map<String, Object> parseMinMax(@Nullable SqlRow row, List<DeltaLakeColumnMetadata> eligibleColumns)
@@ -628,9 +616,9 @@ public class CheckpointEntryIterator
                 continue;
             }
             if (type instanceof TimestampWithTimeZoneType) {
-                long epochMillis = LongMath.divide((long) readNativeValue(TIMESTAMP_MILLIS, fieldBlock, fieldIndex), MICROSECONDS_PER_MILLISECOND, UNNECESSARY);
-                if (floorDiv(epochMillis, MILLISECONDS_PER_DAY) >= START_OF_MODERN_ERA_EPOCH_DAY) {
-                    values.put(name, packDateTimeWithZone(epochMillis, UTC_KEY));
+                LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) readNativeValue(type, fieldBlock, fieldIndex);
+                if (floorDiv(timestamp.getEpochMillis(), MILLISECONDS_PER_DAY) >= START_OF_MODERN_ERA_EPOCH_DAY) {
+                    values.put(name, timestamp);
                 }
                 continue;
             }

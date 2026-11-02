@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
@@ -52,6 +53,7 @@ import io.trino.server.GoneException;
 import io.trino.server.ResultQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
@@ -72,6 +74,7 @@ import java.io.EOFException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -86,6 +89,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.QueryState.FAILED;
@@ -99,6 +103,8 @@ import static io.trino.server.protocol.QueryResultRows.empty;
 import static io.trino.server.protocol.QueryResultRows.queryResultRowsBuilder;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Failures.toFailure;
 import static io.trino.util.MoreLists.mappedCopy;
 import static java.util.Objects.requireNonNull;
@@ -136,6 +142,7 @@ class Query
     @GuardedBy("this")
     private boolean exchangeFinished;
     private final boolean supportsParametricDateTime;
+    private final boolean supportsParametricInterval;
     private final boolean supportsNumberType;
     private final boolean supportsVariant;
     private final boolean supportsVariantBinary;
@@ -150,6 +157,10 @@ class Query
     private long lastToken = -1;
 
     private volatile boolean resultsConsumed;
+
+    private final SettableFuture<Void> finalQueryInfoCollected = SettableFuture.create();
+    // Shared between concurrent pollers so it must not be cancellable
+    private final ListenableFuture<Void> finalQueryInfoFuture = ignoreCancellation(finalQueryInfoCollected);
 
     @GuardedBy("this")
     private List<Column> columns;
@@ -227,6 +238,8 @@ class Query
 
         result.queryManager.setOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
+        result.queryManager.addFinalQueryInfoListener(result.getQueryId(), _ -> result.finalQueryInfoCollected.set(null));
+
         result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
             // Wait for the query info to become available and close the exchange client if there is no output stage for the query results to be pulled from.
             // This listener also makes sure the exchange client is always properly closed upon query failure.
@@ -266,6 +279,7 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        this.supportsParametricInterval = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_INTERVAL.toString());
         this.supportsNumberType = session.getClientCapabilities().contains(ClientCapabilities.NUMBER.toString());
         this.supportsVariant = session.getClientCapabilities().contains(ClientCapabilities.VARIANT.toString());
         this.supportsVariantBinary = session.getClientCapabilities().contains(ClientCapabilities.VARIANT_BINARY.toString());
@@ -425,7 +439,7 @@ class Query
         }
 
         // if this is not a request for the next results, return not found
-        if (token != nextToken.getAsLong()) {
+        if (token != nextToken.orElseThrow()) {
             // unknown token
             throw new NotFoundException();
         }
@@ -442,7 +456,7 @@ class Query
         }
 
         verify(nextToken.isPresent(), "Cannot generate next result when next token is not present");
-        verify(token == nextToken.getAsLong(), "Expected token to equal next token");
+        verify(token == nextToken.orElseThrow(), "Expected token to equal next token");
 
         // get the query info before returning
         // force update if query manager is closed
@@ -498,7 +512,7 @@ class Query
         URI nextResultsUri = null;
         URI partialCancelUri = null;
         if (nextToken.isPresent()) {
-            long nextToken = this.nextToken.getAsLong();
+            long nextToken = this.nextToken.orElseThrow();
             nextResultsUri = createNextResultsUri(externalUriInfo, nextToken);
             partialCancelUri = findCancelableLeafStage(queryInfo)
                     .map(stage -> createPartialCancelUri(stage, externalUriInfo, nextToken))
@@ -578,6 +592,29 @@ class Query
     {
         if (!resultsConsumed && queryInfo.stages().isEmpty()) {
             if (columns == null) {
+                String updateType = queryInfo.updateType();
+                if ("CALL".equals(updateType)) {
+                    types = ImmutableList.of(VARCHAR, BIGINT);
+                    columns = ImmutableList.of(
+                            createColumn("metric_name", VARCHAR, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval),
+                            createColumn("metric_value", BIGINT, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
+                    queryDataProducer = QueryDataProducerFactory.create(session, types);
+                    Optional<Map<String, Long>> callResult = queryManager.getCallResult(queryId);
+                    if (callResult.isPresent() && !callResult.get().isEmpty()) {
+                        Map<String, Long> metrics = callResult.get();
+                        PageBuilder pageBuilder = new PageBuilder(types);
+                        for (Entry<String, Long> entry : metrics.entrySet()) {
+                            pageBuilder.declarePosition();
+                            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), utf8Slice(entry.getKey()));
+                            BIGINT.writeLong(pageBuilder.getBlockBuilder(1), entry.getValue());
+                        }
+                        return queryResultRowsBuilder()
+                                .withTypes(types)
+                                .addPage(pageBuilder.build())
+                                .build();
+                    }
+                    return QueryResultRows.empty();
+                }
                 columns = ImmutableList.of();
                 types = ImmutableList.of();
             }
@@ -716,7 +753,7 @@ class Query
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < columnNames.size(); i++) {
-                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();
@@ -731,8 +768,13 @@ class Query
 
     private ListenableFuture<Void> queryDoneFuture(QueryState currentState)
     {
-        if (currentState.isDone()) {
+        if (currentState == FAILED) {
+            // A failed query drops nextUri immediately
             return immediateVoidFuture();
+        }
+        if (currentState.isDone()) {
+            // getNextResult keeps providing nextUri until the final query info is collected
+            return finalQueryInfoFuture;
         }
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }

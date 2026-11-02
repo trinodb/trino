@@ -410,7 +410,7 @@ public class TestAddColumnTask
     public void testAddColumnOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(viewName), QualifiedName.of("test"), INTEGER, Optional.empty(), new ColumnPosition.Last(), false, false)))
                 .hasErrorCode(TABLE_NOT_FOUND)

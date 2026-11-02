@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
-import io.trino.plugin.iceberg.IcebergConnector;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -34,11 +34,9 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Base64;
 
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -77,25 +75,25 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Path gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json");
-        gcpCredentialsFile.toFile().deleteOnExit();
-        Files.write(gcpCredentialsFile, GCS_JSON_KEY_BYTES);
-        String projectId = JSON_MAPPER.readTree(GCS_JSON_KEY_BYTES).get("project_id").asText();
+        JsonNode gcsJson = JSON_MAPPER.readTree(GCS_JSON_KEY_BYTES);
+        String projectId = gcsJson.get("project_id").asText();
 
         return IcebergQueryRunner.builder(SCHEMA)
                 .addIcebergProperty("iceberg.file-format", format.name())
                 .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
                 .addIcebergProperty("iceberg.unique-table-location", "false")
                 .addIcebergProperty("iceberg.catalog.type", "rest")
-                .addIcebergProperty("iceberg.rest-catalog.uri", "https://biglake.googleapis.com/iceberg/v1beta/restcatalog")
+                .addIcebergProperty("iceberg.rest-catalog.uri", "https://biglake.googleapis.com/iceberg/v1/restcatalog")
                 .addIcebergProperty("iceberg.rest-catalog.warehouse", "gs://" + GCP_STORAGE_BUCKET)
                 .addIcebergProperty("iceberg.rest-catalog.security", "GOOGLE")
                 .addIcebergProperty("iceberg.rest-catalog.google-project-id", projectId)
+                .addIcebergProperty("iceberg.rest-catalog.google-json-key", gcsJson.toString())
                 .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
+                .addIcebergProperty("iceberg.rest-catalog.server-assigned-table-location-enabled", "true")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
                 .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                 .addIcebergProperty("fs.gcs.enabled", "true")
-                .addIcebergProperty("gcs.json-key-file-path", gcpCredentialsFile.toString())
+                .addIcebergProperty("gcs.json-key", gcsJson.toString())
                 .setSchemaInitializer(SchemaInitializer.builder()
                         .withSchemaName(SCHEMA)
                         .withClonedTpchTables(REQUIRED_TPCH_TABLES)
@@ -120,7 +118,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        TrinoCatalogFactory catalogFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector("iceberg")).getInjector().getInstance(TrinoCatalogFactory.class);
+        TrinoCatalogFactory catalogFactory = getConnectorService(getQueryRunner(), TrinoCatalogFactory.class);
         TrinoCatalog trinoCatalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
         BaseTable table = trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
         return table.operations().current().metadataFileLocation();
@@ -141,12 +139,6 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
     }
 
     @Override
@@ -177,7 +169,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                         "   comment varchar\n" +
                         "\\)\n" +
                         "WITH \\(\n" +
-                        "   compression_codec = 'ZSTD',\n" +
+                        "(   compression_codec = 'ZSTD',\n)?" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         "   location = 'gs://.*'\n" +
@@ -213,7 +205,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     public void testView()
     {
         assertThatThrownBy(super::testView)
-                .hasMessageContaining("Server does not support endpoint: POST /v1/{prefix}/namespaces/{namespace}/views");
+                .hasMessage("Cannot create views when iceberg.rest-catalog.view-endpoints-enabled is disabled");
     }
 
     @Test
@@ -221,7 +213,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     public void testCommentViewColumn()
     {
         assertThatThrownBy(super::testCommentViewColumn)
-                .hasMessageContaining("Server does not support endpoint: POST /v1/{prefix}/namespaces/{namespace}/views");
+                .hasMessage("Cannot create views when iceberg.rest-catalog.view-endpoints-enabled is disabled");
     }
 
     @Test
@@ -229,7 +221,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     public void testCommentView()
     {
         assertThatThrownBy(super::testCommentView)
-                .hasMessageContaining("Server does not support endpoint: POST /v1/{prefix}/namespaces/{namespace}/views");
+                .hasMessage("Cannot create views when iceberg.rest-catalog.view-endpoints-enabled is disabled");
     }
 
     @Test

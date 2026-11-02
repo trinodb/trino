@@ -71,11 +71,6 @@ public class StringStatisticsBuilder
         this.shouldCompactMinMax = shouldCompactMinMax;
     }
 
-    public long getNonNullValueCount()
-    {
-        return nonNullValueCount;
-    }
-
     @Override
     public void addValue(Slice value)
     {

@@ -41,7 +41,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HostAndPort.fromParts;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.utility.MountableFile.forClasspathResource;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public abstract class BaseTestContainer
@@ -101,18 +100,6 @@ public abstract class BaseTestContainer
     protected void withLogConsumer(Consumer<OutputFrame> logConsumer)
     {
         container.withLogConsumer(logConsumer);
-    }
-
-    protected void copyResourceToContainer(String resourcePath, String dockerPath)
-    {
-        container.withCopyFileToContainer(
-                forHostPath(
-                        forClasspathResource(resourcePath)
-                                // Container fails to mount jar:file:/<host_path>!<resource_path> resources
-                                // This assures that JAR resources are being copied out to tmp locations
-                                // and mounted from there.
-                                .getResolvedPath()),
-                dockerPath);
     }
 
     protected void mountDirectory(String hostPath, String dockerPath)

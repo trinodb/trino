@@ -533,11 +533,11 @@ public class TransactionLogAccess
                 entries.forEach(deltaLakeTransactionLogEntry -> {
                     if (deltaLakeTransactionLogEntry.getAdd() != null) {
                         AddFileEntry add = deltaLakeTransactionLogEntry.getAdd();
-                        addFilesInTransaction.put(new FileEntryKey(add.getPath(), add.getDeletionVector().map(DeletionVectorEntry::uniqueId)), add);
+                        addFilesInTransaction.put(FileEntryKey.of(add), add);
                     }
                     else if (deltaLakeTransactionLogEntry.getRemove() != null) {
                         RemoveFileEntry remove = deltaLakeTransactionLogEntry.getRemove();
-                        removedFilesInTransaction.add(new FileEntryKey(remove.path(), remove.deletionVector().map(DeletionVectorEntry::uniqueId)));
+                        removedFilesInTransaction.add(FileEntryKey.of(remove));
                     }
                 });
             }
@@ -552,14 +552,12 @@ public class TransactionLogAccess
                 .map(DeltaLakeTransactionLogEntry::getAdd)
                 .filter(Objects::nonNull)
                 .filter(addEntry -> {
-                    FileEntryKey key = new FileEntryKey(addEntry.getPath(), addEntry.getDeletionVector().map(DeletionVectorEntry::uniqueId));
+                    FileEntryKey key = FileEntryKey.of(addEntry);
                     return !removedFiles.contains(key) && !activeJsonEntries.containsKey(key);
                 });
 
         return Stream.concat(filteredCheckpointEntries, activeJsonEntries.values().stream());
     }
-
-    private record FileEntryKey(String path, Optional<String> deletionVectorId) {}
 
     public MetadataAndProtocolEntries getMetadataAndProtocolEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
     {

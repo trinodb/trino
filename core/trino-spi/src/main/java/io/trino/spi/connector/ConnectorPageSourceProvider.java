@@ -68,16 +68,4 @@ public interface ConnectorPageSourceProvider
         ConnectorPageSource delegate = createPageSource(transaction, session, split, table, tableCredentials, columns, dynamicFilter);
         return new MemoryUsageReportingPageSource(delegate, memoryContext);
     }
-
-    /**
-     * Get the total memory that needs to be reserved in the memory pool.
-     * This should include any memory used in the page source provider that is shared across all page sources created by this provider.
-     *
-     * @return the memory used so far in table read
-     */
-    // TODO (https://github.com/trinodb/trino/issues/29955) replace with MemoryContext
-    default long getMemoryUsage()
-    {
-        return 0;
-    }
 }

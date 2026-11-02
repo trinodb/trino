@@ -257,9 +257,7 @@ public class Analysis
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
-    private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
     private Optional<AnalyzeMetadata> analyzeMetadata = Optional.empty();
-    private Optional<List<ColumnSchema>> updatedColumns = Optional.empty();
     private Optional<MergeAnalysis> mergeAnalysis = Optional.empty();
 
     private final QueryType queryType;
@@ -275,6 +273,9 @@ public class Analysis
     private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
 
     private Optional<TableExecuteHandle> tableExecuteHandle = Optional.empty();
+    // AST node the execute handle is registered against; for a materialized view this names the view,
+    // while the registered TableHandle is the view's storage table
+    private Optional<Table> tableExecuteTable = Optional.empty();
 
     // names of tables and aliased relations. All names are resolved case-insensitive.
     private final Map<NodeRef<Relation>, QualifiedName> relationNames = new LinkedHashMap<>();
@@ -808,11 +809,6 @@ public class Analysis
         this.sortKeyCoercionsForFrameBoundComparison.putAll(sortKeyCoercionsForFrameBoundComparison);
     }
 
-    public void addNullIfComparisonType(NullIfExpression expression, Type type)
-    {
-        this.nullIfComparisonTypes.put(NodeRef.of(expression), type);
-    }
-
     public void addNullIfComparisonTypes(Map<NodeRef<NullIfExpression>, Type> types)
     {
         this.nullIfComparisonTypes.putAll(types);
@@ -898,16 +894,6 @@ public class Analysis
         return insert;
     }
 
-    public void setUpdatedColumns(List<ColumnSchema> updatedColumns)
-    {
-        this.updatedColumns = Optional.of(updatedColumns);
-    }
-
-    public Optional<List<ColumnSchema>> getUpdatedColumns()
-    {
-        return updatedColumns;
-    }
-
     public Optional<MergeAnalysis> getMergeAnalysis()
     {
         return mergeAnalysis;
@@ -926,16 +912,6 @@ public class Analysis
     public Optional<RefreshMaterializedViewAnalysis> getRefreshMaterializedView()
     {
         return refreshMaterializedView;
-    }
-
-    public void setDelegatedRefreshMaterializedView(QualifiedObjectName viewName)
-    {
-        this.delegatedRefreshMaterializedView = Optional.of(viewName);
-    }
-
-    public Optional<QualifiedObjectName> getDelegatedRefreshMaterializedView()
-    {
-        return delegatedRefreshMaterializedView;
     }
 
     public Query getNamedQuery(Table table)
@@ -1498,6 +1474,18 @@ public class Analysis
     public Optional<TableExecuteHandle> getTableExecuteHandle()
     {
         return tableExecuteHandle;
+    }
+
+    public void setTableExecuteTable(Table table)
+    {
+        requireNonNull(table, "table is null");
+        checkState(this.tableExecuteTable.isEmpty(), "tableExecuteTable already set");
+        this.tableExecuteTable = Optional.of(table);
+    }
+
+    public Table getTableExecuteTable()
+    {
+        return tableExecuteTable.orElseThrow(() -> new IllegalStateException("tableExecuteTable not set"));
     }
 
     public void setTableFunctionAnalysis(TableFunctionInvocation node, TableFunctionInvocationAnalysis analysis)

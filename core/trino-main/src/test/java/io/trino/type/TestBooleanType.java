@@ -18,7 +18,10 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -81,21 +84,26 @@ public class TestBooleanType
     @Test
     public void testRange()
     {
-        assertThat(type.getRange())
-                .isEmpty();
+        Type.Range range = type.getRange().orElseThrow();
+        assertThat(range.getMin()).isEqualTo(false);
+        assertThat(range.getMax()).isEqualTo(true);
     }
 
     @Test
     public void testPreviousValue()
     {
-        assertThat(type.getPreviousValue(getSampleValue()))
+        assertThat(type.getPreviousValue(true))
+                .isEqualTo(Optional.of(false));
+        assertThat(type.getPreviousValue(false))
                 .isEmpty();
     }
 
     @Test
     public void testNextValue()
     {
-        assertThat(type.getNextValue(getSampleValue()))
+        assertThat(type.getNextValue(false))
+                .isEqualTo(Optional.of(true));
+        assertThat(type.getNextValue(true))
                 .isEmpty();
     }
 }

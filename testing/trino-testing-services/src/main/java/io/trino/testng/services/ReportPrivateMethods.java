@@ -92,17 +92,7 @@ public class ReportPrivateMethods
     {
         return Arrays.stream(method.getAnnotations())
                 .map(Annotation::annotationType)
-                .anyMatch(annotationClass -> {
-                    if (Test.class.getPackage().equals(annotationClass.getPackage())) {
-                        // testng annotation (@Test, @Before*, @DataProvider, etc.)
-                        return true;
-                    }
-                    if ("io.trino.tempto".equals(annotationClass.getPackage().getName())) {
-                        // tempto annotation (@BeforeMethodWithContext, @AfterMethodWithContext)
-                        return true;
-                    }
-                    return false;
-                });
+                .anyMatch(annotationClass -> Test.class.getPackage().equals(annotationClass.getPackage()));
     }
 
     @Retention(RUNTIME)

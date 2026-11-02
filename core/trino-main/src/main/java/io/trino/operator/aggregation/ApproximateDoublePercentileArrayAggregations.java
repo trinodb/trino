@@ -120,7 +120,7 @@ public final class ApproximateDoublePercentileArrayAggregations
             sortedPercentiles[i] = percentiles.get(i);
         }
 
-        Arrays.quickSort(0, percentiles.size(), (a, b) -> Doubles.compare(sortedPercentiles[a], sortedPercentiles[b]), (a, b) -> {
+        Arrays.quickSort(0, percentiles.size(), (a, b) -> Double.compare(sortedPercentiles[a], sortedPercentiles[b]), (a, b) -> {
             double tempPercentile = sortedPercentiles[a];
             sortedPercentiles[a] = sortedPercentiles[b];
             sortedPercentiles[b] = tempPercentile;

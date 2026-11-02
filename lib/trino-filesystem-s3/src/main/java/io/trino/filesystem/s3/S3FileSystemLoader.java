@@ -29,8 +29,8 @@ import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsPr
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.SdkHttpClient;
-import software.amazon.awssdk.http.apache.ApacheHttpClient;
-import software.amazon.awssdk.http.apache.ProxyConfiguration;
+import software.amazon.awssdk.http.apache5.Apache5HttpClient;
+import software.amazon.awssdk.http.apache5.ProxyConfiguration;
 import software.amazon.awssdk.http.auth.aws.scheme.AwsV4AuthScheme;
 import software.amazon.awssdk.http.auth.aws.signer.AwsV4HttpSigner;
 import software.amazon.awssdk.http.auth.spi.scheme.AuthSchemeOption;
@@ -40,6 +40,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.LegacyMd5Plugin;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.auth.scheme.S3AuthSchemeProvider;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
@@ -73,6 +74,7 @@ final class S3FileSystemLoader
     private final S3FileSystemConfig config;
     private final S3Context context;
     private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("s3-upload-%s"));
+    private final ExecutorService dnsRefreshExecutor = newCachedThreadPool(daemonThreadsNamed("s3-dns-refresh-%s"));
     private final Map<Optional<S3SecurityMappingResult>, S3Client> clients = new ConcurrentHashMap<>();
     private final Map<Optional<S3SecurityMappingResult>, S3Presigner> preSigners = new ConcurrentHashMap<>();
 
@@ -90,7 +92,7 @@ final class S3FileSystemLoader
     private S3FileSystemLoader(Optional<S3SecurityMappingProvider> mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
     {
         this.mappingProvider = requireNonNull(mappingProvider, "mappingProvider is null");
-        this.httpClient = createHttpClient(config);
+        this.httpClient = createHttpClient(config, dnsRefreshExecutor);
 
         requireNonNull(stats, "stats is null");
 
@@ -106,7 +108,8 @@ final class S3FileSystemLoader
                         config.getSseCustomerKey()),
                 Optional.empty(),
                 config.getStorageClass(),
-                config.getCannedAcl());
+                config.getCannedAcl(),
+                config.getChecksumAlgorithm());
     }
 
     @Override
@@ -138,6 +141,9 @@ final class S3FileSystemLoader
         try (httpClient) {
             uploadExecutor.shutdownNow();
         }
+        finally {
+            dnsRefreshExecutor.shutdownNow();
+        }
     }
 
     S3Client createClient()
@@ -163,6 +169,9 @@ final class S3FileSystemLoader
         Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
         Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
         boolean pathStyleAccess = config.isPathStyleAccess();
+        S3Configuration serviceConfiguration = S3Configuration.builder()
+                .chunkedEncodingEnabled(config.isChunkedEncodingEnabled())
+                .build();
         S3AuthType authType = config.getAuthType();
         Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
         String staticRoleSessionName = config.getRoleSessionName();
@@ -187,6 +196,7 @@ final class S3FileSystemLoader
             s3.responseChecksumValidation(WHEN_REQUIRED);
             s3.requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
             s3.addPlugin(LegacyMd5Plugin.create());
+            s3.serviceConfiguration(serviceConfiguration);
             authSchemeProvider.ifPresent(s3::authSchemeProvider);
 
             region.map(Region::of).ifPresent(s3::region);
@@ -246,6 +256,10 @@ final class S3FileSystemLoader
                     AwsV4HttpSigner.DOUBLE_URL_ENCODE, true,
                     AwsV4HttpSigner.NORMALIZE_PATH, true,
                     AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED, false);
+            case Aws4SignedPayloadSigner -> ImmutableMap.of(
+                    AwsV4HttpSigner.DOUBLE_URL_ENCODE, true,
+                    AwsV4HttpSigner.NORMALIZE_PATH, true,
+                    AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED, true);
         };
 
         S3AuthSchemeProvider delegate = S3AuthSchemeProvider.defaultProvider();
@@ -270,12 +284,14 @@ final class S3FileSystemLoader
         builder.putSignerProperty((SignerProperty<T>) property, (T) value);
     }
 
-    private static SdkHttpClient createHttpClient(S3FileSystemConfig config)
+    private static SdkHttpClient createHttpClient(S3FileSystemConfig config, Executor dnsRefreshExecutor)
     {
-        ApacheHttpClient.Builder client = ApacheHttpClient.builder()
+        Apache5HttpClient.Builder client = Apache5HttpClient.builder()
                 .maxConnections(config.getMaxConnections())
-                .tcpKeepAlive(config.getTcpKeepAlive());
+                .tcpKeepAlive(config.getTcpKeepAlive())
+                .expectContinueEnabled(config.isExpectContinueEnabled());
 
+        CachingDnsResolver.create(dnsRefreshExecutor).ifPresent(client::dnsResolver);
         config.getConnectionTtl().ifPresent(ttl -> client.connectionTimeToLive(ttl.toJavaTime()));
         config.getConnectionMaxIdleTime().ifPresent(time -> client.connectionMaxIdleTime(time.toJavaTime()));
         config.getSocketConnectTimeout().ifPresent(timeout -> client.connectionTimeout(timeout.toJavaTime()));

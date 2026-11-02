@@ -114,7 +114,9 @@ public class SessionPropertyResolver
         systemProperties.putAll(session.getSystemProperties());
         systemProperties.putAll(resolvedSessionProperties.systemProperties());
 
-        Map<String, Map<String, String>> catalogProperties = new HashMap<>(session.getCatalogProperties());
+        Map<String, Map<String, String>> catalogProperties = new HashMap<>();
+        session.getCatalogProperties()
+                .forEach((catalog, properties) -> catalogProperties.put(catalog, new HashMap<>(properties)));
         for (Entry<String, Map<String, String>> catalogEntry : resolvedSessionProperties.catalogProperties().entrySet()) {
             catalogProperties.computeIfAbsent(catalogEntry.getKey(), _ -> new HashMap<>())
                     .putAll(catalogEntry.getValue());

@@ -28,7 +28,6 @@ import org.junit.jupiter.api.parallel.Execution;
 import static io.trino.operator.scalar.TryFunction.TRY_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -137,12 +136,17 @@ public class TestTryFunction
         assertThat(assertions.expression("try(json_query('[1, 2, 3]', 'lax $[100]' ERROR ON EMPTY))"))
                 .isNull(VARCHAR);
 
+        // Array subscript error raised while evaluating the base of a row dereference
+        assertThat(assertions.expression("try(ARRAY[CAST(ROW('x', 'y') AS ROW(quz VARCHAR, bar VARCHAR))][2].bar)"))
+                .isNull(VARCHAR);
+        // in-bounds dereference still produces the field value
+        assertThat(assertions.expression("try(ARRAY[CAST(ROW('x', 'y') AS ROW(quz VARCHAR, bar VARCHAR))][1].bar)"))
+                .isEqualTo("y");
+
         // Exceptions that should not be suppressed
         assertTrinoExceptionThrownBy(assertions.expression("try(throw_error())")::evaluate)
                 .hasErrorCode(GENERIC_INTERNAL_ERROR);
         assertTrinoExceptionThrownBy(assertions.expression("try(fail('boom'))")::evaluate)
                 .hasErrorCode(GENERIC_USER_ERROR);
-        assertTrinoExceptionThrownBy(assertions.expression("try(json_object('a' : 1, 'a' : 2))")::evaluate)
-                .hasErrorCode(NOT_SUPPORTED);
     }
 }

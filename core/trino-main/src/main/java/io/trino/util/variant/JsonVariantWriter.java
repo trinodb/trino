@@ -17,6 +17,8 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import io.airlift.slice.Slice;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.plugin.base.util.JsonUtils;
 import io.trino.spi.TrinoException;
 import io.trino.spi.variant.Metadata;
@@ -75,7 +77,8 @@ final class JsonVariantWriter
             return NULL_PLANNED_VALUE;
         }
 
-        Slice json = (Slice) value;
+        // The variant planner is Jackson-based and reads text, so render the value.
+        Slice json = JsonItems.toText((Json) value);
 
         try (InputStream input = json.getInput(); JsonParser parser = JSON_FACTORY.createParser(input)) {
             JsonToken token = parser.nextToken();

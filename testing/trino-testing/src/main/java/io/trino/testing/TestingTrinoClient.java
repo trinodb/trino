@@ -39,6 +39,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.spi.variant.Metadata;
 import io.trino.spi.variant.Variant;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import io.trino.util.variant.VariantWriter;
@@ -77,13 +79,10 @@ import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.MoreLists.mappedCopy;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class TestingTrinoClient
@@ -128,13 +127,12 @@ public class TestingTrinoClient
     @Override
     protected ResultsSession<MaterializedResult> getResultSession(Session session)
     {
-        return new MaterializedResultSession(session);
+        return new MaterializedResultSession();
     }
 
     private class MaterializedResultSession
             implements ResultsSession<MaterializedResult>
     {
-        private final Session session;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
         private final AtomicReference<List<String>> columnNames = new AtomicReference<>();
@@ -143,11 +141,6 @@ public class TestingTrinoClient
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
         private final AtomicReference<List<Warning>> warnings = new AtomicReference<>(ImmutableList.of());
         private final AtomicReference<Optional<StatementStats>> statementStats = new AtomicReference<>(Optional.empty());
-
-        public MaterializedResultSession(Session session)
-        {
-            this.session = requireNonNull(session, "session is null");
-        }
 
         @Override
         public void setUpdateType(String type)
@@ -200,7 +193,6 @@ public class TestingTrinoClient
         {
             checkState(types.get() != null, "never received types for the query");
             return new MaterializedResult(
-                    Optional.of(session),
                     rows.build(),
                     types.get(),
                     columnNames.get(),
@@ -327,10 +319,11 @@ public class TestingTrinoClient
             }
             return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);
         }
-        if (type == INTERVAL_DAY_TIME) {
-            return new SqlIntervalDayTime(IntervalDayTime.parseMillis(String.valueOf(value)));
+        if (type instanceof IntervalDayTimeType intervalType) {
+            long[] parsed = IntervalDayTime.parseToPicos(String.valueOf(value));
+            return new SqlIntervalDayTime(parsed[0], (int) parsed[1], intervalType.getFractionalPrecision());
         }
-        if (type == INTERVAL_YEAR_MONTH) {
+        if (type instanceof IntervalYearMonthType) {
             return new SqlIntervalYearMonth(IntervalYearMonth.parseMonths(String.valueOf(value)));
         }
         if (type == JSON) {

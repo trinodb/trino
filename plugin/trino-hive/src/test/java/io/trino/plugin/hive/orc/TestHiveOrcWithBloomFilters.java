@@ -27,6 +27,7 @@ public class TestHiveOrcWithBloomFilters
             throws Exception
     {
         return HiveQueryRunner.builder()
+                .addHiveProperty("hive.storage-format", "ORC")
                 .addHiveProperty("hive.orc.bloom-filters.enabled", "true")
                 .addHiveProperty("hive.orc.default-bloom-filter-fpp", "0.001")
                 .build();

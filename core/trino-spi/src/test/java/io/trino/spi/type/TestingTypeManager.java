@@ -26,6 +26,8 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TestingIdType.ID;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -38,34 +40,34 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 public final class TestingTypeManager
         implements TypeManager
 {
-    private static final List<Type> TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, INTEGER, VARCHAR, VARBINARY, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS, DATE, ID, HYPER_LOG_LOG);
+    private static final List<Type> TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, REAL, NUMBER, INTEGER, VARCHAR, VARBINARY, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS, DATE, ID, HYPER_LOG_LOG);
     private static final Set<String> PARAMETRIC_TYPES = ImmutableSet.of(StandardTypes.ARRAY, StandardTypes.ROW, StandardTypes.MAP);
 
     private final TypeOperators typeOperators = new TypeOperators();
 
     @Override
-    public Type getType(TypeDescriptor signature)
+    public Type getType(TypeDescriptor descriptor)
     {
         for (Type type : TYPES) {
-            if (signature.getBase().equals(type.getBaseName())) {
+            if (descriptor.getBase().equals(type.getBaseName())) {
                 return type;
             }
         }
 
-        List<TypeParameter> parameters = signature.getParameters();
-        return switch (signature.getBase()) {
+        List<TypeParameter> parameters = descriptor.getParameters();
+        return switch (descriptor.getBase()) {
             case StandardTypes.MAP -> new MapType(
                     getType(((TypeParameter.Type) parameters.get(0)).type()),
                     getType(((TypeParameter.Type) parameters.get(1)).type()),
                     typeOperators);
             case StandardTypes.ARRAY -> new ArrayType(getType(((TypeParameter.Type) parameters.get(0)).type()));
-            case StandardTypes.ROW -> RowType.from(signature.getParameters().stream()
+            case StandardTypes.ROW -> RowType.from(descriptor.getParameters().stream()
                     .map(parameter -> {
                         TypeParameter.Type typeParameter = (TypeParameter.Type) parameter;
                         return new RowType.Field(typeParameter.name(), getType(typeParameter.type()));
                     })
                     .collect(toImmutableList()));
-            default -> throw new TypeNotFoundException(signature.toString());
+            default -> throw new TypeNotFoundException(descriptor.toString());
         };
     }
 

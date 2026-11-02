@@ -93,10 +93,12 @@ public class TestOrderedAggregation
                 .matches("VALUES (1, ARRAY[4, 2]), (2, ARRAY[9, 5]), (3, ARRAY[8, 3])");
 
         assertThat(assertions.query(
-                "SELECT x, sum(cast(x AS double))\n" +
-                        "FROM (VALUES '1.0') t(x)\n" +
-                        "GROUP BY x\n" +
-                        "ORDER BY sum(cast(t.x AS double) ORDER BY t.x)"))
+                """
+                SELECT x, sum(cast(x AS double))
+                FROM (VALUES '1.0') t(x)
+                GROUP BY x
+                ORDER BY sum(cast(t.x AS double) ORDER BY t.x)
+                """))
                 .matches("VALUES ('1.0', 1e0)");
 
         assertThat(assertions.query(

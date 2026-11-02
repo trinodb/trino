@@ -16,6 +16,7 @@ package io.trino.tests.product.exasol;
 import com.github.dockerjava.api.model.HostConfig;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -101,7 +102,7 @@ public class ExasolEnvironment
                 "exasol");
     }
 
-    public void executeExasolUpdate(String sql)
+    public void executeExasolUpdate(@Language("SQL") String sql)
     {
         try (Connection connection = createExasolConnection();
                 Statement statement = connection.createStatement()) {

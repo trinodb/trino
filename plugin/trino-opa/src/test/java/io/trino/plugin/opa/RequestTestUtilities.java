@@ -26,7 +26,7 @@ import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.opa.TestConstants.SYSTEM_ACCESS_CONTROL_CONTEXT;
-import static org.assertj.core.api.Assertions.assertThat;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 
 public final class RequestTestUtilities
 {
@@ -47,7 +47,7 @@ public final class RequestTestUtilities
                 })
                 .collect(toImmutableSet());
         Set<JsonNode> extractedActualRequests = actualRequests.stream().map(node -> node.at(extractPath)).collect(toImmutableSet());
-        assertThat(extractedActualRequests).containsExactlyInAnyOrderElementsOf(parsedExpectedRequests);
+        assertEqualsIgnoreOrder(extractedActualRequests, parsedExpectedRequests);
     }
 
     public static Function<JsonNode, MockResponse> buildValidatingRequestHandler(Identity expectedUser, int statusCode, String responseContents)

@@ -17,8 +17,11 @@ import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.ReferenceCount;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -33,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static java.util.Objects.requireNonNull;
 
@@ -48,18 +52,27 @@ public class PageSourceManager
     }
 
     @Override
-    public PageSourceProvider createPageSourceProvider(CatalogHandle catalogHandle)
+    public PageSourceProvider createPageSourceProvider(CatalogHandle catalogHandle, AggregatedMemoryContext memoryContext)
     {
         ConnectorPageSourceProviderFactory provider = pageSourceProviderFactory.getService(catalogHandle);
-        return new PageSourceProviderInstance(provider.createPageSourceProvider());
+        return new PageSourceProviderInstance(provider, memoryContext.newLocalMemoryContext(PageSourceProvider.class.getSimpleName()));
     }
 
-    private record PageSourceProviderInstance(ConnectorPageSourceProvider pageSourceProvider)
+    /**
+     * Holds the reservation for the connector state shared by all page sources of a single scan. The reservation
+     * is given up once the operators of the scan have dropped their references.
+     */
+    private static final class PageSourceProviderInstance
             implements PageSourceProvider
     {
-        private PageSourceProviderInstance
+        private final ConnectorPageSourceProvider pageSourceProvider;
+        private final ReferenceCount referenceCount = new ReferenceCount(1);
+
+        private PageSourceProviderInstance(ConnectorPageSourceProviderFactory pageSourceProviderFactory, LocalMemoryContext sharedMemoryContext)
         {
-            requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+            requireNonNull(sharedMemoryContext, "sharedMemoryContext is null");
+            this.pageSourceProvider = pageSourceProviderFactory.createPageSourceProvider(sharedMemoryContext::setBytes);
+            referenceCount.getFreeFuture().addListener(sharedMemoryContext::close, directExecutor());
         }
 
         @Override
@@ -94,9 +107,15 @@ public class PageSourceManager
         }
 
         @Override
-        public long getMemoryUsage()
+        public void retain()
         {
-            return pageSourceProvider.getMemoryUsage();
+            referenceCount.retain();
+        }
+
+        @Override
+        public void release()
+        {
+            referenceCount.release();
         }
     }
 }

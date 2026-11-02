@@ -31,10 +31,12 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.IntArrayBlockBuilder;
 import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
@@ -60,6 +62,7 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.testing.TestingSession;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.LikePattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -72,6 +75,8 @@ import java.util.OptionalInt;
 import java.util.Random;
 import java.util.stream.Stream;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -100,12 +105,14 @@ import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestColumnarFilters
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final Random RANDOM = new Random(5376453765L);
     private static final long CONSTANT = 64992484L;
     private static final int ROW_NUM_CHANNEL = 0;
@@ -117,6 +124,7 @@ public class TestColumnarFilters
     private static final int ARRAY_CHANNEL = 6;
     private static final int REAL_CHANNEL = 7;
     private static final int BOOLEAN_CHANNEL = 8;
+    private static final int UNKNOWN_CHANNEL = 9;
 
     private static final String COL_ROW_NUM = "$col_" + ROW_NUM_CHANNEL;
     private static final String COL_DOUBLE = "$col_" + DOUBLE_CHANNEL;
@@ -127,6 +135,7 @@ public class TestColumnarFilters
     private static final String COL_ARRAY = "$col_" + ARRAY_CHANNEL;
     private static final String COL_REAL = "$col_" + REAL_CHANNEL;
     private static final String COL_BOOLEAN = "$col_" + BOOLEAN_CHANNEL;
+    private static final String COL_UNKNOWN = "$col_" + UNKNOWN_CHANNEL;
 
     private static final Type ARRAY_CHANNEL_TYPE = new ArrayType(INTEGER);
     private static final Map<Symbol, Integer> LAYOUT = ImmutableMap.<Symbol, Integer>builder()
@@ -139,6 +148,7 @@ public class TestColumnarFilters
             .put(new Symbol(ARRAY_CHANNEL_TYPE, COL_ARRAY), ARRAY_CHANNEL)
             .put(new Symbol(REAL, COL_REAL), REAL_CHANNEL)
             .put(new Symbol(BOOLEAN, COL_BOOLEAN), BOOLEAN_CHANNEL)
+            .put(new Symbol(UNKNOWN, COL_UNKNOWN), UNKNOWN_CHANNEL)
             .buildOrThrow();
     private static final FullConnectorSession FULL_CONNECTOR_SESSION = new FullConnectorSession(
             TestingSession.testSessionBuilder().build(),
@@ -183,6 +193,10 @@ public class TestColumnarFilters
         Expression isNullFilter = new IsNull(new Reference(INTEGER, COL_INT_A));
         assertThatColumnarFilterEvaluationIsSupported(isNullFilter);
         verifyFilter(inputPages, isNullFilter);
+
+        Expression isNullUnknownFilter = new IsNull(new Reference(UNKNOWN, COL_UNKNOWN));
+        assertThatColumnarFilterEvaluationIsSupported(isNullUnknownFilter);
+        verifyFilter(inputPages, isNullUnknownFilter);
     }
 
     @ParameterizedTest
@@ -244,6 +258,11 @@ public class TestColumnarFilters
         Expression falseFilter = new Constant(BOOLEAN, false);
         assertThatColumnarFilterEvaluationIsSupported(falseFilter);
         verifyFilter(inputPages, falseFilter);
+
+        // WHERE NULL
+        Expression nullFilter = constantNull(BOOLEAN);
+        assertThatColumnarFilterEvaluationIsSupported(nullFilter);
+        verifyFilter(inputPages, nullFilter);
     }
 
     @ParameterizedTest
@@ -268,6 +287,10 @@ public class TestColumnarFilters
         Expression isNotNullFilter = createNotExpression(new IsNull(new Reference(INTEGER, COL_INT_A)));
         assertThatColumnarFilterEvaluationIsSupported(isNotNullFilter);
         verifyFilter(inputPages, isNotNullFilter);
+
+        Expression isNotNullUnknownFilter = createNotExpression(new IsNull(new Reference(UNKNOWN, COL_UNKNOWN)));
+        assertThatColumnarFilterEvaluationIsSupported(isNotNullUnknownFilter);
+        verifyFilter(inputPages, isNotNullUnknownFilter);
     }
 
     @Test
@@ -392,6 +415,26 @@ public class TestColumnarFilters
 
     @ParameterizedTest
     @MethodSource("inputProviders")
+    public void testLogicalWithNull(NullsProvider nullsProvider, boolean dictionaryEncoded)
+    {
+        List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
+        Expression range = between(
+                new Reference(INTEGER, COL_INT_A),
+                new Constant(INTEGER, CONSTANT - 5),
+                new Constant(INTEGER, CONSTANT + 5));
+        for (Logical.Operator operator : List.of(Logical.Operator.AND, Logical.Operator.OR)) {
+            Expression filter = new Logical(operator, ImmutableList.of(range, constantNull(BOOLEAN)));
+            assertThatColumnarFilterEvaluationIsSupported(filter);
+            verifyFilter(inputPages, filter);
+
+            Expression notFilter = createNotExpression(filter);
+            assertThatColumnarFilterEvaluationIsNotSupported(notFilter);
+            verifyFilter(inputPages, notFilter);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testAnd(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -437,7 +480,7 @@ public class TestColumnarFilters
                 100,
                 createLongSequenceBlock(0, 100),
                 createLongSequenceBlock(0, 100));
-        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(andFilter, layout, COMPILER, true, false).orElseThrow().get();
+        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, andFilter, layout, COMPILER, true, false).orElseThrow().get();
         filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, SelectedPositions.positionsRange(0, 100), testingPage);
 
         // col_b (channel 1) should not have been loaded because the first conjunct returned no positions
@@ -469,7 +512,7 @@ public class TestColumnarFilters
                 100,
                 createLongSequenceBlock(0, 100),
                 createLongSequenceBlock(0, 100));
-        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(orFilter, layout, COMPILER, true, false).orElseThrow().get();
+        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, orFilter, layout, COMPILER, true, false).orElseThrow().get();
         filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, SelectedPositions.positionsRange(0, 100), testingPage);
 
         // col_b (channel 1) should not have been loaded because the first conjunct selected all rows
@@ -666,6 +709,7 @@ public class TestColumnarFilters
     private static List<Page> processFilter(List<Page> inputPages, boolean columnarEvaluationEnabled, boolean filterReorderingEnabled, Expression filter)
     {
         PageProcessor compiledProcessor = FUNCTION_RESOLUTION.getExpressionCompiler().compilePageProcessor(
+                        CHAR_VARCHAR_COERCION,
                         columnarEvaluationEnabled,
                         filterReorderingEnabled,
                         Optional.of(filter),
@@ -707,10 +751,19 @@ public class TestColumnarFilters
                     createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded),
                     createArraysBlock(positionsCount, nullsProvider),
                     createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded),
-                    createBooleansBlock(positionsCount, nullsProvider, dictionaryEncoded)));
+                    createBooleansBlock(positionsCount, nullsProvider, dictionaryEncoded),
+                    createUnknownBlock(positionsCount, dictionaryEncoded)));
             rowCount += positionsCount;
         }
         return builder.build();
+    }
+
+    private static Block createUnknownBlock(int positionsCount, boolean rle)
+    {
+        if (rle) {
+            return RunLengthEncodedBlock.create(UNKNOWN, null, positionsCount);
+        }
+        return new ByteArrayBlock(positionsCount, Optional.of(new long[wordsForBits(positionsCount)]), new byte[positionsCount]);
     }
 
     private static Block createRowNumberBlock(long start, int positionsCount)
@@ -969,12 +1022,12 @@ public class TestColumnarFilters
 
     private static void assertThatColumnarFilterEvaluationIsSupported(Expression filterExpression)
     {
-        assertThat(createColumnarFilterEvaluator(filterExpression, LAYOUT, COMPILER, true, false)).isPresent();
+        assertThat(createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, filterExpression, LAYOUT, COMPILER, true, false)).isPresent();
     }
 
     private static void assertThatColumnarFilterEvaluationIsNotSupported(Expression filterExpression)
     {
-        assertThat(createColumnarFilterEvaluator(filterExpression, LAYOUT, COMPILER, true, false)).isEmpty();
+        assertThat(createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, filterExpression, LAYOUT, COMPILER, true, false)).isEmpty();
     }
 
     @ScalarFunction("custom_is_distinct_from")

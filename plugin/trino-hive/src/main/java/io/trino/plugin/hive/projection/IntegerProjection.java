@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive.projection;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSet.Builder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.IntegerType;
@@ -24,6 +24,7 @@ import io.trino.spi.type.VarcharType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -71,9 +72,9 @@ final class IntegerProjection
     }
 
     @Override
-    public List<String> getProjectedValues(Optional<Domain> partitionValueFilter)
+    public Set<String> getProjectedValues(Optional<Domain> partitionValueFilter)
     {
-        Builder<String> builder = ImmutableList.builder();
+        Builder<String> builder = ImmutableSet.builder();
         int current = leftBound;
         while (current <= rightBound) {
             int currentValue = current;

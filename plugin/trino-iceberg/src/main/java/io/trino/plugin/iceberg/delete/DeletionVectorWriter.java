@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.delete;
 import io.airlift.slice.Slice;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.PartitionData;
+import io.trino.plugin.iceberg.ReferencedDataFile;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowDelta;
@@ -23,6 +24,7 @@ import org.apache.iceberg.Table;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,18 +34,19 @@ public interface DeletionVectorWriter
         throw new UnsupportedOperationException("Deletion Vectors are not supported");
     };
 
-    void writeDeletionVectors(
+    // returns paths of fully deleted data files
+    Set<String> writeDeletionVectors(
             ConnectorSession session,
             Table icebergTable,
             IcebergTableHandle table,
             List<DeletionVectorInfo> deletionVectorInfos,
             RowDelta rowDelta);
 
-    record DeletionVectorInfo(String dataFilePath, Slice serializedDeletionVector, PartitionSpec partitionSpec, Optional<PartitionData> partitionData)
+    record DeletionVectorInfo(ReferencedDataFile referencedDataFile, Slice serializedDeletionVector, PartitionSpec partitionSpec, Optional<PartitionData> partitionData)
     {
         public DeletionVectorInfo
         {
-            requireNonNull(dataFilePath, "dataFilePath is null");
+            requireNonNull(referencedDataFile, "referencedDataFile is null");
             requireNonNull(serializedDeletionVector, "serializedDeletionVector is null");
             requireNonNull(partitionSpec, "partitionSpec is null");
             requireNonNull(partitionData, "partitionData is null");

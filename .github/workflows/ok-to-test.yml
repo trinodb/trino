@@ -2,14 +2,18 @@
 name: Ok To Test
 
 on:
-  issue_comment:
+  issue_comment: # zizmor: ignore[dangerous-triggers]
     types: [created]
+
+permissions:
+  issues: write # to add a reaction to the slash command comment
+  pull-requests: write
 
 jobs:
   test-with-secrets:
     runs-on: ubuntu-latest
     # Only run for PRs, not issue comments and not on forks
-    if: ${{ github.event.issue.pull_request }} && github.repository_owner == 'trinodb'
+    if: ${{ github.event.issue.pull_request && github.repository_owner == 'trinodb' }}
     steps:
     # Generate a GitHub App installation access token from an App ID and private key
     # To create a new GitHub App:

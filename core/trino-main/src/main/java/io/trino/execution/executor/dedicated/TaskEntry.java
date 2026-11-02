@@ -16,23 +16,35 @@ package io.trino.execution.executor.dedicated;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
+import io.trino.execution.executor.LeafSplitMemoryEstimate;
+import io.trino.execution.executor.SplitConcurrencyController;
 import io.trino.execution.executor.TaskHandle;
+import io.trino.execution.executor.TaskMemory;
 import io.trino.execution.executor.scheduler.FairScheduler;
 import io.trino.execution.executor.scheduler.Group;
 import io.trino.execution.executor.scheduler.Schedulable;
 import io.trino.execution.executor.scheduler.SchedulerContext;
 import io.trino.spi.VersionEmbedder;
+import jakarta.annotation.Nullable;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
+import java.util.function.LongConsumer;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
@@ -45,32 +57,54 @@ class TaskEntry
     private final VersionEmbedder versionEmbedder;
     private final Tracer tracer;
     private final DoubleSupplier utilization;
+    private final SplitBlockedListener splitBlockedListener;
+    private final Runnable targetConcurrencyIncreased;
+    // Notified when the pending leaf split queue becomes non-empty.
+    private final Consumer<TaskEntry> leafSplitsQueued;
     private final AtomicInteger nextSplitId = new AtomicInteger();
+    private final LeafSplitMemoryEstimate leafMemoryEstimate;
+    // Leaf splits blocked on their output or on another operator.
+    private final AtomicInteger parkedLeafSplits = new AtomicInteger();
 
     @GuardedBy("this")
-    private final ConcurrencyController concurrency;
+    private final SplitConcurrencyController concurrency;
 
     private volatile boolean destroyed;
 
     @GuardedBy("this")
-    private int runningLeafSplits;
-
-    @GuardedBy("this")
-    private final Queue<QueuedSplit> pending = new LinkedList<>();
+    private final Deque<QueuedSplit> pending = new ArrayDeque<>();
 
     @GuardedBy("this")
     private final Set<SplitRunner> running = new HashSet<>();
 
-    public TaskEntry(TaskId taskId, FairScheduler scheduler, VersionEmbedder versionEmbedder, Tracer tracer, int initialConcurrency, DoubleSupplier utilization)
+    @GuardedBy("this")
+    private final Set<QueuedSplit> runningLeafSplits = new HashSet<>();
+
+    public TaskEntry(
+            TaskId taskId,
+            FairScheduler scheduler,
+            VersionEmbedder versionEmbedder,
+            Tracer tracer,
+            int initialConcurrency,
+            Duration concurrencyAdjustmentInterval,
+            DoubleSupplier utilization,
+            SplitBlockedListener splitBlockedListener,
+            Runnable targetConcurrencyIncreased,
+            Consumer<TaskEntry> leafSplitsQueued,
+            TaskMemory taskMemory)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.utilization = requireNonNull(utilization, "utilization is null");
+        this.splitBlockedListener = requireNonNull(splitBlockedListener, "splitBlockedListener is null");
+        this.targetConcurrencyIncreased = requireNonNull(targetConcurrencyIncreased, "targetConcurrencyIncreased is null");
+        this.leafSplitsQueued = requireNonNull(leafSplitsQueued, "leafSplitsQueued is null");
+        this.leafMemoryEstimate = new LeafSplitMemoryEstimate(taskMemory);
 
         this.group = scheduler.createGroup(taskId.toString());
-        this.concurrency = new ConcurrencyController(initialConcurrency);
+        this.concurrency = new SplitConcurrencyController(initialConcurrency, concurrencyAdjustmentInterval);
     }
 
     public TaskId taskId()
@@ -78,79 +112,248 @@ class TaskEntry
         return taskId;
     }
 
-    public synchronized void destroy()
+    public void destroy()
     {
-        if (destroyed) {
-            return;
+        List<SplitRunner> runningSplits;
+        List<QueuedSplit> pendingSplits;
+        List<QueuedSplit> claimedSplits;
+        synchronized (this) {
+            if (destroyed) {
+                return;
+            }
+
+            destroyed = true;
+            runningSplits = new ArrayList<>(running);
+            pendingSplits = new ArrayList<>(pending);
+            claimedSplits = new ArrayList<>(runningLeafSplits);
+            running.clear();
+            pending.clear();
+            runningLeafSplits.clear();
         }
 
-        scheduler.removeGroup(group);
+        // Complete futures before closing. Driver.close() can rethrow operator close failures, and
+        // no such failure may strand another split or prevent its task from finishing.
+        pendingSplits.forEach(split -> split.done().set(null));
+        claimedSplits.forEach(split -> split.done().set(null));
 
-        destroyed = true;
-
-        for (SplitRunner split : running) {
-            split.close();
+        Throwable failure = null;
+        try {
+            scheduler.removeGroup(group);
         }
-        running.clear();
-
-        for (QueuedSplit split : pending) {
-            split.split().close();
-            split.done.set(null);
+        catch (Throwable t) {
+            failure = t;
         }
-        pending.clear();
+
+        for (SplitRunner split : runningSplits) {
+            failure = closeSplit(split, failure);
+        }
+        for (QueuedSplit split : pendingSplits) {
+            failure = closeSplit(split.split(), failure);
+        }
+
+        if (failure != null) {
+            throwIfUnchecked(failure);
+            throw new RuntimeException(failure);
+        }
     }
 
-    public synchronized ListenableFuture<Void> enqueueLeafSplit(SplitRunner split)
+    public ListenableFuture<Void> enqueueLeafSplit(SplitRunner split)
     {
         SettableFuture<Void> done = SettableFuture.create();
-        pending.add(new QueuedSplit(split, done));
-        return done;
-    }
-
-    /**
-     * @return true if a split was scheduled; false if no splits are pending
-     */
-    public synchronized boolean dequeueAndRunLeafSplit(Runnable doneCallback)
-    {
-        QueuedSplit split = pending.poll();
-        if (split == null) {
-            return false;
+        boolean destroyed;
+        boolean firstPending = false;
+        synchronized (this) {
+            destroyed = this.destroyed;
+            if (!destroyed) {
+                firstPending = pending.isEmpty();
+                pending.addLast(new QueuedSplit(split, done));
+            }
         }
 
-        runSplit(split.split())
-                .addListener(() -> {
-                    leafSplitDone(split);
-                    doneCallback.run();
-                }, directExecutor());
+        if (!destroyed) {
+            if (firstPending) {
+                leafSplitsQueued.accept(this);
+            }
+            return done;
+        }
 
-        runningLeafSplits++;
-
-        return true;
-    }
-
-    private synchronized void leafSplitDone(QueuedSplit split)
-    {
-        runningLeafSplits--;
-        split.done().set(null);
-    }
-
-    public synchronized ListenableFuture<Void> runSplit(SplitRunner split)
-    {
-        int splitId = nextSplitId();
-        ListenableFuture<Void> done = scheduler.submit(
-                group,
-                splitId,
-                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer)));
-        done.addListener(() -> splitDone(split), directExecutor());
-        running.add(split);
-
+        // The task was removed concurrently with enqueueSplits. There is nobody left to claim the
+        // split, so finish it immediately rather than leaving its future in a destroyed queue.
+        done.set(null);
+        split.close();
         return done;
     }
 
-    private synchronized void splitDone(SplitRunner split)
+    /// Claim the next pending leaf split and account for it as running. The claimed split must be
+    /// handed to [#startLeafSplit] to actually run; the two steps are separate so the caller can
+    /// start the split without holding any lock.
+    ///
+    /// The task can be destroyed between claiming and starting. A production `SplitRunner`
+    /// tolerates being started after close, and the scheduler rejects work for the removed group.
+    ///
+    /// @return null if no splits are pending or the task has been destroyed
+    @Nullable
+    public synchronized QueuedSplit claimLeafSplit()
     {
-        split.close();
-        running.remove(split);
+        if (destroyed) {
+            return null;
+        }
+
+        QueuedSplit split = pending.poll();
+        if (split == null) {
+            return null;
+        }
+
+        runningLeafSplits.add(split);
+        running.add(split.split());
+
+        return split;
+    }
+
+    /// Start a split claimed via [#claimLeafSplit()]. Must be called without holding a lock.
+    /// If this throws, the claim was not consumed and must be requeued via [#releaseLeafSplit].
+    ///
+    /// @return true if the split finished before this method returned. The split then skips the
+    ///         done and target concurrency callbacks, and the caller accounts for it and schedules more
+    ///         splits, so splits that finish on start do not nest completions in the caller's stack.
+    public boolean startLeafSplit(QueuedSplit split, Consumer<TaskEntry> doneCallback)
+    {
+        AtomicLong scheduledNanos = new AtomicLong();
+        LongConsumer quantumProcessed = nanos -> {
+            scheduledNanos.addAndGet(nanos);
+            splitProcessed(nanos);
+        };
+        // The first of this method and the completion listener to clear it hands the callbacks to the other.
+        AtomicBoolean starting = new AtomicBoolean(true);
+        ListenableFuture<Void> result = submit(split.split(), true, quantumProcessed);
+        result.addListener(() -> {
+            finishLeafSplit(split, result, scheduledNanos.get(), starting, doneCallback);
+        }, directExecutor());
+        return !starting.compareAndSet(true, false);
+    }
+
+    /// Requeue a claimed split that could not be started. Thread creation can fail temporarily on
+    /// an overloaded worker, and the periodic scheduling pass will retry it after capacity clears.
+    public void releaseLeafSplit(QueuedSplit split)
+    {
+        boolean destroyed;
+        boolean firstPending = false;
+        synchronized (this) {
+            runningLeafSplits.remove(split);
+            running.remove(split.split());
+            destroyed = this.destroyed;
+            if (!destroyed) {
+                firstPending = pending.isEmpty();
+                pending.addFirst(split);
+            }
+        }
+
+        if (destroyed) {
+            split.done().set(null);
+        }
+        else if (firstPending) {
+            leafSplitsQueued.accept(this);
+        }
+    }
+
+    private void finishLeafSplit(QueuedSplit split, ListenableFuture<Void> result, long scheduledNanos, AtomicBoolean starting, Consumer<TaskEntry> doneCallback)
+    {
+        boolean close;
+        boolean targetIncreased;
+        synchronized (this) {
+            int previousTarget = concurrency.getTargetConcurrency();
+            concurrency.splitFinished(scheduledNanos, utilization.getAsDouble(), runningLeafSplits.size());
+            targetIncreased = concurrency.getTargetConcurrency() > previousTarget;
+            runningLeafSplits.remove(split);
+            close = running.remove(split.split());
+        }
+
+        // Complete the future and notify the executor even when Driver.close() fails.
+        split.done().setFuture(result);
+        try {
+            if (close) {
+                split.split().close();
+            }
+        }
+        finally {
+            // A split that finishes before startLeafSplit returns leaves the callbacks to its starter.
+            if (!starting.compareAndSet(true, false)) {
+                doneCallback.accept(this);
+                if (targetIncreased) {
+                    targetConcurrencyIncreased.run();
+                }
+            }
+        }
+    }
+
+    // Adjusts the target concurrency by the thread time the task's splits consume.
+    private void splitProcessed(long scheduledNanos)
+    {
+        boolean targetIncreased;
+        synchronized (this) {
+            int previousTarget = concurrency.getTargetConcurrency();
+            concurrency.update(scheduledNanos, utilization.getAsDouble(), runningLeafSplits.size());
+            targetIncreased = concurrency.getTargetConcurrency() > previousTarget;
+        }
+        if (targetIncreased) {
+            targetConcurrencyIncreased.run();
+        }
+    }
+
+    public ListenableFuture<Void> runSplit(SplitRunner split)
+    {
+        boolean destroyed;
+        synchronized (this) {
+            destroyed = this.destroyed;
+            if (!destroyed) {
+                running.add(split);
+            }
+        }
+
+        if (destroyed) {
+            SettableFuture<Void> done = SettableFuture.create();
+            done.set(null);
+            split.close();
+            return done;
+        }
+
+        try {
+            ListenableFuture<Void> done = submit(split, false, this::splitProcessed);
+            done.addListener(() -> splitDone(split), directExecutor());
+            return done;
+        }
+        catch (Throwable t) {
+            try {
+                splitDone(split);
+            }
+            catch (Throwable closeFailure) {
+                t.addSuppressed(closeFailure);
+            }
+            throw t;
+        }
+    }
+
+    /// Hand a split that is already accounted for in `running` to the scheduler. Must be called
+    /// without holding a lock: the scheduler creates the thread that runs the split, which on a
+    /// loaded worker is slow enough to stall every other operation on the lock.
+    private ListenableFuture<Void> submit(SplitRunner split, boolean leaf, LongConsumer quantumProcessed)
+    {
+        int splitId = nextSplitId();
+        return scheduler.submit(
+                group,
+                splitId,
+                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer, reason -> splitBlockedListener.splitBlocked(this, leaf, reason), quantumProcessed)));
+    }
+
+    private void splitDone(SplitRunner split)
+    {
+        boolean close;
+        synchronized (this) {
+            close = running.remove(split);
+        }
+        if (close) {
+            split.close();
+        }
     }
 
     private int nextSplitId()
@@ -160,18 +363,13 @@ class TaskEntry
 
     public synchronized int runningLeafSplits()
     {
-        return runningLeafSplits;
+        return runningLeafSplits.size();
     }
 
     @Override
     public boolean isDestroyed()
     {
         return destroyed;
-    }
-
-    public synchronized void updateConcurrency()
-    {
-        concurrency.update(utilization.getAsDouble(), runningLeafSplits);
     }
 
     public synchronized int pendingLeafSplitCount()
@@ -191,10 +389,45 @@ class TaskEntry
 
     public synchronized int targetConcurrency()
     {
-        return concurrency.targetConcurrency();
+        return concurrency.getTargetConcurrency();
     }
 
-    private record QueuedSplit(SplitRunner split, SettableFuture<Void> done) {}
+    public LeafSplitMemoryEstimate getLeafMemoryEstimate()
+    {
+        return leafMemoryEstimate;
+    }
+
+    public void leafSplitParked()
+    {
+        parkedLeafSplits.incrementAndGet();
+    }
+
+    public void leafSplitUnparked()
+    {
+        parkedLeafSplits.decrementAndGet();
+    }
+
+    // A task with a leaf split waiting on its output or on another operator gains nothing from more leaf splits.
+    public boolean isParked()
+    {
+        return parkedLeafSplits.get() > 0;
+    }
+
+    record QueuedSplit(SplitRunner split, SettableFuture<Void> done) {}
+
+    private static Throwable closeSplit(SplitRunner split, @Nullable Throwable failure)
+    {
+        try {
+            split.close();
+        }
+        catch (Throwable t) {
+            if (failure == null) {
+                return t;
+            }
+            failure.addSuppressed(t);
+        }
+        return failure;
+    }
 
     private record VersionEmbedderBridge(VersionEmbedder versionEmbedder, Schedulable delegate)
             implements Schedulable

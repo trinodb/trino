@@ -34,6 +34,7 @@ import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 
 public final class NormalizeOrExpressionRewriter
 {
@@ -61,16 +62,19 @@ public final class NormalizeOrExpressionRewriter
             ImmutableList.Builder<In> inPredicateBuilder = ImmutableList.builder();
             ImmutableSet.Builder<Expression> expressionToSkipBuilder = ImmutableSet.builder();
             ImmutableList.Builder<Expression> othersExpressionBuilder = ImmutableList.builder();
-            groupComparisonAndInPredicate(terms).forEach((expression, values) -> {
+            groupDeterministicComparisonAndInPredicate(terms).forEach((expression, values) -> {
                 if (values.size() > 1) {
-                    inPredicateBuilder.add(new In(expression, mergeToInListExpression(values)));
+                    inPredicateBuilder.add(new In(expression, mergeDeterministicToInListExpression(values)));
                     expressionToSkipBuilder.add(expression);
                 }
             });
 
             Set<Expression> expressionToSkip = expressionToSkipBuilder.build();
             for (Expression expression : terms) {
-                if (matchComparison(expression) instanceof Comparison.Equal(Expression left, _)) {
+                if (!isDeterministic(expression)) {
+                    othersExpressionBuilder.add(expression);
+                }
+                else if (matchComparison(expression) instanceof Comparison.Equal(Expression left, _)) {
                     if (!expressionToSkip.contains(left)) {
                         othersExpressionBuilder.add(expression);
                     }
@@ -91,7 +95,7 @@ public final class NormalizeOrExpressionRewriter
                     .build());
         }
 
-        private List<Expression> mergeToInListExpression(Collection<Expression> expressions)
+        private List<Expression> mergeDeterministicToInListExpression(Collection<Expression> expressions)
         {
             LinkedHashSet<Expression> expressionValues = new LinkedHashSet<>();
             for (Expression expression : expressions) {
@@ -109,10 +113,13 @@ public final class NormalizeOrExpressionRewriter
             return ImmutableList.copyOf(expressionValues);
         }
 
-        private Map<Expression, Collection<Expression>> groupComparisonAndInPredicate(List<Expression> terms)
+        private Map<Expression, Collection<Expression>> groupDeterministicComparisonAndInPredicate(List<Expression> terms)
         {
             ImmutableMultimap.Builder<Expression, Expression> expressionBuilder = ImmutableMultimap.builder();
             for (Expression expression : terms) {
+                if (!isDeterministic(expression)) {
+                    continue;
+                }
                 if (matchComparison(expression) instanceof Comparison.Equal(Expression left, _)) {
                     expressionBuilder.put(left, expression);
                 }

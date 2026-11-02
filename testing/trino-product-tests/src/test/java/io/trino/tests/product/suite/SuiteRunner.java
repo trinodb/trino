@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.suite;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.testing.containers.environment.EnvironmentManager;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import org.junit.jupiter.api.Tag;
@@ -27,14 +28,24 @@ import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
 import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
 import org.junit.platform.launcher.listeners.TestExecutionSummary;
+import org.yaml.snakeyaml.Yaml;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
 import java.lang.annotation.Annotation;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static io.trino.tests.product.suite.Logging.configureConsoleLogging;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -55,7 +66,7 @@ import static java.util.Objects.requireNonNull;
  * Usage in suite main() methods:
  * <pre>{@code
  * public static void main(String[] args) {
- *     System.setProperty("trino.product-test.environment-mode", "STRICT");
+ *     SuiteRunner.initialize(SuiteMysql.class);
  *
  *     List<TestRunResult> results = new ArrayList<>();
  *     results.add(SuiteRunner.forEnvironment(MySqlEnvironment.class)
@@ -74,8 +85,27 @@ public final class SuiteRunner
 {
     private static final String TEST_PACKAGE = "io.trino.tests.product";
     private static final String PRODUCT_TESTS_TIME_ZONE = "Asia/Kathmandu";
+    private static final String SUITES_RESOURCE = "/product-test-suites.yaml";
+
+    private static volatile Class<?> initializedSuite;
 
     private SuiteRunner() {}
+
+    /**
+     * Prepares running the suite: enables the {@link EnvironmentManager.Mode#STRICT strict} environment mode,
+     * and installs only the plugins the suite declares in {@value #SUITES_RESOURCE}. The suite's main method
+     * calls it before any test run.
+     */
+    public static void initialize(Class<?> suiteClass)
+            throws IOException
+    {
+        checkState(initializedSuite == null, "Suite already initialized: %s", initializedSuite);
+        initializedSuite = suiteClass;
+        // Read by EnvironmentManager.shared() when created
+        System.setProperty("trino.product-test.environment-mode", "STRICT");
+        // Fail on use of a plugin the suite does not declare, as CI selects the suites to run by the declared plugins
+        declaredPlugins(suiteClass).ifPresent(EnvironmentManager.shared()::restrictInstalledPlugins);
+    }
 
     /**
      * Extracts the tag string from a {@link TestGroup} annotation class.
@@ -96,16 +126,38 @@ public final class SuiteRunner
         return tag.value();
     }
 
+    /**
+     * Plugins declared for the suite in {@value #SUITES_RESOURCE}, or empty for the smoke suite, which runs with all plugins.
+     */
+    @SuppressWarnings("unchecked")
+    private static Optional<Set<String>> declaredPlugins(Class<?> suiteClass)
+            throws IOException
+    {
+        String suite = suiteClass.getSimpleName();
+        Map<String, ?> config;
+        try (InputStream input = requireNonNull(SuiteRunner.class.getResourceAsStream(SUITES_RESOURCE), SUITES_RESOURCE + " not found")) {
+            config = new Yaml().load(input);
+        }
+        if (suite.equals(config.get("smoke-suite"))) {
+            return Optional.empty();
+        }
+        Map<String, List<String>> suites = (Map<String, List<String>>) config.get("suites");
+        checkArgument(suites.get(suite) != null, "%s does not declare its plugins in %s", suite, SUITES_RESOURCE);
+        return Optional.of(ImmutableSet.<String>builder()
+                .addAll((List<String>) config.get("installed-by-default"))
+                .addAll(suites.get(suite))
+                .build());
+    }
+
     private static FailureInfo failureInfo(TestExecutionSummary.Failure failure)
     {
         TestSource source = failure.getTestIdentifier().getSource().orElse(null);
         if (source instanceof MethodSource methodSource) {
             String className = methodSource.getClassName();
             String methodName = methodSource.getMethodName();
-            String simpleClassName = className.substring(className.lastIndexOf('.') + 1);
-            return new FailureInfo(className, methodName, simpleClassName, failure.getTestIdentifier().getDisplayName());
+            return new FailureInfo(className, methodName, failure.getTestIdentifier().getDisplayName());
         }
-        return new FailureInfo("", "", "", failure.getTestIdentifier().getDisplayName());
+        return new FailureInfo("", "", failure.getTestIdentifier().getDisplayName());
     }
 
     private static TestRunResult run(
@@ -115,6 +167,11 @@ public final class SuiteRunner
             List<String> excludeTags)
             throws Exception
     {
+        checkState(initializedSuite != null, "SuiteRunner.initialize must be called first");
+        Thread.currentThread().setName(environmentClass.getSimpleName());
+        configureConsoleLogging();
+        SystemMemoryMonitor.start();
+
         // Legacy launcher forced this timezone for all product test JVM executions.
         TimeZone.setDefault(TimeZone.getTimeZone(ZoneId.of(PRODUCT_TESTS_TIME_ZONE)));
         System.setProperty("user.timezone", PRODUCT_TESTS_TIME_ZONE);
@@ -186,9 +243,20 @@ public final class SuiteRunner
      */
     public static void printSummary(List<TestRunResult> results)
     {
-        System.out.println("\n========================================");
-        System.out.println("           COMBINED TEST SUMMARY        ");
-        System.out.println("========================================\n");
+        printSummary(results, System.out);
+    }
+
+    /**
+     * Prints a combined summary of all test runs to the specified output.
+     *
+     * @param results the list of test run results
+     * @param output the destination for the summary
+     */
+    public static void printSummary(List<TestRunResult> results, PrintStream output)
+    {
+        output.println("\n========================================");
+        output.println("           COMBINED TEST SUMMARY        ");
+        output.println("========================================\n");
 
         long totalFound = 0;
         long totalSucceeded = 0;
@@ -204,7 +272,7 @@ public final class SuiteRunner
             totalSkipped += summary.getTestsSkippedCount();
             totalContainerFailed += summary.getContainersFailedCount();
 
-            System.out.printf(
+            output.printf(
                     "%-30s | Found: %3d | Passed: %3d | Failed: %3d | Skipped: %3d | CFail: %3d%n",
                     result.runName(),
                     summary.getTestsFoundCount(),
@@ -214,8 +282,8 @@ public final class SuiteRunner
                     summary.getContainersFailedCount());
         }
 
-        System.out.println("----------------------------------------");
-        System.out.printf(
+        output.println("----------------------------------------");
+        output.printf(
                 "%-30s | Found: %3d | Passed: %3d | Failed: %3d | Skipped: %3d | CFail: %3d%n",
                 "TOTAL",
                 totalFound,
@@ -223,11 +291,11 @@ public final class SuiteRunner
                 totalFailed,
                 totalSkipped,
                 totalContainerFailed);
-        System.out.println("========================================\n");
+        output.println("========================================\n");
 
         if (hasFailures(results)) {
-            System.out.println("FAILURE DETAILS:");
-            System.out.println("----------------");
+            output.println("FAILURE DETAILS:");
+            output.println("----------------");
             for (TestRunResult result : results) {
                 List<TestExecutionSummary.Failure> failures = result.summary().getFailures().stream()
                         .sorted(Comparator
@@ -236,25 +304,24 @@ public final class SuiteRunner
                                 .thenComparing(failure -> failureInfo(failure).displayName()))
                         .toList();
                 if (!failures.isEmpty()) {
-                    System.out.println("\n" + result.runName() + " (" + result.environmentName() + "):");
+                    output.println("\n" + result.runName() + " (" + result.environmentName() + "):");
                     for (TestExecutionSummary.Failure failure : failures) {
                         Throwable exception = failure.getException();
                         String prefix = (exception instanceof AssertionError) ? "[FAILURE]" : "[ERROR]";
                         FailureInfo info = failureInfo(failure);
 
                         if (!info.className().isEmpty()) {
-                            System.out.println(prefix + " " + info.methodName() + "(" + result.environmentName() + ")");
-                            System.out.println("    at " + info.className() + "." + info.methodName() + "(" + info.simpleClassName() + ".java:1)");
+                            output.println(prefix + " " + info.displayName() + " (" + result.environmentName() + ")");
                         }
                         else {
-                            System.out.println(prefix + " " + info.displayName());
+                            output.println(prefix + " " + info.displayName());
                         }
 
-                        System.out.println("    " + exception.getClass().getSimpleName() + ": " + exception.getMessage());
+                        exception.printStackTrace(output);
                     }
                 }
             }
-            System.out.println();
+            output.println();
         }
     }
 
@@ -337,7 +404,6 @@ public final class SuiteRunner
     private record FailureInfo(
             String className,
             String methodName,
-            String simpleClassName,
             String displayName) {}
 
     /**

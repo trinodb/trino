@@ -30,10 +30,7 @@ import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainFloatDict
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter;
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
 import org.apache.parquet.bytes.BytesInput;
-import org.apache.parquet.bytes.DirectByteBufferAllocator;
 import org.apache.parquet.column.Encoding;
-import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
-import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -50,6 +47,55 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDictionaryWriter
 {
+    @Test
+    public void testDictionaryIndexSizeEstimate()
+    {
+        PlainIntegerDictionaryValuesWriter writer = new PlainIntegerDictionaryValuesWriter(10_000, getDictionaryEncoding(), getDictionaryEncoding());
+
+        for (int index = 0; index < 40_000; index++) {
+            writer.writeInteger(index % 16);
+        }
+        assertThat(writer.getBufferedSize()).isEqualTo(writer.getBytes().size());
+
+        writer.reset();
+        for (int index = 0; index < 300; index++) {
+            writer.writeInteger(index);
+        }
+        assertThat(writer.getBufferedSize()).isEqualTo(writer.getBytes().size());
+
+        writer.reset();
+        for (int index = 0; index < 80; index++) {
+            for (int repeat = 0; repeat < index; repeat++) {
+                writer.writeInteger(index);
+            }
+        }
+        assertThat(writer.getBufferedSize()).isEqualTo(writer.getBytes().size());
+    }
+
+    @Test
+    public void testEstimatedPageSizesIncludeDictionaryPage()
+    {
+        DictionaryFallbackValuesWriter writer = newPlainLongDictionaryValuesWriter(10_000, 10_000);
+        for (int index = 0; index < 1_000; index++) {
+            writer.writeLong(index % 50);
+        }
+
+        assertThat(writer.getEstimatedDataPageSize()).isEqualTo(writer.getInitialWriter().getBufferedSize());
+        assertThat(writer.getEstimatedDictionaryPageSize()).isEqualTo(50L * Long.BYTES);
+    }
+
+    @Test
+    public void testEstimatedDictionaryPageSizeExcludesFirstPageFallback()
+    {
+        DictionaryFallbackValuesWriter writer = newPlainLongDictionaryValuesWriter(10_000, 10_000);
+        for (int index = 0; index < 100; index++) {
+            writer.writeLong(index);
+        }
+
+        assertThat(writer.getEstimatedDataPageSize()).isEqualTo(100L * Long.BYTES);
+        assertThat(writer.getEstimatedDictionaryPageSize()).isZero();
+    }
+
     @Test
     public void testBinaryDictionary()
             throws IOException
@@ -185,7 +231,7 @@ public class TestDictionaryWriter
         DictionaryFallbackValuesWriter fallbackValuesWriter = newPlainBinaryDictionaryValuesWriter(10000, 10000);
         writeDistinct(count, fallbackValuesWriter, "a");
         long dictionaryAllocatedSize = fallbackValuesWriter.getInitialWriter().getAllocatedSize();
-        assertThat(fallbackValuesWriter.getAllocatedSize()).isEqualTo(dictionaryAllocatedSize);
+        assertThat(fallbackValuesWriter.getAllocatedSize()).isEqualTo(dictionaryAllocatedSize + fallbackValuesWriter.getFallBackWriter().getAllocatedSize());
         // not efficient so falls back
         BytesInput bytes1 = getBytesAndCheckEncoding(fallbackValuesWriter, PLAIN);
         writeRepeated(count, fallbackValuesWriter, "b");
@@ -208,6 +254,8 @@ public class TestDictionaryWriter
         BytesInput bytes1 = getBytesAndCheckEncoding(fallbackValuesWriter, getDictionaryEncoding());
         writeDistinct(count, fallbackValuesWriter, "b");
         // not efficient so falls back
+        assertThat(fallbackValuesWriter.getEstimatedDataPageSize()).isEqualTo(fallbackValuesWriter.getFallBackWriter().getBufferedSize());
+        assertThat(fallbackValuesWriter.getEstimatedDictionaryPageSize()).isEqualTo(fallbackValuesWriter.getInitialWriter().getLastUsedDictionaryByteSize());
         BytesInput bytes2 = getBytesAndCheckEncoding(fallbackValuesWriter, PLAIN);
         writeRepeated(count, fallbackValuesWriter, "a");
         // still plain because we fell back on previous page
@@ -737,7 +785,7 @@ public class TestDictionaryWriter
 
     private static DictionaryFallbackValuesWriter plainFallBack(DictionaryValuesWriter dictionaryValuesWriter, int initialSize)
     {
-        return new DictionaryFallbackValuesWriter(dictionaryValuesWriter, new ParquetValuesWriterAdapter(new PlainValuesWriter(initialSize, initialSize * 5, new DirectByteBufferAllocator())));
+        return new DictionaryFallbackValuesWriter(dictionaryValuesWriter, new PlainValuesWriter(initialSize));
     }
 
     private static DictionaryFallbackValuesWriter newPlainBinaryDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)
@@ -750,7 +798,7 @@ public class TestDictionaryWriter
         // fixed-length fallback must emit unprefixed values, matching TrinoValuesWriterFactory
         return new DictionaryFallbackValuesWriter(
                 new PlainFixedLenArrayDictionaryValuesWriter(maxDictionaryByteSize, length, getDictionaryEncoding(), getDictionaryEncoding()),
-                new ParquetValuesWriterAdapter(new FixedLenByteArrayPlainValuesWriter(length, initialSize, initialSize * 5, new DirectByteBufferAllocator())));
+                new FixedLenByteArrayPlainValuesWriter(length, initialSize));
     }
 
     private static DictionaryFallbackValuesWriter newPlainLongDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)

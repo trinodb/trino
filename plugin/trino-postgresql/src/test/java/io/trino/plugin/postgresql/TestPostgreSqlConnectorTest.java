@@ -61,6 +61,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.COMPLEX_JOIN_PUSHDOWN_ENABLED;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -157,6 +158,27 @@ public class TestPostgreSqlConnectorTest
                 onRemoteDatabase(),
                 "tpch.test_unsupported_column_present",
                 "(one bigint, two interval, three varchar(10))");
+    }
+
+    @Test
+    public void testFloatingPointRangePushdownWithNaN()
+    {
+        for (String type : List.of("real", "double")) {
+            try (TestTable table = newTrinoTable(
+                    "test_nan_range_pushdown",
+                    "(id integer, x " + type + ")",
+                    List.of("1, -infinity()", "2, -1", "3, 0", "4, 1", "5, infinity()", "6, nan()", "7, NULL"))) {
+                assertThat(query("SELECT id FROM " + table.getName() + " WHERE x < 0"))
+                        .matches("VALUES 1, 2")
+                        .isFullyPushedDown();
+                assertThat(query("SELECT id FROM " + table.getName() + " WHERE x > 0"))
+                        .matches("VALUES 4, 5")
+                        .isFullyPushedDown();
+                assertThat(query("SELECT id FROM " + table.getName() + " WHERE x < 0 OR x > 0 OR x IS NULL"))
+                        .matches("VALUES 1, 2, 4, 5, 7")
+                        .isFullyPushedDown();
+            }
+        }
     }
 
     @Test
@@ -618,9 +640,9 @@ public class TestPostgreSqlConnectorTest
 
         List<String> nonEqualities = Stream.concat(
                         Stream.of(JoinCondition.Operator.values())
-                                .filter(operator -> operator != JoinCondition.Operator.EQUAL && operator != JoinCondition.Operator.IDENTICAL)
+                                .filter(operator -> operator != JoinCondition.Operator.EQUAL)
                                 .map(JoinCondition.Operator::getValue),
-                        Stream.of("IS DISTINCT FROM", "IS NOT DISTINCT FROM"))
+                        Stream.of("IS DISTINCT FROM"))
                 .collect(toImmutableList());
 
         try (TestTable nationLowercaseTable = newTrinoTable(
@@ -745,6 +767,17 @@ public class TestPostgreSqlConnectorTest
             assertThat(query(session, "SELECT * FROM nation n, region r, customer c WHERE n.regionkey = r.regionkey AND r.regionkey = c.custkey"))
                     .isFullyPushedDown();
         }
+    }
+
+    @Test
+    public void testLegacyJoinPushdownWithIdenticalCondition()
+    {
+        Session session = Session.builder(joinPushdownEnabled(getSession()))
+                .setCatalogSessionProperty("postgresql", COMPLEX_JOIN_PUSHDOWN_ENABLED, "false")
+                .build();
+
+        assertThat(query(session, "SELECT n1.name FROM nation n1 JOIN nation n2 ON n1.nationkey = n2.nationkey AND n1.regionkey IS NOT DISTINCT FROM n2.regionkey"))
+                .isFullyPushedDown();
     }
 
     @Test
@@ -1106,6 +1139,10 @@ public class TestPostgreSqlConnectorTest
                 "(id BIGINT, varchar_col VARCHAR)",
                 ImmutableList.of("1, 'abc'", "2, null"))) {
             assertThat(query("SELECT reverse(varchar_col) FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES 'cba', NULL")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT varchar_col.reverse() FROM " + table.getName()))
                     .skippingTypesCheck()
                     .matches("VALUES 'cba', NULL")
                     .isFullyPushedDown();

@@ -85,6 +85,7 @@ public class ResourceGroupSpec
         softConcurrencyLimit.ifPresent(soft -> checkArgument(this.hardConcurrencyLimit >= soft, "hardConcurrencyLimit must be greater than or equal to softConcurrencyLimit"));
         this.schedulingPolicy = schedulingPolicy.map(value -> SchedulingPolicy.valueOf(value.toUpperCase(ENGLISH)));
         this.schedulingWeight = requireNonNull(schedulingWeight, "schedulingWeight is null");
+        this.schedulingWeight.ifPresent(weight -> checkArgument(weight > 0, "schedulingWeight must be positive"));
 
         requireNonNull(softMemoryLimit, "softMemoryLimit is null");
         if (softMemoryLimit.isEmpty()) {
@@ -96,7 +97,7 @@ public class ResourceGroupSpec
             if (matcher.matches()) {
                 this.softMemoryLimit = Optional.empty();
                 this.softMemoryLimitFraction = OptionalDouble.of(Double.parseDouble(matcher.group(1)) / 100.0);
-                checkArgument(softMemoryLimitFraction.getAsDouble() <= 1.0, "softMemoryLimit percentage is over 100%");
+                checkArgument(softMemoryLimitFraction.orElseThrow() <= 1.0, "softMemoryLimit percentage is over 100%");
             }
             else {
                 this.softMemoryLimit = Optional.of(DataSize.valueOf(softMemoryLimit.get()));

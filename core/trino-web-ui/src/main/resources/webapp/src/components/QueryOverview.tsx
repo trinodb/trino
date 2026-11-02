@@ -372,7 +372,11 @@ export const QueryOverview = () => {
                         <Divider />
                     </Box>
                     <Box>
-                        <CodeBlock language="sql" code={queryStatusInfo.preparedQuery} />
+                        <CodeBlock
+                            language="sql"
+                            code={queryStatusInfo.preparedQuery}
+                            monacoOptions={{ lineNumbers: 'on' }}
+                        />
                     </Box>
                 </Grid>
             )
@@ -876,7 +880,11 @@ export const QueryOverview = () => {
                                 <Divider />
                             </Box>
                             <Box>
-                                <CodeBlock language="sql" code={queryStatusInfo.query} />
+                                <CodeBlock
+                                    language="sql"
+                                    code={queryStatusInfo.query}
+                                    monacoOptions={{ lineNumbers: 'on' }}
+                                />
                             </Box>
                         </Grid>
                         {renderPreparedQuery()}

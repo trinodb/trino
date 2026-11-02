@@ -13,6 +13,7 @@
  */
 package io.trino.execution.executor.scheduler;
 
+import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -20,17 +21,124 @@ import io.airlift.testing.TestingTicker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.testing.assertions.Assert.assertEventually;
+import static java.util.Collections.synchronizedList;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestFairScheduler
 {
+    @Test
+    @Timeout(30)
+    public void testSubmitDoesNotBlockOtherOperations()
+            throws Exception
+    {
+        // Creating the thread that runs a task is slow on a loaded worker. Simulate that and verify
+        // that it does not hold up group management or the submission of unrelated tasks.
+        AtomicBoolean stallNextThread = new AtomicBoolean();
+        CountDownLatch threadCreationStarted = new CountDownLatch(1);
+        CountDownLatch releaseThreadCreation = new CountDownLatch(1);
+
+        ThreadFactory threadFactory = runnable -> {
+            if (stallNextThread.compareAndSet(true, false)) {
+                threadCreationStarted.countDown();
+                awaitUninterruptibly(releaseThreadCreation);
+            }
+            Thread thread = new Thread(runnable);
+            thread.setDaemon(true);
+            return thread;
+        };
+
+        FairScheduler scheduler = new FairScheduler(2, threadFactory, Ticker.systemTicker());
+        ExecutorService submitter = newSingleThreadExecutor(daemonThreadsNamed("submitter"));
+        try {
+            Group group = scheduler.createGroup("G1");
+
+            stallNextThread.set(true);
+            Future<?> stalled = submitter.submit(() -> scheduler.submit(group, 1, _ -> {}));
+            threadCreationStarted.await();
+
+            // these must not wait for the stalled thread creation to complete
+            Group other = scheduler.createGroup("G2");
+            scheduler.submit(other, 1, _ -> {}).get();
+            scheduler.removeGroup(other);
+
+            releaseThreadCreation.countDown();
+            stalled.get();
+        }
+        finally {
+            releaseThreadCreation.countDown();
+            submitter.shutdownNow();
+            scheduler.close();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testCloseDoesNotWaitForThreadCreation()
+            throws Exception
+    {
+        CountDownLatch threadCreationStarted = new CountDownLatch(1);
+        CountDownLatch releaseThreadCreation = new CountDownLatch(1);
+        ThreadFactory threadFactory = runnable -> {
+            threadCreationStarted.countDown();
+            awaitUninterruptibly(releaseThreadCreation);
+            Thread thread = new Thread(runnable);
+            thread.setDaemon(true);
+            return thread;
+        };
+
+        FairScheduler scheduler = new FairScheduler(1, threadFactory, Ticker.systemTicker());
+        Group group = scheduler.createGroup("G");
+        ExecutorService executor = newSingleThreadExecutor(daemonThreadsNamed("submitter"));
+        try {
+            Future<?> submit = executor.submit(() -> scheduler.submit(group, 1, _ -> {}));
+            threadCreationStarted.await();
+
+            // Shutdown is safe without waiting for the submit call to finish creating its thread.
+            scheduler.close();
+
+            releaseThreadCreation.countDown();
+            assertThatThrownBy(submit::get)
+                    .isInstanceOf(ExecutionException.class)
+                    .cause()
+                    .isInstanceOf(RejectedExecutionException.class);
+        }
+        finally {
+            releaseThreadCreation.countDown();
+            executor.shutdownNow();
+            scheduler.close();
+        }
+    }
+
+    @Test
+    public void testSubmitAfterClose()
+    {
+        FairScheduler scheduler = FairScheduler.newInstance(1);
+        Group group = scheduler.createGroup("G");
+        scheduler.close();
+
+        assertThatThrownBy(() -> scheduler.submit(group, 1, _ -> {}))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Already closed");
+    }
+
     @Test
     public void testBasic()
             throws ExecutionException, InterruptedException
@@ -45,6 +153,22 @@ public class TestFairScheduler
             assertThat(ran.get())
                     .describedAs("Ran task")
                     .isTrue();
+        }
+    }
+
+    @Test
+    public void testRunnerFailureFailsFuture()
+    {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1)) {
+            Group group = scheduler.createGroup("G1");
+
+            ListenableFuture<Void> done = scheduler.submit(group, 1, _ -> {
+                throw new RuntimeException("runner failed");
+            });
+
+            assertThatThrownBy(done::get)
+                    .isInstanceOf(ExecutionException.class)
+                    .hasRootCauseMessage("runner failed");
         }
     }
 
@@ -80,6 +204,92 @@ public class TestFairScheduler
             }
 
             task1.get();
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testYieldingTaskCompetesForItsSlot()
+            throws ExecutionException, InterruptedException
+    {
+        TestingTicker ticker = new TestingTicker();
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+            Group heavyGroup = scheduler.createGroup("heavy");
+            Group lightGroup = scheduler.createGroup("light");
+            List<String> events = synchronizedList(new ArrayList<>());
+
+            CountDownLatch heavyStarted = new CountDownLatch(1);
+            CountDownLatch heavyMayYield = new CountDownLatch(1);
+            ListenableFuture<Void> heavy = scheduler.submit(heavyGroup, 1, context -> {
+                heavyStarted.countDown();
+                awaitUninterruptibly(heavyMayYield);
+                if (context.maybeYield()) {
+                    events.add("heavy resumed");
+                }
+            });
+            heavyStarted.await();
+
+            CountDownLatch lightStarted = new CountDownLatch(1);
+            CountDownLatch lightMayYield = new CountDownLatch(1);
+            ListenableFuture<Void> light = scheduler.submit(lightGroup, 2, context -> {
+                lightStarted.countDown();
+                awaitUninterruptibly(lightMayYield);
+                if (context.maybeYield()) {
+                    events.add("light resumed");
+                }
+            });
+            assertEventually(() -> assertThat(scheduler.getTasks(lightGroup)).containsExactly(2));
+
+            // heavy yields after five quanta, handing the slot to light
+            ticker.increment(FairScheduler.QUANTUM_NANOS * 5, TimeUnit.NANOSECONDS);
+            heavyMayYield.countDown();
+            lightStarted.await();
+
+            // light yields after one quantum, still behind heavy in fair order, so it keeps the slot
+            ticker.increment(FairScheduler.QUANTUM_NANOS, TimeUnit.NANOSECONDS);
+            lightMayYield.countDown();
+
+            light.get();
+            heavy.get();
+            assertThat(events).containsExactly("light resumed", "heavy resumed");
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testCancelledYieldHandsOverSlot()
+            throws ExecutionException, InterruptedException
+    {
+        TestingTicker ticker = new TestingTicker();
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+            Group waitingGroup = scheduler.createGroup("waiting");
+            Group cancelledGroup = scheduler.createGroup("cancelled");
+
+            CountDownLatch cancelledStarted = new CountDownLatch(1);
+            CountDownLatch groupRemoved = new CountDownLatch(1);
+            CountDownLatch waitingRan = new CountDownLatch(1);
+            ListenableFuture<Void> cancelled = scheduler.submit(cancelledGroup, 1, context -> {
+                cancelledStarted.countDown();
+                awaitUninterruptibly(groupRemoved);
+                ticker.increment(FairScheduler.QUANTUM_NANOS * 2, TimeUnit.NANOSECONDS);
+                assertThat(context.maybeYield())
+                        .describedAs("Cancelled while yielding")
+                        .isFalse();
+                // the slot the cancelled yield freed goes to the waiting task while this one still runs
+                assertThat(awaitUninterruptibly(waitingRan, 5, TimeUnit.SECONDS))
+                        .describedAs("Waiting task ran on the freed slot")
+                        .isTrue();
+            });
+            cancelledStarted.await();
+
+            ListenableFuture<Void> waiting = scheduler.submit(waitingGroup, 2, _ -> waitingRan.countDown());
+            assertEventually(() -> assertThat(scheduler.getTasks(waitingGroup)).containsExactly(2));
+
+            scheduler.removeGroup(cancelledGroup);
+            groupRemoved.countDown();
+
+            cancelled.get();
+            waiting.get();
         }
     }
 

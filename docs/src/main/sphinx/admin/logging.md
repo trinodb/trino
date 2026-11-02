@@ -41,7 +41,7 @@ dependencies embedded within Trino or part of the Java runtime, for example:
   framework used by Trino.
 * `org.eclipse.jetty` for the [Eclipse Jetty](https://jetty.org/) web server
   used by Trino.
-* `org.postgresql` for the [PostgresSQL JDBC driver](https://github.com/pgjdbc)
+* `org.postgresql` for the [PostgreSQL JDBC driver](https://github.com/pgjdbc)
   used by the PostgreSQL connector.
 * `javax.net.ssl` for TLS from the Java runtime.
 * `java.io` for I/O operations.
@@ -54,7 +54,7 @@ and in following example sections.
 
 By default, logging output is file-based with rotated files in `var/log`:
 
-* `launcher.log` for logging out put from the application startup from the
+* `launcher.log` for logging output from the application startup from the
   [launcher](running-trino). Only used if the launcher starts Trino in the
   background, and therefore not used in the Trino container.
 * `http-request.log` for HTTP request logs, mostly from the [client

@@ -51,6 +51,7 @@ import java.util.function.Supplier;
 
 import static io.trino.hive.formats.HiveClassNames.ORC_OUTPUT_FORMAT_CLASS;
 import static io.trino.orc.metadata.OrcType.createRootOrcType;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
@@ -146,40 +147,54 @@ public class OrcFileWriterFactory
         int[] fileInputColumnIndexes = fileColumnNames.stream()
                 .mapToInt(inputColumnNames::indexOf)
                 .toArray();
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+
+        Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
+        if (isOrcOptimizedWriterValidate(session)) {
+            validationInputFactory = Optional.of(() -> {
+                try {
+                    TrinoInputFile inputFile = fileSystem.newInputFile(location);
+                    return new HdfsOrcDataSource(
+                            new OrcDataSourceId(location.toString()),
+                            inputFile.length(),
+                            new OrcReaderOptions(),
+                            inputFile,
+                            readStats);
+                }
+                catch (IOException e) {
+                    throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
+                }
+            });
+        }
+
+        RollbackAction rollbackAction = () -> fileSystem.deleteFile(location);
+
+        if (transaction.isInsert() && useAcidSchema) {
+            // Only add the ACID columns if the request is for insert-type operations - - for delete operations,
+            // the columns are added by the caller.  This is because the ACID columns for delete operations
+            // depend on the rows being deleted, whereas the ACID columns for INSERT are completely determined
+            // by bucket and writeId.
+            Type rowType = createRowType(fileColumnNames, fileColumnTypes);
+            fileColumnNames = ACID_COLUMN_NAMES;
+            fileColumnTypes = createAcidColumnTrinoTypes(rowType);
+        }
+
+        OrcWriterOptions writerOptions = getOrcWriterOptions(schema, orcWriterOptions)
+                .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
+                .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
+                .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
+                .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
+                .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session));
+
+        OrcDataSink orcDataSink;
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            OrcDataSink orcDataSink = createOrcDataSink(fileSystem, location);
+            orcDataSink = createOrcDataSink(fileSystem, location);
+        }
+        catch (IOException e) {
+            throw closeAllSuppress(new TrinoException(HIVE_WRITER_OPEN_ERROR, "Error creating ORC file", e), rollbackAction::run);
+        }
 
-            Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
-            if (isOrcOptimizedWriterValidate(session)) {
-                validationInputFactory = Optional.of(() -> {
-                    try {
-                        TrinoInputFile inputFile = fileSystem.newInputFile(location);
-                        return new HdfsOrcDataSource(
-                                new OrcDataSourceId(location.toString()),
-                                inputFile.length(),
-                                new OrcReaderOptions(),
-                                inputFile,
-                                readStats);
-                    }
-                    catch (IOException e) {
-                        throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
-                    }
-                });
-            }
-
-            RollbackAction rollbackAction = () -> fileSystem.deleteFile(location);
-
-            if (transaction.isInsert() && useAcidSchema) {
-                // Only add the ACID columns if the request is for insert-type operations - - for delete operations,
-                // the columns are added by the caller.  This is because the ACID columns for delete operations
-                // depend on the rows being deleted, whereas the ACID columns for INSERT are completely determined
-                // by bucket and writeId.
-                Type rowType = createRowType(fileColumnNames, fileColumnTypes);
-                fileColumnNames = ACID_COLUMN_NAMES;
-                fileColumnTypes = createAcidColumnTrinoTypes(rowType);
-            }
-
+        try {
             return Optional.of(new OrcFileWriter(
                     orcDataSink,
                     writerKind,
@@ -191,12 +206,7 @@ public class OrcFileWriterFactory
                     fileColumnTypes,
                     createRootOrcType(fileColumnNames, fileColumnTypes),
                     compressionCodec.getOrcCompressionKind(),
-                    getOrcWriterOptions(schema, orcWriterOptions)
-                            .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
-                            .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
-                            .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
-                            .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
-                            .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
+                    writerOptions,
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(TRINO_VERSION_NAME, nodeVersion.toString())
@@ -206,8 +216,8 @@ public class OrcFileWriterFactory
                     getOrcOptimizedWriterValidateMode(session),
                     stats));
         }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_WRITER_OPEN_ERROR, "Error creating ORC file", e);
+        catch (RuntimeException e) {
+            throw closeAllSuppress(e, orcDataSink::abort, rollbackAction::run);
         }
     }
 

@@ -20,7 +20,6 @@ import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
@@ -35,9 +34,11 @@ import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinFilterFunction;
 import io.trino.operator.join.StandardJoinFilterFunction;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
@@ -45,7 +46,9 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
+import io.trino.type.CharVarcharCoercion;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import jakarta.annotation.Nullable;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -55,7 +58,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -65,10 +67,11 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.sql.gen.BytecodeUtils.invoke;
+import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
+import static io.trino.util.CompilerUtils.isCompilerLimitExceeded;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
@@ -78,6 +81,8 @@ public class JoinFilterFunctionCompiler
     private final Metadata metadata;
     private final TypeManager typeManager;
     private final NonEvictableCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories;
+    // Structurally identical filters with different literals share one compiled template
+    private final ClassTemplateCache<InternalJoinFilterFunction> filterTemplates;
 
     @Inject
     public JoinFilterFunctionCompiler(FunctionManager functionManager, Metadata metadata, TypeManager typeManager)
@@ -89,6 +94,7 @@ public class JoinFilterFunctionCompiler
                 CacheBuilder.newBuilder()
                         .recordStats()
                         .maximumSize(1000));
+        this.filterTemplates = new ClassTemplateCache<>(InternalJoinFilterFunction.class, 1000);
     }
 
     @Managed
@@ -98,59 +104,70 @@ public class JoinFilterFunctionCompiler
         return new CacheStatsMBean(joinFilterFunctionFactories);
     }
 
-    public JoinFilterFunctionFactory compileJoinFilterFunction(Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize)
+    @Nullable
+    @Managed
+    @Nested
+    public CacheStatsMBean getJoinFilterTemplateCache()
     {
+        return filterTemplates.getStats();
+    }
+
+    public JoinFilterFunctionFactory compileJoinFilterFunction(Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
+    {
+        Expression canonicalFilter = canonicalizeReferences(filter, layout);
         try {
             return joinFilterFunctionFactories.get(
-                    new JoinFilterCacheKey(canonicalizeReferences(filter, layout), leftBlocksSize),
-                    () -> internalCompileFilterFunctionFactory(filter, layout, leftBlocksSize));
+                    new JoinFilterCacheKey(canonicalFilter, leftBlocksSize, charVarcharCoercion),
+                    () -> internalCompileFilterFunctionFactory(filter, canonicalFilter, layout, leftBlocksSize, charVarcharCoercion));
         }
         catch (ExecutionException e) {
             throw new UncheckedExecutionException(e);
         }
     }
 
-    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(Expression filterExpression, Map<Symbol, Integer> layout, int leftBlocksSize)
+    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(Expression filterExpression, Expression canonicalFilter, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
-        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, layout, leftBlocksSize);
+        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, canonicalFilter, layout, leftBlocksSize, charVarcharCoercion);
         return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction);
     }
 
-    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(Expression filterExpression, Map<Symbol, Integer> layout, int leftBlocksSize)
+    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(Expression filterExpression, Expression canonicalFilter, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
-        ClassDefinition classDefinition = new ClassDefinition(
-                a(PUBLIC, FINAL),
-                makeClassName("JoinFilterFunction"),
-                type(Object.class),
-                type(InternalJoinFilterFunction.class));
+        try {
+            // the canonical filter preserves the constant nodes of the original filter, so the
+            // template machinery can match the bound literal values by identity
+            return filterTemplates.defineClass(canonicalFilter, ImmutableList.of(leftBlocksSize, charVarcharCoercion), callSiteBinder -> {
+                ClassDefinition classDefinition = new ClassDefinition(
+                        a(PUBLIC, FINAL),
+                        makeClassName("JoinFilterFunction"),
+                        type(Object.class),
+                        type(InternalJoinFilterFunction.class));
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
+                new JoinFilterFunctionCompiler(functionManager, metadata, typeManager)
+                        .generateMethods(classDefinition, callSiteBinder, filterExpression, layout, leftBlocksSize, charVarcharCoercion);
 
-        new JoinFilterFunctionCompiler(functionManager, metadata, typeManager)
-                .generateMethods(classDefinition, callSiteBinder, filterExpression, layout, leftBlocksSize);
-
-        //
-        // toString method
-        //
-        generateToString(
-                classDefinition,
-                callSiteBinder,
-                toStringHelper(classDefinition.getType().getJavaClassName())
-                        .add("filter", filterExpression)
-                        .add("leftBlocksSize", leftBlocksSize)
-                        .toString());
-
-        return defineClass(classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+                return classDefinition;
+            });
+        }
+        catch (RuntimeException e) {
+            if (isCompilerLimitExceeded(e)) {
+                throw new TrinoException(
+                        QUERY_EXCEEDED_COMPILER_LIMIT,
+                        "Failed to execute query; the join condition may be too complex",
+                        e);
+            }
+            throw e;
+        }
     }
 
-    private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize)
+    private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
 
-        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, functionManager, metadata, typeManager);
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, layout, leftBlocksSize, sessionField);
+        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, functionManager, metadata, typeManager, charVarcharCoercion);
+        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, layout, leftBlocksSize, charVarcharCoercion, sessionField);
 
         generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
     }
@@ -183,6 +200,7 @@ public class JoinFilterFunctionCompiler
             Expression filter,
             Map<Symbol, Integer> layout,
             int leftBlocksSize,
+            CharVarcharCoercion charVarcharCoercion,
             FieldDefinition sessionField)
     {
         // int leftPosition, Page leftPage, int rightPosition, Page rightPage
@@ -202,14 +220,16 @@ public class JoinFilterFunctionCompiler
                         .add(rightPage)
                         .build());
 
-        method.comment("filter: %s", filter.toString());
+        if (isClassDumpEnabled()) {
+            method.comment("filter: %s", filter.toString());
+        }
         BytecodeBlock body = method.getBody();
 
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         scope.declareVariable("session", body, method.getThis().getField(sessionField));
 
-        BiFunction<Reference, Scope, BytecodeNode> referenceCompiler = fieldReferenceCompiler(callSiteBinder, layout, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize);
+        BiFunction<Reference, Scope, BytecodeNode> referenceCompiler = fieldReferenceCompiler(typeManager.getTypeOperators(), callSiteBinder, layout, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize);
 
         ExpressionBytecodeCompiler compiler = new ExpressionBytecodeCompiler(
                 classDefinition,
@@ -219,6 +239,7 @@ public class JoinFilterFunctionCompiler
                 functionManager,
                 metadata,
                 typeManager,
+                charVarcharCoercion,
                 compiledLambdaMap,
                 ImmutableList.of(leftPage, leftPosition, rightPage, rightPosition));
 
@@ -233,21 +254,13 @@ public class JoinFilterFunctionCompiler
                         .ifFalse(result.ret()));
     }
 
-    private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
-    {
-        // bind constant via invokedynamic to avoid constant pool issues due to large strings
-        classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
-                .getBody()
-                .append(invoke(callSiteBinder.bind(string, String.class), "toString"))
-                .retObject();
-    }
-
     public interface JoinFilterFunctionFactory
     {
         JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<Page> pages);
     }
 
     private static BiFunction<Reference, Scope, BytecodeNode> fieldReferenceCompiler(
+            TypeOperators typeOperators,
             CallSiteBinder callSiteBinder,
             Map<Symbol, Integer> layout,
             Variable leftPosition,
@@ -263,6 +276,7 @@ public class JoinFilterFunctionCompiler
             }
             if (field < leftBlocksSize) {
                 return generateInputReference(
+                        typeOperators,
                         callSiteBinder,
                         scope,
                         reference.type(),
@@ -270,6 +284,7 @@ public class JoinFilterFunctionCompiler
                         leftPosition);
             }
             return generateInputReference(
+                    typeOperators,
                     callSiteBinder,
                     scope,
                     reference.type(),
@@ -300,11 +315,12 @@ public class JoinFilterFunctionCompiler
         }, expression);
     }
 
-    private record JoinFilterCacheKey(Expression filter, int leftBlocksSize)
+    private record JoinFilterCacheKey(Expression filter, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
         JoinFilterCacheKey
         {
             requireNonNull(filter, "filter is null");
+            requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
         }
     }
 
@@ -320,8 +336,7 @@ public class JoinFilterFunctionCompiler
                 internalJoinFilterFunctionConstructor = internalJoinFilterFunction
                         .getConstructor(ConnectorSession.class);
 
-                Class<? extends JoinFilterFunction> isolatedJoinFilterFunction = IsolatedClass.isolateClass(
-                        new DynamicClassLoader(getClass().getClassLoader()),
+                Class<? extends JoinFilterFunction> isolatedJoinFilterFunction = IsolatedClass.isolateHiddenClass(
                         JoinFilterFunction.class,
                         StandardJoinFilterFunction.class);
                 isolatedJoinFilterFunctionConstructor = isolatedJoinFilterFunction.getConstructor(InternalJoinFilterFunction.class, LongArrayList.class, List.class);

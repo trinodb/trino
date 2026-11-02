@@ -31,6 +31,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -50,18 +51,18 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -81,6 +82,43 @@ public class TestDeltaLakeFileStatistics
         File statsFile = new File(getClass().getResource("all_type_statistics.json").toURI());
         DeltaLakeFileStatistics fileStatistics = jsonMapper.readValue(statsFile, DeltaLakeJsonFileStatistics.class);
         testStatisticsValues(fileStatistics);
+    }
+
+    @Test
+    void testTightBoundsJsonRoundTrip()
+            throws Exception
+    {
+        DeltaLakeJsonFileStatistics wideBounds = DeltaLakeJsonFileStatistics.create("{\"numRecords\":5,\"tightBounds\":false}");
+        assertThat(wideBounds.getTightBounds()).contains(false);
+        assertThat(DeltaLakeJsonFileStatistics.create(serializeStatsAsJson(wideBounds))).isEqualTo(wideBounds);
+
+        DeltaLakeJsonFileStatistics tightBounds = DeltaLakeJsonFileStatistics.create("{\"numRecords\":5,\"tightBounds\":true}");
+        assertThat(tightBounds.getTightBounds()).contains(true);
+        assertThat(DeltaLakeJsonFileStatistics.create(serializeStatsAsJson(tightBounds))).isEqualTo(tightBounds);
+    }
+
+    @Test
+    void testTimestampWithTimeZoneStatisticsTruncatedToMicroseconds()
+            throws Exception
+    {
+        DeltaLakeJsonFileStatistics statistics = DeltaLakeJsonFileStatistics.create(
+                "{\"numRecords\":1,\"minValues\":{\"ts\":\"2024-01-15T10:30:00.123456789Z\"},\"maxValues\":{\"ts\":\"2024-01-15T10:30:00.123456789Z\"},\"nullCount\":{\"ts\":0}}");
+        DeltaLakeColumnHandle column = new DeltaLakeColumnHandle("ts", TIMESTAMP_TZ_MICROS, OptionalInt.empty(), "ts", TIMESTAMP_TZ_MICROS, REGULAR, Optional.empty());
+        LongTimestampWithTimeZone expected = LongTimestampWithTimeZone.fromEpochMillisAndFraction(LocalDateTime.parse("2024-01-15T10:30:00.123").toInstant(UTC).toEpochMilli(), 456_000_000, UTC_KEY);
+        assertThat(statistics.getMinColumnValue(column)).contains(expected);
+        assertThat(statistics.getMaxColumnValue(column)).contains(expected);
+    }
+
+    @Test
+    void testMissingTightBounds()
+            throws Exception
+    {
+        DeltaLakeJsonFileStatistics statistics = new DeltaLakeJsonFileStatistics(Optional.of(5L), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        assertThat(statistics.getTightBounds()).isEmpty();
+        assertThat(serializeStatsAsJson(statistics)).doesNotContain("tightBounds");
+        assertThat(DeltaLakeJsonFileStatistics.create("{\"numRecords\":5}")).isEqualTo(statistics);
+        assertThat(DeltaLakeJsonFileStatistics.create("{\"numRecords\":5,\"tightBounds\":null}")).isEqualTo(statistics);
+        assertThat(new DeltaLakeParquetFileStatistics(Optional.of(5L), Optional.empty(), Optional.empty(), Optional.empty()).getTightBounds()).isEmpty();
     }
 
     @Test
@@ -172,7 +210,7 @@ public class TestDeltaLakeFileStatistics
         assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("m", new MapType(INTEGER, VarcharType.createUnboundedVarcharType(), new TypeOperators()), OptionalInt.empty(), "m", new MapType(INTEGER, VarcharType.createUnboundedVarcharType(), new TypeOperators()), REGULAR, Optional.empty()))).isEqualTo(Optional.empty());
         assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("sh", SMALLINT, OptionalInt.empty(), "sh", SMALLINT, REGULAR, Optional.empty()))).isEqualTo(Optional.of(123L));
         assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("str", VarcharType.createUnboundedVarcharType(), OptionalInt.empty(), "str", VarcharType.createUnboundedVarcharType(), REGULAR, Optional.empty()))).isEqualTo(Optional.of(utf8Slice("a")));
-        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("ts", TIMESTAMP_TZ_MILLIS, OptionalInt.empty(), "ts", TIMESTAMP_TZ_MILLIS, REGULAR, Optional.empty()))).isEqualTo(Optional.of(packDateTimeWithZone(LocalDateTime.parse("2960-10-31T01:00:00.000").toInstant(UTC).toEpochMilli(), UTC_KEY)));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("ts", TIMESTAMP_TZ_MICROS, OptionalInt.empty(), "ts", TIMESTAMP_TZ_MICROS, REGULAR, Optional.empty()))).isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(LocalDateTime.parse("2960-10-31T01:00:00.000").toInstant(UTC).toEpochMilli(), 0, UTC_KEY)));
         // Unsupported types: return empty statistics, even if stats technically exist
         assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("bool", BOOLEAN, OptionalInt.empty(), "bool", BOOLEAN, REGULAR, Optional.empty()))).isEqualTo(Optional.empty());
         assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("bin", VARBINARY, OptionalInt.empty(), "bin", VARBINARY, REGULAR, Optional.empty()))).isEqualTo(Optional.empty());

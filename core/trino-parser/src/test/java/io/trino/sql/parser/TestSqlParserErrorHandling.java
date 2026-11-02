@@ -245,30 +245,32 @@ public class TestSqlParserErrorHandling
     public void testPossibleExponentialBacktracking2()
     {
         testStatement(
-                "SELECT id FROM t WHERE\n" +
-                        "(f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "OR (f()\n" +
-                        "GROUP BY id",
+                """
+                SELECT id FROM t WHERE
+                (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                OR (f()
+                GROUP BY id
+                """,
                 "line 24:1: mismatched input 'GROUP'. Expecting: '%', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AT', 'FILTER', 'IGNORE', 'OR', 'OVER', 'RESPECT', '[', '||', <predicate>");
     }
 

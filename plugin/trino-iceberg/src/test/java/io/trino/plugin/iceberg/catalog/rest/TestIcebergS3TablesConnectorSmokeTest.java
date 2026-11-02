@@ -13,10 +13,8 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
-import io.trino.plugin.iceberg.IcebergConnector;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
@@ -28,6 +26,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -74,6 +73,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
                 .addIcebergProperty("iceberg.rest-catalog.security", "sigv4")
                 .addIcebergProperty("iceberg.rest-catalog.signing-name", "glue")
+                .addIcebergProperty("iceberg.rest-catalog.metrics-reporting-enabled", "false")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
                 .addIcebergProperty("fs.s3.enabled", "true")
                 .addIcebergProperty("s3.region", AWS_REGION)
@@ -86,7 +86,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        TrinoCatalogFactory catalogFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector("iceberg")).getInjector().getInstance(TrinoCatalogFactory.class);
+        TrinoCatalogFactory catalogFactory = getConnectorService(getQueryRunner(), TrinoCatalogFactory.class);
         TrinoCatalog trinoCatalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
         BaseTable table = trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
         return table.operations().current().metadataFileLocation();
@@ -100,12 +100,6 @@ final class TestIcebergS3TablesConnectorSmokeTest
 
     @Override
     protected boolean locationExists(String location)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
     {
         throw new UnsupportedOperationException();
     }
@@ -133,18 +127,21 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
-                .matches("CREATE TABLE iceberg.tpch.region \\(\n" +
-                        "   regionkey bigint,\n" +
-                        "   name varchar,\n" +
-                        "   comment varchar\n" +
-                        "\\)\n" +
-                        "WITH \\(\n" +
-                        "   compression_codec = 'ZSTD',\n" +
-                        "   format = 'PARQUET',\n" +
-                        "   format_version = 2,\n" +
-                        "   location = 's3://.*--table-s3',\n" +
-                        "   max_commit_retry = 4\n" +
-                        "\\)");
+                .matches(
+                        """
+                        CREATE TABLE iceberg.tpch.region \\(
+                           regionkey bigint,
+                           name varchar,
+                           comment varchar
+                        \\)
+                        WITH \\(
+                           compression_codec = 'ZSTD',
+                           format = 'PARQUET',
+                           format_version = 2,
+                           location = 's3://.*--table-s3',
+                           max_commit_retry = 4
+                        \\)\
+                        """);
     }
 
     @Test
@@ -188,7 +185,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testView()
     {
         assertThatThrownBy(super::testView)
-                .hasMessageContaining("Server does not support endpoint: POST /v1/{prefix}/namespaces/{namespace}/views");
+                .hasMessage("Cannot create views when iceberg.rest-catalog.view-endpoints-enabled is disabled");
     }
 
     @Test
@@ -196,7 +193,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testCommentViewColumn()
     {
         assertThatThrownBy(super::testCommentViewColumn)
-                .hasMessageContaining("Server does not support endpoint: POST /v1/{prefix}/namespaces/{namespace}/views");
+                .hasMessage("Cannot create views when iceberg.rest-catalog.view-endpoints-enabled is disabled");
     }
 
     @Test
@@ -204,7 +201,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testCommentView()
     {
         assertThatThrownBy(super::testCommentView)
-                .hasMessageContaining("Server does not support endpoint: POST /v1/{prefix}/namespaces/{namespace}/views");
+                .hasMessage("Cannot create views when iceberg.rest-catalog.view-endpoints-enabled is disabled");
     }
 
     @Test
@@ -232,16 +229,12 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testDropTableWithMissingDataFile() {}
 
     @Test
+    @Override // The TrinoFileSystem.listFiles is unsupported
+    public void testDropTablePreservesDataWhenGcDisabled() {}
+
+    @Test
     @Override // The TrinoFileSystem.deleteDirectory is unsupported
     public void testDropTableWithNonExistentTableLocation() {}
-
-    @Test
-    @Override // BaseIcebergConnectorSmokeTest.isFileSorted method is unsupported
-    public void testSortedNationTable() {}
-
-    @Test
-    @Override // The TrinoFileSystem.deleteFile is unsupported
-    public void testFileSortingWithLargerTable() {}
 
     @Test
     @Override // The procedure is unsupported in S3 Tables

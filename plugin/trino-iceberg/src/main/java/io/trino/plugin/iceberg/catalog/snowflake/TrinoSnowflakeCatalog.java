@@ -215,6 +215,12 @@ public class TrinoSnowflakeCatalog
     }
 
     @Override
+    public void verifyTableWritable(Table icebergTable)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Snowflake managed Iceberg tables do not support modifications");
+    }
+
+    @Override
     public Transaction newCreateTableTransaction(
             ConnectorSession session,
             SchemaTableName schemaTableName,
@@ -372,6 +378,12 @@ public class TrinoSnowflakeCatalog
 
     @Override
     public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, Map<String, Object> materializedViewProperties, boolean replace, boolean ignoreExisting)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Materialized views are not supported for the Snowflake Iceberg catalog");
+    }
+
+    @Override
+    public void updateMaterializedViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment)
     {
         throw new TrinoException(NOT_SUPPORTED, "Materialized views are not supported for the Snowflake Iceberg catalog");
     }

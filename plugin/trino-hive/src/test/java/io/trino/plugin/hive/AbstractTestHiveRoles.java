@@ -379,6 +379,7 @@ abstract class AbstractTestHiveRoles
                 createAdminSession(),
                 revokeRoleFromRoleSql("grant_revoke_role_existing_1", "grant_revoke_role_existing_2"),
                 ".*?Role 'grant_revoke_role_existing_2' does not exist in catalog '.*'");
+        cleanup();
     }
 
     @Test
@@ -416,7 +417,6 @@ abstract class AbstractTestHiveRoles
 
         MaterializedResult actual = getQueryRunner().execute(unsetRole, "SELECT * FROM hive.information_schema.applicable_roles");
         MaterializedResult expected = MaterializedResult.resultBuilder(
-                        unsetRole,
                         VARCHAR,
                         VARCHAR,
                         VARCHAR,
@@ -429,7 +429,7 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(actual, expected);
 
         actual = getQueryRunner().execute(unsetRole, "SELECT * FROM hive.information_schema.enabled_roles");
-        expected = MaterializedResult.resultBuilder(unsetRole, VARCHAR)
+        expected = MaterializedResult.resultBuilder(VARCHAR)
                 .row("public")
                 .row("set_role_1")
                 .row("set_role_2")
@@ -438,7 +438,7 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(actual, expected);
 
         actual = getQueryRunner().execute(setRoleAll, "SELECT * FROM hive.information_schema.enabled_roles");
-        expected = MaterializedResult.resultBuilder(setRoleAll, VARCHAR)
+        expected = MaterializedResult.resultBuilder(VARCHAR)
                 .row("public")
                 .row("set_role_1")
                 .row("set_role_2")
@@ -447,13 +447,13 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(actual, expected);
 
         actual = getQueryRunner().execute(setRoleNone, "SELECT * FROM hive.information_schema.enabled_roles");
-        expected = MaterializedResult.resultBuilder(setRoleNone, VARCHAR)
+        expected = MaterializedResult.resultBuilder(VARCHAR)
                 .row("public")
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
 
         actual = getQueryRunner().execute(setRole1, "SELECT * FROM hive.information_schema.enabled_roles");
-        expected = MaterializedResult.resultBuilder(setRole1, VARCHAR)
+        expected = MaterializedResult.resultBuilder(VARCHAR)
                 .row("public")
                 .row("set_role_1")
                 .row("set_role_2")
@@ -462,7 +462,7 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(actual, expected);
 
         actual = getQueryRunner().execute(setRole2, "SELECT * FROM hive.information_schema.enabled_roles");
-        expected = MaterializedResult.resultBuilder(setRole2, VARCHAR)
+        expected = MaterializedResult.resultBuilder(VARCHAR)
                 .row("public")
                 .row("set_role_2")
                 .row("set_role_3")
@@ -470,7 +470,7 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(actual, expected);
 
         actual = getQueryRunner().execute(setRole3, "SELECT * FROM hive.information_schema.enabled_roles");
-        expected = MaterializedResult.resultBuilder(setRole3, VARCHAR)
+        expected = MaterializedResult.resultBuilder(VARCHAR)
                 .row("public")
                 .row("set_role_3")
                 .build();
@@ -501,7 +501,7 @@ abstract class AbstractTestHiveRoles
 
     private MaterializedResult applicableRoles(Role... roles)
     {
-        var result = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR);
+        var result = MaterializedResult.resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR);
         for (Role role : roles) {
             result.row(role.grantee(), role.granteeType(), role.roleName(), role.isGrantable());
         }

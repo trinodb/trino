@@ -92,8 +92,10 @@ public class DeltaLakeConfig
     private boolean projectionPushdownEnabled = true;
     private boolean queryPartitionFilterRequired;
     private boolean deletionVectorsEnabled;
-    private boolean deltaLogFileSystemCacheDisabled;
+    private boolean objectStoreLayoutEnabled;
+    private boolean deltaLogBlobCacheDisabled;
     private int metadataParallelism = 8;
+    private boolean metadataVirtualThreadsEnabled = true;
     private int checkpointProcessingParallelism = 4;
     private boolean loadMetadataFromChecksumFile = true;
 
@@ -548,16 +550,29 @@ public class DeltaLakeConfig
         return this;
     }
 
-    public boolean isDeltaLogFileSystemCacheDisabled()
+    public boolean isObjectStoreLayoutEnabled()
     {
-        return deltaLogFileSystemCacheDisabled;
+        return objectStoreLayoutEnabled;
+    }
+
+    @Config("delta.object-store-layout.enabled")
+    @ConfigDescription("Enable the Delta Lake object store file layout by default for new tables")
+    public DeltaLakeConfig setObjectStoreLayoutEnabled(boolean objectStoreLayoutEnabled)
+    {
+        this.objectStoreLayoutEnabled = objectStoreLayoutEnabled;
+        return this;
+    }
+
+    public boolean isDeltaLogBlobCacheDisabled()
+    {
+        return deltaLogBlobCacheDisabled;
     }
 
     @Config("delta.fs.cache.disable-transaction-log-caching")
-    @ConfigDescription("Disable filesystem caching of the _delta_log directory (effective only when fs.cache.enabled=true)")
-    public DeltaLakeConfig setDeltaLogFileSystemCacheDisabled(boolean deltaLogFileSystemCacheDisabled)
+    @ConfigDescription("Disable blob caching of the _delta_log directory (effective only when fs.cache.enabled=true)")
+    public DeltaLakeConfig setDeltaLogBlobCacheDisabled(boolean deltaLogBlobCacheDisabled)
     {
-        this.deltaLogFileSystemCacheDisabled = deltaLogFileSystemCacheDisabled;
+        this.deltaLogBlobCacheDisabled = deltaLogBlobCacheDisabled;
         return this;
     }
 
@@ -572,6 +587,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setMetadataParallelism(int metadataParallelism)
     {
         this.metadataParallelism = metadataParallelism;
+        return this;
+    }
+
+    public boolean isMetadataVirtualThreadsEnabled()
+    {
+        return metadataVirtualThreadsEnabled;
+    }
+
+    @ConfigDescription("Run blocking metadata enumeration I/O on virtual threads")
+    @Config("delta.metadata.virtual-threads-enabled")
+    public DeltaLakeConfig setMetadataVirtualThreadsEnabled(boolean metadataVirtualThreadsEnabled)
+    {
+        this.metadataVirtualThreadsEnabled = metadataVirtualThreadsEnabled;
         return this;
     }
 

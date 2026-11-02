@@ -13,11 +13,12 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.plugin.deltalake.metastore.FileSystemCredentials;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 
 import java.util.Optional;
 
 public interface DeltaLakeTableCredentialsProvider
 {
-    Optional<DeltaLakeTableCredentials> getTableCredentials(VendedCredentialsHandle credentialsHandle);
+    Optional<FileSystemCredentials> getTableCredentials(VendedCredentialsHandle credentialsHandle);
 }

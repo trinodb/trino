@@ -80,7 +80,7 @@ public class DeltaLakeColumnStatistics
     private static OptionalLong mergeIntegerStatistics(OptionalLong first, OptionalLong second)
     {
         if (first.isPresent() && second.isPresent()) {
-            return OptionalLong.of(first.getAsLong() + second.getAsLong());
+            return OptionalLong.of(first.orElseThrow() + second.orElseThrow());
         }
         return OptionalLong.empty();
     }

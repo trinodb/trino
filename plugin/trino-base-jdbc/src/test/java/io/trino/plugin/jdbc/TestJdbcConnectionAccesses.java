@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.trino.testing.QueryRunner;
 import org.h2.Driver;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 
@@ -33,9 +34,12 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.util.Objects.requireNonNull;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // TODO: Implement dedicated test to count number of queries executed.
 // This test approximates the number of I/O operations by counting number of times connection is opened since we almost always open a new connection to execute a query.
+// H2 does not support concurrent DDL: https://github.com/h2database/h2database/issues/2913#issuecomment-704267549
+@Execution(SAME_THREAD)
 public class TestJdbcConnectionAccesses
         extends BaseJdbcConnectionCreationTest
 {

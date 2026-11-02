@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.NotInTransactionException;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.informationschema.InformationSchemaMetadata;
@@ -28,7 +29,6 @@ import io.trino.tracing.TracingConnectorMetadata;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogTransaction
@@ -65,7 +65,9 @@ public class CatalogTransaction
 
     public synchronized ConnectorMetadata getConnectorMetadata(Session session)
     {
-        checkState(!finished.get(), "Already finished");
+        if (finished.get()) {
+            throw new NotInTransactionException();
+        }
         if (connectorMetadata == null) {
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
             connectorMetadata = connector.getMetadata(connectorSession, transactionHandle);
@@ -76,7 +78,9 @@ public class CatalogTransaction
 
     public ConnectorTransactionHandle getTransactionHandle()
     {
-        checkState(!finished.get(), "Already finished");
+        if (finished.get()) {
+            throw new NotInTransactionException();
+        }
         return transactionHandle;
     }
 

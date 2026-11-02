@@ -234,6 +234,25 @@ public class TestPositionsAppender
     }
 
     @Test
+    public void testSinglePositionOfSameDictionaryProducesDictionary()
+    {
+        for (TestType type : TestType.values()) {
+            UnnestingPositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+
+            Block dictionary = createRandomBlockForType(type, 4, 0);
+            positionsAppender.append(allPositions(3), createRandomDictionaryBlock(dictionary, 3));
+            DictionaryBlock source = (DictionaryBlock) createRandomDictionaryBlock(dictionary, 2);
+            positionsAppender.append(1, source);
+
+            Block actual = positionsAppender.build();
+            assertThat(actual.getPositionCount()).isEqualTo(4);
+            assertThat(actual).isInstanceOf(DictionaryBlock.class);
+            assertThat(((DictionaryBlock) actual).getDictionary()).isEqualTo(dictionary);
+            assertThat(((DictionaryBlock) actual).getId(3)).isEqualTo(source.getId(1));
+        }
+    }
+
+    @Test
     public void testMultipleTheSameDictionariesProduceDictionary()
     {
         for (TestType type : TestType.values()) {

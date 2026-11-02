@@ -17,8 +17,8 @@
 // UI only ever displays read-only sql, java and json. Import the editor core and just
 // those language contributions instead; each language mode lazily loads its tokenizer
 // (and for json, its worker) in a separate chunk only when first used.
-import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution.js'
-import 'monaco-editor/esm/vs/basic-languages/java/java.contribution.js'
-import 'monaco-editor/esm/vs/language/json/monaco.contribution.js'
+import 'monaco-editor/languages/definitions/sql/register'
+import 'monaco-editor/languages/definitions/java/register'
+import 'monaco-editor/languages/features/json/register'
 
-export * from 'monaco-editor/esm/vs/editor/edcore.main.js'
+export * from 'monaco-editor/editor'

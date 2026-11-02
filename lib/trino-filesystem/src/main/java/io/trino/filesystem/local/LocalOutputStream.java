@@ -14,25 +14,30 @@
 package io.trino.filesystem.local;
 
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoOutputStream;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Path;
 
 import static io.trino.filesystem.local.LocalUtils.handleException;
+import static java.nio.file.Files.deleteIfExists;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
 class LocalOutputStream
-        extends OutputStream
+        extends TrinoOutputStream
 {
     private final Location location;
+    private final Path path;
     private final OutputStream stream;
     private boolean closed;
 
-    public LocalOutputStream(Location location, OutputStream stream)
+    public LocalOutputStream(Location location, Path path, OutputStream stream)
     {
         this.location = requireNonNull(location, "location is null");
+        this.path = requireNonNull(path, "path is null");
         this.stream = new BufferedOutputStream(requireNonNull(stream, "stream is null"), 4 * 1024);
     }
 
@@ -93,6 +98,27 @@ class LocalOutputStream
             closed = true;
             try {
                 stream.close();
+            }
+            catch (IOException e) {
+                throw handleException(location, e);
+            }
+        }
+    }
+
+    @Override
+    public void abort()
+            throws IOException
+    {
+        if (!closed) {
+            closed = true;
+            try {
+                try {
+                    stream.close();
+                }
+                finally {
+                    // the file is created exclusively when this stream is opened
+                    deleteIfExists(path);
+                }
             }
             catch (IOException e) {
                 throw handleException(location, e);

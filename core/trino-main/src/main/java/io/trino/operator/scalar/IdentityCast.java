@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
@@ -46,7 +47,7 @@ public class IdentityCast
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type type = boundSignature.getReturnType();
         MethodHandle identity = MethodHandles.identity(type.getJavaType());

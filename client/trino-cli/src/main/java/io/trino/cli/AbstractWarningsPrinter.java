@@ -53,7 +53,7 @@ abstract class AbstractWarningsPrinter
     {
         int end = warnings.size();
         if (maxWarnings.isPresent()) {
-            end = Math.min(processedWarnings + maxWarnings.getAsInt(), end);
+            end = Math.min(processedWarnings + maxWarnings.orElseThrow(), end);
         }
         List<String> subList = warnings.subList(processedWarnings, end).stream()
                 .map(this::getWarningMessage)

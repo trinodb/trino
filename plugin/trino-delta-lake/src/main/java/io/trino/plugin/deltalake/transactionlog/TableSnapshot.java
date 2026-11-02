@@ -393,10 +393,11 @@ public class TableSnapshot
                     }, executor);
                 })
                 .collect(toImmutableList());
-        // Return the stream to retrieve the values of the futures lazily and allow streamlined split generation
+        // The futures are resolved lazily for streamlined split generation, and flatMap closes each sidecar stream when it is exhausted or abandoned.
+        // Closing this stream closes the sidecar streams the consumer did not reach, once their futures complete.
         return logEntryStreamFutures.stream()
-                .mapMulti((logEntryStream, builder)
-                        -> getFutureValue(logEntryStream, TrinoException.class).forEach(builder));
+                .flatMap(logEntryStream -> getFutureValue(logEntryStream, TrinoException.class))
+                .onClose(() -> logEntryStreamFutures.forEach(logEntryStream -> logEntryStream.thenAccept(Stream::close)));
     }
 
     private Stream<DeltaLakeTransactionLogEntry> getV2CheckpointEntries(

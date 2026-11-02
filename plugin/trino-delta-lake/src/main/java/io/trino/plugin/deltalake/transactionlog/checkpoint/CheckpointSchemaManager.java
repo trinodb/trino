@@ -34,13 +34,12 @@ import java.util.function.Predicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -90,7 +89,8 @@ public class CheckpointSchemaManager
                 RowType.field("path", VARCHAR),
                 RowType.field("partitionValues", stringMap),
                 RowType.field("deletionTimestamp", BIGINT),
-                RowType.field("dataChange", BOOLEAN)));
+                RowType.field("dataChange", BOOLEAN),
+                RowType.field("deletionVector", DELETION_VECTORS_TYPE)));
 
         sidecarEntryType = RowType.from(ImmutableList.<RowType.Field>builder()
                 .add(RowType.field("path", VARCHAR))
@@ -118,17 +118,9 @@ public class CheckpointSchemaManager
         minMaxColumns = minMaxColumns.stream()
                 .filter(column -> addStatsMinMaxColumnFilter.test(column.name()))
                 .collect(toImmutableList());
-        boolean deletionVectorEnabled = isDeletionVectorEnabled(metadataEntry, protocolEntry);
-
         ImmutableList.Builder<RowType.Field> minMaxFields = ImmutableList.builder();
         for (DeltaLakeColumnMetadata dataColumn : minMaxColumns) {
-            Type type = dataColumn.physicalColumnType();
-            if (type instanceof TimestampWithTimeZoneType) {
-                minMaxFields.add(RowType.field(dataColumn.physicalName(), TIMESTAMP_MILLIS));
-            }
-            else {
-                minMaxFields.add(RowType.field(dataColumn.physicalName(), type));
-            }
+            minMaxFields.add(RowType.field(dataColumn.physicalName(), dataColumn.physicalColumnType()));
         }
 
         ImmutableList.Builder<RowType.Field> statsColumns = ImmutableList.builder();
@@ -144,6 +136,7 @@ public class CheckpointSchemaManager
         statsColumns.add(RowType.field(
                 "nullCount",
                 RowType.from(allColumns.stream().map(column -> buildNullCountType(Optional.of(column.physicalName()), column.physicalColumnType())).collect(toImmutableList()))));
+        statsColumns.add(RowType.field("tightBounds", BOOLEAN));
 
         MapType stringMap = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
         ImmutableList.Builder<RowType.Field> addFields = ImmutableList.builder();
@@ -161,16 +154,20 @@ public class CheckpointSchemaManager
             List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(metadataEntry, protocolEntry, typeManager);
             if (!partitionColumns.isEmpty()) {
                 List<RowType.Field> partitionValuesParsed = partitionColumns.stream()
-                        .map(column -> RowType.field(column.basePhysicalColumnName(), typeManager.getType(getTypeDescriptor(DeltaHiveTypeTranslator.toHiveType(column.type())))))
+                        .map(column -> {
+                            // converting through a Hive type would turn this into timestamp(3) without a time zone
+                            if (column.type() instanceof TimestampWithTimeZoneType) {
+                                return RowType.field(column.basePhysicalColumnName(), TIMESTAMP_TZ_MICROS);
+                            }
+                            return RowType.field(column.basePhysicalColumnName(), typeManager.getType(getTypeDescriptor(DeltaHiveTypeTranslator.toHiveType(column.type()))));
+                        })
                         .collect(toImmutableList());
                 addFields.add(RowType.field("partitionValues_parsed", RowType.from(partitionValuesParsed)));
             }
             addFields.add(RowType.field("stats_parsed", RowType.from(statsColumns.build())));
         }
         addFields.add(RowType.field("tags", stringMap));
-        if (deletionVectorEnabled) {
-            addFields.add(RowType.field("deletionVector", DELETION_VECTORS_TYPE));
-        }
+        addFields.add(RowType.field("deletionVector", DELETION_VECTORS_TYPE));
 
         return RowType.from(addFields.build());
     }

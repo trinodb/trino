@@ -548,11 +548,13 @@ public abstract class BaseConnectorSmokeTest
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
                 .matches(format(
-                        "CREATE TABLE %s.%s.region \\(\n" +
-                                "   regionkey (bigint|decimal\\(19, 0\\)),\n" +
-                                "   name varchar(\\(\\d+\\))?,\n" +
-                                "   comment varchar(\\(\\d+\\))?\n" +
-                                "\\)",
+                        """
+                        CREATE TABLE %s.%s.region \\(
+                           regionkey (bigint|decimal\\(19, 0\\)),
+                           name varchar(\\(\\d+\\))?,
+                           comment varchar(\\(\\d+\\))?
+                        \\)\
+                        """,
                         Pattern.quote(getSession().getCatalog().orElseThrow()),
                         Pattern.quote(getSession().getSchema().orElseThrow())));
     }
@@ -561,7 +563,7 @@ public abstract class BaseConnectorSmokeTest
     public void testView()
     {
         if (!hasBehavior(SUPPORTS_CREATE_VIEW)) {
-            assertQueryFails("CREATE VIEW nation_v AS SELECT * FROM nation", "This connector does not support creating views");
+            assertQueryFails("CREATE VIEW nation_v_" + randomNameSuffix() + " AS SELECT * FROM nation", "This connector does not support creating views");
             return;
         }
 

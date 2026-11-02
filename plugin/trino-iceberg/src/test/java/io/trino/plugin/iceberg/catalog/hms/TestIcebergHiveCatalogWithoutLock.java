@@ -13,23 +13,31 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.concurrent.MoreFutures;
 import io.trino.plugin.hive.containers.Hive4FlociDataLake;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
 import static io.trino.testing.containers.Floci.FLOCI_REGION;
 import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
+import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -50,6 +58,8 @@ final class TestIcebergHiveCatalogWithoutLock
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
                                 .put("hive.metastore.uri", hiveFlociDataLake.getHiveMetastoreEndpoint().toString())
+                                // Concurrent writers serialize on alter_table in the metastore; the default 10s makes some of them time out
+                                .put("hive.metastore.thrift.client.read-timeout", "2m")
                                 .put("iceberg.hive-catalog.locking-enabled", "false")
                                 .put("fs.s3.enabled", "true")
                                 .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
@@ -77,6 +87,37 @@ final class TestIcebergHiveCatalogWithoutLock
             assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES 3");
+        }
+    }
+
+    @RepeatedTest(3)
+    void testConcurrentInsertsWithoutLock()
+            throws Exception
+    {
+        int threads = 4;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_inserts_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (x int)");
+        try {
+            ImmutableList.Builder<Callable<Void>> inserts = ImmutableList.builder();
+            for (int i = 0; i < threads; i++) {
+                int value = i;
+                inserts.add(() -> {
+                    barrier.await(10, SECONDS);
+                    getQueryRunner().execute("INSERT INTO " + tableName + " VALUES " + value);
+                    return null;
+                });
+            }
+            executor.invokeAll(inserts.build()).forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("VALUES 0, 1, 2, 3");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
     }
 }

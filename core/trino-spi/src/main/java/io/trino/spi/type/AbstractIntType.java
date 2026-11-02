@@ -52,9 +52,9 @@ public abstract class AbstractIntType
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(AbstractIntType.class, lookup(), long.class);
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
-    protected AbstractIntType(TypeDescriptor signature)
+    protected AbstractIntType(TypeDescriptor descriptor)
     {
-        super(signature, long.class, IntArrayBlock.class);
+        super(descriptor, long.class, IntArrayBlock.class);
     }
 
     @Override

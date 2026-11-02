@@ -66,11 +66,6 @@ public abstract class AbstractTestingTrinoClient<T>
         this(trinoServer, DEFAULT_STATEMENT_FACTORY, defaultSession, new OkHttpClient());
     }
 
-    protected AbstractTestingTrinoClient(TestingTrinoServer trinoServer, TestingStatementClientFactory statementClientFactory, Session defaultSession)
-    {
-        this(trinoServer, statementClientFactory, defaultSession, new OkHttpClient());
-    }
-
     protected AbstractTestingTrinoClient(TestingTrinoServer trinoServer, Session defaultSession, OkHttpClient httpClient)
     {
         this(trinoServer, DEFAULT_STATEMENT_FACTORY, defaultSession, httpClient);
@@ -123,7 +118,7 @@ public abstract class AbstractTestingTrinoClient<T>
                     resultsSession.setUpdateType(results.getUpdateType());
                 }
                 if (results.getUpdateCount().isPresent()) {
-                    resultsSession.setUpdateCount(results.getUpdateCount().getAsLong());
+                    resultsSession.setUpdateCount(results.getUpdateCount().orElseThrow());
                 }
 
                 resultsSession.setWarnings(results.getWarnings());

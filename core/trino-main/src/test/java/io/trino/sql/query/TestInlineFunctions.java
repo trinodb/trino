@@ -81,6 +81,32 @@ public class TestInlineFunctions
     }
 
     @Test
+    public void testSqlFunctionInPredicate()
+    {
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION my_func(x bigint)
+                    RETURNS bigint
+                    RETURN x * 2
+                SELECT nationkey
+                FROM nation
+                WHERE my_func(nationkey) = BIGINT '2'
+                """))
+                .matches("VALUES BIGINT '1'");
+
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION my_func(x bigint)
+                    RETURNS bigint
+                    RETURN x * 2
+                SELECT nationkey
+                FROM nation
+                WHERE my_func(nationkey) < BIGINT '4'
+                """))
+                .matches("VALUES BIGINT '0', BIGINT '1'");
+    }
+
+    @Test
     public void testSqlFunction()
     {
         assertThat(assertions.query(
@@ -407,6 +433,40 @@ public class TestInlineFunctions
                 SELECT my_pow(2, 8)
                 """))
                 .matches("VALUES 256");
+
+        // exhaustive IF with no trailing RETURN
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION simple_if(a bigint) RETURNS varchar
+                BEGIN
+                  IF a = 0 THEN
+                    RETURN 'zero';
+                  ELSEIF a = 1 THEN
+                    RETURN 'one';
+                  ELSE
+                    RETURN 'more than one or negative';
+                  END IF;
+                END
+                SELECT simple_if(a)
+                FROM (VALUES 0, 1, -5) t(a)
+                """))
+                .matches("VALUES VARCHAR 'zero', 'one', 'more than one or negative'");
+
+        // exhaustive CASE with no trailing RETURN
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION simple_case(a bigint) RETURNS varchar
+                BEGIN
+                  CASE a
+                    WHEN 0 THEN RETURN 'zero';
+                    WHEN 1 THEN RETURN 'one';
+                    ELSE RETURN 'more than one or negative';
+                  END CASE;
+                END
+                SELECT simple_case(a)
+                FROM (VALUES 0, 1, -5) t(a)
+                """))
+                .matches("VALUES VARCHAR 'zero', 'one', 'more than one or negative'");
 
         assertThat(assertions.query(
                 """

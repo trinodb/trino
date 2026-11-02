@@ -107,8 +107,8 @@ public class ScalarStatsCalculator
                     .setDistinctValuesCount(1);
 
             if (doubleValue.isPresent()) {
-                estimate.setLowValue(doubleValue.getAsDouble());
-                estimate.setHighValue(doubleValue.getAsDouble());
+                estimate.setLowValue(doubleValue.orElseThrow());
+                estimate.setHighValue(doubleValue.orElseThrow());
             }
             return estimate.build();
         }

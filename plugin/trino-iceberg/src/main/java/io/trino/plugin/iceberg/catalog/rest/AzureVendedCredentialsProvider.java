@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.rest.credentials.Credential;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -55,12 +56,18 @@ final class AzureVendedCredentialsProvider
 
     private static AzureVendedCredentials parseAzureVendedCredentials(Iterable<Entry<String, String>> properties)
     {
-        ImmutableMap.Builder<String, String> sasTokensBuilder = ImmutableMap.builder();
+        // Vending catalogs may suffix the SAS token key with the full host (e.g. "account.dfs.core.windows.net"),
+        // but AzureFileSystem looks up SAS tokens by the bare storage account name.
+        Map<String, String> sasTokens = new LinkedHashMap<>();
         Instant earliest = null;
         for (Entry<String, String> entry : properties) {
             if (entry.getKey().startsWith(ADLS_SAS_TOKEN_PREFIX)) {
-                String account = entry.getKey().substring(ADLS_SAS_TOKEN_PREFIX.length());
-                sasTokensBuilder.put(account, entry.getValue());
+                String host = entry.getKey().substring(ADLS_SAS_TOKEN_PREFIX.length());
+                String account = host.contains(".") ? host.substring(0, host.indexOf('.')) : host;
+                String existing = sasTokens.putIfAbsent(account, entry.getValue());
+                if (existing != null && !existing.equals(entry.getValue())) {
+                    throw new IllegalStateException("Conflicting SAS tokens returned for storage account: " + account);
+                }
             }
             if (entry.getKey().startsWith(ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX)) {
                 Instant expiresAt = Instant.ofEpochMilli(Long.parseLong(entry.getValue()));
@@ -69,6 +76,6 @@ final class AzureVendedCredentialsProvider
                 }
             }
         }
-        return new AzureVendedCredentials(sasTokensBuilder.buildOrThrow(), Optional.ofNullable(earliest));
+        return new AzureVendedCredentials(ImmutableMap.copyOf(sasTokens), Optional.ofNullable(earliest));
     }
 }

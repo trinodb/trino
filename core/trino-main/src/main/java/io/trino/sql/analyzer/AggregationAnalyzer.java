@@ -29,9 +29,13 @@ import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
+import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentTimestamp;
+import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
@@ -44,12 +48,15 @@ import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InListExpression;
+import io.trino.sql.tree.IntervalValueExpression;
 import io.trino.sql.tree.JsonArray;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Literal;
@@ -306,6 +313,30 @@ class AggregationAnalyzer
         }
 
         @Override
+        protected Boolean visitCurrentCatalog(CurrentCatalog node, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        protected Boolean visitCurrentSchema(CurrentSchema node, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        protected Boolean visitCurrentUser(CurrentUser node, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        protected Boolean visitCurrentPath(CurrentPath node, Void context)
+        {
+            return true;
+        }
+
+        @Override
         protected Boolean visitCurrentTime(CurrentTime node, Void context)
         {
             return true;
@@ -333,6 +364,12 @@ class AggregationAnalyzer
         protected Boolean visitLocalTimestamp(LocalTimestamp node, Void context)
         {
             return true;
+        }
+
+        @Override
+        protected Boolean visitIntervalValueExpression(IntervalValueExpression node, Void context)
+        {
+            return process(node.getLeft(), context) && process(node.getRight(), context);
         }
 
         @Override
@@ -762,9 +799,21 @@ class AggregationAnalyzer
         }
 
         @Override
+        protected Boolean visitJsonConstructor(JsonConstructor node, Void context)
+        {
+            return process(node.getExpression(), context);
+        }
+
+        @Override
         protected Boolean visitJsonQuery(JsonQuery node, Void context)
         {
             return process(node.getJsonPathInvocation(), context);
+        }
+
+        @Override
+        protected Boolean visitJsonSerialize(JsonSerialize node, Void context)
+        {
+            return process(node.getExpression(), context);
         }
 
         @Override

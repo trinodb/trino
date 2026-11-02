@@ -84,6 +84,7 @@ statement
     | TRUNCATE TABLE qualifiedName                                     #truncateTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
     | COMMENT ON VIEW qualifiedName IS (string | NULL)                 #commentView
+    | COMMENT ON MATERIALIZED VIEW qualifiedName IS (string | NULL)    #commentMaterializedView
     | COMMENT ON COLUMN qualifiedName IS (string | NULL)               #commentColumn
     | ALTER TABLE (IF EXISTS)? from=qualifiedName
         RENAME TO to=qualifiedName                                     #renameTable
@@ -116,7 +117,8 @@ statement
         (WHEN STALE (INLINE | FAIL))?
         (COMMENT string)?
         (WITH properties)? AS rootQuery                                #createMaterializedView
-    | CREATE (OR REPLACE)? VIEW qualifiedName
+    | CREATE (OR REPLACE)? VIEW
+        (IF NOT EXISTS)? qualifiedName
         (COMMENT string)?
         (SECURITY (DEFINER | INVOKER))?
         (WITH properties)? AS rootQuery                                #createView
@@ -126,6 +128,10 @@ statement
         RENAME TO to=qualifiedName                                     #renameMaterializedView
     | ALTER MATERIALIZED VIEW qualifiedName
         SET PROPERTIES propertyAssignments                             #setMaterializedViewProperties
+    | ALTER MATERIALIZED VIEW qualifiedName
+        EXECUTE procedureName=identifier
+        ('(' (argument (',' argument)*)? ')')?
+        (WHERE where=booleanExpression)?                               #materializedViewExecute
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | ALTER VIEW from=qualifiedName RENAME TO to=qualifiedName         #renameView
     | ALTER VIEW viewName=qualifiedName REFRESH                        #refreshView
@@ -365,9 +371,13 @@ setQuantifier
     ;
 
 selectItem
-    : expression (AS? identifier)?                          #selectSingle
+    : aliasedExpression                                    #selectSingle
     | primaryExpression '.' ASTERISK (AS columnAliases)?    #selectAll
     | ASTERISK                                              #selectAll
+    ;
+
+aliasedExpression
+    : expression (AS? identifier)?
     ;
 
 relation
@@ -409,7 +419,7 @@ pivot
     ;
 
 pivotAggregation
-    : expression (AS? identifier)?
+    : aliasedExpression
     ;
 
 pivotColumns
@@ -419,7 +429,7 @@ pivotColumns
 
 pivotValueGroup
     : '(' expression (',' expression)+ ')' (AS? identifier)?
-    | expression (AS? identifier)?
+    | aliasedExpression
     ;
 
 sampleType
@@ -637,6 +647,9 @@ primaryExpression
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' orderBy ')')
         filter? over?                                                                     #listagg
+    // Keep jsonConstructor before the functionCall alternatives: JSON is non-reserved,
+    // so JSON(x) matches both. ANTLR selects the first matching alternative.
+    | JSON '(' jsonValueExpression ')'                                                    #jsonConstructor
     | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
         filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? argument (',' argument)*)?
@@ -678,7 +691,9 @@ primaryExpression
         FROM start=valueExpression (FOR length=valueExpression)? ')'                      #overlay
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
+    // Prefer grouping when a following bare field can be an implicit alias.
     | '(' expression ')'                                                                  #parenthesizedExpression
+    | '(' valueExpression ')' intervalQualifier                                           #intervalValueExpression
     | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
     | JSON_EXISTS '(' jsonPathInvocation (jsonExistsErrorBehavior ON ERROR)? ')'          #jsonExists
     | JSON_VALUE '('
@@ -695,6 +710,11 @@ primaryExpression
         (emptyBehavior=jsonQueryBehavior ON EMPTY)?
         (errorBehavior=jsonQueryBehavior ON ERROR)?
       ')'                                                                                 #jsonQuery
+    | JSON_SERIALIZE '('
+        jsonValueExpression
+        (RETURNING type (FORMAT jsonRepresentation)?)?
+        (errorBehavior=jsonSerializeOnErrorBehavior ON ERROR)?
+      ')'                                                                                 #jsonSerialize
     | JSON_OBJECT '('
         (
           jsonObjectMember (',' jsonObjectMember)*
@@ -724,7 +744,7 @@ literal
     ;
 
 fieldConstructor
-    : expression (AS? identifier)?
+    : aliasedExpression
     ;
 
 jsonPathInvocation
@@ -768,6 +788,11 @@ jsonQueryBehavior
     | NULL
     | EMPTY ARRAY
     | EMPTY OBJECT
+    ;
+
+jsonSerializeOnErrorBehavior
+    : ERROR
+    | NULL
     ;
 
 jsonObjectMember
@@ -830,15 +855,15 @@ type
     ;
 
 intervalQualifier
-  : YEAR ('(' precision=INTEGER_VALUE ')')? TO MONTH                                              #compositeYearToMonthInterval
-  | field=(YEAR | MONTH) ('(' precision=INTEGER_VALUE ')')?                                       #simpleYearMonthInterval
-  | start=(DAY | HOUR | MINUTE) ('(' leadingPrecision=INTEGER_VALUE ')')?
+  : YEAR ('(' precision=typeParameter ')')? TO MONTH                                              #compositeYearToMonthInterval
+  | field=(YEAR | MONTH) ('(' precision=typeParameter ')')?                                       #simpleYearMonthInterval
+  | start=(DAY | HOUR | MINUTE) ('(' leadingPrecision=typeParameter ')')?
     TO (
       end=HOUR |
       end=MINUTE |
-      end=SECOND ('(' fractionalPrecision=INTEGER_VALUE ')')?)                                    #compositeDayTimeInterval
-  | field=(DAY | HOUR | MINUTE) ('(' precision=INTEGER_VALUE ')')?                                #simpleDayTimeInterval
-  | SECOND ('(' leadingPrecision=INTEGER_VALUE (',' fractionalPrecision=INTEGER_VALUE)? ')')?     #secondsDayTimeInterval
+      end=SECOND ('(' fractionalPrecision=typeParameter ')')?)                                    #compositeDayTimeInterval
+  | field=(DAY | HOUR | MINUTE) ('(' precision=typeParameter ')')?                                #simpleDayTimeInterval
+  | SECOND ('(' leadingPrecision=typeParameter (',' fractionalPrecision=typeParameter)? ')')?     #secondsDayTimeInterval
   ;
 
 rowField
@@ -879,6 +904,7 @@ over
 windowFrame
     : (MEASURES measureDefinition (',' measureDefinition)*)?
       frameExtent
+      frameExclusion?
       (AFTER MATCH skipTo)?
       (INITIAL | SEEK)?
       (PATTERN '(' rowPattern ')')?
@@ -893,6 +919,13 @@ frameExtent
     | frameType=RANGE BETWEEN start=frameBound AND end=frameBound
     | frameType=ROWS BETWEEN start=frameBound AND end=frameBound
     | frameType=GROUPS BETWEEN start=frameBound AND end=frameBound
+    ;
+
+frameExclusion
+    : EXCLUDE CURRENT ROW
+    | EXCLUDE GROUP
+    | EXCLUDE TIES
+    | EXCLUDE NO OTHERS
     ;
 
 frameBound
@@ -1101,7 +1134,7 @@ nonReserved
     | BEGIN | BERNOULLI | BOTH | BRANCH | BRANCHES
     | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
-    | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXECUTE | EXPLAIN
+    | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDE | EXCLUDING | EXECUTE | EXPLAIN
     | FAIL | FAST | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FORWARD | FUNCTION | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
@@ -1111,7 +1144,7 @@ nonReserved
     | LANGUAGE | LAST | LATERAL | LEADING | LEAVE | LEVEL | LIMIT | LOCAL | LOGICAL | LOOP
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEAREST | NESTED | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
-    | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW | OVERLAY
+    | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OTHERS | OUTPUT | OVER | OVERFLOW | OVERLAY
     | PARTIAL | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PIVOT | PLACING | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
     | QUOTES
     | RANGE | READ | REFRESH | RENAME | REPEAT  | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNING | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
@@ -1204,6 +1237,7 @@ END: 'END';
 ERROR: 'ERROR';
 ESCAPE: 'ESCAPE';
 EXCEPT: 'EXCEPT';
+EXCLUDE: 'EXCLUDE';
 EXCLUDING: 'EXCLUDING';
 EXECUTE: 'EXECUTE';
 EXISTS: 'EXISTS';
@@ -1258,6 +1292,7 @@ JSON_ARRAY: 'JSON_ARRAY';
 JSON_EXISTS: 'JSON_EXISTS';
 JSON_OBJECT: 'JSON_OBJECT';
 JSON_QUERY: 'JSON_QUERY';
+JSON_SERIALIZE: 'JSON_SERIALIZE';
 JSON_TABLE: 'JSON_TABLE';
 JSON_VALUE: 'JSON_VALUE';
 KEEP: 'KEEP';
@@ -1314,6 +1349,7 @@ OPTION: 'OPTION';
 OR: 'OR';
 ORDER: 'ORDER';
 ORDINALITY: 'ORDINALITY';
+OTHERS: 'OTHERS';
 OUTER: 'OUTER';
 OUTPUT: 'OUTPUT';
 OVER: 'OVER';

@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
@@ -24,6 +23,7 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.operator.scalar.preimage.StructuralCastPreimage;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -32,6 +32,7 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
@@ -56,7 +57,6 @@ import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
@@ -65,10 +65,10 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.collectArguments;
@@ -112,6 +112,7 @@ public class RowToRowCast
     private RowToRowCast()
     {
         super(FunctionMetadata.operatorBuilder(CAST)
+                .domainProjection(new DomainProjection(new StructuralCastPreimage()))
                 .signature(Signature.builder()
                         .typeVariableConstraint(
                                 // this is technically a recursive constraint for cast, but SignatureBinder has explicit handling for row-to-row cast
@@ -171,7 +172,7 @@ public class RowToRowCast
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(hashSuffix))),
+                makeClassName(String.join("$", "RowCast", BaseEncoding.base16().encode(hashSuffix))),
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 
@@ -209,11 +210,9 @@ public class RowToRowCast
                 MethodHandle castMethod = getNullSafeCast(functionDependencies, fromElementType, toElementType);
                 MethodHandle writeMethod = getNullSafeWrite(toElementType);
                 MethodHandle castAndWrite = collectArguments(writeMethod, 1, castMethod);
-                body.append(invokeDynamic(
-                        BOOTSTRAP_METHOD,
-                        ImmutableList.of(binder.bind(castAndWrite).getBindingId()),
+                body.append(invoke(
+                        binder.bind(castAndWrite),
                         "castAndWriteField",
-                        castAndWrite.type(),
                         fieldBuilder,
                         session,
                         row.invoke("getRawFieldBlock", Block.class, constantInt(i)),
@@ -223,7 +222,7 @@ public class RowToRowCast
         }
 
         body.append(newInstance(SqlRow.class, constantInt(0), fieldBlocks).ret());
-        return defineClass(definition, Object.class, binder.getBindings(), RowToRowCast.class.getClassLoader());
+        return defineHiddenClass(definition, Object.class, binder.getClassData());
     }
 
     private static MethodHandle getNullSafeWrite(Type type)

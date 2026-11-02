@@ -16,6 +16,9 @@ package io.trino.plugin.tpcds;
 import io.trino.spi.connector.ConnectorSession;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.plugin.tpcds.TpcdsMetadata.identifierType;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTpcdsMetadata
@@ -32,5 +35,15 @@ public class TestTpcdsMetadata
         assertThat(tpcdsMetadata.schemaExists(session, "hf1")).isFalse();
         assertThat(tpcdsMetadata.schemaExists(session, "sf")).isFalse();
         assertThat(tpcdsMetadata.schemaExists(session, "sfabc")).isFalse();
+    }
+
+    @Test
+    public void testIdentifierType()
+    {
+        assertThat(identifierType(0.01)).isEqualTo(INTEGER);
+        assertThat(identifierType(1)).isEqualTo(INTEGER);
+        assertThat(identifierType(3000)).isEqualTo(INTEGER);
+        assertThat(identifierType(10000)).isEqualTo(BIGINT);
+        assertThat(identifierType(100000)).isEqualTo(BIGINT);
     }
 }

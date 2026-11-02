@@ -27,6 +27,8 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
@@ -273,7 +275,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                             INNER,
                             p.values(a),
                             p.values(b),
-                            not(FUNCTIONS.getMetadata(), comparison(IDENTICAL, a.toSymbolReference(), b.toSymbolReference())));
+                            not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), comparison(IDENTICAL, a.toSymbolReference(), b.toSymbolReference())));
                 }).doesNotFire();
     }
 

@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
@@ -52,17 +53,7 @@ public class TestDistributeComparisonOverMatch
                                 new Reference(BIGINT, "z")),
                         new Reference(BIGINT, "m"))))
                 .describedAs("switch(...) < reference")
-                .isEqualTo(Optional.of(
-                        new Match(
-                                new Reference(BIGINT, "s"),
-                                ImmutableList.of(
-                                        equalityClause(
-                                                new Reference(BIGINT, "a"),
-                                                comparison(LESS_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
-                                        equalityClause(
-                                                new Reference(BIGINT, "b"),
-                                                comparison(LESS_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
-                                comparison(LESS_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
+                .isEqualTo(Optional.empty());
 
         assertThat(optimize(
                 comparison(
@@ -98,17 +89,7 @@ public class TestDistributeComparisonOverMatch
                                         equalityClause(new Reference(BIGINT, "b"), new Reference(BIGINT, "y"))),
                                 new Reference(BIGINT, "z")))))
                 .describedAs("reference < switch(...)")
-                .isEqualTo(Optional.of(
-                        new Match(
-                                new Reference(BIGINT, "s"),
-                                ImmutableList.of(
-                                        equalityClause(
-                                                new Reference(BIGINT, "a"),
-                                                comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
-                                        equalityClause(
-                                                new Reference(BIGINT, "b"),
-                                                comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
-                                comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
+                .isEqualTo(Optional.empty());
 
         assertThat(optimize(
                 comparison(
@@ -141,6 +122,6 @@ public class TestDistributeComparisonOverMatch
 
     private static MatchClause equalityClause(Expression value, Expression result)
     {
-        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), new Symbol(value.type(), "operand"), value, result);
+        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(testSession()), new Symbol(value.type(), "operand"), value, result);
     }
 }

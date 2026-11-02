@@ -29,6 +29,7 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -38,6 +39,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -48,6 +50,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
@@ -86,7 +89,6 @@ import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -95,11 +97,12 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToIntBits;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -406,8 +409,8 @@ public class TestCheckpointEntryIterator
         assertPartitionValuesParsedCondition(checkpointUri, "part_varchar", VARCHAR, utf8Slice("a"));
         assertPartitionValuesParsedCondition(checkpointUri, "part_date", DATE, LocalDate.parse("2020-08-21").toEpochDay());
         ZonedDateTime zonedDateTime = LocalDateTime.parse("2020-10-21T01:00:00.123").atZone(UTC);
-        long timestampValue = packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
-        assertPartitionValuesParsedCondition(checkpointUri, "part_timestamp", TIMESTAMP_TZ_MILLIS, timestampValue);
+        LongTimestampWithTimeZone timestampValue = LongTimestampWithTimeZone.fromEpochMillisAndFraction(zonedDateTime.toInstant().toEpochMilli(), 0, UTC_KEY);
+        assertPartitionValuesParsedCondition(checkpointUri, "part_timestamp", TIMESTAMP_TZ_MICROS, timestampValue);
         LocalDateTime timestampNtz = LocalDateTime.parse("2023-01-02T01:02:03.456");
         long timestampNtzValue = timestampNtz.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND + divide(timestampNtz.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
         assertPartitionValuesParsedCondition(checkpointUri, "part_timestamp_ntz", TIMESTAMP_MICROS, timestampNtzValue);
@@ -486,7 +489,7 @@ public class TestCheckpointEntryIterator
                 "test",
                 ParquetWriterOptions.builder().build());
 
-        File targetFile = File.createTempFile("testAddStatsProjection-", ".checkpoint.parquet");
+        File targetFile = Files.createTempFile("testAddStatsProjection-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
 
         String targetPath = "file://" + targetFile.getAbsolutePath();
@@ -667,7 +670,7 @@ public class TestCheckpointEntryIterator
                         .setMaxPageSize(DataSize.ofBytes(64L))
                         .build());
 
-        File targetFile = File.createTempFile("testSkipAddEntries-", ".checkpoint.parquet");
+        File targetFile = Files.createTempFile("testSkipAddEntries-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
 
         String targetPath = "file://" + targetFile.getAbsolutePath();
@@ -795,7 +798,7 @@ public class TestCheckpointEntryIterator
                         .setMaxPageSize(DataSize.ofBytes(128L))
                         .build());
 
-        File targetFile = File.createTempFile("testSkipAddEntries-", ".checkpoint.parquet");
+        File targetFile = Files.createTempFile("testSkipAddEntries-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
 
         String targetPath = "file://" + targetFile.getAbsolutePath();
@@ -912,7 +915,7 @@ public class TestCheckpointEntryIterator
                                 ImmutableMap.of("part_key", "2023-01-01 00:00:00"),
                                 1000,
                                 true,
-                                Optional.empty()))
+                                Optional.of(new DeletionVectorEntry("p", "file:///deletion_vector.bin", OptionalInt.of(1), 34, 1))))
                 .collect(toImmutableSet());
 
         CheckpointEntries entries = new CheckpointEntries(
@@ -931,7 +934,7 @@ public class TestCheckpointEntryIterator
                         .setMaxPageSize(DataSize.ofBytes(64L))
                         .build());
 
-        File targetFile = File.createTempFile("testSkipRemoveEntries-", ".checkpoint.parquet");
+        File targetFile = Files.createTempFile("testSkipRemoveEntries-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
 
         String targetPath = "file://" + targetFile.getAbsolutePath();
@@ -954,7 +957,11 @@ public class TestCheckpointEntryIterator
 
         assertThat(Iterators.size(metadataAndProtocolEntryIterator)).isEqualTo(2);
         assertThat(Iterators.size(addEntryIterator)).isEqualTo(1);
-        assertThat(Iterators.size(removeEntryIterator)).isEqualTo(numRemoveEntries);
+        assertEqualsIgnoreOrder(
+                ImmutableList.copyOf(removeEntryIterator).stream()
+                        .map(DeltaLakeTransactionLogEntry::getRemove)
+                        .toList(),
+                removeEntries);
         assertThat(Iterators.size(txnEntryIterator)).isEqualTo(0);
 
         assertThat(metadataAndProtocolEntryIterator.getCompletedPositions().orElseThrow()).isEqualTo(3L);

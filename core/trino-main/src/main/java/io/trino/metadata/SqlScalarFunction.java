@@ -34,13 +34,5 @@ public abstract class SqlScalarFunction
         return functionMetadata;
     }
 
-    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
-    {
-        return specialize(boundSignature);
-    }
-
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public abstract SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies);
 }

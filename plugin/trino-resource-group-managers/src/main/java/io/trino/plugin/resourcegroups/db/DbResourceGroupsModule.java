@@ -39,8 +39,19 @@ public class DbResourceGroupsModule
 
     @Provides
     @Singleton
-    public static Jdbi create(DbResourceGroupConfig config)
+    public static DatabaseMigrator createMigrator(DbResourceGroupConfig config)
     {
-        return Jdbi.create(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword());
+        if (config.isRunMigrationsEnabled()) {
+            String migrationLocation = SupportedDatabase.requireSupported(config.getConfigDbUrl()).getMigrationLocation();
+            return new FlywayDatabaseMigrator(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword(), migrationLocation);
+        }
+        return new NoOpDatabaseMigrator();
+    }
+
+    @Provides
+    @Singleton
+    public static Jdbi createJdbi(DbResourceGroupConfig config)
+    {
+        return Jdbi.create(ClassLoaderAwareConnectionFactory.create(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword()));
     }
 }

@@ -269,7 +269,7 @@ public class DeltaLakeSplitManager
     private static Stream<AddFileEntry> filterValidDataFilesForOptimize(Stream<AddFileEntry> validDataFiles, long maxScannedFileSizeInBytes)
     {
         // Value being present is a pending file (potentially the only one) for a given partition.
-        // Value being empty is a tombstone, indicates that there were in the stream previously at least 2 files selected for processing for a given partition.
+        // Value being empty is a tombstone, indicates that files of a given partition were already selected for processing.
         Map<Map<String, Optional<String>>, Optional<AddFileEntry>> pendingAddFileEntriesMap = new HashMap<>();
         return validDataFiles
                 .filter(addFileEntry -> addFileEntry.getSize() < maxScannedFileSizeInBytes)
@@ -282,6 +282,10 @@ public class DeltaLakeSplitManager
                         }
                         pendingAddFileEntriesMap.put(canonicalPartitionValues, Optional.empty());
                         return Stream.of(alreadyQueuedAddFileEntry.get(), addFileEntry);
+                    }
+                    if (addFileEntry.getDeletionVector().isPresent()) {
+                        pendingAddFileEntriesMap.put(canonicalPartitionValues, Optional.empty());
+                        return Stream.of(addFileEntry);
                     }
 
                     pendingAddFileEntriesMap.put(canonicalPartitionValues, Optional.of(addFileEntry));
@@ -353,9 +357,14 @@ public class DeltaLakeSplitManager
 
     public static Location buildSplitPath(Location tableLocation, AddFileEntry addAction)
     {
+        return buildSplitPath(tableLocation, addAction.getPath());
+    }
+
+    public static Location buildSplitPath(Location tableLocation, String entryPath)
+    {
         // paths are relative to the table location or absolute in case of shallow cloned table and are RFC 2396 URIs
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
-        URI uri = URI.create(addAction.getPath());
+        URI uri = URI.create(entryPath);
 
         if (uri.isAbsolute()) {
             return Location.of(uri.getScheme() + ":" + uri.getSchemeSpecificPart());

@@ -15,24 +15,20 @@ package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.errorprone.annotations.Immutable;
 
+import static com.fasterxml.jackson.annotation.JsonCreator.Mode.DELEGATING;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
-@Immutable
-public class PlanNodeId
+public record PlanNodeId(String id)
 {
     private static final int INSTANCE_SIZE = instanceSize(PlanNodeId.class);
 
-    private final String id;
-
-    @JsonCreator
-    public PlanNodeId(String id)
+    @JsonCreator(mode = DELEGATING)
+    public PlanNodeId
     {
         requireNonNull(id, "id is null");
-        this.id = id;
     }
 
     @Override
@@ -40,26 +36,6 @@ public class PlanNodeId
     public String toString()
     {
         return id;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        PlanNodeId that = (PlanNodeId) o;
-        return id.equals(that.id);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return id.hashCode();
     }
 
     public long getRetainedSizeInBytes()

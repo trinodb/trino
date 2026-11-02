@@ -99,7 +99,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.UnaryOperator;
 
 import static io.trino.tracing.ScopedSpan.scopedSpan;
@@ -152,6 +151,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("getTableHandleForExecute", tableHandle);
         try (var _ = scopedSpan(span)) {
             return delegate.getTableHandleForExecute(session, accessControl, tableHandle, procedureName, executeProperties, retryMode);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorTableExecuteHandle> getTableHandleForMaterializedViewExecute(ConnectorSession session, ConnectorAccessControl accessControl, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
+    {
+        Span span = startSpan("getTableHandleForMaterializedViewExecute", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandleForMaterializedViewExecute(session, accessControl, tableHandle, procedureName, executeProperties, retryMode);
         }
     }
 
@@ -463,6 +471,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void setMaterializedViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        Span span = startSpan("setMaterializedViewComment", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.setMaterializedViewComment(session, viewName, comment);
+        }
+    }
+
+    @Override
     public void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
         Span span = startSpan("setMaterializedViewColumnComment", viewName);
@@ -721,24 +738,6 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
-    {
-        Span span = startSpan("delegateMaterializedViewRefreshToConnector", viewName);
-        try (var _ = scopedSpan(span)) {
-            return delegate.delegateMaterializedViewRefreshToConnector(session, viewName);
-        }
-    }
-
-    @Override
-    public CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName)
-    {
-        Span span = startSpan("refreshMaterializedView", viewName);
-        try (var _ = scopedSpan(span)) {
-            return delegate.refreshMaterializedView(session, viewName);
-        }
-    }
-
-    @Override
     public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, RetryMode retryMode, RefreshType refreshType)
     {
         Span span = startSpan("beginRefreshMaterializedView", tableHandle);
@@ -793,20 +792,30 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         Span span = startSpan("finishMerge", tableHandle.getTableHandle());
         try (var ignored = scopedSpan(span)) {
-            delegate.finishMerge(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
+            return delegate.finishMerge(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
         }
     }
 
+    @Deprecated
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
         Span span = startSpan("createView", viewName);
         try (var _ = scopedSpan(span)) {
             delegate.createView(session, viewName, definition, viewProperties, replace);
+        }
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
+    {
+        Span span = startSpan("createView", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.createView(session, viewName, definition, viewProperties, saveMode);
         }
     }
 
@@ -1421,15 +1430,6 @@ public class TracingConnectorMetadata
         Span span = startSpan("getMaterializedViewFreshness", name);
         try (var _ = scopedSpan(span)) {
             return delegate.getMaterializedViewFreshness(session, name, considerGracePeriod);
-        }
-    }
-
-    @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
-    {
-        Span span = startSpan("getMaterializedViewFreshness", name);
-        try (var _ = scopedSpan(span)) {
-            return delegate.getMaterializedViewFreshness(session, name);
         }
     }
 

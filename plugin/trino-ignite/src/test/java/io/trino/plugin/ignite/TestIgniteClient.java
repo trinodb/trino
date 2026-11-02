@@ -16,7 +16,7 @@ package io.trino.plugin.ignite;
 import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
-import io.trino.plugin.jdbc.DefaultQueryBuilder;
+import io.trino.plugin.jdbc.FloatingPointQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -75,7 +76,7 @@ public class TestIgniteClient
     public static final JdbcClient JDBC_CLIENT = new IgniteClient(
             new BaseJdbcConfig(),
             _ -> { throw new UnsupportedOperationException(); },
-            new DefaultQueryBuilder(RemoteQueryModifier.NONE),
+            new FloatingPointQueryBuilder(RemoteQueryModifier.NONE),
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);
 
@@ -183,7 +184,7 @@ public class TestIgniteClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
                         translateToConnectorExpression(
-                                not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
+                                not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NOT NULL");
@@ -197,9 +198,9 @@ public class TestIgniteClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
                         translateToConnectorExpression(
-                                not(
-                                        PLANNER_CONTEXT.getMetadata(),
-                                        not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
+                                not(PLANNER_CONTEXT.getMetadata(),
+                                        getCharVarcharCoercion(TEST_SESSION),
+                                        not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("NOT ((`c_varchar`) IS NOT NULL)");

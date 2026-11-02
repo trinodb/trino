@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jsonpath.ir.IrArithmeticBinary.Operator.ADD;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARCHAR_TO_JSON;
@@ -72,7 +73,7 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.type.Json2016Type.JSON_2016;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -153,7 +154,7 @@ public class BenchmarkJsonPathBinaryOperators
                     functionResolution.resolveFunction(
                             JSON_VALUE_FUNCTION_NAME,
                             fromTypes(ImmutableList.of(
-                                    JSON_2016,
+                                    JSON,
                                     jsonPath2016Type,
                                     JSON_NO_PARAMETERS_ROW_TYPE,
                                     VARCHAR,
@@ -174,7 +175,7 @@ public class BenchmarkJsonPathBinaryOperators
                             new Lambda(ImmutableList.of(), constantNull(VARCHAR)))));
 
             return functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), jsonValueProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), jsonValueProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
                     .get();
         }
 

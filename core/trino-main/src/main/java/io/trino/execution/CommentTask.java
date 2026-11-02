@@ -77,6 +77,9 @@ public class CommentTask
         else if (statement.getType() == Comment.Type.VIEW) {
             commentOnView(statement, session);
         }
+        else if (statement.getType() == Comment.Type.MATERIALIZED_VIEW) {
+            commentOnMaterializedView(statement, session);
+        }
         else if (statement.getType() == Comment.Type.COLUMN) {
             commentOnColumn(statement, session);
         }
@@ -94,7 +97,7 @@ public class CommentTask
             throw semanticException(
                     TABLE_NOT_FOUND,
                     statement,
-                    "Table '%s' does not exist, but a materialized view with that name exists. Setting comments on materialized views is unsupported.",
+                    "Table '%1$s' does not exist, but a materialized view with that name exists. Did you mean COMMENT ON MATERIALIZED VIEW %1$s IS ...?",
                     originalTableName);
         }
 
@@ -122,7 +125,7 @@ public class CommentTask
         if (!metadata.isView(session, viewName)) {
             String additionalInformation;
             if (metadata.getMaterializedView(session, viewName).isPresent()) {
-                additionalInformation = ", but a materialized view with that name exists. Setting comments on materialized views is unsupported.";
+                additionalInformation = ", but a materialized view with that name exists. Did you mean COMMENT ON MATERIALIZED VIEW " + viewName + " IS ...?";
             }
             else if (metadata.getTableHandle(session, viewName).isPresent()) {
                 additionalInformation = ", but a table with that name exists. Did you mean COMMENT ON TABLE " + viewName + " IS ...?";
@@ -135,6 +138,27 @@ public class CommentTask
 
         accessControl.checkCanSetViewComment(session.toSecurityContext(), viewName);
         metadata.setViewComment(session, viewName, statement.getComment());
+    }
+
+    private void commentOnMaterializedView(Comment statement, Session session)
+    {
+        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
+        if (!metadata.isMaterializedView(session, viewName)) {
+            String additionalInformation;
+            if (metadata.isView(session, viewName)) {
+                additionalInformation = ", but a view with that name exists. Did you mean COMMENT ON VIEW " + viewName + " IS ...?";
+            }
+            else if (metadata.getTableHandle(session, viewName).isPresent()) {
+                additionalInformation = ", but a table with that name exists. Did you mean COMMENT ON TABLE " + viewName + " IS ...?";
+            }
+            else {
+                additionalInformation = "";
+            }
+            throw semanticException(TABLE_NOT_FOUND, statement, "Materialized view '%s' does not exist%s", viewName, additionalInformation);
+        }
+
+        accessControl.checkCanSetMaterializedViewComment(session.toSecurityContext(), viewName);
+        metadata.setMaterializedViewComment(session, viewName, statement.getComment());
     }
 
     private void commentOnColumn(Comment statement, Session session)

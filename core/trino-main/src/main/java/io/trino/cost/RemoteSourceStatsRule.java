@@ -117,6 +117,7 @@ public class RemoteSourceStatsRule
             double numberOfNonNullRows = runtimeStats.outputRowCountEstimate() * (1.0 - nullsFraction);
 
             if (type instanceof FixedWidthType fixedType) {
+                // runtime data size is measured on serialized pages, which do not store values for nulls
                 fixedWidthTypeSize += numberOfNonNullRows * fixedType.getFixedSize();
             }
             else {

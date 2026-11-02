@@ -132,34 +132,6 @@ class Int2IntOpenHashMap
         }
     }
 
-    public boolean containsKey(final int k)
-    {
-        if (k == 0) {
-            return containsNullKey;
-        }
-        final int[] key = this.key;
-        // The starting point.
-        int pos = mix(k) & mask;
-        int curr = key[pos];
-        if (curr == 0) {
-            return false;
-        }
-        if (k == curr) {
-            return true;
-        }
-        // There's always an unused entry.
-        while (true) {
-            pos = (pos + 1) & mask;
-            curr = key[pos];
-            if (curr == 0) {
-                return false;
-            }
-            if (k == curr) {
-                return true;
-            }
-        }
-    }
-
     private void insert(final int pos, final int k, final int v)
     {
         if (pos == n) {

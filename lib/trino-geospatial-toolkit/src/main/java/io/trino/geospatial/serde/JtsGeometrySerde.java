@@ -324,15 +324,6 @@ public final class JtsGeometrySerde
     }
 
     /**
-     * Serialize geometry preserving SRID from source geometry.
-     */
-    public static Slice serializeWithSrid(Geometry result, Geometry source)
-    {
-        result.setSRID(source.getSRID());
-        return serialize(result);
-    }
-
-    /**
      * Validate SRID match for binary operations. Returns the SRID to use.
      * Rules: 0 matches anything, mismatched non-zero SRIDs throw exception.
      */
@@ -353,15 +344,6 @@ public final class JtsGeometrySerde
                     format("SRID mismatch: %d vs %d", leftSrid, rightSrid));
         }
         return leftSrid;
-    }
-
-    /**
-     * Serialize binary operation result with validated SRID.
-     */
-    public static Slice serializeBinaryOp(Geometry result, Geometry left, Geometry right)
-    {
-        result.setSRID(validateAndGetSrid(left, right));
-        return serialize(result);
     }
 
     /**

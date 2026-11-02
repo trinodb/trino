@@ -27,7 +27,9 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.tightBounds;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toJsonValue;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toJsonValueUpperBound;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
@@ -46,14 +48,18 @@ public final class DeltaLakeComputedStatistics
         Optional<Long> rowCount = getBigintValue(stats.getTableStatistics().get(ROW_COUNT)).stream().boxed().findFirst();
 
         Optional<Map<String, Object>> minValues = Optional.of(getColumnStatistics(stats, MIN_VALUE, lowercaseToColumnsHandles));
-        Optional<Map<String, Object>> maxValues = Optional.of(getColumnStatistics(stats, MAX_VALUE, lowercaseToColumnsHandles));
+        Map<String, Object> maxValues = getColumnStatistics(stats, MAX_VALUE, lowercaseToColumnsHandles);
 
         Optional<Map<String, Object>> nullCount = Optional.empty();
         if (rowCount.isPresent()) {
             nullCount = Optional.of(getNullCount(stats, rowCount.get(), lowercaseToColumnsHandles));
         }
 
-        return new DeltaLakeJsonFileStatistics(rowCount, minValues, maxValues, nullCount);
+        Optional<Boolean> tightBounds = tightBounds(lowercaseToColumnsHandles.values().stream()
+                .filter(column -> maxValues.containsKey(column.basePhysicalColumnName()))
+                .map(DeltaLakeColumnHandle::basePhysicalType)
+                .toList());
+        return new DeltaLakeJsonFileStatistics(rowCount, minValues, Optional.of(maxValues), nullCount, tightBounds);
     }
 
     private static Map<String, Object> getNullCount(ComputedStatistics statistics, long rowCount, Map</* lowercase */ String, DeltaLakeColumnHandle> lowercaseToColumnsHandles)
@@ -63,7 +69,7 @@ public final class DeltaLakeComputedStatistics
                         && lowercaseToColumnsHandles.containsKey(stats.getKey().getColumnName()))
                 .map(stats -> Map.entry(lowercaseToColumnsHandles.get(stats.getKey().getColumnName()).basePhysicalColumnName(), getBigintValue(stats.getValue())))
                 .filter(stats -> stats.getValue().isPresent())
-                .map(nonNullCount -> Map.entry(nonNullCount.getKey(), rowCount - nonNullCount.getValue().getAsLong()))
+                .map(nonNullCount -> Map.entry(nonNullCount.getKey(), rowCount - nonNullCount.getValue().orElseThrow()))
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
@@ -87,7 +93,13 @@ public final class DeltaLakeComputedStatistics
         }
 
         Object value = readNativeValue(columnType, statistics.getValue(), 0);
-        Object jsonValue = toJsonValue(columnType, value);
+        Object jsonValue;
+        if (statistics.getKey().getStatisticType() == MAX_VALUE) {
+            jsonValue = toJsonValueUpperBound(columnType, value);
+        }
+        else {
+            jsonValue = toJsonValue(columnType, value);
+        }
         if (jsonValue != null) {
             return Optional.of(Map.entry(physicalName, jsonValue));
         }

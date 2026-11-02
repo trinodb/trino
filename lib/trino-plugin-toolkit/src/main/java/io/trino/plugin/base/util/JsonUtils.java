@@ -88,11 +88,6 @@ public final class JsonUtils
         return parseJson(mapper, JsonMapper::createParser, jsonBytes, javaType);
     }
 
-    public static <T> T parseJson(InputStream inputStream, Class<T> javaType)
-    {
-        return parseJson(JSON_MAPPER, inputStream, javaType);
-    }
-
     public static <T> T parseJson(JsonMapper mapper, InputStream inputStream, Class<T> javaType)
     {
         return parseJson(mapper, JsonMapper::createParser, inputStream, javaType);

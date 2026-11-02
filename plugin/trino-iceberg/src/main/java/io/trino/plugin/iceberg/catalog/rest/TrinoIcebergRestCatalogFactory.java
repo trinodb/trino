@@ -18,6 +18,8 @@ import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.trino.cache.EvictableCacheBuilder;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.metrics.MeasuredTrinoFileSystem;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -26,6 +28,7 @@ import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.NodeVersion;
+import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
@@ -36,9 +39,13 @@ import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.apache.iceberg.rest.RESTUtil;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
@@ -55,6 +62,7 @@ public class TrinoIcebergRestCatalogFactory
     private final Security security;
     private final SessionType sessionType;
     private final boolean viewEndpointsEnabled;
+    private final boolean serverAssignedTableLocationEnabled;
     private final SecurityProperties securityProperties;
     private final IcebergRestCatalogPropertiesProvider catalogPropertiesProvider;
     private final boolean uniqueTableLocation;
@@ -62,6 +70,8 @@ public class TrinoIcebergRestCatalogFactory
     private final boolean caseInsensitiveNameMatching;
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
+    private final Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache;
+    private final Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceViewListingCache;
 
     @GuardedBy("this")
     private RESTSessionCatalog icebergCatalog;
@@ -87,6 +97,7 @@ public class TrinoIcebergRestCatalogFactory
         this.security = restConfig.getSecurity();
         this.sessionType = restConfig.getSessionType();
         this.viewEndpointsEnabled = restConfig.isViewEndpointsEnabled();
+        this.serverAssignedTableLocationEnabled = restConfig.isServerAssignedTableLocationEnabled();
         this.securityProperties = requireNonNull(securityProperties, "securityProperties is null");
         this.catalogPropertiesProvider = requireNonNull(catalogPropertiesProvider, "catalogPropertiesProvider is null");
         requireNonNull(icebergConfig, "icebergConfig is null");
@@ -94,13 +105,34 @@ public class TrinoIcebergRestCatalogFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.caseInsensitiveNameMatching = restConfig.isCaseInsensitiveNameMatching();
         this.remoteNamespaceMappingCache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(restConfig.getCaseInsensitiveNameMatchingCacheMaximumSize())
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build();
         this.remoteTableMappingCache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(restConfig.getCaseInsensitiveNameMatchingCacheMaximumSize())
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build();
+        if (caseInsensitiveNameMatching && restConfig.isCaseInsensitiveNameMatchingNamespaceCacheEnabled()) {
+            this.namespaceTableListingCache = Optional.of(EvictableCacheBuilder.newBuilder()
+                    .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
+                    .maximumWeight(restConfig.getCaseInsensitiveNameMatchingNamespaceCacheMaxSize())
+                    // An entry weighs at least one, so listings for empty namespaces still count toward eviction.
+                    .<NamespaceListingKey, List<TableIdentifier>>weigher((_, identifiers) -> identifiers.size() + 1)
+                    .shareNothingWhenDisabled()
+                    .build());
+            this.namespaceViewListingCache = Optional.of(EvictableCacheBuilder.newBuilder()
+                    .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
+                    .maximumWeight(restConfig.getCaseInsensitiveNameMatchingNamespaceCacheMaxSize())
+                    .<NamespaceListingKey, List<TableIdentifier>>weigher((_, identifiers) -> identifiers.size() + 1)
+                    .shareNothingWhenDisabled()
+                    .build());
+        }
+        else {
+            this.namespaceTableListingCache = Optional.empty();
+            this.namespaceViewListingCache = Optional.empty();
+        }
     }
 
     @Override
@@ -115,12 +147,26 @@ public class TrinoIcebergRestCatalogFactory
                             .withHeaders(RESTUtil.configHeaders(config))
                             .build(),
                     (context, config) -> {
-                        ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
-                                ? ((ConnectorIdentity) context.wrappedIdentity())
-                                : ConnectorIdentity.ofUser("fake");
-                        return fileIoFactory.create(fileSystemFactory.create(currentIdentity, config), true, config);
+                        if (context.wrappedIdentity() instanceof RestSessionIdentity sessionIdentity) {
+                            TrinoFileSystem fileSystem = fileSystemFactory.create(sessionIdentity.identity(), config);
+                            // Keep IcebergRestCatalogFileSystem unwrapped so ForwardingFileIo can set storage credentials
+                            if (fileSystem instanceof IcebergRestCatalogFileSystem restFileSystem) {
+                                restFileSystem.measuredWith(sessionIdentity.fileSystemStats());
+                            }
+                            else {
+                                fileSystem = new MeasuredTrinoFileSystem(fileSystem, sessionIdentity.fileSystemStats());
+                            }
+                            return fileIoFactory.create(fileSystem, true, config);
+                        }
+                        return fileIoFactory.create(fileSystemFactory.create(ConnectorIdentity.ofUser("fake"), config), true, config);
                     });
-            icebergCatalogInstance.initialize(catalogName.toString(), catalogPropertiesProvider.catalogProperties());
+            try {
+                icebergCatalogInstance.initialize(catalogName.toString(), catalogPropertiesProvider.catalogProperties());
+            }
+            catch (RuntimeException e) {
+                throwIfInstanceOf(e, TrinoException.class);
+                throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to initialize Iceberg REST catalog", e);
+            }
 
             icebergCatalog = icebergCatalogInstance;
         }
@@ -143,6 +189,9 @@ public class TrinoIcebergRestCatalogFactory
                 caseInsensitiveNameMatching,
                 remoteNamespaceMappingCache,
                 remoteTableMappingCache,
-                viewEndpointsEnabled);
+                namespaceTableListingCache,
+                namespaceViewListingCache,
+                viewEndpointsEnabled,
+                serverAssignedTableLocationEnabled);
     }
 }

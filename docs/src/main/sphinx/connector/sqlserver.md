@@ -519,18 +519,21 @@ The connector supports pushdown for a number of operations:
 
 #### Predicate pushdown support
 
-The connector supports pushdown of predicates on `VARCHAR` and `NVARCHAR`
-columns if the underlying columns in SQL Server use a case-sensitive [collation](https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support?view=sql-server-ver16).
+SQL Server compares character values with PAD SPACE semantics and with the column
+[collation](https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support?view=sql-server-ver16),
+so it can match values that Trino, which compares `varchar` with NO PAD and is always
+case-sensitive, treats as different. Pushdown on character columns is restricted accordingly:
 
-The following operators are pushed down:
+- Fully pushed down, only on `CHAR` and `NCHAR` columns with a case-sensitive collation: `=`,
+  `<>`, `IN`, and `NOT IN` against a literal, and `IN`, `NOT IN`, and `NULLIF` between two such
+  columns.
+- Pushed down only as a pre-filter that Trino re-checks, on all other character columns: `=` and
+  `IN` against a literal. The query is not fully pushed down.
+- `=` and `<>` join conditions on `VARCHAR` and `NVARCHAR` columns are not pushed down.
+- Range predicates, such as `>` or `BETWEEN`, are never pushed down on character columns.
 
-- `=`
-- `<>`
-- `IN`
-- `NOT IN`
-
-To ensure correct results, operators are not pushed down for columns using a
-case-insensitive collation.
+A collation counts as case-sensitive if its name contains `_CS` or `_BIN`, which still allows it to
+be accent-, width-, or kana-insensitive. Use a `_BIN2` collation to match Trino exactly.
 
 (sqlserver-bulk-insert)=
 ### Bulk insert

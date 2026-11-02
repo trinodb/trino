@@ -269,7 +269,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        MaterializedResult expectedUnparametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedUnparametrizedVarchar = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -281,7 +281,7 @@ public abstract class AbstractTestQueries
                 .row("comment", "varchar", "", "")
                 .build();
 
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
@@ -388,15 +388,17 @@ public abstract class AbstractTestQueries
     @Test
     public void testPredicate()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey+1 AS a FROM orders WHERE orderstatus = 'F' UNION ALL \n" +
-                "  SELECT orderkey FROM orders WHERE orderkey % 2 = 0 UNION ALL \n" +
-                "  (SELECT orderkey+custkey FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                ") \n" +
-                "WHERE a < 20 OR a > 100 \n" +
-                "ORDER BY a");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT orderkey+1 AS a FROM orders WHERE orderstatus = 'F' UNION ALL
+                  SELECT orderkey FROM orders WHERE orderkey % 2 = 0 UNION ALL
+                  (SELECT orderkey+custkey FROM orders ORDER BY orderkey LIMIT 10)
+                )
+                WHERE a < 20 OR a > 100
+                ORDER BY a
+                """);
     }
 
     @Test

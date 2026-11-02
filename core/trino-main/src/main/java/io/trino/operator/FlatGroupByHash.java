@@ -248,7 +248,11 @@ public class FlatGroupByHash
         int positionCount = blocks[0].getPositionCount();
         long cardinality = 1;
         for (int channel = 0; channel < groupByChannelCount; channel++) {
-            if (!(blocks[channel] instanceof DictionaryBlock dictionaryBlock)) {
+            Block block = blocks[channel];
+            if (block instanceof RunLengthEncodedBlock) {
+                continue;
+            }
+            if (!(block instanceof DictionaryBlock dictionaryBlock)) {
                 return false;
             }
             cardinality = multiplyExact(cardinality, dictionaryBlock.getDictionary().getPositionCount());
@@ -727,6 +731,10 @@ public class FlatGroupByHash
         int maxCardinality = 1;
         for (int channel = 0; channel < groupByChannelCount; channel++) {
             Block block = blocks[channel];
+            // RLE is equivalent to a dictionary with cardinality one and id zero.
+            if (block instanceof RunLengthEncodedBlock) {
+                continue;
+            }
             verify(block instanceof DictionaryBlock, "Only dictionary blocks are supported");
             DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
             int dictionarySize = dictionaryBlock.getDictionary().getPositionCount();

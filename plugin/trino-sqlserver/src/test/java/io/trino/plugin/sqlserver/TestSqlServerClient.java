@@ -15,11 +15,13 @@ package io.trino.plugin.sqlserver;
 
 import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
@@ -27,6 +29,8 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
@@ -34,9 +38,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
+import static io.trino.spi.connector.JoinCondition.Operator.EQUAL;
+import static io.trino.spi.connector.JoinCondition.Operator.NOT_EQUAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -67,6 +76,41 @@ public class TestSqlServerClient
             TESTING_TYPE_MANAGER,
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);
+
+    private static JdbcColumnHandle characterColumn(String name, Type type, CaseSensitivity caseSensitivity)
+    {
+        return JdbcColumnHandle.builder()
+                .setColumnName(name)
+                .setColumnType(type)
+                .setJdbcTypeHandle(new JdbcTypeHandle(
+                        type instanceof CharType ? Types.CHAR : Types.VARCHAR,
+                        Optional.of(type instanceof CharType ? "char" : "varchar"),
+                        Optional.of(10),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(caseSensitivity)))
+                .build();
+    }
+
+    @Test
+    public void testVarcharEqualityJoinPushdownDisabledUnderPadSpace()
+    {
+        SqlServerClient client = (SqlServerClient) JDBC_CLIENT;
+        JdbcColumnHandle varcharColumn = characterColumn("v", createVarcharType(10), CASE_SENSITIVE);
+
+        assertThat(client.isSupportedJoinCondition(SESSION, new JdbcJoinCondition(varcharColumn, EQUAL, varcharColumn))).isFalse();
+        assertThat(client.isSupportedJoinCondition(SESSION, new JdbcJoinCondition(varcharColumn, NOT_EQUAL, varcharColumn))).isFalse();
+    }
+
+    @Test
+    public void testCharEqualityJoinPushdownEnabledUnderCaseSensitiveCollation()
+    {
+        SqlServerClient client = (SqlServerClient) JDBC_CLIENT;
+        JdbcColumnHandle charColumn = characterColumn("c", createCharType(10), CASE_SENSITIVE);
+
+        assertThat(client.isSupportedJoinCondition(SESSION, new JdbcJoinCondition(charColumn, EQUAL, charColumn))).isTrue();
+        assertThat(client.isSupportedJoinCondition(SESSION, new JdbcJoinCondition(charColumn, NOT_EQUAL, charColumn))).isTrue();
+    }
 
     @Test
     public void testImplementCount()

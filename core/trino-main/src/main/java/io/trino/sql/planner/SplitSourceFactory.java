@@ -55,7 +55,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -168,7 +167,7 @@ public class SplitSourceFactory
         {
             List<DynamicFilters.Descriptor> dynamicFilters = filterPredicate
                     .map(DynamicFilters::extractDynamicFilters)
-                    .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
+                    .map(DynamicFilters.ExtractResult::dynamicConjuncts)
                     .orElse(ImmutableList.of());
 
             DynamicFilter dynamicFilter = EMPTY;
@@ -398,13 +397,6 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitSort(SortNode node, Void context)
         {
             return node.getSource().accept(this, context);
-        }
-
-        @Override
-        public Map<PlanNodeId, SplitSource> visitRefreshMaterializedView(RefreshMaterializedViewNode node, Void context)
-        {
-            // RefreshMaterializedViewNode does not have splits
-            return ImmutableMap.of();
         }
 
         @Override

@@ -56,7 +56,7 @@ public class BackpressureRestHighLevelClient
     private final TimeStat backpressureStats;
     private final ThreadLocal<Stopwatch> stopwatch = ThreadLocal.withInitial(Stopwatch::createUnstarted);
 
-    public BackpressureRestHighLevelClient(RestClientBuilder restClientBuilder, OpenSearchConfig config, TimeStat backpressureStats)
+    public BackpressureRestHighLevelClient(@SuppressWarnings("deprecation") RestClientBuilder restClientBuilder, OpenSearchConfig config, TimeStat backpressureStats)
     {
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");
         delegate = new RestHighLevelClient(requireNonNull(restClientBuilder, "restClientBuilder is null"));

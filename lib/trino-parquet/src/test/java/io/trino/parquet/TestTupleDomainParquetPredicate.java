@@ -19,8 +19,10 @@ import com.google.common.math.LongMath;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.predicate.DictionaryDescriptor;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
+import io.trino.parquet.reader.TestingParquetDataSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -40,6 +42,9 @@ import org.apache.parquet.column.statistics.FloatStatistics;
 import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.BoundaryOrder;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
@@ -48,6 +53,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Types;
+import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -61,6 +67,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.log.Level.ERROR;
@@ -69,6 +76,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetTimestampUtils.JULIAN_EPOCH_OFFSET_DAYS;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
+import static io.trino.parquet.predicate.TupleDomainParquetPredicate.checkInBloomFilter;
 import static io.trino.parquet.predicate.TupleDomainParquetPredicate.getDomain;
 import static io.trino.spi.predicate.Domain.all;
 import static io.trino.spi.predicate.Domain.create;
@@ -126,6 +134,58 @@ public class TestTupleDomainParquetPredicate
     }
 
     private static final ParquetDataSourceId ID = new ParquetDataSourceId("testFile");
+
+    @Test
+    public void testNaNBloomFilterMembership()
+    {
+        BlockSplitBloomFilter bloom = new BlockSplitBloomFilter(1024);
+        // Empty bits cannot prove NaN absence: producers may hash a different payload.
+        assertThat(checkInBloomFilter(bloom, Double.NaN, DOUBLE)).isTrue();
+        assertThat(checkInBloomFilter(bloom, Double.longBitsToDouble(0x7FF0000000000001L), DOUBLE)).isTrue();
+        assertThat(checkInBloomFilter(bloom, (long) floatToRawIntBits(Float.NaN), REAL)).isTrue();
+        assertThat(checkInBloomFilter(bloom, 0x7F800001L, REAL)).isTrue();
+        assertThat(checkInBloomFilter(bloom, 42.0, DOUBLE)).isFalse();
+    }
+
+    @Test
+    public void testSkipNaNBloomFilter()
+            throws Exception
+    {
+        for (Type type : List.of(DOUBLE, REAL)) {
+            List<Object> values = new ArrayList<>();
+            for (int value = 0; value < 10_000; value++) {
+                values.add(type.equals(DOUBLE) ? (Object) (double) value : (long) floatToRawIntBits((float) value));
+            }
+            values.add(type.equals(DOUBLE) ? (Object) Double.NaN : (long) floatToRawIntBits(Float.NaN));
+            Domain domain = create(ValueSet.copyOf(type, values), false);
+            ColumnDescriptor nanColumn = new ColumnDescriptor(new String[] {"nan"}, Types.required(type.equals(DOUBLE) ? PrimitiveTypeName.DOUBLE : FLOAT).named("nan"), 0, 0);
+            ColumnDescriptor otherColumn = new ColumnDescriptor(new String[] {"other"}, Types.required(INT64).named("other"), 0, 0);
+            List<ColumnPath> requested = new ArrayList<>();
+            BloomFilterStore store = new BloomFilterStore(
+                    new TestingParquetDataSource(EMPTY_SLICE, ParquetReaderOptions.defaultOptions()),
+                    new BlockMetadata(0, 10, List.of()),
+                    Set.of(),
+                    Optional.empty())
+            {
+                @Override
+                public Optional<BloomFilter> getBloomFilter(ColumnPath columnPath)
+                {
+                    requested.add(columnPath);
+                    return Optional.of(new BlockSplitBloomFilter(1024));
+                }
+            };
+            TupleDomainParquetPredicate predicate = new TupleDomainParquetPredicate(
+                    withColumnDomains(ImmutableMap.of(nanColumn, domain)), List.of(nanColumn), UTC);
+            assertThat(predicate.matches(store, 256)).isTrue();
+            assertThat(requested).isEmpty();
+
+            // A skipped NaN column must not prevent another column's bloom filter from pruning.
+            predicate = new TupleDomainParquetPredicate(
+                    withColumnDomains(ImmutableMap.of(nanColumn, domain, otherColumn, singleValue(BIGINT, 42L))), List.of(nanColumn, otherColumn), UTC);
+            assertThat(predicate.matches(store, 256)).isFalse();
+            assertThat(requested).containsExactly(ColumnPath.get(otherColumn.getPath()));
+        }
+    }
 
     @Test
     public void testBoolean()
@@ -415,9 +475,9 @@ public class TestTupleDomainParquetPredicate
         ColumnDescriptor columnDescriptor = createColumnDescriptor(PrimitiveTypeName.DOUBLE, "DoubleColumn");
         assertThat(getDomain(columnDescriptor, DOUBLE, 0, null, ID, UTC)).isEqualTo(all(DOUBLE));
 
-        assertThat(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(42.24, 42.24), ID, UTC)).isEqualTo(singleValue(DOUBLE, 42.24));
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(42.24, 42.24), ID, UTC)).isEqualTo(singleValue(DOUBLE, 42.24).union(singleValue(DOUBLE, Double.NaN)));
 
-        assertThat(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(3.3, 42.24), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, 3.3, true, 42.24, true)), false));
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(3.3, 42.24), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, 3.3, true, 42.24, true)), false).union(singleValue(DOUBLE, Double.NaN)));
 
         assertThat(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(NaN, NaN), ID, UTC)).isEqualTo(notNull(DOUBLE));
 
@@ -427,9 +487,9 @@ public class TestTupleDomainParquetPredicate
 
         assertThat(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(3.3, NaN, true), ID, UTC)).isEqualTo(all(DOUBLE));
 
-        assertThat(getDomain(DOUBLE, doubleDictionaryDescriptor(NaN))).isEqualTo(all(DOUBLE));
+        assertThat(getDomain(DOUBLE, doubleDictionaryDescriptor(NaN))).isEqualTo(create(ValueSet.of(DOUBLE, Double.NaN), true));
 
-        assertThat(getDomain(DOUBLE, doubleDictionaryDescriptor(3.3, NaN))).isEqualTo(all(DOUBLE));
+        assertThat(getDomain(DOUBLE, doubleDictionaryDescriptor(3.3, NaN))).isEqualTo(create(ValueSet.of(DOUBLE, 3.3, Double.NaN), true));
 
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
@@ -475,9 +535,9 @@ public class TestTupleDomainParquetPredicate
         float minimum = 4.3f;
         float maximum = 40.3f;
 
-        assertThat(getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, minimum), ID, UTC)).isEqualTo(singleValue(REAL, (long) floatToRawIntBits(minimum)));
+        assertThat(getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, minimum), ID, UTC)).isEqualTo(singleValue(REAL, (long) floatToRawIntBits(minimum)).union(singleValue(REAL, (long) floatToRawIntBits(Float.NaN))));
 
-        assertThat(getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, maximum), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(minimum), true, (long) floatToRawIntBits(maximum), true)), false));
+        assertThat(getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, maximum), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(minimum), true, (long) floatToRawIntBits(maximum), true)), false).union(singleValue(REAL, (long) floatToRawIntBits(Float.NaN))));
 
         assertThat(getDomain(columnDescriptor, REAL, 10, floatColumnStats(NaN, NaN), ID, UTC)).isEqualTo(notNull(REAL));
 
@@ -487,9 +547,9 @@ public class TestTupleDomainParquetPredicate
 
         assertThat(getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, NaN, true), ID, UTC)).isEqualTo(all(REAL));
 
-        assertThat(getDomain(REAL, floatDictionaryDescriptor(NaN))).isEqualTo(all(REAL));
+        assertThat(getDomain(REAL, floatDictionaryDescriptor(NaN))).isEqualTo(create(ValueSet.of(REAL, (long) floatToRawIntBits(Float.NaN)), true));
 
-        assertThat(getDomain(REAL, floatDictionaryDescriptor(minimum, NaN))).isEqualTo(all(REAL));
+        assertThat(getDomain(REAL, floatDictionaryDescriptor(minimum, NaN))).isEqualTo(create(ValueSet.of(REAL, (long) floatToRawIntBits(minimum), (long) floatToRawIntBits(Float.NaN)), true));
 
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
@@ -597,6 +657,59 @@ public class TestTupleDomainParquetPredicate
         long maxValue = toEpochWithPrecision(maxTime, parquetPrecision);
         assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, minValue), ID, UTC)).isEqualTo(singleValue(timestampType, baseDomainValue));
         assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(timestampType, baseDomainValue, true, maxDomainValue, true)), false));
+    }
+
+    @Test
+    public void testTimestampInt64AdjustedToUtcUsesConfiguredTimeZoneForStatistics()
+            throws ParquetCorruptionException
+    {
+        DateTimeZone singapore = DateTimeZone.forID("Asia/Singapore"); // UTC+8, no DST transitions
+
+        PrimitiveType type = Types.required(INT64)
+                .as(LogicalTypeAnnotation.timestampType(true, TimeUnit.MICROS))
+                .named("TimestampColumn");
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {}, type, 0, 0);
+        TimestampType timestampType = createTimestampType(6);
+
+        LocalDateTime utcInstant = LocalDateTime.of(2024, 1, 1, 0, 4, 50);
+        long minValue = toEpochWithPrecision(utcInstant, 6);
+        long maxValue = minValue + 50 * MICROSECONDS_PER_MILLISECOND;
+        LocalDateTime expectedWallClock = utcInstant.plusHours(8);
+        long expectedMinDomainValue = toEpochWithPrecision(expectedWallClock, 6);
+        long expectedMaxDomainValue = expectedMinDomainValue + 50 * MICROSECONDS_PER_MILLISECOND;
+
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, singapore))
+                .isEqualTo(create(ValueSet.ofRanges(range(timestampType, expectedMinDomainValue, true, expectedMaxDomainValue, true)), false));
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(timestampType, minValue, true, maxValue, true)), false));
+    }
+
+    @Test
+    public void testTimestampInt64AdjustedToUtcAcrossDstFallbackTransitionIsUnbounded()
+            throws ParquetCorruptionException
+    {
+        DateTimeZone newYork = DateTimeZone.forID("America/New_York");
+
+        PrimitiveType type = Types.required(INT64)
+                .as(LogicalTypeAnnotation.timestampType(true, TimeUnit.MICROS))
+                .named("TimestampColumn");
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {}, type, 0, 0);
+        TimestampType timestampType = createTimestampType(6);
+
+        // UTC instant of the America/New_York fall-back from UTC-4 to UTC-5
+        LocalDateTime transition = LocalDateTime.of(2024, 11, 3, 6, 0);
+        long minValue = toEpochWithPrecision(transition.minusMinutes(30), 6);
+        long maxValue = toEpochWithPrecision(transition.plusMinutes(30), 6);
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, newYork))
+                .isEqualTo(create(ValueSet.all(timestampType), false));
+
+        LocalDateTime laterInstant = transition.plusDays(60);
+        long laterMinValue = toEpochWithPrecision(laterInstant, 6);
+        long laterMaxValue = laterMinValue + 50 * MICROSECONDS_PER_MILLISECOND;
+        long expectedMinDomainValue = toEpochWithPrecision(laterInstant.minusHours(5), 6);
+        long expectedMaxDomainValue = expectedMinDomainValue + 50 * MICROSECONDS_PER_MILLISECOND;
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(laterMinValue, laterMaxValue), ID, newYork))
+                .isEqualTo(create(ValueSet.ofRanges(range(timestampType, expectedMinDomainValue, true, expectedMaxDomainValue, true)), false));
     }
 
     private static long toEpochWithPrecision(LocalDateTime time, int precision)

@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner;
 
-import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ContiguousSet;
@@ -80,7 +79,6 @@ import io.trino.operator.OutputSpoolingOperatorFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.RefreshMaterializedViewOperator.RefreshMaterializedViewOperatorFactory;
 import io.trino.operator.RowNumberOperator;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import io.trino.operator.SetBuilderOperator.SetBuilderOperatorFactory;
@@ -231,6 +229,7 @@ import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.FrameExclusion;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
@@ -246,7 +245,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -286,7 +284,6 @@ import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.type.BlockTypeOperators;
-import org.objectweb.asm.MethodTooLargeException;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -303,6 +300,7 @@ import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -322,6 +320,7 @@ import static com.google.common.collect.Range.closedOpen;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationUniqueRowsRatioThreshold;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getDynamicRowFilterSelectivityThreshold;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
@@ -392,6 +391,7 @@ import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
 import static io.trino.sql.planner.plan.SkipToPosition.LAST;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
+import static io.trino.util.CompilerUtils.isCompilerLimitExceeded;
 import static io.trino.util.MoreLists.mappedCopy;
 import static io.trino.util.MoreMath.previousPowerOfTwo;
 import static io.trino.util.SpatialJoinUtils.ST_CONTAINS;
@@ -585,7 +585,7 @@ public class LocalExecutionPlanner
         Optional<SkewedPartitionRebalancer> skewedPartitionRebalancer = Optional.empty();
         int taskCount = getTaskCount(partitioningScheme);
         if (outputSkewedBucketCount.isPresent()) {
-            partitionFunction = createPartitionFunction(taskContext.getSession(), partitionFunctionProvider, partitioningScheme.getPartitioning().getHandle(), outputSkewedBucketCount.getAsInt(), partitionChannelTypes);
+            partitionFunction = createPartitionFunction(taskContext.getSession(), partitionFunctionProvider, partitioningScheme.getPartitioning().getHandle(), outputSkewedBucketCount.orElseThrow(), partitionChannelTypes);
             int partitionedWriterCount = getPartitionedWriterCountBasedOnMemory(taskContext.getSession());
             // Keep the task bucket count to 50% of total local writers
             int taskBucketCount = (int) ceil(0.5 * partitionedWriterCount);
@@ -685,6 +685,8 @@ public class LocalExecutionPlanner
 
         // this is shared with all subContexts
         private final AtomicInteger nextPipelineId;
+        // this is shared with all subContexts; see AssignUniqueIdOperator.Factory for the rationale
+        private final AtomicLong assignUniqueIdValuePool;
 
         private int nextOperatorId;
         private boolean inputDriver = true;
@@ -695,19 +697,22 @@ public class LocalExecutionPlanner
             this(taskContext,
                     new ArrayList<>(),
                     Optional.empty(),
-                    new AtomicInteger(0));
+                    new AtomicInteger(0),
+                    new AtomicLong());
         }
 
         private LocalExecutionPlanContext(
                 TaskContext taskContext,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
-                AtomicInteger nextPipelineId)
+                AtomicInteger nextPipelineId,
+                AtomicLong assignUniqueIdValuePool)
         {
             this.taskContext = taskContext;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
             this.nextPipelineId = nextPipelineId;
+            this.assignUniqueIdValuePool = assignUniqueIdValuePool;
         }
 
         public void addDriverFactory(boolean outputDriver, PhysicalOperation physicalOperation, LocalExecutionPlanContext context)
@@ -801,6 +806,11 @@ public class LocalExecutionPlanner
             return nextOperatorId++;
         }
 
+        private AtomicLong getAssignUniqueIdValuePool()
+        {
+            return assignUniqueIdValuePool;
+        }
+
         private boolean isInputDriver()
         {
             return inputDriver;
@@ -814,12 +824,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(indexSourceContext.isEmpty(), "index build plan cannot have sub-contexts");
-            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, nextPipelineId, assignUniqueIdValuePool);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), nextPipelineId, assignUniqueIdValuePool);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -831,7 +841,7 @@ public class LocalExecutionPlanner
         {
             checkArgument(driverInstanceCount > 0, "driverInstanceCount must be > 0");
             if (this.driverInstanceCount.isPresent()) {
-                checkState(this.driverInstanceCount.getAsInt() == driverInstanceCount, "driverInstance count already set to %s", this.driverInstanceCount.getAsInt());
+                checkState(this.driverInstanceCount.orElseThrow() == driverInstanceCount, "driverInstance count already set to %s", this.driverInstanceCount.orElseThrow());
             }
             this.driverInstanceCount = OptionalInt.of(driverInstanceCount);
         }
@@ -1143,7 +1153,8 @@ public class LocalExecutionPlanner
                         frameEndChannel,
                         sortKeyChannelForEndComparison,
                         sortKeyChannel,
-                        ordering);
+                        ordering,
+                        frame.getExclusion());
 
                 WindowNode.Function function = entry.getValue();
                 ResolvedFunction resolvedFunction = function.getResolvedFunction();
@@ -1408,7 +1419,9 @@ public class LocalExecutionPlanner
                                 baseFrame.getEndValue().map(source.getLayout()::get),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty());
+                                Optional.empty(),
+                                // pattern recognition does not allow frame exclusion
+                                FrameExclusion.NO_OTHERS);
                     });
 
             ConnectorSession connectorSession = session.toConnectorSession();
@@ -1569,7 +1582,7 @@ public class LocalExecutionPlanner
             }
 
             // compile expression using input layout and input types
-            return pageFunctionCompiler.compileProjection(rewritten, inputLayout.buildOrThrow(), Optional.empty());
+            return pageFunctionCompiler.compileProjection(rewritten, inputLayout.buildOrThrow(), getCharVarcharCoercion(session), Optional.empty());
         }
 
         private ValueAccessors preparePhysicalValuePointers(
@@ -1715,7 +1728,7 @@ public class LocalExecutionPlanner
             }
 
             // compile expression using input layout and input types
-            return pageFunctionCompiler.compileProjection(argument, inputLayout.buildOrThrow(), Optional.empty());
+            return pageFunctionCompiler.compileProjection(argument, inputLayout.buildOrThrow(), getCharVarcharCoercion(session), Optional.empty());
         }
 
         @Override
@@ -2106,6 +2119,7 @@ public class LocalExecutionPlanner
                             filterReorderingEnabled));
                 }
                 Function<DynamicFilter, PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
+                        getCharVarcharCoercion(session),
                         columnarFilterEvaluationEnabled,
                         filterReorderingEnabled,
                         staticFilters,
@@ -2128,7 +2142,8 @@ public class LocalExecutionPlanner
                             dynamicFilter,
                             getTypes(projections),
                             getFilterAndProjectMinOutputPageSize(session),
-                            getFilterAndProjectMinOutputPageRowCount(session));
+                            getFilterAndProjectMinOutputPageRowCount(session),
+                            context.getTaskContext().aggregateUserMemoryContext());
 
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
@@ -2147,7 +2162,7 @@ public class LocalExecutionPlanner
                 throw e;
             }
             catch (RuntimeException e) {
-                if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
+                if (isCompilerLimitExceeded(e)) {
                     throw new TrinoException(
                             QUERY_EXCEEDED_COMPILER_LIMIT,
                             "Compiler failed. Possible reasons include: the query may have too many or too complex expressions, " +
@@ -2170,14 +2185,23 @@ public class LocalExecutionPlanner
             }
 
             Optional<ConnectorTableCredentials> tableCredentials = context.getTaskContext().getTableCredentials(node.getId());
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), tableCredentials, columns.build(), columnTypes.build());
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(
+                    context.getNextOperatorId(),
+                    planNodeId,
+                    node.getId(),
+                    pageSourceManager,
+                    node.getTable(),
+                    tableCredentials,
+                    columns.build(),
+                    columnTypes.build(),
+                    context.getTaskContext().aggregateUserMemoryContext());
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         private Optional<Expression> getStaticFilter(Expression filterExpression)
         {
             DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
-            Expression staticFilter = combineConjuncts(extractDynamicFilterResult.getStaticConjuncts());
+            Expression staticFilter = combineConjuncts(extractDynamicFilterResult.staticConjuncts());
             if (staticFilter.equals(TRUE)) {
                 return Optional.empty();
             }
@@ -2190,7 +2214,7 @@ public class LocalExecutionPlanner
                 LocalExecutionPlanContext context)
         {
             DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
-            List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicFilterResult.getDynamicConjuncts();
+            List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicFilterResult.dynamicConjuncts();
             if (dynamicFilters.isEmpty()) {
                 return DynamicFilter.EMPTY;
             }
@@ -2439,6 +2463,7 @@ public class LocalExecutionPlanner
                         nonLookupOutputChannels,
                         indexSource.getTypes(),
                         pageFunctionCompiler,
+                        getCharVarcharCoercion(session),
                         blockTypeOperators));
             }
 
@@ -2656,10 +2681,10 @@ public class LocalExecutionPlanner
             }
             if (functionName.equals(builtinFunctionName(ST_DISTANCE))) {
                 if (comparisonOperator.orElseThrow() == LESS_THAN) {
-                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.orElseThrow();
                 }
                 if (comparisonOperator.get() == LESS_THAN_OR_EQUAL) {
-                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.getAsDouble();
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.orElseThrow();
                 }
                 throw new UnsupportedOperationException("Unsupported comparison operator: " + comparisonOperator.get());
             }
@@ -3179,7 +3204,7 @@ public class LocalExecutionPlanner
         {
             Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
 
-            return joinFilterFunctionCompiler.compileJoinFilterFunction(filterExpression, joinSourcesLayout, buildLayout.size());
+            return joinFilterFunctionCompiler.compileJoinFilterFunction(filterExpression, joinSourcesLayout, buildLayout.size(), getCharVarcharCoercion(session));
         }
 
         private Map<Symbol, Integer> createJoinSourcesLayout(Map<Symbol, Integer> lookupSourceLayout, Map<Symbol, Integer> probeSourceLayout)
@@ -3291,14 +3316,6 @@ public class LocalExecutionPlanner
                     domains.entrySet().stream()
                             .filter(entry -> coordinatorDynamicFilters.contains(entry.getKey()))
                             .collect(toImmutableMap(Entry::getKey, Entry::getValue)));
-        }
-
-        @Override
-        public PhysicalOperation visitRefreshMaterializedView(RefreshMaterializedViewNode node, LocalExecutionPlanContext context)
-        {
-            context.setDriverInstanceCount(1);
-            OperatorFactory operatorFactory = new RefreshMaterializedViewOperatorFactory(context.getNextOperatorId(), node.getId(), metadata, node.getViewName());
-            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         @Override
@@ -3632,7 +3649,8 @@ public class LocalExecutionPlanner
 
             OperatorFactory operatorFactory = AssignUniqueIdOperator.createOperatorFactory(
                     context.getNextOperatorId(),
-                    node.getId());
+                    node.getId(),
+                    context.getAssignUniqueIdValuePool());
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
@@ -3682,6 +3700,7 @@ public class LocalExecutionPlanner
                     ImmutableList.of(),
                     ImmutableList.of(),
                     maxLocalExchangeBufferSize,
+                    context.getTaskContext().aggregateUserMemoryContext(),
                     hashCompiler,
                     getWriterScalingMinDataProcessed(session),
                     () -> context.getTaskContext().getQueryMemoryReservation().toBytes());
@@ -3725,7 +3744,7 @@ public class LocalExecutionPlanner
                 context.setDriverInstanceCount(1);
             }
             else if (context.getDriverInstanceCount().isPresent()) {
-                driverInstanceCount = context.getDriverInstanceCount().getAsInt();
+                driverInstanceCount = context.getDriverInstanceCount().orElseThrow();
             }
             else {
                 driverInstanceCount = getTaskConcurrency(session);
@@ -3758,6 +3777,7 @@ public class LocalExecutionPlanner
                     partitionChannels,
                     partitionChannelTypes,
                     maxLocalExchangeBufferSize,
+                    context.getTaskContext().aggregateUserMemoryContext(),
                     hashCompiler,
                     getWriterScalingMinDataProcessed(session),
                     () -> context.getTaskContext().getQueryMemoryReservation().toBytes());
@@ -3786,7 +3806,7 @@ public class LocalExecutionPlanner
             context.setInputDriver(false);
 
             // instance count must match the number of partitions in the exchange
-            verify(context.getDriverInstanceCount().getAsInt() == localExchange.getBufferCount(),
+            verify(context.getDriverInstanceCount().orElseThrow() == localExchange.getBufferCount(),
                     "driver instance count must match the number of exchange partitions");
 
             return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchange), makeLayout(node));
@@ -3939,7 +3959,7 @@ public class LocalExecutionPlanner
                     // the same mechanism in project and filter expression should be used here.
                     verify(lambdaExpression.arguments().size() == functionType.getArgumentTypes().size());
 
-                    Class<? extends Supplier<Object>> lambdaProviderClass = compileLambdaProvider(lambdaExpression, plannerContext.getFunctionManager(), metadata, plannerContext.getTypeManager(), lambdaInterfaces.get(i));
+                    Class<? extends Supplier<Object>> lambdaProviderClass = compileLambdaProvider(lambdaExpression, plannerContext.getFunctionManager(), metadata, plannerContext.getTypeManager(), getCharVarcharCoercion(session), lambdaInterfaces.get(i));
                     try {
                         lambdaProviders.add(lambdaProviderClass.getConstructor(ConnectorSession.class).newInstance(session.toConnectorSession()));
                     }
@@ -4181,8 +4201,7 @@ public class LocalExecutionPlanner
             }
             if (target instanceof MergeTarget mergeTarget) {
                 MergeHandle mergeHandle = mergeTarget.getMergeHandle().orElseThrow(() -> new IllegalArgumentException("mergeHandle not present"));
-                metadata.finishMerge(session, mergeHandle, mergeTarget.getSourceTableHandles(), fragments, statistics);
-                return Optional.empty();
+                return metadata.finishMerge(session, mergeHandle, mergeTarget.getSourceTableHandles(), fragments, statistics);
             }
             throw new AssertionError("Unhandled target type: " + target.getClass().getName());
         };
@@ -4237,7 +4256,7 @@ public class LocalExecutionPlanner
     {
         return extractExpressions(node)
                 .stream()
-                .flatMap(expression -> extractDynamicFilters(expression).getDynamicConjuncts().stream())
+                .flatMap(expression -> extractDynamicFilters(expression).dynamicConjuncts().stream())
                 .map(DynamicFilters.Descriptor::getId)
                 .collect(toImmutableSet());
     }

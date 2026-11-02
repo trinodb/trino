@@ -52,10 +52,10 @@ public class DoubleRange
                     min,
                     max));
         }
-        if (isNaN(min.getAsDouble()) || isNaN(max.getAsDouble())) {
+        if (isNaN(min.orElseThrow()) || isNaN(max.orElseThrow())) {
             return Optional.empty();
         }
-        return Optional.of(new DoubleRange(min.getAsDouble(), max.getAsDouble()));
+        return Optional.of(new DoubleRange(min.orElseThrow(), max.orElseThrow()));
     }
 
     public DoubleRange(double min, double max)

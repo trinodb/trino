@@ -20,9 +20,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Array;
@@ -56,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
@@ -225,12 +224,17 @@ public class IrExpressionEvaluator
     {
         Object value = evaluate(expression.value(), session, bindings);
 
+        if (expression.valueList().isEmpty()) {
+            // an empty IN list is an empty disjunction, i.e. false, regardless of the value
+            return false;
+        }
+
         if (value == null) {
             return null;
         }
 
         ConnectorSession connectorSession = session.toConnectorSession();
-        ResolvedFunction equals = metadata.resolveOperator(EQUAL, ImmutableList.of(expression.value().type(), expression.value().type()));
+        ResolvedFunction equals = metadata.resolveOperator(getCharVarcharCoercion(session), EQUAL, ImmutableList.of(expression.value().type(), expression.value().type()));
 
         boolean hasNull = false;
 
@@ -261,14 +265,6 @@ public class IrExpressionEvaluator
         return readNativeValue(expression.type(), row.getRawFieldBlock(expression.field()), row.getRawIndex());
     }
 
-    private Object evaluateOperator(OperatorType operator, Type leftType, Type rightType, Object left, Object right, Session session)
-    {
-        return functionInvoker.invoke(
-                metadata.resolveOperator(operator, ImmutableList.of(leftType, rightType)),
-                session.toConnectorSession(),
-                Arrays.asList(left, right));
-    }
-
     private Object evaluateInternal(Coalesce expression, Session session, Map<String, Object> bindings)
     {
         for (Expression operand : expression.operands()) {
@@ -284,7 +280,7 @@ public class IrExpressionEvaluator
     private Object evaluateInternal(Cast cast, Session session, Map<String, Object> bindings)
     {
         return functionInvoker.invoke(
-                metadata.getCoercion(cast.expression().type(), cast.type()),
+                metadata.getCoercion(getCharVarcharCoercion(session), cast.expression().type(), cast.type()),
                 session.toConnectorSession(),
                 singletonList(evaluate(cast.expression(), session, bindings)));
     }
@@ -292,10 +288,10 @@ public class IrExpressionEvaluator
     private Object evaluateInternal(Case expression, Session session, Map<String, Object> bindings)
     {
         for (WhenClause whenClause : expression.whenClauses()) {
-            Object operand = evaluate(whenClause.getOperand(), session, bindings);
+            Object operand = evaluate(whenClause.operand(), session, bindings);
 
             if (Boolean.TRUE.equals(operand)) {
-                return evaluate(whenClause.getResult(), session, bindings);
+                return evaluate(whenClause.result(), session, bindings);
             }
         }
 

@@ -21,6 +21,7 @@ import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionBundle;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionProvider;
@@ -61,6 +62,7 @@ import static io.trino.spi.function.TypeVariableConstraint.typeVariable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
@@ -235,6 +237,20 @@ public class TestGlobalFunctionCatalog
                         Candidates are:
                         \t * (decimal(19,0),double):boolean
                         \t * (double,decimal(19,0)):boolean
+                        """);
+
+        assertThatResolveFunction()
+                .among(
+                        functionSignature("decimal(p,s)", "double", "varchar"),
+                        functionSignature("double", "decimal(p,s)", "varchar"))
+                .forParameters(BIGINT, BIGINT, VARCHAR)
+                .failsWithMessage(
+                        """
+                        Could not choose a best candidate operator. Explicit type casts must be added.
+                        Actual types: (bigint, bigint, varchar)
+                        Candidates are:
+                        \t * (decimal(19,0),double,varchar):boolean
+                        \t * (double,decimal(19,0),varchar):boolean
                         """);
     }
 
@@ -427,7 +443,7 @@ public class TestGlobalFunctionCatalog
                 functions.add(new SqlScalarFunction(functionMetadata)
                 {
                     @Override
-                    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+                    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
                     {
                         return new ChoicesSpecializedSqlScalarFunction(
                                 boundSignature,

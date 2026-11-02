@@ -77,12 +77,6 @@ final class PemReader
                     "-+END\\s+.*PRIVATE\\s+KEY[^-]*-+",                       // Footer
             CASE_INSENSITIVE);
 
-    static final Pattern PUBLIC_KEY_PATTERN = Pattern.compile(
-            "-+BEGIN\\s+(?:(.*)\\s+)?PUBLIC\\s+KEY[^-]*-+(?:\\s|\\r|\\n)+" + // Header
-                    "([a-z0-9+/=\\r\\n]+)" +                      // Base64 text
-                    "-+END\\s+.*PUBLIC\\s+KEY[^-]*-+",            // Footer
-            CASE_INSENSITIVE);
-
     // test data must be exactly 20 bytes for DSA
     private static final byte[] TEST_SIGNATURE_DATA = "01234567890123456789".getBytes(US_ASCII);
     private static final Set<String> SUPPORTED_KEY_TYPES = ImmutableSet.of("RSA", "EC", "DSA");
@@ -94,34 +88,6 @@ final class PemReader
     private static final byte[] DER_NULL = {5, 0};
 
     private PemReader() {}
-
-    public static boolean isPem(File file)
-            throws IOException
-    {
-        return isPem(asCharSource(file, US_ASCII).read());
-    }
-
-    public static boolean isPem(String data)
-    {
-        return isPemCertificate(data) ||
-                isPemPublicKey(data) ||
-                isPemPrivateKey(data);
-    }
-
-    private static boolean isPemPrivateKey(String data)
-    {
-        return PRIVATE_KEY_PATTERN.matcher(data).find();
-    }
-
-    private static boolean isPemPublicKey(String data)
-    {
-        return PUBLIC_KEY_PATTERN.matcher(data).find();
-    }
-
-    private static boolean isPemCertificate(String data)
-    {
-        return CERT_PATTERN.matcher(data).find();
-    }
 
     public static KeyStore loadKeyStore(File certificateChainFile, File privateKeyFile, Optional<String> keyPassword)
             throws IOException, GeneralSecurityException

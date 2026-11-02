@@ -66,6 +66,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
+import static io.trino.spi.security.AccessDeniedException.denyCommentMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateCatalog;
@@ -106,6 +107,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRenameView;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
@@ -669,13 +671,21 @@ public class FileBasedSystemAccessControl
         }
 
         Identity identity = context.getIdentity();
-        boolean allowed = tableRules.stream()
-                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
-                .map(rule -> rule.canSelectColumns(columns))
+        CatalogTableAccessControlRule rule = tableRules.stream()
+                .filter(tableRule -> tableRule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
                 .findFirst()
-                .orElse(false);
-        if (!allowed) {
+                .orElse(null);
+        if (rule == null) {
             denySelectTable(table.toString(), branch);
+        }
+        if (!rule.canSelectColumns(columns)) {
+            Set<String> deniedColumns = rule.getDeniedColumns(columns);
+            if (deniedColumns.isEmpty()) {
+                denySelectTable(table.toString(), branch);
+            }
+            else {
+                denySelectColumns(table.toString(), branch, deniedColumns);
+            }
         }
     }
 
@@ -849,6 +859,14 @@ public class FileBasedSystemAccessControl
     {
         if (!checkTablePermission(context, materializedView, OWNERSHIP)) {
             denySetMaterializedViewProperties(materializedView.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewComment(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        if (!checkTablePermission(context, materializedView, OWNERSHIP)) {
+            denyCommentMaterializedView(materializedView.toString());
         }
     }
 
@@ -1347,24 +1365,6 @@ public class FileBasedSystemAccessControl
         public Builder setLifeCycleManager(LifeCycleManager lifeCycleManager)
         {
             this.lifeCycleManager = lifeCycleManager;
-            return this;
-        }
-
-        @SuppressWarnings("unused")
-        public Builder denyAllAccess()
-        {
-            catalogRules = ImmutableList.of();
-            queryAccessRules = Optional.of(ImmutableList.of());
-            impersonationRules = Optional.of(ImmutableList.of());
-            principalUserMatchRules = Optional.of(ImmutableList.of());
-            systemInformationRules = Optional.of(ImmutableList.of());
-            authorizationRules = ImmutableList.of();
-            schemaRules = ImmutableList.of();
-            tableRules = ImmutableList.of();
-            sessionPropertyRules = ImmutableList.of();
-            catalogSessionPropertyRules = ImmutableList.of();
-            functionRules = ImmutableList.of();
-            procedureRules = ImmutableList.of();
             return this;
         }
 

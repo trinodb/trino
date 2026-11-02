@@ -13,7 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
@@ -60,7 +60,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Arrays.stream;
 
@@ -239,11 +239,10 @@ public final class AggregationMaskCompiler
                 selectedPositionsIndex)
                 .ret());
 
-        Class<? extends AggregationMaskBuilder> builderClass = defineClass(
+        Class<? extends AggregationMaskBuilder> builderClass = defineHiddenClass(
                 definition,
                 AggregationMaskBuilder.class,
-                ImmutableMap.of(),
-                AggregationMaskCompiler.class.getClassLoader());
+                ImmutableList.of());
 
         try {
             return builderClass.getConstructor();

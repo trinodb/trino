@@ -28,7 +28,6 @@ import java.sql.Statement;
 
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**

@@ -43,6 +43,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -81,7 +82,6 @@ public class TestDefaultJdbcMetadata
         metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(
                 database.getJdbcClient(),
                 Optional.empty()),
-                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty());
@@ -93,7 +93,6 @@ public class TestDefaultJdbcMetadata
         metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(
                 database.getJdbcClient(),
                 Optional.of(false)),
-                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
@@ -111,7 +110,6 @@ public class TestDefaultJdbcMetadata
         metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(
                 database.getJdbcClient(),
                 Optional.of(true)),
-                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
@@ -134,6 +132,21 @@ public class TestDefaultJdbcMetadata
     {
         database.close();
         database = null;
+    }
+
+    @Test
+    public void testRollbackRunsEveryAction()
+    {
+        List<String> executed = new ArrayList<>();
+        metadata.addRollbackAction(() -> {
+            executed.add("before rollback");
+            metadata.addRollbackAction(() -> executed.add("during rollback"));
+        });
+
+        metadata.rollback();
+        metadata.addRollbackAction(() -> executed.add("after rollback"));
+
+        assertThat(executed).containsExactly("before rollback", "during rollback", "after rollback");
     }
 
     @Test
@@ -422,7 +435,6 @@ public class TestDefaultJdbcMetadata
                 database.getJdbcClient(),
                 Optional.empty(),
                 Optional.of(tableScanRedirectApplicationResult)),
-                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
 

@@ -128,6 +128,46 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
+    @Override // BigQuery connector exposes location property
+    public void testShowCreateSchema()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
+                .isEqualTo(
+                        """
+                        CREATE SCHEMA %s.%s
+                        WITH (
+                           location = 'US'
+                        )""".formatted(getSession().getCatalog().orElseThrow(), schemaName));
+    }
+
+    @Test
+    public void testCreateSchemaWithLocation()
+    {
+        String schemaName = "test_schema_with_location_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = 'us-east1')");
+            assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
+                    .contains("location = 'us-east1'");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
+    }
+
+    @Test
+    public void testCreateSchemaWithInvalidLocation()
+    {
+        String schemaName = "test_schema_with_invalid_location_" + randomNameSuffix();
+        try {
+            assertQueryFails("CREATE SCHEMA " + schemaName + " WITH (location = 'invalid-location')", "Failed to create schema.*");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
+    }
+
+    @Test
     @Disabled // Disable this test because this test is slow and BigQuery connector doesn't support sample pushdown
     @Override
     public void testTableSampleBernoulli() {}
@@ -143,7 +183,7 @@ public abstract class BaseBigQueryConnectorTest
     protected MaterializedResult getDescribeOrdersResult()
     {
         // shippriority column is bigint (not integer) in BigQuery connector
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -294,6 +334,15 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
+    @Override
+    public void testCharToVarcharCastCoercionAcrossPushdown()
+    {
+        assertThatThrownBy(super::testCharToVarcharCastCoercionAcrossPushdown)
+                .hasMessage("Unsupported column type: char(5)")
+                .hasStackTraceContaining("SQL: CREATE TABLE test_char_to_varchar_cast");
+    }
+
+    @Test
     public void testEmptyProjectionTable()
     {
         testEmptyProjection(
@@ -393,6 +442,12 @@ public abstract class BaseBigQueryConnectorTest
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
         return nullToEmpty(exception.getMessage()).matches(".*Invalid field name \"%s\". Fields must contain the allowed characters, and be at most 300 characters long..*".formatted(columnName.replace("\\", "\\\\")));
+    }
+
+    @Override
+    protected boolean isRowFieldNameRejected(Exception exception, String fieldName)
+    {
+        return nullToEmpty(exception.getMessage()).matches(".*Invalid field name \"%s\". Fields must contain .*".formatted(fieldName.replace("\\", "\\\\")));
     }
 
     @Test // TODO: Move this test to BaseConnectorTest
@@ -939,7 +994,7 @@ public abstract class BaseBigQueryConnectorTest
                 )\
                 """.formatted(expectedLabel);
 
-        assertEventually(new Duration(1, MINUTES), () -> assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
+        assertEventually(new Duration(3, MINUTES), new Duration(2, SECONDS), () -> assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
                 .extracting(values -> values.get("query").getStringValue())
                 .singleElement()
                 .matches(statement -> statement.contains(expectedView)));

@@ -31,6 +31,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.MAP_TO_NUMBER;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.stream.Collectors.joining;
@@ -87,11 +88,7 @@ public class TestDeprecatedDecimalConfig
                 .contains("@jakarta.validation.constraints.Max(message=\"{jakarta.validation.constraints.Max.message}\", payload={}, groups={}, value=38L)");
 
         Set<String> deprecated = inspectConfigs(DeprecatedDecimalConfig.class);
-        assertThat(deprecated)
-                // contains() might produce better error message when things go wrong ...
-                .containsExactlyInAnyOrderElementsOf(legacy)
-                // ... but equality is what we really want to assert
-                .isEqualTo(legacy);
+        assertEqualsIgnoreOrder(deprecated, legacy);
     }
 
     private static Set<String> inspectConfigs(Class<?> configClass)

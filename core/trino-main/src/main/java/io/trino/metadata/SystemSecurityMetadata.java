@@ -165,15 +165,6 @@ public interface SystemSecurityMetadata
     }
 
     /**
-     * Throws an exception if the entityKind is not supported, or if the privileges
-     * are not supported for the entityKind
-     */
-    default void validateEntityKindAndPrivileges(Session session, String entityKind, Set<String> privileges)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
      * Set the owner of the specified schema
      */
     Optional<TrinoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schema);

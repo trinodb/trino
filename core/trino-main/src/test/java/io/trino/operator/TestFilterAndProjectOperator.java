@@ -106,7 +106,7 @@ public class TestFilterAndProjectOperator
                 new Constant(BIGINT, 5L));
 
         ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-        Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field0, add5), layout);
+        Supplier<PageProcessor> processor = compiler.compilePageProcessor(TEST_SESSION, Optional.of(filter), ImmutableList.of(field0, add5), layout);
 
         OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                 0,
@@ -116,7 +116,7 @@ public class TestFilterAndProjectOperator
                 DataSize.ofBytes(0),
                 0);
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, BIGINT)
                 .row("0", 5L)
                 .row("1", 6L)
                 .row("2", 7L)
@@ -155,7 +155,7 @@ public class TestFilterAndProjectOperator
                 new Constant(BIGINT, 10L));
 
         ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-        Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(col1), layout);
+        Supplier<PageProcessor> processor = compiler.compilePageProcessor(TEST_SESSION, Optional.of(filter), ImmutableList.of(col1), layout);
 
         OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                 0,

@@ -20,51 +20,15 @@ import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.TableKind;
 import io.trino.spi.catalog.CatalogName;
 import software.amazon.awssdk.services.glue.GlueClient;
 
-import java.io.IOException;
 import java.net.URI;
-import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.function.Consumer;
 
-import static com.google.common.base.Verify.verify;
-import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreModule.createGlueClient;
-import static java.nio.file.Files.createDirectories;
-import static java.nio.file.Files.exists;
-import static java.nio.file.Files.isDirectory;
 
 public final class TestingGlueHiveMetastore
 {
     private TestingGlueHiveMetastore() {}
-
-    public static GlueHiveMetastore createTestingGlueHiveMetastore(Path defaultWarehouseDir, Consumer<AutoCloseable> registerResource)
-    {
-        return createTestingGlueHiveMetastore(defaultWarehouseDir, registerResource, false);
-    }
-
-    public static GlueHiveMetastore createTestingGlueHiveMetastore(Path defaultWarehouseDir, Consumer<AutoCloseable> registerResource, boolean assumeCanonicalPartitionKeys)
-    {
-        if (!exists(defaultWarehouseDir)) {
-            try {
-                createDirectories(defaultWarehouseDir);
-            }
-            catch (IOException e) {
-                throw new RuntimeException("Could not create directory: %s".formatted(defaultWarehouseDir), e);
-            }
-        }
-        verify(isDirectory(defaultWarehouseDir), "%s is not a directory", defaultWarehouseDir);
-        return createTestingGlueHiveMetastore(defaultWarehouseDir.toUri(), registerResource, assumeCanonicalPartitionKeys);
-    }
-
-    public static GlueHiveMetastore createTestingGlueHiveMetastore(URI warehouseUri, Consumer<AutoCloseable> registerResource)
-    {
-        return createTestingGlueHiveMetastore(warehouseUri, registerResource, false);
-    }
-
-    public static GlueHiveMetastore createTestingGlueHiveMetastore(URI warehouseUri, Consumer<AutoCloseable> registerResource, boolean assumeCanonicalPartitionKeys)
-    {
-        return createTestingGlueHiveMetastore(warehouseUri, registerResource, assumeCanonicalPartitionKeys, _ -> {}, HDFS_FILE_SYSTEM_FACTORY);
-    }
 
     public static GlueHiveMetastore createTestingGlueHiveMetastore(
             URI warehouseUri,

@@ -35,7 +35,6 @@ import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -80,6 +79,7 @@ import static java.util.stream.Collectors.toMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.data.Percentage.withPercentage;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseFailureRecoveryTest
         extends AbstractTestQueryFramework
@@ -300,11 +300,30 @@ public abstract class BaseFailureRecoveryTest
     protected void testExplainAnalyze()
     {
         testSelect("EXPLAIN ANALYZE SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
+        // distributed sort runs only with query-level retries, so this checks that its merging
+        // exchange does not end up on the coordinator boundary. The failure-free reference run
+        // always uses retry_policy NONE, so under task-level retries the two runs plan different
+        // stage trees and the stage id picked for failure injection is not found
+        if (getRetryPolicy() == RetryPolicy.QUERY) {
+            testSelect("EXPLAIN ANALYZE SELECT orderkey FROM orders ORDER BY orderkey");
+        }
 
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"),
                 "EXPLAIN ANALYZE INSERT INTO <table> SELECT * FROM orders",
                 Optional.of("DROP TABLE <table>"));
+    }
+
+    @Test
+    protected void testOrderBy()
+    {
+        // The failure-free reference run always uses retry_policy NONE, so under task-level
+        // retries the two runs plan different stage trees and the stage id picked for failure
+        // injection is not found
+        if (getRetryPolicy() != RetryPolicy.QUERY) {
+            abort("distributed sort runs only with query-level retries");
+        }
+        testSelect("SELECT * FROM orders ORDER BY orderkey");
     }
 
     @Test
@@ -695,7 +714,7 @@ public abstract class BaseFailureRecoveryTest
             MaterializedResult expectedQueryResult = expected.getQueryResult();
             OptionalInt failureStageId = getFailureStageId(() -> expectedQueryResult);
             ExecutionResult actual = executeActual(failureStageId);
-            int failedTasksCount = getStageStats(actual.getQueryResult(), failureStageId.getAsInt()).getFailedTasks();
+            int failedTasksCount = getStageStats(actual.getQueryResult(), failureStageId.orElseThrow()).getFailedTasks();
             if (expectTaskFailures) {
                 assertThat(failedTasksCount).withFailMessage("expected some task failures").isGreaterThan(0);
             }
@@ -762,13 +781,13 @@ public abstract class BaseFailureRecoveryTest
                 assertThat(actual.getUpdatedTableContent()).isPresent();
                 MaterializedResult expectedUpdatedTableContent = expected.getUpdatedTableContent().get();
                 MaterializedResult actualUpdatedTableContent = actual.getUpdatedTableContent().get();
-                assertEqualsIgnoreOrder(actualUpdatedTableContent, expectedUpdatedTableContent, "For query: \n " + query);
+                assertEqualsIgnoreOrder(actualUpdatedTableContent, expectedUpdatedTableContent, "Rows for query [%s]".formatted(query));
             }
             else if (isExplain) {
                 assertThat(actualQueryResult.getRowCount()).isEqualTo(expectedQueryResult.getRowCount());
             }
             else {
-                assertEqualsIgnoreOrder(actualQueryResult, expectedQueryResult, "For query: \n " + query);
+                assertEqualsIgnoreOrder(actualQueryResult, expectedQueryResult, "Rows for query [%s]".formatted(query));
             }
 
             queryAssertion.accept(actual.getQueryId());
@@ -971,12 +990,5 @@ public abstract class BaseFailureRecoveryTest
         return new Object[] {
                 new ParallelTestRunnable(name, runnable),
         };
-    }
-
-    protected Object[][] moreParallelTests(Object[][] some, Object[]... more)
-    {
-        Object[][] result = Arrays.copyOf(some, some.length + more.length);
-        System.arraycopy(more, 0, result, some.length, more.length);
-        return result;
     }
 }

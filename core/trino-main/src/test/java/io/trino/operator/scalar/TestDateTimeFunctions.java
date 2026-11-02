@@ -43,10 +43,13 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static java.time.temporal.IsoFields.QUARTER_OF_YEAR;
+import static java.time.temporal.TemporalAdjusters.lastDayOfMonth;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -133,9 +136,44 @@ public class TestDateTimeFunctions
         assertThat(assertions.function("from_unixtime", "980172245.888"))
                 .matches("TIMESTAMP '2001-01-22 03:04:05.888 Pacific/Apia'");
 
+        assertThat(assertions.function("from_unixtime", "nan()", "'UTC'"))
+                .matches("TIMESTAMP '1970-01-01 00:00:00.000 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "0.0005e0", "'UTC'"))
+                .matches("TIMESTAMP '1970-01-01 00:00:00.001 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "-0.0005e0", "'UTC'"))
+                .matches("TIMESTAMP '1969-12-31 23:59:59.999 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "0.5005e0", "'UTC'"))
+                .matches("TIMESTAMP '1970-01-01 00:00:00.501 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "0.5004999e0", "'UTC'"))
+                .matches("TIMESTAMP '1970-01-01 00:00:00.500 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "1589067296.1235e0", "'UTC'"))
+                .matches("TIMESTAMP '2020-05-09 23:34:56.124 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "-1589067296.1235e0", "'UTC'"))
+                .matches("TIMESTAMP '1919-08-25 00:25:03.876 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "1589067296.1235003e0", "'UTC'"))
+                .matches("TIMESTAMP '2020-05-09 23:34:56.124 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "-4.999999999999999e-4", "'UTC'"))
+                .matches("TIMESTAMP '1970-01-01 00:00:00.000 UTC'");
+
         assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "123456789123456789")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Millis overflow: 9223372036854775807");
+
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "-2251799813685.2485e0")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Millis overflow: -2251799813685249");
+
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "-infinity()")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Millis overflow: -9223372036854775808");
     }
 
     @Test
@@ -333,8 +371,9 @@ public class TestDateTimeFunctions
         assertThat(assertions.function("millisecond", "INTERVAL '90061.234' SECOND"))
                 .isEqualTo(234L);
 
+        // SECOND is the leading field, so it holds the whole magnitude
         assertThat(assertions.function("second", "INTERVAL '90061.234' SECOND"))
-                .isEqualTo(1L);
+                .isEqualTo(90061L);
 
         assertThat(assertions.function("minute", "INTERVAL '90061.234' SECOND"))
                 .isEqualTo(1L);
@@ -366,6 +405,47 @@ public class TestDateTimeFunctions
 
         assertThat(assertions.function("year_of_week", "DATE '2010-01-03'"))
                 .isEqualTo(2009L);
+    }
+
+    @Test
+    public void testDateFields()
+    {
+        // A complete Gregorian cycle covers every combination of leap year and weekday.
+        long start = LocalDate.of(-200, 1, 1).toEpochDay();
+        long end = LocalDate.of(200, 1, 1).toEpochDay();
+        for (long date = start; date < end; date++) {
+            assertDateFields(date);
+        }
+
+        for (long date = Integer.MIN_VALUE; date <= Integer.MAX_VALUE; date += 10_000) {
+            assertDateFields(date);
+        }
+        for (int offset = 0; offset < 10_000; offset++) {
+            assertDateFields((long) Integer.MIN_VALUE + offset);
+            assertDateFields((long) Integer.MAX_VALUE - offset);
+        }
+    }
+
+    private static void assertDateFields(long date)
+    {
+        ISOChronology chronology = ISOChronology.getInstanceUTC();
+        long millis = DAYS.toMillis(date);
+        assertThat(DateTimeFunctions.dayOfWeekFromDate(date))
+                .as("day_of_week for epoch day %d", date)
+                .isEqualTo(chronology.dayOfWeek().get(millis));
+        assertThat(DateTimeFunctions.weekFromDate(date))
+                .as("week for epoch day %d", date)
+                .isEqualTo(chronology.weekOfWeekyear().get(millis));
+        assertThat(DateTimeFunctions.yearOfWeekFromDate(date))
+                .as("year_of_week for epoch day %d", date)
+                .isEqualTo(chronology.weekyear().get(millis));
+        LocalDate localDate = LocalDate.ofEpochDay(date);
+        assertThat(DateTimeFunctions.quarterFromDate(date))
+                .as("quarter for epoch day %d", date)
+                .isEqualTo(localDate.get(QUARTER_OF_YEAR));
+        assertThat(DateTimeFunctions.lastDayOfMonthFromDate(date))
+                .as("last_day_of_month for epoch day %d", date)
+                .isEqualTo(localDate.with(lastDayOfMonth()).toEpochDay());
     }
 
     @Test
@@ -437,47 +517,50 @@ public class TestDateTimeFunctions
     @Test
     public void testExtractFromInterval()
     {
+        // the leading field holds the whole magnitude of the interval
         assertThat(assertions.expression("extract(second FROM INTERVAL '5' SECOND)"))
                 .isEqualTo(5L);
 
         assertThat(assertions.expression("extract(second FROM INTERVAL '65' SECOND)"))
-                .isEqualTo(5L);
+                .isEqualTo(65L);
 
         assertThat(assertions.expression("extract(minute FROM INTERVAL '4' MINUTE)"))
                 .isEqualTo(4L);
 
         assertThat(assertions.expression("extract(minute FROM INTERVAL '64' MINUTE)"))
-                .isEqualTo(4L);
-
-        assertThat(assertions.expression("extract(minute FROM INTERVAL '247' SECOND)"))
-                .isEqualTo(4L);
+                .isEqualTo(64L);
 
         assertThat(assertions.expression("extract(hour FROM INTERVAL '3' HOUR)"))
                 .isEqualTo(3L);
 
         assertThat(assertions.expression("extract(hour FROM INTERVAL '27' HOUR)"))
-                .isEqualTo(3L);
-
-        assertThat(assertions.expression("extract(hour FROM INTERVAL '187' MINUTE)"))
-                .isEqualTo(3L);
+                .isEqualTo(27L);
 
         assertThat(assertions.expression("extract(day FROM INTERVAL '2' DAY)"))
-                .isEqualTo(2L);
-
-        assertThat(assertions.expression("extract(day FROM INTERVAL '55' HOUR)"))
                 .isEqualTo(2L);
 
         assertThat(assertions.expression("extract(month FROM INTERVAL '3' MONTH)"))
                 .isEqualTo(3L);
 
         assertThat(assertions.expression("extract(month FROM INTERVAL '15' MONTH)"))
-                .isEqualTo(3L);
+                .isEqualTo(15L);
 
         assertThat(assertions.expression("extract(year FROM INTERVAL '2' YEAR)"))
                 .isEqualTo(2L);
 
-        assertThat(assertions.expression("extract(year FROM INTERVAL '29' MONTH)"))
-                .isEqualTo(2L);
+        // a trailing field is bounded by the next larger field
+        assertThat(assertions.expression("extract(minute FROM INTERVAL '1:04' HOUR TO MINUTE)"))
+                .isEqualTo(4L);
+
+        // a field that the qualifier does not contain cannot be extracted
+        assertThatThrownBy(assertions.expression("extract(minute FROM INTERVAL '247' SECOND)")::evaluate)
+                .hasMessageContaining("Cannot extract MINUTE from interval second");
+        assertThatThrownBy(assertions.expression("extract(hour FROM INTERVAL '187' MINUTE)")::evaluate)
+                .hasMessageContaining("Cannot extract HOUR from interval minute");
+        assertThatThrownBy(assertions.expression("extract(day FROM INTERVAL '55' HOUR)")::evaluate)
+                .hasMessageContaining("Cannot extract DAY from interval hour");
+        assertThatThrownBy(assertions.expression("extract(year FROM INTERVAL '29' MONTH)")::evaluate)
+                .hasMessageContaining("Cannot extract YEAR from interval month");
     }
 
     @Test

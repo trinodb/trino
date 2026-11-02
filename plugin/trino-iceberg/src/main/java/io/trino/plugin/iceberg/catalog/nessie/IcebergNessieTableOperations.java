@@ -143,7 +143,7 @@ public class IcebergNessieTableOperations
             nessieClient.commitTable(
                     base,
                     metadata,
-                    writeNewMetadata(metadata, version.getAsInt() + 1),
+                    writeNewMetadata(metadata, version.orElseThrow() + 1),
                     table.getId(),
                     toKey(database, tableName));
         }

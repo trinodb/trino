@@ -239,13 +239,6 @@ public class OrcWriterOptions
         return shouldCompactMinMax;
     }
 
-    public OrcWriterOptions withShouldCompactMinMax(boolean shouldCompactMinMax)
-    {
-        return builderFrom(this)
-                .setShouldCompactMinMax(shouldCompactMinMax)
-                .build();
-    }
-
     @Override
     public String toString()
     {
@@ -360,12 +353,6 @@ public class OrcWriterOptions
         public Builder setBloomFilterFpp(double bloomFilterFpp)
         {
             this.bloomFilterFpp = bloomFilterFpp;
-            return this;
-        }
-
-        public Builder setShouldCompactMinMax(boolean shouldCompactMinMax)
-        {
-            this.shouldCompactMinMax = shouldCompactMinMax;
             return this;
         }
 

@@ -21,30 +21,32 @@ import java.util.List;
 
 public interface VerifierDao
 {
-    @SqlQuery("" +
-            "SELECT\n" +
-            "  suite\n" +
-            ", name\n" +
-            ", test_catalog\n" +
-            ", test_schema\n" +
-            ", test_prequeries\n" +
-            ", test_query\n" +
-            ", test_postqueries\n" +
-            ", test_username\n" +
-            ", test_password\n" +
-            ", test_session_properties_json\n" +
-            ", control_catalog\n" +
-            ", control_schema\n" +
-            ", control_prequeries\n" +
-            ", control_query\n" +
-            ", control_postqueries\n" +
-            ", control_username\n" +
-            ", control_password\n" +
-            ", control_session_properties_json\n" +
-            "FROM verifier_queries\n" +
-            "WHERE suite = :suite\n" +
-            "ORDER BY id\n" +
-            "LIMIT :limit")
+    @SqlQuery(
+            """
+            SELECT
+              suite
+            , name
+            , test_catalog
+            , test_schema
+            , test_prequeries
+            , test_query
+            , test_postqueries
+            , test_username
+            , test_password
+            , test_session_properties_json
+            , control_catalog
+            , control_schema
+            , control_prequeries
+            , control_query
+            , control_postqueries
+            , control_username
+            , control_password
+            , control_session_properties_json
+            FROM verifier_queries
+            WHERE suite = :suite
+            ORDER BY id
+            LIMIT :limit
+            """)
     @UseRowMapper(QueryPairMapper.class)
     List<QueryPair> getQueriesBySuite(@Bind("suite") String suite, @Bind("limit") int limit);
 }

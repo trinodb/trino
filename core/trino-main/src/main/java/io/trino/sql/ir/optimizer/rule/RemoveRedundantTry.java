@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.TryFunction.TRY_FUNCTION_NAME;
 import static io.trino.sql.ir.IrExpressions.mayFail;
@@ -56,10 +57,10 @@ public class RemoveRedundantTry
         }
 
         return switch (call.arguments().getFirst()) {
-            case Lambda lambda -> mayFail(context, lambda.body()) ? Optional.empty() : Optional.of(lambda.body());
+            case Lambda lambda -> mayFail(context, getCharVarcharCoercion(session), lambda.body()) ? Optional.empty() : Optional.of(lambda.body());
             case Bind bind -> {
                 Expression body = bind.function().body();
-                if (mayFail(context, body)) {
+                if (mayFail(context, getCharVarcharCoercion(session), body)) {
                     yield Optional.empty();
                 }
                 List<Symbol> parameters = bind.function().arguments();

@@ -32,7 +32,6 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class ObjectIdFunctions
@@ -76,11 +75,11 @@ public final class ObjectIdFunctions
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType("ObjectId") Slice value)
+    public static Slice castToVarchar(@LiteralParameter("x") int x, @SqlType("ObjectId") Slice value)
     {
         String hexString = new ObjectId(value.getBytes()).toString();
         if (hexString.length() > x) {
-            hexString = hexString.substring(0, toIntExact(x));
+            hexString = hexString.substring(0, x);
         }
         return utf8Slice(hexString);
     }

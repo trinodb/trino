@@ -19,7 +19,6 @@ import com.google.common.collect.Iterables;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -238,10 +237,10 @@ public final class ExpressionTreeRewriter<C>
 
         protected WhenClause rewriteWhenClause(WhenClause node, Context<C> context)
         {
-            Expression operand = rewrite(node.getOperand(), context.get());
-            Expression result = rewrite(node.getResult(), context.get());
+            Expression operand = rewrite(node.operand(), context.get());
+            Expression result = rewrite(node.result(), context.get());
 
-            if (operand != node.getOperand() || result != node.getResult()) {
+            if (operand != node.operand() || result != node.result()) {
                 return new WhenClause(operand, result);
             }
             return node;
@@ -430,18 +429,6 @@ public final class ExpressionTreeRewriter<C>
         {
             return defaultRewrite;
         }
-    }
-
-    private static <T> boolean sameElements(Optional<T> a, Optional<T> b)
-    {
-        if (a.isEmpty() && b.isEmpty()) {
-            return true;
-        }
-        if (a.isPresent() != b.isPresent()) {
-            return false;
-        }
-
-        return a.get() == b.get();
     }
 
     @SuppressWarnings("ObjectEquality")

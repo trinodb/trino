@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.FullConnectorSession;
+import io.trino.Session;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.dispatcher.DispatchQuery;
@@ -40,6 +41,7 @@ import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -70,14 +72,15 @@ public class KillQueryProcedure
             checkState(dispatchManager.isPresent(), "No dispatch manager is set. kill_query procedure should be executed on coordinator.");
             DispatchQuery dispatchQuery = dispatchManager.get().getQuery(query);
 
-            checkCanKillQueryOwnedBy(((FullConnectorSession) session).getSession().getIdentity(), dispatchQuery.getSession().getIdentity(), accessControl);
+            Session killerSession = ((FullConnectorSession) session).getSession();
+            checkCanKillQueryOwnedBy(killerSession.getIdentity(), dispatchQuery.getSession().getIdentity(), accessControl);
 
             // check before killing to provide the proper error message (this is racy)
             if (dispatchQuery.isDone()) {
                 throw new TrinoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
             }
 
-            dispatchQuery.fail(createKillQueryException(message));
+            dispatchQuery.fail(createKillQueryException(message, killerSession.getUser()));
 
             // verify if the query was killed (if not, we lost the race)
             checkState(dispatchQuery.isDone(), "Failure to fail the query: %s", query);
@@ -103,16 +106,26 @@ public class KillQueryProcedure
                 KILL_QUERY.bindTo(this));
     }
 
-    public static TrinoException createKillQueryException(String message)
+    public static TrinoException createKillQueryException(String message, String user)
     {
-        return new TrinoException(ADMINISTRATIVELY_KILLED, "Query killed. " +
+        return new TrinoException(ADMINISTRATIVELY_KILLED, "Query killed" + requestedBy(user) + ". " +
                 (isNullOrEmpty(message) ? "No message provided." : "Message: " + message));
     }
 
-    public static TrinoException createPreemptQueryException(String message)
+    public static TrinoException createPreemptQueryException(String message, String user)
     {
-        return new TrinoException(ADMINISTRATIVELY_PREEMPTED, "Query preempted. " +
+        return new TrinoException(ADMINISTRATIVELY_PREEMPTED, "Query preempted" + requestedBy(user) + ". " +
                 (isNullOrEmpty(message) ? "No message provided." : "Message: " + message));
+    }
+
+    public static TrinoException createCancelQueryException(String user)
+    {
+        return new TrinoException(USER_CANCELED, "Query was canceled" + requestedBy(user));
+    }
+
+    private static String requestedBy(String user)
+    {
+        return " by user '" + user + "'";
     }
 
     private static QueryId parseQueryId(String queryId)

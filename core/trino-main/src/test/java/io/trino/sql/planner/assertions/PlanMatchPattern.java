@@ -458,11 +458,6 @@ public final class PlanMatchPattern
         return result;
     }
 
-    public static PlanMatchPattern identityProject(PlanMatchPattern source)
-    {
-        return node(ProjectNode.class, source).with(new IdentityProjectionMatcher());
-    }
-
     public static PlanMatchPattern strictProject(Map<String, ExpressionMatcher> assignments, PlanMatchPattern source)
     {
         /*

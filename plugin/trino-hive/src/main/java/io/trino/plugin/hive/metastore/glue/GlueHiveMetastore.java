@@ -116,6 +116,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
+import static io.trino.plugin.hive.avro.AvroHiveFileUtils.withColumnsFromAvroSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
@@ -128,6 +129,7 @@ import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueDatabaseIn
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueFunctionInput;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGluePartitionInput;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueTableInput;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
@@ -408,9 +410,11 @@ public class GlueHiveMetastore
                     .filter(filter)
                     .collect(toImmutableList());
 
-            // Store only valid tables in cache
+            // Store only valid tables in cache. Avro tables with a schema set are skipped so that a listing
+            // cannot cache their unresolved columns ahead of the resolution done in getTableInternal.
             for (software.amazon.awssdk.services.glue.model.Table table : glueTables) {
                 convertFromGlueIgnoringErrors(table, databaseName)
+                        .filter(converted -> !isAvroTableWithSchemaSet(converted))
                         .ifPresent(cacheTable);
             }
 
@@ -476,7 +480,11 @@ public class GlueHiveMetastore
             GetTableResponse result = stats.getGetTable().call(() -> glueClient.getTable(builder -> builder
                     .databaseName(databaseName)
                     .name(tableName)));
-            return Optional.of(GlueConverter.fromGlueTable(result.table(), databaseName));
+            Table table = GlueConverter.fromGlueTable(result.table(), databaseName);
+            if (isAvroTableWithSchemaSet(table)) {
+                table = withColumnsFromAvroSchema(fileSystem, table);
+            }
+            return Optional.of(table);
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
@@ -830,7 +838,7 @@ public class GlueHiveMetastore
                     .filter(entry -> !updateColumnStatistics.containsKey(entry.getValue()))
                     .map(Entry::getKey)
                     .collect(Collectors.toSet());
-            case UNDO_MERGE_INCREMENTAL, CLEAR_ALL -> columns.keySet();
+            case CLEAR_ALL -> columns.keySet();
         };
 
         return new BasicTableStatisticsResult(updateColumnStatistics, removeColumnStatistics);
@@ -948,7 +956,8 @@ public class GlueHiveMetastore
         String databaseName = table.getDatabaseName();
         String tableName = table.getTableName();
         PartitionName partitionName = new PartitionName(partitionValues);
-        return glueCache.getPartition(databaseName, tableName, partitionName, () -> getPartition(databaseName, tableName, partitionName));
+        return avroColumnResolver(table).apply(
+                glueCache.getPartition(databaseName, tableName, partitionName, () -> getPartition(databaseName, tableName, partitionName)));
     }
 
     private Optional<Partition> getPartition(String databaseName, String tableName, PartitionName partitionName)
@@ -975,8 +984,28 @@ public class GlueHiveMetastore
                 .map(HivePartitionManager::extractPartitionValues)
                 .map(PartitionName::new)
                 .collect(toImmutableList());
+        UnaryOperator<Optional<Partition>> avroColumnResolver = avroColumnResolver(table);
         return getPartitionsByNames(table.getDatabaseName(), table.getTableName(), names).entrySet().stream()
-                .collect(toImmutableMap(entry -> makePartitionName(table.getPartitionColumns(), entry.getKey().partitionValues()), Entry::getValue));
+                .collect(toImmutableMap(
+                        entry -> makePartitionName(table.getPartitionColumns(), entry.getKey().partitionValues()),
+                        entry -> avroColumnResolver.apply(entry.getValue())));
+    }
+
+    /**
+     * For Avro tables with a schema set, the table's columns resolved from the Avro schema are authoritative for
+     * every partition, so Glue's stored per-partition columns are replaced with them. Otherwise
+     * {@code HiveSplitManager} rejects partitions whose stored columns are not coercible from the resolved table
+     * columns. The Thrift metastore client resolves both levels from the Avro schema.
+     */
+    private static UnaryOperator<Optional<Partition>> avroColumnResolver(Table table)
+    {
+        if (!isAvroTableWithSchemaSet(table)) {
+            return identity();
+        }
+        List<Column> columns = table.getDataColumns();
+        return partition -> partition.map(value -> Partition.builder(value)
+                .setColumns(columns)
+                .build());
     }
 
     private Map<PartitionName, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, Collection<PartitionName> partitionNames)
@@ -1351,7 +1380,7 @@ public class GlueHiveMetastore
                     .filter(entry -> !statisticsByColumn.containsKey(entry.getValue()))
                     .map(Entry::getKey)
                     .collect(Collectors.toSet());
-            case UNDO_MERGE_INCREMENTAL, CLEAR_ALL -> columns.keySet();
+            case CLEAR_ALL -> columns.keySet();
         };
 
         ImmutableList.Builder<Callable<Void>> tasks = ImmutableList.builder();

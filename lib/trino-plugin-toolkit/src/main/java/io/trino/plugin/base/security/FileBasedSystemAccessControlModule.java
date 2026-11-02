@@ -93,7 +93,7 @@ public class FileBasedSystemAccessControlModule
                     Optional.of(Pattern.compile(".*")),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.of(Pattern.compile("system"))));
+                    Optional.of(UserSubstitutingPattern.of("system"))));
             catalogAccessControlRules = catalogRulesBuilder.build();
         }
         else {

@@ -54,6 +54,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
+import static io.trino.spi.security.AccessDeniedException.denyCommentMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
@@ -92,6 +93,7 @@ import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ALTER_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
@@ -669,6 +671,17 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void checkCanSetMaterializedViewComment(SecurityContext context, QualifiedObjectName materializedViewName)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), materializedViewName.objectName(), COMMENT_MATERIALIZED_VIEW)) {
+            denyCommentMaterializedView(materializedViewName.toString());
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanSetMaterializedViewComment(context, materializedViewName);
+        }
+    }
+
+    @Override
     public void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName table)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), table.getSchemaTableName().getTableName(), SHOW_COLUMNS)) {
@@ -859,6 +872,7 @@ public class TestingAccessControlManager
         DROP_MATERIALIZED_VIEW,
         RENAME_MATERIALIZED_VIEW,
         SET_MATERIALIZED_VIEW_PROPERTIES,
+        COMMENT_MATERIALIZED_VIEW,
         GRANT_EXECUTE_FUNCTION,
         SET_SESSION,
     }

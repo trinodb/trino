@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers;
@@ -123,6 +124,7 @@ public final class SqlStage
                 schedulerSpan,
                 schedulerStats);
 
+        Context context = Context.current().with(stateMachine.getStageSpan());
         SqlStage sqlStage = new SqlStage(
                 session,
                 stateMachine,
@@ -130,7 +132,7 @@ public final class SqlStage
                 nodeTaskMap,
                 summarizeTaskInfo,
                 bucketCountProvider,
-                memoize(() -> extractTableCredentials(session, metadata, fragment)));
+                memoize(context.wrapSupplier(() -> extractTableCredentials(session, metadata, fragment))::get));
         sqlStage.initialize();
         return sqlStage;
     }

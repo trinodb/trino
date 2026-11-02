@@ -31,6 +31,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
@@ -44,6 +45,7 @@ import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -80,6 +82,7 @@ import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrQuantified;
 import io.trino.tests.QueryTemplate;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.Reals;
 import org.junit.jupiter.api.Test;
 
@@ -93,12 +96,15 @@ import java.util.function.Predicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.COST_ESTIMATION_WORKER_COUNT;
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.SystemSessionProperties.DISTRIBUTED_SORT;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.SystemSessionProperties.RETRY_POLICY;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.predicate.Domain.multipleValues;
@@ -177,6 +183,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -197,6 +204,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestLogicalPlanner
         extends BasePlanTest
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction SUBTRACT_BIGINT = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT));
@@ -214,7 +222,8 @@ public class TestLogicalPlanner
             Optional.empty(),
             UNBOUNDED_FOLLOWING,
             Optional.empty(),
-            Optional.empty());
+            Optional.empty(),
+            NO_OTHERS);
 
     @Test
     public void testAnalyze()
@@ -320,7 +329,7 @@ public class TestLogicalPlanner
     public void testAllFieldsDereferenceFromNonDeterministic()
     {
         Call randomFunction = new Call(
-                getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction("rand", ImmutableList.of()),
+                getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "rand", ImmutableList.of()),
                 ImmutableList.of());
 
         assertPlan("SELECT (x, x).* FROM (SELECT rand()) T(x)",
@@ -586,7 +595,7 @@ public class TestLogicalPlanner
                                 join(INNER, builder -> builder
                                         .left(
                                                 filter(
-                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "L_ORDERKEY"))),
+                                                        not(getPlanTester().getPlannerContext().getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "L_ORDERKEY"))),
                                                         tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
                                         .right(
                                                 any(
@@ -706,7 +715,7 @@ public class TestLogicalPlanner
         assertPlan("SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM lineitem WHERE linenumber < 0)",
                 anyTree(
                         filter(
-                                not(getPlanTester().getPlannerContext().getMetadata(), new Reference(BOOLEAN, "S")),
+                                not(getPlanTester().getPlannerContext().getMetadata(), CHAR_VARCHAR_COERCION, new Reference(BOOLEAN, "S")),
                                 semiJoin("X",
                                         "Y",
                                         "S",
@@ -806,7 +815,24 @@ public class TestLogicalPlanner
                 anyTree(
                         node(AggregationNode.class,
                                 project(ImmutableMap.of("subquerytrue", expression(TRUE)),
-                                        tableScan("orders")))));
+                                        limit(1, anyTree(tableScan("orders")))))));
+    }
+
+    @Test
+    public void testUncorrelatedExistsSubqueryLimitedToSingleRow()
+    {
+        // Uncorrelated EXISTS only checks whether the subquery produces any row,
+        // so the subquery source is limited to a single row instead of being fully scanned.
+        assertPlan(
+                "SELECT regionkey FROM region WHERE EXISTS (SELECT 1 FROM nation)",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .left(tableScan("region"))
+                                .right(
+                                        anyTree(
+                                                node(AggregationNode.class,
+                                                        project(ImmutableMap.of("subquerytrue", expression(TRUE)),
+                                                                limit(1, anyTree(tableScan("nation"))))))))));
     }
 
     @Test
@@ -1352,6 +1378,103 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testCorrelatedSubqueryWithCaseOnCorrelationKey()
+    {
+        assertPlan(
+                "SELECT (SELECT max(o.totalprice) FROM orders o WHERE o.custkey = IF(c.nationkey = 1, NULL, c.custkey)) FROM customer c",
+                anyTree(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("CASE_KEY", "O_CUSTKEY")
+                                .left(
+                                        project(
+                                                ImmutableMap.of("CASE_KEY", expression(new Case(
+                                                        ImmutableList.of(new WhenClause(
+                                                                comparison(EQUAL, new Reference(BIGINT, "C_NATIONKEY"), new Constant(BIGINT, 1L)),
+                                                                new Constant(BIGINT, null))),
+                                                        new Reference(BIGINT, "C_CUSTKEY")))),
+                                                anyTree(
+                                                        tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_NATIONKEY", "nationkey")))))
+                                .right(anyTree(
+                                        tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey")))))));
+    }
+
+    @Test
+    public void testJoinWithCaseOnJoinKey()
+    {
+        assertPlan(
+                "SELECT c.name, o.orderkey FROM customer c, orders o WHERE o.custkey = IF(c.nationkey = 1, NULL, c.custkey)",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("O_CUSTKEY", "CASE_KEY")
+                                .addDynamicFilter("DF", "CASE_KEY")
+                                .left(
+                                        filter(
+                                                TRUE,
+                                                dynamicFilters -> dynamicFilters
+                                                        .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "O_CUSTKEY")),
+                                                tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey"))))
+                                .right(
+                                        exchange(
+                                                project(
+                                                        ImmutableMap.of("CASE_KEY", expression(new Case(
+                                                                ImmutableList.of(new WhenClause(
+                                                                        comparison(EQUAL, new Reference(BIGINT, "C_NATIONKEY"), new Constant(BIGINT, 1L)),
+                                                                        new Constant(BIGINT, null))),
+                                                                new Reference(BIGINT, "C_CUSTKEY")))),
+                                                        tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_NATIONKEY", "nationkey"))))))));
+    }
+
+    @Test
+    public void testJoinWithSimpleCaseOnJoinKey()
+    {
+        assertPlan(
+                "SELECT c.name, o.orderkey FROM customer c, orders o WHERE o.custkey = CASE c.nationkey WHEN 1 THEN NULL ELSE c.custkey END",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("O_CUSTKEY", "CASE_KEY")
+                                .addDynamicFilter("DF", "CASE_KEY")
+                                .left(
+                                        filter(
+                                                TRUE,
+                                                dynamicFilters -> dynamicFilters
+                                                        .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "O_CUSTKEY")),
+                                                tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey"))))
+                                .right(
+                                        exchange(
+                                                project(
+                                                        ImmutableMap.of("CASE_KEY", expression(new Match(
+                                                                new Reference(BIGINT, "C_NATIONKEY"),
+                                                                ImmutableList.of(equalityClause(new Constant(BIGINT, 1L), new Constant(BIGINT, null))),
+                                                                new Reference(BIGINT, "C_CUSTKEY")))),
+                                                        tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_NATIONKEY", "nationkey"))))))));
+    }
+
+    @Test
+    public void testCorrelatedSubqueryWithNestedCaseOnCorrelationKey()
+    {
+        assertPlan(
+                "SELECT (SELECT max(o.totalprice) FROM orders o WHERE o.custkey = IF(c.nationkey = 1, IF(c.acctbal > 0, NULL, c.custkey), c.custkey)) FROM customer c",
+                anyTree(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("CASE_KEY", "O_CUSTKEY")
+                                .left(
+                                        project(
+                                                ImmutableMap.of("CASE_KEY", expression(new Case(
+                                                        ImmutableList.of(new WhenClause(
+                                                                comparison(EQUAL, new Reference(BIGINT, "C_NATIONKEY"), new Constant(BIGINT, 1L)),
+                                                                new Case(
+                                                                        ImmutableList.of(new WhenClause(
+                                                                                comparison(GREATER_THAN, new Reference(DOUBLE, "C_ACCTBAL"), new Constant(DOUBLE, 0.0)),
+                                                                                new Constant(BIGINT, null))),
+                                                                        new Reference(BIGINT, "C_CUSTKEY")))),
+                                                        new Reference(BIGINT, "C_CUSTKEY")))),
+                                                anyTree(
+                                                        tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_NATIONKEY", "nationkey", "C_ACCTBAL", "acctbal")))))
+                                .right(anyTree(
+                                        tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey")))))));
+    }
+
+    @Test
     public void testCorrelatedDistinctAggregationRewriteToLeftOuterJoin()
     {
         assertPlan(
@@ -1702,6 +1825,40 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testDistributedSortWithRetryPolicy()
+    {
+        List<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("ORDERKEY", DESCENDING, LAST));
+
+        // query-level retries re-run the whole query with all stages running concurrently,
+        // so distributed sort stays enabled
+        assertDistributedPlan(
+                "SELECT orderkey FROM orders ORDER BY orderkey DESC",
+                Session.builder(this.getPlanTester().getDefaultSession())
+                        .setSystemProperty(RETRY_POLICY, "QUERY")
+                        .build(),
+                output(
+                        exchange(REMOTE, GATHER, orderBy,
+                                exchange(LOCAL, GATHER, orderBy,
+                                        sort(orderBy,
+                                                exchange(REMOTE, REPARTITION,
+                                                        tableScan("orders", ImmutableMap.of(
+                                                                "ORDERKEY", "orderkey"))))))));
+
+        // task-level retries may run stages independently, which distributed sort does not support
+        assertDistributedPlan(
+                "SELECT orderkey FROM orders ORDER BY orderkey DESC",
+                Session.builder(this.getPlanTester().getDefaultSession())
+                        .setSystemProperty(RETRY_POLICY, "TASK")
+                        .build(),
+                output(
+                        sort(orderBy,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, GATHER,
+                                                tableScan("orders", ImmutableMap.of(
+                                                        "ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
     public void testRemoveAggregationInSemiJoin()
     {
         assertPlanDoesNotContain(
@@ -1794,7 +1951,7 @@ public class TestLogicalPlanner
                                                                 .addDynamicFilter("DF", "region_name")
                                                                 .left(
                                                                         filter(
-                                                                                not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "nation_regionkey"))),
+                                                                                not(getPlanTester().getPlannerContext().getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "nation_regionkey"))),
                                                                                 dynamicFilters -> dynamicFilters
                                                                                         .addConsumer(consumer -> consumer
                                                                                                 .alias("DF")
@@ -1808,7 +1965,7 @@ public class TestLogicalPlanner
                                                                                 assignUniqueId(
                                                                                         "unique",
                                                                                         filter(
-                                                                                                not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "region_regionkey"))),
+                                                                                                not(getPlanTester().getPlannerContext().getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "region_regionkey"))),
                                                                                                 tableScan("region", ImmutableMap.of(
                                                                                                         "region_regionkey", "regionkey",
                                                                                                         "region_name", "name"))))))))))))));
@@ -2791,6 +2948,6 @@ public class TestLogicalPlanner
 
     private static MatchClause equalityClause(Expression value, Expression result)
     {
-        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), new Symbol(value.type(), "operand"), value, result);
+        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, new Symbol(value.type(), "operand"), value, result);
     }
 }

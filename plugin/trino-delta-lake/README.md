@@ -15,8 +15,15 @@ Testing against Delta Lake OSS is quite straightforward by simply spinning up
 the corresponding product test environment:
 
 ```
-testing/bin/ptl env up --environment singlenode-delta-lake-oss
+./mvnw -pl testing/trino-product-tests \
+    -Dair.check.skip-all=true \
+    -DskipTests \
+    test-compile exec:java \
+    -Dexec.classpathScope=test \
+    -Dexec.mainClass=io.trino.tests.product.deltalake.DeltaLakeOssEnvironment
 ```
+
+Use `Ctrl+C` in that terminal to stop the environment.
 
 
 ## Delta Lake Databricks Product tests
@@ -174,5 +181,12 @@ env S3_BUCKET=my-s3-bucket \
     DATABRICKS_154_JDBC_URL='xxx' \
     DATABRICKS_LOGIN=token \
     DATABRICKS_TOKEN=xxx \
-    testing/bin/ptl env up  --environment singlenode-delta-lake-databricks91
+    ./mvnw -pl testing/trino-product-tests \
+    -Dair.check.skip-all=true \
+    -DskipTests \
+    test-compile exec:java \
+    -Dexec.classpathScope=test \
+    -Dexec.mainClass=io.trino.tests.product.deltalake.DeltaLakeDatabricks154Environment
 ```
+
+Use `Ctrl+C` in that terminal to stop the environment.

@@ -31,7 +31,7 @@ public class ClickHouseSqlExecutor
     public void execute(String sql)
     {
         if (sql.startsWith("CREATE TABLE")) {
-            sql = sql + " ENGINE=Log";
+            sql = sql + " ENGINE=Memory";
         }
         delegate.execute(sql);
     }

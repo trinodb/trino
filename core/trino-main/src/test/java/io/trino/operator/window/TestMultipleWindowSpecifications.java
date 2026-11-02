@@ -15,7 +15,6 @@ package io.trino.operator.window;
 
 import org.junit.jupiter.api.Test;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -29,7 +28,7 @@ public class TestMultipleWindowSpecifications
         assertWindowQuery(
                 "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3, "F", 1L, 3L)
                         .row(5, "F", 2L, 8L)
                         .row(6, "F", 3L, 14L)
@@ -45,7 +44,7 @@ public class TestMultipleWindowSpecifications
         assertWindowQueryWithNulls(
                 "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3L, "F", 1L, 3L)
                         .row(5L, "F", 2L, 8L)
                         .row(6L, "F", 3L, 14L)
@@ -66,7 +65,7 @@ public class TestMultipleWindowSpecifications
         assertWindowQuery(
                 "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3, "F", 0L, 3L)
                         .row(5, "F", 0L, 8L)
                         .row(6, "F", 1L, 14L)
@@ -82,7 +81,7 @@ public class TestMultipleWindowSpecifications
         assertWindowQueryWithNulls(
                 "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3L, "F", 0L, 3L)
                         .row(5L, "F", 0L, 8L)
                         .row(6L, "F", 1L, 14L)
@@ -99,7 +98,7 @@ public class TestMultipleWindowSpecifications
         assertWindowQuery(
                 "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 PRECEDING AND CURRENT ROW), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3, "F", 1L, 14L)
                         .row(5, "F", 2L, 44L)
                         .row(6, "F", 2L, 39L)
@@ -115,7 +114,7 @@ public class TestMultipleWindowSpecifications
         assertWindowQueryWithNulls(
                 "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 PRECEDING AND CURRENT ROW), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3L, "F", 1L, 14L)
                         .row(5L, "F", 2L, 11L)
                         .row(6L, "F", 2L, 6L)
@@ -132,7 +131,7 @@ public class TestMultipleWindowSpecifications
         assertWindowQuery(
                 "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3, "F", 2L, 11L)
                         .row(5, "F", 2L, 39L)
                         .row(6, "F", 2L, 33L)
@@ -148,7 +147,7 @@ public class TestMultipleWindowSpecifications
         assertWindowQueryWithNulls(
                 "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3L, "F", 2L, 11L)
                         .row(5L, "F", 2L, 6L)
                         .row(6L, "F", 1L, null)
@@ -168,7 +167,7 @@ public class TestMultipleWindowSpecifications
         assertWindowQuery(
                 "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 PRECEDING AND CURRENT ROW)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3, "F", 0L, 3L)
                         .row(5, "F", 0L, 8L)
                         .row(6, "F", 1L, 11L)
@@ -184,7 +183,7 @@ public class TestMultipleWindowSpecifications
         assertWindowQueryWithNulls(
                 "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 PRECEDING AND CURRENT ROW)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3L, "F", 0L, 3L)
                         .row(5L, "F", 0L, 8L)
                         .row(6L, "F", 1L, 11L)
@@ -200,7 +199,7 @@ public class TestMultipleWindowSpecifications
         assertWindowQuery(
                 "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3, "F", 0L, 44L)
                         .row(5, "F", 0L, 39L)
                         .row(6, "F", 1L, 33L)
@@ -216,7 +215,7 @@ public class TestMultipleWindowSpecifications
         assertWindowQueryWithNulls(
                 "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3L, "F", 0L, 11L)
                         .row(5L, "F", 0L, 6L)
                         .row(6L, "F", 1L, null)

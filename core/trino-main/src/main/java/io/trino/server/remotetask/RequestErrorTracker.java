@@ -21,7 +21,6 @@ import io.airlift.units.Duration;
 import io.trino.execution.TaskId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
-import jakarta.ws.rs.ServiceUnavailableException;
 
 import java.io.EOFException;
 import java.net.SocketException;
@@ -159,6 +158,6 @@ class RequestErrorTracker
                         failure instanceof TimeoutException ||
                         failure instanceof CancellationException ||
                         failure instanceof ClosedChannelException ||
-                        failure instanceof ServiceUnavailableException);
+                        failure instanceof RetryableResponseException);
     }
 }

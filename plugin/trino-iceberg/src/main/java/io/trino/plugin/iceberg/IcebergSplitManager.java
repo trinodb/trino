@@ -55,8 +55,6 @@ import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 public class IcebergSplitManager
         implements ConnectorSplitManager
 {
-    public static final int ICEBERG_DOMAIN_COMPACTION_THRESHOLD = 1000;
-
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
     private final IcebergFileSystemFactory fileSystemFactory;
@@ -128,12 +126,13 @@ public class IcebergSplitManager
 
     private Scan<?, FileScanTask, CombinedScanTask> getScan(IcebergMetadata icebergMetadata, Table icebergTable, IcebergTableHandle table, MetricsReporter metricsReporter, ExecutorService executor)
     {
+        long toSnapshotId = table.getSnapshotId().orElseThrow();
         if (icebergMetadata.getIncrementalRefreshFromSnapshot().isPresent()) {
-            long snapshotId = icebergMetadata.getIncrementalRefreshFromSnapshot().getAsLong();
-            // check if fromSnapshot is still part of the table's snapshot history
-            if (SnapshotUtil.isAncestorOf(icebergTable, snapshotId)) {
+            long fromSnapshotId = icebergMetadata.getIncrementalRefreshFromSnapshot().orElseThrow();
+            // Matching on parent ids keeps the append scan usable after the start snapshot expires.
+            if (SnapshotUtil.isParentAncestorOf(icebergTable, toSnapshotId, fromSnapshotId)) {
                 boolean containsModifiedRows = false;
-                for (Snapshot snapshot : SnapshotUtil.ancestorsBetween(icebergTable, icebergTable.currentSnapshot().snapshotId(), snapshotId)) {
+                for (Snapshot snapshot : SnapshotUtil.ancestorsBetween(icebergTable, toSnapshotId, fromSnapshotId)) {
                     if (snapshot.operation().equals(DataOperations.OVERWRITE) || snapshot.operation().equals(DataOperations.DELETE)) {
                         containsModifiedRows = true;
                         break;
@@ -141,24 +140,24 @@ public class IcebergSplitManager
                 }
                 if (!containsModifiedRows) {
                     return icebergTable.newIncrementalAppendScan()
-                            .fromSnapshotExclusive(snapshotId)
+                            .fromSnapshotExclusive(fromSnapshotId)
+                            .toSnapshot(toSnapshotId)
                             .planWith(executor)
                             .metricsReporter(metricsReporter);
                 }
             }
-            // fromSnapshot is missing (could be due to snapshot expiration or rollback), or snapshot range contains modifications
-            // (deletes or overwrites), so we cannot perform incremental refresh. Falling back to full refresh.
+            // The interval is empty, unavailable, or contains modifications, so rebuild at the selected snapshot.
             icebergMetadata.disableIncrementalRefresh();
         }
 
-        Schema schema = schemaFor(icebergTable, table.getSnapshotId().getAsLong());
+        Schema schema = schemaFor(icebergTable, toSnapshotId);
         Set<Integer> projectedIds = table.getProjectedColumns().stream()
                 .map(IcebergColumnHandle::getId)
                 .filter(id -> schema.findField(id) != null) // Newly added column may not be found in current snapshot schema until new files are added
                 .collect(toImmutableSet());
 
         return icebergTable.newScan()
-                .useSnapshot(table.getSnapshotId().getAsLong())
+                .useSnapshot(toSnapshotId)
                 .project(TypeUtil.select(schema, projectedIds)) // Using Scan.project method because Scan.select throws an exception for nested variant
                 .planWith(executor)
                 .metricsReporter(metricsReporter);

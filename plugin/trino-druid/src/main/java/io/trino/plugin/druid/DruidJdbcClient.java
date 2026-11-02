@@ -30,6 +30,7 @@ import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcRemoteIdentifiers;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -145,6 +146,7 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static java.util.stream.Collectors.joining;
 
 public class DruidJdbcClient
         extends BaseJdbcClient
@@ -155,6 +157,7 @@ public class DruidJdbcClient
     private static final String DRUID_CATALOG = "druid";
     // All the datasources in Druid are created under schema "druid"
     private static final String DRUID_SCHEMA = "druid";
+    private static final String DRUID_TIME_COLUMN = "__time";
 
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
@@ -459,6 +462,39 @@ public class DruidJdbcClient
 
     @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        // Druid can only sort a non-aggregating query (scan) by __time. Any other sort key would either be
+        // rejected by Druid or, for large results, fail because of druid.query.scan.maxRowsQueuedForOrdering.
+        // Pushdown is restricted to a plain table scan so that the ORDER BY never ends up on a subquery,
+        // where Druid does not honor it.
+        if (!handle.isNamedRelation() || handle.getLimit().isPresent() || handle.getSortOrder().isPresent()) {
+            return false;
+        }
+        return sortOrder.stream()
+                .allMatch(sortItem -> sortItem.column().getColumnName().equals(DRUID_TIME_COLUMN));
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            // __time is never null in Druid, so the NULLS FIRST/LAST requested by Trino is irrelevant
+            // and deliberately omitted from the generated SQL.
+            String orderBy = sortItems.stream()
+                    .map(sortItem -> format("%s %s", quoted(sortItem.column().getColumnName()), sortItem.sortOrder().isAscending() ? "ASC" : "DESC"))
+                    .collect(joining(", "));
+            return format("%s ORDER BY %s LIMIT %s", query, orderBy, limit);
+        });
+    }
+
+    @Override
+    public boolean isTopNGuaranteed(ConnectorSession session)
     {
         return true;
     }

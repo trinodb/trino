@@ -289,6 +289,45 @@ final class TestIcebergLocalConcurrentWrites
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(3)
+    void testConcurrentDeleteOverlappingDataFiles()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_delete_overlapping_data_files_" + randomNameSuffix();
+
+        // Force creating more parquet files via the target_max_file_size table property
+        assertUpdate("CREATE TABLE " + tableName + " (a BIGINT) WITH (target_max_file_size = '1kB')");
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM UNNEST(SEQUENCE(1, 10000)) AS t(a)", 10000);
+
+        try {
+            // Every writer deletes rows spread over every data file, so each one references the data files the others do
+            List<Future<Boolean>> futures = IntStream.range(0, threads)
+                    .mapToObj(threadNumber -> executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        getQueryRunner().execute("DELETE FROM " + tableName + " WHERE a % " + threads + " = " + threadNumber);
+                        return true;
+                    }))
+                    .collect(toImmutableList());
+
+            long successfulDeletesCount = futures.stream()
+                    .map(MoreFutures::getFutureValue)
+                    .filter(success -> success)
+                    .count();
+
+            assertThat(successfulDeletesCount).isEqualTo(threads);
+            assertThat(query("SELECT count(*) FROM " + tableName)).matches("VALUES BIGINT '0'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentTruncate()
             throws Exception
     {
@@ -1178,14 +1217,22 @@ final class TestIcebergLocalConcurrentWrites
     }
 
     @Test
-    public void testOptimizeDuringWriteOperations()
+    public void testOptimizeDuringWriteOperationsV2()
             throws Exception
     {
-        runOptimizeDuringWriteOperations(true);
-        runOptimizeDuringWriteOperations(false);
+        runOptimizeDuringWriteOperations(true, 2);
+        runOptimizeDuringWriteOperations(false, 2);
     }
 
-    private void runOptimizeDuringWriteOperations(boolean useSmallFiles)
+    @Test
+    public void testOptimizeDuringWriteOperationsV3()
+            throws Exception
+    {
+        runOptimizeDuringWriteOperations(true, 3);
+        runOptimizeDuringWriteOperations(false, 3);
+    }
+
+    private void runOptimizeDuringWriteOperations(boolean useSmallFiles, int formatVersion)
             throws Exception
     {
         int threads = 5;
@@ -1202,10 +1249,11 @@ final class TestIcebergLocalConcurrentWrites
 
         try (TestTable table = newTrinoTable(
                 "test_optimize_during_write_operations",
-                "(int_col INT)")) {
+                "(int_col INT) WITH (format_version = " + formatVersion + ")")) {
             String tableName = table.getName();
 
             // Testing both situations where a file is fully removed by the delete operation and when a row level delete is required.
+            // Format version 2 writes position deletes for fully deleted files too.
             if (useSmallFiles) {
                 for (int i = 0; i < rows; i++) {
                     assertUpdate(format("INSERT INTO %s VALUES %s", tableName, i), 1);
@@ -1259,8 +1307,17 @@ final class TestIcebergLocalConcurrentWrites
             }
 
             optimizeFuture.get();
-            assertThat(expectedValues.size()).isGreaterThan(0).isLessThan(rows);
-            assertQuery("SELECT * FROM " + tableName, "VALUES " + String.join(", ", expectedValues));
+            assertThat(expectedValues.size()).isLessThan(rows);
+            if (useSmallFiles) {
+                // Optimize replaces the single row files, so a delete referencing one of them cannot commit
+                assertThat(expectedValues.size()).isGreaterThan(0);
+            }
+            if (expectedValues.isEmpty()) {
+                assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+            }
+            else {
+                assertQuery("SELECT * FROM " + tableName, "VALUES " + String.join(", ", expectedValues));
+            }
         }
         finally {
             executor.shutdownNow();

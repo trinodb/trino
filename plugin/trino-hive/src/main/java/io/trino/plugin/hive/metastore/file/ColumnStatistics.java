@@ -83,9 +83,9 @@ public record ColumnStatistics(
     {
         OptionalDouble averageColumnLength = this.averageColumnLength;
         if (totalSizeInBytes.isPresent() && basicStatistics.getRowCount().orElse(0) > 0 && nullsCount().isPresent()) {
-            long nonNullCount = basicStatistics.getRowCount().getAsLong() - nullsCount().orElseThrow();
+            long nonNullCount = basicStatistics.getRowCount().orElseThrow() - nullsCount().orElseThrow();
             if (nonNullCount > 0) {
-                averageColumnLength = OptionalDouble.of(totalSizeInBytes.getAsLong() / (double) nonNullCount);
+                averageColumnLength = OptionalDouble.of(totalSizeInBytes.orElseThrow() / (double) nonNullCount);
             }
         }
         return new HiveColumnStatistics(

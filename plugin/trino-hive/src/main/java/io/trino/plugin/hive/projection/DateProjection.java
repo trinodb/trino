@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.projection;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
@@ -22,17 +21,21 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalField;
 import java.time.temporal.TemporalQueries;
+import java.time.temporal.TemporalUnit;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,15 +61,21 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static java.lang.Math.ceilDiv;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoField.DAY_OF_MONTH;
+import static java.time.temporal.ChronoField.DAY_OF_YEAR;
+import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.HOURS;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.time.temporal.ChronoUnit.MONTHS;
 import static java.time.temporal.ChronoUnit.SECONDS;
+import static java.time.temporal.IsoFields.DAY_OF_QUARTER;
+import static java.time.temporal.IsoFields.QUARTER_OF_YEAR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
@@ -123,11 +132,15 @@ final class DateProjection
 
         this.dateFormat = DateTimeFormatter.ofPattern(dateFormatPattern, ENGLISH);
 
-        leftBound = parseDateRangerBound(columnName, range.get(0), dateFormatPattern);
-        rightBound = parseDateRangerBound(columnName, range.get(1), dateFormatPattern);
+        Instant leftBound = parseDateRangerBound(columnName, range.get(0), dateFormatPattern);
+        Instant rightBound = parseDateRangerBound(columnName, range.get(1), dateFormatPattern);
         if (!leftBound.isBefore(rightBound)) {
             throw invalidRangeProperty(columnName, dateFormatPattern, Optional.empty());
         }
+        // Align the bounds with the format once, so a format that cannot be projected
+        // is rejected when the table is created, including for NOW expressions
+        this.leftBound = adjustBoundToDateFormat(leftBound);
+        this.rightBound = adjustBoundToDateFormat(rightBound);
 
         interval = getProjectionPropertyValue(columnProperties, COLUMN_PROJECTION_INTERVAL, Integer.class::cast).orElse(1);
         intervalUnit = getProjectionPropertyValue(columnProperties, COLUMN_PROJECTION_INTERVAL_UNIT, ChronoUnit.class::cast)
@@ -145,12 +158,15 @@ final class DateProjection
     }
 
     @Override
-    public List<String> getProjectedValues(Optional<Domain> partitionValueFilter)
+    public Set<String> getProjectedValues(Optional<Domain> partitionValueFilter)
     {
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
 
-        Instant leftBound = adjustBoundToDateFormat(this.leftBound);
-        Instant rightBound = adjustBoundToDateFormat(this.rightBound);
+        long intervalSeconds = interval * intervalUnit.getDuration().getSeconds();
+        boolean skipSubDayValues = columnType instanceof VarcharType &&
+                intervalSeconds > 0 &&
+                intervalSeconds < DAYS.getDuration().getSeconds() &&
+                !hasTimeFields(dateFormat.parse(formatValue(leftBound)));
 
         Instant currentValue = leftBound;
         while (!currentValue.isAfter(rightBound)) {
@@ -158,9 +174,17 @@ final class DateProjection
             if (isValueInDomain(partitionValueFilter, currentValue, currentValueFormatted)) {
                 builder.add(currentValueFormatted);
             }
-            currentValue = currentValue.atZone(UTC_TIME_ZONE_ID)
-                    .plus(interval, intervalUnit)
-                    .toInstant();
+            if (skipSubDayValues) {
+                // Values without time fields change only at UTC midnight,
+                // so jump to the first interval step at or after the next midnight
+                long secondsToNextDay = SECONDS.between(currentValue, currentValue.truncatedTo(DAYS).plus(1, DAYS));
+                currentValue = currentValue.plusSeconds(ceilDiv(secondsToNextDay, intervalSeconds) * intervalSeconds);
+            }
+            else {
+                currentValue = currentValue.atZone(UTC_TIME_ZONE_ID)
+                        .plus(interval, intervalUnit)
+                        .toInstant();
+            }
         }
 
         return builder.build();
@@ -186,13 +210,13 @@ final class DateProjection
 
     private Instant adjustBoundToDateFormat(Instant value)
     {
-        String formatted = LocalDateTime.ofInstant(value.with(ChronoField.MILLI_OF_SECOND, 0), UTC_TIME_ZONE_ID)
-                .format(dateFormat);
         try {
+            String formatted = LocalDateTime.ofInstant(value.with(ChronoField.MILLI_OF_SECOND, 0), UTC_TIME_ZONE_ID)
+                    .format(dateFormat);
             return parse(formatted);
         }
-        catch (DateTimeParseException e) {
-            throw new InvalidProjectionException(formatted, e.getMessage());
+        catch (DateTimeException e) {
+            throw invalidFormatProperty(columnName, dateFormatPattern, e.getMessage());
         }
     }
 
@@ -301,19 +325,60 @@ final class DateProjection
         try {
             return parse(value);
         }
-        catch (DateTimeParseException e) {
+        catch (DateTimeException e) {
             throw invalidRangeProperty(columnName, dateFormatPattern, Optional.of(e.getMessage()));
         }
     }
 
     private Instant parse(String value)
-            throws DateTimeParseException
+            throws DateTimeException
     {
         TemporalAccessor parsed = dateFormat.parse(value);
+        if (!parsed.isSupported(DAY_OF_MONTH) && !hasTimeFields(parsed)) {
+            if (!(columnType instanceof VarcharType)) {
+                throw new InvalidProjectionException(columnName, "Date projection with year, quarter, or month precision is only supported for varchar columns");
+            }
+            // Start the value at the first day of its most precise period
+            TemporalField dayOfPeriod = dayOfPeriod(parsed);
+            LocalDate periodStart = LocalDate.parse(value, new DateTimeFormatterBuilder()
+                    .append(dateFormat)
+                    .parseDefaulting(dayOfPeriod, 1)
+                    .toFormatter(ENGLISH));
+            if (!isConstantWithinPeriod(dateFormat, periodStart, dayOfPeriod.getRangeUnit())) {
+                throw invalidFormatProperty(columnName, dateFormatPattern, "a format without a day must have year, quarter, or month precision");
+            }
+            return periodStart.atStartOfDay().toInstant(UTC);
+        }
         if (parsed.query(TemporalQueries.localDate()) != null && parsed.query(TemporalQueries.localTime()) == null) {
             return LocalDate.from(parsed).atStartOfDay().toInstant(UTC);
         }
         return LocalDateTime.from(parsed).toInstant(UTC);
+    }
+
+    private static TemporalField dayOfPeriod(TemporalAccessor parsed)
+    {
+        if (parsed.isSupported(MONTH_OF_YEAR)) {
+            return DAY_OF_MONTH;
+        }
+        if (parsed.isSupported(QUARTER_OF_YEAR)) {
+            return DAY_OF_QUARTER;
+        }
+        return DAY_OF_YEAR;
+    }
+
+    // Fields that change within the period, such as weeks or weekdays, give its days different values
+    private static boolean isConstantWithinPeriod(DateTimeFormatter dateFormat, LocalDate periodStart, TemporalUnit period)
+    {
+        String periodValue = periodStart.format(dateFormat);
+        return periodStart.datesUntil(periodStart.plus(1, period))
+                .allMatch(day -> day.format(dateFormat).equals(periodValue));
+    }
+
+    private static boolean hasTimeFields(TemporalAccessor parsed)
+    {
+        return Arrays.stream(ChronoField.values())
+                .filter(ChronoField::isTimeBased)
+                .anyMatch(parsed::isSupported);
     }
 
     private static TrinoException invalidRangeProperty(String columnName, String dateFormatPattern, Optional<String> errorDetail)
@@ -326,5 +391,12 @@ final class DateProjection
                         dateFormatPattern,
                         DATE_RANGE_BOUND_EXPRESSION_PATTERN.pattern(),
                         errorDetail.map(error -> ": " + error).orElse("")));
+    }
+
+    private static TrinoException invalidFormatProperty(String columnName, String dateFormatPattern, String errorDetail)
+    {
+        return new InvalidProjectionException(
+                columnName,
+                format("Property: '%s' value '%s' is invalid: %s", COLUMN_PROJECTION_FORMAT, dateFormatPattern, errorDetail));
     }
 }

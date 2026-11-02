@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -61,17 +62,17 @@ public class SimplifyRedundantCase
             return Optional.empty();
         }
 
-        if (!whenClauses.stream().map(WhenClause::getResult).allMatch(result -> result.equals(TRUE) || result.equals(FALSE)) ||
+        if (!whenClauses.stream().map(WhenClause::result).allMatch(result -> result.equals(TRUE) || result.equals(FALSE)) ||
                 (!defaultValue.equals(TRUE) && !defaultValue.equals(FALSE)) ||
-                whenClauses.stream().map(WhenClause::getOperand).anyMatch(e -> !isDeterministic(e))) {
+                whenClauses.stream().map(WhenClause::operand).anyMatch(e -> !isDeterministic(e))) {
             return Optional.empty();
         }
 
-        return transformRecursive(0, whenClauses, defaultValue)
+        return transformRecursive(session, 0, whenClauses, defaultValue)
                 .or(() -> Optional.<Expression>of(FALSE));
     }
 
-    private Optional<Expression> transformRecursive(int start, List<WhenClause> clauses, Expression defaultExpression)
+    private Optional<Expression> transformRecursive(Session session, int start, List<WhenClause> clauses, Expression defaultExpression)
     {
         // An expression such as:
         // CASE
@@ -96,18 +97,18 @@ public class SimplifyRedundantCase
         // This method constructs the simplified expression recursively.
 
         int end = start;
-        while (end < clauses.size() && clauses.get(end).getResult().equals(FALSE)) {
+        while (end < clauses.size() && clauses.get(end).result().equals(FALSE)) {
             end++;
         }
 
         List<Expression> falseTerms = clauses.subList(start, end).stream()
-                .map(clause -> IrExpressions.not(metadata, IrExpressions.comparison(metadata, ComparisonOperator.IDENTICAL, clause.getOperand(), TRUE)))
+                .map(clause -> IrExpressions.not(metadata, getCharVarcharCoercion(session), IrExpressions.comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.IDENTICAL, clause.operand(), TRUE)))
                 .toList();
 
         if (end < clauses.size()) {
             List<Expression> terms = new ArrayList<>();
-            terms.add(IrExpressions.comparison(metadata, ComparisonOperator.IDENTICAL, clauses.get(end).getOperand(), TRUE));
-            transformRecursive(end + 1, clauses, defaultExpression).ifPresent(terms::add);
+            terms.add(IrExpressions.comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.IDENTICAL, clauses.get(end).operand(), TRUE));
+            transformRecursive(session, end + 1, clauses, defaultExpression).ifPresent(terms::add);
 
             return Optional.of(IrUtils.and(
                     ImmutableList.<Expression>builder()

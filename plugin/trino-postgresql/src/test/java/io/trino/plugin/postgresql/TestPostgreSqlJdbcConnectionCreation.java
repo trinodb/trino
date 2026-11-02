@@ -74,15 +74,6 @@ public class TestPostgreSqlJdbcConnectionCreation
         return queryRunner;
     }
 
-    @Override
-    protected Session getSession()
-    {
-        Session session = super.getSession();
-        return Session.builder(session)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), NON_TRANSACTIONAL_MERGE, "true")
-                .build();
-    }
-
     private static ConnectionCountingConnectionFactory getConnectionCountingConnectionFactory(TestingPostgreSqlServer postgreSqlServer)
     {
         Properties connectionProperties = new Properties();
@@ -125,17 +116,23 @@ public class TestPostgreSqlJdbcConnectionCreation
 
     private void testJdbcMergeConnectionCreations()
     {
+        Session session = getSession();
+        String catalog = session.getCatalog().orElseThrow();
+        Session transactionalMergeSession = Session.builder(session)
+                .setCatalogSessionProperty(catalog, NON_TRANSACTIONAL_MERGE, "false")
+                .build();
+
         // Transactional merge
-        assertJdbcConnections("CREATE TABLE copy_of_customer_transactional AS SELECT * FROM customer", 6, Optional.empty());
+        assertJdbcConnections(transactionalMergeSession, "CREATE TABLE copy_of_customer_transactional AS SELECT * FROM customer", 6, Optional.empty());
         postgreSqlServer.execute("ALTER TABLE copy_of_customer_transactional ADD CONSTRAINT t_copy_of_customer_transactional PRIMARY KEY (custkey)");
 
-        assertJdbcConnections("DELETE FROM copy_of_customer_transactional WHERE abs(custkey) = 1", 18, Optional.empty());
-        assertJdbcConnections("UPDATE copy_of_customer_transactional SET name = 'POLAND' WHERE abs(custkey) = 1", 26, Optional.empty());
-        assertJdbcConnections("MERGE INTO copy_of_customer_transactional n USING customer r ON r.custkey = n.custkey WHEN MATCHED THEN DELETE", 19, Optional.empty());
+        assertJdbcConnections(transactionalMergeSession, "DELETE FROM copy_of_customer_transactional WHERE abs(custkey) = 1", 14, Optional.empty());
+        assertJdbcConnections(transactionalMergeSession, "UPDATE copy_of_customer_transactional SET name = 'POLAND' WHERE abs(custkey) = 1", 18, Optional.empty());
+        assertJdbcConnections(transactionalMergeSession, "MERGE INTO copy_of_customer_transactional n USING customer r ON r.custkey = n.custkey WHEN MATCHED THEN DELETE", 15, Optional.empty());
 
         // Non-transactional merge
-        Session nonTransactionalMergeSession = Session.builder(getSession())
-                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), NON_TRANSACTIONAL_MERGE, "true")
+        Session nonTransactionalMergeSession = Session.builder(session)
+                .setCatalogSessionProperty(catalog, NON_TRANSACTIONAL_MERGE, "true")
                 .build();
         assertJdbcConnections(nonTransactionalMergeSession, "CREATE TABLE copy_of_customer_non_transactional AS SELECT * FROM customer", 6, Optional.empty());
         postgreSqlServer.execute("ALTER TABLE copy_of_customer_non_transactional ADD CONSTRAINT t_copy_of_customer_non_transactional PRIMARY KEY (custkey)");

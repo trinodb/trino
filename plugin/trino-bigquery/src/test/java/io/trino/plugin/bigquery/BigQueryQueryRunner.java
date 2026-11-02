@@ -24,7 +24,6 @@ import com.google.cloud.bigquery.TableResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
@@ -144,7 +143,7 @@ public final class BigQueryQueryRunner
     public static class BigQuerySqlExecutor
             implements SqlExecutor
     {
-        private static final Map.Entry<String, String> BIG_QUERY_SQL_EXECUTOR_LABEL = Maps.immutableEntry("ci-automation-source", "trino_tests_big_query_sql_executor");
+        private static final Map.Entry<String, String> BIG_QUERY_SQL_EXECUTOR_LABEL = Map.entry("ci-automation-source", "trino_tests_big_query_sql_executor");
 
         private final BigQuery bigQuery;
 

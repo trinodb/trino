@@ -13,36 +13,13 @@
  */
 package io.trino.parquet;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
-public final class ParquetDataSourceId
+public record ParquetDataSourceId(String id)
 {
-    private final String id;
-
-    public ParquetDataSourceId(String id)
+    public ParquetDataSourceId
     {
-        this.id = requireNonNull(id, "id is null");
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ParquetDataSourceId that = (ParquetDataSourceId) o;
-        return Objects.equals(id, that.id);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(id);
+        requireNonNull(id, "id is null");
     }
 
     @Override

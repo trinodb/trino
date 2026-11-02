@@ -40,6 +40,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.slice.SizeOf.sizeOfBooleanArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SequencePageBuilder.createSequencePage;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -51,6 +52,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.data.Offset.offset;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -172,10 +174,73 @@ public class TestHashBuilderOperator
         }
     }
 
+    // Outer join build reserves memory for the visited-position flags of its partition.
+    @Test
+    public void testOuterJoinAccountsForOuterPositionTracker()
+    {
+        int pageCount = 100;
+        int positionsPerPage = 1024;
+        long innerJoinReservation = userMemoryReservationAfterBuild(false, pageCount, positionsPerPage);
+        long outerJoinReservation = userMemoryReservationAfterBuild(true, pageCount, positionsPerPage);
+        assertThat(outerJoinReservation - innerJoinReservation)
+                .isCloseTo(sizeOfBooleanArray(pageCount * positionsPerPage), offset(4096L));
+    }
+
+    private long userMemoryReservationAfterBuild(boolean outer, int pageCount, int positionsPerPage)
+    {
+        TaskContext taskContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
+                .setMemoryPoolSize(DataSize.of(64, MEGABYTE))
+                .build();
+        DriverContext driverContext = taskContext
+                .addPipelineContext(0, false, false, false)
+                .addDriverContext();
+        OperatorContext operatorContext = driverContext
+                .addOperatorContext(0, new PlanNodeId("0"), HashBuilderOperator.class.getName());
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        PartitionedLookupSourceFactory lookupSourceFactory = new PartitionedLookupSourceFactory(
+                types,
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(BIGINT),
+                1,
+                outer,
+                new NullSafeHashCompiler(new TypeOperators()));
+        try (HashBuilderOperator operator = new HashBuilderOperator(
+                operatorContext,
+                lookupSourceFactory,
+                0,
+                ImmutableList.of(0),
+                ImmutableList.of(1),
+                Optional.empty(),
+                OptionalInt.empty(),
+                ImmutableList.of(),
+                10_000,
+                new PagesIndex.TestingFactory(false),
+                defaultHashArraySizeSupplier(),
+                4096)) {
+            for (int i = 0; i < pageCount; i++) {
+                operator.addInput(somePage(types, positionsPerPage));
+            }
+            operator.finish();
+            assertThat(operator.getState()).isEqualTo(LOOKUP_SOURCE_BUILT);
+            long reservation = operatorContext.getOperatorMemoryContext().getUserMemory();
+            lookupSourceFactory.destroy();
+            operator.finish();
+            return reservation;
+        }
+        finally {
+            operatorContext.destroy();
+        }
+    }
+
     private static Page somePage(List<Type> types)
+    {
+        return somePage(types, 7);
+    }
+
+    private static Page somePage(List<Type> types, int positionCount)
     {
         int[] initialValues = new int[types.size()];
         Arrays.setAll(initialValues, i -> 100 * i);
-        return createSequencePage(types, 7, initialValues);
+        return createSequencePage(types, positionCount, initialValues);
     }
 }

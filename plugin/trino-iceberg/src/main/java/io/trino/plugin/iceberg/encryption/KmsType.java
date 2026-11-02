@@ -13,26 +13,10 @@
  */
 package io.trino.plugin.iceberg.encryption;
 
-import org.apache.iceberg.CatalogProperties;
-
-import static java.util.Objects.requireNonNull;
-
 public enum KmsType
 {
-    AWS(CatalogProperties.ENCRYPTION_KMS_TYPE_AWS),
-    AZURE(CatalogProperties.ENCRYPTION_KMS_TYPE_AZURE),
-    GCP(CatalogProperties.ENCRYPTION_KMS_TYPE_GCP),
-    /**/;
-
-    private final String value;
-
-    KmsType(String value)
-    {
-        this.value = requireNonNull(value, "value is null");
-    }
-
-    public String value()
-    {
-        return value;
-    }
+    AWS,
+    AZURE,
+    GCP,
+    /**/
 }

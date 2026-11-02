@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.trino.testing.QueryRunner;
 import org.h2.Driver;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 
@@ -33,7 +34,10 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.util.Objects.requireNonNull;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+// H2 does not support concurrent DDL: https://github.com/h2database/h2database/issues/2913#issuecomment-704267549
+@Execution(SAME_THREAD)
 public class TestJdbcConnectionCreation
         extends BaseJdbcConnectionCreationTest
 {

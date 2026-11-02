@@ -14,7 +14,7 @@ The connector combines the features of the
 [Hive](/connector/hive), [Iceberg](/connector/iceberg),
 [Delta Lake](/connector/delta-lake), and [Hudi](/connector/hudi)
 connectors into a single connector. The configuration properties,
-session properties, table properties, and beahvior come from the underlying
+session properties, table properties, and behavior come from the underlying
 connectors. Please refer to the documentation for the underlying connectors
 for the table formats that you are using.
 
@@ -28,7 +28,7 @@ properties as appropriate:
 connector.name=lakehouse
 ```
 
-You must configure a [AWS Glue or a Hive metastore](/object-storage/metastores).
+You must configure an [AWS Glue or a Hive metastore](/object-storage/metastores).
 The `hive.metastore` property will also configure the Iceberg catalog.
 Do not specify `iceberg.catalog.type`.
 
@@ -80,7 +80,7 @@ CREATE TABLE iceberg_table (
   c3 DOUBLE
 )
 WITH (
-  type = 'ICEBERG'
+  type = 'ICEBERG',
   format = 'PARQUET',
   partitioning = ARRAY['c1', 'c2'],
   sorted_by = ARRAY['c3']

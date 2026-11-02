@@ -140,4 +140,33 @@ public class TestJdbcDynamicFilteringSplitManager
         assertThat(capturedTableHandle.get()).isNull();
         splitSource.close();
     }
+
+    @Test
+    public void testGetNextBatchPassesThroughNonJdbcSplits()
+            throws Exception
+    {
+        ConnectorSplit nonJdbcSplit = new ConnectorSplit() {};
+        JdbcDynamicFilteringSplitManager manager = new JdbcDynamicFilteringSplitManager(
+                new ConnectorSplitManager()
+                {
+                    @Override
+                    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, Set<ColumnHandle> dynamicFilterColumns, Constraint constraint)
+                    {
+                        return new FixedSplitSource(ImmutableList.of(nonJdbcSplit));
+                    }
+                });
+        Set<ColumnHandle> dynamicFilterColumns = ImmutableSet.of(new TestColumnHandle());
+        ConnectorSplitSource splitSource = manager.getSplits(
+                TRANSACTION_HANDLE,
+                SESSION,
+                TABLE_HANDLE,
+                dynamicFilterColumns,
+                alwaysTrue());
+
+        TupleDomain<ColumnHandle> predicate = TupleDomain.withColumnDomains(
+                ImmutableMap.of(JDBC_COLUMN_HANDLE, Domain.singleValue(BIGINT, 42L)));
+        List<ConnectorSplit> batch = splitSource.getNextBatch(100, new DynamicFilterSnapshot(predicate, true)).get();
+        assertThat(batch).containsExactly(nonJdbcSplit);
+        splitSource.close();
+    }
 }

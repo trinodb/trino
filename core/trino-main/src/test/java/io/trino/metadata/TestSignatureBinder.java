@@ -47,7 +47,6 @@ import static io.trino.spi.type.TypeDescriptor.functionType;
 import static io.trino.spi.type.TypeDescriptor.mapType;
 import static io.trino.spi.type.TypeDescriptor.rowType;
 import static io.trino.spi.type.TypeParameter.anonymousField;
-import static io.trino.spi.type.TypeTemplates.argument;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
 import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
@@ -58,6 +57,7 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
@@ -1240,10 +1240,10 @@ public class TestSignatureBinder
         assertThat("array(decimal(p,s))", boundVariables, "array(decimal(1,2))");
     }
 
-    private static void assertThat(String typeSignature, VariableBindings typeVariables, String expectedTypeSignature)
+    private static void assertThat(String typeTemplate, VariableBindings typeVariables, String expectedTypeDescriptor)
     {
-        TypeTemplate template = parseTypeTemplate(typeSignature, typeVariables.getTypeVariables().keySet(), ImmutableSet.of("p", "s"));
-        Assertions.assertThat(applyBoundVariables(template, typeVariables).toString()).isEqualTo(expectedTypeSignature);
+        TypeTemplate template = parseTypeTemplate(typeTemplate, typeVariables.getTypeVariables().keySet(), ImmutableSet.of("p", "s"));
+        Assertions.assertThat(applyBoundVariables(template, typeVariables).toString()).isEqualTo(expectedTypeDescriptor);
     }
 
     private static Signature.Builder functionSignature()
@@ -1251,9 +1251,9 @@ public class TestSignatureBinder
         return Signature.builder();
     }
 
-    private Type resolveType(TypeDescriptor signature)
+    private Type resolveType(TypeDescriptor descriptor)
     {
-        return requireNonNull(PLANNER_CONTEXT.getTypeManager().getType(signature));
+        return requireNonNull(PLANNER_CONTEXT.getTypeManager().getType(descriptor));
     }
 
     private BindSignatureAssertion assertThat(Signature function)
@@ -1287,8 +1287,8 @@ public class TestSignatureBinder
                     builder.add(new TypeDescriptorProvider(type.getTypeDescriptor()));
                     continue;
                 }
-                if (argument instanceof TypeDescriptorProvider typeSignatureProvider) {
-                    builder.add(typeSignatureProvider);
+                if (argument instanceof TypeDescriptorProvider typeDescriptorProvider) {
+                    builder.add(typeDescriptorProvider);
                     continue;
                 }
                 throw new IllegalArgumentException(format("argument is of type %s. It should be Type or TypeDescriptorProvider", argument.getClass()));
@@ -1327,7 +1327,7 @@ public class TestSignatureBinder
         private Optional<VariableBindings> bindVariables()
         {
             Assertions.assertThat(argumentTypes).isNotNull();
-            SignatureBinder signatureBinder = new SignatureBinder(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), function, allowCoercion, PLANNER_CONTEXT.isLegacyVarcharToCharCoercion());
+            SignatureBinder signatureBinder = new SignatureBinder(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), function, allowCoercion, SQL_STANDARD);
             if (returnType == null) {
                 return signatureBinder.bindVariables(argumentTypes);
             }

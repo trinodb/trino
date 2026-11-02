@@ -37,10 +37,10 @@ import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
@@ -74,6 +74,7 @@ import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingTransactionHandle;
 import io.trino.transaction.TestingTransactionManager;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -92,6 +93,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
@@ -116,6 +118,10 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.tests.BogusType.BOGUS;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.StructuralTestUtil.mapType;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
+import static io.trino.util.StructuralTestUtil.sqlRowOf;
+import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -132,21 +138,21 @@ public class TestEffectivePredicateExtractor
         private final Metadata delegate = functionResolution.getMetadata();
 
         @Override
-        public ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
+        public ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes)
         {
-            return delegate.resolveBuiltinFunction(name, parameterTypes);
+            return delegate.resolveBuiltinFunction(charVarcharCoercion, name, parameterTypes);
         }
 
         @Override
-        public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+        public ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
         {
-            return delegate.resolveOperator(operatorType, argumentTypes);
+            return delegate.resolveOperator(charVarcharCoercion, operatorType, argumentTypes);
         }
 
         @Override
-        public ResolvedFunction getCoercion(Type fromType, Type toType)
+        public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
         {
-            return delegate.getCoercion(fromType, toType);
+            return delegate.getCoercion(charVarcharCoercion, fromType, toType);
         }
 
         @Override
@@ -583,6 +589,28 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Row(ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new Constant(UNKNOWN, null)))))))))
                 .isEqualTo(TRUE);
 
+        // map with null value
+        MapType bigintMapType = mapType(BIGINT, BIGINT);
+        assertThat(effectivePredicateExtractor.extract(
+                SESSION,
+                emptySymbolAllocator(),
+                new ValuesNode(
+                        newId(),
+                        ImmutableList.of(new Symbol(bigintMapType, "m")),
+                        ImmutableList.of(new Row(ImmutableList.of(new Constant(bigintMapType, sqlMapOf(BIGINT, BIGINT, singletonMap(1L, null)))))))))
+                .isEqualTo(TRUE);
+
+        // map with null value nested in a row
+        RowType rowOfMapType = RowType.anonymous(ImmutableList.of(bigintMapType));
+        assertThat(effectivePredicateExtractor.extract(
+                SESSION,
+                emptySymbolAllocator(),
+                new ValuesNode(
+                        newId(),
+                        ImmutableList.of(new Symbol(rowOfMapType, "r")),
+                        ImmutableList.of(new Row(ImmutableList.of(new Constant(rowOfMapType, sqlRowOf(rowOfMapType, singletonMap(1L, null)))))))))
+                .isEqualTo(TRUE);
+
         // many rows
         List<Expression> rows = IntStream.range(0, 500)
                 .mapToObj(TestEffectivePredicateExtractor::bigintLiteral)
@@ -604,7 +632,7 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(new Symbol(DOUBLE, "c")),
-                        ImmutableList.of(new Row(ImmutableList.of(doubleLiteral(Double.NaN))))))).isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(DOUBLE, "c"))));
+                        ImmutableList.of(new Row(ImmutableList.of(doubleLiteral(Double.NaN))))))).isEqualTo(not(functionResolution.getMetadata(), getCharVarcharCoercion(SESSION), new IsNull(new Reference(DOUBLE, "c"))));
 
         // NaN and NULL
         assertThat(effectivePredicateExtractor.extract(
@@ -626,7 +654,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(DOUBLE, "x")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(doubleLiteral(42.))),
-                                new Row(ImmutableList.of(doubleLiteral(Double.NaN))))))).isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(DOUBLE, "x"))));
+                                new Row(ImmutableList.of(doubleLiteral(Double.NaN))))))).isEqualTo(not(functionResolution.getMetadata(), getCharVarcharCoercion(SESSION), new IsNull(new Reference(DOUBLE, "x"))));
 
         // Real NaN
         assertThat(effectivePredicateExtractor.extract(
@@ -636,7 +664,7 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(REAL, "d")),
                         ImmutableList.of(new Row(ImmutableList.of(new Cast(doubleLiteral(Double.NaN), REAL)))))))
-                .isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(REAL, "d"))));
+                .isEqualTo(not(functionResolution.getMetadata(), getCharVarcharCoercion(SESSION), new IsNull(new Reference(REAL, "d"))));
 
         // multiple columns
         assertThat(effectivePredicateExtractor.extract(
@@ -1126,14 +1154,14 @@ public class TestEffectivePredicateExtractor
         predicate = expressionNormalizer.normalize(predicate);
 
         // Equality inference rewrites and equality generation will always be stable across multiple runs in the same JVM
-        EqualityInference inference = new EqualityInference(plannerContext, predicate);
+        EqualityInference inference = new EqualityInference(plannerContext, getCharVarcharCoercion(SESSION), predicate);
 
         Set<Symbol> scope = SymbolsExtractor.extractUnique(predicate);
-        Set<Expression> rewrittenSet = EqualityInference.nonInferrableConjuncts(plannerContext, predicate)
+        Set<Expression> rewrittenSet = EqualityInference.nonInferrableConjuncts(plannerContext, getCharVarcharCoercion(SESSION), predicate)
                 .map(expression -> inference.rewrite(expression, scope))
                 .peek(rewritten -> checkState(rewritten != null, "Rewrite with full symbol scope should always be possible"))
                 .collect(Collectors.toSet());
-        rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
+        rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(scope).scopeEqualities());
 
         return rewrittenSet;
     }

@@ -21,8 +21,11 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isReorderingSafe;
@@ -34,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFilterReorderingSafety
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
     private static final PlannerContext PLANNER_CONTEXT = FUNCTION_RESOLUTION.getPlannerContext();
     private static final Reference REF_A = new Reference(BIGINT, "a");
@@ -44,7 +48,7 @@ public class TestFilterReorderingSafety
     @Test
     void testAllTermsSafe()
     {
-        assertThat(isReorderingSafe(PLANNER_CONTEXT, ImmutableList.of(SAFE_A, SAFE_B))).isTrue();
+        assertThat(isReorderingSafe(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, ImmutableList.of(SAFE_A, SAFE_B))).isTrue();
     }
 
     @Test
@@ -52,7 +56,7 @@ public class TestFilterReorderingSafety
     {
         ResolvedFunction divide = FUNCTION_RESOLUTION.resolveOperator(DIVIDE, ImmutableList.of(BIGINT, BIGINT));
         Expression unsafe = comparison(GREATER_THAN, call(divide, new Constant(BIGINT, 100L), REF_B), new Constant(BIGINT, 0L));
-        assertThat(isReorderingSafe(PLANNER_CONTEXT, ImmutableList.of(SAFE_A, unsafe))).isFalse();
+        assertThat(isReorderingSafe(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, ImmutableList.of(SAFE_A, unsafe))).isFalse();
     }
 
     @Test
@@ -61,7 +65,7 @@ public class TestFilterReorderingSafety
         ResolvedFunction divide = FUNCTION_RESOLUTION.resolveOperator(DIVIDE, ImmutableList.of(BIGINT, BIGINT));
         Expression unsafe = comparison(GREATER_THAN, call(divide, new Constant(BIGINT, 100L), REF_B), new Constant(BIGINT, 0L));
         Expression nested = new Logical(OR, ImmutableList.of(SAFE_B, unsafe));
-        assertThat(isReorderingSafe(PLANNER_CONTEXT, ImmutableList.of(SAFE_A, nested))).isFalse();
+        assertThat(isReorderingSafe(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, ImmutableList.of(SAFE_A, nested))).isFalse();
     }
 
     @Test
@@ -69,6 +73,6 @@ public class TestFilterReorderingSafety
     {
         ResolvedFunction divide = FUNCTION_RESOLUTION.resolveOperator(DIVIDE, ImmutableList.of(BIGINT, BIGINT));
         Expression safeDiv = comparison(GREATER_THAN, call(divide, REF_A, new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
-        assertThat(isReorderingSafe(PLANNER_CONTEXT, ImmutableList.of(SAFE_B, safeDiv))).isTrue();
+        assertThat(isReorderingSafe(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, ImmutableList.of(SAFE_B, safeDiv))).isTrue();
     }
 }

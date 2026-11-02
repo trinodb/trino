@@ -25,6 +25,8 @@ import io.airlift.tracing.Tracing;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.trino.cache.CacheManagerConfig;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.CatalogConnector;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogHandle;
@@ -41,6 +43,7 @@ import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.executor.RunningSplitInfo;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
+import io.trino.execution.executor.TaskMemory;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.LanguageFunctionEngineManager;
@@ -151,7 +154,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
     private static final TaskExecutor NOOP_TASK_EXECUTOR = new TaskExecutor()
     {
         @Override
-        public TaskHandle addTask(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency, OptionalInt maxDriversPerTask)
+        public TaskHandle addTask(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency, OptionalInt maxDriversPerTask, TaskMemory taskMemory)
         {
             return new TaskHandle()
             {
@@ -196,7 +199,9 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
     @Test
     public void testMultipleTaskUpdatesWithMultipleCatalogPrunes()
     {
-        ConnectorServicesProvider workerConnectorServiceProvider = new WorkerDynamicCatalogManager(MOCK_CATALOG_FACTORY);
+        ConnectorServicesProvider workerConnectorServiceProvider = new WorkerDynamicCatalogManager(
+                MOCK_CATALOG_FACTORY,
+                new CacheManagerRegistry(OpenTelemetry.noop(), noopTracer(), new SecretsResolver(ImmutableMap.of()), new CacheManagerConfig()));
         SqlTaskManager workerTaskManager = getWorkerTaskManagerWithConnectorServiceProvider(workerConnectorServiceProvider);
 
         CatalogPruneTask catalogPruneTask = new TestingLocalCatalogPruneTask(
@@ -284,12 +289,25 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
 
     private static PlanFragment fragmentWithCatalog(CatalogHandle catalogHandle)
     {
-        return PLAN_FRAGMENT.withActiveCatalogs(ImmutableList.of(
+        List<CatalogProperties> activeCatalogs = ImmutableList.of(
                 new CatalogProperties(
                         catalogHandle.getCatalogName(),
                         catalogHandle.getVersion(),
                         new ConnectorName("mock"),
-                        ImmutableMap.of())));
+                        ImmutableMap.of()));
+        return new PlanFragment(
+                PLAN_FRAGMENT.getId(),
+                PLAN_FRAGMENT.getRoot(),
+                PLAN_FRAGMENT.getSymbols(),
+                PLAN_FRAGMENT.getPartitioning(),
+                PLAN_FRAGMENT.getPartitionCount(),
+                PLAN_FRAGMENT.getPartitionedSources(),
+                PLAN_FRAGMENT.getOutputPartitioningScheme(),
+                PLAN_FRAGMENT.getOutputSkewedBucketCount(),
+                PLAN_FRAGMENT.getStatsAndCosts(),
+                activeCatalogs,
+                PLAN_FRAGMENT.getLanguageFunctions(),
+                PLAN_FRAGMENT.getJsonRepresentation());
     }
 
     private static class NoInfoTransactionManager

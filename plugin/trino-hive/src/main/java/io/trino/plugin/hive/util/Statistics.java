@@ -329,10 +329,10 @@ public final class Statistics
             return OptionalDouble.empty();
         }
 
-        long nonNullsCount = numNonNullValues.getAsLong();
+        long nonNullsCount = numNonNullValues.orElseThrow();
         if (nonNullsCount <= 0) {
             return OptionalDouble.empty();
         }
-        return OptionalDouble.of(((double) totalSizeInBytes.getAsLong()) / nonNullsCount);
+        return OptionalDouble.of(((double) totalSizeInBytes.orElseThrow()) / nonNullsCount);
     }
 }

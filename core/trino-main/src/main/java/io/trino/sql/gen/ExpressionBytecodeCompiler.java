@@ -24,9 +24,14 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.RowEntryBuilder;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
@@ -49,6 +54,7 @@ import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.List;
 import java.util.Map;
@@ -57,14 +63,15 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
-import static io.airlift.bytecode.instruction.Constant.loadDouble;
-import static io.airlift.bytecode.instruction.Constant.loadLong;
-import static io.airlift.bytecode.instruction.Constant.loadString;
+import static io.trino.sql.gen.BytecodeUtils.generateWrite;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateLambda;
+import static io.trino.sql.gen.RowConstructorCodeGenerator.MEGAMORPHIC_FIELD_COUNT;
 import static io.trino.sql.ir.Cast.Kind.REINTERPRET;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionBytecodeCompiler
@@ -75,6 +82,7 @@ public class ExpressionBytecodeCompiler
     private final BiFunction<Reference, Scope, BytecodeNode> referenceCompiler;
     private final FunctionManager functionManager;
     private final Metadata metadata;
+    private final CharVarcharCoercion charVarcharCoercion;
     private final Map<Lambda, CompiledLambda> compiledLambdaMap;
     private final List<Parameter> contextArguments;  // arguments that need to be propagated to generated methods
 
@@ -86,6 +94,7 @@ public class ExpressionBytecodeCompiler
             FunctionManager functionManager,
             Metadata metadata,
             TypeManager typeManager,
+            CharVarcharCoercion charVarcharCoercion,
             Map<Lambda, CompiledLambda> compiledLambdaMap,
             List<Parameter> contextArguments)
     {
@@ -95,6 +104,7 @@ public class ExpressionBytecodeCompiler
         this.referenceCompiler = requireNonNull(referenceCompiler, "referenceCompiler is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.charVarcharCoercion = requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
         this.compiledLambdaMap = requireNonNull(compiledLambdaMap, "compiledLambdaMap is null");
         this.contextArguments = ImmutableList.copyOf(requireNonNull(contextArguments, "contextArguments is null"));
     }
@@ -112,6 +122,29 @@ public class ExpressionBytecodeCompiler
     public BytecodeNode compile(Expression expression, Scope scope, Optional<Class<?>> lambdaInterface, Map<String, LetBinding> lets)
     {
         return new Visitor().process(expression, new Context(scope, lambdaInterface, lets));
+    }
+
+    public BytecodeNode compileToBlock(Expression expression, Type type, Scope scope, BytecodeExpression blockBuilder)
+    {
+        Variable wasNull = scope.getVariable("wasNull");
+        BytecodeBlock block = new BytecodeBlock();
+        if (expression instanceof Row row && row.items().size() <= MEGAMORPHIC_FIELD_COUNT) {
+            // A field failure can leave an open entry with uneven field counts. GeneratedPageProjection
+            // creates a fresh output builder on every project() call, including dictionary retries.
+            List<Type> fieldTypes = ((RowType) type).getFieldTypes();
+            Variable entry = scope.getOrCreateTempVariable(RowEntryBuilder.class);
+            block.append(entry.set(blockBuilder.cast(RowBlockBuilder.class).invoke("buildEntry", RowEntryBuilder.class)));
+            for (int field = 0; field < row.items().size(); field++) {
+                block.append(compileToBlock(row.items().get(field), fieldTypes.get(field), scope, entry.invoke("getFieldBuilder", BlockBuilder.class, constantInt(field))));
+            }
+            block.append(entry.invoke("build", void.class));
+            scope.releaseTempVariableForReuse(entry);
+            return block.append(wasNull.set(constantFalse()));
+        }
+        return block.append(wasNull.set(constantFalse()))
+                .append(blockBuilder)
+                .append(compile(expression, scope))
+                .append(generateWrite(callSiteBinder, scope, wasNull, type));
     }
 
     private BytecodeGeneratorContext generatorContext(Scope scope, Map<String, LetBinding> lets)
@@ -171,27 +204,26 @@ public class ExpressionBytecodeCompiler
                         .pushJavaDefault(javaType);
             }
 
-            // use LDC for primitives (boolean, short, int, long, float, double)
-            block.comment("constant " + node.type().getTypeDescriptor());
+            // boolean constants stay as bytecode constants: the two values change control
+            // flow shapes anyway and are part of the projection template key
             if (javaType == boolean.class) {
+                if (isClassDumpEnabled()) {
+                    block.comment("constant " + node.type().getTypeDescriptor());
+                }
                 return block.append(loadBoolean((Boolean) value));
             }
-            if (javaType == long.class) {
-                return block.append(loadLong((Long) value));
-            }
-            if (javaType == double.class) {
-                return block.append(loadDouble((Double) value));
-            }
-            if (javaType == String.class) {
-                return block.append(loadString((String) value));
-            }
 
-            // bind constant object directly into the call-site using invoke dynamic
+            // All other constants, including primitives, are class data constants, so the
+            // generated bytes depend only on the expression structure and identical
+            // structures can share one compiled template with different class data.
             Binding binding = callSiteBinder.bind(value, node.type().getJavaType());
-            return new BytecodeBlock()
-                    .setDescription("constant " + node.type())
-                    .comment(node.toString())
-                    .append(loadConstant(binding));
+            if (isClassDumpEnabled()) {
+                // Constant.toString renders the value through a single position block, so it is
+                // built only when the comment can actually be observed in a dumped class
+                block.setDescription("constant " + node.type())
+                        .comment(node.toString());
+            }
+            return block.append(loadConstant(binding));
         }
 
         @Override
@@ -241,7 +273,7 @@ public class ExpressionBytecodeCompiler
                 return generatorContext.generate(node.expression());
             }
 
-            ResolvedFunction coercion = metadata.getCoercion(sourceType, returnType);
+            ResolvedFunction coercion = metadata.getCoercion(charVarcharCoercion, sourceType, returnType);
             return generatorContext.generateFullCall(coercion, ImmutableList.of(node.expression()));
         }
 
@@ -265,7 +297,7 @@ public class ExpressionBytecodeCompiler
             for (WhenClause clause : node.whenClauses().reversed()) {
                 Variable wasNull = generatorContext.wasNull();
                 BytecodeBlock conditionBlock = new BytecodeBlock()
-                        .append(generatorContext.generate(clause.getOperand()))
+                        .append(generatorContext.generate(clause.operand()))
                         .comment("... and condition value was not null")
                         .append(wasNull)
                         .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
@@ -274,7 +306,7 @@ public class ExpressionBytecodeCompiler
 
                 result = new IfStatement()
                         .condition(conditionBlock)
-                        .ifTrue(generatorContext.generate(clause.getResult()))
+                        .ifTrue(generatorContext.generate(clause.result()))
                         .ifFalse(result);
             }
             return result;
@@ -301,7 +333,7 @@ public class ExpressionBytecodeCompiler
         @Override
         protected BytecodeNode visitIn(In node, Context context)
         {
-            return new InCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope(), context.lets()));
+            return new InCodeGenerator(node, metadata, charVarcharCoercion).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override

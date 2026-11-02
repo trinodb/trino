@@ -1,0 +1,97 @@
+# The server plugins each product test suite uses. A suite runs with only the declared plugins installed,
+# so it fails when it uses a plugin it does not declare. CI runs a suite when one of its plugins changes,
+# see .github/bin/build-pt-matrix.py, which also checks that every server plugin is declared.
+
+# Runs with all plugins installed, for every change, to catch conflicts between plugins,
+# for example two plugins registering the same function
+smoke-suite: SuiteAllConnectorsSmoke
+
+# Plugins of the catalogs and the cache manager configured in the Trino image, installed for every suite
+installed-by-default: [jmx, memory, tpcds, tpch, blob-cache-memory]
+
+# Plugins used by no suite but the smoke suite
+smoke-only:
+  - ai-functions
+  - bigquery
+  - datasketches
+  - druid
+  - duckdb
+  - elasticsearch
+  - exchange-hdfs
+  - faker
+  - functions-python
+  - google-sheets
+  - http-event-listener
+  - kafka-event-listener
+  - lakehouse
+  - ldap-group-provider
+  - ml
+  - mongodb
+  - mysql-event-listener
+  - opa
+  - openlineage
+  - opensearch
+  - oracle
+  - pinot
+  - prometheus
+  - redis
+  - redshift
+  - resource-group-managers
+  - session-property-managers
+  - singlestore
+  - thrift
+
+# In the CI matrix order
+suites:
+  SuiteMysql: [mysql, mariadb]
+  # PostgreSQL connector requires the geometry type
+  SuitePostgresql: [postgresql, geospatial, password-authenticators, spooling-filesystem]
+  SuiteSqlServer: [sqlserver]
+  SuiteFunctions: [teradata-functions]
+  SuiteTpch: [hive]
+  SuiteTpcds: [hive]
+  SuiteExasol: [exasol]
+  SuiteSnowflake: [snowflake]
+  SuiteCassandra: [cassandra]
+  SuiteClickhouse: [clickhouse]
+  SuiteBlackHole: [blackhole]
+  SuiteIgnite: [ignite]
+  SuiteKafka: [kafka]
+  SuiteLdap: [password-authenticators]
+  SuiteOauth2: []
+  SuiteClients: [hive, postgresql, geospatial]
+  SuiteJdbcKerberos: []
+  SuiteLoki: [loki]
+  SuiteRanger: [mariadb, ranger]
+  SuiteTls: []
+  SuiteHiveBasic: [hive]
+  SuiteHmsOnly: [hive, iceberg]
+  SuiteHiveStorageFormats: [hive, iceberg]
+  SuiteSqlCancel: [hive]
+  SuiteHdfsImpersonation: [hive]
+  SuiteTwoHives: [hive]
+  SuiteHive4: [hive]
+  SuiteHudi: [hudi, hive]
+  SuiteHiveTransactional: [hive]
+  SuiteAuthorization: [hive]
+  SuiteFaultTolerant: [exchange-filesystem]
+  SuiteHiveSpark: [hive]
+  SuiteHiveAlluxioCaching: [hive, blob-cache-alluxio]
+  SuiteStorageFormatsDetailed: [hive, iceberg]
+  SuiteParquet: [hive]
+  SuiteIceberg: [iceberg, hive]
+  SuiteIcebergVariants: [iceberg, hive, blob-cache-alluxio]
+  SuiteDeltaLakeFloci: [delta-lake, hive, iceberg]
+  SuiteDeltaLakeHdfs: [delta-lake, hive]
+  SuiteDeltaLakeOss: [delta-lake, hive]
+  SuiteDeltaLakeAlluxioCaching: [delta-lake, blob-cache-alluxio]
+  SuiteCompatibility: [hive, iceberg]
+  SuiteGcs: [hive, delta-lake, iceberg]
+  SuiteAzure: [hive, delta-lake, iceberg]
+  SuiteDeltaLakeDatabricks154: [hive, delta-lake]
+  SuiteDeltaLakeDatabricks18: [hive, delta-lake]
+
+# Suites CI does not run
+disabled-suites:
+  # TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
+  - SuiteSnowflake

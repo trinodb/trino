@@ -15,10 +15,13 @@ package io.trino.type;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Primitives;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
@@ -65,6 +68,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static io.trino.util.StructuralTestUtil.sqlMapOf;
 import static java.util.Collections.unmodifiableSortedMap;
@@ -205,6 +209,59 @@ public abstract class AbstractTestType
     }
 
     @Test
+    public void testRangeContract()
+    {
+        type.getRange().ifPresent(range -> {
+            assertThat(range.getMin()).isInstanceOf(Primitives.wrap(type.getJavaType()));
+            assertThat(range.getMax()).isInstanceOf(Primitives.wrap(type.getJavaType()));
+            assertThat(type.getPreviousValue(range.getMin())).isEmpty();
+            assertThat(type.getNextValue(range.getMax())).isEmpty();
+        });
+    }
+
+    @Test
+    public void testPreviousValueContract()
+    {
+        Object sampleValue = getSampleValue();
+
+        if (!type.isOrderable()) {
+            assertThatThrownBy(() -> type.getPreviousValue(sampleValue))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Type is not orderable: " + type);
+            return;
+        }
+
+        type.getPreviousValue(sampleValue).ifPresent(previousValue -> {
+            assertThat(previousValue).isInstanceOf(Primitives.wrap(type.getJavaType()));
+            type.getNextValue(previousValue).ifPresent(nextToPrevious -> {
+                assertThat(nextToPrevious).isInstanceOf(Primitives.wrap(type.getJavaType()));
+                assertBlockEquals(writeNativeValue(type, nextToPrevious), writeNativeValue(type, sampleValue));
+            });
+        });
+    }
+
+    @Test
+    public void testNextValueContract()
+    {
+        Object sampleValue = getSampleValue();
+
+        if (!type.isOrderable()) {
+            assertThatThrownBy(() -> type.getNextValue(sampleValue))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Type is not orderable: " + type);
+            return;
+        }
+
+        type.getNextValue(sampleValue).ifPresent(nextValue -> {
+            assertThat(nextValue).isInstanceOf(Primitives.wrap(type.getJavaType()));
+            type.getPreviousValue(nextValue).ifPresent(previousToNext -> {
+                assertThat(previousToNext).isInstanceOf(Primitives.wrap(type.getJavaType()));
+                assertBlockEquals(writeNativeValue(type, previousToNext), writeNativeValue(type, sampleValue));
+            });
+        });
+    }
+
+    @Test
     public void testFlat()
             throws Throwable
     {
@@ -216,8 +273,11 @@ public abstract class AbstractTestType
             }
         }
 
+        // flat writers must not assume the backing arrays are zeroed, since callers reuse memory
         byte[] fixed = new byte[expectedStackValues.size() * flatFixedSize];
         byte[] variable = new byte[IntStream.of(variableLengths).sum()];
+        fillWithGarbage(fixed);
+        fillWithGarbage(variable);
         int variableOffset = 0;
         for (int i = 0; i < expectedStackValues.size(); i++) {
             writeFlatMethod.invoke(expectedStackValues.get(i), fixed, i * flatFixedSize, variable, variableOffset);
@@ -226,8 +286,8 @@ public abstract class AbstractTestType
         }
         assertFlat(fixed, 0, variable, 0);
 
-        Arrays.fill(fixed, (byte) 0);
-        Arrays.fill(variable, (byte) 0);
+        fillWithGarbage(fixed);
+        fillWithGarbage(variable);
         variableOffset = 0;
         for (int i = 0; i < expectedStackValues.size(); i++) {
             writeBlockToFlatMethod.invokeExact(testBlock, i, fixed, i * flatFixedSize, variable, variableOffset);
@@ -237,17 +297,24 @@ public abstract class AbstractTestType
 
         // test relocation
         byte[] newFixed = new byte[fixed.length + 73];
+        fillWithGarbage(newFixed);
         System.arraycopy(fixed, 0, newFixed, 73, fixed.length);
         byte[] newVariable = new byte[variable.length + 101];
+        fillWithGarbage(newVariable);
         System.arraycopy(variable, 0, newVariable, 101, variable.length);
-        Arrays.fill(fixed, (byte) 0);
-        Arrays.fill(variable, (byte) 0);
+        fillWithGarbage(fixed);
+        fillWithGarbage(variable);
 
         for (int i = 0; i < expectedStackValues.size(); i++) {
             int variableSize = type.getFlatVariableWidthLength(newFixed, 73 + i * flatFixedSize);
             assertThat(variableSize).isEqualTo(variableLengths[i]);
         }
         assertFlat(newFixed, 73, newVariable, 101);
+    }
+
+    private static void fillWithGarbage(byte[] bytes)
+    {
+        Arrays.fill(bytes, (byte) 0xFF);
     }
 
     private void assertFlat(byte[] fixed, int fixedOffset, byte[] variable, int variableOffset)
@@ -648,6 +715,9 @@ public abstract class AbstractTestType
         }
         if (type.getJavaType() == Variant.class) {
             return Variant.ofString(Slices.utf8Slice("_"));
+        }
+        if (type.getJavaType() == Json.class) {
+            return JsonItems.fromText(Slices.utf8Slice("\"_\""));
         }
         switch (type) {
             case ArrayType arrayType -> {

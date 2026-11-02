@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg.system;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.type.RowType;
@@ -59,14 +58,14 @@ public final class PartitionsView
         boolean hasPartitionColumn;
         if (partitionType.isPresent()) {
             hasPartitionColumn = true;
-            viewColumns.add(new ViewColumn("partition", partitionType.get().rowType().getTypeId(), Optional.empty()));
+            viewColumns.add(ViewColumn.fromType("partition", partitionType.get().rowType(), Optional.empty()));
         }
         else {
             hasPartitionColumn = false;
         }
 
         Stream.of("record_count", "file_count", "total_size")
-                .forEach(column -> viewColumns.add(new ViewColumn(column, BIGINT.getTypeId(), Optional.empty())));
+                .forEach(column -> viewColumns.add(ViewColumn.fromType(column, BIGINT, Optional.empty())));
 
         Set<Integer> identityPartitionIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()
                 .map(PartitionField::sourceId)
@@ -82,7 +81,7 @@ public final class PartitionsView
         String dataAggregationSql;
         if (dataColumnType.isPresent()) {
             hasDataColumn = true;
-            viewColumns.add(new ViewColumn("data", dataColumnType.get().getTypeId(), Optional.empty()));
+            viewColumns.add(ViewColumn.fromType("data", dataColumnType.get(), Optional.empty()));
             dataAggregationSql = buildDataAggregation(typeManager, nonPartitionPrimitiveColumns);
         }
         else {
@@ -98,9 +97,9 @@ public final class PartitionsView
                 """.formatted(
                         hasPartitionColumn ? "partition," : "",
                         hasDataColumn ? ", " + dataAggregationSql : "",
-                        IcebergUtil.quotedName(catalogName),
-                        IcebergUtil.quotedName(schemaName),
-                        IcebergUtil.quotedName(tableName + "$files"),
+                        quoted(catalogName),
+                        quoted(schemaName),
+                        quoted(tableName + "$files"),
                         hasPartitionColumn ? "GROUP BY 1" : "");
 
         return new ConnectorViewDefinition(
@@ -148,7 +147,13 @@ public final class PartitionsView
     private static String buildColumnRowType(String columnName, String trinoTypeDisplayName)
     {
         return "%s ROW(min %2$s, max %2$s, null_count BIGINT, nan_count BIGINT)"
-                .formatted(IcebergUtil.quotedName(columnName), trinoTypeDisplayName);
+                .formatted(quoted(columnName), trinoTypeDisplayName);
+    }
+
+    // identifiers embedded in the generated view SQL are always quoted, since a bare reserved word (e.g. a column named "group") would not parse
+    private static String quoted(String name)
+    {
+        return '"' + name.replace("\"", "\"\"") + '"';
     }
 
     private static Optional<RowType> getMetricsColumnType(TypeManager typeManager, List<NestedField> columns)

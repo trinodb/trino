@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
@@ -101,7 +102,7 @@ public class EvaluateComparison
     private Constant evaluate(OperatorType operator, Constant left, Constant right, Session session)
     {
         return new Constant(BOOLEAN, functionInvoker.invoke(
-                metadata.resolveOperator(operator, ImmutableList.of(left.type(), right.type())),
+                metadata.resolveOperator(getCharVarcharCoercion(session), operator, ImmutableList.of(left.type(), right.type())),
                 session.toConnectorSession(),
                 Arrays.asList(left.value(), right.value())));
     }

@@ -184,8 +184,7 @@ public final class TestingPlannerContext
                     functionManager,
                     languageFunctionManager,
                     noopTracer(),
-                    codecFactory.jsonCodec(Expression.class),
-                    featuresConfig);
+                    codecFactory.jsonCodec(Expression.class));
         }
     }
 }

@@ -89,6 +89,7 @@ public class LocalMergeSourceOperator
         public void noMoreOperators()
         {
             closed = true;
+            localExchange.closeUnusedSources();
         }
 
         @Override

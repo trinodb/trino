@@ -40,38 +40,40 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testDistinctWindowPartitionAndPeerGroups()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT x, y, z, rank() OVER (PARTITION BY x ORDER BY y) rnk\n" +
-                "FROM (\n" +
-                "  VALUES " +
-                "    (1.0, 0.1, 'a'), " +
-                "    (2.0, 0.1, 'a'), " +
-                "    (nan(), 0.1, 'a'), " +
-                "    (NULL, 0.1, 'a'), " +
-                "    (1.0, 0.1, 'b'), " +
-                "    (2.0, 0.1, 'b'), " +
-                "    (nan(), 0.1, 'b'), " +
-                "    (NULL, 0.1, 'b'), " +
-                "    (1.0, nan(), 'a'), " +
-                "    (2.0, nan(), 'a'), " +
-                "    (nan(), nan(), 'a'), " +
-                "    (NULL, nan(), 'a'), " +
-                "    (1.0, nan(), 'b'), " +
-                "    (2.0, nan(), 'b'), " +
-                "    (nan(), nan(), 'b'), " +
-                "    (NULL, nan(), 'b'), " +
-                "    (1.0, NULL, 'a'), " +
-                "    (2.0, NULL, 'a'), " +
-                "    (nan(), NULL, 'a'), " +
-                "    (NULL, NULL, 'a'), " +
-                "    (1.0, NULL, 'b'), " +
-                "    (2.0, NULL, 'b'), " +
-                "    (nan(), NULL, 'b'), " +
-                "    (NULL, NULL, 'b') " +
-                ") a(x, y, z)" +
-                "ORDER BY x, y, z");
+        MaterializedResult actual = computeActual(
+                """
+                SELECT x, y, z, rank() OVER (PARTITION BY x ORDER BY y) rnk
+                FROM (
+                  VALUES
+                    (1.0, 0.1, 'a'),
+                    (2.0, 0.1, 'a'),
+                    (nan(), 0.1, 'a'),
+                    (NULL, 0.1, 'a'),
+                    (1.0, 0.1, 'b'),
+                    (2.0, 0.1, 'b'),
+                    (nan(), 0.1, 'b'),
+                    (NULL, 0.1, 'b'),
+                    (1.0, nan(), 'a'),
+                    (2.0, nan(), 'a'),
+                    (nan(), nan(), 'a'),
+                    (NULL, nan(), 'a'),
+                    (1.0, nan(), 'b'),
+                    (2.0, nan(), 'b'),
+                    (nan(), nan(), 'b'),
+                    (NULL, nan(), 'b'),
+                    (1.0, NULL, 'a'),
+                    (2.0, NULL, 'a'),
+                    (nan(), NULL, 'a'),
+                    (NULL, NULL, 'a'),
+                    (1.0, NULL, 'b'),
+                    (2.0, NULL, 'b'),
+                    (nan(), NULL, 'b'),
+                    (NULL, NULL, 'b')
+                ) a(x, y, z)
+                ORDER BY x, y, z
+                """);
 
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, DOUBLE, BIGINT)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, DOUBLE, BIGINT)
                 .row(1.0, 0.1, "a", 1L)
                 .row(1.0, 0.1, "b", 1L)
                 .row(1.0, Double.NaN, "a", 3L)
@@ -184,7 +186,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY 1
                 LIMIT 10
                 """))
-                .result().matches(resultBuilder(getSession(), DOUBLE, DOUBLE)
+                .result().matches(resultBuilder(DOUBLE, DOUBLE)
                         .row(1.0, 0.0)
                         .row(2.0, 0.0)
                         .row(2.0, 0.0)
@@ -210,7 +212,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY 2, 1
                 LIMIT 10
                 """))
-                .result().matches(resultBuilder(getSession(), DOUBLE, DOUBLE)
+                .result().matches(resultBuilder(DOUBLE, DOUBLE)
                         .row(0.06, 1.0)
                         .row(0.02, 2.0)
                         .row(0.06, 2.0)
@@ -237,7 +239,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY 1, 2
                 LIMIT 10
                 """))
-                .result().matches(resultBuilder(getSession(), DOUBLE, BIGINT, DOUBLE)
+                .result().matches(resultBuilder(DOUBLE, BIGINT, DOUBLE)
                         .row(1.0, 10L, 0.06)
                         .row(2.0, 4L, 0.06)
                         .row(2.0, 16L, 0.02)
@@ -338,7 +340,7 @@ public abstract class AbstractTestWindowQueries
                 WHERE rnk <= 2
                 ORDER BY orderstatus, rnk
                 """))
-                .result().matches(resultBuilder(getSession(), createVarcharType(1), createVarcharType(15), DOUBLE, BIGINT)
+                .result().matches(resultBuilder(createVarcharType(1), createVarcharType(15), DOUBLE, BIGINT)
                         .row("F", "Clerk#000000090", 2784836.61, 1L)
                         .row("F", "Clerk#000000084", 2674447.15, 2L)
                         .row("O", "Clerk#000000500", 2569878.29, 1L)
@@ -375,7 +377,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY 2 DESC
                 LIMIT 5
                 """))
-                .result().matches(resultBuilder(getSession(), DOUBLE, BIGINT)
+                .result().matches(resultBuilder(DOUBLE, BIGINT)
                         .row(12.0, 10L)
                         .row(12.0, 9L)
                         .row(12.0, 8L)
@@ -397,7 +399,7 @@ public abstract class AbstractTestWindowQueries
         MaterializedResult actual = computeActual("" +
                 "SELECT map_agg(orderkey, orderpriority) OVER(PARTITION BY orderstatus) FROM\n" +
                 "(SELECT * FROM orders ORDER BY orderkey LIMIT 5) t");
-        MaterializedResult expected = resultBuilder(getSession(), mapType(BIGINT, VarcharType.createVarcharType(1)))
+        MaterializedResult expected = resultBuilder(mapType(BIGINT, VarcharType.createVarcharType(1)))
                 .row(ImmutableMap.of(1L, "5-LOW", 2L, "1-URGENT", 4L, "5-LOW"))
                 .row(ImmutableMap.of(1L, "5-LOW", 2L, "1-URGENT", 4L, "5-LOW"))
                 .row(ImmutableMap.of(1L, "5-LOW", 2L, "1-URGENT", 4L, "5-LOW"))
@@ -595,7 +597,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY orderkey
                 LIMIT 5
                 """))
-                .result().matches(resultBuilder(getSession(), BIGINT, createVarcharType(1), BIGINT)
+                .result().matches(resultBuilder(BIGINT, createVarcharType(1), BIGINT)
                         .row(1L, "O", 1001L)
                         .row(2L, "O", 3007L)
                         .row(3L, "F", 3014L)
@@ -617,11 +619,246 @@ public abstract class AbstractTestWindowQueries
     }
 
     @Test
+    public void testBigintAverage()
+    {
+        assertThat(query(
+                """
+                SELECT k, avg(a) OVER (ORDER BY k)
+                FROM (VALUES
+                    (1, BIGINT '12'),
+                    (2, BIGINT '-24'),
+                    (3, BIGINT '36'),
+                    (4, BIGINT '-48'),
+                    (5, BIGINT '60'),
+                    (6, BIGINT '-72')) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '12.0'),
+                            (2, DOUBLE '-6.0'),
+                            (3, DOUBLE '8.0'),
+                            (4, DOUBLE '-6.0'),
+                            (5, DOUBLE '7.2'),
+                            (6, DOUBLE '-6.0')
+                        """);
+
+        assertThat(query(
+                """
+                SELECT k, avg(v) OVER (ORDER BY k)
+                FROM (VALUES
+                    (1, BIGINT '9223372036854775807'),
+                    (2, BIGINT '1'),
+                    (3, BIGINT '1'),
+                    (4, BIGINT '1'),
+                    (5, BIGINT '1')) t(k, v)"""))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '9223372036854776000'),
+                            (2, DOUBLE '4611686018427388000'),
+                            (3, DOUBLE '3074457345618259000'),
+                            (4, DOUBLE '2305843009213694000'),
+                            (5, DOUBLE '1844674407370955300')""");
+
+        assertThat(query(
+                """
+                SELECT k, avg(v) OVER (ORDER BY k)
+                FROM (VALUES
+                    (1, BIGINT '9223372036854775807'),
+                    (2, BIGINT '1'),
+                    (3, BIGINT '-9223372036854775807'),
+                    (4, BIGINT '-1'),
+                    (5, BIGINT '1'),
+                    (6, BIGINT '1'),
+                    (7, BIGINT '1'),
+                    (8, BIGINT '1')) t(k, v)"""))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '9223372036854776000'),
+                            (2, DOUBLE '4611686018427388000'),
+                            (3, DOUBLE '0'),
+                            (4, DOUBLE '-0.25'),
+                            (5, DOUBLE '0'),
+                            (6, DOUBLE '0.16666666666666666'),
+                            (7, DOUBLE '0.2857142857142857'),
+                            (8, DOUBLE '0.375')""");
+    }
+
+    @Test
+    public void testBigintSlidingAverage()
+    {
+        assertThat(query(
+                """
+                SELECT k, avg(a) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, BIGINT '12'),
+                    (2, BIGINT '-24'),
+                    (3, BIGINT '36'),
+                    (4, BIGINT '-48'),
+                    (5, BIGINT '60'),
+                    (6, BIGINT '-72')) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '12.0'),
+                            (2, DOUBLE '-6.0'),
+                            (3, DOUBLE '8.0'),
+                            (4, DOUBLE '-6.0'),
+                            (5, DOUBLE '6.0'),
+                            (6, DOUBLE '-6.0')
+                        """);
+
+        assertThat(query(
+                """
+                SELECT k, avg(v) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, BIGINT '9223372036854775807'),
+                    (2, BIGINT '1'),
+                    (3, BIGINT '1'),
+                    (4, BIGINT '1'),
+                    (5, BIGINT '1')) t(k, v)"""))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '9223372036854776000'),
+                            (2, DOUBLE '4611686018427388000'),
+                            (3, DOUBLE '3074457345618259000'),
+                            (4, DOUBLE '2305843009213694000'),
+                            (5, DOUBLE '1')""");
+
+        assertThat(query(
+                """
+                SELECT k, avg(v) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, BIGINT '9223372036854775807'),
+                    (2, BIGINT '1'),
+                    (3, BIGINT '-9223372036854775807'),
+                    (4, BIGINT '-1'),
+                    (5, BIGINT '1'),
+                    (6, BIGINT '1'),
+                    (7, BIGINT '1'),
+                    (8, BIGINT '1')) t(k, v)"""))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '9223372036854776000'),
+                            (2, DOUBLE '4611686018427388000'),
+                            (3, DOUBLE '0'),
+                            (4, DOUBLE '-0.25'),
+                            (5, DOUBLE '-2305843009213694000'),
+                            (6, DOUBLE '-2305843009213694000'),
+                            (7, DOUBLE '0.5'),
+                            (8, DOUBLE '1')""");
+    }
+
+    @Test
+    public void testDecimalSlidingSum()
+    {
+        // short decimal
+        assertThat(query(
+                """
+                SELECT k, sum(a) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, CAST(10.00 AS decimal(10, 2))),
+                    (2, CAST(-20.00 AS decimal(10, 2))),
+                    (3, CAST(30.00 AS decimal(10, 2))),
+                    (4, CAST(-40.00 AS decimal(10, 2))),
+                    (5, CAST(50.00 AS decimal(10, 2))),
+                    (6, CAST(-60.00 AS decimal(10, 2)))) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, CAST(10.00 AS decimal(38, 2))),
+                            (2, CAST(-10.00 AS decimal(38, 2))),
+                            (3, CAST(20.00 AS decimal(38, 2))),
+                            (4, CAST(-20.00 AS decimal(38, 2))),
+                            (5, CAST(20.00 AS decimal(38, 2))),
+                            (6, CAST(-20.00 AS decimal(38, 2)))
+                        """);
+
+        // long decimal
+        assertThat(query(
+                """
+                SELECT k, sum(a) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, DECIMAL '10000000000000000000'),
+                    (2, DECIMAL '-20000000000000000000'),
+                    (3, DECIMAL '30000000000000000000'),
+                    (4, DECIMAL '-40000000000000000000'),
+                    (5, DECIMAL '50000000000000000000'),
+                    (6, DECIMAL '-60000000000000000000')) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, CAST(DECIMAL '10000000000000000000' AS decimal(38, 0))),
+                            (2, CAST(DECIMAL '-10000000000000000000' AS decimal(38, 0))),
+                            (3, CAST(DECIMAL '20000000000000000000' AS decimal(38, 0))),
+                            (4, CAST(DECIMAL '-20000000000000000000' AS decimal(38, 0))),
+                            (5, CAST(DECIMAL '20000000000000000000' AS decimal(38, 0))),
+                            (6, CAST(DECIMAL '-20000000000000000000' AS decimal(38, 0)))
+                        """);
+
+        // long decimal, removing values whose low 64-bit word is zero (2^64 and -2^64): exercises the carry into the high word during negation
+        assertThat(query(
+                """
+                SELECT k, sum(a) OVER (ORDER BY k ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, DECIMAL '18446744073709551616'),
+                    (2, DECIMAL '-18446744073709551616'),
+                    (3, DECIMAL '0'),
+                    (4, DECIMAL '0'),
+                    (5, DECIMAL '0')) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, CAST(DECIMAL '18446744073709551616' AS decimal(38, 0))),
+                            (2, CAST(DECIMAL '0' AS decimal(38, 0))),
+                            (3, CAST(DECIMAL '0' AS decimal(38, 0))),
+                            (4, CAST(DECIMAL '-18446744073709551616' AS decimal(38, 0))),
+                            (5, CAST(DECIMAL '0' AS decimal(38, 0)))
+                        """);
+
+        // long decimal, overflow-counter cancellation: with A = 9e37 the removeInput before the incoming add pushes the
+        // accumulator transiently past +2^127 (partition 'plus') or -2^127 (partition 'minus'), so the overflow counter must reverse
+        assertThat(query(
+                """
+                SELECT k, p, sum(a) OVER (PARTITION BY p ORDER BY k ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, 'plus', DECIMAL '-90000000000000000000000000000000000000'),
+                    (2, 'plus', DECIMAL '90000000000000000000000000000000000000'),
+                    (3, 'plus', DECIMAL '90000000000000000000000000000000000000'),
+                    (4, 'plus', DECIMAL '-90000000000000000000000000000000000000'),
+                    (1, 'minus', DECIMAL '90000000000000000000000000000000000000'),
+                    (2, 'minus', DECIMAL '-90000000000000000000000000000000000000'),
+                    (3, 'minus', DECIMAL '-90000000000000000000000000000000000000'),
+                    (4, 'minus', DECIMAL '90000000000000000000000000000000000000')) t(k, p, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, 'plus', CAST(DECIMAL '-90000000000000000000000000000000000000' AS decimal(38, 0))),
+                            (2, 'plus', CAST(DECIMAL '0' AS decimal(38, 0))),
+                            (3, 'plus', CAST(DECIMAL '90000000000000000000000000000000000000' AS decimal(38, 0))),
+                            (4, 'plus', CAST(DECIMAL '90000000000000000000000000000000000000' AS decimal(38, 0))),
+                            (1, 'minus', CAST(DECIMAL '90000000000000000000000000000000000000' AS decimal(38, 0))),
+                            (2, 'minus', CAST(DECIMAL '0' AS decimal(38, 0))),
+                            (3, 'minus', CAST(DECIMAL '-90000000000000000000000000000000000000' AS decimal(38, 0))),
+                            (4, 'minus', CAST(DECIMAL '-90000000000000000000000000000000000000' AS decimal(38, 0)))
+                        """);
+    }
+
+    @Test
     public void testDuplicateColumnsInWindowOrderByClause()
     {
         MaterializedResult actual = computeActual("SELECT a, row_number() OVER (ORDER BY a ASC, a DESC) FROM (VALUES 3, 2, 1) t(a)");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                 .row(1, 1L)
                 .row(2, 2L)
                 .row(3, 3L)

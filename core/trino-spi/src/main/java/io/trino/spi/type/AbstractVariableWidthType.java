@@ -58,9 +58,9 @@ public abstract class AbstractVariableWidthType
     protected static final TypeOperatorDeclaration DEFAULT_COMPARABLE_OPERATORS = extractOperatorDeclaration(DefaultComparableOperators.class, lookup(), Slice.class);
     protected static final TypeOperatorDeclaration DEFAULT_ORDERING_OPERATORS = extractOperatorDeclaration(DefaultOrderingOperators.class, lookup(), Slice.class);
 
-    protected AbstractVariableWidthType(TypeDescriptor signature, Class<?> javaType)
+    protected AbstractVariableWidthType(TypeDescriptor descriptor, Class<?> javaType)
     {
-        super(signature, javaType, VariableWidthBlock.class);
+        super(descriptor, javaType, VariableWidthBlock.class);
     }
 
     @Override

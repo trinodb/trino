@@ -49,6 +49,7 @@ import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
@@ -95,7 +96,7 @@ public class TestDeltaLakeDynamicFiltering
             String query = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice > 59995 AND orders.totalprice < 60000";
             MaterializedResultWithPlan filteredResult = getDistributedQueryRunner().executeWithPlan(sessionWithDynamicFiltering(true, joinDistributionType), query);
             MaterializedResultWithPlan unfilteredResult = getDistributedQueryRunner().executeWithPlan(sessionWithDynamicFiltering(false, joinDistributionType), query);
-            assertThat(filteredResult.result().getMaterializedRows()).containsExactlyInAnyOrderElementsOf(unfilteredResult.result().getMaterializedRows());
+            assertEqualsIgnoreOrder(filteredResult.result().getMaterializedRows(), unfilteredResult.result().getMaterializedRows());
 
             QueryStats filteredStats = getQueryStats(filteredResult.queryId());
             QueryStats unfilteredStats = getQueryStats(unfilteredResult.queryId());

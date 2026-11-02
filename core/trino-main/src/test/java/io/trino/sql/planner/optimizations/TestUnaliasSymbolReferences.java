@@ -42,6 +42,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -170,7 +172,7 @@ public class TestUnaliasSymbolReferences
 
     private Expression dynamicFilterExpression(Metadata metadata, Symbol symbol, DynamicFilterId id)
     {
-        return createDynamicFilterExpression(metadata, id, BigintType.BIGINT, symbol.toSymbolReference());
+        return createDynamicFilterExpression(metadata, getCharVarcharCoercion(TEST_SESSION), id, BigintType.BIGINT, symbol.toSymbolReference());
     }
 
     private TableHandle tableHandle(String tableName)

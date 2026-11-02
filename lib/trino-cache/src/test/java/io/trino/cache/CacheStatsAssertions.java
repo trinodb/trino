@@ -64,19 +64,6 @@ public class CacheStatsAssertions
         return this;
     }
 
-    public void afterRunning(Runnable runnable)
-    {
-        try {
-            calling(() -> {
-                runnable.run();
-                return null;
-            });
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     public <T> T calling(Callable<T> callable)
             throws Exception
     {

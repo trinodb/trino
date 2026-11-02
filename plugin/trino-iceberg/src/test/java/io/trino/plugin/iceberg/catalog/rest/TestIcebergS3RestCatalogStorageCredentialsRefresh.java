@@ -51,6 +51,7 @@ final class TestIcebergS3RestCatalogStorageCredentialsRefresh
         floci = closeAfterClass(new Floci());
         floci.start();
         floci.createBucket(bucketName);
+        floci.createRole("test");
         return "s3://%s/default/".formatted(bucketName);
     }
 

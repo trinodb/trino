@@ -44,6 +44,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -93,7 +94,7 @@ public class BenchmarkRowToRowCast
                     new Reference(fromRowType, "$col_0")));
 
             pageProcessor = functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(new Symbol(fromRowType, "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), projections, ImmutableMap.of(new Symbol(fromRowType, "$col_0"), 0))
                     .get();
 
             Block[] fieldBlocks = fromFieldTypes.stream()

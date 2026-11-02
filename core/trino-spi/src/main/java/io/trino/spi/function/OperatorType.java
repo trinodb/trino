@@ -38,6 +38,15 @@ public enum OperatorType
     SUBSCRIPT("[]", 2, false),
     HASH_CODE("HASH CODE", 1, true),
     SATURATED_FLOOR_CAST("SATURATED FLOOR CAST", 1, false),
+    /// [#EQUAL], except that `NULL` is identical to `NULL` and unordered values such
+    /// as NaN are identical to each other. This is the `IS NOT DISTINCT FROM` relation,
+    /// also used for grouping, `DISTINCT`, set operations and map keys. A type that does
+    /// not declare it gets [#EQUAL] with this `NULL` handling. [#HASH_CODE] and
+    /// [#XX_HASH_64] must be consistent with it.
+    ///
+    /// Despite the name, identical does not mean indistinguishable. Values that are equal
+    /// but distinguishable are identical, such as `0.0` and `-0.0`, or
+    /// `timestamp with time zone` values representing the same instant in different zones.
     IDENTICAL("IDENTICAL", 2, true),
     XX_HASH_64("XX HASH 64", 1, true),
     INDETERMINATE("INDETERMINATE", 1, true),

@@ -51,9 +51,10 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeSyntax;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.TypeDescriptorTranslator;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AllColumns;
@@ -139,6 +140,7 @@ import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -542,10 +544,10 @@ public final class ShowQueriesRewrite
             Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.schemaName());
             Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.catalogName());
 
-            accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+            accessControl.checkCanShowCreateTable(session.toSecurityContext(), objectName);
 
             Map<String, Object> properties = metadata.getMaterializedViewProperties(session, objectName, viewDefinition.get());
-            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName.getValue());
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, objectName.catalogName());
             Collection<PropertyMetadata<?>> allMaterializedViewProperties = materializedViewPropertyManager.getAllProperties(catalogHandle);
             List<Property> propertyNodes = toSqlProperties("materialized view " + objectName, INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
 
@@ -594,10 +596,10 @@ public final class ShowQueriesRewrite
             Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.schemaName());
             Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.catalogName());
 
-            accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+            accessControl.checkCanShowCreateTable(session.toSecurityContext(), objectName);
 
             Map<String, Object> properties = metadata.getViewProperties(session, objectName);
-            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName.getValue());
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, objectName.catalogName());
             Collection<PropertyMetadata<?>> allViewProperties = viewPropertyManager.getAllProperties(catalogHandle);
             List<Property> propertyNodes = toSqlProperties("view " + objectName, INVALID_VIEW_PROPERTY, properties, allViewProperties);
             CreateView.Security security = viewDefinition.get().isRunAsInvoker() ? INVOKER : DEFINER;
@@ -605,6 +607,7 @@ public final class ShowQueriesRewrite
                     node.getLocation().orElseThrow(),
                     QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
                     query,
+                    false,
                     false,
                     viewDefinition.get().getComment(),
                     Optional.of(security),
@@ -716,7 +719,14 @@ public final class ShowQueriesRewrite
             }
 
             List<Expression> rows = functions.stream()
-                    .map(function -> row(new StringLiteral("CREATE " + function.sql())))
+                    .map(function -> {
+                        try {
+                            return row(new StringLiteral("CREATE " + formatSql(parser.createFunctionSpecification(function.sql(), TypeDescriptorTranslator::normalizeStoredIntervalType))));
+                        }
+                        catch (ParsingException e) {
+                            throw semanticException(SYNTAX_ERROR, node, e, "Failed parsing stored function '%s': %s", functionName, e.getMessage());
+                        }
+                    })
                     .collect(toImmutableList());
 
             return simpleQuery(
@@ -778,9 +788,9 @@ public final class ShowQueriesRewrite
         {
             return row(
                     new StringLiteral(alias),
-                    new StringLiteral(function.getSignature().getReturnType().render()),
+                    new StringLiteral(TypeSyntax.toSql(function.getSignature().getReturnType())),
                     new StringLiteral(function.getSignature().getArgumentTypes().stream()
-                            .map(TypeTemplate::render)
+                            .map(TypeSyntax::toSql)
                             .collect(joining(", "))),
                     new StringLiteral(getFunctionType(function)),
                     function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,
@@ -910,7 +920,7 @@ public final class ShowQueriesRewrite
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
             try {
-                Statement statement = parser.createStatement(view);
+                Statement statement = parser.createStatement(view, TypeDescriptorTranslator::normalizeStoredIntervalType);
                 return (Query) statement;
             }
             catch (ParsingException e) {

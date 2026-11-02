@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
@@ -130,12 +129,6 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     }
 
     @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     protected void deleteDirectory(String location)
     {
         try {
@@ -221,13 +214,6 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     public void testInsert()
     {
         testFailsDueToReadOnlyCatalog(super::testInsert);
-    }
-
-    @Test
-    @Override
-    public void testHiddenPathColumn()
-    {
-        testFailsDueToReadOnlyCatalog(super::testHiddenPathColumn);
     }
 
     @Test
@@ -416,20 +402,6 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
 
     @Test
     @Override
-    public void testSortedNationTable()
-    {
-        testFailsDueToReadOnlyCatalog(super::testSortedNationTable);
-    }
-
-    @Test
-    @Override
-    public void testFileSortingWithLargerTable()
-    {
-        testFailsDueToReadOnlyCatalog(super::testFileSortingWithLargerTable);
-    }
-
-    @Test
-    @Override
     public void testDropTableWithMissingMetadataFile()
     {
         testFailsDueToReadOnlyCatalog(super::testDropTableWithMissingMetadataFile);
@@ -447,6 +419,13 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingManifestListFile()
     {
         testFailsDueToReadOnlyCatalog(super::testDropTableWithMissingManifestListFile);
+    }
+
+    @Test
+    @Override
+    public void testDropTablePreservesDataWhenGcDisabled()
+    {
+        testFailsDueToReadOnlyCatalog(super::testDropTablePreservesDataWhenGcDisabled);
     }
 
     @Test

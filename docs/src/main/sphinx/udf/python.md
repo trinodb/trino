@@ -189,6 +189,20 @@ Trino argument values with greater precision are rounded when converted to
 Python values, and Python return values are rounded if the Trino return type
 has less than microsecond precision.
 
+### Intervals
+
+Day-time interval arguments and return values support fractional precision up to 6,
+including intervals nested in arrays, maps, and rows. Higher precisions are
+rejected when the function is defined. The Python interval boundary uses
+milliseconds, so sub-millisecond precision is not preserved. Returned intervals
+that exceed the engine's microsecond range produce a function implementation
+error, including when nested in arrays, maps, or rows. Return values in both
+interval families are normalized to the declared qualifier and precision using
+interval cast rules: discarded fields are truncated toward zero, and fractional
+seconds are rounded to the declared precision. The normalized leading field must
+fit the declared precision; otherwise, a function implementation error is raised.
+These rules also apply to intervals nested in arrays, maps, and rows.
+
 ### Timestamp with time zone
 
 Only fixed offset time zones are supported. Timestamps with political time zones

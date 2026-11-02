@@ -15,15 +15,13 @@ package io.trino.tests.product.cli;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.testing.TestingProperties;
+import io.trino.testing.containers.HadoopContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import org.testcontainers.containers.Container.ExecResult;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.trino.TrinoContainer;
-import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
@@ -34,6 +32,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hadoopMetastoreUri;
+import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hiveCatalog;
 
 /**
  * CLI product test environment with Trino configured with TPCH, memory, and PostgreSQL catalogs.
@@ -51,12 +52,10 @@ public class CliEnvironment
 {
     private static final String CLI_CONTAINER_PATH = "/docker/trino-cli";
     private static final String DEFAULT_USER = "test";
-    private static final String HADOOP_HOST_NAME = "hadoop-master";
-    private static final String HADOOP_BASE_IMAGE = "ghcr.io/trinodb/testing/hdp3.1-hive";
 
     private Network network;
-    private GenericContainer<?> hadoop;
-    private PostgreSQLContainer<?> postgresql;
+    private HadoopContainer hadoop;
+    private PostgreSQLContainer postgresql;
     private TrinoContainer trino;
 
     @Override
@@ -71,13 +70,12 @@ public class CliEnvironment
 
         network = Network.newNetwork();
 
-        hadoop = new GenericContainer<>(DockerImageName.parse(HADOOP_BASE_IMAGE + ":" + TestingProperties.getDockerImagesVersion()))
+        hadoop = new HadoopContainer()
                 .withNetwork(network)
-                .withNetworkAliases(HADOOP_HOST_NAME)
-                .waitingFor(Wait.forListeningPort());
+                .withNetworkAliases(HadoopContainer.HOST_NAME);
         hadoop.start();
 
-        postgresql = new PostgreSQLContainer<>("postgres:11")
+        postgresql = new PostgreSQLContainer("postgres:11")
                 .withNetwork(network)
                 .withNetworkAliases("postgresql")
                 .withDatabaseName("test")
@@ -87,10 +85,11 @@ public class CliEnvironment
 
         trino = TrinoProductTestContainer.builder()
                 .withNetwork(network)
-                .withCatalog("hive", Map.of(
-                        "connector.name", "hive",
-                        "hive.metastore.uri", "thrift://" + HADOOP_HOST_NAME + ":9083",
-                        "fs.hadoop.enabled", "true"))
+                .withHdfsConfiguration(hadoop.getHdfsClientSiteXml())
+                .withCatalog("hive", hiveCatalog(hadoopMetastoreUri())
+                        .withHadoopFileSystem()
+                        .withCommonProperties()
+                        .build())
                 .withCatalog("memory", Map.of("connector.name", "memory"))
                 .withCatalog("postgresql", Map.of(
                         "connector.name", "postgresql",
@@ -228,14 +227,6 @@ public class CliEnvironment
     public String getInternalServerUrl()
     {
         return "http://localhost:8080";
-    }
-
-    /**
-     * Returns the default user for CLI operations.
-     */
-    public String getDefaultUser()
-    {
-        return DEFAULT_USER;
     }
 
     /**

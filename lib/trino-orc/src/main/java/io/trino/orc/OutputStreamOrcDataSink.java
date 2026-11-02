@@ -15,11 +15,11 @@ package io.trino.orc;
 
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.stream.OrcDataOutput;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -31,6 +31,7 @@ public class OutputStreamOrcDataSink
 {
     private static final int INSTANCE_SIZE = instanceSize(OutputStreamOrcDataSink.class);
 
+    private final TrinoOutputStream outputStream;
     private final OutputStreamSliceOutput output;
     private final AggregatedMemoryContext memoryContext;
 
@@ -41,9 +42,10 @@ public class OutputStreamOrcDataSink
         return new OutputStreamOrcDataSink(outputFile.create(memoryContext), memoryContext);
     }
 
-    private OutputStreamOrcDataSink(OutputStream outputStream, AggregatedMemoryContext memoryContext)
+    private OutputStreamOrcDataSink(TrinoOutputStream outputStream, AggregatedMemoryContext memoryContext)
     {
-        this.output = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));
+        this.outputStream = requireNonNull(outputStream, "outputStream is null");
+        this.output = new OutputStreamSliceOutput(outputStream);
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
@@ -70,5 +72,12 @@ public class OutputStreamOrcDataSink
             throws IOException
     {
         output.close();
+    }
+
+    @Override
+    public void abort()
+            throws IOException
+    {
+        outputStream.abort();
     }
 }

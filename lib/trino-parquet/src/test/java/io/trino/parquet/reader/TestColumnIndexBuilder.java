@@ -24,6 +24,7 @@ import org.apache.parquet.internal.column.columnindex.BoundaryOrder;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.ColumnOrder;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
@@ -733,11 +734,12 @@ public class TestColumnIndexBuilder
                 Types.required(BOOLEAN).named("test_boolean"),
                 BoundaryOrder.DESCENDING,
                 asList(false, true, false, true, false, true),
-                asList(9L, 8L, 7L, 6L, 5L, 0L),
+                // Since parquet 1.18, ColumnIndexBuilder rejects a null page with a zero null count
+                asList(9L, 8L, 7L, 6L, 5L, 4L),
                 toBBList(false, null, false, null, true, null),
                 toBBList(true, null, false, null, true, null));
         assertThat(BoundaryOrder.DESCENDING).isEqualTo(columnIndex.getBoundaryOrder());
-        assertCorrectNullCounts(columnIndex, 9, 8, 7, 6, 5, 0);
+        assertCorrectNullCounts(columnIndex, 9, 8, 7, 6, 5, 4);
         assertCorrectNullPages(columnIndex, false, true, false, true, false, true);
         assertCorrectValues(columnIndex.getMaxValues(), true, null, false, null, true, null);
         assertCorrectValues(columnIndex.getMinValues(), false, null, false, null, true, null);
@@ -842,7 +844,8 @@ public class TestColumnIndexBuilder
     @Test
     public void testBuildDoubleZeroNaN()
     {
-        PrimitiveType type = Types.required(DOUBLE).named("test_double");
+        // Zero/NaN normalization only applies under the legacy type-defined order
+        PrimitiveType type = Types.required(DOUBLE).columnOrder(ColumnOrder.typeDefined()).named("test_double");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         StatsBuilder sb = new StatsBuilder();
         builder.add(sb.stats(type, -1.0, -0.0));
@@ -975,7 +978,8 @@ public class TestColumnIndexBuilder
     @Test
     public void testBuildFloatZeroNaN()
     {
-        PrimitiveType type = Types.required(FLOAT).named("test_float");
+        // Zero/NaN normalization only applies under the legacy type-defined order
+        PrimitiveType type = Types.required(FLOAT).columnOrder(ColumnOrder.typeDefined()).named("test_float");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         StatsBuilder sb = new StatsBuilder();
         builder.add(sb.stats(type, -1.0f, -0.0f));

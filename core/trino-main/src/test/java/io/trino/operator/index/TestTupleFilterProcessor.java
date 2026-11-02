@@ -38,6 +38,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 
 public class TestTupleFilterProcessor
 {
@@ -67,6 +68,7 @@ public class TestTupleFilterProcessor
                 new int[] {1, 0, 3},
                 outputTypes,
                 pageFunctionCompiler,
+                SQL_STANDARD,
                 new BlockTypeOperators(new TypeOperators()));
         PageProcessor tupleFilterProcessor = filterFactory.createPageProcessor(tuplePage, OptionalInt.of(MAX_BATCH_SIZE)).get();
         Page actualPage = getOnlyElement(

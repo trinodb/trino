@@ -41,4 +41,5 @@ public final class TypeConstants
     public static final String MAP_TYPE_NAME = "map";
     public static final String STRUCT_TYPE_NAME = "struct";
     public static final String UNION_TYPE_NAME = "uniontype";
+    public static final String UNKNOWN_TYPE_NAME = "unknown";
 }

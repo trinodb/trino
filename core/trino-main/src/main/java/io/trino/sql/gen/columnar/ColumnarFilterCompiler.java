@@ -13,8 +13,8 @@
  */
 package io.trino.sql.gen.columnar;
 
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
@@ -38,6 +38,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.ClassTemplateCache;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -45,18 +46,19 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
-import it.unimi.dsi.fastutil.longs.LongSet;
+import io.trino.type.CharVarcharCoercion;
 import jakarta.annotation.Nullable;
-import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.lang.invoke.MethodHandle;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -79,7 +81,9 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isNotExpression;
 import static io.trino.sql.gen.columnar.IsNotNullColumnarFilter.createIsNotNullColumnarFilter;
 import static io.trino.sql.gen.columnar.IsNullColumnarFilter.createIsNullColumnarFilter;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.isCompilerLimitExceeded;
+import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
@@ -91,10 +95,12 @@ public class ColumnarFilterCompiler
     private final FunctionManager functionManager;
     private final Metadata metadata;
     // Optional is used to cache failure to generate filter for unsupported cases
-    private final NonEvictableCache<Expression, Optional<Class<? extends ColumnarFilter>>> filterCache;
+    private final NonEvictableCache<CacheKey, Optional<Class<? extends ColumnarFilter>>> filterCache;
     private final CacheStatsMBean filterCacheStats;
     // One generated IN class per (value type, set class), shared across dynamic filters.
     private final NonEvictableCache<InSetDynamicFilterKey, Class<? extends ColumnarFilter>> inSetDynamicFilterCache;
+    // Structurally identical filters with different literals share one compiled template
+    private final ClassTemplateCache<ColumnarFilter> filterTemplates;
 
     @Inject
     public ColumnarFilterCompiler(PlannerContext plannerContext, CompilerConfig config)
@@ -107,6 +113,7 @@ public class ColumnarFilterCompiler
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.functionManager = plannerContext.getFunctionManager();
         this.metadata = plannerContext.getMetadata();
+        this.filterTemplates = new ClassTemplateCache<>(ColumnarFilter.class, expressionCacheSize);
         if (expressionCacheSize > 0) {
             filterCache = buildNonEvictableCache(
                     CacheBuilder.newBuilder()
@@ -129,6 +136,14 @@ public class ColumnarFilterCompiler
         return filterCacheStats;
     }
 
+    @Nullable
+    @Managed
+    @Nested
+    public CacheStatsMBean getFilterTemplateCache()
+    {
+        return filterTemplates.getStats();
+    }
+
     Metadata getMetadata()
     {
         return metadata;
@@ -139,14 +154,14 @@ public class ColumnarFilterCompiler
         return plannerContext;
     }
 
-    public Optional<Supplier<ColumnarFilter>> generateFilter(Expression filter, Map<Symbol, Integer> layout)
+    public Optional<Supplier<ColumnarFilter>> generateFilter(CharVarcharCoercion charVarcharCoercion, Expression filter, Map<Symbol, Integer> layout)
     {
-        return generateFilter(filter, layout, false);
+        return generateFilter(charVarcharCoercion, filter, layout, false);
     }
 
     // dynamicFilter=true routes IN predicates to a separate per-type class, bypassing filterCache so
     // their large value lists are not retained in the cache.
-    public Optional<Supplier<ColumnarFilter>> generateFilter(Expression filter, Map<Symbol, Integer> layout, boolean dynamicFilter)
+    public Optional<Supplier<ColumnarFilter>> generateFilter(CharVarcharCoercion charVarcharCoercion, Expression filter, Map<Symbol, Integer> layout, boolean dynamicFilter)
     {
         // Compact the layout to consecutive indices (0, 1, 2, ...). The compiled filter uses these
         // compact indices to access blocks from the InputChannelsSourcePage, which translates
@@ -158,7 +173,7 @@ public class ColumnarFilterCompiler
         InputChannels inputChannels = result.inputChannels();
 
         if (dynamicFilter && filter instanceof In in) {
-            Optional<InSetDynamicFilterGenerator> generator = InSetDynamicFilterGenerator.tryCreate(in, compactLayout, metadata, functionManager);
+            Optional<InSetDynamicFilterGenerator> generator = InSetDynamicFilterGenerator.tryCreate(in, compactLayout, metadata, charVarcharCoercion, functionManager, plannerContext.getTypeOperators());
             if (generator.isPresent()) {
                 return Optional.of(compileInSetDynamicFilter(generator.get(), inputChannels));
             }
@@ -166,11 +181,11 @@ public class ColumnarFilterCompiler
 
         Optional<Class<? extends ColumnarFilter>> filterClass;
         if (filterCache == null) {
-            filterClass = generateFilterInternal(filter, compactLayout);
+            filterClass = generateFilterInternal(charVarcharCoercion, filter, compactLayout);
         }
         else {
             try {
-                filterClass = filterCache.get(filter, () -> generateFilterInternal(filter, compactLayout));
+                filterClass = filterCache.get(new CacheKey(filter, charVarcharCoercion), () -> generateFilterInternal(charVarcharCoercion, filter, compactLayout));
             }
             catch (ExecutionException e) {
                 throw new UncheckedExecutionException(e);
@@ -180,13 +195,15 @@ public class ColumnarFilterCompiler
         if (filterClass.isEmpty()) {
             return Optional.empty();
         }
-        Class<? extends ColumnarFilter> clazz = filterClass.get();
+        // resolved once: the supplier runs per split, and getConstructor scans the members
+        // and copies the Constructor on every call
+        MethodHandle constructor = filterConstructor(filterClass.get(), InputChannels.class);
         return Optional.of(() -> {
             try {
-                return clazz.getConstructor(InputChannels.class).newInstance(inputChannels);
+                return (ColumnarFilter) constructor.invoke(inputChannels);
             }
-            catch (ReflectiveOperationException e) {
-                throw new TrinoException(COMPILER_ERROR, e);
+            catch (Throwable throwable) {
+                throw new TrinoException(COMPILER_ERROR, throwable);
             }
         });
     }
@@ -195,7 +212,7 @@ public class ColumnarFilterCompiler
     // for the current filter. The generator decides eligibility; this only handles reuse and instantiation.
     private Supplier<ColumnarFilter> compileInSetDynamicFilter(InSetDynamicFilterGenerator generator, InputChannels inputChannels)
     {
-        Class<? extends LongSet> setClass = generator.setClass();
+        Class<?> setClass = generator.setClass();
         Class<? extends ColumnarFilter> clazz;
         try {
             clazz = inSetDynamicFilterCache.get(new InSetDynamicFilterKey(generator.valueType(), setClass), generator::generateColumnarFilter);
@@ -203,20 +220,28 @@ public class ColumnarFilterCompiler
         catch (ExecutionException e) {
             throw new UncheckedExecutionException(e);
         }
-        LongSet valueSet = generator.valueSet();
+        Set<?> valueSet = generator.valueSet();
+        MethodHandle constructor = filterConstructor(clazz, InputChannels.class, setClass);
         return () -> {
             try {
-                return clazz.getConstructor(InputChannels.class, setClass).newInstance(inputChannels, valueSet);
+                return (ColumnarFilter) constructor.invoke(inputChannels, valueSet);
             }
-            catch (ReflectiveOperationException e) {
-                throw new TrinoException(COMPILER_ERROR, e);
+            catch (Throwable throwable) {
+                throw new TrinoException(COMPILER_ERROR, throwable);
             }
         };
     }
 
-    private record InSetDynamicFilterKey(Type valueType, Class<? extends LongSet> setClass) {}
+    private static MethodHandle filterConstructor(Class<? extends ColumnarFilter> filterClass, Class<?>... parameterTypes)
+    {
+        return constructorMethodHandle(COMPILER_ERROR, filterClass, parameterTypes);
+    }
 
-    private Optional<Class<? extends ColumnarFilter>> generateFilterInternal(Expression filter, Map<Symbol, Integer> layout)
+    private record InSetDynamicFilterKey(Type valueType, Class<?> setClass) {}
+
+    private record CacheKey(Expression expression, CharVarcharCoercion charVarcharCoercion) {}
+
+    private Optional<Class<? extends ColumnarFilter>> generateFilterInternal(CharVarcharCoercion charVarcharCoercion, Expression filter, Map<Symbol, Integer> layout)
     {
         try {
             return switch (filter) {
@@ -232,10 +257,10 @@ public class ColumnarFilterCompiler
                         }
                         yield Optional.empty();
                     }
-                    yield Optional.of(new CallColumnarFilterGenerator(call.function(), call.arguments(), layout, functionManager).generateColumnarFilter());
+                    yield Optional.of(new CallColumnarFilterGenerator(call.function(), call.arguments(), layout, functionManager).generateColumnarFilter(filterTemplates, call));
                 }
                 case IsNull isNull -> Optional.of(createIsNullColumnarFilter(isNull));
-                case In in -> Optional.of(new InColumnarFilterGenerator(in, layout, metadata, functionManager).generateColumnarFilter());
+                case In in -> Optional.of(new InColumnarFilterGenerator(in, layout, metadata, charVarcharCoercion, functionManager, plannerContext.getTypeOperators()).generateColumnarFilter(filterTemplates, in));
                 case Reference reference when reference.type().equals(BOOLEAN) -> Optional.of(BooleanColumnarFilter.class);
                 default -> Optional.empty();
             };
@@ -263,20 +288,44 @@ public class ColumnarFilterCompiler
         return inputChannelsField;
     }
 
-    static Class<? extends ColumnarFilter> createClassInstance(CallSiteBinder binder, ClassDefinition classDefinition)
+    static Class<? extends ColumnarFilter> createClassInstance(ClassTemplateCache<ColumnarFilter> templates, Expression filter, Function<CallSiteBinder, ClassDefinition> generator)
+    {
+        return wrapCompilation(() -> templates.defineClass(filter, ImmutableList.of(), generator));
+    }
+
+    // for a filter the caller already knows can never serve as a template, like an IN list,
+    // so the template key's structural traversal and expression copy are skipped entirely
+    static Class<? extends ColumnarFilter> createClassInstanceWithoutTemplate(ClassTemplateCache<ColumnarFilter> templates, Expression filter, Function<CallSiteBinder, ClassDefinition> generator)
+    {
+        return wrapCompilation(() -> templates.defineClassWithoutTemplate(filter, ImmutableList.of(), generator));
+    }
+
+    // for generated classes that are already shared across constant values, like the
+    // dynamic filter IN class, which receives its value set as a constructor argument
+    static Class<? extends ColumnarFilter> createClassInstanceDirect(CallSiteBinder binder, ClassDefinition classDefinition)
+    {
+        return wrapCompilation(() -> defineHiddenClass(classDefinition, ColumnarFilter.class, binder.getClassData()));
+    }
+
+    private static Class<? extends ColumnarFilter> wrapCompilation(Supplier<Class<? extends ColumnarFilter>> compilation)
     {
         try {
-            return defineClass(classDefinition, ColumnarFilter.class, binder.getBindings(), ColumnarFilterCompiler.class.getClassLoader());
+            return compilation.get();
         }
         catch (Exception e) {
-            if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
-                throw new TrinoException(
-                        QUERY_EXCEEDED_COMPILER_LIMIT,
-                        "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.",
-                        e);
-            }
-            throw new TrinoException(COMPILER_ERROR, e.getCause());
+            throw handleCompilationError(e);
         }
+    }
+
+    private static TrinoException handleCompilationError(Exception e)
+    {
+        if (isCompilerLimitExceeded(e)) {
+            return new TrinoException(
+                    QUERY_EXCEEDED_COMPILER_LIMIT,
+                    "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.",
+                    e);
+        }
+        return new TrinoException(COMPILER_ERROR, e.getCause());
     }
 
     static void declareBlockVariables(List<? extends Expression> expressions, Map<Symbol, Integer> layout, Parameter page, Scope scope, BytecodeBlock body)

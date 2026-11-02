@@ -95,7 +95,7 @@ public class SchemasAuthorization
                     catalogSchemaAuthorization.catalog(),
                     catalogSchemaAuthorization.schemaAuthorization().schemaName(),
                     trinoPrincipal.getType().toString(),
-                    trinoPrincipal.getName());
+                    trinoPrincipal.getPrincipalName());
         }
         return table.build().cursor();
     }

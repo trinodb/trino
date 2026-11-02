@@ -26,6 +26,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
+import io.trino.execution.SplitRunner;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -93,6 +94,8 @@ public class Driver
     private SplitAssignment currentSplitAssignment;
 
     private final AtomicReference<SettableFuture<Void>> driverBlockedFuture = new AtomicReference<>();
+
+    private volatile SplitRunner.BlockedReason blockedReason = SplitRunner.BlockedReason.SOURCE;
 
     private enum State
     {
@@ -447,11 +450,16 @@ public class Driver
         if (!movedPage) {
             List<Operator> blockedOperators = new ArrayList<>();
             List<ListenableFuture<Void>> blockedFutures = new ArrayList<>();
+            SplitRunner.BlockedReason reason = SplitRunner.BlockedReason.SOURCE;
             for (Operator operator : activeOperators) {
                 Optional<ListenableFuture<Void>> blocked = getBlockedFuture(operator);
                 if (blocked.isPresent()) {
                     blockedOperators.add(operator);
                     blockedFutures.add(blocked.get());
+                    SplitRunner.BlockedReason operatorReason = classifyBlocked(operator, blocked.get());
+                    if (operatorReason.compareTo(reason) > 0) {
+                        reason = operatorReason;
+                    }
                 }
             }
 
@@ -477,6 +485,7 @@ public class Driver
                 for (Operator operator : blockedOperators) {
                     operator.getOperatorContext().recordBlocked(blocked);
                 }
+                blockedReason = reason;
                 return blocked;
             }
         }
@@ -619,6 +628,29 @@ public class Driver
             return Optional.of(blocked);
         }
         return Optional.empty();
+    }
+
+    // Classifies a blocked operator by the future getBlockedFuture returned for it.
+    @GuardedBy("exclusiveLock")
+    private SplitRunner.BlockedReason classifyBlocked(Operator operator, ListenableFuture<Void> blocked)
+    {
+        OperatorContext operatorContext = operator.getOperatorContext();
+        if (revokingOperators.containsKey(operator) || blocked == operatorContext.isWaitingForMemory() || blocked == operatorContext.isWaitingForRevocableMemory()) {
+            return SplitRunner.BlockedReason.MEMORY;
+        }
+        if (operator == allOperators.getFirst()) {
+            return SplitRunner.BlockedReason.SOURCE;
+        }
+        if (operator == allOperators.getLast()) {
+            return SplitRunner.BlockedReason.OUTPUT;
+        }
+        return SplitRunner.BlockedReason.OPERATOR;
+    }
+
+    // Reports what the last processing call blocked on.
+    public SplitRunner.BlockedReason getBlockedReason()
+    {
+        return blockedReason;
     }
 
     @FormatMethod

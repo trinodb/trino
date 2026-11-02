@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.mysql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mysql.cj.jdbc.exceptions.MysqlDataTruncation;
 import io.trino.Session;
@@ -164,7 +165,7 @@ public abstract class BaseMySqlConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(255)", "", "")
@@ -182,17 +183,20 @@ public abstract class BaseMySqlConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE mysql.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar(255),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(255),\n" +
-                        "   clerk varchar(255),\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar(255)\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE mysql.tpch.orders (
+                           orderkey bigint,
+                           custkey bigint,
+                           orderstatus varchar(255),
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar(255),
+                           clerk varchar(255),
+                           shippriority integer,
+                           comment varchar(255)
+                        )\
+                        """);
     }
 
     @Test
@@ -555,6 +559,23 @@ public abstract class BaseMySqlConnectorTest
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
                 .isFullyPushedDown();
+    }
+
+    @Test
+    public void testIsNotNullPredicatePushdown()
+    {
+        // IS NOT NULL is pushed down even for case insensitive columns
+        try (TestTable table = newTrinoTable(
+                "test_is_not_null_pushdown",
+                "(id bigint, name varchar(50))",
+                ImmutableList.of("1, 'ROMANIA'", "2, 'romania'", "3, NULL"))) {
+            // sanity check: name is a case insensitive column, so equality is not fully pushed down
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE name = 'ROMANIA'"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query("SELECT id, name FROM " + table.getName() + " WHERE name IS NOT NULL"))
+                    .isFullyPushedDown();
+        }
     }
 
     @Test

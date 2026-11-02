@@ -27,12 +27,6 @@ public class Offset
 {
     private final Expression rowCount;
 
-    @Deprecated
-    public Offset(Expression rowCount)
-    {
-        this(Optional.empty(), rowCount);
-    }
-
     public Offset(NodeLocation location, Expression rowCount)
     {
         this(Optional.of(location), rowCount);

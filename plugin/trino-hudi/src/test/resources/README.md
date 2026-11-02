@@ -6,15 +6,23 @@ Follow these steps to create the `hudi_non_part_cow` test table and utilize it f
 
 ### Start the Hudi environment
 
-Execute the following command in the terminal to initiate the Hudi environment:
+Execute the following command in the terminal to start and keep the Hudi environment running:
 
 ```shell
-testing/bin/ptl env up --environment singlenode-hudi
+./mvnw -pl testing/trino-product-tests \
+    -Dair.check.skip-all=true \
+    -DskipTests \
+    test-compile exec:java \
+    -Dexec.classpathScope=test \
+    -Dexec.mainClass=io.trino.tests.product.hudi.HudiEnvironment
 ```
+
+Use `Ctrl+C` in that terminal to stop the environment.
 
 ### Generate Resources
 
-* Open the `spark-sql` terminal and initiate the `spark-sql` shell in the `ptl-spark` container.
+* Open the `spark-sql` terminal and initiate the `spark-sql` shell in the Spark container started by `SuiteHudi`.
+  You can locate it with `docker ps | grep ghcr.io/trinodb/testing/spark3-hudi`.
 * Execute the following Spark SQL queries to create the `hudi_non_part_cow` table:
 
 ```

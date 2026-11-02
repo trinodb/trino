@@ -101,4 +101,48 @@ public class TestWindowFrameRows
                 "FROM (VALUES 2, 2, 1, null, null) t(a)"))
                 .matches(expected);
     }
+
+    @Test
+    public void testEmptyFrame()
+    {
+        // PRECEDING to PRECEDING: both offsets before partition start
+        assertThat(assertions.query("SELECT a, array_agg(a) OVER(ORDER BY a ROWS BETWEEN start_offset PRECEDING AND end_offset PRECEDING) " +
+                "FROM (VALUES (1, 0, 0), (2, 5, 3)) t(a, start_offset, end_offset)"))
+                .matches("VALUES (1, ARRAY[1]), (2, null)");
+
+        // FOLLOWING to FOLLOWING: start offset past partition end
+        assertThat(assertions.query("SELECT a, array_agg(a) OVER(ORDER BY a ROWS BETWEEN start_offset FOLLOWING AND end_offset FOLLOWING) " +
+                "FROM (VALUES (1, 0, 0), (2, 3, 5)) t(a, start_offset, end_offset)"))
+                .matches("VALUES (1, ARRAY[1]), (2, null)");
+
+        // PRECEDING to PRECEDING: start after end, regular, start clamped, start equal to end
+        assertThat(assertions.query("SELECT a, array_agg(a) OVER(ORDER BY a ROWS BETWEEN start_offset PRECEDING AND end_offset PRECEDING) " +
+                "FROM (VALUES (1, 0, 1), (2, 1, 0), (3, 5, 2), (4, 2, 2)) t(a, start_offset, end_offset)"))
+                .matches("VALUES (2, ARRAY[1, 2]), (1, null), (3, ARRAY[1]), (4, ARRAY[2])");
+
+        // FOLLOWING to FOLLOWING: start after end, regular, end clamped
+        assertThat(assertions.query("SELECT a, array_agg(a) OVER(ORDER BY a ROWS BETWEEN start_offset FOLLOWING AND end_offset FOLLOWING) " +
+                "FROM (VALUES (1, 1, 0), (2, 0, 1), (3, 0, 10)) t(a, start_offset, end_offset)"))
+                .matches("VALUES (2, ARRAY[2, 3]), (1, null), (3, ARRAY[3])");
+
+        // UNBOUNDED PRECEDING to PRECEDING: offset before partition start, regular, offset equal to row position
+        assertThat(assertions.query("SELECT a, array_agg(a) OVER(ORDER BY a ROWS BETWEEN UNBOUNDED PRECEDING AND end_offset PRECEDING) " +
+                "FROM (VALUES (1, 5), (2, 0), (3, 2)) t(a, end_offset)"))
+                .matches("VALUES (2, ARRAY[1, 2]), (1, null), (3, ARRAY[1])");
+
+        // FOLLOWING to UNBOUNDED FOLLOWING: offset past partition end, regular, offset equal to remaining rows
+        assertThat(assertions.query("SELECT a, array_agg(a) OVER(ORDER BY a ROWS BETWEEN start_offset FOLLOWING AND UNBOUNDED FOLLOWING) " +
+                "FROM (VALUES (1, 5), (2, 0), (3, 0)) t(a, start_offset)"))
+                .matches("VALUES (2, ARRAY[2, 3]), (1, null), (3, ARRAY[3])");
+
+        // UNBOUNDED PRECEDING to PRECEDING: offsets read from the current partition, regardless of partition order
+        assertThat(assertions.query("SELECT p, a, array_agg(a) OVER(PARTITION BY p ORDER BY a ROWS BETWEEN UNBOUNDED PRECEDING AND end_offset PRECEDING) " +
+                "FROM (VALUES (1, 1, 1), (1, 2, 0), (2, 10, 0), (2, 20, 2), (2, 30, 0)) t(p, a, end_offset)"))
+                .matches("VALUES (1, 2, ARRAY[1, 2]), (1, 1, null), (2, 10, ARRAY[10]), (2, 20, null), (2, 30, ARRAY[10, 20, 30])");
+
+        // FOLLOWING to UNBOUNDED FOLLOWING: offsets read from the current partition, regardless of partition order
+        assertThat(assertions.query("SELECT p, a, array_agg(a) OVER(PARTITION BY p ORDER BY a ROWS BETWEEN start_offset FOLLOWING AND UNBOUNDED FOLLOWING) " +
+                "FROM (VALUES (1, 1, 2), (1, 2, 0), (2, 10, 0), (2, 20, 2), (2, 30, 0)) t(p, a, start_offset)"))
+                .matches("VALUES (1, 2, ARRAY[2]), (1, 1, null), (2, 10, ARRAY[10, 20, 30]), (2, 20, null), (2, 30, ARRAY[30])");
+    }
 }

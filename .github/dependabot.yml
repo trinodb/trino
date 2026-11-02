@@ -21,21 +21,33 @@ updates:
         patterns:
           - "io.airlift:airbase"
           - "io.airlift:bom"
+      maven-model:
+        # These dependencies are separately maintained by trino-server-dev and root pom.xml
+        patterns:
+          - "org.apache.maven:maven-model-builder"
+          - "org.apache.maven:maven-model"
     cooldown:
       # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
       # when supply chain is compromised. This doesn't apply to the dependencies that we own and release.
       default-days: 7
+      semver-minor-days: 21
+      semver-major-days: 42
       exclude:
         - io.airlift:*
         - io.trino:*
     ignore:
       # TODO remove once https://github.com/jline/jline3/issues/1879 has been addressed
       - dependency-name: "org.jline:jline-*"
-  - package-ecosystem: "npm"
+  - package-ecosystem: "bun"
     directory: "/core/trino-web-ui/src/main/resources/webapp"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 2
+    # Group dependabot updates for the web UI dependencies to reduce PR volume.
+    groups:
+      web-ui-dependencies:
+        patterns:
+          - "*"
     allow:
       - dependency-type: "all"
     ignore:
@@ -47,3 +59,5 @@ updates:
       # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
       # when supply chain is compromised.
       default-days: 7
+      semver-minor-days: 21
+      semver-major-days: 42

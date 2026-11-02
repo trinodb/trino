@@ -73,7 +73,7 @@ public class TestBigQueryInstanceCleaner
         TableResult result = bigQuerySqlExecutor.executeQuery(
                 "SELECT schema_name " +
                         "FROM INFORMATION_SCHEMA.SCHEMATA " +
-                        "WHERE datetime_diff(current_datetime(), datetime(creation_time), HOUR) > 24 " +
+                        "WHERE datetime_diff(current_datetime(), datetime(creation_time), HOUR) > 1 " + // 1h comes from the CI test job timeout
                         "AND schema_name NOT IN ('tpch', 'test')");
         List<String> datasetsToDrop = Streams.stream(result.getValues())
                 .map(fieldValues -> fieldValues.get("schema_name").getStringValue())
@@ -113,7 +113,7 @@ public class TestBigQueryInstanceCleaner
                 "" +
                         "SELECT table_name, table_type " +
                         "FROM %s.INFORMATION_SCHEMA.TABLES " +
-                        "WHERE datetime_diff(current_datetime(), datetime(creation_time), HOUR) > 24 " +
+                        "WHERE datetime_diff(current_datetime(), datetime(creation_time), HOUR) > 1 " + // 1h comes from the CI test job timeout
                         "AND table_name NOT IN (%s)" +
                         "AND table_type IN (%s)",
                 quoted(schemaName),

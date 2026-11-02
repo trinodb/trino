@@ -280,7 +280,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .addCopies(GET_TABLE, 6)
+                            .addCopies(GET_TABLE, 3)
                             .add(UPDATE_TABLE)
                             .build());
         }
@@ -458,7 +458,7 @@ public class TestIcebergGlueCatalogAccessOperations
             // select from $partitions
             assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$partitions\"",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .addCopies(GET_TABLE, 2)
+                            .add(GET_TABLE)
                             .build());
 
             // select from $files

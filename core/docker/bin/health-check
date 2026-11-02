@@ -2,14 +2,19 @@
 
 set -euo pipefail
 
+# implemented with bash builtins only: the hardened base image ships no grep or cut
 function get_property_value_or_default() {
-  local value
-  if value="$(grep "^$1=" "$2")"; then
-    printf '%s\n' "${value}" | cut -d'=' -f2
-  else
-    # property not found, return default
-    printf '%s\n' "$3"
+  local line
+  if [ -f "$2" ]; then
+    while IFS= read -r line || [ -n "${line}" ]; do
+      if [[ "${line}" == "$1="* ]]; then
+        printf '%s\n' "${line#*=}"
+        return
+      fi
+    done < "$2"
   fi
+  # property not found, return default
+  printf '%s\n' "$3"
 }
 
 scheme=http
@@ -30,7 +35,7 @@ if ! info=$(curl --fail --silent --show-error --insecure "$endpoint"); then
     exit 1
 fi
 
-if ! grep -q '"starting":\s*false' <<<"$info" >/dev/null; then
+if [[ ! "${info}" =~ \"starting\"[[:space:]]*:[[:space:]]*false ]]; then
     echo >&2 "Server is starting"
     exit 1
 fi

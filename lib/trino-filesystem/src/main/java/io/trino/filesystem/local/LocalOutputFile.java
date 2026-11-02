@@ -15,6 +15,7 @@ package io.trino.filesystem.local;
 
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 
 import java.io.File;
@@ -45,13 +46,13 @@ public class LocalOutputFile
     }
 
     @Override
-    public OutputStream create(AggregatedMemoryContext memoryContext)
+    public TrinoOutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException
     {
         try {
             Files.createDirectories(path.getParent());
             OutputStream stream = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-            return new LocalOutputStream(location, stream);
+            return new LocalOutputStream(location, path, stream);
         }
         catch (IOException e) {
             throw handleException(location, e);
@@ -65,7 +66,7 @@ public class LocalOutputFile
         try {
             Files.createDirectories(path.getParent());
             OutputStream stream = Files.newOutputStream(path);
-            try (OutputStream out = new LocalOutputStream(location, stream)) {
+            try (OutputStream out = new LocalOutputStream(location, path, stream)) {
                 out.write(data);
             }
         }

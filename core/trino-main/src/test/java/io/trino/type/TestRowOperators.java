@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
+import io.trino.json.Json;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.spi.function.LiteralParameters;
@@ -108,16 +109,16 @@ public class TestRowOperators
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    public static Json uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
-        return slice;
+        return Json.unchecked(slice);
     }
 
     @Test
     public void testRowTypeLookup()
     {
-        TypeDescriptor signature = RowType.from(ImmutableList.of(field("b", BIGINT))).getTypeDescriptor();
-        RowType type = (RowType) assertions.getQueryRunner().getPlannerContext().getTypeManager().getType(signature);
+        TypeDescriptor descriptor = RowType.from(ImmutableList.of(field("b", BIGINT))).getTypeDescriptor();
+        RowType type = (RowType) assertions.getQueryRunner().getPlannerContext().getTypeManager().getType(descriptor);
         assertThat(type.getFields()).hasSize(1);
         assertThat(type.getFields().get(0).getName().get()).isEqualTo("b");
     }
@@ -249,7 +250,7 @@ public class TestRowOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("CAST(json_parse(a) as ROW(BIGINT))")
                 .binding("a", "'null 123 some invalid JSON content'")::evaluate)
-                .hasMessage("Cannot cast to row(bigint). Unexpected trailing token: 123\nnull 123 some invalid JSON content");
+                .hasMessage("Cannot convert value to JSON: 'null 123 some invalid JSON content'");
 
         assertThat(assertions.expression("CAST(a as ROW(VARCHAR, BIGINT))")
                 .binding("a", "JSON '[null, null]'"))
@@ -485,7 +486,6 @@ public class TestRowOperators
                         null,
                         asList(1L, 2L, 3L, null)));
 
-        // invalid cast
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a as ROW(a BIGINT, b BIGINT))")
                 .binding("a", "unchecked_to_json('{\"a\":1,\"b\":2,\"a\":3}')")
                 .evaluate())

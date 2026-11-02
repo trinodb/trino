@@ -99,10 +99,10 @@ public final class PushTopNThroughProject
         SymbolMapper.Builder mapper = SymbolMapper.builder();
         for (Symbol symbol : symbols) {
             Expression expression = assignments.get(symbol);
-            if (!(expression instanceof Reference)) {
+            if (!(expression instanceof Reference reference)) {
                 return Optional.empty();
             }
-            mapper.put(symbol, Symbol.from(expression));
+            mapper.put(symbol, Symbol.from(reference));
         }
         return Optional.of(mapper.build());
     }

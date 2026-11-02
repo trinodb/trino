@@ -55,12 +55,16 @@ public class BloomFilterValuesWriter
         return writer.getBufferedSize();
     }
 
-    public long getEstimatedBufferedSize()
+    @Override
+    public long getEstimatedDataPageSize()
     {
-        return switch (writer) {
-            case DictionaryFallbackValuesWriter dictionaryFallbackValuesWriter -> dictionaryFallbackValuesWriter.getEstimatedBufferedSize();
-            default -> writer.getBufferedSize();
-        };
+        return writer.getEstimatedDataPageSize();
+    }
+
+    @Override
+    public long getEstimatedDictionaryPageSize()
+    {
+        return writer.getEstimatedDictionaryPageSize();
     }
 
     @Override
@@ -125,10 +129,10 @@ public class BloomFilterValuesWriter
     }
 
     @Override
-    public void writeBytes(Binary v)
+    public void writeBytes(Slice base, int offset, int length)
     {
-        writer.writeBytes(v);
-        bloomFilter.insertHash(bloomFilter.hash(v));
+        writer.writeBytes(base, offset, length);
+        bloomFilter.insertHash(bloomFilter.hash(Binary.fromReusedByteArray(base.byteArray(), base.byteArrayOffset() + offset, length)));
     }
 
     @Override

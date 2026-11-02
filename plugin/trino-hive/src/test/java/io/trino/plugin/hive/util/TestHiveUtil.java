@@ -13,17 +13,34 @@
  */
 package io.trino.plugin.hive.util;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.trino.metastore.Column;
+import io.trino.metastore.Table;
+import io.trino.spi.connector.ColumnMetadata;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Optional;
+
+import static io.trino.metastore.HiveType.HIVE_LONG;
+import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
+import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
+import static io.trino.plugin.hive.util.HiveUtil.columnMetadataGetter;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
+import static io.trino.plugin.hive.util.HiveUtil.hiveColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.parseHiveTimestamp;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.groups.Tuple.tuple;
 
 public class TestHiveUtil
 {
@@ -36,6 +53,34 @@ public class TestHiveUtil
         assertThat(parse(time, "yyyy-MM-dd HH:mm:ss.SSS")).isEqualTo(unixTime(time, 3));
         assertThat(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSS")).isEqualTo(unixTime(time, 6));
         assertThat(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSSSS")).isEqualTo(unixTime(time, 7));
+    }
+
+    @Test
+    public void testColumnMetadataGetter()
+    {
+        Table table = Table.builder()
+                .setDatabaseName("test_db")
+                .setTableName("test_table")
+                .setOwner(Optional.empty())
+                .setTableType("MANAGED_TABLE")
+                .setDataColumns(ImmutableList.of(
+                        new Column("id", HIVE_LONG, Optional.empty(), ImmutableMap.of()),
+                        new Column("ts", HIVE_TIMESTAMP, Optional.empty(), ImmutableMap.of())))
+                .withStorage(storage -> storage
+                        .setStorageFormat(ORC.toStorageFormat())
+                        .setLocation("/tmp/test_db/test_table"))
+                .build();
+
+        List<ColumnMetadata> columns = hiveColumnHandles(table, TESTING_TYPE_MANAGER, DEFAULT_PRECISION).stream()
+                .map(columnMetadataGetter(table))
+                .toList();
+        assertThat(columns)
+                .filteredOn(column -> ImmutableList.of("id", "ts", "$file_modified_time").contains(column.getName()))
+                .extracting(ColumnMetadata::getName, ColumnMetadata::getTimeZone)
+                .containsExactly(
+                        tuple("id", Optional.empty()),
+                        tuple("ts", Optional.empty()),
+                        tuple("$file_modified_time", Optional.of(UTC_KEY)));
     }
 
     @Test

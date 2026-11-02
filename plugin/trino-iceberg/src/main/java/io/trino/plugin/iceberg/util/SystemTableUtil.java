@@ -72,8 +72,15 @@ public final class SystemTableUtil
     {
         Map<Integer, PartitionField> result = new LinkedHashMap<>();
         for (PartitionField partitionField : visiblePartitionFields) {
-            // Use last occurrence of partition field in case of duplicates
-            result.put(partitionField.fieldId(), partitionField);
+            // Use last occurrence of partition field in case of duplicates, except for the void placeholder that
+            // a dropped partition field can leave behind under the same field id, which reports the source type
+            // as its result type
+            result.merge(partitionField.fieldId(), partitionField, (existing, duplicate) -> {
+                if (duplicate.transform().isVoid()) {
+                    return existing;
+                }
+                return duplicate;
+            });
         }
         return result.values().stream().collect(toImmutableList());
     }

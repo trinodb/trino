@@ -40,6 +40,16 @@ public enum TimeField
         this.name = name.getBytes(US_ASCII);
     }
 
+    public static boolean isValidUnit(Slice unit)
+    {
+        for (TimeField field : VALUES) {
+            if (field.matches(unit)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static TimeField match(Slice unit)
     {
         for (TimeField field : VALUES) {

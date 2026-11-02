@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -29,7 +30,10 @@ public interface GroupedAccumulator
 
     void evaluateIntermediate(int groupId, BlockBuilder output);
 
+    /**
+     * Ordered aggregations require ascending group id order, which holds since they are not spillable.
+     */
     void evaluateFinal(int groupId, BlockBuilder output);
 
-    void prepareFinal();
+    void prepareFinal(UpdateMemory updateMemory);
 }

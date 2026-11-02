@@ -22,8 +22,11 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.Unstable;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.cache.ConnectorCacheFactory;
 import io.trino.spi.function.FunctionBundleFactory;
 import io.trino.spi.type.TypeManager;
+
+import java.util.Optional;
 
 public interface ConnectorContext
 {
@@ -99,5 +102,11 @@ public interface ConnectorContext
     default ConnectorExpressionEvaluator getExpressionEvaluator()
     {
         return ConnectorExpressionEvaluator.NO_OP;
+    }
+
+    @Unstable
+    default ConnectorCacheFactory getCacheFactory()
+    {
+        return _ -> Optional.empty();
     }
 }

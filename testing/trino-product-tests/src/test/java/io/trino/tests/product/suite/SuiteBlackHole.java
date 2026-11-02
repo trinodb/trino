@@ -38,8 +38,7 @@ public final class SuiteBlackHole
     public static void main(String[] args)
             throws Exception
     {
-        // Set strict mode to ensure tests are properly isolated
-        System.setProperty("trino.product-test.environment-mode", "STRICT");
+        SuiteRunner.initialize(SuiteBlackHole.class);
 
         List<TestRunResult> results = new ArrayList<>();
 

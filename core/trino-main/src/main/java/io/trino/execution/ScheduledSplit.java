@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.primitives.Longs;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -29,7 +28,7 @@ public record ScheduledSplit(long sequenceId, PlanNodeId planNodeId, Split split
     @Override
     public int hashCode()
     {
-        return Longs.hashCode(sequenceId);
+        return Long.hashCode(sequenceId);
     }
 
     @Override

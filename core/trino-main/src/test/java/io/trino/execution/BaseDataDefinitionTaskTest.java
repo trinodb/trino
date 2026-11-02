@@ -49,7 +49,6 @@ import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.OperatorType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.TrinoPrincipal;
@@ -62,6 +61,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
@@ -583,6 +583,25 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public void setMaterializedViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
+        {
+            MaterializedViewDefinition view = materializedViews.get(viewName.asSchemaTableName());
+            materializedViews.put(
+                    viewName.asSchemaTableName(),
+                    new MaterializedViewDefinition(
+                            view.getOriginalSql(),
+                            view.getCatalog(),
+                            view.getSchema(),
+                            view.getColumns(),
+                            view.getGracePeriod(),
+                            view.getWhenStaleBehavior(),
+                            comment,
+                            view.getRunAsIdentity().get(),
+                            view.getPath(),
+                            view.getStorageTable()));
+        }
+
+        @Override
         public void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
         {
             MaterializedViewDefinition view = materializedViews.get(viewName.asSchemaTableName());
@@ -622,9 +641,12 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+        public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
         {
-            checkArgument(replace || !views.containsKey(viewName.asSchemaTableName()));
+            if (saveMode != SaveMode.REPLACE && views.containsKey(viewName.asSchemaTableName())) {
+                checkArgument(saveMode == SaveMode.IGNORE, "View already exists");
+                return;
+            }
             views.put(viewName.asSchemaTableName(), definition);
         }
 
@@ -718,9 +740,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
+        public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
         {
-            return delegate.getCoercion(operatorType, fromType, toType);
+            return delegate.getCoercion(charVarcharCoercion, fromType, toType);
         }
 
         @Override

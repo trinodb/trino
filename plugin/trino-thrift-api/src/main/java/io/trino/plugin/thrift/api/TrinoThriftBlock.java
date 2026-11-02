@@ -351,7 +351,7 @@ public final class TrinoThriftBlock
                 else if (javaType == double.class) {
                     type.writeDouble(output, cursor.getDouble(columnIndex));
                 }
-                else if (javaType == Slice.class) {
+                else if (javaType == Slice.class || type.getBaseName().equals(JSON)) {
                     Slice slice = cursor.getSlice(columnIndex);
                     type.writeSlice(output, slice, 0, slice.length());
                 }

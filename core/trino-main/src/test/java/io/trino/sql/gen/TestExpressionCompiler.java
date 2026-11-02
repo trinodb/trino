@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.operator.scalar.BitwiseFunctions;
 import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JsonFunctions;
@@ -1098,7 +1100,7 @@ public class TestExpressionCompiler
         if (values.stream().anyMatch(Objects::isNull)) {
             return VARCHAR;
         }
-        return createVarcharType(values.stream().mapToInt(String::length).max().getAsInt());
+        return createVarcharType(values.stream().mapToInt(String::length).max().orElseThrow());
     }
 
     private static Object nullIf(Object left, Object right)
@@ -2500,11 +2502,11 @@ public class TestExpressionCompiler
             for (String pattern : jsonPatterns) {
                 assertThat(assertions.function("json_extract", toLiteral(value), toLiteral(pattern)))
                         .hasType(JSON)
-                        .isEqualTo(value == null || pattern == null ? null : toString(JsonFunctions.jsonExtract(utf8Slice(value), new JsonPath(pattern))));
+                        .isEqualTo(value == null || pattern == null ? null : toString(JsonFunctions.jsonExtract(JsonItems.fromText(utf8Slice(value)), new JsonPath(pattern))));
 
                 assertThat(assertions.function("json_extract_scalar", toLiteral(value), toLiteral(pattern)))
                         .hasType(value == null ? createUnboundedVarcharType() : createVarcharType(value.length()))
-                        .isEqualTo(value == null || pattern == null ? null : toString(JsonFunctions.jsonExtractScalar(utf8Slice(value), new JsonPath(pattern))));
+                        .isEqualTo(value == null || pattern == null ? null : toString(JsonFunctions.jsonExtractScalar(JsonItems.fromText(utf8Slice(value)), new JsonPath(pattern))));
             }
         }
 
@@ -2869,5 +2871,10 @@ public class TestExpressionCompiler
     private static String toString(Slice value)
     {
         return value == null ? null : value.toStringUtf8();
+    }
+
+    private static String toString(Json value)
+    {
+        return value == null ? null : JsonItems.toText(value).toStringUtf8();
     }
 }
