@@ -84,6 +84,7 @@ public class AggregationOperator
     private final AggregationMetrics aggregationMetrics = new AggregationMetrics();
 
     private State state = State.NEEDS_INPUT;
+    private int preparedAggregatorCount;
 
     public AggregationOperator(OperatorContext operatorContext, List<AggregatorFactory> aggregatorFactories)
     {
@@ -157,6 +158,15 @@ public class AggregationOperator
             return null;
         }
 
+        // an aggregator can grow while preparing final output (e.g. ordered aggregation replaying
+        // its buffered pages into a distinct hash); report that growth and yield when memory is blocked
+        while (preparedAggregatorCount < aggregates.size()) {
+            if (!aggregates.get(preparedAggregatorCount).prepareFinal(this::updateMemoryUsage)) {
+                return null;
+            }
+            preparedAggregatorCount++;
+        }
+
         // project results into output blocks
         List<Type> types = aggregates.stream().map(Aggregator::getType).collect(toImmutableList());
 
@@ -164,15 +174,11 @@ public class AggregationOperator
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
         PageBuilder pageBuilder = new PageBuilder(1, types);
 
-        // an aggregator can grow while producing final output (e.g. ordered aggregation replaying
-        // its buffered pages into a distinct hash); report that growth as it happens
-        UpdateMemory updateMemory = this::updateMemoryUsage;
-
         pageBuilder.declarePosition();
         for (int i = 0; i < aggregates.size(); i++) {
             Aggregator aggregator = aggregates.get(i);
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-            aggregator.evaluate(blockBuilder, updateMemory);
+            aggregator.evaluate(blockBuilder);
         }
 
         state = State.FINISHED;
