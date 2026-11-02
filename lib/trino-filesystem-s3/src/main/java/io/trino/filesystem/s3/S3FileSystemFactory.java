@@ -40,7 +40,7 @@ public final class S3FileSystemFactory
     {
         this.loader = new S3FileSystemLoader(openTelemetry, config, stats);
         this.client = loader.createClient();
-        this.preSigner = createS3PreSigner(config, client);
+        this.preSigner = createS3PreSigner(new S3PresignerSettings(config), client);
         this.context = loader.context();
         this.uploadExecutor = loader.uploadExecutor();
     }
