@@ -92,6 +92,7 @@ public class Literal
             .or(CharMatcher.inRange('0', '9'))
             .precomputed();
     private static final Pattern DECIMAL_PATTERN = Pattern.compile("([+-]?)(\\d(?:_?\\d)*)?(?:\\.(\\d(?:_?\\d)*)?)?");
+    private static final Pattern FRACTION_PATTERN = Pattern.compile("\\.(\\d+)");
 
     private Literal() {}
 
@@ -134,15 +135,19 @@ public class Literal
             return IntervalValues.parse(value, type);
         }
         if (type instanceof TimestampType timestampType) {
+            checkFractionPrecision(value, timestampType.getPrecision());
             return parseTimestamp(timestampType.getPrecision(), value);
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            checkFractionPrecision(value, timestampWithTimeZoneType.getPrecision());
             return parseTimestampWithTimeZone(timestampWithTimeZoneType.getPrecision(), value);
         }
-        if (type instanceof TimeType) {
+        if (type instanceof TimeType timeType) {
+            checkFractionPrecision(value, timeType.getPrecision());
             return parseTime(value);
         }
         if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
+            checkFractionPrecision(value, timeWithTimeZoneType.getPrecision());
             return parseTimeWithTimeZone(timeWithTimeZoneType.getPrecision(), value);
         }
         if (VARBINARY.equals(type)) {
@@ -160,6 +165,17 @@ public class Literal
             return javaUuidToTrinoUuid(UUID.fromString(value));
         }
         throw new IllegalArgumentException("Unsupported literal type: " + type);
+    }
+
+    // values are stored with the precision of the literal, so a more precise value would be generated as is,
+    // or rounded outside the range set by the min and max properties
+    private static void checkFractionPrecision(String value, int precision)
+    {
+        Matcher matcher = FRACTION_PATTERN.matcher(value);
+        if (matcher.find()) {
+            String significantDigits = CharMatcher.is('0').trimTrailingFrom(matcher.group(1));
+            checkArgument(significantDigits.length() <= precision, "Value has more than %s fractional digits: %s", precision, value);
+        }
     }
 
     private static long parseLong(String value)

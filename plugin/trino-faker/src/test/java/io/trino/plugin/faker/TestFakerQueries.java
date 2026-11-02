@@ -983,6 +983,30 @@ final class TestFakerQueries
     }
 
     @Test
+    void testDateTimePropertiesMorePreciseThanColumn()
+    {
+        Map<String, String> columnSchemas = ImmutableMap.<String, String>builder()
+                .put("timestamp(3) WITH (max = '2020-01-01 00:00:00.0005')", "The `max` property must be a valid timestamp(3) literal")
+                .put("time(0) WITH (min = '01:02:03.5')", "The `min` property must be a valid time(0) literal")
+                .put("time(9) with time zone WITH (max = '01:02:03.0000000001 +01:00')", "The `max` property must be a valid time(9) with time zone literal")
+                .put("timestamp(0) with time zone WITH (allowed_values = ARRAY['2020-01-01 00:00:00.1 UTC'])",
+                        "The `allowed_values` property must only contain valid timestamp(0) with time zone literals, failed to parse `2020-01-01 00:00:00.1 UTC`")
+                .buildOrThrow();
+
+        for (Map.Entry<String, String> entry : columnSchemas.entrySet()) {
+            assertThat(query("CREATE TABLE too_precise (value %s)".formatted(entry.getKey())))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage(entry.getValue());
+        }
+
+        // trailing zeros don't add precision
+        try (TestTable table = newTrinoTable("trailing_zeros", "(value timestamp(0) NOT NULL WITH (min = '2020-01-01 00:00:00.000', max = '2020-01-01 00:00:09.000'))")) {
+            assertQuery("SELECT count(DISTINCT value) FROM " + table.getName(), "VALUES 10");
+        }
+    }
+
+    @Test
     void testStepPropertyShorterThanPrecision()
     {
         Map<String, String> columnSchemas = ImmutableMap.<String, String>builder()
