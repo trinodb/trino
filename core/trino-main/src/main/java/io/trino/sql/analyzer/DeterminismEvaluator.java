@@ -13,6 +13,7 @@
  */
 package io.trino.sql.analyzer;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.tree.CurrentDate;
@@ -25,10 +26,15 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.Node;
 
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.operator.scalar.time.LocalTimeFunction.LOCALTIME_FUNCTION_NAME;
+import static io.trino.operator.scalar.timestamp.LocalTimestamp.LOCALTIMESTAMP_FUNCTION_NAME;
+import static io.trino.operator.scalar.timestamptz.CurrentTimestamp.CURRENT_TIMESTAMP_FUNCTION_NAME;
+import static io.trino.operator.scalar.timetz.CurrentTime.CURRENT_TIME_FUNCTION_NAME;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -36,7 +42,13 @@ import static java.util.Objects.requireNonNull;
  */
 public final class DeterminismEvaluator
 {
-    private static final CatalogSchemaFunctionName NOW_FUNCTION_NAME = builtinFunctionName("now");
+    private static final Set<CatalogSchemaFunctionName> CURRENT_TIME_FUNCTIONS = ImmutableSet.of(
+            builtinFunctionName("now"),
+            builtinFunctionName("current_date"),
+            builtinFunctionName(CURRENT_TIMESTAMP_FUNCTION_NAME),
+            builtinFunctionName(CURRENT_TIME_FUNCTION_NAME),
+            builtinFunctionName(LOCALTIME_FUNCTION_NAME),
+            builtinFunctionName(LOCALTIMESTAMP_FUNCTION_NAME));
 
     private DeterminismEvaluator() {}
 
@@ -94,13 +106,12 @@ public final class DeterminismEvaluator
     }
 
     /**
-     * Returns whether the function returns the current time. Such functions are deterministic within a query,
-     * and unlike {@code current_timestamp} are function calls rather than current time AST nodes.
+     * Returns whether the function returns the current date or time. Such functions are deterministic within a query,
+     * and can be explicitly invoked as function calls rather than current time AST nodes.
      */
     public static boolean isCurrentTimeFunction(ResolvedFunction function)
     {
-        // now() is an alias for current_timestamp
-        return function.name().equals(NOW_FUNCTION_NAME);
+        return CURRENT_TIME_FUNCTIONS.contains(function.name());
     }
 
     private static class TemporalFunctionVisitor

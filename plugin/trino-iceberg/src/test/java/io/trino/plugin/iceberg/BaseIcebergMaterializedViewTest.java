@@ -56,6 +56,8 @@ import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableProperties;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Instant;
 import java.time.ZonedDateTime;
@@ -1669,36 +1671,61 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("DROP TABLE " + sourceTableName);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "current_date",
+            "current_time",
+            "current_timestamp",
+            "localtime",
+            "localtimestamp",
+            "now()",
+            "\"current_date\"()",
+            "\"$current_time\"(CAST(NULL AS time(3) with time zone))",
+            "\"$current_timestamp\"(CAST(NULL AS timestamp(3) with time zone))",
+            "\"$localtime\"(CAST(NULL AS time(3)))",
+            "\"$localtimestamp\"(CAST(NULL AS timestamp(3)))",
+    })
+    public void testMaterializedViewWithCurrentTimeFunction(String expression)
+    {
+        try (TestTable sourceTable = newTrinoTable("source_table", "(value INTEGER)")) {
+            assertUpdate("INSERT INTO " + sourceTable.getName() + " VALUES 1", 1);
+
+            // Cast to varchar because Iceberg does not support all temporal types.
+            String query = "SELECT *, CAST(%s AS varchar) AS temporal_value FROM %s".formatted(expression, sourceTable.getName());
+            String materializedView = "mv_with_current_time_" + randomNameSuffix();
+            assertUpdate("CREATE MATERIALIZED VIEW " + materializedView + " AS " + query);
+            try {
+                assertFreshness(materializedView, "STALE");
+                assertUpdate("REFRESH MATERIALIZED VIEW " + materializedView, 1);
+                assertFreshness(materializedView, "UNKNOWN");
+            }
+            finally {
+                assertUpdate("DROP MATERIALIZED VIEW " + materializedView);
+            }
+
+            // Referenced views are not part of the materialized view query AST.
+            try (TestView innerView = new TestView(getQueryRunner()::execute, "inner_view_with_current_time", query);
+                    TestView outerView = new TestView(getQueryRunner()::execute, "outer_view_with_current_time", "SELECT * FROM " + innerView.getName())) {
+                String materializedViewOnViews = "mv_on_views_with_current_time_" + randomNameSuffix();
+                assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewOnViews + " AS SELECT * FROM " + outerView.getName());
+                try {
+                    assertFreshness(materializedViewOnViews, "STALE");
+                    assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewOnViews, 1);
+                    assertFreshness(materializedViewOnViews, "UNKNOWN");
+                }
+                finally {
+                    assertUpdate("DROP MATERIALIZED VIEW " + materializedViewOnViews);
+                }
+            }
+        }
+    }
+
     @Test
-    public void testMaterializedViewWithCurrentTimeFunctionInNestedViewOrSubquery()
+    public void testMaterializedViewWithCurrentTimeFunctionInSubquery()
     {
         String sourceTableName = "source_table_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + sourceTableName + " (value INTEGER)");
         assertUpdate("INSERT INTO " + sourceTableName + " VALUES 1", 1);
-
-        // Test with current_timestamp in a view used by another view, as views are not part of the materialized view query
-        String innerViewWithCurrentTimestamp = "inner_view_with_current_timestamp_" + randomNameSuffix();
-        assertUpdate("CREATE VIEW " + innerViewWithCurrentTimestamp + " AS SELECT *, current_timestamp AS ts FROM " + sourceTableName);
-        String outerViewWithCurrentTimestamp = "outer_view_with_current_timestamp_" + randomNameSuffix();
-        assertUpdate("CREATE VIEW " + outerViewWithCurrentTimestamp + " AS SELECT * FROM " + innerViewWithCurrentTimestamp);
-        String mvOnViewsWithCurrentTimestamp = "mv_on_views_with_current_timestamp_" + randomNameSuffix();
-        assertUpdate("CREATE MATERIALIZED VIEW " + mvOnViewsWithCurrentTimestamp + " AS SELECT * FROM " + outerViewWithCurrentTimestamp);
-
-        assertFreshness(mvOnViewsWithCurrentTimestamp, "STALE");
-        assertUpdate("REFRESH MATERIALIZED VIEW " + mvOnViewsWithCurrentTimestamp, 1);
-        assertFreshness(mvOnViewsWithCurrentTimestamp, "UNKNOWN");
-
-        // Test with now() in a view used by another view
-        String innerViewWithNow = "inner_view_with_now_" + randomNameSuffix();
-        assertUpdate("CREATE VIEW " + innerViewWithNow + " AS SELECT *, now() AS ts FROM " + sourceTableName);
-        String outerViewWithNow = "outer_view_with_now_" + randomNameSuffix();
-        assertUpdate("CREATE VIEW " + outerViewWithNow + " AS SELECT * FROM " + innerViewWithNow);
-        String mvOnViewsWithNow = "mv_on_views_with_now_" + randomNameSuffix();
-        assertUpdate("CREATE MATERIALIZED VIEW " + mvOnViewsWithNow + " AS SELECT * FROM " + outerViewWithNow);
-
-        assertFreshness(mvOnViewsWithNow, "STALE");
-        assertUpdate("REFRESH MATERIALIZED VIEW " + mvOnViewsWithNow, 1);
-        assertFreshness(mvOnViewsWithNow, "UNKNOWN");
 
         // Test with current_timestamp in a subquery, which the traversal of the materialized view query does not descend into
         String mvWithSubquery = "mv_with_current_timestamp_in_subquery_" + randomNameSuffix();
@@ -1721,14 +1748,8 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("REFRESH MATERIALIZED VIEW " + mvOnDeterministicViews, 1);
         assertFreshness(mvOnDeterministicViews, "FRESH");
 
-        assertUpdate("DROP MATERIALIZED VIEW " + mvOnViewsWithCurrentTimestamp);
-        assertUpdate("DROP MATERIALIZED VIEW " + mvOnViewsWithNow);
         assertUpdate("DROP MATERIALIZED VIEW " + mvWithSubquery);
         assertUpdate("DROP MATERIALIZED VIEW " + mvOnDeterministicViews);
-        assertUpdate("DROP VIEW " + outerViewWithCurrentTimestamp);
-        assertUpdate("DROP VIEW " + innerViewWithCurrentTimestamp);
-        assertUpdate("DROP VIEW " + outerViewWithNow);
-        assertUpdate("DROP VIEW " + innerViewWithNow);
         assertUpdate("DROP VIEW " + outerDeterministicView);
         assertUpdate("DROP VIEW " + innerDeterministicView);
         assertUpdate("DROP TABLE " + sourceTableName);
