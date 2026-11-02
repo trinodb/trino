@@ -44,6 +44,8 @@ final class S3FileSystemUtils
         Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
         String staticRoleSessionName = config.getRoleSessionName();
         String externalId = config.getExternalId();
+        Optional<String> stsEndpoint = Optional.ofNullable(config.getStsEndpoint());
+        Optional<String> stsRegion = Optional.ofNullable(config.getStsRegion()).or(() -> staticRegion);
 
         S3Presigner.Builder s3 = S3Presigner.builder();
         s3.s3Client(s3Client);
@@ -64,7 +66,7 @@ final class S3FileSystemUtils
                             .roleArn(staticIamRole.orElseThrow())
                             .roleSessionName(staticRoleSessionName)
                             .externalId(externalId))
-                    .stsClient(createStsClient(config, staticCredentialsProvider))
+                    .stsClient(createStsClient(stsEndpoint, stsRegion, staticCredentialsProvider))
                     .asyncCredentialUpdateEnabled(true)
                     .build());
             case DEFAULT -> staticCredentialsProvider.ifPresent(s3::credentialsProvider);
@@ -73,13 +75,11 @@ final class S3FileSystemUtils
         return s3.build();
     }
 
-    static StsClient createStsClient(S3FileSystemConfig config, Optional<AwsCredentialsProvider> credentialsProvider)
+    static StsClient createStsClient(Optional<String> endpoint, Optional<String> region, Optional<AwsCredentialsProvider> credentialsProvider)
     {
         StsClientBuilder sts = StsClient.builder();
-        Optional.ofNullable(config.getStsEndpoint()).map(URI::create).ifPresent(sts::endpointOverride);
-        Optional.ofNullable(config.getStsRegion())
-                .or(() -> Optional.ofNullable(config.getRegion()))
-                .map(Region::of).ifPresent(sts::region);
+        endpoint.map(URI::create).ifPresent(sts::endpointOverride);
+        region.map(Region::of).ifPresent(sts::region);
         credentialsProvider.ifPresent(sts::credentialsProvider);
         return sts.build();
     }
