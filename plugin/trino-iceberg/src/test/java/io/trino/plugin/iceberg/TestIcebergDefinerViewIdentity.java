@@ -24,6 +24,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.local.LocalFileSystem;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.QueryId;
@@ -40,6 +41,9 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.file.Path;
 import java.time.Instant;
@@ -48,7 +52,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -72,9 +80,11 @@ final class TestIcebergDefinerViewIdentity
     private static final String VIEW_OWNER = "view_owner";
     private static final String VIEW_READER = "view_reader";
     private static final String VIEW_OWNER_GROUP = "view_owners";
+    private static final String INNER_VIEW_OWNER = "inner_view_owner";
 
-    private final List<FileRead> fileReads = new CopyOnWriteArrayList<>();
+    private final List<FileAccess> fileReads = new CopyOnWriteArrayList<>();
     private final List<QueryCompletedEvent> completedQueries = new CopyOnWriteArrayList<>();
+    private final List<FileAccess> fileWrites = new CopyOnWriteArrayList<>();
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -117,12 +127,13 @@ final class TestIcebergDefinerViewIdentity
         String viewName = "test_definer_view_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 id", 1);
         assertUpdate("CREATE VIEW " + viewName + " SECURITY DEFINER AS SELECT * FROM " + tableName);
+        String tableLocation = getTableLocation(tableName);
 
         fileReads.clear();
         assertQuery(viewReaderSession(), "SELECT * FROM " + viewName, "VALUES 1");
 
-        assertThat(tableReadUsers(tableName)).containsExactly(VIEW_OWNER);
-        assertThat(dataFileReadUsers(tableName)).containsExactly(VIEW_OWNER);
+        assertThat(tableReadUsers(tableLocation)).containsExactly(VIEW_OWNER);
+        assertThat(dataFileReadUsers(tableLocation)).containsExactly(VIEW_OWNER);
     }
 
     @Test
@@ -170,12 +181,13 @@ final class TestIcebergDefinerViewIdentity
         String viewName = "test_invoker_view_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 id", 1);
         assertUpdate("CREATE VIEW " + viewName + " SECURITY INVOKER AS SELECT * FROM " + tableName);
+        String tableLocation = getTableLocation(tableName);
 
         fileReads.clear();
         assertQuery(viewReaderSession(), "SELECT * FROM " + viewName, "VALUES 1");
 
-        assertThat(tableReadUsers(tableName)).containsExactly(VIEW_READER);
-        assertThat(dataFileReadUsers(tableName)).containsExactly(VIEW_READER);
+        assertThat(tableReadUsers(tableLocation)).containsExactly(VIEW_READER);
+        assertThat(dataFileReadUsers(tableLocation)).containsExactly(VIEW_READER);
     }
 
     @Test
@@ -183,43 +195,136 @@ final class TestIcebergDefinerViewIdentity
     {
         String tableName = "test_table_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 id", 1);
+        String tableLocation = getTableLocation(tableName);
 
         fileReads.clear();
         assertQuery(viewReaderSession(), "SELECT * FROM " + tableName, "VALUES 1");
 
-        assertThat(tableReadUsers(tableName)).containsExactly(VIEW_READER);
-        assertThat(dataFileReadUsers(tableName)).containsExactly(VIEW_READER);
+        assertThat(tableReadUsers(tableLocation)).containsExactly(VIEW_READER);
+        assertThat(dataFileReadUsers(tableLocation)).containsExactly(VIEW_READER);
+    }
+
+    @ParameterizedTest
+    @MethodSource("nestedViewSecurityModes")
+    void testNestedViewTableIsAccessedAsTheIdentityTheInnerViewRunsAs(String outerMode, String innerMode, String expectedUser)
+    {
+        String tableName = "test_nested_table_" + randomNameSuffix();
+        String innerViewName = "test_inner_view_" + randomNameSuffix();
+        String outerViewName = "test_outer_view_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 id", 1);
+        assertUpdate(sessionOf(INNER_VIEW_OWNER), "CREATE VIEW " + innerViewName + " SECURITY " + innerMode + " AS SELECT * FROM " + tableName);
+        assertUpdate("CREATE VIEW " + outerViewName + " SECURITY " + outerMode + " AS SELECT * FROM " + innerViewName);
+        String tableLocation = getTableLocation(tableName);
+
+        fileReads.clear();
+        assertQuery(viewReaderSession(), "SELECT * FROM " + outerViewName, "VALUES 1");
+
+        assertThat(tableReadUsers(tableLocation)).containsExactly(expectedUser);
+        assertThat(dataFileReadUsers(tableLocation)).containsExactly(expectedUser);
+    }
+
+    static Stream<Arguments> nestedViewSecurityModes()
+    {
+        // A DEFINER view runs as its owner. An INVOKER view runs as whoever reads it, which for a nested view is the
+        // identity the outer view runs as.
+        return Stream.of(
+                Arguments.of("DEFINER", "DEFINER", INNER_VIEW_OWNER),
+                Arguments.of("DEFINER", "INVOKER", VIEW_OWNER),
+                Arguments.of("INVOKER", "DEFINER", INNER_VIEW_OWNER),
+                Arguments.of("INVOKER", "INVOKER", VIEW_READER));
+    }
+
+    @Test
+    void testWriteTargetIsAccessedAsQueryingUser()
+    {
+        String sourceTableName = "test_write_source_" + randomNameSuffix();
+        String viewName = "test_write_view_" + randomNameSuffix();
+        String targetTableName = "test_write_target_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 1 id", 1);
+        assertUpdate("CREATE VIEW " + viewName + " SECURITY DEFINER AS SELECT * FROM " + sourceTableName);
+        assertUpdate(viewReaderSession(), "CREATE TABLE " + targetTableName + " (id integer)");
+        String sourceTableLocation = getTableLocation(sourceTableName);
+        String targetTableLocation = getTableLocation(targetTableName);
+
+        fileReads.clear();
+        fileWrites.clear();
+        assertUpdate(viewReaderSession(), "INSERT INTO " + targetTableName + " SELECT * FROM " + viewName, 1);
+
+        // the table behind the view is read as the view owner, the target of the write stays with the querying user
+        assertThat(dataFileReadUsers(sourceTableLocation)).containsExactly(VIEW_OWNER);
+        assertThat(fileWriteUsers(targetTableLocation)).containsExactly(VIEW_READER);
+    }
+
+    @Test
+    void testDefinerViewTableFunction()
+    {
+        String tableName = "test_function_table_" + randomNameSuffix();
+        String viewName = "test_function_view_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 id", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+        List<Object> snapshots = computeActual("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at").getOnlyColumn().toList();
+        assertUpdate("CREATE VIEW " + viewName + " SECURITY DEFINER AS " +
+                "SELECT id FROM TABLE(system.table_changes('test_schema', '" + tableName + "', " + snapshots.getFirst() + ", " + snapshots.getLast() + "))");
+        String tableLocation = getTableLocation(tableName);
+
+        fileReads.clear();
+        assertQuery(viewReaderSession(), "SELECT * FROM " + viewName, "VALUES 2");
+
+        // TODO (https://github.com/trinodb/trino/issues/15736) The function is analyzed as the view owner, but the handle of a
+        //  table function does not record the identity it was resolved as, so the table it reads is accessed as the querying user.
+        assertThat(tableReadUsers(tableLocation)).containsOnly(VIEW_OWNER, VIEW_READER);
+        assertThat(dataFileReadUsers(tableLocation)).containsExactly(VIEW_READER);
     }
 
     private Session viewReaderSession()
     {
+        return sessionOf(VIEW_READER);
+    }
+
+    private Session sessionOf(String user)
+    {
         return Session.builder(getSession())
-                .setIdentity(Identity.ofUser(VIEW_READER))
+                .setIdentity(Identity.ofUser(user))
                 .build();
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher matcher = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        verify(matcher.find(), "Location not found in SHOW CREATE TABLE result");
+        String location = matcher.group(1);
+        verify(!matcher.find(), "Unexpected second match");
+        return location;
     }
 
     /**
      * Users which read a file of the table, for example a metadata file, a manifest or a data file.
-     * The table directory is {@code <table name>-<random suffix>}, which keeps the metadata of the
-     * Hive file metastore, read as the metastore user, out of the result.
      */
-    private Set<String> tableReadUsers(String tableName)
+    private Set<String> tableReadUsers(String tableLocation)
     {
-        return fileReads.stream()
-                .filter(fileRead -> fileRead.location().contains("/" + tableName + "-"))
-                .map(FileRead::user)
-                .collect(toImmutableSet());
+        return usersOf(fileReads, tableLocation);
     }
 
     /**
      * Users which read a data file of the table. Data files are read on workers, so this covers the
      * identity sent with the plan fragment.
      */
-    private Set<String> dataFileReadUsers(String tableName)
+    private Set<String> dataFileReadUsers(String tableLocation)
     {
-        return fileReads.stream()
-                .filter(fileRead -> fileRead.location().contains("/" + tableName + "-") && fileRead.location().contains("/data/"))
-                .map(FileRead::user)
+        return usersOf(fileReads, tableLocation + "/data/");
+    }
+
+    private Set<String> fileWriteUsers(String tableLocation)
+    {
+        return usersOf(fileWrites, tableLocation);
+    }
+
+    private static Set<String> usersOf(List<FileAccess> accesses, String locationPrefix)
+    {
+        return accesses.stream()
+                .filter(access -> access.location().startsWith(locationPrefix))
+                .map(FileAccess::user)
                 .collect(toImmutableSet());
     }
 
@@ -293,24 +398,31 @@ final class TestIcebergDefinerViewIdentity
         @Override
         public TrinoInputFile newInputFile(Location location)
         {
-            fileReads.add(new FileRead(user, location.toString()));
+            fileReads.add(new FileAccess(user, location.toString()));
             return super.newInputFile(location);
+        }
+
+        @Override
+        public TrinoOutputFile newOutputFile(Location location)
+        {
+            fileWrites.add(new FileAccess(user, location.toString()));
+            return super.newOutputFile(location);
         }
 
         @Override
         public TrinoInputFile newInputFile(Location location, long length)
         {
-            fileReads.add(new FileRead(user, location.toString()));
+            fileReads.add(new FileAccess(user, location.toString()));
             return super.newInputFile(location, length);
         }
 
         @Override
         public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
         {
-            fileReads.add(new FileRead(user, location.toString()));
+            fileReads.add(new FileAccess(user, location.toString()));
             return super.newInputFile(location, length, lastModified);
         }
     }
 
-    private record FileRead(String user, String location) {}
+    private record FileAccess(String user, String location) {}
 }
