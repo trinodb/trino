@@ -852,8 +852,9 @@ class FakerPageSource
         LongTimestampWithTimeZoneRange range = LongTimestampWithTimeZoneRange.of(genericRange, tzType.getPrecision());
         // numberBetween excludes the high bound
         int picosOfMilliHigh = (int) POWERS_OF_TEN[tzType.getPrecision() - 3];
+        long lastEpochMillis = range.lastEpochMillis();
         return blockBuilder -> {
-            long millis = numberBetween(random, range.lowEpochMillis(), range.highEpochMillis());
+            long millis = numberBetweenInclusive(random, range.lowEpochMillis(), lastEpochMillis);
             int picosOfMilli;
             if (millis == range.lowEpochMillis()) {
                 picosOfMilli = numberBetween(
@@ -1318,12 +1319,18 @@ class FakerPageSource
             long millis = offset / unitsPerMilli + fraction / unitsPerMilli;
             fraction %= unitsPerMilli;
             // the high bound is exclusive
-            long lastEpochMillis = highPicosOfMilli > 0 ? highEpochMillis : highEpochMillis - 1;
+            long lastEpochMillis = lastEpochMillis();
             long lastFraction = highPicosOfMilli > 0 ? highPicosOfMilli - 1 : unitsPerMilli - 1;
             if (millis > lastEpochMillis - lowEpochMillis || (millis == lastEpochMillis - lowEpochMillis && fraction > lastFraction)) {
                 return fromEpochMillisAndFraction(lastEpochMillis, toIntExact(lastFraction * factor), defaultTZ);
             }
             return fromEpochMillisAndFraction(lowEpochMillis + millis, toIntExact(fraction * factor), defaultTZ);
+        }
+
+        long lastEpochMillis()
+        {
+            // the high bound is exclusive, so its millisecond only has values before its fraction
+            return highPicosOfMilli > 0 ? highEpochMillis : highEpochMillis - 1;
         }
     }
 
