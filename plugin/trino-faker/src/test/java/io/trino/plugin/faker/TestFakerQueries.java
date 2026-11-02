@@ -549,6 +549,13 @@ final class TestFakerQueries
             }
         }
 
+        // ranges wider than the max value of a long are sampled uniformly, so the lowest bits vary, and values reach the top of the range
+        try (TestTable table = newTrinoTable("range_wide", "(rnd_bigint bigint NOT NULL WITH (min = '-1', max = '9223372036854775807')) WITH (default_limit = 10000)")) {
+            assertQuery(
+                    "SELECT count(DISTINCT rnd_bigint % 1024) > 1000, count_if(rnd_bigint > 9223372036854775807 - 1000000000000000000) BETWEEN 500 AND 1700 FROM " + table.getName(),
+                    "VALUES (true, true)");
+        }
+
         // inclusive range to get the min low bound
         testCases = ImmutableList.<TestDataType>builder()
                 .add(new TestDataType("rnd_bigint", "bigint", Map.of("max", "-9223372036854775808"), "count(distinct rnd_bigint)", "1"))

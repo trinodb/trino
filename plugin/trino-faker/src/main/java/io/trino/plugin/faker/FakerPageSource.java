@@ -1472,12 +1472,8 @@ class FakerPageSource
         if (amplitude >= 0) {
             return random.nextLong(amplitude) + realMin;
         }
-        // handle overflow
-        final BigDecimal bigMin = BigDecimal.valueOf(min);
-        final BigDecimal bigMax = BigDecimal.valueOf(max);
-        final BigDecimal randomValue = BigDecimal.valueOf(random.nextDouble());
-
-        return bigMin.add(bigMax.subtract(bigMin).multiply(randomValue)).longValue();
+        // the amplitude overflows, so sample all longs until one is in the range, which takes 2 attempts at most on average
+        return random.nextLong(realMin, realMax);
     }
 
     private Generator generateIpV4(Type type, Range range, Random random)
