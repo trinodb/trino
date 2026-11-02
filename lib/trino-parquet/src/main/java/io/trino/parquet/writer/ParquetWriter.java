@@ -45,11 +45,13 @@ import org.apache.parquet.format.BloomFilterCompression;
 import org.apache.parquet.format.BloomFilterHash;
 import org.apache.parquet.format.BloomFilterHeader;
 import org.apache.parquet.format.ColumnMetaData;
+import org.apache.parquet.format.ColumnOrder;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.KeyValue;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.SplitBlockAlgorithm;
+import org.apache.parquet.format.TypeDefinedOrder;
 import org.apache.parquet.format.Uncompressed;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.format.XxHash;
@@ -93,6 +95,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetWriter
@@ -507,6 +510,8 @@ public class ParquetWriter
                     totalRows,
                     ImmutableList.copyOf(rowGroups));
             fileMetaData.setCreated_by(createdBy);
+            // Statistics are written in the type defined order, declare it so that readers can interpret the min and max values
+            fileMetaData.setColumn_orders(nCopies(messageType.getColumns().size(), ColumnOrder.TYPE_ORDER(new TypeDefinedOrder())));
             // Added based on org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport
             parquetTimeZone.ifPresent(dateTimeZone -> fileMetaData.setKey_value_metadata(
                     ImmutableList.of(new KeyValue("writer.time.zone").setValue(dateTimeZone.getID()))));
