@@ -40,7 +40,7 @@ public class TestingClickHouseServer
      */
     private static final DockerImageName CLICKHOUSE_IMAGE = DockerImageName.parse("clickhouse/clickhouse-server");
     // https://clickhouse.com/docs/whats-new/changelog#263
-    public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("26.3.1.896");   // LTS
+    public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("26.8.34.13");   // LTS
     // https://clickhouse.com/docs/whats-new/changelog#253
     public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("25.3.6.56"); // EOL in 1 year after 2025-03-27
 
