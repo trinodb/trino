@@ -166,16 +166,19 @@ The following table details all supported column properties.
   - Minimum generated value (inclusive). Defaults to the minimum value of the
     data type, except for `DATE`, `TIMESTAMP`, and `TIMESTAMP WITH TIME ZONE`
     columns, where it defaults to `1970-01-01` in UTC, unless `max` is set to
-    before `1970-01-01`. Cannot be set for character-based type columns.
+    before `1970-01-01`. Values of date and time columns can't be more precise
+    than the column type. Cannot be set for character-based type columns.
 * - `max`
   - Maximum generated value (inclusive). Defaults to the maximum value of the
     data type, except for `DATE`, `TIMESTAMP`, and `TIMESTAMP WITH TIME ZONE`
     columns, where values are generated before `2100-01-01` in UTC, unless `min`
-    is set to `2100-01-01` or later. Cannot be set for character-based type
+    is set to `2100-01-01` or later. Values of date and time columns can't be
+    more precise than the column type. Cannot be set for character-based type
     columns.
 * - `allowed_values`
-  - List of allowed values. Cannot be set together with the `min`, or `max`
-    properties.
+  - List of allowed values. Values of date and time columns can't be more
+    precise than the column type. Cannot be set together with the `min`, or
+    `max` properties.
 * - `step`
   - If set, generate sequential values with this step, which must be finite and
     greater than zero. For date and time columns set this to a duration, which
