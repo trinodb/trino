@@ -220,9 +220,9 @@ final class TestFakerQueries
                     """
                     SELECT to_hex(checksum(rnd_bigint))
                     FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), 3 * MAX_ROWS_PER_SPLIT);
-            assertQuery(testQuery, "VALUES ('EC7405E52288D6B3')");
-            assertQuery(testQuery, "VALUES ('EC7405E52288D6B3')");
-            assertQuery(testQuery, "VALUES ('EC7405E52288D6B3')");
+            assertQuery(testQuery, "VALUES ('8EB90377A1FAA953')");
+            assertQuery(testQuery, "VALUES ('8EB90377A1FAA953')");
+            assertQuery(testQuery, "VALUES ('8EB90377A1FAA953')");
 
             // there should be no overlap between data generated from different splits
             assertQuery(
@@ -803,6 +803,20 @@ final class TestFakerQueries
 
         for (TestDataType testCase : testCases) {
             try (TestTable table = newTrinoTable("step_top_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+
+        // without a max high bound, sequences stop at the max value of the type
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "9223372036854775807", "step", "1"), "count(distinct rnd_bigint) = 1 AND min(rnd_bigint) = 9223372036854775807", "true"))
+                .add(new TestDataType("rnd_integer", "integer", Map.of("min", "2147483638", "step", "1"), "count(distinct rnd_integer) = 10 AND max(rnd_integer) = 2147483647", "true"))
+                .add(new TestDataType("rnd_smallint", "smallint", Map.of("min", "32758", "step", "1"), "count(distinct rnd_smallint) = 10 AND max(rnd_smallint) = 32767", "true"))
+                .add(new TestDataType("rnd_tinyint", "tinyint", Map.of("min", "118", "step", "1"), "count(distinct rnd_tinyint) = 10 AND max(rnd_tinyint) = 127", "true"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("step_unbounded_top_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }

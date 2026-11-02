@@ -411,7 +411,7 @@ class FakerPageSource
         }
         if (type instanceof TimeType timeType) {
             long factor = POWERS_OF_TEN[12 - timeType.getPrecision()];
-            LongRange range = LongRange.of(genericRange, factor, 0, PICOSECONDS_PER_DAY, (long) handle.step().getSingleValue() * PICOSECONDS_PER_NANOSECOND);
+            LongRange range = LongRange.of(genericRange, factor, 0, PICOSECONDS_PER_DAY - 1, (long) handle.step().getSingleValue() * PICOSECONDS_PER_NANOSECOND);
             return (blockBuilder, rowId) -> timeType.writeLong(blockBuilder, range.at(rowId, factor) * factor);
         }
         if (type instanceof TimeWithTimeZoneType timeType) {
@@ -553,7 +553,7 @@ class FakerPageSource
         }
         if (type instanceof TimeType timeType) {
             long factor = POWERS_OF_TEN[12 - timeType.getPrecision()];
-            LongRange range = LongRange.of(genericRange, factor, 0, PICOSECONDS_PER_DAY);
+            LongRange range = LongRange.of(genericRange, factor, 0, PICOSECONDS_PER_DAY - 1);
             return blockBuilder -> timeType.writeLong(blockBuilder, numberBetweenInclusive(random, range.low, range.high) * factor);
         }
         if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
@@ -943,10 +943,10 @@ class FakerPageSource
 
         static LongRange of(Range range, long factor, long defaultMin, long defaultMax, long step)
         {
-            // round the default min value up, so it doesn't fall below the min value of the type when multiplied by the factor
+            // the default bounds are inclusive, so round them inwards, so they don't fall outside the range of the type when multiplied by the factor
             return new LongRange(
                     ceilDiv((long) range.getLowValue().orElse(defaultMin), factor) + (!range.isLowUnbounded() && !range.isLowInclusive() ? 1 : 0),
-                    roundDiv((long) range.getHighValue().orElse(defaultMax), factor) - (range.isHighInclusive() ? 0 : 1),
+                    range.isHighUnbounded() ? floorDiv(defaultMax, factor) : roundDiv((long) range.getHighValue().orElseThrow(), factor) - (range.isHighInclusive() ? 0 : 1),
                     step);
         }
 
@@ -985,7 +985,7 @@ class FakerPageSource
         {
             return new IntRange(
                     toIntExact((long) range.getLowValue().orElse(defaultMin)) + (!range.isLowUnbounded() && !range.isLowInclusive() ? 1 : 0),
-                    toIntExact((long) range.getHighValue().orElse(defaultMax)) - (range.isHighInclusive() ? 0 : 1),
+                    toIntExact((long) range.getHighValue().orElse(defaultMax)) - (range.isHighUnbounded() || range.isHighInclusive() ? 0 : 1),
                     step);
         }
 
