@@ -881,7 +881,7 @@ final class TestFakerQueries
                   real_range real NOT NULL WITH (min = '0', max = '1'),
                   double_range double NOT NULL WITH (min = '0', max = '1'),
                   date_step date NOT NULL WITH (min = '2022-03-01', max = '2022-03-10', step = '1d'),
-                  date_partial_step date NOT NULL WITH (min = '2022-03-01', max = '2022-03-10', step = '12h'),
+                  date_partial_step date NOT NULL WITH (min = '2022-03-01', max = '2022-03-10', step = '36h'),
                   timestamp_step timestamp(3) NOT NULL WITH (min = '2022-03-21 00:00:00.000', max = '2022-03-21 00:00:00.009', step = '1ms'),
                   timestamp0_step timestamp(0) NOT NULL WITH (min = '2022-03-21 00:00:00', max = '2022-03-21 00:00:09', step = '2s'),
                   timestamptz_step timestamp(3) with time zone NOT NULL WITH (min = '2022-03-21 00:00:00.000 +01:00', max = '2022-03-21 00:00:00.009 +01:00', step = '1ms'),
@@ -979,6 +979,26 @@ final class TestFakerQueries
                     .failure()
                     .hasErrorCode(INVALID_COLUMN_PROPERTY)
                     .hasMessage("The `step` property must be greater than zero and finite");
+        }
+    }
+
+    @Test
+    void testStepPropertyShorterThanPrecision()
+    {
+        Map<String, String> columnSchemas = ImmutableMap.<String, String>builder()
+                .put("date WITH (step = '12h')", "The `step` property for a date column must be at least 1d")
+                .put("timestamp(0) WITH (step = '500ms')", "The `step` property for a timestamp(0) column must be at least 1s")
+                .put("timestamp(3) WITH (step = '1us')", "The `step` property for a timestamp(3) column must be at least 1ms")
+                .put("timestamp(6) with time zone WITH (step = '1ns')", "The `step` property for a timestamp(6) with time zone column must be at least 1us")
+                .put("time(1) WITH (step = '10ms')", "The `step` property for a time(1) column must be at least 100ms")
+                .put("time(3) with time zone WITH (step = '1us')", "The `step` property for a time(3) with time zone column must be at least 1ms")
+                .buildOrThrow();
+
+        for (Map.Entry<String, String> entry : columnSchemas.entrySet()) {
+            assertThat(query("CREATE TABLE step_too_short (value %s)".formatted(entry.getKey())))
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_PROPERTY)
+                    .hasMessage(entry.getValue());
         }
     }
 
