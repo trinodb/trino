@@ -20,7 +20,6 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.util.concurrent.Executor;
 
@@ -33,7 +32,7 @@ public final class S3FileSystemFactory
     private final S3Client client;
     private final S3Context context;
     private final Executor uploadExecutor;
-    private final S3Presigner preSigner;
+    private final S3PresignedUriGenerator preSigner;
 
     @Inject
     public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
@@ -48,7 +47,7 @@ public final class S3FileSystemFactory
     @PreDestroy
     public void destroy()
     {
-        try (client) {
+        try (client; preSigner) {
             loader.destroy();
         }
     }

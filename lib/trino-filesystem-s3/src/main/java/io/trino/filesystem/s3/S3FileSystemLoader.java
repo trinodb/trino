@@ -42,7 +42,6 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.auth.scheme.S3AuthSchemeProvider;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 
 import java.net.URI;
@@ -76,7 +75,7 @@ final class S3FileSystemLoader
     private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("s3-upload-%s"));
     private final ExecutorService dnsRefreshExecutor = newCachedThreadPool(daemonThreadsNamed("s3-dns-refresh-%s"));
     private final Map<Optional<S3SecurityMappingResult>, S3Client> clients = new ConcurrentHashMap<>();
-    private final Map<Optional<S3SecurityMappingResult>, S3Presigner> preSigners = new ConcurrentHashMap<>();
+    private final Map<Optional<S3SecurityMappingResult>, S3PresignedUriGenerator> preSigners = new ConcurrentHashMap<>();
 
     @Inject
     public S3FileSystemLoader(S3SecurityMappingProvider mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
@@ -119,7 +118,7 @@ final class S3FileSystemLoader
             Optional<S3SecurityMappingResult> mapping = mappingProvider.orElseThrow().getMapping(identity, location);
 
             S3Client client = clients.computeIfAbsent(mapping, _ -> clientFactory.create(mapping));
-            S3Presigner preSigner = preSigners.computeIfAbsent(mapping, _ -> createS3PreSigner(config, client));
+            S3PresignedUriGenerator preSigner = preSigners.computeIfAbsent(mapping, _ -> createS3PreSigner(config, client));
             S3Context context = this.context.withCredentials(identity);
 
             if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
@@ -139,6 +138,7 @@ final class S3FileSystemLoader
     public void destroy()
     {
         try (httpClient) {
+            preSigners.values().forEach(S3PresignedUriGenerator::close);
             uploadExecutor.shutdownNow();
         }
         finally {
@@ -206,6 +206,7 @@ final class S3FileSystemLoader
             switch (authType) {
                 case ANONYMOUS -> s3.credentialsProvider(AnonymousCredentialsProvider.create());
                 case WEB_IDENTITY -> s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
+                        .roleSessionDuration(config.getRoleSessionDuration().toJavaTime())
                         .asyncCredentialUpdateEnabled(true)
                         .build());
                 case IAM_ROLE, DEFAULT -> {
@@ -215,6 +216,7 @@ final class S3FileSystemLoader
                                 .refreshRequest(request -> request
                                         .roleArn(iamRole.get())
                                         .roleSessionName(roleSessionName)
+                                        .durationSeconds(toIntExact(config.getRoleSessionDuration().toJavaTime().toSeconds()))
                                         .externalId(externalId))
                                 .stsClient(createStsClient(config, credentialsProvider))
                                 .asyncCredentialUpdateEnabled(true)

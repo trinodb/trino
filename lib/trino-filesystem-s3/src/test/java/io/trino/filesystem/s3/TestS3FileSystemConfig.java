@@ -38,6 +38,7 @@ import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.LEGACY;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.STANDARD;
 import static io.trino.filesystem.s3.S3FileSystemConfig.SignerType.Aws4Signer;
 import static io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType.STANDARD_IA;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestS3FileSystemConfig
@@ -55,6 +56,7 @@ public class TestS3FileSystemConfig
                 .setChunkedEncodingEnabled(true)
                 .setIamRole(null)
                 .setRoleSessionName("trino-filesystem")
+                .setRoleSessionDuration(new Duration(1, HOURS))
                 .setExternalId(null)
                 .setStsEndpoint(null)
                 .setStsRegion(null)
@@ -94,6 +96,7 @@ public class TestS3FileSystemConfig
                 .put("s3.expect-continue-enabled", "false")
                 .put("s3.chunked-encoding-enabled", "false")
                 .put("s3.role-session-name", "mysession")
+                .put("s3.role-session-duration", "90m")
                 .put("s3.storage-class", "STANDARD_IA")
                 .put("s3.signer-type", "Aws4Signer")
                 .put("s3.canned-acl", "BUCKET_OWNER_FULL_CONTROL")
@@ -130,6 +133,7 @@ public class TestS3FileSystemConfig
                 .setExpectContinueEnabled(false)
                 .setChunkedEncodingEnabled(false)
                 .setRoleSessionName("mysession")
+                .setRoleSessionDuration(new Duration(90, MINUTES))
                 .setStorageClass(STANDARD_IA)
                 .setSignerType(Aws4Signer)
                 .setCannedAcl(ObjectCannedAcl.BUCKET_OWNER_FULL_CONTROL)
