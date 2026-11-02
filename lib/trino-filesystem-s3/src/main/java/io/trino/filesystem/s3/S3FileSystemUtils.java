@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem.s3;
 
-import io.trino.filesystem.s3.S3FileSystemConfig.S3AuthType;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -34,42 +33,31 @@ final class S3FileSystemUtils
 {
     private S3FileSystemUtils() {}
 
-    public static S3Presigner createS3PreSigner(S3FileSystemConfig config, S3Client s3Client)
+    public static S3Presigner createS3PreSigner(S3PresignerSettings settings, S3Client s3Client)
     {
-        Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(config);
-        Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
-        Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
-        boolean pathStyleAccess = config.isPathStyleAccess();
-        S3AuthType authType = config.getAuthType();
-        Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
-        String staticRoleSessionName = config.getRoleSessionName();
-        String externalId = config.getExternalId();
-        Optional<String> stsEndpoint = Optional.ofNullable(config.getStsEndpoint());
-        Optional<String> stsRegion = Optional.ofNullable(config.getStsRegion()).or(() -> staticRegion);
-
         S3Presigner.Builder s3 = S3Presigner.builder();
         s3.s3Client(s3Client);
 
-        staticRegion.map(Region::of).ifPresent(s3::region);
-        staticEndpoint.map(URI::create).ifPresent(s3::endpointOverride);
+        settings.region().map(Region::of).ifPresent(s3::region);
+        settings.endpoint().map(URI::create).ifPresent(s3::endpointOverride);
         s3.serviceConfiguration(S3Configuration.builder()
-                .pathStyleAccessEnabled(pathStyleAccess)
+                .pathStyleAccessEnabled(settings.pathStyleAccess())
                 .build());
 
-        switch (authType) {
+        switch (settings.authType()) {
             case ANONYMOUS -> s3.credentialsProvider(AnonymousCredentialsProvider.create());
             case WEB_IDENTITY -> s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
                     .asyncCredentialUpdateEnabled(true)
                     .build());
             case IAM_ROLE -> s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
-                            .roleArn(staticIamRole.orElseThrow())
-                            .roleSessionName(staticRoleSessionName)
-                            .externalId(externalId))
-                    .stsClient(createStsClient(stsEndpoint, stsRegion, staticCredentialsProvider))
+                            .roleArn(settings.iamRole().orElseThrow())
+                            .roleSessionName(settings.roleSessionName())
+                            .externalId(settings.externalId().orElse(null)))
+                    .stsClient(createStsClient(settings.stsEndpoint(), settings.stsRegion(), settings.credentialsProvider()))
                     .asyncCredentialUpdateEnabled(true)
                     .build());
-            case DEFAULT -> staticCredentialsProvider.ifPresent(s3::credentialsProvider);
+            case DEFAULT -> settings.credentialsProvider().ifPresent(s3::credentialsProvider);
         }
 
         return s3.build();

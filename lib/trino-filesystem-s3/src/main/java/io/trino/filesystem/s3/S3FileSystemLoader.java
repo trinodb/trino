@@ -71,7 +71,7 @@ final class S3FileSystemLoader
     private final Optional<S3SecurityMappingProvider> mappingProvider;
     private final SdkHttpClient httpClient;
     private final S3ClientFactory clientFactory;
-    private final S3FileSystemConfig config;
+    private final S3PresignerSettings presignerSettings;
     private final S3Context context;
     private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("s3-upload-%s"));
     private final ExecutorService dnsRefreshExecutor = newCachedThreadPool(daemonThreadsNamed("s3-dns-refresh-%s"));
@@ -98,7 +98,7 @@ final class S3FileSystemLoader
 
         MetricPublisher metricPublisher = stats.newMetricPublisher();
         this.clientFactory = s3ClientFactory(httpClient, openTelemetry, config, metricPublisher);
-        this.config = requireNonNull(config, "config is null");
+        this.presignerSettings = new S3PresignerSettings(config);
         this.context = new S3Context(
                 toIntExact(config.getStreamingPartSize().toBytes()),
                 config.isRequesterPays(),
@@ -119,7 +119,7 @@ final class S3FileSystemLoader
             Optional<S3SecurityMappingResult> mapping = mappingProvider.orElseThrow().getMapping(identity, location);
 
             S3Client client = clients.computeIfAbsent(mapping, _ -> clientFactory.create(mapping));
-            S3Presigner preSigner = preSigners.computeIfAbsent(mapping, _ -> createS3PreSigner(config, client));
+            S3Presigner preSigner = preSigners.computeIfAbsent(mapping, _ -> createS3PreSigner(presignerSettings, client));
             S3Context context = this.context.withCredentials(identity);
 
             if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
