@@ -209,23 +209,15 @@ class FakerPageSource
             Random random,
             Faker faker)
     {
+        ColumnGenerator generator;
         if (column.domain().getValues().isDiscreteSet()) {
-            List<Object> values = column.domain().getValues().getDiscreteSet();
-            ObjectWriter singleValueWriter = objectWriter(column.type());
-            if (!column.rankedValues().isEmpty()) {
-                List<Object> rankedValues = column.rankedValues().stream()
-                        .map(value -> Literal.parse(value, column.type()))
-                        .collect(toImmutableList());
-                return (blockBuilder, _) -> singleValueWriter.accept(blockBuilder, rankedValues.get((int) zipfOffset(random, rankedValues.size())));
-            }
-            return (blockBuilder, _) -> singleValueWriter.accept(blockBuilder, values.get(random.nextInt(values.size())));
+            generator = discreteValueGenerator(column, random);
         }
-        if (column.domain().getValues() instanceof FloatingPointValueSet floatingPoint && !floatingPoint.isAll() &&
+        else if (column.domain().getValues() instanceof FloatingPointValueSet floatingPoint && !floatingPoint.isAll() &&
                 (floatingPoint.asRanges().isEmpty() || floatingPoint.isAllOrderedValues())) {
             throw new TrinoException(INVALID_ROW_FILTER, "Non-discrete NaN constraints are not supported for generated columns");
         }
-        ColumnGenerator generator;
-        if (column.referencedColumn().isPresent()) {
+        else if (column.referencedColumn().isPresent()) {
             generator = referencedValueGenerator(column, random);
         }
         else if (!column.step().isNone()) {
@@ -246,6 +238,19 @@ class FakerPageSource
                 generator.accept(blockBuilder, rowId);
             }
         };
+    }
+
+    private ColumnGenerator discreteValueGenerator(FakerColumnHandle column, Random random)
+    {
+        ObjectWriter singleValueWriter = objectWriter(column.type());
+        if (!column.rankedValues().isEmpty()) {
+            List<Object> rankedValues = column.rankedValues().stream()
+                    .map(value -> Literal.parse(value, column.type()))
+                    .collect(toImmutableList());
+            return (blockBuilder, _) -> singleValueWriter.accept(blockBuilder, rankedValues.get((int) zipfOffset(random, rankedValues.size())));
+        }
+        List<Object> values = column.domain().getValues().getDiscreteSet();
+        return (blockBuilder, _) -> singleValueWriter.accept(blockBuilder, values.get(random.nextInt(values.size())));
     }
 
     private ColumnGenerator referencedValueGenerator(FakerColumnHandle column, Random random)

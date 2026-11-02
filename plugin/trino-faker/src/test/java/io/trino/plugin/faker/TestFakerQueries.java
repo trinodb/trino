@@ -1519,6 +1519,28 @@ final class TestFakerQueries
     }
 
     @Test
+    void testSelectAllowedValuesNulls()
+    {
+        try (TestTable table = newTrinoTable("allowed_values_nulls", "(x varchar WITH (allowed_values = ARRAY['a', 'b']), y bigint WITH (allowed_values = ARRAY['1', '2'], distribution = 'zipf')) WITH (null_probability = 0.5)")) {
+            assertQuery(
+                    "SELECT count_if(x IS NULL) BETWEEN 400 AND 600, count_if(y IS NULL) BETWEEN 400 AND 600, count(DISTINCT x), count(DISTINCT y) FROM " + table.getName(),
+                    "VALUES (true, true, 2, 2)");
+        }
+
+        // dictionaries detected in a source with nulls keep generating them
+        String source =
+                """
+                SELECT
+                  IF(sequential_number % 2 = 0, NULL, CAST(sequential_number % 3 AS varchar)) AS dictionary
+                FROM TABLE(sequence(start => 1, stop => 1000, step => 1))
+                """;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "dictionary_nulls", "AS " + source)) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains(ALLOWED_VALUES_PROPERTY);
+            assertQuery("SELECT count_if(dictionary IS NULL) BETWEEN 400 AND 600, count(DISTINCT dictionary) FROM " + table.getName(), "VALUES (true, 3)");
+        }
+    }
+
+    @Test
     void testCreateTableAsSelectVarchar()
     {
         String source =
