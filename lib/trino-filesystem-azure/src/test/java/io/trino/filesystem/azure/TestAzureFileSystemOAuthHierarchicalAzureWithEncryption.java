@@ -14,10 +14,11 @@
 package io.trino.filesystem.azure;
 
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class TestAzureFileSystemOAuthGen2FlatWithEncryption
-        extends TestAzureFileSystemOAuthGen2Flat
+@TestInstance(Lifecycle.PER_CLASS)
+public class TestAzureFileSystemOAuthHierarchicalAzureWithEncryption
+        extends TestAzureFileSystemOAuthHierarchicalAzure
 {
     @Override
     protected boolean useServerSideEncryptionWithCustomerKey()
