@@ -76,7 +76,6 @@ public final class PartitionFilter
     /**
      * Returns the filter for one partition. A value that cannot be written into the filter stays out
      * of it, so the filter may match more than one partition, and the caller has to pick the exact one.
-     * Use {@link #matchesExactly} to tell whether that is the case.
      */
     public static String toLakehouseFilter(List<Column> partitionColumns, List<String> values)
     {
@@ -93,15 +92,6 @@ public final class PartitionFilter
             conditions.add(equality(column.getName(), column.getType().toString(), values.get(i)));
         }
         return String.join(" and ", conditions);
-    }
-
-    /**
-     * Returns whether the filter for these values matches the partition alone, so that no value was
-     * left out of it.
-     */
-    public static boolean matchesExactly(List<String> values)
-    {
-        return values.stream().allMatch(PartitionFilter::canBeWrittenInFilter);
     }
 
     // A quote ends the literal and changes the filter

@@ -84,7 +84,7 @@ public final class TableMapper
     /**
      * Returns the table parameters, with the Lakehouse description exposed as the Trino comment.
      */
-    private static Map<String, String> parameters(HiveTable table)
+    static Map<String, String> parameters(HiveTable table)
     {
         if (table.getDescription().isEmpty()) {
             return table.getParametersMap();

@@ -26,6 +26,7 @@ import io.trino.metastore.lakehouse.LakehouseClient;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -49,6 +50,8 @@ final class TestingLakehouseCatalog
     private static final String TEXT_OUTPUT_FORMAT = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat";
 
     private static final List<String> REGIONS = ImmutableList.of("emea", "apac");
+
+    private final List<String> partitionFilters = new CopyOnWriteArrayList<>();
 
     @Override
     public List<HiveDatabase> listDatabases()
@@ -85,6 +88,7 @@ final class TestingLakehouseCatalog
         if (getTable(databaseName, tableName).isEmpty()) {
             return Optional.empty();
         }
+        partitionFilters.add(filter);
         if (!PARTITIONED_TABLE.equals(tableName)) {
             return Optional.of(ImmutableList.of());
         }
@@ -92,6 +96,14 @@ final class TestingLakehouseCatalog
                 .filter(region -> filter.isEmpty() || filter.contains("'" + region + "'"))
                 .map(TestingLakehouseCatalog::partition)
                 .collect(toImmutableList()));
+    }
+
+    /**
+     * Returns the filter of every request to list partitions, in the order of the requests.
+     */
+    List<String> partitionFilters()
+    {
+        return ImmutableList.copyOf(partitionFilters);
     }
 
     private static HiveDatabase database()

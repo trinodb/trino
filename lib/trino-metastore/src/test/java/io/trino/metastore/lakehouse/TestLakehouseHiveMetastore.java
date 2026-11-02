@@ -46,6 +46,7 @@ import java.util.Set;
 
 import static io.trino.metastore.MetastoreErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.metastore.Partitions.makePartName;
+import static io.trino.metastore.TableInfo.PRESTO_VIEW_COMMENT;
 import static io.trino.metastore.lakehouse.TestingLakehouseObjects.field;
 import static io.trino.metastore.lakehouse.TestingLakehouseObjects.partition;
 import static io.trino.metastore.lakehouse.TestingLakehouseObjects.table;
@@ -130,6 +131,18 @@ class TestLakehouseHiveMetastore
                 .containsExactly(TABLE, "returns");
         // A listing returns whole tables, so the relation type costs no extra request
         assertThat(tables).allMatch(tableInfo -> tableInfo.extendedRelationType() == TableInfo.ExtendedRelationType.TABLE);
+    }
+
+    @Test
+    void listsAViewMarkedInItsDescriptionAsATrinoView()
+    {
+        client.add(table(SCHEMA, "orders_view", PRESTO_VIEW_COMMENT, List.of(field("id", "bigint")), List.of()).toBuilder()
+                .setTableType("VIRTUAL_VIEW")
+                .build());
+
+        assertThat(metastore.getTables(SCHEMA))
+                .extracting(TableInfo::extendedRelationType)
+                .containsExactly(TableInfo.ExtendedRelationType.TRINO_VIEW);
     }
 
     @Test
@@ -258,6 +271,23 @@ class TestLakehouseHiveMetastore
 
         // A quote ends the literal and changes the filter, so no filter carries the value
         assertThat(client.partitionFilters()).allSatisfy(filter -> assertThat(filter).doesNotContain("brien"));
+    }
+
+    @Test
+    void returnsOnlyThePartitionWhoseValuesEqualTheRequestedOnes()
+    {
+        client.add(table(SCHEMA, TABLE, "", List.of(field("id", "bigint")), List.of(field("n", "int"))));
+        Table table = metastore.getTable(SCHEMA, TABLE).orElseThrow();
+        // The test client ignores a condition without quotes, so a filter on an integer column lists both partitions
+        client.add(SCHEMA, TABLE, partition(TABLE, List.of("1")))
+                .add(SCHEMA, TABLE, partition(TABLE, List.of("2")));
+
+        assertThat(metastore.getPartition(table, List.of("2")))
+                .hasValueSatisfying(partition -> assertThat(partition.getValues()).containsExactly("2"));
+
+        String partitionName = makePartName(List.of("n"), List.of("2"));
+        assertThat(metastore.getPartitionsByNames(table, List.of(partitionName)).get(partitionName))
+                .hasValueSatisfying(partition -> assertThat(partition.getValues()).containsExactly("2"));
     }
 
     @Test

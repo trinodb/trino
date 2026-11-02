@@ -87,7 +87,7 @@ public class LakehouseHiveMetastoreFactory
         return metastore;
     }
 
-    private LakehouseClient createClient()
+    private synchronized LakehouseClient createClient()
     {
         GrpcLakehouseClient created = new GrpcLakehouseClient(serviceClientFactory.get(), projectId, catalogId);
         client = created;
@@ -107,7 +107,7 @@ public class LakehouseHiveMetastoreFactory
     }
 
     @Override
-    public void close()
+    public synchronized void close()
     {
         GrpcLakehouseClient created = client;
         if (created == null) {

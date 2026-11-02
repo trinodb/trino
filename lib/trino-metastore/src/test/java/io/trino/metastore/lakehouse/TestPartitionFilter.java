@@ -190,14 +190,6 @@ class TestPartitionFilter
                 .hasMessageContaining("count");
     }
 
-    @Test
-    void reportsWhetherTheFilterLeftAValueOut()
-    {
-        assertThat(PartitionFilter.matchesExactly(List.of("emea", "2026"))).isTrue();
-        assertThat(PartitionFilter.matchesExactly(List.of())).isTrue();
-        assertThat(PartitionFilter.matchesExactly(List.of("emea", "o'brien"))).isFalse();
-    }
-
     private static TupleDomain<String> singleValue(String column, Type type, Object value)
     {
         Object nativeValue = value instanceof String text ? utf8Slice(text) : value;

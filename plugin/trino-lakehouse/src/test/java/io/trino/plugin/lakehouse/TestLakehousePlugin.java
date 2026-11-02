@@ -61,7 +61,8 @@ final class TestLakehousePlugin
                         "hive.metastore", "lakehouse",
                         "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
-                .hasMessageContaining("The Lakehouse runtime catalog is not supported by the Lakehouse connector");
+                .hasMessageContaining("The Lakehouse runtime catalog is not supported by the Lakehouse connector for Iceberg tables")
+                .hasMessageContaining("The Lakehouse runtime catalog is not supported by the Lakehouse connector for Delta Lake tables");
     }
 
     private static void assertCreateConnector(Map<String, String> config)

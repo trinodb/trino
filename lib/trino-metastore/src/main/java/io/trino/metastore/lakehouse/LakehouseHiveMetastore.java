@@ -106,7 +106,7 @@ public class LakehouseHiveMetastore
     {
         return TableInfo.ExtendedRelationType.fromTableTypeAndComment(
                 TableMapper.tableType(table),
-                table.getParametersMap().get(TABLE_COMMENT));
+                TableMapper.parameters(table).get(TABLE_COMMENT));
     }
 
     @Override
@@ -164,12 +164,11 @@ public class LakehouseHiveMetastore
     private Optional<Partition> onePartition(Table table, List<String> partitionValues)
     {
         String filter = PartitionFilter.toLakehouseFilter(table.getPartitionColumns(), partitionValues);
-        boolean exact = PartitionFilter.matchesExactly(partitionValues);
         return client.get()
                 .listPartitions(table.getDatabaseName(), table.getTableName(), filter)
                 // A filter that left a value out lists more than one partition
                 .flatMap(partitions -> partitions.stream()
-                        .filter(partition -> exact || partition.getValuesList().equals(partitionValues))
+                        .filter(partition -> partition.getValuesList().equals(partitionValues))
                         .findFirst())
                 .map(partition -> PartitionMapper.toTrino(partition, table.getDatabaseName(), table.getTableName()));
     }

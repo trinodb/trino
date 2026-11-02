@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -31,6 +32,7 @@ import static io.trino.plugin.hive.metastore.lakehouse.TestingLakehouseCatalog.S
 import static io.trino.plugin.hive.metastore.lakehouse.TestingLakehouseCatalog.UNPARTITIONED_TABLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Runs the discovery and read workflows of the Hive connector against a fixed Lakehouse catalog.
@@ -42,6 +44,8 @@ public class TestLakehouseHiveMetastoreQueries
         extends AbstractTestQueryFramework
 {
     private static final String CATALOG_NAME = "lakehouse";
+
+    private TestingLakehouseCatalog catalog;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -56,7 +60,7 @@ public class TestLakehouseHiveMetastoreQueries
         Path dataRoot = queryRunner.getCoordinator().getBaseDataDir().resolve("lakehouse_data");
         writeFixtures(dataRoot);
 
-        TestingLakehouseCatalog catalog = new TestingLakehouseCatalog();
+        catalog = new TestingLakehouseCatalog();
         LakehouseHiveMetastore metastore = new LakehouseHiveMetastore(() -> catalog);
 
         queryRunner.installPlugin(new TestingHivePlugin(dataRoot, Optional.of(metastore), false, Optional.empty()));
@@ -119,8 +123,11 @@ public class TestLakehouseHiveMetastoreQueries
                 "VALUES (3, 'desk', 'emea'), (4, 'lamp', 'apac')");
 
         // The predicate on the partition column is the one Lakehouse is asked to apply
+        int requestsBefore = catalog.partitionFilters().size();
         assertQuery(
                 "SELECT item FROM " + PARTITIONED_TABLE + " WHERE region = 'emea'",
                 "VALUES 'desk'");
+        List<String> filters = catalog.partitionFilters();
+        assertThat(filters.subList(requestsBefore, filters.size())).isNotEmpty().containsOnly("region='emea'");
     }
 }

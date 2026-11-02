@@ -94,6 +94,8 @@ metastore, you must instead set `hive.metastore` to `lakehouse`:
 ```properties
 connector.name=hive
 hive.metastore=lakehouse
+hive.metastore.lakehouse.project-id=example-project-id
+hive.metastore.lakehouse.catalog-id=example-catalog
 ```
 
 Each metastore type has specific configuration properties along with

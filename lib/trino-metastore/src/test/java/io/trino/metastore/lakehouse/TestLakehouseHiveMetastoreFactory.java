@@ -28,8 +28,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.trino.metastore.lakehouse.TestingLakehouseObjects.CATALOG;
 import static io.trino.metastore.lakehouse.TestingLakehouseObjects.PROJECT;
 import static io.trino.metastore.lakehouse.TestingLakehouseObjects.database;
@@ -119,6 +121,37 @@ class TestLakehouseHiveMetastoreFactory
         factory.close();
 
         assertThat(createdClients).isEmpty();
+    }
+
+    @Test
+    void closesTheClientThatIsBeingCreatedWhenTheFactoryCloses()
+            throws InterruptedException
+    {
+        CountDownLatch creating = new CountDownLatch(1);
+        CountDownLatch created = new CountDownLatch(1);
+        LakehouseHiveMetastoreFactory factory = new LakehouseHiveMetastoreFactory(PROJECT, CATALOG, tracer, () -> {
+            creating.countDown();
+            awaitUninterruptibly(created);
+            HiveMetastoreServiceClient client = server.createClient(Duration.ofSeconds(30));
+            createdClients.add(client);
+            return client;
+        });
+        Thread query = new Thread(() -> factory.createMetastore(Optional.empty()).getAllDatabases());
+        query.start();
+        creating.await();
+
+        Thread shutdown = new Thread(factory::close);
+        shutdown.start();
+        // The shutdown either waits for the creation or has already returned
+        while (shutdown.getState() == Thread.State.NEW || shutdown.getState() == Thread.State.RUNNABLE) {
+            Thread.onSpinWait();
+        }
+        created.countDown();
+        query.join();
+        shutdown.join();
+
+        assertThat(createdClients).hasSize(1);
+        assertThat(createdClients.getFirst().isShutdown()).isTrue();
     }
 
     @Test

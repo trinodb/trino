@@ -35,7 +35,8 @@ later in this topic.
   - The type of Hive metastore to use. Trino currently supports the default Hive
     Thrift metastore (`thrift`), the AWS Glue Catalog (`glue`), and the Lakehouse
     Hive catalog (`lakehouse`) as metadata sources. You must use this for all
-    object storage catalogs except Iceberg.
+    object storage catalogs except Iceberg. Delta Lake catalogs do not support
+    `lakehouse`. See {ref}`hive-lakehouse-metastore`.
   - `thrift`
 * - `iceberg.catalog.type`
   - The Iceberg table format manages most metadata in metadata files in the
