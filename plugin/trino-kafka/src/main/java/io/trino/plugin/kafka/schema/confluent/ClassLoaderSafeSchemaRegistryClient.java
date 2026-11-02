@@ -25,8 +25,12 @@ import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
 import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaRegistryDeployment;
 import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaRegistryServerVersion;
 import io.confluent.kafka.schemaregistry.client.rest.entities.SubjectVersion;
+import io.confluent.kafka.schemaregistry.client.rest.entities.requests.AssociationBatchGetRequest;
+import io.confluent.kafka.schemaregistry.client.rest.entities.requests.AssociationBatchRequest;
+import io.confluent.kafka.schemaregistry.client.rest.entities.requests.AssociationBatchResponse;
 import io.confluent.kafka.schemaregistry.client.rest.entities.requests.AssociationCreateOrUpdateRequest;
 import io.confluent.kafka.schemaregistry.client.rest.entities.requests.AssociationResponse;
+import io.confluent.kafka.schemaregistry.client.rest.entities.requests.RegisterSchemaRequest;
 import io.confluent.kafka.schemaregistry.client.rest.entities.requests.RegisterSchemaResponse;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -631,6 +635,15 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    public RegisterSchemaResponse registerWithRequestResponse(String subject, RegisterSchemaRequest request, boolean normalize)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.registerWithRequestResponse(subject, request, normalize);
+        }
+    }
+
+    @Override
     public SchemaMetadata getLatestWithMetadata(String subject, Map<String, String> metadata, boolean lookupDeletedSchema)
             throws RestClientException, IOException
     {
@@ -726,6 +739,96 @@ public class ClassLoaderSafeSchemaRegistryClient
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.deleteAssociations(resourceId, resourceType, associationTypes, cascadeLifecycle);
+        }
+    }
+
+    @Override
+    public SchemaMetadata getLatestSchemaMetadata(String subject, String format)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getLatestSchemaMetadata(subject, format);
+        }
+    }
+
+    @Override
+    public SchemaMetadata getSchemaMetadata(String subject, int version, String format)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSchemaMetadata(subject, version, format);
+        }
+    }
+
+    @Override
+    public io.confluent.kafka.schemaregistry.client.rest.entities.Schema getSchemaEntityBySubjectAndId(String subject, int id)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSchemaEntityBySubjectAndId(subject, id);
+        }
+    }
+
+    @Override
+    public List<String> testCompatibilityVerboseWithRequest(String subject, RegisterSchemaRequest request, boolean normalize)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.testCompatibilityVerboseWithRequest(subject, request, normalize);
+        }
+    }
+
+    @Override
+    public String getCompatibility(String subject, boolean defaultToGlobal)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getCompatibility(subject, defaultToGlobal);
+        }
+    }
+
+    @Override
+    public Config getConfig(String subject, boolean defaultToGlobal)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getConfig(subject, defaultToGlobal);
+        }
+    }
+
+    @Override
+    public RegisterSchemaResponse getIdWithRequestResponse(String subject, RegisterSchemaRequest request, boolean normalize)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getIdWithRequestResponse(subject, request, normalize);
+        }
+    }
+
+    @Override
+    public List<Association> getAssociationsByResourceName(String resourceName, String resourceNamespace, String resourceType, List<String> associationTypes, String lifecycle, int offset, int limit)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getAssociationsByResourceName(resourceName, resourceNamespace, resourceType, associationTypes, lifecycle, offset, limit);
+        }
+    }
+
+    @Override
+    public AssociationBatchResponse batchGetAssociations(boolean includeResourceMetadata, AssociationBatchGetRequest request)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.batchGetAssociations(includeResourceMetadata, request);
+        }
+    }
+
+    @Override
+    public AssociationBatchResponse mutateAssociations(String context, Boolean dryRun, AssociationBatchRequest request)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.mutateAssociations(context, dryRun, request);
         }
     }
 
