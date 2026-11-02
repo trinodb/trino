@@ -237,6 +237,39 @@ public class TestPushDownDereferencesRules
     }
 
     @Test
+    public void testPushDownDereferenceThroughJoinWithRepeatedSymbolReference()
+    {
+        // SELECT l.msg.x, l.k1, l.k1 + 1 FROM l CROSS JOIN r
+        tester().assertThat(new PushDownDereferenceThroughJoin())
+                .on(p ->
+                        p.project(
+                                Assignments.builder()
+                                        .put(p.symbol("expr"), new FieldReference(new Reference(ROW_TYPE, "msg"), 0))
+                                        .put(p.symbol("k1"), new Reference(BIGINT, "k1"))
+                                        .put(p.symbol("k1_plus_1"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "k1"), new Constant(BIGINT, 1L))))
+                                        .build(),
+                                p.join(INNER,
+                                        p.values(p.symbol("msg", ROW_TYPE), p.symbol("k1")),
+                                        p.values(p.symbol("k2")))))
+                .matches(
+                        strictProject(
+                                ImmutableMap.of(
+                                        "expr", expression(new Reference(BIGINT, "msg_x")),
+                                        "k1", expression(new Reference(BIGINT, "k1")),
+                                        "k1_plus_1", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "k1"), new Constant(BIGINT, 1L))))),
+                                join(INNER, builder -> builder
+                                        .left(
+                                                strictProject(
+                                                        ImmutableMap.of(
+                                                                "msg_x", expression(new FieldReference(new Reference(ROW_TYPE, "msg"), 0)),
+                                                                "msg", expression(new Reference(ROW_TYPE, "msg")),
+                                                                "k1", expression(new Reference(BIGINT, "k1"))),
+                                                        values("msg", "k1")))
+                                        .right(values("k2")))
+                                        .withNumberOfOutputColumns(2)));
+    }
+
+    @Test
     public void testPushdownDereferencesThroughSemiJoin()
     {
         tester().assertThat(new PushDownDereferenceThroughSemiJoin())
