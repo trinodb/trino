@@ -211,7 +211,7 @@
         <dep.protobuf.version>4.36.2</dep.protobuf.version>
         <dep.sis.version>1.7</dep.sis.version>
         <dep.snowflake.version>4.4.0</dep.snowflake.version>
-        <dep.swagger.version>2.2.55</dep.swagger.version>
+        <dep.swagger.version>3.0.0</dep.swagger.version>
         <dep.takari.version>2.3.4</dep.takari.version>
         <dep.tcnative.version>2.0.85.Final</dep.tcnative.version>
         <dep.testng.version>7.8.0</dep.testng.version>
