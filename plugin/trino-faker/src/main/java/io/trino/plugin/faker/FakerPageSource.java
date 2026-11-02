@@ -1133,12 +1133,19 @@ class FakerPageSource
         // every row starts at its own part of the column's SplitMix64 stream, long enough for 2^20 values,
         // so the start of any row takes a single multiplication, instead of hashing the row number
         private static final long ROW_STRIDE = GAMMA << 20;
+        // the stride wraps around the stream after 2^44 rows
+        private static final int ROW_STRIDE_PERIOD_BITS = 64 - 20;
 
         private long state;
 
         public void seekToRow(long columnSeed, long rowId)
         {
             state = columnSeed + rowId * ROW_STRIDE;
+            long period = rowId >>> ROW_STRIDE_PERIOD_BITS;
+            if (period != 0) {
+                // start rows of later periods at a different offset, so they don't repeat values of earlier rows
+                state += mix(period);
+            }
         }
 
         @Override
@@ -1146,7 +1153,12 @@ class FakerPageSource
         {
             // SplitMix64
             state += GAMMA;
-            long z = state;
+            return mix(state);
+        }
+
+        private static long mix(long value)
+        {
+            long z = value;
             z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
             z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
             return z ^ (z >>> 31);

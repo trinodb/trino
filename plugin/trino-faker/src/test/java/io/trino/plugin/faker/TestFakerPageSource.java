@@ -105,6 +105,15 @@ public class TestFakerPageSource
         assertThat(twoSplits).isEqualTo(singleSplit);
     }
 
+    @Test
+    public void testDistantRowsDoNotRepeatValues()
+    {
+        List<FakerColumnHandle> columns = List.of(new FakerColumnHandle(0, "number", BIGINT, 0, null, Domain.all(BIGINT), ValueSet.none(BIGINT), Optional.empty(), UNIFORM, List.of()));
+        // rows start at an offset of the column's random stream, which wraps around after 2^44 rows
+        assertThat(generateRows(columns, 1L << 44, 1000)).doesNotContainAnyElementsOf(generateRows(columns, 0, 1000));
+        assertThat(generateRows(columns, 3L << 44, 1000)).doesNotContainAnyElementsOf(generateRows(columns, 1L << 44, 1000));
+    }
+
     private static FakerColumnHandle column(Domain domain)
     {
         return new FakerColumnHandle(0, "x", DOUBLE, 0, null, domain, ValueSet.none(DOUBLE), Optional.empty(), UNIFORM, List.of());
