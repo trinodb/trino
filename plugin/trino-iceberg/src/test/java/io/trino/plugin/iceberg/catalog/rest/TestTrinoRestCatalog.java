@@ -36,9 +36,11 @@ import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
@@ -46,7 +48,10 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.testing.TestingConnectorSession;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SupportsNamespaces;
@@ -55,7 +60,13 @@ import org.apache.iceberg.catalog.ViewCatalog;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
+import org.apache.iceberg.rest.Endpoint;
+import org.apache.iceberg.rest.HTTPRequest;
+import org.apache.iceberg.rest.RESTCatalogAdapter;
+import org.apache.iceberg.rest.RESTResponse;
 import org.apache.iceberg.rest.RESTSessionCatalog;
+import org.apache.iceberg.rest.responses.ConfigResponse;
+import org.apache.iceberg.rest.responses.ErrorResponse;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.view.View;
 import org.intellij.lang.annotations.Language;
@@ -72,6 +83,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -80,15 +92,24 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.Duration.ZERO;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.metastore.TableInfo.ExtendedRelationType.OTHER_VIEW;
+import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.NONE;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.USER;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -234,27 +255,7 @@ public class TestTrinoRestCatalog
                     .contains(namespace);
 
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
-            ConnectorMetadata icebergMetadata = new IcebergMetadata(
-                    new CatalogName("iceberg"),
-                    PLANNER_CONTEXT.getTypeManager(),
-                    jsonCodec(CommitTaskData.class),
-                    catalog,
-                    (_, _) -> {
-                        throw new UnsupportedOperationException();
-                    },
-                    TABLE_STATISTICS_READER,
-                    new TableStatisticsWriter(new NodeVersion("test-version")),
-                    UNSUPPORTED_DELETION_VECTOR_WRITER,
-                    Optional.empty(),
-                    false,
-                    _ -> false,
-                    newDirectExecutorService(),
-                    directExecutor(),
-                    newDirectExecutorService(),
-                    newDirectExecutorService(),
-                    0,
-                    ZERO,
-                    ConnectorExpressionEvaluator.NO_OP);
+            ConnectorMetadata icebergMetadata = createIcebergMetadata(catalog);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -269,6 +270,198 @@ public class TestTrinoRestCatalog
     }
 
     @Test
+    public void testUnsupportedViewEndpoints()
+            throws IOException
+    {
+        try (RESTSessionCatalog restSessionCatalog = restCatalogWithEndpoints(ImmutableList.of(Endpoint.V1_LOAD_NAMESPACE))) {
+            TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+            SchemaTableName viewName = new SchemaTableName("test", "test_view");
+            ConnectorViewDefinition definition = viewDefinition("SELECT 1 AS c", new ViewColumn("c", BIGINT.getTypeId(), Optional.empty()));
+
+            assertUnsupportedOperation(() -> catalog.createView(SESSION, viewName, definition, ImmutableMap.of(), false), Endpoint.V1_CREATE_VIEW);
+            assertUnsupportedOperation(() -> catalog.createView(SESSION, viewName, definition, ImmutableMap.of(), true), Endpoint.V1_CREATE_VIEW);
+            assertUnsupportedOperation(() -> catalog.dropView(SESSION, viewName), Endpoint.V1_DELETE_VIEW);
+            assertUnsupportedOperation(() -> catalog.renameView(SESSION, viewName, new SchemaTableName("test", "renamed_view")), Endpoint.V1_RENAME_VIEW);
+
+            assertThat(catalog.getView(SESSION, viewName)).isEmpty();
+            assertThat(catalog.listViews(SESSION, Optional.of("test"))).isEmpty();
+        }
+    }
+
+    @Test
+    public void testUnsupportedTableEndpoints()
+            throws IOException
+    {
+        try (RESTSessionCatalog restSessionCatalog = restCatalogWithEndpoints(ImmutableList.of(Endpoint.V1_LOAD_NAMESPACE))) {
+            TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+            SchemaTableName tableName = new SchemaTableName("test", "test_table");
+            Schema schema = new Schema(Types.NestedField.required(1, "c", Types.LongType.get()));
+            TableMetadata metadata = TableMetadata.newTableMetadata(schema, PartitionSpec.unpartitioned(), "file:///unused", ImmutableMap.of());
+
+            assertUnsupportedOperation(() -> catalog.registerTable(SESSION, tableName, metadata), Endpoint.V1_REGISTER_TABLE);
+            assertUnsupportedOperation(() -> catalog.unregisterTable(SESSION, tableName), Endpoint.V1_DELETE_TABLE);
+            assertUnsupportedOperation(() -> catalog.dropTable(SESSION, tableName), Endpoint.V1_DELETE_TABLE);
+            assertUnsupportedOperation(() -> catalog.renameTable(SESSION, tableName, new SchemaTableName("test", "renamed_table")), Endpoint.V1_RENAME_TABLE);
+            assertUnsupportedOperation(
+                    () -> catalog.newCreateTableTransaction(SESSION, tableName, schema, PartitionSpec.unpartitioned(), SortOrder.unsorted(), Optional.of("file:///unused"), ImmutableMap.of()),
+                    Endpoint.V1_CREATE_TABLE);
+            assertUnsupportedOperation(
+                    () -> catalog.newCreateOrReplaceTableTransaction(SESSION, tableName, schema, PartitionSpec.unpartitioned(), SortOrder.unsorted(), "file:///unused", ImmutableMap.of()),
+                    Endpoint.V1_UPDATE_TABLE);
+        }
+    }
+
+    @Test
+    public void testUnsupportedCreateTableCommitEndpoint()
+            throws IOException
+    {
+        try (RESTSessionCatalog restSessionCatalog = restCatalogWithEndpoints(ImmutableList.of(Endpoint.V1_LOAD_NAMESPACE, Endpoint.V1_CREATE_TABLE))) {
+            TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+            ConnectorMetadata metadata = createIcebergMetadata(catalog);
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
+                    new SchemaTableName("test", "test_table"),
+                    ImmutableList.of(new ColumnMetadata("c", BIGINT)),
+                    ImmutableMap.of(
+                            FILE_FORMAT_PROPERTY, PARQUET,
+                            FORMAT_VERSION_PROPERTY, 2,
+                            LOCATION_PROPERTY, Files.createTempDirectory(null).toUri().toString()));
+            var handle = metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty(), NO_RETRIES, false);
+
+            assertTrinoExceptionThrownBy(() -> metadata.finishCreateTable(SESSION, handle, ImmutableList.of(), ImmutableList.of()))
+                    .hasErrorCode(NOT_SUPPORTED)
+                    .hasMessageContaining(Endpoint.V1_UPDATE_TABLE.toString())
+                    .hasCauseInstanceOf(UnsupportedOperationException.class);
+        }
+    }
+
+    @Test
+    public void testUnsupportedNamespaceEndpoints()
+            throws IOException
+    {
+        try (RESTSessionCatalog restSessionCatalog = restCatalogWithEndpoints(ImmutableList.of(Endpoint.V1_LIST_NAMESPACES))) {
+            TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+
+            assertUnsupportedOperation(
+                    () -> catalog.createNamespace(SESSION, "new_namespace", ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser())),
+                    Endpoint.V1_CREATE_NAMESPACE);
+            assertUnsupportedOperation(() -> catalog.dropNamespace(SESSION, "test"), Endpoint.V1_DELETE_NAMESPACE);
+            assertUnsupportedOperation(() -> catalog.loadNamespaceMetadata(SESSION, "test"), Endpoint.V1_LOAD_NAMESPACE);
+            assertUnsupportedOperation(() -> catalog.namespaceExists(SESSION, "test"), Endpoint.V1_LOAD_NAMESPACE);
+        }
+    }
+
+    @Test
+    public void testUnsupportedUpdateEndpoints()
+            throws IOException
+    {
+        Catalog backend = backendCatalog(Files.createTempDirectory(null));
+        Namespace namespace = Namespace.of("test");
+        ((SupportsNamespaces) backend).createNamespace(namespace);
+        Schema schema = new Schema(Types.NestedField.required(1, "c", Types.LongType.get()));
+        backend.buildTable(TableIdentifier.of(namespace, "test_table"), schema).create();
+        ((ViewCatalog) backend).buildView(TableIdentifier.of(namespace, "test_view"))
+                .withSchema(schema)
+                .withQuery("trino", "SELECT 1 AS c")
+                .withDefaultNamespace(namespace)
+                .create();
+
+        try (RESTSessionCatalog restSessionCatalog = restCatalogWithEndpoints(backend, ImmutableList.of(Endpoint.V1_LOAD_NAMESPACE, Endpoint.V1_LOAD_TABLE, Endpoint.V1_LOAD_VIEW))) {
+            TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+            SchemaTableName viewName = new SchemaTableName("test", "test_view");
+            SchemaTableName tableName = new SchemaTableName("test", "test_table");
+            ConnectorViewDefinition definition = viewDefinition("SELECT 2 AS c", new ViewColumn("c", BIGINT.getTypeId(), Optional.empty()));
+
+            assertUnsupportedOperation(() -> catalog.createView(SESSION, viewName, definition, ImmutableMap.of(), true), Endpoint.V1_UPDATE_VIEW);
+            assertUnsupportedOperation(() -> catalog.updateViewComment(SESSION, viewName, Optional.of("comment")), Endpoint.V1_UPDATE_VIEW);
+            assertUnsupportedOperation(() -> catalog.updateViewColumnComment(SESSION, viewName, "c", Optional.of("comment")), Endpoint.V1_UPDATE_VIEW);
+            assertUnsupportedOperation(() -> catalog.updateTableComment(SESSION, tableName, Optional.of("comment")), Endpoint.V1_UPDATE_TABLE);
+            assertUnsupportedOperation(() -> catalog.updateColumnComment(SESSION, tableName, primitiveColumnIdentity(1, "c"), Optional.of("comment")), Endpoint.V1_UPDATE_TABLE);
+
+            ConnectorMetadata metadata = createIcebergMetadata(catalog);
+            var tableHandle = metadata.getTableHandle(SESSION, tableName, Optional.empty(), Optional.empty());
+            var columnHandle = metadata.getColumnHandles(SESSION, tableHandle).get("c");
+            assertUnsupportedOperation(() -> metadata.setTableComment(SESSION, tableHandle, Optional.of("comment")), Endpoint.V1_UPDATE_TABLE);
+            assertUnsupportedOperation(() -> metadata.setColumnComment(SESSION, tableHandle, columnHandle, Optional.of("comment")), Endpoint.V1_UPDATE_TABLE);
+            assertUnsupportedOperation(() -> metadata.setViewComment(SESSION, viewName, Optional.of("comment")), Endpoint.V1_UPDATE_VIEW);
+            assertUnsupportedOperation(() -> metadata.setViewColumnComment(SESSION, viewName, "c", Optional.of("comment")), Endpoint.V1_UPDATE_VIEW);
+        }
+    }
+
+    private static ConnectorMetadata createIcebergMetadata(TrinoCatalog catalog)
+    {
+        return new IcebergMetadata(
+                new CatalogName("iceberg"),
+                PLANNER_CONTEXT.getTypeManager(),
+                jsonCodec(CommitTaskData.class),
+                catalog,
+                new DefaultIcebergFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY),
+                TABLE_STATISTICS_READER,
+                new TableStatisticsWriter(new NodeVersion("test-version")),
+                UNSUPPORTED_DELETION_VECTOR_WRITER,
+                Optional.empty(),
+                false,
+                _ -> false,
+                newDirectExecutorService(),
+                directExecutor(),
+                newDirectExecutorService(),
+                newDirectExecutorService(),
+                0,
+                ZERO,
+                ConnectorExpressionEvaluator.NO_OP);
+    }
+
+    private static RESTSessionCatalog restCatalogWithEndpoints(List<Endpoint> endpoints)
+            throws IOException
+    {
+        Catalog backend = backendCatalog(Files.createTempDirectory(null));
+        ((SupportsNamespaces) backend).createNamespace(Namespace.of("test"));
+        return restCatalogWithEndpoints(backend, endpoints);
+    }
+
+    private static RESTSessionCatalog restCatalogWithEndpoints(Catalog backend, List<Endpoint> endpoints)
+    {
+        RESTSessionCatalog restSessionCatalog = new RESTSessionCatalog(
+                _ -> new RESTCatalogAdapter(backend)
+                {
+                    @Override
+                    protected <T extends RESTResponse> T execute(HTTPRequest request, Class<T> responseType, Consumer<ErrorResponse> errorHandler, Consumer<Map<String, String>> responseHeaders)
+                    {
+                        if (responseType == ConfigResponse.class) {
+                            return responseType.cast(ConfigResponse.builder().withEndpoints(endpoints).build());
+                        }
+                        return super.execute(request, responseType, errorHandler, responseHeaders);
+                    }
+                },
+                null)
+        {
+            @Override
+            public void close()
+                    throws IOException
+            {
+                try {
+                    super.close();
+                }
+                finally {
+                    if (backend instanceof Closeable closeable) {
+                        closeable.close();
+                    }
+                }
+            }
+        };
+        restSessionCatalog.initialize("iceberg_rest", ImmutableMap.of());
+        return restSessionCatalog;
+    }
+
+    private static void assertUnsupportedOperation(Runnable operation, Endpoint endpoint)
+    {
+        assertTrinoExceptionThrownBy(operation::run)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Iceberg REST catalog server does not support")
+                .hasMessageContaining(endpoint.toString())
+                .hasCauseInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
     public void testPrefix()
             throws Exception
     {
@@ -276,13 +469,13 @@ public class TestTrinoRestCatalog
 
         String namespace = "testPrefixNamespace" + randomNameSuffix();
 
-        assertThatThrownBy(() ->
+        assertTrinoExceptionThrownBy(() ->
                 catalog.createNamespace(
                         SESSION,
                         namespace,
                         defaultNamespaceProperties(namespace),
                         new TrinoPrincipal(PrincipalType.USER, SESSION.getUser())))
-                .isInstanceOf(TrinoException.class)
+                .hasErrorCode(ICEBERG_CATALOG_ERROR)
                 .hasMessageContaining("Failed to create namespace")
                 .cause()
                 .as("should fail as the prefix dev is not implemented for the current endpoint")
