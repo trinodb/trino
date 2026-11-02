@@ -181,7 +181,8 @@ The following table details all supported column properties.
     greater than zero. For date and time columns set this to a duration.
     Without `min`, sequences of `DATE`, `TIMESTAMP`, and `TIMESTAMP WITH TIME
     ZONE` columns start at `1970-01-01`, and continue past `2100-01-01` when
-    `max` isn't set. Cannot be set for character-based type columns.
+    `max` isn't set. Can only be set for numeric, date and time, and interval
+    type columns.
 * - `references`
   - Column of another or the same table, in the `table.column` or
     `schema.table.column` format, so names that contain periods can't be
