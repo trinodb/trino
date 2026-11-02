@@ -27,11 +27,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.QueryType.OTHERS;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -72,6 +74,19 @@ public class TestTranslationMap
         assertThatThrownBy(() -> translationMap.rewrite(literal))
                 .isInstanceOf(VerifyException.class)
                 .hasMessage("Expression is not analyzed (%s): %s", literal.getClass().getName(), literal);
+    }
+
+    @Test
+    public void testUnsupportedExpression()
+    {
+        SubqueryExpression subquery = (SubqueryExpression) new SqlParser().createExpression("(SELECT 1)");
+        Analysis analysis = new Analysis(subquery.getQuery(), ImmutableMap.of(), OTHERS);
+        analysis.addTypes(ImmutableMap.of(NodeRef.of(subquery), INTEGER));
+        TranslationMap translationMap = createTranslationMap(analysis);
+
+        assertTrinoExceptionThrownBy(() -> translationMap.rewrite(subquery))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("Unsupported expression (%s): %s", SubqueryExpression.class.getName(), subquery);
     }
 
     private static TranslationMap createTranslationMap(Analysis analysis)

@@ -4831,6 +4831,28 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testSubqueriesInValues()
+    {
+        assertFails("VALUES (SELECT 1)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Subqueries are not supported in VALUES");
+
+        assertFails("VALUES (1, 2 + (SELECT 3))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:16: Subqueries are not supported in VALUES");
+
+        assertFails("VALUES EXISTS(SELECT 1)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Subqueries are not supported in VALUES");
+
+        assertFails("VALUES 1 IN (SELECT 1)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:10: Subqueries are not supported in VALUES");
+
+        analyze("SELECT (SELECT x FROM (VALUES 1) t(x))");
+    }
+
+    @Test
     public void testPivot()
     {
         // t1 has columns a, b, c, d, all BIGINT.
