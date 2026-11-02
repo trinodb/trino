@@ -1074,7 +1074,7 @@ class FakerPageSource
         }
     }
 
-    private record Int128Range(Int128 low, Int128 high, Int128 step)
+    private record Int128Range(Int128 low, Int128 high, Int128 step, long lastIndex)
     {
         static Int128Range of(Range range)
         {
@@ -1091,14 +1091,24 @@ class FakerPageSource
             if (!range.isHighUnbounded() && range.isHighInclusive()) {
                 high = add(high, Int128.ONE);
             }
-            return new Int128Range(low, high, step);
+            // multiplying the step by an index after the last one that fits in the range can overflow, so such indexes are capped instead
+            long lastIndex = high.toBigInteger().subtract(BigInteger.ONE).subtract(low.toBigInteger())
+                    .divide(step.toBigInteger())
+                    .min(BigInteger.valueOf(Long.MAX_VALUE))
+                    .longValue();
+            return new Int128Range(low, high, step, lastIndex);
         }
 
         Int128 at(long index)
         {
-            Int128 nextValue = add(low, Int128Math.multiply(Int128.valueOf(index), step));
-            Int128 highInclusive = Int128Math.subtract(high, Int128.ONE);
-            return highInclusive.compareTo(nextValue) < 0 ? highInclusive : nextValue;
+            if (index > lastIndex) {
+                return Int128Math.subtract(high, Int128.ONE);
+            }
+            // decimals span almost twice the max value of Int128, so multiplying the step by the index can overflow,
+            // even if the result doesn't, but adding each half separately keeps every partial result in the range
+            long halfIndex = index / 2;
+            Int128 halfway = add(low, Int128Math.multiply(Int128.valueOf(halfIndex), step));
+            return add(halfway, Int128Math.multiply(Int128.valueOf(index - halfIndex), step));
         }
     }
 

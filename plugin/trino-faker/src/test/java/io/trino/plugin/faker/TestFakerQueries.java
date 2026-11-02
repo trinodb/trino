@@ -834,6 +834,7 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("min", "2000-01-01 00:00:00.000", "step", "1d"), "count(distinct rnd_timestamp) = 200000 AND min(rnd_timestamp) = TIMESTAMP '2000-01-01 00:00:00.000' AND max(rnd_timestamp) = TIMESTAMP '2000-01-01 00:00:00.000' + INTERVAL '199999' DAY", "true"))
                 .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "0", "step", "100000000000000"), "count(distinct rnd_bigint) = 92235 AND min(rnd_bigint) = 0", "true"))
                 .add(new TestDataType("rnd_bigint_wide", "bigint", Map.of("min", "-9223372036854775808", "max", "9223372036854775807", "step", "9223372036854775807"), "count(distinct rnd_bigint_wide) = 4 AND max(rnd_bigint_wide) = 9223372036854775807", "true"))
+                .add(new TestDataType("rnd_decimal_wide", "decimal(38,0)", Map.of("min", "-99999999999999999999999999999999999999", "max", "99999999999999999999999999999999999999", "step", "99999999999999999999999999999999999999"), "count(distinct rnd_decimal_wide) = 3 AND max(rnd_decimal_wide) = DECIMAL '99999999999999999999999999999999999999'", "true"))
                 .build();
 
         for (TestDataType testCase : testCases) {
