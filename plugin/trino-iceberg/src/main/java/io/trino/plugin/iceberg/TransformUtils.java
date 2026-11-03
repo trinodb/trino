@@ -1,0 +1,104 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.iceberg;
+
+import java.util.function.Consumer;
+import java.util.regex.MatchResult;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.regex.Pattern.CASE_INSENSITIVE;
+
+public final class TransformUtils
+{
+    private static final String UNQUOTED_IDENTIFIER = "[a-zA-Z_][a-zA-Z0-9_]*";
+    private static final String QUOTED_IDENTIFIER = "\"(?:\"\"|[^\"])*\"";
+    public static final String IDENTIFIER = "(" + UNQUOTED_IDENTIFIER + "|" + QUOTED_IDENTIFIER + ")";
+    private static final Pattern UNQUOTED_IDENTIFIER_PATTERN = Pattern.compile(UNQUOTED_IDENTIFIER);
+    private static final Pattern QUOTED_IDENTIFIER_PATTERN = Pattern.compile(QUOTED_IDENTIFIER);
+
+    private static final String FUNCTION_ARGUMENT_NAME = "\\(" + IDENTIFIER + "\\)\\s*";
+    private static final String FUNCTION_ARGUMENT_NAME_AND_INT = "\\(" + IDENTIFIER + ",\\s*(\\d+)\\)";
+
+    static final Pattern IDENTITY_PATTERN = Pattern.compile(IDENTIFIER, CASE_INSENSITIVE);
+    static final Pattern YEAR_PATTERN = Pattern.compile("year" + FUNCTION_ARGUMENT_NAME, CASE_INSENSITIVE);
+    static final Pattern MONTH_PATTERN = Pattern.compile("month" + FUNCTION_ARGUMENT_NAME, CASE_INSENSITIVE);
+    static final Pattern DAY_PATTERN = Pattern.compile("day" + FUNCTION_ARGUMENT_NAME, CASE_INSENSITIVE);
+    static final Pattern HOUR_PATTERN = Pattern.compile("hour" + FUNCTION_ARGUMENT_NAME, CASE_INSENSITIVE);
+    static final Pattern BUCKET_PATTERN = Pattern.compile("bucket" + FUNCTION_ARGUMENT_NAME_AND_INT, CASE_INSENSITIVE);
+    static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate" + FUNCTION_ARGUMENT_NAME_AND_INT, CASE_INSENSITIVE);
+    static final Pattern VOID_PATTERN = Pattern.compile("void" + FUNCTION_ARGUMENT_NAME, CASE_INSENSITIVE);
+
+    static final Pattern ICEBERG_BUCKET_PATTERN = Pattern.compile("bucket\\[(\\d+)]");
+    static final Pattern ICEBERG_TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
+
+    private TransformUtils() {}
+
+    public static String fromIdentifierToColumn(String identifier)
+    {
+        if (QUOTED_IDENTIFIER_PATTERN.matcher(identifier).matches()) {
+            return identifier.substring(1, identifier.length() - 1).replace("\"\"", "\"");
+        }
+        // Currently, all Iceberg columns are stored in lowercase in the Iceberg metadata files.
+        // Unquoted identifiers are canonicalized to lowercase here which is not according ANSI SQL spec.
+        // See https://github.com/trinodb/trino/issues/17
+        return identifier.toLowerCase(ENGLISH);
+    }
+
+    static boolean tryMatch(CharSequence value, Pattern pattern, Consumer<MatchResult> match)
+    {
+        Matcher matcher = pattern.matcher(value);
+        if (matcher.matches()) {
+            match.accept(matcher.toMatchResult());
+            return true;
+        }
+        return false;
+    }
+
+    public static String toTransformTerm(String columnName, String transform)
+    {
+        String name = quotedName(columnName);
+
+        switch (transform) {
+            case "identity" -> {
+                return name;
+            }
+            case "year", "month", "day", "hour", "void" -> {
+                return format("%s(%s)", transform, name);
+            }
+        }
+
+        Matcher matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);
+        if (matcher.matches()) {
+            return format("bucket(%s, %s)", name, matcher.group(1));
+        }
+
+        matcher = ICEBERG_TRUNCATE_PATTERN.matcher(transform);
+        if (matcher.matches()) {
+            return format("truncate(%s, %s)", name, matcher.group(1));
+        }
+
+        throw new UnsupportedOperationException("Unsupported transform: " + transform);
+    }
+
+    public static String quotedName(String name)
+    {
+        if (UNQUOTED_IDENTIFIER_PATTERN.matcher(name).matches() && name.toLowerCase(ENGLISH).equals(name)) {
+            return name;
+        }
+        return '"' + name.replace("\"", "\"\"") + '"';
+    }
+}

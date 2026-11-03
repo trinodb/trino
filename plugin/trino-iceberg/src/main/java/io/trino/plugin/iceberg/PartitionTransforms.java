@@ -40,9 +40,10 @@ import java.util.function.Function;
 import java.util.function.LongUnaryOperator;
 import java.util.function.ToLongFunction;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
+import static io.trino.plugin.iceberg.TransformUtils.ICEBERG_BUCKET_PATTERN;
+import static io.trino.plugin.iceberg.TransformUtils.ICEBERG_TRUNCATE_PATTERN;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTzMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTzNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampToNanos;
@@ -77,9 +78,6 @@ import static java.util.concurrent.TimeUnit.DAYS;
 
 public final class PartitionTransforms
 {
-    private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket\\[(\\d+)]");
-    private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
-
     private static final VarHandle LONG_HANDLE_BIG_ENDIAN =
             MethodHandles.byteArrayViewVarHandle(long[].class, BIG_ENDIAN);
 
@@ -170,13 +168,13 @@ public final class PartitionTransforms
             }
         }
 
-        Matcher matcher = BUCKET_PATTERN.matcher(transform);
+        Matcher matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);
         if (matcher.matches()) {
             int count = parseInt(matcher.group(1));
             return bucket(sourceType, count);
         }
 
-        matcher = TRUNCATE_PATTERN.matcher(transform);
+        matcher = ICEBERG_TRUNCATE_PATTERN.matcher(transform);
         if (matcher.matches()) {
             int width = parseInt(matcher.group(1));
             if (sourceType.equals(INTEGER)) {

@@ -27,8 +27,9 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
-import static io.trino.plugin.iceberg.PartitionFields.fromIdentifierToColumn;
-import static io.trino.plugin.iceberg.PartitionFields.quotedName;
+import static io.trino.plugin.iceberg.TransformUtils.IDENTIFIER;
+import static io.trino.plugin.iceberg.TransformUtils.fromIdentifierToColumn;
+import static io.trino.plugin.iceberg.TransformUtils.quotedName;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.lang.String.format;
@@ -40,7 +41,7 @@ public final class SortFieldUtils
     private SortFieldUtils() {}
 
     private static final Pattern PATTERN = Pattern.compile(
-            "\\s*(?<identifier>" + PartitionFields.IDENTIFIER + ")"
+            "\\s*(?<identifier>" + IDENTIFIER + ")"
                     + "(?i:\\s+(?<ordering>ASC|DESC))?"
                     + "(?i:\\s+NULLS\\s+(?<nullOrder>FIRST|LAST))?"
                     + "\\s*");
