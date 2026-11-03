@@ -388,6 +388,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.validateOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.validateParquetBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.verifyExtraProperties;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
+import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TableStatisticsReader.readNdvs;
@@ -396,6 +397,7 @@ import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.REPL
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.ADD_FILES;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.ADD_FILES_FROM_TABLE;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.DROP_EXTENDED_STATS;
@@ -1745,17 +1747,17 @@ public class IcebergMetadata
                 table.properties());
     }
 
-    private static SortFieldInfo getSupportedSortFields(Schema schema, SortOrder sortOrder, int sortOrderId)
+    private SortFieldInfo getSupportedSortFields(Schema schema, SortOrder sortOrder, int sortOrderId)
     {
         if (!sortOrder.isSorted()) {
             return new SortFieldInfo(SortOrder.unsorted().orderId(), ImmutableList.of());
         }
         ImmutableList.Builder<TrinoSortField> sortFields = ImmutableList.builder();
         for (SortField sortField : sortOrder.fields()) {
-            if (!sortField.transform().isIdentity()) {
+            if (schema.accessorForField(sortField.sourceId()) == null) {
                 continue;
             }
-            if (schema.accessorForField(sortField.sourceId()) == null) {
+            if (!isSupportedSortTransform(schema, sortField)) {
                 continue;
             }
 
@@ -1763,12 +1765,25 @@ public class IcebergMetadata
         }
 
         List<TrinoSortField> supportedSortFields = sortFields.build();
-        // Trino supports sorting only by identity transforms, so the supported sort fields in Trino may be a subset of the iceberg table sort order.
+        // The supported sort fields in Trino may be a subset of the iceberg table sort order (e.g., if a column was dropped).
         // The writer can populate sort_order_id in the iceberg metadata only when the iceberg table sort order is fully supported by Trino.
         if (supportedSortFields.size() == sortOrder.fields().size()) {
             return new SortFieldInfo(sortOrderId, supportedSortFields);
         }
         return new SortFieldInfo(SortOrder.unsorted().orderId(), supportedSortFields);
+    }
+
+    // Transforms that Trino cannot evaluate (e.g. multi-argument transforms of Iceberg v3) are treated as unsupported sort fields
+    private boolean isSupportedSortTransform(Schema schema, SortField sortField)
+    {
+        io.trino.spi.type.Type sourceType = toTrinoType(schema.findType(sortField.sourceId()), typeManager);
+        try {
+            getColumnTransform(sortField.transform().toString(), sourceType);
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
     }
 
     private record SortFieldInfo(int sortOrderId, List<TrinoSortField> supportedSortFields) {}

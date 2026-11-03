@@ -1661,20 +1661,57 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreateSortedTableWithSortTransform()
     {
-        testCreateSortedTableWithSortTransform("col", "bucket(col, 3)");
-        testCreateSortedTableWithSortTransform("col", "bucket(\"col\", 3)");
-        testCreateSortedTableWithSortTransform("col", "truncate(col, 3)");
-        testCreateSortedTableWithSortTransform("col", "year(col)");
-        testCreateSortedTableWithSortTransform("col", "month(col)");
-        testCreateSortedTableWithSortTransform("col", "date(col)");
-        testCreateSortedTableWithSortTransform("col", "hour(col)");
+        try (TestTable table = newTrinoTable(
+                "test_sort_with_transform",
+                "(vc VARCHAR, ts TIMESTAMP(6)) WITH (sorted_by = ARRAY[" +
+                        "'bucket(vc, 3)', " +
+                        "'truncate(vc, 3) DESC', " +
+                        "'year(ts) ASC NULLS LAST', " +
+                        "'month(ts) DESC NULLS FIRST', " +
+                        "'day(ts)', " +
+                        "'hour(ts)', " +
+                        "'void(vc)'])")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("sorted_by = ARRAY['bucket(vc, 3) ASC NULLS FIRST','truncate(vc, 3) DESC NULLS LAST','year(ts) ASC NULLS LAST','month(ts) DESC NULLS FIRST','day(ts) ASC NULLS FIRST','hour(ts) ASC NULLS FIRST','void(vc) ASC NULLS FIRST']");
+            assertQuery(
+                    "SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'sort-order'",
+                    "VALUES 'bucket(vc, 3) ASC NULLS FIRST, truncate(vc, 3) DESC NULLS LAST, year(ts) ASC NULLS LAST, month(ts) DESC NULLS FIRST, day(ts) ASC NULLS FIRST, hour(ts) ASC NULLS FIRST, void(vc) ASC NULLS FIRST'");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['bucket(ts, 5) DESC']");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("sorted_by = ARRAY['bucket(ts, 5) DESC NULLS LAST']");
+        }
+
+        String tableName = "test_sort_with_invalid_transform_" + randomNameSuffix();
+        assertThat(query(format("CREATE TABLE %s (col TIMESTAMP(6)) WITH (sorted_by = ARRAY['date(col)'])", tableName)))
+                .failure().hasMessageContaining("Unable to parse sort field: [date(col)]");
+        assertThat(query(format("CREATE TABLE %s (col TIMESTAMP(6)) WITH (sorted_by = ARRAY['truncate(col, 3)'])", tableName)))
+                .failure().hasMessageContaining("Invalid sorted_by definition");
     }
 
-    private void testCreateSortedTableWithSortTransform(String columnName, String sortField)
+    @Test
+    public void testSortedWritingTransformDeterminesFileOrder()
     {
-        String tableName = "test_sort_with_transform_" + randomNameSuffix();
-        assertThat(query(format("CREATE TABLE %s (%s TIMESTAMP(6)) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField)))
-                .failure().hasMessageContaining("Unable to parse sort field");
+        assertTransformFileOrder("x", "BIGINT", "5", "6", "5");
+        assertTransformFileOrder("year(x)", "DATE", "DATE '2023-12-01'", "DATE '2024-01-01'", "DATE '2023-01-01'");
+        assertTransformFileOrder("month(x) DESC", "DATE", "DATE '2024-02-01'", "DATE '2024-01-31'", "DATE '2024-02-20'");
+        assertTransformFileOrder("day(x) DESC", "TIMESTAMP(6) WITH TIME ZONE", "TIMESTAMP '2024-01-02 01:00:00 UTC'", "TIMESTAMP '2024-01-01 23:00:00 UTC'", "TIMESTAMP '2024-01-02 22:00:00 UTC'");
+        assertTransformFileOrder("hour(x) DESC", "TIMESTAMP(6)", "TIMESTAMP '2024-01-01 10:05:00'", "TIMESTAMP '2024-01-01 09:55:00'", "TIMESTAMP '2024-01-01 10:50:00'");
+        assertTransformFileOrder("bucket(x, 2)", "BIGINT", "10", "5", "4");
+        assertTransformFileOrder("truncate(x, 10) DESC", "BIGINT", "21", "5", "25");
+        assertTransformFileOrder("truncate(x, 2) DESC", "VARCHAR", "'ab1'", "'aa9'", "'ab9'");
+        assertTransformFileOrder("truncate(\"x.name\", 2) DESC", "ROW(name VARCHAR)", "ROW('ab1')", "ROW('aa9')", "ROW('ab9')");
+        assertTransformFileOrder("year(x) DESC', 'month(x) DESC", "DATE", "DATE '2024-03-05'", "DATE '2024-02-28'", "DATE '2024-03-20'");
+    }
+
+    // Rows 1 and 3 share the sort key, so the expected order differs from insertion order and, under a transform, from value order
+    private void assertTransformFileOrder(String transform, String type, String first, String second, String third)
+    {
+        try (TestTable table = newTrinoTable("test_sort_transform_order", "(id INTEGER, x " + type + ") WITH (sorted_by = ARRAY['" + transform + "', 'id'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, " + first + "), (2, " + second + "), (3, " + third + ")", 3);
+            assertThat(computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\"")).isEqualTo(1L);
+            assertThat(computeActual("SELECT id FROM " + table.getName()).getOnlyColumn().toList()).containsExactly(1, 3, 2);
+        }
     }
 
     @Test
@@ -1952,8 +1989,7 @@ public abstract class BaseIcebergConnectorTest
     {
         try (TestTable table = newTrinoTable("test_optimize_with_invalid_sort_order", "AS SELECT * FROM nation WITH NO DATA")) {
             assertThat(query("ALTER TABLE " + table.getName() + " EXECUTE optimize (sorted_by => ARRAY['no_such_column'])"))
-                    // TODO should be TrinoException
-                    .nonTrinoExceptionFailure().hasMessageContaining("Cannot find field 'no_such_column'");
+                    .failure().hasMessageContaining("Invalid sorted_by definition");
         }
     }
 
@@ -9745,6 +9781,33 @@ public abstract class BaseIcebergConnectorTest
 
         assertThat(query("SELECT * FROM " + tableName))
                 .failure().hasMessage("Invalid metadata file for table tpch.%s".formatted(tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testInsertWithUnsupportedSortTransform()
+            throws Exception
+    {
+        String tableName = "test_insert_unsupported_sort_transform_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id BIGINT) WITH (sorted_by = ARRAY['id'])");
+
+        // Simulate a sort order written by another engine with a transform unknown to Trino
+        String metadataFileLocation = getLatestMetadataLocation(fileSystem, getTableLocation(tableName));
+        JsonMapper mapper = new JsonMapper(JsonUtil.factory());
+        JsonNode jsonNode = mapper.readValue(fileSystem.newInputFile(Location.of(metadataFileLocation)).newStream(), JsonNode.class);
+        for (JsonNode sortOrder : jsonNode.get("sort-orders")) {
+            for (JsonNode field : sortOrder.get("fields")) {
+                ObjectNode fieldNode = (ObjectNode) field;
+                fieldNode.put("transform", "unknown_transform");
+            }
+        }
+        fileSystem.newOutputFile(Location.of(metadataFileLocation)).createOrOverwrite(mapper.writeValueAsBytes(jsonNode));
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES 3, 1, 2", 3);
+        assertThat(query("SELECT id FROM " + tableName)).matches("VALUES BIGINT '1', 2, 3");
+        // Files are written without the sort order id because Trino cannot apply the transform
+        assertThat(query("SELECT DISTINCT sort_order_id FROM \"" + tableName + "$files\"")).matches("VALUES 0");
 
         assertUpdate("DROP TABLE " + tableName);
     }

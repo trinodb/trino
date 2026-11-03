@@ -2037,9 +2037,10 @@ Sorting is particularly beneficial when the sorted columns show a high
 cardinality and are used as a filter for selective reads.
 
 The sort order is configured with the `sorted_by` table property. Specify an
-array of one or more columns to use for sorting when creating the table. The
-following example configures the `order_date` column of the `orders` table
-in the `customers` schema in the `example` catalog:
+array of one or more columns or [column transforms](#iceberg-tables) to use for
+sorting when creating the table. The following example configures the
+`order_date` column of the `orders` table in the `customers` schema in the
+`example` catalog:
 
 ```sql
 CREATE TABLE example.customers.orders (
@@ -2051,7 +2052,8 @@ CREATE TABLE example.customers.orders (
 WITH (sorted_by = ARRAY['order_date']);
 ```
 
-You can explicitly configure sort directions or null ordering in the following way:
+You can also use [Iceberg column transforms](#iceberg-tables) and explicitly
+configure sort directions or null ordering in the following way:
 
 ```sql
 CREATE TABLE example.customers.orders (
@@ -2060,7 +2062,7 @@ CREATE TABLE example.customers.orders (
     account_number BIGINT,
     customer VARCHAR,
     country VARCHAR)
-WITH (sorted_by = ARRAY['order_date DESC NULLS FIRST', 'order_id ASC NULLS LAST']);
+WITH (sorted_by = ARRAY['month(order_date) DESC NULLS FIRST', 'order_id ASC NULLS LAST']);
 ```
 
 Sorting can be combined with partitioning on the same column. For example:

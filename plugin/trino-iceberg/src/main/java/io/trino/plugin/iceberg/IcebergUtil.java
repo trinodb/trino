@@ -172,7 +172,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
-import static io.trino.plugin.iceberg.SortFieldUtils.toSortFields;
+import static io.trino.plugin.iceberg.SortFieldUtils.tryToSortFields;
 import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
@@ -371,10 +371,8 @@ public final class IcebergUtil
         compressionCodec.ifPresent(hiveCompressionCodec -> properties.put(COMPRESSION_CODEC, HiveCompressionOption.valueOf(hiveCompressionCodec.name())));
 
         SortOrder sortOrder = icebergTable.sortOrder();
-        // TODO: Support sort column transforms (https://github.com/trinodb/trino/issues/15088)
-        if (sortOrder.isSorted() && sortOrder.fields().stream().allMatch(sortField -> sortField.transform().isIdentity())) {
-            List<String> sortColumnNames = toSortFields(sortOrder);
-            properties.put(SORTED_BY_PROPERTY, sortColumnNames);
+        if (sortOrder.isSorted()) {
+            tryToSortFields(sortOrder).ifPresent(sortColumnNames -> properties.put(SORTED_BY_PROPERTY, sortColumnNames));
         }
 
         if (!icebergTable.location().isEmpty()) {
