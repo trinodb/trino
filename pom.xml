@@ -123,6 +123,7 @@
         <module>plugin/trino-thrift-testing-server</module>
         <module>plugin/trino-tpcds</module>
         <module>plugin/trino-tpch</module>
+        <module>plugin/trino-ydb</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark-queries</module>
@@ -214,6 +215,7 @@
         <dep.takari.version>2.3.4</dep.takari.version>
         <dep.tcnative.version>2.0.85.Final</dep.tcnative.version>
         <dep.testng.version>7.8.0</dep.testng.version>
+        <dep.ydb.jdbc.version>2.4.1</dep.ydb.jdbc.version>
         <dep.zookeeper.version>3.9.7</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
         <!--
@@ -2163,6 +2165,18 @@
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
                 <version>2.7</version>
+            </dependency>
+
+            <dependency>
+                <groupId>tech.ydb.jdbc</groupId>
+                <artifactId>ydb-jdbc-driver</artifactId>
+                <version>${dep.ydb.jdbc.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>javax.annotation</groupId>
+                        <artifactId>javax.annotation-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
