@@ -19,6 +19,7 @@ import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.tracing.opentelemetry.OpenTelemetryTracingOptions;
 import com.azure.core.util.HttpClientOptions;
 import com.azure.core.util.TracingOptions;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -67,6 +68,16 @@ public class AzureFileSystemFactory
     @Inject
     public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, AzureFileSystemConfig config)
     {
+        this(openTelemetry, azureAuth, config, Optional.empty());
+    }
+
+    @VisibleForTesting
+    AzureFileSystemFactory(
+            OpenTelemetry openTelemetry,
+            AzureAuth azureAuth,
+            AzureFileSystemConfig config,
+            Optional<HttpClient> httpClient)
+    {
         this(openTelemetry,
                 azureAuth,
                 config.getEndpoint(),
@@ -80,7 +91,8 @@ public class AzureFileSystemFactory
                 config.getConnectionPoolMaxIdleTime(),
                 config.getHttpRequestTimeout(),
                 config.getApplicationId(),
-                config.isMultipartWriteEnabled());
+                config.isMultipartWriteEnabled(),
+                httpClient);
     }
 
     private AzureFileSystemFactory(
@@ -97,8 +109,10 @@ public class AzureFileSystemFactory
             Duration connectionPoolMaxIdleTime,
             Duration httpRequestTimeout,
             String applicationId,
-            boolean multipart)
+            boolean multipart,
+            Optional<HttpClient> httpClient)
     {
+        requireNonNull(httpClient, "httpClient is null");
         this.auth = requireNonNull(azureAuth, "azureAuth is null");
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
         this.serviceEndpoint = requireNonNull(serviceEndpoint, "serviceEndpoint is null");
@@ -110,16 +124,23 @@ public class AzureFileSystemFactory
         requireNonNull(connectionPoolMaxIdleTime, "connectionPoolMaxIdleTime is null");
         requireNonNull(httpRequestTimeout, "httpRequestTimeout is null");
         this.tracingOptions = new OpenTelemetryTracingOptions().setOpenTelemetry(openTelemetry);
-        connectionProvider = ConnectionProvider.builder(applicationId)
-                .maxConnections(maxHttpConnections)
-                .maxIdleTime(connectionPoolMaxIdleTime.toJavaTime())
-                .build();
-        eventLoopGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
-        HttpClientOptions clientOptions = new HttpClientOptions();
-        clientOptions.setTracingOptions(tracingOptions);
-        clientOptions.setApplicationId(applicationId);
-        clientOptions.setMaximumConnectionPoolSize(maxHttpConnections);
-        httpClient = createAzureHttpClient(connectionProvider, eventLoopGroup, clientOptions);
+        if (httpClient.isPresent()) {
+            this.httpClient = httpClient.orElseThrow();
+            connectionProvider = null;
+            eventLoopGroup = null;
+        }
+        else {
+            connectionProvider = ConnectionProvider.builder(applicationId)
+                    .maxConnections(maxHttpConnections)
+                    .maxIdleTime(connectionPoolMaxIdleTime.toJavaTime())
+                    .build();
+            eventLoopGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
+            HttpClientOptions clientOptions = new HttpClientOptions();
+            clientOptions.setTracingOptions(tracingOptions);
+            clientOptions.setApplicationId(applicationId);
+            clientOptions.setMaximumConnectionPoolSize(maxHttpConnections);
+            this.httpClient = createAzureHttpClient(connectionProvider, eventLoopGroup, clientOptions);
+        }
         this.multipart = multipart;
         this.concurrencyPolicy = new ConcurrencyLimitHttpPipelinePolicy(
                 maxHttpRequests,

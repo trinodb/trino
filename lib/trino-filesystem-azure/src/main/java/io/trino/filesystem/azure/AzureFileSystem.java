@@ -44,6 +44,7 @@ import com.azure.storage.file.datalake.models.DataLakeStorageException;
 import com.azure.storage.file.datalake.models.ListPathsOptions;
 import com.azure.storage.file.datalake.models.PathItem;
 import com.azure.storage.file.datalake.options.DataLakePathDeleteOptions;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -700,7 +701,8 @@ public class AzureFileSystem
         return createBlobContainerClient(location, key).getBlobClient(location.path());
     }
 
-    private BlobContainerClient createBlobContainerClient(AzureLocation location, Optional<EncryptionKey> key)
+    @VisibleForTesting
+    BlobContainerClient createBlobContainerClient(AzureLocation location, Optional<EncryptionKey> key)
     {
         requireNonNull(location, "location is null");
 
@@ -717,7 +719,8 @@ public class AzureFileSystem
         return builder.buildClient();
     }
 
-    private DataLakeFileSystemClient createFileSystemClient(AzureLocation location, Optional<EncryptionKey> key)
+    @VisibleForTesting
+    DataLakeFileSystemClient createFileSystemClient(AzureLocation location, Optional<EncryptionKey> key)
     {
         requireNonNull(location, "location is null");
 
@@ -729,28 +732,7 @@ public class AzureFileSystem
                 .endpoint("https://" + host);
         serviceEndpoint.ifPresent(uri -> {
             builder.endpoint(uri.toString());
-            builder.addPolicy(new HttpPipelinePolicy()
-            {
-                @Override
-                public Mono<HttpResponse> process(HttpPipelineCallContext context, HttpPipelineNextPolicy next)
-                {
-                    HttpRequest request = context.getHttpRequest();
-                    // The SDK rewrites Blob/DFS hosts; retain the configured backend and logical service host.
-                    request.setUrl(UrlBuilder.parse(request.getUrl())
-                            .setScheme(uri.getScheme())
-                            .setHost(uri.getHost())
-                            .setPort(uri.getPort() == -1 ? 443 : uri.getPort())
-                            .toString());
-                    request.setHeader(HttpHeaderName.HOST, host);
-                    return next.process();
-                }
-
-                @Override
-                public HttpPipelinePosition getPipelinePosition()
-                {
-                    return PER_CALL;
-                }
-            });
+            builder.addPolicy(createServiceEndpointPolicy(uri, host));
         });
         key.ifPresent(encryption -> builder.customerProvidedKey(lakeCustomerProvidedKey(encryption)));
         azureAuth.setAuth(location.account(), builder);
@@ -763,6 +745,32 @@ public class AzureFileSystem
             }
         }
         return fileSystemClient;
+    }
+
+    private static HttpPipelinePolicy createServiceEndpointPolicy(URI serviceEndpoint, String host)
+    {
+        return new HttpPipelinePolicy()
+        {
+            @Override
+            public Mono<HttpResponse> process(HttpPipelineCallContext context, HttpPipelineNextPolicy next)
+            {
+                HttpRequest request = context.getHttpRequest();
+                // The SDK rewrites Blob/DFS hosts; retain the configured backend and logical service host.
+                request.setUrl(UrlBuilder.parse(request.getUrl())
+                        .setScheme(serviceEndpoint.getScheme())
+                        .setHost(serviceEndpoint.getHost())
+                        .setPort(serviceEndpoint.getPort() == -1 ? 443 : serviceEndpoint.getPort())
+                        .toString());
+                request.setHeader(HttpHeaderName.HOST, host);
+                return next.process();
+            }
+
+            @Override
+            public HttpPipelinePosition getPipelinePosition()
+            {
+                return PER_CALL;
+            }
+        };
     }
 
     private static String startingFromLowerBound(String startingFrom)
