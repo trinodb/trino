@@ -26,6 +26,11 @@ import okhttp3.Interceptor;
 import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
+import okio.Buffer;
+import okio.BufferedSource;
+import okio.Okio;
+import okio.Source;
 import org.junit.jupiter.api.Test;
 
 import javax.net.SocketFactory;
@@ -90,6 +95,29 @@ public class TestDisallowLocalRedirectInterceptor
         assertThatThrownBy(() -> redirector.intercept(chainWithRedirectLocation("https://169.254.169.254")))
                 .isInstanceOf(ClientException.class)
                 .hasMessage("Following redirect to 'https://169.254.169.254' is disallowed");
+    }
+
+    @Test
+    public void testRejectedRedirectClosesResponse()
+            throws IOException
+    {
+        BufferedSource source = Okio.buffer((Source) new Buffer().writeUtf8("body"));
+        Response response = new Response.Builder()
+                .request(new Request.Builder().url(BASE_URL).build())
+                .protocol(Protocol.HTTP_1_1)
+                .code(302)
+                .message("Found")
+                .header("Location", "http://127.0.0.1")
+                .body(ResponseBody.create(source, null, 4))
+                .build();
+
+        assertThatThrownBy(() -> new DisallowLocalRedirectInterceptor().intercept(new TestingInterceptorChain(response)))
+                .isInstanceOf(ClientException.class)
+                .hasMessage("Following redirect to 'http://127.0.0.1' is disallowed");
+
+        assertThatThrownBy(source::readByte)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("closed");
     }
 
     private static Interceptor.Chain chainWithRedirectLocation(String location)
