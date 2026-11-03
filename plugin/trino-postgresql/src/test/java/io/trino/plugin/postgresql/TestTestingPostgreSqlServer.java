@@ -31,6 +31,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -67,6 +68,26 @@ public class TestTestingPostgreSqlServer
         postgreSqlServer.execute(sql);
         // logging events is asynchronous, it may take some time till it is available
         assertEventually(() -> assertThat(postgreSqlServer.getRemoteDatabaseEvents()).contains(event));
+    }
+
+    @Test
+    public void testRecordingEvents()
+    {
+        String suffix = randomNameSuffix();
+        postgreSqlServer.execute("SELECT 'before %s'".formatted(suffix));
+
+        TestingPostgreSqlServer.DatabaseEventsRecorder outer = postgreSqlServer.recordEventsForOperations(() ->
+                postgreSqlServer.execute("SELECT 'outer %s'".formatted(suffix)));
+        TestingPostgreSqlServer.DatabaseEventsRecorder inner = postgreSqlServer.recordEventsForOperations(() ->
+                        postgreSqlServer.execute("SELECT 'inner %s'".formatted(suffix)))
+                .stopEventsRecording();
+        outer.stopEventsRecording();
+        postgreSqlServer.execute("SELECT 'after %s'".formatted(suffix));
+
+        assertThat(inner.streamQueriesContaining(suffix))
+                .containsExactly("SELECT 'inner %s'".formatted(suffix));
+        assertThat(outer.streamQueriesContaining(suffix))
+                .containsExactly("SELECT 'outer %s'".formatted(suffix), "SELECT 'inner %s'".formatted(suffix));
     }
 
     @Test
