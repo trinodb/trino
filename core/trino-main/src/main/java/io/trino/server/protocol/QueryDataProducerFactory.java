@@ -13,21 +13,36 @@
  */
 package io.trino.server.protocol;
 
+import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.server.protocol.spooling.SpoolingConfig;
+import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
 import io.trino.server.protocol.spooling.SpoolingQueryDataProducer;
+import io.trino.spi.spool.SpoolingManager;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class QueryDataProducerFactory
 {
-    private QueryDataProducerFactory() {}
+    private final Optional<SpoolingManager> spoolingManager;
+    private final Optional<SegmentRetrievalMode> retrievalMode;
 
-    public static QueryDataProducer create(Session session, List<Type> types)
+    @Inject
+    public QueryDataProducerFactory(Optional<SpoolingManager> spoolingManager, Optional<SpoolingConfig> spoolingConfig)
+    {
+        this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
+        this.retrievalMode = requireNonNull(spoolingConfig, "spoolingConfig is null").map(SpoolingConfig::getRetrievalMode);
+    }
+
+    public QueryDataProducer create(Session session, List<Type> types)
     {
         if (session.getQueryDataEncoding().isEmpty()) {
             return new JsonBytesQueryDataProducer(session, types);
         }
-        return new SpoolingQueryDataProducer(session.getQueryDataEncoding().orElseThrow());
+        return new SpoolingQueryDataProducer(session.getQueryDataEncoding().orElseThrow(), spoolingManager.orElseThrow(), retrievalMode.orElseThrow());
     }
 }

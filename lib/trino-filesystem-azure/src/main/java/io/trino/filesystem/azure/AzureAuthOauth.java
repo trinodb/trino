@@ -16,13 +16,18 @@ package io.trino.filesystem.azure;
 import com.azure.identity.ClientSecretCredential;
 import com.azure.identity.ClientSecretCredentialBuilder;
 import com.azure.storage.blob.BlobContainerClientBuilder;
+import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
 import com.google.inject.Inject;
+
+import java.time.OffsetDateTime;
 
 public final class AzureAuthOauth
         implements AzureAuth
 {
     private final ClientSecretCredential credential;
+    private final AzureUserDelegationKeyCache userDelegationKeyCache = new AzureUserDelegationKeyCache();
 
     @Inject
     public AzureAuthOauth(AzureAuthOAuthConfig config)
@@ -38,6 +43,11 @@ public final class AzureAuthOauth
                 .clientId(clientId)
                 .clientSecret(clientSecret)
                 .build();
+    }
+
+    public UserDelegationKey userDelegationKey(BlobServiceClient client, OffsetDateTime startTime, OffsetDateTime expiryTime)
+    {
+        return userDelegationKeyCache.get(client.getAccountUrl(), startTime, expiryTime, client::getUserDelegationKey);
     }
 
     @Override

@@ -528,7 +528,7 @@ public class AzureFileSystem
             throws IOException
     {
         return switch (azureAuth) {
-            case AzureAuthOauth _ -> oauth2PresignedUri(location, ttl, Optional.empty());
+            case AzureAuthOauth auth -> oauth2PresignedUri(auth, location, ttl, Optional.empty());
             case AzureAuthAccessKey _ -> accessKeyPresignedUri(location, ttl, Optional.empty());
             default -> throw new UnsupportedOperationException("Unsupported azure auth: " + azureAuth);
         };
@@ -539,13 +539,13 @@ public class AzureFileSystem
             throws IOException
     {
         return switch (azureAuth) {
-            case AzureAuthOauth _ -> oauth2PresignedUri(location, ttl, Optional.of(key));
+            case AzureAuthOauth auth -> oauth2PresignedUri(auth, location, ttl, Optional.of(key));
             case AzureAuthAccessKey _ -> accessKeyPresignedUri(location, ttl, Optional.of(key));
             default -> throw new UnsupportedOperationException("Unsupported azure auth: " + azureAuth);
         };
     }
 
-    private Optional<UriLocation> oauth2PresignedUri(Location location, Duration ttl, Optional<EncryptionKey> key)
+    private Optional<UriLocation> oauth2PresignedUri(AzureAuthOauth auth, Location location, Duration ttl, Optional<EncryptionKey> key)
             throws IOException
     {
         AzureLocation azureLocation = new AzureLocation(location);
@@ -553,7 +553,7 @@ public class AzureFileSystem
 
         OffsetDateTime startTime = OffsetDateTime.now();
         OffsetDateTime expiryTime = startTime.plus(ttl.toMillis(), MILLIS);
-        UserDelegationKey userDelegationKey = client.getServiceClient().getUserDelegationKey(startTime, expiryTime);
+        UserDelegationKey userDelegationKey = auth.userDelegationKey(client.getServiceClient(), startTime, expiryTime);
 
         BlobSasPermission blobSasPermission = new BlobSasPermission()
                 .setReadPermission(true);

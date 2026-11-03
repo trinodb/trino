@@ -33,6 +33,7 @@ import static java.util.Objects.requireNonNull;
 public class ProtocolQueryFactory
 {
     private final QueryManager queryManager;
+    private final QueryDataProducerFactory queryDataProducerFactory;
     private final QueryInfoUrlFactory queryInfoUrlFactory;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
@@ -43,6 +44,7 @@ public class ProtocolQueryFactory
     @Inject
     public ProtocolQueryFactory(
             QueryManager queryManager,
+            QueryDataProducerFactory queryDataProducerFactory,
             QueryInfoUrlFactory queryInfoUrlFactory,
             DirectExchangeClientSupplier directExchangeClientSupplier,
             ExchangeManagerRegistry exchangeManagerRegistry,
@@ -51,6 +53,7 @@ public class ProtocolQueryFactory
             BlockEncodingSerde blockEncodingSerde)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.queryDataProducerFactory = requireNonNull(queryDataProducerFactory, "queryDataProducerFactory is null");
         this.queryInfoUrlFactory = requireNonNull(queryInfoUrlFactory, "queryInfoUrlFactory is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
@@ -65,6 +68,7 @@ public class ProtocolQueryFactory
                 session,
                 slug,
                 queryManager,
+                queryDataProducerFactory,
                 queryInfoUrlFactory.getQueryInfoUrl(session.getQueryId()),
                 directExchangeClientSupplier,
                 exchangeManagerRegistry,
