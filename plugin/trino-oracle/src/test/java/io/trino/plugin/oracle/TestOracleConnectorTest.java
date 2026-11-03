@@ -26,6 +26,7 @@ import java.util.List;
 
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -98,6 +99,18 @@ public class TestOracleConnectorTest
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
         return "orderkey IN (" + longValues + ")";
+    }
+
+    @Test
+    public void testCreateTableWithIndex()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_create_index_",
+                "(a int, b varchar(10)) WITH (index = ARRAY['idx_a(a)'])")) {
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
+            assertThat(query("SELECT count(*) FROM TABLE(system.query(query => 'SELECT count(*) FROM user_indexes WHERE table_name = ''" + table.getName().toUpperCase(ENGLISH) + "'''))"))
+                    .matches("VALUES BIGINT '1'");
+        }
     }
 
     @Override
