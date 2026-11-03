@@ -160,6 +160,7 @@ final class TestAzureFileSystemLazyIdentityResolution
                 new TracingOptions(),
                 new AzureAuthRefreshingSasToken(ImmutableMap.of(ACCOUNT, sasToken("initial")), identitySupplier),
                 "core.windows.net",
+                Optional.empty(),
                 DataSize.of(4, MEGABYTE),
                 WRITE_BLOCK_SIZE,
                 1,
