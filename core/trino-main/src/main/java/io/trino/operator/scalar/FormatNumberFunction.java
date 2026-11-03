@@ -23,6 +23,7 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Math.abs;
 
 public final class FormatNumberFunction
 {
@@ -81,7 +82,7 @@ public final class FormatNumberFunction
             unit = "Q";
         }
 
-        return getFormat(fractional).format(fractional) + unit;
+        return getFormat(abs(fractional)).format(fractional) + unit;
     }
 
     private DecimalFormat getFormat(double value)
