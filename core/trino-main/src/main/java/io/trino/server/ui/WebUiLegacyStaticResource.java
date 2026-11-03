@@ -13,7 +13,6 @@
  */
 package io.trino.server.ui;
 
-import com.google.inject.Inject;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.security.ResourceSecurity;
 import jakarta.ws.rs.BeanParam;
@@ -24,31 +23,23 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.core.Response;
 
-import java.io.IOException;
+import java.io.InputStream;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
-import static io.trino.web.ui.WebUiResources.webUiResource;
 
 @Path("")
 @ResourceSecurity(PUBLIC)
 public class WebUiLegacyStaticResource
 {
-    private final WebUiConfig config;
-
-    @Inject
-    public WebUiLegacyStaticResource(WebUiConfig config)
-    {
-        this.config = config;
-    }
+    // The legacy UI is always reachable at /ui/legacy so users can access it directly.
+    // Whether it is the *default* UI served at /ui is controlled separately by
+    // web-ui.legacy.enabled (see WebUiStaticResource).
 
     @GET
     @Path("/ui/legacy")
     public Response getUi(@BeanParam ExternalUriInfo externalUriInfo)
     {
-        if (!config.isLegacyUiAvailable()) {
-            throw new NotFoundException();
-        }
         return Response.seeOther(externalUriInfo.absolutePath("/ui/legacy/")).build();
     }
 
@@ -68,9 +59,19 @@ public class WebUiLegacyStaticResource
     @GET
     @Path("/ui/legacy/assets/{path: .*}")
     public Response getAssetsFile(@PathParam("path") String path)
-            throws IOException
     {
-        return webUiResource("/webapp-legacy/assets/" + path);
+        if (path == null || path.contains("..") || path.startsWith("/")) {
+            throw new NotFoundException("Invalid path");
+        }
+
+        String fullPath = "/webapp-legacy/assets/" + path;
+
+        InputStream resource = getClass().getResourceAsStream(fullPath);
+        if (resource == null) {
+            throw new NotFoundException("Resource not found");
+        }
+
+        return Response.ok(resource).build();
     }
 
     // vendor files are always visible
@@ -78,23 +79,41 @@ public class WebUiLegacyStaticResource
     @GET
     @Path("/ui/legacy/vendor/{path: .*}")
     public Response getVendorFile(@PathParam("path") String path)
-            throws IOException
     {
-        return webUiResource("/webapp-legacy/vendor/" + path);
+        if (path == null || path.contains("..") || path.startsWith("/")) {
+            throw new NotFoundException("Invalid path");
+        }
+
+        String fullPath = "/webapp-legacy/vendor/" + path;
+
+        InputStream resource = getClass().getResourceAsStream(fullPath);
+        if (resource == null) {
+            throw new NotFoundException("Resource not found");
+        }
+
+        return Response.ok(resource).build();
     }
 
     @ResourceSecurity(WEB_UI)
     @GET
     @Path("/ui/legacy/{path: .*}")
     public Response getFile(@PathParam("path") String path)
-            throws IOException
     {
-        if (!config.isLegacyUiAvailable()) {
-            throw new NotFoundException();
+        if (path == null || path.contains("..") || path.startsWith("/")) {
+            throw new NotFoundException("Invalid path");
         }
+
         if (path.isEmpty()) {
             path = "index.html";
         }
-        return webUiResource("/webapp-legacy/" + path);
+
+        String fullPath = "/webapp-legacy/" + path;
+
+        InputStream resource = getClass().getResourceAsStream(fullPath);
+        if (resource == null) {
+            throw new NotFoundException("Resource not found");
+        }
+
+        return Response.ok(resource).build();
     }
 }

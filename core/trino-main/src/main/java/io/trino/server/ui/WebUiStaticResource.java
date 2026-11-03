@@ -18,16 +18,16 @@ import io.trino.server.ExternalUriInfo;
 import io.trino.server.security.ResourceSecurity;
 import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.core.Response;
 
-import java.io.IOException;
+import java.io.InputStream;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_DISABLED;
-import static io.trino.web.ui.WebUiResources.webUiResource;
 
 @Path("")
 public class WebUiStaticResource
@@ -52,7 +52,7 @@ public class WebUiStaticResource
     @Path("/ui")
     public Response getUi(@BeanParam ExternalUriInfo externalUriInfo)
     {
-        if (!config.isPreviewEnabled()) {
+        if (config.isLegacyEnabled()) {
             return Response.seeOther(externalUriInfo.absolutePath("/ui/legacy/")).build();
         }
         return Response.seeOther(externalUriInfo.absolutePath("/ui/")).build();
@@ -62,41 +62,76 @@ public class WebUiStaticResource
     @GET
     @Path("/ui/assets/{path: .*}")
     public Response getAssetsFile(@PathParam("path") String path)
-            throws IOException
     {
-        return webUiResource("/webapp/dist/assets/" + path);
+        if (path == null || path.contains("..") || path.startsWith("/")) {
+            throw new NotFoundException("Invalid path");
+        }
+
+        String fullPath = "/webapp/dist/assets/" + path;
+
+        InputStream resource = getClass().getResourceAsStream(fullPath);
+        if (resource == null) {
+            throw new NotFoundException("Resource not found");
+        }
+
+        return Response.ok(resource).build();
     }
 
     @ResourceSecurity(PUBLIC)
     @GET
     @Path(UI_DISABLED)
     public Response getDisabled()
-            throws IOException
     {
-        return webUiResource("/webapp/dist/static/disabled.html");
+        InputStream resource = getClass().getResourceAsStream("/webapp/dist/static/disabled.html");
+        if (resource == null) {
+            throw new NotFoundException("Resource not found");
+        }
+
+        return Response.ok(resource).build();
     }
 
     @ResourceSecurity(PUBLIC)
     @GET
     @Path("/ui/static/{path: .*}")
     public Response getStaticFile(@PathParam("path") String path)
-            throws IOException
     {
-        return webUiResource("/webapp/dist/static/" + path);
+        if (path == null || path.contains("..") || path.startsWith("/")) {
+            throw new NotFoundException("Invalid path");
+        }
+
+        String fullPath = "/webapp/dist/static/" + path;
+
+        InputStream resource = getClass().getResourceAsStream(fullPath);
+        if (resource == null) {
+            throw new NotFoundException("Resource not found");
+        }
+
+        return Response.ok(resource).build();
     }
 
     @ResourceSecurity(WEB_UI)
     @GET
     @Path("/ui/{path: .*}")
     public Response getFile(@BeanParam ExternalUriInfo externalUriInfo, @PathParam("path") String path)
-            throws IOException
     {
+        if (path == null || path.contains("..") || path.startsWith("/")) {
+            throw new NotFoundException("Invalid path");
+        }
+
         if (path.isEmpty()) {
-            if (!config.isPreviewEnabled()) {
+            if (config.isLegacyEnabled()) {
                 return Response.seeOther(externalUriInfo.absolutePath("/ui/legacy/")).build();
             }
             path = "index.html";
         }
-        return webUiResource("/webapp/dist/" + path);
+
+        String fullPath = "/webapp/dist/" + path;
+
+        InputStream resource = getClass().getResourceAsStream(fullPath);
+        if (resource == null) {
+            throw new NotFoundException("Resource not found");
+        }
+
+        return Response.ok(resource).build();
     }
 }
