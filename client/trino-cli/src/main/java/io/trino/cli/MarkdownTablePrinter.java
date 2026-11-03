@@ -31,6 +31,8 @@ import static io.trino.client.ClientStandardTypes.INTEGER;
 import static io.trino.client.ClientStandardTypes.REAL;
 import static io.trino.client.ClientStandardTypes.SMALLINT;
 import static io.trino.client.ClientStandardTypes.TINYINT;
+import static java.lang.Character.charCount;
+import static java.lang.Character.codePointAt;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static org.jline.utils.AttributedString.stripAnsi;
@@ -137,8 +139,11 @@ public class MarkdownTablePrinter
     {
         CharSequence plain = stripAnsi(value);
         int n = 0;
-        for (int i = 0; i < plain.length(); i++) {
-            n += max(wcwidth(plain.charAt(i)), 0);
+        int index = 0;
+        while (index < plain.length()) {
+            int codePoint = codePointAt(plain, index);
+            n += max(wcwidth(codePoint), 0);
+            index += charCount(codePoint);
         }
         return n;
     }
