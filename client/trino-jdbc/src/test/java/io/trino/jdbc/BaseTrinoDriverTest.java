@@ -722,6 +722,15 @@ public abstract class BaseTrinoDriverTest
     }
 
     @Test
+    public void testValidateConnection()
+            throws Exception
+    {
+        try (Connection connection = createConnectionWithParameter("validateConnection=true")) {
+            assertThat(connection.isValid(10)).isTrue();
+        }
+    }
+
+    @Test
     public void testConnectionStringWithCatalogAndSchema()
             throws Exception
     {

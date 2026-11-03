@@ -83,6 +83,7 @@ import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.Maps.fromProperties;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.client.JsonResponse.execute;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static io.trino.jdbc.ClientInfoProperty.APPLICATION_NAME;
@@ -236,10 +237,11 @@ public class TrinoConnection
                 .encodedPath("/v1/statement")
                 .build();
 
-        Request headRequest = new Request.Builder()
+        Request.Builder headRequestBuilder = new Request.Builder()
                 .url(url)
-                .head()
-                .build();
+                .head();
+        user.ifPresent(requestUser -> headRequestBuilder.addHeader(TRINO_HEADERS.requestUser(), requestUser));
+        Request headRequest = headRequestBuilder.build();
 
         Exception lastException = null;
         Duration timeoutDuration = new Duration(timeout, TimeUnit.SECONDS);
