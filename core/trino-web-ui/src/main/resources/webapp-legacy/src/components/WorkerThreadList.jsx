@@ -44,7 +44,7 @@ export class WorkerThreadList extends React.Component {
     captureSnapshot() {
         const nodeId = getFirstParameter(window.location.search)
         $.get(
-            '/ui/api/worker/' + nodeId + '/thread',
+            '../api/worker/' + nodeId + '/thread',
             function (threads) {
                 this.setState({
                     threads: WorkerThreadList.processThreads(threads),

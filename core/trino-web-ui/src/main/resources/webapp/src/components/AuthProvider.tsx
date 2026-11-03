@@ -95,7 +95,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const logout = ({ redirect = false }: LogoutParams) => {
         if (redirect) {
-            window.location.href = '/ui/logout'
+            window.location.href = 'logout'
         } else {
             callApi({
                 apiFn: logoutApi,
