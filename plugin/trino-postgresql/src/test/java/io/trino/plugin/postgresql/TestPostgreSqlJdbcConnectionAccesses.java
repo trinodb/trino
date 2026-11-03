@@ -71,7 +71,12 @@ public class TestPostgreSqlJdbcConnectionAccesses
                             "connection-user", postgreSqlServer.getUser(),
                             "connection-password", postgreSqlServer.getPassword(),
                             // disables connection reuse to approximate number of I/O operations since we almost always open a new connection to execute a query
-                            "query.reuse-connection", "false"));
+                            "query.reuse-connection", "false",
+                            // Disable statistics cache to make connection counts deterministic.
+                            // Whether a table has column-level stats depends on whether PostgreSQL
+                            // auto-vacuum has analyzed it yet. Stats without columns are not cached,
+                            // so auto-vacuum timing affects how many connections are opened.
+                            "metadata.statistics.cache-ttl", "0s"));
                 })
                 .build();
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, ImmutableList.of(CUSTOMER, NATION, REGION));

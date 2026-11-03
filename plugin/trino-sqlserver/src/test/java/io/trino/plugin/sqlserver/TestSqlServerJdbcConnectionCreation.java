@@ -104,7 +104,7 @@ public class TestSqlServerJdbcConnectionCreation
         assertJdbcConnections("DROP TABLE copy_of_nation", 1, Optional.empty());
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 1, Optional.empty());
-        assertJdbcConnections("SHOW STATS FOR nation", 2, Optional.empty());
+        assertJdbcConnections("SHOW STATS FOR nation", 1, Optional.empty());
         assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'counting_sqlserver'", 1, Optional.empty());
     }
 

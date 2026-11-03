@@ -34,6 +34,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.TestingConnectorSession;
@@ -47,6 +48,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -103,6 +105,20 @@ public class TestCachingJdbcClient
 
     private static final TableStatistics NON_EMPTY_STATS = TableStatistics.builder()
             .setRowCount(Estimate.zero())
+            .setColumnStatistics(
+                    JdbcColumnHandle.builder()
+                            .setJdbcTypeHandle(new JdbcTypeHandle(Types.INTEGER, Optional.of("integer"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                            .setColumnType(INTEGER)
+                            .setColumnName("test_column")
+                            .build(),
+                    ColumnStatistics.builder()
+                            .setDistinctValuesCount(Estimate.zero())
+                            .setNullsFraction(Estimate.zero())
+                            .build())
+            .build();
+
+    private static final TableStatistics ROW_COUNT_ONLY_STATS = TableStatistics.builder()
+            .setRowCount(Estimate.of(100))
             .build();
 
     private TestingDatabase database;
@@ -777,6 +793,54 @@ public class TestCachingJdbcClient
     }
 
     @Test
+    public void testGetTableStatisticsDoNotCachePartialWhenCachingMissingIsDisabled()
+    {
+        CachingJdbcClient cachingJdbcClient = cachingClientBuilder()
+                .delegate(jdbcClientWithPartialTableStats())
+                .config(enableCache().setCacheMissing(false))
+                .build();
+        ConnectorSession session = createSession("table");
+        JdbcTableHandle table = createTable(new SchemaTableName(schema, "table"));
+
+        // First call loads from delegate - partial stats (row count only, no column stats)
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableStatistics(session, table)).isEqualTo(ROW_COUNT_ONLY_STATS);
+        });
+
+        // Second call should NOT serve from cache since stats have no column statistics
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).hits(1).misses(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableStatistics(session, table)).isEqualTo(ROW_COUNT_ONLY_STATS);
+        });
+
+        // cleanup
+        this.jdbcClient.dropTable(SESSION, table);
+    }
+
+    @Test
+    public void testCachePartialStatisticsWhenCacheMissingEnabled()
+    {
+        CachingJdbcClient cachingJdbcClient = cachingClientBuilder()
+                .delegate(jdbcClientWithPartialTableStats())
+                .config(enableCache().setCacheMissing(true))
+                .build();
+        ConnectorSession session = createSession("table");
+        JdbcTableHandle table = createTable(new SchemaTableName(schema, "table"));
+
+        // First call loads from delegate
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableStatistics(session, table)).isEqualTo(ROW_COUNT_ONLY_STATS);
+        });
+
+        // Second call SHOULD serve from cache since cacheMissing is enabled
+        assertStatisticsCacheStats(cachingJdbcClient).hits(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableStatistics(session, table)).isEqualTo(ROW_COUNT_ONLY_STATS);
+        });
+
+        // cleanup
+        this.jdbcClient.dropTable(SESSION, table);
+    }
+
+    @Test
     public void testDifferentIdentityKeys()
     {
         CachingJdbcClient cachingJdbcClient = cachingClientBuilder()
@@ -1206,6 +1270,24 @@ public class TestCachingJdbcClient
             public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
             {
                 return NON_EMPTY_STATS;
+            }
+        };
+    }
+
+    private JdbcClient jdbcClientWithPartialTableStats()
+    {
+        return new ForwardingJdbcClient()
+        {
+            @Override
+            protected JdbcClient delegate()
+            {
+                return database.getJdbcClient();
+            }
+
+            @Override
+            public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+            {
+                return ROW_COUNT_ONLY_STATS;
             }
         };
     }
