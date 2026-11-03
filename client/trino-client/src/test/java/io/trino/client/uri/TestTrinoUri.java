@@ -496,6 +496,15 @@ public class TestTrinoUri
     }
 
     @Test
+    public void testSecureSchemeIsCaseInsensitive()
+    {
+        assertThat(TrinoUri.isSecureConnection(URI.create("HTTPS://localhost"))).isTrue();
+        assertThat(TrinoUri.isSecureConnection(URI.create("HtTpS://localhost"))).isTrue();
+        assertThat(TrinoUri.isSecureConnection(URI.create("TRINO://localhost:443"))).isTrue();
+        assertThat(TrinoUri.isSecureConnection(URI.create("TrInO://localhost:8080"))).isFalse();
+    }
+
+    @Test
     public void testValidateConnection()
     {
         TrinoUri uri = createTrinoUri("trino://localhost:8080");
