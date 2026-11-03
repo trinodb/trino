@@ -64,7 +64,7 @@ public final class OptimizeManifests
 
     private OptimizeManifests() {}
 
-    public static Map<String, Long> optimizeManifests(BaseTable table, ExecutorService icebergScanExecutor)
+    public static Map<String, Long> optimizeManifests(BaseTable table, ExecutorService icebergScanExecutor, boolean isMaterializedViewStorage)
     {
         // org.apache.iceberg.BaseRewriteManifests currently rewrites only data manifests
         Snapshot snapshot = table.currentSnapshot();
@@ -110,7 +110,9 @@ public final class OptimizeManifests
                     return clusteredPartitionValues.get(value);
                 })
                 .scanManifestsWith(icebergScanExecutor);
-        carryForwardMaterializedViewDependencies(rewriteManifests);
+        if (isMaterializedViewStorage) {
+            carryForwardMaterializedViewDependencies(rewriteManifests);
+        }
         rewriteManifests.commit();
 
         CommitReport report = reporter.commitReport();

@@ -46,8 +46,8 @@ public final class IcebergMaterializedViewSummary
      * Carries forward the materialized view dependency summary properties onto the given snapshot update.
      * Maintenance operations that commit a new snapshot on a materialized view storage table (OPTIMIZE,
      * optimize_manifests) would otherwise drop these properties, which would break freshness computation and
-     * demote the next incremental refresh to a full refresh. This is a no-op for ordinary tables, which do not
-     * carry these properties.
+     * demote the next incremental refresh to a full refresh. Call this only for materialized view storage
+     * tables, as ordinary tables never carry these properties.
      * <p>
      * The properties are copied from the commit's actual parent snapshot at validation time, once table metadata
      * has been refreshed, rather than from whatever snapshot the operation originally scanned. That way a
