@@ -20,12 +20,12 @@ import java.util.OptionalInt;
 
 public enum CompressionCodec
 {
-    NONE, LZ4, ZSTD;
+    NONE, LZ4, ZSTD, ZSTD_STREAMING;
 
     public OptionalInt maxCompressedLength(int inputSize)
     {
         return switch (this) {
-            case NONE -> OptionalInt.empty();
+            case NONE, ZSTD_STREAMING -> OptionalInt.empty();
             case LZ4 -> OptionalInt.of(Lz4Compressor.create().maxCompressedLength(inputSize));
             case ZSTD -> OptionalInt.of(ZstdCompressor.create().maxCompressedLength(inputSize));
         };

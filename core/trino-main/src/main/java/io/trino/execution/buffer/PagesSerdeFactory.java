@@ -30,6 +30,7 @@ import java.util.OptionalInt;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.CompressionCodec.ZSTD;
+import static io.trino.execution.buffer.CompressionCodec.ZSTD_STREAMING;
 import static java.util.Objects.requireNonNull;
 
 public class PagesSerdeFactory
@@ -55,6 +56,9 @@ public class PagesSerdeFactory
 
     public PageSerializer createSerializer(Optional<SecretKey> encryptionKey)
     {
+        if (compressionCodec == ZSTD_STREAMING) {
+            return new ZstdStreamingPagesSerde(blockEncodingSerde, encryptionKey);
+        }
         return new CompressingEncryptingPageSerializer(
                 blockEncodingSerde,
                 createCompressor(compressionCodec),
@@ -65,6 +69,9 @@ public class PagesSerdeFactory
 
     public PageDeserializer createDeserializer(Optional<SecretKey> encryptionKey)
     {
+        if (compressionCodec == ZSTD_STREAMING) {
+            return new ZstdStreamingPagesSerde(blockEncodingSerde, encryptionKey);
+        }
         return new CompressingDecryptingPageDeserializer(
                 blockEncodingSerde,
                 createDecompressor(compressionCodec),
@@ -80,6 +87,7 @@ public class PagesSerdeFactory
             case NONE -> Optional.empty();
             case LZ4 -> Optional.of(Lz4Compressor.create());
             case ZSTD -> Optional.of(ZstdCompressor.create());
+            case ZSTD_STREAMING -> throw new IllegalArgumentException("ZSTD_STREAMING requires a streaming page serializer");
         };
     }
 
@@ -89,6 +97,7 @@ public class PagesSerdeFactory
             case NONE -> Optional.empty();
             case LZ4 -> Optional.of(Lz4Decompressor.create());
             case ZSTD -> Optional.of(ZstdDecompressor.create());
+            case ZSTD_STREAMING -> throw new IllegalArgumentException("ZSTD_STREAMING requires a streaming page deserializer");
         };
     }
 
@@ -98,6 +107,7 @@ public class PagesSerdeFactory
             case NONE -> OptionalInt.of(uncompressedSize);
             case LZ4 -> LZ4.maxCompressedLength(uncompressedSize);
             case ZSTD -> ZSTD.maxCompressedLength(uncompressedSize);
+            case ZSTD_STREAMING -> OptionalInt.empty();
         };
     }
 
@@ -108,6 +118,7 @@ public class PagesSerdeFactory
             case NONE -> 0;
             case LZ4 -> instanceSize(Lz4Decompressor.class);
             case ZSTD -> instanceSize(ZstdDecompressor.class);
+            case ZSTD_STREAMING -> throw new IllegalArgumentException("ZSTD_STREAMING requires a streaming page deserializer");
         };
     }
 }
