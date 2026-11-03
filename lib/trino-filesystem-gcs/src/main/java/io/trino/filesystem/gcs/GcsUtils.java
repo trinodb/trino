@@ -18,6 +18,8 @@ import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.encryption.EncryptionKey;
@@ -28,6 +30,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -64,21 +67,21 @@ public class GcsUtils
         return new TrinoFileSystemException(message, exception);
     }
 
-    public static ReadChannel getReadChannel(Blob blob, GcsLocation location, long position, int readBlockSize, OptionalLong limit, Optional<EncryptionKey> key)
+    public static ReadChannel getReadChannel(Storage storage, Blob blob, GcsLocation location, long position, int readBlockSize, OptionalLong limit, Optional<EncryptionKey> key, Map<String, String> auditHeaders)
             throws IOException
     {
         long fileSize = requireNonNull(blob.getSize(), "blob size is null");
-        return getReadChannel(blob.getStorage(), blob.getBlobId(), location, fileSize, position, readBlockSize, limit, key);
+        return getReadChannel(storage, blob.getBlobId(), location, fileSize, position, readBlockSize, limit, key, auditHeaders);
     }
 
-    public static ReadChannel getReadChannel(Storage storage, BlobId blobId, GcsLocation location, long fileSize, long position, int readBlockSize, OptionalLong limit, Optional<EncryptionKey> key)
+    public static ReadChannel getReadChannel(Storage storage, BlobId blobId, GcsLocation location, long fileSize, long position, int readBlockSize, OptionalLong limit, Optional<EncryptionKey> key, Map<String, String> auditHeaders)
             throws IOException
     {
         if (position != 0 && position >= fileSize) {
             throw new IOException("Cannot read at %s. File size is %s: %s".formatted(position, fileSize, location));
         }
         // Enable shouldReturnRawInputStream: currently set by default but just to ensure the behavior is predictable
-        ReadChannel readChannel = storage.reader(blobId, storageBlobSourceOptions(key));
+        ReadChannel readChannel = storage.reader(blobId, storageBlobSourceOptions(key, auditHeaders));
         readChannel.setChunkSize(readBlockSize);
         readChannel.seek(position);
         if (limit.isPresent()) {
@@ -87,22 +90,32 @@ public class GcsUtils
         return readChannel;
     }
 
-    private static Storage.BlobSourceOption[] storageBlobSourceOptions(Optional<EncryptionKey> key)
+    private static Storage.BlobSourceOption[] storageBlobSourceOptions(Optional<EncryptionKey> key, Map<String, String> auditHeaders)
     {
-        return key.map(encryption -> new Storage.BlobSourceOption[] {Storage.BlobSourceOption.decryptionKey(encodedKey(encryption)), Storage.BlobSourceOption.shouldReturnRawInputStream(true)})
-                .orElse(new Storage.BlobSourceOption[] {Storage.BlobSourceOption.shouldReturnRawInputStream(true)});
+        ImmutableList.Builder<Storage.BlobSourceOption> options = ImmutableList.builder();
+        key.ifPresent(encryption -> options.add(Storage.BlobSourceOption.decryptionKey(encodedKey(encryption))));
+        return options
+                .add(Storage.BlobSourceOption.shouldReturnRawInputStream(true))
+                .add(Storage.BlobSourceOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)))
+                .build()
+                .toArray(Storage.BlobSourceOption[]::new);
     }
 
-    public static Optional<Blob> getBlob(Storage storage, GcsLocation location, Storage.BlobGetOption... blobGetOptions)
+    public static Optional<Blob> getBlob(Storage storage, GcsLocation location, Map<String, String> auditHeaders, Storage.BlobGetOption... blobGetOptions)
     {
         checkArgument(!location.path().isEmpty(), "Path for location %s is empty", location);
-        return Optional.ofNullable(storage.get(BlobId.of(location.bucket(), location.path()), blobGetOptions));
+        Storage.BlobGetOption[] options = ImmutableList.<Storage.BlobGetOption>builder()
+                .add(blobGetOptions)
+                .add(Storage.BlobGetOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)))
+                .build()
+                .toArray(Storage.BlobGetOption[]::new);
+        return Optional.ofNullable(storage.get(BlobId.of(location.bucket(), location.path()), options));
     }
 
-    public static Blob getBlobOrThrow(Storage storage, GcsLocation location, Storage.BlobGetOption... blobGetOptions)
+    public static Blob getBlobOrThrow(Storage storage, GcsLocation location, Map<String, String> auditHeaders, Storage.BlobGetOption... blobGetOptions)
             throws IOException
     {
-        return getBlob(storage, location, blobGetOptions).orElseThrow(() -> new FileNotFoundException("File %s not found".formatted(location)));
+        return getBlob(storage, location, auditHeaders, blobGetOptions).orElseThrow(() -> new FileNotFoundException("File %s not found".formatted(location)));
     }
 
     public static String encodedKey(EncryptionKey key)
