@@ -44,7 +44,7 @@ public final class IntervalDayTime
 
     private static final String LONG_MIN_VALUE_MILLIS = "-106751991167 07:12:55.808";
 
-    private static final Pattern MILLIS_FORMAT = Pattern.compile("(\\d+) (\\d+):(\\d+):(\\d+).(\\d+)");
+    private static final Pattern MILLIS_FORMAT = Pattern.compile("(\\d+) (\\d+):(\\d+):(\\d+)\\.(\\d+)");
 
     private IntervalDayTime() {}
 
