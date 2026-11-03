@@ -13,14 +13,23 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.ArrayType;
+import io.trino.sql.gen.ColumnarProjectionAssertions;
+import io.trino.sql.gen.ColumnarProjectionAssertions.Input;
+import io.trino.sql.ir.Reference;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.spi.function.SelectedPositions.positionsList;
@@ -31,6 +40,8 @@ public class TestArrayFlattenFunction
 {
     private static final ArrayType BIGINT_ARRAY = new ArrayType(BIGINT);
     private static final ArrayType NESTED_ARRAY = new ArrayType(BIGINT_ARRAY);
+    private static final ColumnarProjectionAssertions COLUMNAR = new ColumnarProjectionAssertions(new TestingFunctionResolution());
+    private static final int POSITION_COUNT = 40;
 
     @Test
     public void testFlattenColumnarRegion()
@@ -107,9 +118,60 @@ public class TestArrayFlattenFunction
             return;
         }
         ((ArrayBlockBuilder) builder).buildEntry(elements -> {
-            for (long element : value) {
-                BIGINT.writeLong(elements, element);
+            for (Long element : value) {
+                if (element == null) {
+                    elements.appendNull();
+                }
+                else {
+                    BIGINT.writeLong(elements, element);
+                }
             }
         });
+    }
+
+    @Test
+    public void testColumnarEquivalence()
+    {
+        Block arrays = nestedArrayBlock(IntStream.range(0, POSITION_COUNT)
+                .mapToObj(TestArrayFlattenFunction::nestedArrayValue)
+                .toList());
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("flatten", new Reference(NESTED_ARRAY, "input")),
+                new Input("input", NESTED_ARRAY, arrays));
+
+        // the inner arrays are dictionary encoded
+        ArrayBlock arrayBlock = (ArrayBlock) arrays;
+        Block innerArrays = arrayBlock.getRawElementBlock();
+        int[] ids = new int[innerArrays.getPositionCount()];
+        Arrays.setAll(ids, id -> ids.length - 1 - id);
+        Block encodedArrays = ArrayBlock.fromElementBlock(
+                POSITION_COUNT,
+                Optional.ofNullable(arrayBlock.getRawValueIsValid()),
+                arrayBlock.getRawOffsets(),
+                DictionaryBlock.create(ids.length, innerArrays, ids));
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("flatten", new Reference(NESTED_ARRAY, "input")),
+                new Input("input", NESTED_ARRAY, encodedArrays));
+    }
+
+    private static List<List<Long>> nestedArrayValue(int position)
+    {
+        // every seventh value is null, and the others have one to three inner arrays of up to two elements, some of them null
+        if (position % 7 == 3) {
+            return null;
+        }
+        List<List<Long>> innerArrays = new ArrayList<>();
+        for (int array = 0; array < (position % 3) + 1; array++) {
+            if ((position + array) % 5 == 4) {
+                innerArrays.add(null);
+                continue;
+            }
+            List<Long> elements = new ArrayList<>();
+            for (int element = 0; element < (position + array) % 3; element++) {
+                elements.add((position + array + element) % 6 == 5 ? null : position * 10L + array * 2L + element);
+            }
+            innerArrays.add(elements);
+        }
+        return innerArrays;
     }
 }

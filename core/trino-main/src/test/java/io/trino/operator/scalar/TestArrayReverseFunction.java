@@ -14,15 +14,21 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.ArrayType;
+import io.trino.sql.gen.ColumnarProjectionAssertions;
+import io.trino.sql.gen.ColumnarProjectionAssertions.Input;
+import io.trino.sql.ir.Reference;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
+import static io.trino.block.BlockAssertions.createArrayBigintBlock;
 import static io.trino.spi.function.SelectedPositions.positionsList;
 import static io.trino.spi.function.SelectedPositions.positionsRange;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -31,6 +37,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestArrayReverseFunction
 {
     private static final ArrayType ARRAY_TYPE = new ArrayType(BIGINT);
+    private static final ColumnarProjectionAssertions COLUMNAR = new ColumnarProjectionAssertions(new TestingFunctionResolution());
+    private static final int POSITION_COUNT = 40;
 
     @Test
     public void testColumnarProjection()
@@ -83,5 +91,24 @@ public class TestArrayReverseFunction
                 assertThat(ARRAY_TYPE.getObjectValue(block, position)).isEqualTo(expected[position]);
             }
         }
+    }
+
+    @Test
+    public void testColumnarEquivalence()
+    {
+        // every seventh array is null, and the arrays have up to three elements, some of them null
+        Block arrays = createArrayBigintBlock(IntStream.range(0, POSITION_COUNT)
+                .mapToObj(position -> position % 7 == 3 ? null : elements(position, position % 4))
+                .toList());
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("reverse", new Reference(ARRAY_TYPE, "input")),
+                new Input("input", ARRAY_TYPE, arrays));
+    }
+
+    private static List<Long> elements(int value, int count)
+    {
+        return IntStream.range(0, count)
+                .mapToObj(element -> (value + element) % 6 == 5 ? null : value * 10L + element)
+                .toList();
     }
 }

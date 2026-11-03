@@ -19,13 +19,20 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.trino.json.Json;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.sql.gen.ColumnarProjectionAssertions;
+import io.trino.sql.gen.ColumnarProjectionAssertions.Input;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -76,6 +83,10 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestMapOperators
 {
     private QueryAssertions assertions;
+
+    private static final ColumnarProjectionAssertions COLUMNAR = new ColumnarProjectionAssertions(new TestingFunctionResolution());
+    private static final int POSITION_COUNT = 40;
+    private static final MapType BIGINT_VARCHAR_MAP = mapType(BIGINT, VARCHAR);
 
     @BeforeAll
     public void init()
@@ -1884,5 +1895,40 @@ public class TestMapOperators
     private static Type entryType(Type keyType, Type valueType)
     {
         return new ArrayType(RowType.anonymous(ImmutableList.of(keyType, valueType)));
+    }
+
+    @Test
+    public void testColumnarMapFunctions()
+    {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries")) {
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function(function, new Reference(BIGINT_VARCHAR_MAP, "input")),
+                    new Input("input", BIGINT_VARCHAR_MAP, mapBlock()));
+        }
+    }
+
+    private static Block mapBlock()
+    {
+        // every seventh map is null, the maps have up to three entries, and the value of the second entry is null
+        MapBlockBuilder builder = BIGINT_VARCHAR_MAP.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            if (position % 7 == 3) {
+                builder.appendNull();
+                continue;
+            }
+            int value = position;
+            builder.buildEntry((keyBuilder, valueBuilder) -> {
+                for (int entry = 0; entry < value % 4; entry++) {
+                    BIGINT.writeLong(keyBuilder, value * 10L + entry);
+                    if (entry == 1) {
+                        valueBuilder.appendNull();
+                    }
+                    else {
+                        VARCHAR.writeString(valueBuilder, "value-" + value + "-" + entry);
+                    }
+                }
+            });
+        }
+        return builder.build();
     }
 }
