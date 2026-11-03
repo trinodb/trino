@@ -19,7 +19,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.KEY_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.MESSAGE_FIELD;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_ID_FIELD;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKafkaInternalFieldManager
@@ -57,5 +61,27 @@ public class TestKafkaInternalFieldManager
         assertThat(internalField.getColumnName()).isEqualTo("internal_field_name");
         assertThat(internalField.getColumnHandle(false)).isEqualTo(kafkaColumnHandle);
         assertThat(internalField.getColumnMetadata(false)).isEqualTo(columnMetadata);
+    }
+
+    @Test
+    public void testKeyFieldIsVarbinary()
+    {
+        KafkaInternalFieldManager kafkaInternalFieldManager = new KafkaInternalFieldManager(TESTING_TYPE_MANAGER, new KafkaConfig());
+
+        KafkaInternalFieldManager.InternalField keyField = kafkaInternalFieldManager.getFieldById(KEY_FIELD);
+
+        assertThat(keyField.getColumnHandle(false).getType()).isEqualTo(VARBINARY);
+        assertThat(keyField.getColumnMetadata(false).getType()).isEqualTo(VARBINARY);
+    }
+
+    @Test
+    public void testMessageFieldIsVarbinary()
+    {
+        KafkaInternalFieldManager kafkaInternalFieldManager = new KafkaInternalFieldManager(TESTING_TYPE_MANAGER, new KafkaConfig());
+
+        KafkaInternalFieldManager.InternalField messageField = kafkaInternalFieldManager.getFieldById(MESSAGE_FIELD);
+
+        assertThat(messageField.getColumnHandle(false).getType()).isEqualTo(VARBINARY);
+        assertThat(messageField.getColumnMetadata(false).getType()).isEqualTo(VARBINARY);
     }
 }
