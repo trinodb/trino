@@ -16,7 +16,11 @@ package io.trino.jdbc;
 import com.google.common.collect.ImmutableList;
 import jakarta.annotation.Nullable;
 
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.sql.Struct;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -24,12 +28,40 @@ import static java.util.Objects.requireNonNull;
 
 // A public facade for Row from trino-client
 public final class Row
+        implements Struct
 {
     private final io.trino.client.Row row;
+    private final String sqlTypeName;
 
-    Row(io.trino.client.Row row)
+    Row(io.trino.client.Row row, String sqlTypeName)
     {
         this.row = requireNonNull(row, "row is null");
+        this.sqlTypeName = requireNonNull(sqlTypeName, "sqlTypeName is null");
+    }
+
+    @Override
+    public String getSQLTypeName()
+    {
+        return sqlTypeName;
+    }
+
+    @Override
+    public Object[] getAttributes()
+            throws SQLException
+    {
+        List<RowField> fields = getFields();
+        Object[] attributes = new Object[fields.size()];
+        for (int i = 0; i < fields.size(); i++) {
+            attributes[i] = fields.get(i).getValue();
+        }
+        return attributes;
+    }
+
+    @Override
+    public Object[] getAttributes(Map<String, Class<?>> typeMap)
+            throws SQLException
+    {
+        throw new SQLFeatureNotSupportedException("getAttributes(typeMap) not supported");
     }
 
     public List<RowField> getFields()
@@ -81,6 +113,8 @@ public final class Row
     public static final class Builder
     {
         private final io.trino.client.Row.Builder builder;
+        // Default for user-built rows that have no type information available
+        private String sqlTypeName = "row";
 
         private Builder()
         {
@@ -90,6 +124,12 @@ public final class Row
         private Builder(int fields)
         {
             builder = io.trino.client.Row.builderWithExpectedSize(fields);
+        }
+
+        Builder withSqlTypeName(String sqlTypeName)
+        {
+            this.sqlTypeName = requireNonNull(sqlTypeName, "sqlTypeName is null");
+            return this;
         }
 
         public Builder addField(String name, @Nullable Object value)
@@ -114,7 +154,7 @@ public final class Row
 
         public Row build()
         {
-            return new Row(builder.build());
+            return new Row(builder.build(), sqlTypeName);
         }
     }
 }
