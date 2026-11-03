@@ -5756,6 +5756,35 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testMissingFieldNameInRowType()
+    {
+        String tableName = "test_missing_field_name_" + randomNameSuffix();
+
+        // Unnamed row field
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(col row(int))",
+                "\\QRow type field does not have a name: row(integer)");
+
+        // Unnamed field nested inside array, map and row types
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(col array(row(int)))",
+                "\\QRow type field does not have a name: row(integer)");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(col map(int, row(int)))",
+                "\\QRow type field does not have a name: row(integer)");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(col row(a row(int)))",
+                "\\QRow type field does not have a name: row(integer)");
+
+        // Add an unnamed row field
+        try (TestTable table = newTrinoTable("test_missing_field_name_add_column_", "(id int)")) {
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " ADD COLUMN c3 row(int)",
+                    "\\QRow type field does not have a name: row(integer)");
+        }
+    }
+
+    @Test
     public void testDuplicatedFieldNames()
     {
         String tableName = "test_duplicated_field_names" + randomNameSuffix();
@@ -5773,7 +5802,7 @@ public class TestDeltaLakeConnectorTest
         assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS row(a row(x int, \"X\" int))) col", "Field name 'x' specified more than once");
 
         try (TestTable table = newTrinoTable("test_duplicated_field_names_", "(id int)")) {
-            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col row(x int, \"X\" int)", ".* Field name 'x' specified more than once");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col row(x int, \"X\" int)", "Field name 'x' specified more than once");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col row(\"X\" int)");
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col.x int", "line 1:1: Field 'x' already exists");

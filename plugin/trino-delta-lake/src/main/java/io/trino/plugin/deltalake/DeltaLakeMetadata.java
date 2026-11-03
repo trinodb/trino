@@ -2167,19 +2167,20 @@ public class DeltaLakeMetadata
             }
         }
 
+        AtomicInteger maxColumnId = switch (columnMappingMode) {
+            case NONE -> new AtomicInteger();
+            case ID, NAME -> new AtomicInteger(getMaxColumnId(handle.getMetadataEntry()));
+            default -> throw new IllegalArgumentException("Unexpected column mapping mode: " + columnMappingMode);
+        };
+        Object columnType = serializeColumnType(columnMappingMode, maxColumnId, newColumnMetadata.getType());
+
         try {
             long commitVersion = handle.getReadVersion() + 1;
-
-            AtomicInteger maxColumnId = switch (columnMappingMode) {
-                case NONE -> new AtomicInteger();
-                case ID, NAME -> new AtomicInteger(getMaxColumnId(handle.getMetadataEntry()));
-                default -> throw new IllegalArgumentException("Unexpected column mapping mode: " + columnMappingMode);
-            };
 
             DeltaLakeTable deltaTable = DeltaLakeTable.builder(handle.getMetadataEntry(), handle.getProtocolEntry())
                     .addColumn(
                             newColumnMetadata.getName(),
-                            serializeColumnType(columnMappingMode, maxColumnId, newColumnMetadata.getType()),
+                            columnType,
                             newColumnMetadata.isNullable(),
                             newColumnMetadata.getComment(),
                             generateColumnMetadata(columnMappingMode, maxColumnId))
