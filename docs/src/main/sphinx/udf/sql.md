@@ -23,7 +23,6 @@ operators](/functions) and other UDFs:
 * [](/udf/sql/while)
 
 ```{toctree}
-:titlesonly: true
 :hidden:
 
 sql/examples

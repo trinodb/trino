@@ -61,7 +61,6 @@ The same UDF can also be declared as [](udf-catalog).
 Refer to the [](/udf/python/examples) for more complex use cases and examples.
 
 ```{toctree}
-:titlesonly: true
 :hidden:
 
 /udf/python/examples
