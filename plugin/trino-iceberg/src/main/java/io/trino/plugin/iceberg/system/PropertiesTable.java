@@ -93,9 +93,8 @@ public class PropertiesTable
         properties.put("current-snapshot-id", currentSnapshotId);
         properties.put("location", icebergTable.location());
         properties.put("format-version", String.valueOf(formatVersion(icebergTable)));
-        // TODO: Support sort column transforms (https://github.com/trinodb/trino/issues/15088)
         SortOrder sortOrder = icebergTable.sortOrder();
-        if (!sortOrder.isUnsorted() && sortOrder.fields().stream().allMatch(sortField -> sortField.transform().isIdentity())) {
+        if (!sortOrder.isUnsorted()) {
             List<String> sortColumnNames = toSortFields(sortOrder);
             properties.put("sort-order", String.join(", ", sortColumnNames));
         }

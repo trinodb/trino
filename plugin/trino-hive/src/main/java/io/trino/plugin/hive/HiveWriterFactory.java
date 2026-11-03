@@ -522,6 +522,7 @@ public class HiveWriterFactory
                     sortOrders,
                     pageSorter,
                     typeManager.getTypeOperators(),
+                    ImmutableList.of(),
                     ImmutableList.of());
         }
 
@@ -562,6 +563,7 @@ public class HiveWriterFactory
                 sortOrders,
                 pageSorter,
                 typeManager.getTypeOperators(),
+                ImmutableList.of(),
                 ImmutableList.of());
     }
 

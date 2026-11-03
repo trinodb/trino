@@ -19,14 +19,19 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.SortingFileWriter;
+import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
+import java.util.function.Function;
 
+import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
+import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static java.util.Objects.requireNonNull;
 
 public final class IcebergSortingFileWriter
@@ -43,23 +48,41 @@ public final class IcebergSortingFileWriter
             int maxOpenTempFiles,
             List<Type> types,
             List<List<Integer>> sortIndexPaths,
-            List<SortOrder> sortOrders,
+            List<TrinoSortField> sortFields,
             PageSorter pageSorter,
             TypeOperators typeOperators)
     {
         this.outputWriter = requireNonNull(outputWriter, "outputWriter is null");
 
-        // Build sortChannels and nestedPaths in one pass.
-        // Depth-1 paths are already top-level channels; nested paths are appended after originalChannelCount.
-        ImmutableList.Builder<List<Integer>> nestedPaths = ImmutableList.builder();
+        ImmutableList.Builder<Type> extraSortTypes = ImmutableList.builder();
+        ImmutableList.Builder<Function<Page, Block>> extraSortBlockProviders = ImmutableList.builder();
         ImmutableList.Builder<Integer> sortChannels = ImmutableList.builder();
+        ImmutableList.Builder<SortOrder> sortOrders = ImmutableList.builder();
         int nextChannel = types.size();
-        for (List<Integer> path : sortIndexPaths) {
-            if (path.size() == 1) {
+        for (int i = 0; i < sortIndexPaths.size(); i++) {
+            List<Integer> path = sortIndexPaths.get(i);
+            TrinoSortField sortField = sortFields.get(i);
+            sortOrders.add(sortField.sortOrder());
+
+            if (path.size() == 1 && sortField.transform().equals("identity")) {
                 sortChannels.add(path.getFirst());
                 continue;
             }
-            nestedPaths.add(path);
+
+            Type sourceType = types.get(path.getFirst());
+            for (int depth = 1; depth < path.size(); depth++) {
+                sourceType = sourceType.getTypeParameters().get(path.get(depth));
+            }
+
+            ColumnTransform transform = getColumnTransform(sortField.transform(), sourceType);
+            extraSortTypes.add(transform.type());
+            extraSortBlockProviders.add(page -> {
+                Block block = page.getBlock(path.getFirst());
+                for (int depth = 1; depth < path.size(); depth++) {
+                    block = getRowFieldsFromBlock(block).get(path.get(depth));
+                }
+                return transform.blockTransform().apply(block);
+            });
             sortChannels.add(nextChannel++);
         }
 
@@ -71,10 +94,11 @@ public final class IcebergSortingFileWriter
                 maxOpenTempFiles,
                 types,
                 sortChannels.build(),
-                sortOrders,
+                sortOrders.build(),
                 pageSorter,
                 typeOperators,
-                nestedPaths.build());
+                extraSortTypes.build(),
+                extraSortBlockProviders.build());
     }
 
     @Override

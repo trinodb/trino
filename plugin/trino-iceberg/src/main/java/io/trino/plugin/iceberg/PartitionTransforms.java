@@ -88,8 +88,11 @@ public final class PartitionTransforms
 
     public static ColumnTransform getColumnTransform(PartitionField field, Type sourceType)
     {
-        String transform = field.transform().toString();
+        return getColumnTransform(field.transform().toString(), sourceType);
+    }
 
+    public static ColumnTransform getColumnTransform(String transform, Type sourceType)
+    {
         switch (transform) {
             case "identity" -> {
                 return identity(sourceType);
@@ -110,7 +113,7 @@ public final class PartitionTransforms
                 if (sourceType.equals(TIMESTAMP_TZ_NANOS)) {
                     return yearsFromTimestampNanosWithTimeZone();
                 }
-                throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
+                throw new UnsupportedOperationException("Unsupported type for 'year': " + sourceType);
             }
             case "month" -> {
                 if (sourceType.equals(DATE)) {
@@ -128,7 +131,7 @@ public final class PartitionTransforms
                 if (sourceType.equals(TIMESTAMP_TZ_NANOS)) {
                     return monthsFromTimestampNanosWithTimeZone();
                 }
-                throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
+                throw new UnsupportedOperationException("Unsupported type for 'month': " + sourceType);
             }
             case "day" -> {
                 if (sourceType.equals(DATE)) {
@@ -146,7 +149,7 @@ public final class PartitionTransforms
                 if (sourceType.equals(TIMESTAMP_TZ_NANOS)) {
                     return daysFromTimestampNanosWithTimeZone();
                 }
-                throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
+                throw new UnsupportedOperationException("Unsupported type for 'day': " + sourceType);
             }
             case "hour" -> {
                 if (sourceType.equals(TIMESTAMP_MICROS)) {
@@ -161,7 +164,7 @@ public final class PartitionTransforms
                 if (sourceType.equals(TIMESTAMP_TZ_NANOS)) {
                     return hoursFromTimestampNanosWithTimeZone();
                 }
-                throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
+                throw new UnsupportedOperationException("Unsupported type for 'hour': " + sourceType);
             }
             case "void" -> {
                 return voidTransform(sourceType);
@@ -195,10 +198,10 @@ public final class PartitionTransforms
             if (sourceType.equals(VARBINARY)) {
                 return truncateVarbinary(width);
             }
-            throw new UnsupportedOperationException("Unsupported type for 'truncate': " + field);
+            throw new UnsupportedOperationException("Unsupported type for 'truncate': " + sourceType);
         }
 
-        throw new UnsupportedOperationException("Unsupported partition transform: " + field);
+        throw new UnsupportedOperationException("Unsupported transform: " + transform);
     }
 
     public static ColumnTransform getColumnTransform(IcebergPartitionFunction field)

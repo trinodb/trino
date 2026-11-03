@@ -1661,20 +1661,64 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreateSortedTableWithSortTransform()
     {
-        testCreateSortedTableWithSortTransform("col", "bucket(col, 3)");
-        testCreateSortedTableWithSortTransform("col", "bucket(\"col\", 3)");
-        testCreateSortedTableWithSortTransform("col", "truncate(col, 3)");
-        testCreateSortedTableWithSortTransform("col", "year(col)");
-        testCreateSortedTableWithSortTransform("col", "month(col)");
-        testCreateSortedTableWithSortTransform("col", "date(col)");
-        testCreateSortedTableWithSortTransform("col", "hour(col)");
+        try (TestTable table = newTrinoTable(
+                "test_sort_with_transform",
+                "(vc VARCHAR, ts TIMESTAMP(6)) WITH (sorted_by = ARRAY[" +
+                        "'bucket(vc, 3)', " +
+                        "'truncate(vc, 3) DESC', " +
+                        "'year(ts) ASC NULLS LAST', " +
+                        "'month(ts) DESC NULLS FIRST', " +
+                        "'day(ts)', " +
+                        "'hour(ts)', " +
+                        "'void(vc)'])")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("sorted_by = ARRAY['bucket(vc, 3) ASC NULLS FIRST','truncate(vc, 3) DESC NULLS LAST','year(ts) ASC NULLS LAST','month(ts) DESC NULLS FIRST','day(ts) ASC NULLS FIRST','hour(ts) ASC NULLS FIRST','void(vc) ASC NULLS FIRST']");
+            assertQuery(
+                    "SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'sort-order'",
+                    "VALUES 'bucket(vc, 3) ASC NULLS FIRST, truncate(vc, 3) DESC NULLS LAST, year(ts) ASC NULLS LAST, month(ts) DESC NULLS FIRST, day(ts) ASC NULLS FIRST, hour(ts) ASC NULLS FIRST, void(vc) ASC NULLS FIRST'");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['bucket(ts, 5) DESC']");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("sorted_by = ARRAY['bucket(ts, 5) DESC NULLS LAST']");
+        }
+
+        String tableName = "test_sort_with_invalid_transform_" + randomNameSuffix();
+        assertThat(query(format("CREATE TABLE %s (col TIMESTAMP(6)) WITH (sorted_by = ARRAY['date(col)'])", tableName)))
+                .failure().hasMessageContaining("Unable to parse sort field: [date(col)]");
+        assertThat(query(format("CREATE TABLE %s (col TIMESTAMP(6)) WITH (sorted_by = ARRAY['truncate(col, 3)'])", tableName)))
+                .failure().hasMessageContaining("Invalid sorted_by definition");
     }
 
-    private void testCreateSortedTableWithSortTransform(String columnName, String sortField)
+    @Test
+    public void testSortedWritingWithSortTransform()
     {
-        String tableName = "test_sort_with_transform_" + randomNameSuffix();
-        assertThat(query(format("CREATE TABLE %s (%s TIMESTAMP(6)) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField)))
-                .failure().hasMessageContaining("Unable to parse sort field");
+        try (TestTable table = newTrinoTable(
+                "test_sort_write_with_transforms",
+                "(id BIGINT, vc VARCHAR, dt DATE, ts TIMESTAMP(6), ts_tz TIMESTAMP(6) WITH TIME ZONE, row_t ROW(name VARCHAR)) WITH (sorted_by = ARRAY[" +
+                        "'year(dt)', " +
+                        "'month(dt)', " +
+                        "'day(dt)', " +
+                        "'hour(ts)', " +
+                        "'bucket(id, 4)', " +
+                        "'truncate(vc, 2)', " +
+                        "'void(ts_tz)', " +
+                        "'truncate(\"row_t.name\", 3)', " +
+                        "'vc'])")) {
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " VALUES " +
+                            "(1, 'ab_2', DATE '2023-05-10', TIMESTAMP '2023-05-10 12:00:00', TIMESTAMP '2023-05-10 12:00:00 UTC', ROW('xyz2')), " +
+                            "(1, 'ab_1', DATE '2023-05-10', TIMESTAMP '2023-05-10 12:00:00', TIMESTAMP '2023-05-10 12:00:00 UTC', ROW('xyz1')), " +
+                            "(1, 'aa_1', DATE '2023-05-10', TIMESTAMP '2023-05-10 12:00:00', TIMESTAMP '2023-05-10 12:00:00 UTC', ROW('abc1'))",
+                    3);
+            for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id FROM \"" + table.getName() + "$files\"").getMaterializedRows()) {
+                assertThat(isFileSorted((String) row.getField(0), "vc")).isTrue();
+                assertThat(isFileSorted((String) row.getField(0), "row_t.name")).isTrue();
+                assertThat((Integer) row.getField(1)).isEqualTo(1);
+            }
+            assertQuery(
+                    "SELECT vc, row_t.name FROM " + table.getName(),
+                    "VALUES ('aa_1', 'abc1'), ('ab_1', 'xyz1'), ('ab_2', 'xyz2')");
+        }
     }
 
     @Test

@@ -42,6 +42,7 @@ import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -50,7 +51,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
-import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static java.lang.Math.min;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -74,7 +74,7 @@ public final class SortingFileWriter
     private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::size));
     private final AtomicLong nextFileId = new AtomicLong();
     private final TypeOperators typeOperators;
-    private final List<List<Integer>> nestedSortPaths;
+    private final List<Function<Page, Block>> extraSortBlockProviders;
     private final int originalChannelCount;
     private final int[] keepChannels;
 
@@ -92,9 +92,11 @@ public final class SortingFileWriter
             List<SortOrder> sortOrders,
             PageSorter pageSorter,
             TypeOperators typeOperators,
-            List<List<Integer>> nestedSortPaths)
+            List<Type> extraSortTypes,
+            List<Function<Page, Block>> extraSortBlockProviders)
     {
         checkArgument(maxOpenTempFiles >= 2, "maxOpenTempFiles must be at least two");
+        checkArgument(extraSortTypes.size() == extraSortBlockProviders.size(), "extraSortTypes and extraSortBlockProviders sizes must match");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.tempFilePrefix = requireNonNull(tempFilePrefix, "tempFilePrefix is null");
         this.maxOpenTempFiles = maxOpenTempFiles;
@@ -103,20 +105,14 @@ public final class SortingFileWriter
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
         this.outputWriter = requireNonNull(outputWriter, "outputWriter is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.nestedSortPaths = ImmutableList.copyOf(nestedSortPaths);
+        this.extraSortBlockProviders = ImmutableList.copyOf(extraSortBlockProviders);
         this.originalChannelCount = types.size();
-        this.keepChannels = nestedSortPaths.isEmpty() ? new int[0] : IntStream.range(0, types.size()).toArray();
+        this.keepChannels = extraSortBlockProviders.isEmpty() ? new int[0] : IntStream.range(0, types.size()).toArray();
 
-        ImmutableList.Builder<Type> sortTypesBuilder = ImmutableList.builder();
-        sortTypesBuilder.addAll(types);
-        for (List<Integer> path : nestedSortPaths) {
-            Type type = types.get(path.getFirst());
-            for (int i = 1; i < path.size(); i++) {
-                type = type.getTypeParameters().get(path.get(i));
-            }
-            sortTypesBuilder.add(type);
-        }
-        this.sortTypes = sortTypesBuilder.build();
+        this.sortTypes = ImmutableList.<Type>builderWithExpectedSize(types.size() + extraSortTypes.size())
+                .addAll(types)
+                .addAll(extraSortTypes)
+                .build();
 
         this.sortBuffer = new SortBuffer(maxMemory, sortTypes, sortFields, sortOrders, pageSorter);
     }
@@ -282,27 +278,22 @@ public final class SortingFileWriter
 
     private Page expandPage(Page page)
     {
-        if (nestedSortPaths.isEmpty()) {
+        if (extraSortBlockProviders.isEmpty()) {
             return page;
         }
-        Block[] blocks = new Block[originalChannelCount + nestedSortPaths.size()];
+        Block[] blocks = new Block[originalChannelCount + extraSortBlockProviders.size()];
         for (int i = 0; i < originalChannelCount; i++) {
             blocks[i] = page.getBlock(i);
         }
-        for (int i = 0; i < nestedSortPaths.size(); i++) {
-            List<Integer> path = nestedSortPaths.get(i);
-            Block block = page.getBlock(path.getFirst());
-            for (int depth = 1; depth < path.size(); depth++) {
-                block = getRowFieldsFromBlock(block).get(path.get(depth));
-            }
-            blocks[originalChannelCount + i] = block;
+        for (int i = 0; i < extraSortBlockProviders.size(); i++) {
+            blocks[originalChannelCount + i] = extraSortBlockProviders.get(i).apply(page);
         }
         return new Page(page.getPositionCount(), blocks);
     }
 
     private Page stripPage(Page page)
     {
-        if (nestedSortPaths.isEmpty()) {
+        if (extraSortBlockProviders.isEmpty()) {
             return page;
         }
         return page.getColumns(keepChannels);
