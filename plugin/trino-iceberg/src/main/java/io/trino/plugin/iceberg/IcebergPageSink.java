@@ -39,7 +39,6 @@ import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.LongTimestamp;
@@ -55,6 +54,7 @@ import org.apache.iceberg.MetricsModes;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.transforms.Transform;
 import org.apache.iceberg.types.Type.PrimitiveType;
@@ -149,7 +149,6 @@ public class IcebergPageSink
     private final List<Type> columnTypes;
     // Per sort field: index path from root struct to the leaf field (e.g. [1, 0] for top.nested)
     private final List<List<Integer>> sortIndexPaths;
-    private final List<SortOrder> sortOrders;
     // Maps column index to top-level types that contain geometry
     private final Map<Integer, org.apache.iceberg.types.Type> columnsWithGeometry;
 
@@ -228,23 +227,19 @@ public class IcebergPageSink
 
         if (sortedWritingEnabled) {
             ImmutableList.Builder<List<Integer>> sortIndexPaths = ImmutableList.builder();
-            ImmutableList.Builder<SortOrder> sortOrders = ImmutableList.builder();
             for (TrinoSortField sortField : sortFields) {
                 if (outputSchema.findField(sortField.sourceColumnId()) == null) {
                     throw new TrinoException(ICEBERG_INVALID_METADATA, "Unable to find sort field source column in the table schema: " + sortField);
                 }
                 List<Integer> nestedFieldIds = getNestedFieldIds(outputSchema.asStruct(), sortField.sourceColumnId());
                 sortIndexPaths.add(getIndexPathToField(outputSchema.asStruct(), nestedFieldIds));
-                sortOrders.add(sortField.sortOrder());
             }
             this.sortIndexPaths = sortIndexPaths.build();
-            this.sortOrders = sortOrders.build();
             this.sortOrderId = sortOrderId;
         }
         else {
             this.sortIndexPaths = ImmutableList.of();
-            this.sortOrders = ImmutableList.of();
-            this.sortOrderId = org.apache.iceberg.SortOrder.unsorted().orderId();
+            this.sortOrderId = SortOrder.unsorted().orderId();
         }
     }
 
@@ -541,7 +536,7 @@ public class IcebergPageSink
                         sortingFileWriterMaxOpenFiles,
                         columnTypes,
                         sortIndexPaths,
-                        sortOrders,
+                        sortFields,
                         pageSorter,
                         typeManager.getTypeOperators());
                 writer = new WriteContext(sortedFileWriter, outputPath, partitionData);
@@ -726,7 +721,7 @@ public class IcebergPageSink
     }
 
     // Required columns keep null counts because verifyNotNullConstraint reads them
-    private static MetricsConfig createMetricsConfig(Map<String, String> storageProperties, Schema schema, org.apache.iceberg.SortOrder sortOrder)
+    private static MetricsConfig createMetricsConfig(Map<String, String> storageProperties, Schema schema, SortOrder sortOrder)
     {
         MetricsConfig metricsConfig = MetricsConfig.from(storageProperties, schema, sortOrder);
         Map<String, String> requiredColumnModes = schema.columns().stream()
@@ -745,9 +740,9 @@ public class IcebergPageSink
                 sortOrder);
     }
 
-    private static org.apache.iceberg.SortOrder metricsSortOrder(Schema schema, List<TrinoSortField> sortFields)
+    private static SortOrder metricsSortOrder(Schema schema, List<TrinoSortField> sortFields)
     {
-        org.apache.iceberg.SortOrder.Builder builder = org.apache.iceberg.SortOrder.builderFor(schema);
+        SortOrder.Builder builder = SortOrder.builderFor(schema);
         sortFields.forEach(sortField -> builder.asc(schema.findColumnName(sortField.sourceColumnId())));
         return builder.build();
     }
