@@ -12,7 +12,7 @@
     <artifactId>trino-bigquery</artifactId>
     <packaging>trino-plugin</packaging>
     <name>${project.artifactId}</name>
-    <description>Trino - BigQuery connector</description>
+    <description>Trino BigQuery connector</description>
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>

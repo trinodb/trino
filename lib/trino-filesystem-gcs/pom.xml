@@ -11,7 +11,7 @@
 
     <artifactId>trino-filesystem-gcs</artifactId>
     <name>${project.artifactId}</name>
-    <description>Trino - Google Cloud Storage file system support</description>
+    <description>Trino - Google Cloud Storage file system</description>
 
     <dependencies>
         <dependency>
