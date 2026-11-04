@@ -4847,6 +4847,40 @@ public class TestSqlParser
                                 null),
                         new BooleanLiteral(location(3, 6), "true"),
                         ImmutableList.of(new MergeDelete(location(4, 1), Optional.empty()))));
+
+        assertThat(statement(
+                """
+                MERGE INTO inventory AS i
+                  USING changes AS c
+                  ON true
+                WHEN NOT MATCHED BY SOURCE
+                  THEN UPDATE SET qty = 0
+                WHEN NOT MATCHED BY SOURCE
+                  THEN DELETE
+                """))
+                .isEqualTo(new Merge(
+                        location,
+                        new AliasedRelation(
+                                new Table(location(1, 1), qualifiedName(location(1, 12), "inventory")),
+                                new Identifier(location(1, 25), "i", false),
+                                null),
+                        new AliasedRelation(
+                                location(2, 9),
+                                new Table(location(2, 9), qualifiedName(location(2, 9), "changes")),
+                                new Identifier(location(2, 20), "c", false),
+                                null),
+                        new BooleanLiteral(location(3, 6), "true"),
+                        ImmutableList.of(
+                                new MergeUpdate(
+                                        location(4, 1),
+                                        Optional.empty(),
+                                        ImmutableList.of(new MergeUpdate.Assignment(new Identifier(location(5, 19), "qty", false), new LongLiteral(location(5, 25), "0"))),
+                                        true),
+                                new MergeDelete(location(6, 1), Optional.empty(), true))));
+
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("MERGE INTO t USING s ON true WHEN NOT MATCHED BY SOURCE THEN INSERT VALUES (1)"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessage("line 1:62: mismatched input 'INSERT'. Expecting: 'DELETE', 'UPDATE'");
     }
 
     @Test

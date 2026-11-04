@@ -623,6 +623,45 @@ public class TestCheckConstraint
                 WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 10, 'No comment')
                 """))
                 .failure().hasMessage("Check constraint violation: (regionkey < 10)");
+
+        // Values of cases that are not applied are not checked
+        assertThat(assertions.query(
+                """
+                MERGE INTO mock.tiny.nation USING (VALUES 1) t(x) ON regionkey = x
+                WHEN MATCHED AND t.x = 2 THEN UPDATE SET regionkey = 10
+                WHEN MATCHED THEN DELETE
+                WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 10, 'No comment')
+                """))
+                .matches("SELECT BIGINT '5'");
+    }
+
+    @Test
+    public void testMergeNotMatchedBySource()
+    {
+        // Within allowed check constraint
+        assertThat(assertions.query(
+                """
+                MERGE INTO mock.tiny.nation USING (VALUES 0) t(x) ON nationkey = x
+                WHEN NOT MATCHED BY SOURCE THEN UPDATE SET regionkey = 9
+                """))
+                .matches("SELECT BIGINT '24'");
+
+        // Outside allowed check constraint
+        assertThat(assertions.query(
+                """
+                MERGE INTO mock.tiny.nation USING (VALUES 0) t(x) ON nationkey = x
+                WHEN NOT MATCHED BY SOURCE THEN UPDATE SET regionkey = 10
+                """))
+                .failure().hasMessage("Check constraint violation: (regionkey < 10)");
+
+        // Values of cases that are not applied are not checked
+        assertThat(assertions.query(
+                """
+                MERGE INTO mock.tiny.nation USING (VALUES 99) t(x) ON nationkey = x
+                WHEN MATCHED THEN UPDATE SET regionkey = 10
+                WHEN NOT MATCHED BY SOURCE THEN DELETE
+                """))
+                .matches("SELECT BIGINT '25'");
     }
 
     @Test

@@ -800,13 +800,13 @@ class AstBuilder
                     (Expression) visit(context.values.get(i))));
         }
 
-        return new MergeUpdate(getLocation(context), visitIfPresent(context.condition, Expression.class), assignments.build());
+        return new MergeUpdate(getLocation(context), visitIfPresent(context.condition, Expression.class), assignments.build(), context.SOURCE() != null);
     }
 
     @Override
     public Node visitMergeDelete(SqlBaseParser.MergeDeleteContext context)
     {
-        return new MergeDelete(getLocation(context), visitIfPresent(context.condition, Expression.class));
+        return new MergeDelete(getLocation(context), visitIfPresent(context.condition, Expression.class), context.SOURCE() != null);
     }
 
     @Override

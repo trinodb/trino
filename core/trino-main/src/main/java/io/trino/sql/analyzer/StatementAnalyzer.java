@@ -4013,6 +4013,18 @@ class StatementAnalyzer
                         analysis.addCoercion(expression, targetType);
                     }
                 }
+
+                if (operation.isNotMatchedBySource()) {
+                    // The source fields follow the target fields in the join scope
+                    int targetFieldCount = targetTableScope.getRelationType().getAllFieldCount();
+                    Stream.concat(operation.getExpression().stream(), setExpressions.stream())
+                            .flatMap(expression -> getReferencesToScope(expression, analysis, joinScope))
+                            .filter(reference -> analysis.getResolvedField(reference).getRelationFieldIndex() >= targetFieldCount)
+                            .findFirst()
+                            .ifPresent(reference -> {
+                                throw semanticException(INVALID_COLUMN_REFERENCE, reference, "Reference to source column '%s' not allowed in WHEN NOT MATCHED BY SOURCE clause", reference);
+                            });
+                }
             }
 
             List<OutputColumn> updatedColumns = allColumnHandles.keySet().stream()
