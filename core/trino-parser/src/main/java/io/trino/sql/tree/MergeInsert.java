@@ -64,6 +64,12 @@ public class MergeInsert
     }
 
     @Override
+    public boolean isNotMatchedBySource()
+    {
+        return false;
+    }
+
+    @Override
     public List<? extends Node> getChildren()
     {
         ImmutableList.Builder<Node> builder = ImmutableList.builder();
