@@ -861,15 +861,24 @@ public final class SqlFormatter
         protected Void visitTable(Table node, Integer indent)
         {
             builder.append(formatName(node.getName()));
-            node.getQueryPeriod().ifPresent(queryPeriod -> builder
-                    .append(" " + queryPeriod));
+            node.getQueryPeriod().ifPresent(queryPeriod -> {
+                builder.append(" ");
+                process(queryPeriod, indent);
+            });
             return null;
         }
 
         @Override
         protected Void visitQueryPeriod(QueryPeriod node, Integer indent)
         {
-            builder.append("FOR " + node.getRangeType().name() + " AS OF " + formatExpression(node.getEnd().get()));
+            builder.append("FOR ").append(node.getRangeType().name());
+            if (node.getStart().isPresent()) {
+                builder.append(" FROM ").append(formatExpression(node.getStart().get())).append(" TO ");
+            }
+            else {
+                builder.append(" AS OF ");
+            }
+            builder.append(formatExpression(node.getEnd().orElseThrow()));
             return null;
         }
 
