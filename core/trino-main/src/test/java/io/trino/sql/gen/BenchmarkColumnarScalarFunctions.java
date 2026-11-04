@@ -61,11 +61,15 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.RunnerException;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntToLongFunction;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -101,18 +105,21 @@ public class BenchmarkColumnarScalarFunctions
             "array_first",
             "array_last",
             "element_at",
+            "element_at_nulls",
+            "element_at_column",
             "row_field",
             "row_constructor",
     })
     public String function;
 
-    @Param({"flat", "dictionary", "rle"})
+    @Param({"flat", "dictionary", "fresh_dictionary", "rle"})
     public String encoding;
 
-    @Param({"all", "sparse"})
+    @Param({"all", "sparse", "very_sparse"})
     public String selection;
 
-    private Page inputPage;
+    private Page[] inputPages;
+    private int nextPage;
     private Type outputType;
     private PageProcessor columnarProcessor;
     private PageProcessor rowProcessor;
@@ -123,12 +130,26 @@ public class BenchmarkColumnarScalarFunctions
         Type inputType;
         Expression expression;
         Map<Symbol, Integer> layout;
-        if (ImmutableList.of("flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at").contains(function)) {
+        Supplier<Page> pageSupplier;
+        if (ImmutableList.of("flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column").contains(function)) {
             ArrayType innerArrayType = new ArrayType(VARCHAR);
             inputType = new ArrayType(innerArrayType);
-            if (function.equals("element_at") || function.equals("trim_array")) {
+            Block arrays = createNestedArrayBlock((ArrayType) inputType, function.equals("element_at_nulls"));
+            pageSupplier = () -> new Page(encode(arrays, encoding));
+            layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
+            if (function.equals("element_at_column")) {
+                // the index is a second input, so the projection is not evaluated over the dictionary of the arrays
                 expression = call(
-                        FUNCTIONS.resolveFunction(function, fromTypes(inputType, BIGINT)),
+                        FUNCTIONS.resolveFunction("element_at", fromTypes(inputType, BIGINT)),
+                        new Reference(inputType, "input"),
+                        new Reference(BIGINT, "index"));
+                Block indexes = createLongsBlock(position -> (position % 4) + 1);
+                pageSupplier = () -> new Page(encode(arrays, encoding), indexes);
+                layout = ImmutableMap.of(new Symbol(inputType, "input"), 0, new Symbol(BIGINT, "index"), 1);
+            }
+            else if (function.equals("element_at") || function.equals("element_at_nulls") || function.equals("trim_array")) {
+                expression = call(
+                        FUNCTIONS.resolveFunction(function.equals("trim_array") ? "trim_array" : "element_at", fromTypes(inputType, BIGINT)),
                         new Reference(inputType, "input"),
                         new Constant(BIGINT, 2L));
             }
@@ -144,13 +165,12 @@ public class BenchmarkColumnarScalarFunctions
                         FUNCTIONS.resolveFunction(function, fromTypes(inputType)),
                         new Reference(inputType, "input"));
             }
-            inputPage = new Page(encode(createNestedArrayBlock((ArrayType) inputType), encoding));
-            layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
         }
         else if (function.equals("row_field")) {
             inputType = RowType.anonymous(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR));
             expression = new FieldReference(new Reference(inputType, "input"), 2);
-            inputPage = new Page(encode(createRowBlock(), encoding));
+            Block rows = createRowBlock();
+            pageSupplier = () -> new Page(encode(rows, encoding));
             layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
         }
         else if (function.equals("row_constructor")) {
@@ -162,10 +182,10 @@ public class BenchmarkColumnarScalarFunctions
                 String name = "field" + field;
                 fields.add(new Reference(VARCHAR, name));
                 layoutBuilder.put(new Symbol(VARCHAR, name), field);
-                blocks[field] = encode(createVarcharBlock(field), encoding);
+                blocks[field] = createVarcharBlock(field);
             }
             expression = new Row(fields.build());
-            inputPage = new Page(blocks);
+            pageSupplier = () -> new Page(Arrays.stream(blocks).map(block -> encode(block, encoding)).toArray(Block[]::new));
             layout = layoutBuilder.buildOrThrow();
         }
         else {
@@ -173,9 +193,16 @@ public class BenchmarkColumnarScalarFunctions
             expression = call(
                     FUNCTIONS.resolveFunction(function, fromTypes(inputType)),
                     new Reference(inputType, "input"));
-            inputPage = new Page(encode(createMapBlock((MapType) inputType), encoding));
+            Block maps = createMapBlock((MapType) inputType);
+            pageSupplier = () -> new Page(encode(maps, encoding));
             layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
         }
+
+        // every page of a fresh dictionary encoding has its own dictionary, so the projection of a dictionary cannot be reused
+        inputPages = Stream.generate(pageSupplier)
+                .limit(encoding.equals("fresh_dictionary") ? 16 : 1)
+                .toArray(Page[]::new);
+        nextPage = 0;
 
         PageFunctionCompiler compiler = FUNCTIONS.getPageFunctionCompiler();
         outputType = expression.type();
@@ -183,7 +210,8 @@ public class BenchmarkColumnarScalarFunctions
         PageProjection row = compiler.compileProjection(expression, layout, SQL_STANDARD, Optional.empty(), false).get();
         Optional<FilterEvaluator> filter = switch (selection) {
             case "all" -> Optional.empty();
-            case "sparse" -> Optional.of(new PageFilterEvaluator(new SparsePageFilter(POSITION_COUNT)));
+            case "sparse" -> Optional.of(new PageFilterEvaluator(new SparsePageFilter(POSITION_COUNT, 8)));
+            case "very_sparse" -> Optional.of(new PageFilterEvaluator(new SparsePageFilter(POSITION_COUNT, 64)));
             default -> throw new IllegalArgumentException("Unknown selection: " + selection);
         };
         columnarProcessor = new PageProcessor(filter, Optional.empty(), ImmutableList.of(columnar), OptionalInt.of(POSITION_COUNT));
@@ -204,10 +232,12 @@ public class BenchmarkColumnarScalarFunctions
 
     private List<Optional<Page>> process(PageProcessor processor)
     {
+        Page page = inputPages[nextPage];
+        nextPage = (nextPage + 1) % inputPages.length;
         return ImmutableList.copyOf(processor.process(
                 SESSION,
                 newSimpleAggregatedMemoryContext().newLocalMemoryContext("benchmark"),
-                SourcePage.create(inputPage)));
+                SourcePage.create(page)));
     }
 
     private static Block createMapBlock(MapType mapType)
@@ -226,10 +256,14 @@ public class BenchmarkColumnarScalarFunctions
         return builder.build();
     }
 
-    private static Block createNestedArrayBlock(ArrayType outerArrayType)
+    private static Block createNestedArrayBlock(ArrayType outerArrayType, boolean withNulls)
     {
         ArrayBlockBuilder builder = outerArrayType.createBlockBuilder(null, POSITION_COUNT);
         for (int position = 0; position < POSITION_COUNT; position++) {
+            if (withNulls && position % 7 == 3) {
+                builder.appendNull();
+                continue;
+            }
             int value = position;
             builder.buildEntry(innerArrays -> {
                 ArrayBlockBuilder innerArrayBuilder = (ArrayBlockBuilder) innerArrays;
@@ -242,6 +276,15 @@ public class BenchmarkColumnarScalarFunctions
                     });
                 }
             });
+        }
+        return builder.build();
+    }
+
+    private static Block createLongsBlock(IntToLongFunction value)
+    {
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            BIGINT.writeLong(builder, value.applyAsLong(position));
         }
         return builder.build();
     }
@@ -269,11 +312,11 @@ public class BenchmarkColumnarScalarFunctions
     {
         private final SelectedPositions selectedPositions;
 
-        private SparsePageFilter(int positionCount)
+        private SparsePageFilter(int positionCount, int step)
         {
-            int[] positions = new int[positionCount / 8];
+            int[] positions = new int[positionCount / step];
             for (int index = 0; index < positions.length; index++) {
-                positions[index] = index * 8;
+                positions[index] = index * step;
             }
             selectedPositions = SelectedPositions.positionsList(positions, 0, positions.length);
         }
@@ -301,7 +344,7 @@ public class BenchmarkColumnarScalarFunctions
     {
         return switch (encoding) {
             case "flat" -> block;
-            case "dictionary" -> {
+            case "dictionary", "fresh_dictionary" -> {
                 int[] ids = new int[POSITION_COUNT];
                 for (int position = 0; position < ids.length; position++) {
                     ids[position] = position % 128;
@@ -316,9 +359,9 @@ public class BenchmarkColumnarScalarFunctions
     @Test
     public void testBenchmark()
     {
-        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "row_field", "row_constructor")) {
-            for (String encoding : ImmutableList.of("flat", "dictionary", "rle")) {
-                for (String selection : ImmutableList.of("all", "sparse")) {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "row_field", "row_constructor")) {
+            for (String encoding : ImmutableList.of("flat", "dictionary", "fresh_dictionary", "rle")) {
+                for (String selection : ImmutableList.of("all", "sparse", "very_sparse")) {
                     this.function = function;
                     this.encoding = encoding;
                     this.selection = selection;
