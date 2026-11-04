@@ -68,6 +68,9 @@ class TestDatabricksWithGlueMetastoreCleanUp
                 .filter(schema -> schema.toLowerCase(ENGLISH).startsWith("test") || schema.equals("default"))
                 .collect(toUnmodifiableList());
 
+        if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+            return;
+        }
         env.executeTrinoSql("SET SESSION hive.hive_views_legacy_translation = true");
         schemas.forEach(schema -> cleanSchema(env, schema, stopwatch, glueClient));
     }
@@ -91,6 +94,9 @@ class TestDatabricksWithGlueMetastoreCleanUp
             return;
         }
 
+        if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+            return;
+        }
         Set<String> allTestTableNames = findAllTablesInSchema(env, schema).orElse(ImmutableSet.of()).stream()
                 .filter(name -> name.toLowerCase(ENGLISH).startsWith("test"))
                 .collect(toImmutableSet());
@@ -102,6 +108,9 @@ class TestDatabricksWithGlueMetastoreCleanUp
             }
             try {
                 Table table = glueClient.getTable(builder -> builder.databaseName(schema).name(tableName)).table();
+                if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+                    break;
+                }
                 Instant createTime = table.createTime();
                 if (createTime.isBefore(SCHEMA_CLEANUP_THRESHOLD)) {
                     if (getTableType(table).contains("VIEW")) {
@@ -129,6 +138,9 @@ class TestDatabricksWithGlueMetastoreCleanUp
             return;
         }
         if (!schema.equals("default") && findAllTablesInSchema(env, schema).map(Set::isEmpty).orElse(false)) {
+            if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+                return;
+            }
             try {
                 env.executeTrinoSql("DROP SCHEMA IF EXISTS hive." + schema);
                 log.info("Dropped schema %s", schema);
