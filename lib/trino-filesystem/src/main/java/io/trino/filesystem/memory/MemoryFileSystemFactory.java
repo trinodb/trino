@@ -17,6 +17,8 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 
+import java.util.function.Supplier;
+
 /**
  * A blob file system for testing.
  */
@@ -26,7 +28,7 @@ public class MemoryFileSystemFactory
     private final MemoryFileSystem memoryFileSystem = new MemoryFileSystem();
 
     @Override
-    public TrinoFileSystem create(ConnectorIdentity identity)
+    public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
     {
         return memoryFileSystem;
     }
