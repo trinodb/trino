@@ -25,6 +25,7 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IrExpressions.Comparison;
 
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.isAtTimeZone;
@@ -63,7 +64,7 @@ public class UnwrapAtTimeZoneInComparison
 {
     public UnwrapAtTimeZoneInComparison(PlannerContext plannerContext)
     {
-        super(createRewrite(plannerContext));
+        super(createRewrite(plannerContext), session -> !isFunctionPreimagesEnabled(session));
     }
 
     private static ExpressionRewriter createRewrite(PlannerContext plannerContext)

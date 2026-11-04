@@ -40,17 +40,6 @@ public class TrinoPrincipal
         return name;
     }
 
-    /**
-     * @deprecated Use {@link #getPrincipalName()} which preserves the original case of the principal name.
-     *         This method lowercases the name, which causes identity mismatches when the principal
-     *         was created with a mixed-case name.
-     */
-    @Deprecated
-    public String getName()
-    {
-        return name.toLowerCase(ENGLISH);
-    }
-
     @Override
     public boolean equals(Object o)
     {

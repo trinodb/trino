@@ -87,7 +87,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithRefreshTokens
         httpClientBuilder.followRedirects(false);
         httpClient = httpClientBuilder.build();
 
-        hydraIdP = new TestingHydraIdentityProvider(TTL_ACCESS_TOKEN_IN_SECONDS, true, false);
+        hydraIdP = new TestingHydraIdentityProvider(TTL_ACCESS_TOKEN_IN_SECONDS, true, false, false);
         hydraIdP.start();
 
         String idpUrl = "https://localhost:" + hydraIdP.getAuthPort();

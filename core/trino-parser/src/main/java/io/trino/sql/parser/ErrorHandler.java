@@ -432,12 +432,6 @@ class ErrorHandler
             return this;
         }
 
-        public Builder ignoredRule(int ruleId)
-        {
-            ignoredRules.add(ruleId);
-            return this;
-        }
-
         public ErrorHandler build()
         {
             return new ErrorHandler(specialRules, specialTokens, ignoredRules, tokenPredicates);

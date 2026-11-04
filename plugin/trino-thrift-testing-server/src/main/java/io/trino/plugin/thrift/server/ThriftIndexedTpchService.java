@@ -38,6 +38,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.thrift.server.SplitInfo.indexSplit;
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static io.trino.testing.AbstractTestIndexedQueries.INDEX_SPEC;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -101,7 +102,7 @@ public class ThriftIndexedTpchService
         List<Type> lookupColumnTypes = types(splitInfo.getTableName(), splitInfo.getLookupColumnNames());
         RecordSet keyRecordSet = new ListBasedRecordSet(splitInfo.getKeys(), lookupColumnTypes);
         RecordSet outputRecordSet = lookupIndexKeys(keyRecordSet, indexedTable, outputColumnNames, splitInfo.getLookupColumnNames());
-        return new RecordPageSource(outputRecordSet);
+        return new RecordPageSource(outputRecordSet, NO_LIMIT);
     }
 
     /**

@@ -253,9 +253,8 @@ public final class TypedValue
         return "TypedValue[" + type + ", " + value + "]";
     }
 
-    /// Single source of truth for the type → tag mapping. Returns `null` for types
-    /// that have no wire encoding, so [#hasWireEncoding] and [#scalarType] cannot
-    /// drift if a new tag is added.
+    /// Single source of truth for the type → tag mapping, used by [#scalarType].
+    /// Returns `null` for types that have no wire encoding.
     private static TypeTag tagForOrNull(Type type)
     {
         if (type == BooleanType.BOOLEAN) {

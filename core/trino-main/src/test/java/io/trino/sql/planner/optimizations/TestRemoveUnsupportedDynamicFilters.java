@@ -15,6 +15,7 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.RuntimeInfoProvider;
@@ -54,10 +55,13 @@ import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.FUNCTION_PREIMAGES_ENABLED;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -338,13 +342,13 @@ public class TestRemoveUnsupportedDynamicFilters
                                 .right(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
     }
 
-    @Test
-    public void testRemoveCharToVarcharCast()
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testCharToVarcharCast(boolean preimagesEnabled)
     {
-        // Dynamic filter is removed because there is no varchar to char saturated floor cast:
-        // CAST(char AS varchar) is not monotone, so dynamic filter domains cannot be translated
-        // onto the char column
+        // Point domains can be projected; unsupported range domains remain unconstrained at runtime.
         Symbol lineitemCharOrderKeySymbol = builder.symbol("LINEITEM_CHAR_OK", createCharType(10));
+        Symbol ordersVarcharOrderKeySymbol = builder.symbol("ORDERS_VARCHAR_OK", createVarcharType(10));
         PlanNode root = builder.output(ImmutableList.of(), ImmutableList.of(),
                 builder.join(
                         INNER,
@@ -354,19 +358,35 @@ public class TestRemoveUnsupportedDynamicFilters
                                         lineitemTableHandle,
                                         ImmutableList.of(lineitemCharOrderKeySymbol),
                                         ImmutableMap.of(lineitemCharOrderKeySymbol, new TpchColumnHandle("orderkey", createCharType(10))))),
-                        ordersTableScanNode,
-                        ImmutableList.of(new JoinNode.EquiJoinClause(lineitemCharOrderKeySymbol, ordersOrderKeySymbol)),
+                        builder.tableScan(ordersTableScanNode.getTable(),
+                                ImmutableList.of(ordersVarcharOrderKeySymbol),
+                                ImmutableMap.of(ordersVarcharOrderKeySymbol, new TpchColumnHandle("orderkey", createVarcharType(10)))),
+                        ImmutableList.of(new JoinNode.EquiJoinClause(lineitemCharOrderKeySymbol, ordersVarcharOrderKeySymbol)),
                         ImmutableList.of(lineitemCharOrderKeySymbol),
-                        ImmutableList.of(ordersOrderKeySymbol),
+                        ImmutableList.of(ordersVarcharOrderKeySymbol),
                         Optional.empty(),
-                        ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
+                        ImmutableMap.of(new DynamicFilterId("DF"), ordersVarcharOrderKeySymbol)));
+        PlanNode rewritten = removeUnsupportedDynamicFilters(root, Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(FUNCTION_PREIMAGES_ENABLED, Boolean.toString(preimagesEnabled))
+                .build());
+        if (!preimagesEnabled) {
+            assertPlan(rewritten, output(join(INNER, builder -> builder
+                    .equiCriteria("LINEITEM_CHAR_OK", "ORDERS_VARCHAR_OK")
+                    .left(tableScan("lineitem", ImmutableMap.of("LINEITEM_CHAR_OK", "orderkey")))
+                    .right(tableScan("orders", ImmutableMap.of("ORDERS_VARCHAR_OK", "orderkey"))))));
+            return;
+        }
         assertPlan(
-                removeUnsupportedDynamicFilters(root),
+                rewritten,
                 output(
                         join(INNER, builder -> builder
-                                .equiCriteria("LINEITEM_CHAR_OK", "ORDERS_OK")
-                                .left(tableScan("lineitem", ImmutableMap.of("LINEITEM_CHAR_OK", "orderkey")))
-                                .right(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
+                                .equiCriteria("LINEITEM_CHAR_OK", "ORDERS_VARCHAR_OK")
+                                .addDynamicFilter("filter", "ORDERS_VARCHAR_OK")
+                                .left(PlanMatchPattern.filter(
+                                        TRUE,
+                                        filters -> filters.addConsumer(consumer -> consumer.alias("filter").expression(new Cast(new Reference(createCharType(10), "LINEITEM_CHAR_OK"), createVarcharType(10)))),
+                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_CHAR_OK", "orderkey"))))
+                                .right(tableScan("orders", ImmutableMap.of("ORDERS_VARCHAR_OK", "orderkey"))))));
     }
 
     @Test
@@ -507,7 +527,12 @@ public class TestRemoveUnsupportedDynamicFilters
 
     private PlanNode removeUnsupportedDynamicFilters(PlanNode root)
     {
-        return getPlanTester().inTransaction(session -> {
+        return removeUnsupportedDynamicFilters(root, getPlanTester().getDefaultSession());
+    }
+
+    private PlanNode removeUnsupportedDynamicFilters(PlanNode root, Session querySession)
+    {
+        return getPlanTester().inTransaction(querySession, session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(plannerContext).optimize(

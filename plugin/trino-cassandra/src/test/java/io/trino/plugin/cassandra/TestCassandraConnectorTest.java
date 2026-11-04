@@ -180,7 +180,7 @@ public class TestCassandraConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -577,10 +577,10 @@ public class TestCassandraConnectorTest
         String materializedViewName = "test_insert_into_mv" + randomNameSuffix();
         onCassandra("CREATE MATERIALIZED VIEW tpch." + materializedViewName + " AS " +
                 "SELECT * FROM tpch.nation " +
-                "WHERE nationkey IS NOT NULL " +
+                "WHERE id IS NOT NULL AND nationkey IS NOT NULL " +
                 "PRIMARY KEY (id, nationkey)");
 
-        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(VARCHAR)
                 .row(materializedViewName)
                 .build(), new Duration(1, MINUTES));
 
@@ -678,7 +678,7 @@ public class TestCassandraConnectorTest
         String quotedKeyspaceNameStartingWithUnderscore = "\"%s\"".formatted(keyspaceName);
         dropKeyspace(quotedKeyspaceNameStartingWithUnderscore);
         createKeyspace(quotedKeyspaceNameStartingWithUnderscore);
-        assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+        assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(createUnboundedVarcharType())
                 .row(keyspaceName)
                 .build(), new Duration(1, MINUTES));
 
@@ -1004,15 +1004,15 @@ public class TestCassandraConnectorTest
         try {
             createKeyspace(uppercaseKeyspaceName);
 
-            assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+            assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(createUnboundedVarcharType())
                     .row(lowercaseKeyspaceName)
                     .build(), new Duration(1, MINUTES));
 
             session.execute("CREATE TABLE " + uppercaseKeyspaceName + ".TABLE_1 (COLUMN_1 bigint PRIMARY KEY)");
-            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + lowercaseKeyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + lowercaseKeyspaceName), resultBuilder(createUnboundedVarcharType())
                     .row("table_1")
                     .build(), new Duration(1, MINUTES));
-            assertContains(computeActual("SHOW COLUMNS FROM cassandra." + lowercaseKeyspaceName + ".table_1"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+            assertContains(computeActual("SHOW COLUMNS FROM cassandra." + lowercaseKeyspaceName + ".table_1"), resultBuilder(createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
                     .row("column_1", "bigint", "", "")
                     .build());
 
@@ -1040,15 +1040,15 @@ public class TestCassandraConnectorTest
         try {
             createKeyspace(quotedUppercaseKeyspaceName);
             String lowerCaseKeyspaceName = uppercaseKeyspaceName.toLowerCase(ENGLISH);
-            assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+            assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(createUnboundedVarcharType())
                     .row(lowerCaseKeyspaceName)
                     .build(), new Duration(1, MINUTES));
 
             session.execute("CREATE TABLE " + quotedUppercaseKeyspaceName + ".\"TABLE_2\" (\"COLUMN_2\" bigint PRIMARY KEY)");
-            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + lowerCaseKeyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + lowerCaseKeyspaceName), resultBuilder(createUnboundedVarcharType())
                     .row("table_2")
                     .build(), new Duration(1, MINUTES));
-            assertContains(computeActual("SHOW COLUMNS FROM cassandra.%s.table_2".formatted(lowerCaseKeyspaceName)), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+            assertContains(computeActual("SHOW COLUMNS FROM cassandra.%s.table_2".formatted(lowerCaseKeyspaceName)), resultBuilder(createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
                     .row("column_2", "bigint", "", "")
                     .build());
 
@@ -1083,7 +1083,7 @@ public class TestCassandraConnectorTest
                 createKeyspace(quotedKeyspaceMixedCaseName2);
 
                 // Although in Trino all the schema and table names are always displayed as lowercase
-                assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(createUnboundedVarcharType())
                         .row(lowercaseKeyspaceName)
                         .row(lowercaseKeyspaceName)
                         .build(), new Duration(1, MINUTES));
@@ -1112,7 +1112,7 @@ public class TestCassandraConnectorTest
         executeExclusively(() -> {
             String keyspaceName = "keyspace_4" + randomNameSuffix();
             createKeyspace(keyspaceName);
-            assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+            assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(createUnboundedVarcharType())
                     .row(keyspaceName)
                     .build(), new Duration(1, MINUTES));
 
@@ -1122,7 +1122,7 @@ public class TestCassandraConnectorTest
             session.execute("CREATE TABLE " + keyspaceName + ".\"tAbLe_4\" (column_4 bigint PRIMARY KEY)");
 
             // Although in Trino all the schema and table names are always displayed as lowercase
-            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + keyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + keyspaceName), resultBuilder(createUnboundedVarcharType())
                     .row("table_4")
                     .row("table_4")
                     .build(), new Duration(1, MINUTES));
@@ -1147,12 +1147,12 @@ public class TestCassandraConnectorTest
         executeExclusively(() -> {
             String keyspaceName = "keyspace_5" + randomNameSuffix();
             createKeyspace(keyspaceName);
-            assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+            assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(createUnboundedVarcharType())
                     .row(keyspaceName)
                     .build(), new Duration(1, MINUTES));
 
             session.execute("CREATE TABLE " + keyspaceName + ".table_5 (\"CoLuMn_5\" bigint PRIMARY KEY, \"cOlUmN_5\" bigint)");
-            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + keyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + keyspaceName), resultBuilder(createUnboundedVarcharType())
                     .row("table_5")
                     .build(), new Duration(1, MINUTES));
 
@@ -1178,7 +1178,7 @@ public class TestCassandraConnectorTest
         session.execute("CREATE TYPE tpch." + userDefinedTypeName + "(udt_field bigint)");
         session.execute("CREATE TABLE tpch." + tableName + "(id bigint, col list<frozen<tpch." + userDefinedTypeName + ">>, primary key (id))");
         session.execute("INSERT INTO tpch." + tableName + "(id, col) values (1, [{udt_field: 10}])");
-        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(VARCHAR)
                 .row(tableName)
                 .build(), new Duration(1, MINUTES));
 
@@ -1197,7 +1197,7 @@ public class TestCassandraConnectorTest
         session.execute("CREATE TYPE tpch." + userDefinedTypeName + "(udt_field bigint)");
         session.execute("CREATE TABLE tpch." + tableName + "(id bigint, col map<frozen<tpch." + userDefinedTypeName + ">, frozen<tpch." + userDefinedTypeName + ">>, primary key (id))");
         session.execute("INSERT INTO tpch." + tableName + "(id, col) values (1, {{udt_field: 10}: {udt_field: -10}})");
-        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(VARCHAR)
                 .row(tableName)
                 .build(), new Duration(1, MINUTES));
 
@@ -1216,7 +1216,7 @@ public class TestCassandraConnectorTest
         session.execute("CREATE TYPE tpch." + userDefinedTypeName + "(udt_field bigint)");
         session.execute("CREATE TABLE tpch." + tableName + "(id bigint, col set<frozen<tpch." + userDefinedTypeName + ">>, primary key (id))");
         session.execute("INSERT INTO tpch." + tableName + "(id, col) values (1, {{udt_field: 10}})");
-        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(VARCHAR)
                 .row(tableName)
                 .build(), new Duration(1, MINUTES));
 
@@ -1249,16 +1249,16 @@ public class TestCassandraConnectorTest
                 ImmutableList.of("1, 10, 100", "2, 20, 200", "3, 30, 300"))) {
             String mvName = "test_clustering_mv" + randomNameSuffix();
             onCassandra("CREATE MATERIALIZED VIEW tpch." + mvName + " AS " +
-                    "SELECT * FROM " + table.getTableName() + " WHERE id IS NOT NULL " +
-                    "PRIMARY KEY (id, key) " +
+                    "SELECT * FROM " + table.getTableName() + " WHERE id IS NOT NULL AND key IS NOT NULL " +
+                    "PRIMARY KEY (key, id) " +
                     "WITH CLUSTERING ORDER BY (id DESC)");
 
-            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(VARCHAR)
                     .row(mvName)
                     .build(), new Duration(1, MINUTES));
 
             // Materialized view may not return all results during the creation
-            assertContainsEventually(() -> computeActual("SELECT count(*) FROM tpch." + mvName), resultBuilder(getSession(), BIGINT)
+            assertContainsEventually(() -> computeActual("SELECT count(*) FROM tpch." + mvName), resultBuilder(BIGINT)
                     .row(3L)
                     .build(), new Duration(1, MINUTES));
 
@@ -1364,7 +1364,7 @@ public class TestCassandraConnectorTest
             session.execute("CREATE TABLE tpch." + tableNameForList + " (column_5 bigint PRIMARY KEY, nested_collection frozen<list<list<bigint>>>)");
             session.execute("CREATE TABLE tpch." + tableNameForMap + " (column_5 bigint PRIMARY KEY, nested_collection frozen<map<int, map<bigint, bigint>>>)");
 
-            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(createUnboundedVarcharType())
                     .row(tableNameForSet)
                     .row(tableNameForList)
                     .row(tableNameForMap)
@@ -1728,7 +1728,7 @@ public class TestCassandraConnectorTest
         String tableName = "test_select" + randomNameSuffix();
         onCassandra("CREATE TABLE tpch." + tableName + "(col BIGINT PRIMARY KEY)");
         onCassandra("INSERT INTO tpch." + tableName + "(col) VALUES (1)");
-        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
+        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(createUnboundedVarcharType())
                 .row(tableName)
                 .build(), new Duration(1, MINUTES));
 
@@ -1747,7 +1747,7 @@ public class TestCassandraConnectorTest
             String tableName = "test_case" + randomNameSuffix();
             onCassandra("CREATE TABLE tpch." + tableName + "(col_case BIGINT PRIMARY KEY, \"COL_CASE\" BIGINT)");
             onCassandra("INSERT INTO tpch." + tableName + "(col_case, \"COL_CASE\") VALUES (1, 2)");
-            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(createUnboundedVarcharType())
                     .row(tableName)
                     .build(), new Duration(1, MINUTES));
 
@@ -1779,7 +1779,7 @@ public class TestCassandraConnectorTest
         assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (1)'))"))
                 .failure()
                 .hasMessage("Cannot get column definition")
-                .hasStackTraceContaining("unconfigured table");
+                .hasStackTraceContaining("does not exist");
     }
 
     @Test
@@ -1788,7 +1788,7 @@ public class TestCassandraConnectorTest
         String tableName = "test_unsupported_statement" + randomNameSuffix();
         onCassandra("CREATE TABLE tpch." + tableName + "(col INT PRIMARY KEY)");
         onCassandra("INSERT INTO tpch." + tableName + "(col) VALUES (1)");
-        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
+        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(createUnboundedVarcharType())
                 .row(tableName)
                 .build(), new Duration(1, MINUTES));
 
@@ -1847,7 +1847,7 @@ public class TestCassandraConnectorTest
     @Test
     void testExecuteProcedureWithInvalidQuery()
     {
-        assertQueryFails("CALL system.execute('SELECT 1')", "(?s).*no viable alternative at input.*");
+        assertQueryFails("CALL system.execute('SELECT 1')", "(?s).*mismatched input '<EOF>' expecting K_FROM.*");
         assertQueryFails("CALL system.execute('invalid')", "(?s).*no viable alternative at input.*");
     }
 
@@ -1866,13 +1866,13 @@ public class TestCassandraConnectorTest
     @Override
     protected OptionalInt maxTableNameLength()
     {
-        return OptionalInt.of(48);
+        return OptionalInt.of(222);
     }
 
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Table names shouldn't be more than 48 characters long");
+        assertThat(e).hasMessageContaining("Table name must not be more than 222 characters long");
     }
 
     @Test

@@ -37,20 +37,20 @@ public final class TimestampWithTimeZoneToVarcharCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
-    public static Slice cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p) with time zone") long packedEpochMillis)
+    public static Slice cast(@LiteralParameter("p") int precision, @SqlType("timestamp(p) with time zone") long packedEpochMillis)
     {
         long epochMillis = unpackMillisUtc(packedEpochMillis);
         ZoneId zoneId = unpackZoneKey(packedEpochMillis).getZoneId();
 
-        return utf8Slice(formatTimestampWithTimeZone((int) precision, epochMillis, 0, zoneId));
+        return utf8Slice(formatTimestampWithTimeZone(precision, epochMillis, 0, zoneId));
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
-    public static Slice cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
+    public static Slice cast(@LiteralParameter("p") int precision, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
         return utf8Slice(DateTimes.formatTimestampWithTimeZone(
-                (int) precision,
+                precision,
                 timestamp.getEpochMillis(),
                 timestamp.getPicosOfMilli(),
                 getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId()));

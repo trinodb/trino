@@ -33,7 +33,6 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.IncrementalLoadFactorHashArraySizeSupplier;
 import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.Operator;
-import io.trino.operator.OperatorAssertion;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
@@ -92,6 +91,7 @@ import static io.trino.operator.JoinOperatorType.innerJoin;
 import static io.trino.operator.JoinOperatorType.lookupOuterJoin;
 import static io.trino.operator.JoinOperatorType.probeOuterJoin;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
+import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorFactories.spillingJoin;
 import static io.trino.operator.SpillMetrics.SPILL_COUNT_METRIC_NAME;
 import static io.trino.operator.join.JoinTestUtils.buildLookupSource;
@@ -102,6 +102,7 @@ import static io.trino.operator.join.JoinTestUtils.setupBuildSide;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
@@ -184,7 +185,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypes(), buildPages.getTypes()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probePages.getTypes(), buildPages.getTypes()))
                 .row("20", 1020L, 2020L, "20", 30L, 40L)
                 .row("21", 1021L, 2021L, "21", 31L, 41L)
                 .row("22", 1022L, 2022L, "22", 32L, 42L)
@@ -225,7 +226,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypes(), buildPages.getTypes()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probePages.getTypes(), buildPages.getTypes()))
                 .row("20", "20")
                 .row("20", "20")
                 .row("21", "21")
@@ -485,7 +486,7 @@ public class TestHashJoinOperator
 
             List<Page> actualPages = getPages(pageBuffer);
 
-            MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypes(), buildPages.getTypes()))
+            MaterializedResult expected = MaterializedResult.resultBuilder(concat(probePages.getTypes(), buildPages.getTypes()))
                     .row("20", 123_000L, "20", 200L)
                     .row("20", 123_000L, "20", 200L)
                     .row("20", 123_000L, "20", 200L)
@@ -496,7 +497,7 @@ public class TestHashJoinOperator
                     .row("33", 123_003L, "33", 303L)
                     .build();
 
-            assertThat(getProperColumns(joinOperator, concat(probePages.getTypes(), buildPages.getTypes()), actualPages).getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+            assertEqualsIgnoreOrder(toMaterializedResult(concat(probePages.getTypes(), buildPages.getTypes()), actualPages).getMaterializedRows(), expected.getMaterializedRows());
 
             Metrics probeMetrics = joinOperator.getOperatorContext()
                     .getOperatorStats()
@@ -557,11 +558,6 @@ public class TestHashJoinOperator
             page = pageBuffer.poll();
         }
         return result;
-    }
-
-    private static MaterializedResult getProperColumns(Operator joinOperator, List<Type> types, List<Page> actualPages)
-    {
-        return OperatorAssertion.toMaterializedResult(joinOperator.getOperatorContext().getSession(), types, actualPages);
     }
 
     @Test
@@ -647,7 +643,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildPages.getTypes()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -690,7 +686,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("b", "b")
                 .build();
@@ -735,7 +731,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -782,7 +778,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -822,7 +818,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildTypes))
                 .row("20", 1020L, 2020L, "20", 30L, 40L)
                 .row("21", 1021L, 2021L, "21", 31L, 41L)
                 .row("22", 1022L, 2022L, "22", 32L, 42L)
@@ -877,7 +873,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildTypes))
                 .row("20", 1020L, 2020L, null, null, null)
                 .row("21", 1021L, 2021L, null, null, null)
                 .row("22", 1022L, 2022L, null, null, null)
@@ -935,7 +931,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row(null, null)
                 .row(null, null)
@@ -986,7 +982,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row(null, null)
                 .row(null, null)
@@ -1034,7 +1030,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -1085,7 +1081,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", null)
@@ -1132,7 +1128,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildPages.getTypes()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -1184,7 +1180,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildPages.getTypes()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", null)
@@ -1554,7 +1550,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildTypes))
                 .row("a", null)
                 .row("b", null)
                 .row(null, null)
@@ -1606,7 +1602,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildTypes))
                 .row("a", null)
                 .row("b", null)
                 .row(null, null)
@@ -1657,7 +1653,7 @@ public class TestHashJoinOperator
         buildLookupSource(executor, buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes)).build();
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probeTypes, buildTypes)).build();
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected);
     }
 

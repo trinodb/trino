@@ -54,7 +54,6 @@ import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -501,12 +500,6 @@ public final class StreamPropertyDerivations
         }
 
         @Override
-        public StreamProperties visitRefreshMaterializedView(RefreshMaterializedViewNode node, List<StreamProperties> inputProperties)
-        {
-            return StreamProperties.singleStream();
-        }
-
-        @Override
         public StreamProperties visitMergeWriter(MergeWriterNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
@@ -831,9 +824,9 @@ public final class StreamPropertyDerivations
             return distribution;
         }
 
-        public boolean isExactlyPartitionedOn(Iterable<Symbol> columns)
+        public boolean isExactlyPartitionedOn(List<Symbol> columns)
         {
-            return partitioningColumns.isPresent() && columns.equals(ImmutableList.copyOf(partitioningColumns.get()));
+            return partitioningColumns.isPresent() && partitioningColumns.get().equals(columns);
         }
 
         public boolean isPartitionedOn(Iterable<Symbol> columns)

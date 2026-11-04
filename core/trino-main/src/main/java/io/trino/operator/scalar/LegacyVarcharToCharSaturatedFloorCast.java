@@ -27,7 +27,6 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.operator.scalar.CharacterStringCasts.codePointsToSliceUtf8;
 import static io.trino.operator.scalar.CharacterStringCasts.toCodePoints;
 import static io.trino.operator.scalar.CharacterStringCasts.trimTrailing;
-import static java.lang.Math.toIntExact;
 
 /**
  * Legacy saturated floor cast from {@code VARCHAR} to {@code CHAR}, matching
@@ -46,14 +45,14 @@ public final class LegacyVarcharToCharSaturatedFloorCast
     @ScalarOperator(OperatorType.SATURATED_FLOOR_CAST)
     @SqlType("char(y)")
     @LiteralParameters({"x", "y"})
-    public static Slice varcharToCharSaturatedFloorCast(@LiteralParameter("y") long y, @SqlType("varchar(x)") Slice slice)
+    public static Slice varcharToCharSaturatedFloorCast(@LiteralParameter("y") int y, @SqlType("varchar(x)") Slice slice)
     {
         IntList codePoints = toCodePoints(slice);
 
         // if Varchar(x) value length (including spaces) is greater than y, we can just truncate it
         if (codePoints.size() >= y) {
             // char(y) slice representation doesn't contain trailing spaces
-            codePoints.size(Math.min(toIntExact(y), codePoints.size()));
+            codePoints.size(Math.min(y, codePoints.size()));
             trimTrailing(codePoints, ' ');
             return codePointsToSliceUtf8(codePoints);
         }
@@ -67,7 +66,7 @@ public final class LegacyVarcharToCharSaturatedFloorCast
 
         if (codePoints.isEmpty()) {
             // No non-zero characters in input and input is shorter than y. Input value is smaller than any char(4) casted back to varchar, so we return the smallest char(4) possible
-            return Slices.allocate(toIntExact(y));
+            return Slices.allocate(y);
         }
 
         int lastCodePoint = codePoints.getInt(codePoints.size() - 1) - 1;
@@ -81,7 +80,7 @@ public final class LegacyVarcharToCharSaturatedFloorCast
             lastCodePoint = Character.MIN_SURROGATE - 1;
         }
         codePoints.set(codePoints.size() - 1, lastCodePoint);
-        int toAdd = toIntExact(y) - codePoints.size();
+        int toAdd = y - codePoints.size();
         for (int i = 0; i < toAdd; i++) {
             codePoints.add(Character.MAX_CODE_POINT);
         }

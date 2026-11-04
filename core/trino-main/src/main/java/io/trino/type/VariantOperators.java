@@ -283,9 +283,9 @@ public final class VariantOperators
         @LiteralParameters("p")
         @SqlNullable
         @SqlType("time(p)")
-        public static Long castToTime(@LiteralParameter("p") long precision, @SqlType(StandardTypes.VARIANT) Variant value)
+        public static Long castToTime(@LiteralParameter("p") int precision, @SqlType(StandardTypes.VARIANT) Variant value)
         {
-            return VariantUtil.asTime(value, toIntExact(precision));
+            return VariantUtil.asTime(value, precision);
         }
     }
 
@@ -310,17 +310,17 @@ public final class VariantOperators
         @LiteralParameters("p")
         @SqlNullable
         @SqlType("timestamp(p)")
-        public static Long castToShortTimestamp(@LiteralParameter("p") long precision, @SqlType(StandardTypes.VARIANT) Variant value)
+        public static Long castToShortTimestamp(@LiteralParameter("p") int precision, @SqlType(StandardTypes.VARIANT) Variant value)
         {
-            return VariantUtil.asShortTimestamp(value, toIntExact(precision));
+            return VariantUtil.asShortTimestamp(value, precision);
         }
 
         @LiteralParameters("p")
         @SqlNullable
         @SqlType("timestamp(p)")
-        public static LongTimestamp castToLongTimestamp(@LiteralParameter("p") long precision, @SqlType(StandardTypes.VARIANT) Variant value)
+        public static LongTimestamp castToLongTimestamp(@LiteralParameter("p") int precision, @SqlType(StandardTypes.VARIANT) Variant value)
         {
-            return VariantUtil.asLongTimestamp(value, toIntExact(precision));
+            return VariantUtil.asLongTimestamp(value, precision);
         }
     }
 
@@ -356,17 +356,17 @@ public final class VariantOperators
         @LiteralParameters("p")
         @SqlNullable
         @SqlType("timestamp(p) with time zone")
-        public static Long castToShortTimestampWithTimeZone(@LiteralParameter("p") long precision, @SqlType(StandardTypes.VARIANT) Variant variant)
+        public static Long castToShortTimestampWithTimeZone(@LiteralParameter("p") int precision, @SqlType(StandardTypes.VARIANT) Variant variant)
         {
-            return VariantUtil.asShortTimestampWithTimeZone(variant, toIntExact(precision));
+            return VariantUtil.asShortTimestampWithTimeZone(variant, precision);
         }
 
         @LiteralParameters("p")
         @SqlNullable
         @SqlType("timestamp(p) with time zone")
-        public static LongTimestampWithTimeZone castToLongTimestampWithTimeZone(@LiteralParameter("p") long precision, @SqlType(StandardTypes.VARIANT) Variant variant)
+        public static LongTimestampWithTimeZone castToLongTimestampWithTimeZone(@LiteralParameter("p") int precision, @SqlType(StandardTypes.VARIANT) Variant variant)
         {
-            return VariantUtil.asLongTimestampWithTimeZone(variant, toIntExact(precision));
+            return VariantUtil.asLongTimestampWithTimeZone(variant, precision);
         }
     }
 

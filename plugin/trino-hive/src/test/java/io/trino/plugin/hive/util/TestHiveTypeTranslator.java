@@ -27,7 +27,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeDescriptor;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -74,6 +76,16 @@ public class TestHiveTypeTranslator
                 RowType.anonymous(ImmutableList.of(INTEGER, VARBINARY)),
                 NOT_SUPPORTED.toErrorCode(),
                 "Anonymous row type is not supported in Hive. Please give each field a name: row(integer, varbinary)");
+    }
+
+    @Test
+    public void testUnsupportedUnknownType()
+    {
+        assertThatThrownBy(() -> toTypeDescriptor(HiveType.valueOf("unknown").getTypeInfo(), DEFAULT_PRECISION))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Unsupported Hive type: unknown")
+                .extracting(e -> ((TrinoException) e).getErrorCode())
+                .isEqualTo(NOT_SUPPORTED.toErrorCode());
     }
 
     private static void assertTypeTranslation(Type type, HiveType hiveType)

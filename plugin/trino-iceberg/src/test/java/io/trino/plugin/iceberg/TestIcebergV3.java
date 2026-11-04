@@ -34,12 +34,14 @@ import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.PartitionData;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotChanges;
 import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.data.GenericRecord;
@@ -48,7 +50,10 @@ import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.deletes.BaseDVFileWriter;
 import org.apache.iceberg.deletes.DVFileWriter;
 import org.apache.iceberg.deletes.PositionDeleteIndex;
+import org.apache.iceberg.encryption.EncryptedOutputFile;
+import org.apache.iceberg.encryption.EncryptionKeyMetadata;
 import org.apache.iceberg.expressions.Expressions;
+import org.apache.iceberg.formats.FormatModelRegistry;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.io.DataWriter;
 import org.apache.iceberg.io.OutputFileFactory;
@@ -57,6 +62,8 @@ import org.apache.iceberg.types.EdgeAlgorithm;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.GeometryType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -80,7 +87,11 @@ import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDele
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Locale.ENGLISH;
+import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
+import static org.apache.iceberg.encryption.EncryptedFiles.encryptedOutput;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.geometryType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1468,10 +1479,11 @@ public class TestIcebergV3
         }
     }
 
-    @Test
-    void testFullyDeletedDataFileIsDroppedInsteadOfWritingDeletionVector()
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testFullyDeletedDataFileIsDroppedInsteadOfWritingDeletionVector(IcebergFileFormat format)
     {
-        try (TestTable table = newTrinoTable("test_full_delete_v3", "(id INTEGER) WITH (format = 'PARQUET', format_version = 3)")) {
+        try (TestTable table = newTrinoTable("test_full_delete_v3", "(id INTEGER) WITH (format = '%s', format_version = 3)".formatted(format))) {
             // First file: rows 1..100. Second file: rows 101..200.
             assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(1, 100)) t(x)", 100);
             assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(101, 200)) t(x)", 100);
@@ -1555,6 +1567,107 @@ public class TestIcebergV3
             assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
                     .matches("VALUES (BIGINT '0')");
         }
+    }
+
+    @Test
+    void testFullyDeletedDataFileUnderPreviousPartitionSpecIsDropped()
+    {
+        try (TestTable table = newTrinoTable("test_full_delete_previous_spec_v3", "(id INTEGER, part INTEGER) WITH (format = 'PARQUET', format_version = 3, partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, x % 2 FROM UNNEST(sequence(1, 100)) t(x)", 100);
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['bucket(id, 4)']");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, x % 2 FROM UNNEST(sequence(101, 200)) t(x)", 100);
+            long dataFiles = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0");
+            long droppedDataFiles = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0 AND partition.part = 0");
+
+            // Delete every row of the previous spec's files for part = 0
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id <= 100 AND part = 0", 50);
+            assertThat(query("SELECT count(*), count_if(id <= 100) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '150', BIGINT '50')");
+
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '%s')".formatted(dataFiles - droppedDataFiles));
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+        }
+    }
+
+    @Test
+    void testFullyDeletedDataFileWithTemporalPartitionIsDropped()
+    {
+        try (TestTable table = newTrinoTable("test_full_delete_day_partition_v3", "(id INTEGER, ts TIMESTAMP(6)) WITH (format = 'PARQUET', format_version = 3, partitioning = ARRAY['day(ts)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, TIMESTAMP '2026-01-01 01:00:00'), (2, TIMESTAMP '2026-01-01 02:00:00')", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, TIMESTAMP '2026-01-02 01:00:00'), (4, TIMESTAMP '2026-01-02 02:00:00')", 2);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id <= 2", 2);
+            assertThat(query("SELECT id FROM " + table.getName()))
+                    .matches("VALUES 3, 4");
+
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '1')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+        }
+    }
+
+    @Test
+    void testFullyDeletedDataFileWithBucketPartitionIsDropped()
+    {
+        try (TestTable table = newTrinoTable("test_full_delete_bucket_partition_v3", "(id INTEGER, grp INTEGER) WITH (format = 'PARQUET', format_version = 3, partitioning = ARRAY['bucket(id, 4)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, 1 FROM UNNEST(sequence(1, 100)) t(x)", 100);
+            long removedDataFiles = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, 2 FROM UNNEST(sequence(101, 200)) t(x)", 100);
+            long dataFiles = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0");
+
+            // Every file of the first insert is fully deleted, in each bucket
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE grp = 1", 100);
+            assertThat(query("SELECT count(*), min(id) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '100', INTEGER '101')");
+
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '%s')".formatted(dataFiles - removedDataFiles));
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+        }
+    }
+
+    @Test
+    void testFullyDeletedDataFileWithNullPartitionIsDropped()
+    {
+        try (TestTable table = newTrinoTable("test_full_delete_null_partition_v3", "(id INTEGER, part INTEGER) WITH (format = 'PARQUET', format_version = 3, partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, NULL), (2, NULL), (3, 1), (4, 1)", 4);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id <= 2", 2);
+            assertThat(query("SELECT id FROM " + table.getName()))
+                    .matches("VALUES 3, 4");
+
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '1')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+        }
+    }
+
+    @Test
+    void testFullyDeletedDataFileWithMultipleSplitsIsDropped()
+    {
+        String tableName = "test_full_delete_multiple_splits_v3_" + randomNameSuffix();
+        assertUpdate(
+                Session.builder(getSession()).setCatalogSessionProperty("iceberg", "parquet_writer_row_group_max_row_count", "1000").build(),
+                "CREATE TABLE " + tableName + " WITH (format = 'PARQUET', format_version = 3) AS SELECT x AS id FROM UNNEST(sequence(1, 5000)) t(x)",
+                5000);
+        // Each row group gets its own split, and the coordinator merges the deletion vectors of all splits
+        // before checking the record count
+        loadTable(tableName).updateProperties().set(SPLIT_SIZE, "100").commit();
+        assertThat(loadTable(tableName).newScan().planTasks()).hasSizeGreaterThan(1);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE id > 0", 5000);
+        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+
+        assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 0"))
+                .matches("VALUES (BIGINT '0')");
+        assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 1"))
+                .matches("VALUES (BIGINT '0')");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -2024,17 +2137,305 @@ public class TestIcebergV3
         }
     }
 
+    @Test
+    void testUnknownType()
+    {
+        String tableName = "test_unknown_type" + randomNameSuffix();
+        createV3Table(tableName, new Schema(Types.NestedField.optional(1, "col", Types.UnknownType.get())));
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("col unknown");
+
+        catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testFileFormatUnknownType(IcebergFileFormat format)
+            throws Exception
+    {
+        String tableName = "test_format_unknown_type" + randomNameSuffix();
+
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "col_int", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "col_unknown", Types.UnknownType.get()),
+                Types.NestedField.optional(3, "col_boolean", Types.BooleanType.get()));
+        createV3Table(tableName, schema, PartitionSpec.unpartitioned(), "AVRO");
+
+        Table table = loadTable(tableName);
+        Record record = GenericRecord.create(table.schema());
+        record.setField("col_int", 1);
+        record.setField("col_unknown", null);
+        record.setField("col_boolean", true);
+        appendDataFile(table, format.toIceberg(), record, null);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, NULL, true)");
+        assertThat(query("SELECT col_int FROM " + tableName + " WHERE col_unknown IS NULL"))
+                .matches("VALUES 1");
+        assertThat(query("SELECT col_int FROM " + tableName + " WHERE col_unknown IS NOT NULL"))
+                .returnsEmptyResult();
+
+        catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+    }
+
+    @Test
+    void testPartitionedByUnknownType()
+            throws Exception
+    {
+        String tableName = "test_partitioned_by_unknown_type" + randomNameSuffix();
+
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "data", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "part", Types.UnknownType.get()));
+        createV3Table(tableName, schema, PartitionSpec.builderFor(schema).identity("part").build(), "PARQUET");
+
+        Table icebergTable = loadTable(tableName);
+        Record record = GenericRecord.create(icebergTable.schema());
+        record.setField("data", 1);
+        record.setField("part", null);
+        appendDataFile(icebergTable, FileFormat.PARQUET, record, new PartitionData(icebergTable.spec().partitionType()));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, NULL)");
+        assertThat(query("SELECT data FROM " + tableName + " WHERE part IS NULL"))
+                .matches("VALUES 1");
+        assertThat(query("SELECT data FROM " + tableName + " WHERE part IS NOT NULL"))
+                .returnsEmptyResult();
+
+        catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+    }
+
+    @Test
+    void testUnknownTypeInRowType()
+            throws Exception
+    {
+        String tableName = "test_unknown_type_in_row" + randomNameSuffix();
+
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "col_int", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "col_row", Types.StructType.of(
+                        Types.NestedField.optional(3, "field_int", Types.IntegerType.get()),
+                        Types.NestedField.optional(4, "field_unknown", Types.UnknownType.get()))));
+        createV3Table(tableName, schema, PartitionSpec.unpartitioned(), "PARQUET");
+
+        Table icebergTable = loadTable(tableName);
+        Record struct = GenericRecord.create(icebergTable.schema().findType("col_row").asStructType());
+        struct.setField("field_int", 10);
+        struct.setField("field_unknown", null);
+
+        Record record = GenericRecord.create(icebergTable.schema());
+        record.setField("col_int", 1);
+        record.setField("col_row", struct);
+
+        appendDataFile(icebergTable, FileFormat.PARQUET, record, new PartitionData(icebergTable.spec().partitionType()));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, ROW(10 AS field_int, NULL AS field_unknown))");
+        assertThat(query("SELECT col_int FROM " + tableName + " WHERE col_row.field_unknown IS NULL"))
+                .matches("VALUES 1");
+        assertThat(query("SELECT col_int FROM " + tableName + " WHERE col_row.field_unknown IS NOT NULL"))
+                .returnsEmptyResult();
+
+        assertQueryFails(
+                "INSERT INTO " + tableName + " VALUES (2, ROW(20 AS field_int, NULL AS field_unknown))",
+                "Writing to Iceberg tables with unknown type columns is not supported");
+
+        catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testDeleteFromTableWithUnknownType(IcebergFileFormat format)
+            throws Exception
+    {
+        String tableName = "test_delete_unknown_type" + randomNameSuffix();
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "x", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "y", Types.UnknownType.get()));
+        createV3Table(tableName, schema, PartitionSpec.builderFor(schema).identity("x").build(), format.name());
+        try {
+            Table table = loadTable(tableName);
+            for (int value : List.of(1, 2)) {
+                Record record = GenericRecord.create(schema);
+                record.setField("x", value);
+                record.setField("y", null);
+                PartitionData partition = new PartitionData(table.spec().partitionType());
+                partition.set(0, value);
+                appendDataFile(table, format.toIceberg(), record, partition);
+            }
+
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL), (2, NULL)");
+            assertUpdate("DELETE FROM " + tableName + " WHERE x = 1", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2, NULL)");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\"", "VALUES 1");
+            assertUpdate("DELETE FROM " + tableName, 1);
+            assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\"", "VALUES 0");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                    .contains("y unknown");
+        }
+        finally {
+            catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testDeleteFromTablePartitionedByUnknownType(IcebergFileFormat format)
+            throws Exception
+    {
+        String tableName = "test_delete_partitioned_by_unknown_type" + randomNameSuffix();
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "data", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "part", Types.UnknownType.get()));
+        createV3Table(tableName, schema, PartitionSpec.builderFor(schema).identity("part").build(), format.name());
+        try {
+            Table table = loadTable(tableName);
+            Record record = GenericRecord.create(schema);
+            record.setField("data", 1);
+            record.setField("part", null);
+            appendDataFile(table, format.toIceberg(), record, new PartitionData(table.spec().partitionType()));
+
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL)");
+
+            assertUpdate("DELETE FROM " + tableName + " WHERE part IS NOT NULL");
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL)");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\"", "VALUES 1");
+
+            assertUpdate("DELETE FROM " + tableName + " WHERE part IS NULL", 1);
+            assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\"", "VALUES 0");
+        }
+        finally {
+            catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testTruncateTableWithUnknownType(IcebergFileFormat format)
+            throws Exception
+    {
+        String tableName = "test_truncate_unknown_type" + randomNameSuffix();
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "x", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "y", Types.UnknownType.get()));
+        createV3Table(tableName, schema, PartitionSpec.unpartitioned(), format.name());
+        try {
+            Table table = loadTable(tableName);
+            Record record = GenericRecord.create(schema);
+            record.setField("x", 1);
+            record.setField("y", null);
+            appendDataFile(table, format.toIceberg(), record, null);
+
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL)");
+            assertUpdate("TRUNCATE TABLE " + tableName);
+            assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\"", "VALUES 0");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                    .contains("y unknown");
+        }
+        finally {
+            catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+        }
+    }
+
+    @Test
+    void testUnsupportedWriteOnUnknownType()
+            throws Exception
+    {
+        String tableName = "test_write_unknown_type" + randomNameSuffix();
+        createV3Table(tableName, new Schema(
+                Types.NestedField.optional(1, "x", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "y", Types.UnknownType.get())));
+
+        Table table = loadTable(tableName);
+        Record record = GenericRecord.create(table.schema());
+        record.setField("x", 1);
+        record.setField("y", null);
+        appendDataFile(table, FileFormat.PARQUET, record, null);
+
+        assertQueryFails("INSERT INTO " + tableName + " VALUES (1, NULL)", "Writing to Iceberg tables with unknown type columns is not supported");
+        assertQueryFails("UPDATE " + tableName + " SET x = 2", "Writing to Iceberg tables with unknown type columns is not supported");
+        assertQueryFails("DELETE FROM " + tableName + " WHERE x = 1", "Writing to Iceberg tables with unknown type columns is not supported");
+        assertQueryFails("MERGE INTO " + tableName + " t USING (VALUES 1) s(x) ON t.x = s.x WHEN MATCHED THEN DELETE", "Writing to Iceberg tables with unknown type columns is not supported");
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE optimize", "Writing to Iceberg tables with unknown type columns is not supported");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL)");
+
+        catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+    }
+
+    @Test
+    void testUnsupportedCreateTableWithUnknownType()
+    {
+        // The engine doesn't support creating tables with unknown type
+        String tableName = "test_unsupported_create_unknown_type" + randomNameSuffix();
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(x unknown)",
+                ".* Unknown type 'unknown' for column 'x'");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " AS SELECT NULL x",
+                ".* Column type is unknown: x");
+    }
+
+    @Test
+    void testCreateOrReplaceTableWithUnknownType()
+    {
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "x", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "y", Types.UnknownType.get()));
+        testCreateOrReplaceTableWithUnknownType(schema, PartitionSpec.unpartitioned());
+        testCreateOrReplaceTableWithUnknownType(schema, PartitionSpec.builderFor(schema).identity("y").build());
+    }
+
+    private void testCreateOrReplaceTableWithUnknownType(Schema schema, PartitionSpec partitionSpec)
+    {
+        String tableName = "test_replace_unknown_type" + randomNameSuffix();
+        createV3Table(tableName, schema, partitionSpec, "parquet");
+
+        assertUpdate("CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 x", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2");
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\"", "VALUES 2");
+
+        catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+    }
+
+    private static void appendDataFile(Table table, FileFormat format, Record record, StructLike partition)
+            throws IOException
+    {
+        String dataPath = Path.of(table.location()).resolve("data")
+                .resolve(UUID.randomUUID() + "." + format.name().toLowerCase(ENGLISH))
+                .toString();
+        EncryptedOutputFile outputFile = encryptedOutput(table.io().newOutputFile(dataPath), EncryptionKeyMetadata.EMPTY);
+        try (DataWriter<Record> writer = FormatModelRegistry.dataWriteBuilder(format, Record.class, outputFile)
+                .schema(table.schema())
+                .spec(table.spec())
+                .partition(partition)
+                .build()) {
+            writer.write(record);
+            writer.close();
+            table.newFastAppend().appendFile(writer.toDataFile()).commit();
+        }
+    }
+
     private Table createV3Table(String tableName, Schema schema)
+    {
+        return createV3Table(tableName, schema, PartitionSpec.unpartitioned(), "parquet");
+    }
+
+    private Table createV3Table(String tableName, Schema schema, PartitionSpec partitionSpec, String fileFormat)
     {
         SchemaTableName schemaTableName = new SchemaTableName(getSession().getSchema().orElseThrow(), tableName);
         catalog.newCreateTableTransaction(
                         SESSION,
                         schemaTableName,
                         schema,
-                        PartitionSpec.unpartitioned(),
+                        partitionSpec,
                         SortOrder.unsorted(),
                         Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
-                        ImmutableMap.of(FORMAT_VERSION, "3"))
+                        ImmutableMap.of(FORMAT_VERSION, "3", DEFAULT_FILE_FORMAT, fileFormat))
                 .commitTransaction();
         return loadTable(schemaTableName.getTableName());
     }

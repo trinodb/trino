@@ -253,6 +253,7 @@ public class TestQueryResource
         BasicQueryInfo queryInfo = server.getDispatchManager().getQueryInfo(new QueryId(queryId));
         assertThat(queryInfo.getState()).isEqualTo(FAILED);
         assertThat(queryInfo.getErrorCode()).isEqualTo(USER_CANCELED.toErrorCode());
+        assertThat(getFailureMessage(queryId)).isEqualTo("Query was canceled by user 'unknown'");
     }
 
     @Test
@@ -301,10 +302,20 @@ public class TestQueryResource
         assertThat(queryInfo.getState()).isEqualTo(FAILED);
         if (killType.equals("killed")) {
             assertThat(queryInfo.getErrorCode()).isEqualTo(ADMINISTRATIVELY_KILLED.toErrorCode());
+            assertThat(getFailureMessage(queryId)).isEqualTo("Query killed by user 'unknown'. No message provided.");
         }
         else {
             assertThat(queryInfo.getErrorCode()).isEqualTo(ADMINISTRATIVELY_PREEMPTED.toErrorCode());
+            assertThat(getFailureMessage(queryId)).isEqualTo("Query preempted by user 'unknown'. No message provided.");
         }
+    }
+
+    private String getFailureMessage(String queryId)
+    {
+        return server.getDispatchManager().getFullQueryInfo(new QueryId(queryId))
+                .orElseThrow()
+                .getFailureInfo()
+                .message();
     }
 
     private String runToCompletion(String sql)

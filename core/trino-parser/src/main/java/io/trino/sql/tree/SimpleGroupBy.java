@@ -27,11 +27,6 @@ public final class SimpleGroupBy
 {
     private final List<Expression> columns;
 
-    public SimpleGroupBy(List<Expression> simpleGroupByExpressions)
-    {
-        this(Optional.empty(), simpleGroupByExpressions);
-    }
-
     public SimpleGroupBy(NodeLocation location, List<Expression> simpleGroupByExpressions)
     {
         this(Optional.of(location), simpleGroupByExpressions);

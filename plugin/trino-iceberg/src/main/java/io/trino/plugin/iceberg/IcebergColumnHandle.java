@@ -36,6 +36,7 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.ROW_ID;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.IS_DELETED;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -62,6 +63,9 @@ public class IcebergColumnHandle
     public static final int DATA_CHANGE_ORDINAL_ID = Integer.MIN_VALUE + 6;
 
     public static final int TRINO_MERGE_SOURCE_ROW_ID = Integer.MIN_VALUE + 7;
+    public static final int TRINO_MERGE_FILE_RECORD_COUNT = Integer.MIN_VALUE + 8;
+    public static final int TRINO_MERGE_FILE_SIZE = Integer.MIN_VALUE + 9;
+    public static final int TRINO_MERGE_FILE_FORMAT = Integer.MIN_VALUE + 10;
 
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;
@@ -348,6 +352,7 @@ public class IcebergColumnHandle
         return ColumnMetadata.builder()
                 .setName(FILE_MODIFIED_TIME.getColumnName())
                 .setType(FILE_MODIFIED_TIME.getType())
+                .setTimeZone(Optional.of(UTC_KEY))
                 .setHidden(true)
                 .build();
     }
@@ -391,17 +396,6 @@ public class IcebergColumnHandle
         public Builder(ColumnIdentity columnIdentity)
         {
             this.baseColumnIdentity = requireNonNull(columnIdentity, "columnIdentity is null");
-        }
-
-        public Builder(IcebergColumnHandle handle)
-        {
-            requireNonNull(handle, "handle is null");
-            this.baseColumnIdentity = handle.getBaseColumnIdentity();
-            this.baseType = handle.getBaseType();
-            this.path = handle.getPath();
-            this.type = handle.getType();
-            this.nullable = handle.isNullable();
-            this.comment = handle.getComment();
         }
 
         public Builder baseColumnIdentity(ColumnIdentity baseColumnIdentity)

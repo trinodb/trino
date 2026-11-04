@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>484-SNAPSHOT</version>
+        <version>485-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,7 +15,7 @@
     <description>Trino - Resource group configuration managers</description>
 
     <properties>
-        <dep.flyway.version>13.9.0</dep.flyway.version>
+        <dep.flyway.version>13.12.0</dep.flyway.version>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
     </properties>
 
@@ -89,11 +89,6 @@
         <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>jakarta.inject</groupId>
-            <artifactId>jakarta.inject-api</artifactId>
         </dependency>
 
         <dependency>
@@ -242,6 +237,12 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
             <scope>test</scope>
         </dependency>
 

@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>484-SNAPSHOT</version>
+        <version>485-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -17,7 +17,7 @@
         <dependency>
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
-            <version>2.9.1</version>
+            <version>2.9.2</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-codec</groupId>

@@ -245,15 +245,6 @@ public class ClassLoaderSafeConnectorAccessControl
         }
     }
 
-    @Deprecated
-    @Override
-    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
-    {
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanSelectFromColumns(context, tableName, columnNames);
-        }
-    }
-
     @Override
     public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
@@ -262,29 +253,11 @@ public class ClassLoaderSafeConnectorAccessControl
         }
     }
 
-    @Deprecated
-    @Override
-    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanInsertIntoTable(context, tableName);
-        }
-    }
-
     @Override
     public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.checkCanDeleteFromTable(context, tableName, branch);
-        }
-    }
-
-    @Deprecated
-    @Override
-    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanDeleteFromTable(context, tableName);
         }
     }
 
@@ -301,15 +274,6 @@ public class ClassLoaderSafeConnectorAccessControl
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.checkCanUpdateTableColumns(context, tableName, branch, updatedColumnNames);
-        }
-    }
-
-    @Deprecated
-    @Override
-    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
-    {
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanUpdateTableColumns(context, tableName, updatedColumns);
         }
     }
 
@@ -358,15 +322,6 @@ public class ClassLoaderSafeConnectorAccessControl
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, branch, columnNames);
-        }
-    }
-
-    @Deprecated
-    @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
-    {
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
         }
     }
 

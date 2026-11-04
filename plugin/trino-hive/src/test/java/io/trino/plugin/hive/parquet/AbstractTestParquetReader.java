@@ -1818,7 +1818,7 @@ public abstract class AbstractTestParquetReader
     public void testLongStrideDictionary()
             throws Exception
     {
-        testRoundTripNumeric(concat(ImmutableList.of(1), Collections.nCopies(9999, 123), ImmutableList.of(2), Collections.nCopies(9999, 123)));
+        testRoundTripNumeric(concat(ImmutableList.of(ImmutableList.of(1), Collections.nCopies(9999, 123), ImmutableList.of(2), Collections.nCopies(9999, 123))));
     }
 
     private void testRoundTripNumeric(Iterable<Integer> writeValues)
@@ -1937,7 +1937,7 @@ public abstract class AbstractTestParquetReader
     public void testStringStrideDictionary()
             throws Exception
     {
-        Iterable<String> writeValues = concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123"));
+        Iterable<String> writeValues = concat(ImmutableList.of(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123")));
         tester.testRoundTrip(javaStringObjectInspector, writeValues, createUnboundedVarcharType());
         tester.testRoundTrip(javaStringObjectInspector, writeValues, createVarcharType(3));
         CharType charType = createCharType(3);

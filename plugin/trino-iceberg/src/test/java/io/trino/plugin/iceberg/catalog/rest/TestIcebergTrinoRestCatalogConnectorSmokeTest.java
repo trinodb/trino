@@ -15,11 +15,16 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.server.testing.TestingHttpServer;
+import io.trino.plugin.base.metrics.DistributionSnapshot;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.Schema;
@@ -37,6 +42,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -109,6 +115,28 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     public void teardown()
     {
         backend = null; // closed by closeAfterClass
+    }
+
+    @Test
+    void testCatalogMetadataMetrics()
+    {
+        MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(
+                getSession(),
+                "SELECT count(*) FROM region r, nation n WHERE r.regionkey = n.regionkey");
+        Map<String, Metrics> catalogMetrics = getDistributedQueryRunner().getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(result.queryId())
+                .getQueryStats()
+                .getCatalogMetadataMetrics();
+        assertThat(catalogMetrics).containsKey("iceberg");
+        Map<String, Metric<?>> metrics = catalogMetrics.get("iceberg").getMetrics();
+        assertThat(((LongCount) metrics.get("metastore.all.time.total")).getTotal()).isGreaterThan(0);
+        assertThat(((DistributionSnapshot) metrics.get("metastore.all.time.distribution")).total()).isGreaterThan(0);
+        assertThat(((LongCount) metrics.get("metastore.loadTable.time.total")).getTotal()).isGreaterThan(0);
+        assertThat(((DistributionSnapshot) metrics.get("metastore.loadTable.time.distribution")).total()).isEqualTo(2);
+        // view lookups that miss are not failures
+        assertThat(((DistributionSnapshot) metrics.get("metastore.loadView.time.distribution")).total()).isGreaterThan(0);
+        assertThat(metrics).doesNotContainKeys("metastore.all.failures", "metastore.loadView.failures");
     }
 
     @Test

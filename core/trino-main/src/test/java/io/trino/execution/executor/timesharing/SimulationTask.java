@@ -23,6 +23,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static io.trino.execution.executor.TestingTaskMemory.NO_TASK_MEMORY;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 abstract class SimulationTask
@@ -37,7 +38,7 @@ abstract class SimulationTask
     public SimulationTask(TimeSharingTaskExecutor taskExecutor, TaskSpecification specification, TaskId taskId)
     {
         this.specification = specification;
-        taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, SECONDS), OptionalInt.empty());
+        taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, SECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
     }
 
     public Set<SimulationSplit> getCompletedSplits()

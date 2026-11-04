@@ -14,7 +14,6 @@
 package io.trino.metadata;
 
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
@@ -64,6 +63,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
@@ -422,16 +422,6 @@ public interface Metadata
      * Finish insert query
      */
     Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
-
-    /**
-     * Returns true if materialized view refresh should be delegated to connector
-     */
-    boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName);
-
-    /**
-     * Refresh materialized view
-     */
-    ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName);
 
     /**
      * Begin refresh materialized view query
@@ -800,6 +790,8 @@ public interface Metadata
     ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType);
 
     ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType);
+
+    Optional<DomainProjection> getDomainProjection(Session session, ResolvedFunction resolvedFunction);
 
     ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 

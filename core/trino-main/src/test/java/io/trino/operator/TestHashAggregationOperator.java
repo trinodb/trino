@@ -42,6 +42,7 @@ import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.Spiller;
@@ -74,6 +75,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.operator.AggregationMetrics.INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME;
@@ -86,6 +88,7 @@ import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.operator.SpillMetrics.SPILL_COUNT_METRIC_NAME;
 import static io.trino.operator.SpillMetrics.SPILL_DATA_SIZE;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
+import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -95,6 +98,7 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -184,7 +188,7 @@ public class TestHashAggregationOperator
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
 
-        MaterializedResult.Builder expectedBuilder = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT);
+        MaterializedResult.Builder expectedBuilder = resultBuilder(VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT);
         for (int i = 0; i < numberOfRows; ++i) {
             expectedBuilder.row(Integer.toString(i), 3L, 3L * i, (double) i, Integer.toString(300_000 + i), 3L, 3L);
         }
@@ -250,7 +254,7 @@ public class TestHashAggregationOperator
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row(null, 42L, 0L, null, null, null, 0L, 0L)
                 .row(null, 49L, 0L, null, null, null, 0L, 0L)
                 .build();
@@ -375,7 +379,7 @@ public class TestHashAggregationOperator
                 hashStrategyCompiler,
                 Optional.empty());
 
-        // while prepareFinal replays the buffered rows into the distinct hash, the buffered values,
+        // while the buffered rows are replayed into the distinct hash, the buffered values,
         // the pages index addresses and the hash entries must all be reserved at the same time
         long rows = (long) pageCount * positionsPerPage;
         long expectedPeak = rows * Long.BYTES + rows * Long.BYTES + rows * 2 * Long.BYTES;
@@ -384,6 +388,74 @@ public class TestHashAggregationOperator
             assertThat(operator.getOperatorContext().getOperatorStats().getPeakUserMemoryReservation().toBytes())
                     .isGreaterThan(expectedPeak);
         }
+    }
+
+    // grouped ordered aggregation evaluates every group across several batches and output pages without spilling
+    @Test
+    public void testOrderedAggregationEvaluatesInBatches()
+    {
+        TestingAggregationFunction arrayAgg = FUNCTION_RESOLUTION.getAggregateFunction("array_agg", fromTypes(BIGINT));
+        AccumulatorFactory orderedFactory = new OrderedAccumulatorFactory(
+                arrayAgg.getDistinctFactory(),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(0),
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST),
+                new PagesIndex.TestingFactory(false),
+                DataSize.ofBytes(1));
+        AggregatorFactory aggregatorFactory = new AggregatorFactory(
+                orderedFactory,
+                SINGLE,
+                arrayAgg.getIntermediateType(),
+                arrayAgg.getFinalType(),
+                ImmutableList.of(0),
+                OptionalInt.empty(),
+                false, // spillable
+                ImmutableList.of());
+
+        int groupCount = 40_000;
+        int valuesPerGroup = 5;
+        List<Page> input = new ArrayList<>();
+        for (int round = 0; round < valuesPerGroup; round++) {
+            input.add(new Page(
+                    createLongSequenceBlock(round * groupCount, (round + 1) * groupCount),
+                    createLongSequenceBlock(0, groupCount)));
+        }
+
+        MaterializedResult.Builder expectedBuilder = resultBuilder(BIGINT, new ArrayType(BIGINT));
+        for (long group = 0; group < groupCount; group++) {
+            List<Long> values = new ArrayList<>();
+            for (long round = valuesPerGroup - 1; round >= 0; round--) {
+                values.add(round * groupCount + group);
+            }
+            expectedBuilder.row(group, values);
+        }
+
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT),
+                Ints.asList(1),
+                ImmutableList.of(),
+                SINGLE,
+                false,
+                ImmutableList.of(aggregatorFactory),
+                OptionalInt.empty(),
+                100_000,
+                Optional.of(DataSize.of(16, MEGABYTE)),
+                true,
+                succinctBytes(0),
+                succinctBytes(0),
+                spillerFactory,
+                hashStrategyCompiler,
+                Optional.empty());
+
+        DriverContext driverContext = createDriverContext();
+        List<Page> pages = toPages(operatorFactory, driverContext, input, true);
+        assertThat(pages).hasSizeGreaterThan(1);
+        assertPagesEqualIgnoreOrder(driverContext, pages, expectedBuilder.build());
+        assertThat(spillerFactory.getSpillsCount()).isZero();
     }
 
     @Test
@@ -629,7 +701,7 @@ public class TestHashAggregationOperator
             List<Page> expectedPages = rowPagesBuilder(BIGINT, BIGINT)
                     .addSequencePage(2000, 0, 0)
                     .build();
-            MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
+            MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                     .pages(expectedPages)
                     .build();
 
@@ -661,10 +733,10 @@ public class TestHashAggregationOperator
             // Now, drive the operator to completion
             outputPages.addAll(toPages(operator, inputIterator));
 
-            MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), expected.getTypes(), outputPages);
+            MaterializedResult actual = toMaterializedResult(expected.getTypes(), outputPages);
 
             assertThat(actual.getTypes()).isEqualTo(expected.getTypes());
-            assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+            assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
         }
 
         assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
@@ -706,7 +778,7 @@ public class TestHashAggregationOperator
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
 
-        MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT, BIGINT);
+        MaterializedResult.Builder resultBuilder = resultBuilder(BIGINT, BIGINT);
         for (int i = 0; i < smallPagesSpillThresholdSize + 10; ++i) {
             resultBuilder.row((long) i, (long) i);
         }
@@ -1201,7 +1273,7 @@ public class TestHashAggregationOperator
 
     private void assertOperatorEquals(DriverContext driverContext, OperatorFactory operatorFactory, List<Page> input, List<Page> expectedPages)
     {
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                 .pages(expectedPages)
                 .build();
         OperatorAssertion.assertOperatorEquals(operatorFactory, driverContext, input, expected, false, false);

@@ -98,19 +98,21 @@ public class TestingHydraIdentityProvider
     private final Duration ttlAccessToken;
     private final boolean useJwt;
     private final boolean exposeFixedPorts;
+    private final boolean stampAudience;
     private final OkHttpClient httpClient;
     private FixedHostPortGenericContainer<?> hydraContainer;
 
     public TestingHydraIdentityProvider()
     {
-        this(Duration.ofMinutes(30), true, false);
+        this(Duration.ofMinutes(30), true, false, false);
     }
 
-    public TestingHydraIdentityProvider(Duration ttlAccessToken, boolean useJwt, boolean exposeFixedPorts)
+    public TestingHydraIdentityProvider(Duration ttlAccessToken, boolean useJwt, boolean exposeFixedPorts, boolean stampAudience)
     {
         this.ttlAccessToken = requireNonNull(ttlAccessToken, "ttlAccessToken is null");
         this.useJwt = useJwt;
         this.exposeFixedPorts = exposeFixedPorts;
+        this.stampAudience = stampAudience;
         OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
         setupInsecureSsl(httpClientBuilder);
         httpClientBuilder.followRedirects(false);
@@ -324,10 +326,22 @@ public class TestingHydraIdentityProvider
                                     .put(RequestBody.create(
                                             mapper.writeValueAsString(mapper.createObjectNode()
                                                     .<ObjectNode>set("grant_scope", consentRequest.get("requested_scope"))
-                                                    .<ObjectNode>set("grant_access_token_audience", consentRequest.get("requested_access_token_audience"))),
+                                                    .<ObjectNode>set("grant_access_token_audience", grantedAudience(consentRequest))),
                                             MediaType.get(APPLICATION_JSON)))
                                     .build())
                     .execute();
+        }
+
+        private JsonNode grantedAudience(JsonNode consentRequest)
+        {
+            JsonNode requestedAudience = consentRequest.get("requested_access_token_audience");
+            // Trino never sends an audience/resource parameter in the authorization request, so
+            // requestedAudience is normally empty here; stampAudience emulates an IdP that is configured
+            // to include the client's audience in the access token anyway.
+            if (stampAudience && requestedAudience.isEmpty()) {
+                return consentRequest.get("client").get("audience");
+            }
+            return requestedAudience;
         }
 
         private void sendRedirect(Response redirectResponse, HttpServletResponse response)
@@ -352,7 +366,7 @@ public class TestingHydraIdentityProvider
     private static void runTestServer(boolean useJwt)
             throws Exception
     {
-        try (TestingHydraIdentityProvider service = new TestingHydraIdentityProvider(Duration.ofMinutes(30), useJwt, true)) {
+        try (TestingHydraIdentityProvider service = new TestingHydraIdentityProvider(Duration.ofMinutes(30), useJwt, true, false)) {
             service.start();
             service.createClient(
                     "trino-client",

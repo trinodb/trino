@@ -46,14 +46,4 @@ interface Instruction
     {
         return new MatchLabel(label);
     }
-
-    static MatchStart matchStart()
-    {
-        return new MatchStart();
-    }
-
-    static MatchEnd matchEnd()
-    {
-        return new MatchEnd();
-    }
 }

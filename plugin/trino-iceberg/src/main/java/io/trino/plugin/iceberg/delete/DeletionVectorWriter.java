@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.delete;
 import io.airlift.slice.Slice;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.PartitionData;
+import io.trino.plugin.iceberg.ReferencedDataFile;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowDelta;
@@ -41,11 +42,11 @@ public interface DeletionVectorWriter
             List<DeletionVectorInfo> deletionVectorInfos,
             RowDelta rowDelta);
 
-    record DeletionVectorInfo(String dataFilePath, Slice serializedDeletionVector, PartitionSpec partitionSpec, Optional<PartitionData> partitionData)
+    record DeletionVectorInfo(ReferencedDataFile referencedDataFile, Slice serializedDeletionVector, PartitionSpec partitionSpec, Optional<PartitionData> partitionData)
     {
         public DeletionVectorInfo
         {
-            requireNonNull(dataFilePath, "dataFilePath is null");
+            requireNonNull(referencedDataFile, "referencedDataFile is null");
             requireNonNull(serializedDeletionVector, "serializedDeletionVector is null");
             requireNonNull(partitionSpec, "partitionSpec is null");
             requireNonNull(partitionData, "partitionData is null");

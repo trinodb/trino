@@ -33,6 +33,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.net.URI;
@@ -45,8 +46,11 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(Lifecycle.PER_CLASS)
+// Tests share one container, and testDeleteRecursivelyContainerRoot deletes everything in it
+@Execution(SAME_THREAD)
 public abstract class AbstractTestAzureBlobFileSystemExchangeStorage
 {
     protected enum AccountKind
@@ -215,7 +219,10 @@ public abstract class AbstractTestAzureBlobFileSystemExchangeStorage
         getFutureValue(storage.createEmptyFile(file4));
 
         List<FileStatus> files = getFutureValue(storage.listFilesRecursively(directoryUri("")));
-        assertThat(files).hasSize(4);
+        // Test methods run in random order and share the container, so files of other tests may be present
+        assertThat(files)
+                .extracting(FileStatus::getFilePath)
+                .contains(file1.toString(), file2.toString(), file3.toString(), file4.toString());
 
         getFutureValue(storage.deleteRecursively(ImmutableList.of(directoryUri(""))));
 

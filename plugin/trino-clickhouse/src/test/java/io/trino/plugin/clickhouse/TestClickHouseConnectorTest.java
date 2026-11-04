@@ -30,7 +30,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -194,8 +193,8 @@ public class TestClickHouseConnectorTest
         assertUpdate("INSERT INTO " + tableName + "(x,y,a) SELECT 123, 456, 111", 1);
 
         // the columns are referenced by order_by/partition_by property can not be dropped
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).* Missing columns: 'x' while processing: 'x', required columns: 'x'.*");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).* Missing columns: 'a' while processing: 'a', required columns: 'a'.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).*Trying to ALTER DROP key x column which is a part of key expression.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).*Trying to ALTER DROP key a column which is a part of key expression.*");
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
@@ -315,7 +314,7 @@ public class TestClickHouseConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -346,9 +345,8 @@ public class TestClickHouseConnectorTest
     public void testCharVarcharComparison()
     {
         assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessageContaining("For query")
-                .hasMessageContaining("Actual rows")
-                .hasMessageContaining("Expected rows");
+                .hasMessageContaining("Rows for query")
+                .hasMessageContaining("do not match");
 
         // TODO run the test with clickhouse.map-string-as-varchar
         abort("");
@@ -445,9 +443,9 @@ public class TestClickHouseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         // Log engine DOES NOT any property
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', order_by=ARRAY['id'])", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*\\n.*");
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', partition_by=ARRAY['id'])", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*\\n.*");
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', sample_by='id')", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*\\n.*");
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', order_by=ARRAY['id'])", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*");
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', partition_by=ARRAY['id'])", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*");
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', sample_by='id')", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*");
 
         // optional properties
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
@@ -465,7 +463,7 @@ public class TestClickHouseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         // the column refers by order by must be not null
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'])", ".*Sorting key contains nullable columns, but merge tree setting `allow_nullable_key` is disabled.*\\n.*");
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'])", ".*Sorting key contains nullable columns, but merge tree setting `allow_nullable_key` is disabled.*");
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = ARRAY['id'])");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
@@ -739,7 +737,7 @@ public class TestClickHouseConnectorTest
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching(".*The max length of table name for database tpch is %d, current length is [0-9]+.*\n"
+        assertThat(e).hasMessageMatching("(?s).*The max length of table name for database tpch is %d, current length is [0-9]+.*"
                 .formatted(maxTableNameLength().orElseThrow()));
     }
 
@@ -778,15 +776,36 @@ public class TestClickHouseConnectorTest
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("File name too long");
+        assertThat(e).hasMessageContaining("<Unreadable error message> (transport error: 500)");
+    }
+
+    @Test
+    @Override // Override because the failure message differs
+    public void testNativeQueryCreateStatement()
+    {
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
+        assertThatThrownBy(() -> computeActual("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .hasMessageContaining("descriptor has no fields");
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
     @Test
     @Override // Override because the failure message differs
     public void testNativeQueryIncorrectSyntax()
     {
-        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .failure().hasMessage("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+        assertThatThrownBy(() -> computeActual("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessageContaining("descriptor has no fields");
+    }
+
+    @Test
+    @Override // Override because the failure message differs
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        try (TestTable testTable = simpleTable()) {
+            assertThatThrownBy(() -> computeActual(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .hasMessageContaining("descriptor has no fields");
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
+        }
     }
 
     @Test
@@ -794,8 +813,8 @@ public class TestClickHouseConnectorTest
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
         assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
-        assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
-                .failure().hasMessage("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
+        assertThatThrownBy(() -> computeActual("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessageContaining("descriptor has no fields");
     }
 
     @Test
@@ -847,6 +866,16 @@ public class TestClickHouseConnectorTest
                     .isFullyPushedDown();
 
             assertThat(query("SELECT c_real FROM %s WHERE c_double_pos_infinity = +infinity()".formatted(table.getName())))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT c_real FROM %s WHERE c_double_nan < 0".formatted(table.getName())))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT c_real FROM %s WHERE c_double_nan > 0".formatted(table.getName())))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT c_real FROM %s WHERE c_double_neg_infinity < 0 AND c_double_pos_infinity > 0".formatted(table.getName())))
+                    .matches("VALUES REAL '3.14'")
                     .isFullyPushedDown();
 
             assertThat(query("SELECT c_real FROM %s WHERE c_double_nan = nan()".formatted(table.getName())))
@@ -1165,6 +1194,19 @@ public class TestClickHouseConnectorTest
     }
 
     @Test
+    public void testDynamicColumnsAreNotExposed()
+    {
+        try (TestTable testTable = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_dynamic_unsupported",
+                "(id Int32, dynamic_col Dynamic, variant_col Variant(String, Int64), value String) ENGINE=Memory",
+                ImmutableList.of("1, 'text', 'text', 'x'"))) {
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("VALUES (1, VARCHAR 'x')");
+        }
+    }
+
+    @Test
     public void testInsertIntoDistributedTable()
     {
         // Insert stages the rows in a temporary table before moving them into the target table. That temporary table
@@ -1207,7 +1249,7 @@ public class TestClickHouseConnectorTest
             throws SQLException
     {
         String sql = "SELECT * FROM system.tables WHERE database = ? AND name = ?";
-        try (Connection connection = DriverManager.getConnection(clickhouseServer.getJdbcUrl(), clickhouseServer.getUsername(), clickhouseServer.getPassword());
+        try (Connection connection = clickhouseServer.createConnection();
                 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             preparedStatement.setString(1, schemaName);
             preparedStatement.setString(2, tableName);

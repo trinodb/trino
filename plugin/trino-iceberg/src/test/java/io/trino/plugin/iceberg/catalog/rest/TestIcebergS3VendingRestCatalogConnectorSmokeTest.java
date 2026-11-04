@@ -355,9 +355,4 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     {
         return location.substring(("s3://" + bucketName + "/").length());
     }
-
-    private TableIdentifier toIdentifier(String tableName)
-    {
-        return TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
-    }
 }

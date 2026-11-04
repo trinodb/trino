@@ -47,9 +47,10 @@ class TestJsonStreamingCasts
         assertThatThrownBy(() -> stream(new ArrayType(VARCHAR), "[\"\\ud800\"]"))
                 .isInstanceOf(JsonParseException.class)
                 .hasMessageContaining("unpaired surrogate");
+        // Jackson rejects unpaired surrogates in field names itself
         assertThatThrownBy(() -> stream(mapType(VARCHAR, DOUBLE), "{\"\\udc00\":1}"))
                 .isInstanceOf(JsonParseException.class)
-                .hasMessageContaining("unpaired surrogate");
+                .hasMessageContaining("surrogate");
     }
 
     @Test

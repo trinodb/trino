@@ -179,7 +179,7 @@ public abstract class BaseOracleConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(19,0)", "", "")
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")

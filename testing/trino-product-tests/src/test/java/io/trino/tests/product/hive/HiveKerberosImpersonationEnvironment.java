@@ -27,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -222,18 +221,6 @@ public class HiveKerberosImpersonationEnvironment
     }
 
     // Hive JDBC methods (connects to HiveServer2 in Hadoop container)
-
-    /**
-     * Creates a JDBC connection to HiveServer2 in the Hadoop container.
-     * <p>
-     * HiveServer2 in this environment uses Kerberos authentication.
-     */
-    public Connection createHiveConnection()
-            throws SQLException
-    {
-        String jdbcUrl = "jdbc:hive2://" + hadoop.getHost() + ":" + hadoop.getMappedPort(HadoopContainer.HIVESERVER2_PORT) + "/default;auth=noSasl";
-        return DriverManager.getConnection(jdbcUrl, "hive", "");
-    }
 
     /**
      * Executes a SQL query against Hive and returns the result.

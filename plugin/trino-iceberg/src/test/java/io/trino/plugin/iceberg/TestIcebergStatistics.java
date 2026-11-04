@@ -48,6 +48,7 @@ import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_TABLE_PROCEDURE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UP;
@@ -1225,9 +1226,8 @@ public class TestIcebergStatistics
         assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
 
         icebergTable.refresh();
-        assertThat(icebergTable.statisticsFiles())
-                .hasSize(1)
-                .containsExactlyInAnyOrderElementsOf(statisticsFiles);
+        assertThat(icebergTable.statisticsFiles()).hasSize(1);
+        assertEqualsIgnoreOrder(icebergTable.statisticsFiles(), statisticsFiles);
 
         assertUpdate("DROP TABLE " + tableName);
     }

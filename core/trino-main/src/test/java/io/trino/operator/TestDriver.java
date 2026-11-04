@@ -56,6 +56,10 @@ import java.util.function.Function;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.SplitRunner.BlockedReason.MEMORY;
+import static io.trino.execution.SplitRunner.BlockedReason.OPERATOR;
+import static io.trino.execution.SplitRunner.BlockedReason.OUTPUT;
+import static io.trino.execution.SplitRunner.BlockedReason.SOURCE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -278,7 +282,7 @@ public class TestDriver
                 TEST_TABLE_HANDLE,
                 ImmutableList.of());
 
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         BlockedSinkOperator sink = new BlockedSinkOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "sink"), resultBuilder::page, Function.identity());
         Driver driver = Driver.createDriver(driverContext, source, sink);
 
@@ -332,6 +336,55 @@ public class TestDriver
         assertThat(operator2.isDone()).isTrue();
         assertThat(blocked.isDone()).isTrue();
         assertThat(operator2.isCancelled()).isFalse();
+    }
+
+    @Test
+    public void testBlockedReasonSource()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        Driver driver = Driver.createDriver(driverContext, createAlwaysBlockedScan(types), createSinkOperator(types));
+
+        assertThat(driver.processForDuration(new Duration(100, MILLISECONDS)).isDone()).isFalse();
+        assertThat(driver.getBlockedReason()).isEqualTo(SOURCE);
+    }
+
+    @Test
+    public void testBlockedReasonOperator()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        Driver driver = Driver.createDriver(
+                driverContext,
+                createSinkOperator(types, 1, "test1"),
+                createBlockedOperator(types, 2, "test2"),
+                createSinkOperator(types, 3, "test3"));
+
+        assertThat(driver.processForDuration(new Duration(100, MILLISECONDS)).isDone()).isFalse();
+        assertThat(driver.getBlockedReason()).isEqualTo(OPERATOR);
+    }
+
+    @Test
+    public void testBlockedReasonOutputOverSource()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        Driver driver = Driver.createDriver(driverContext, createAlwaysBlockedScan(types), createBlockedOperator(types, 1, "test"));
+
+        assertThat(driver.processForDuration(new Duration(100, MILLISECONDS)).isDone()).isFalse();
+        assertThat(driver.getBlockedReason()).isEqualTo(OUTPUT);
+    }
+
+    @Test
+    public void testBlockedReasonMemoryRevoke()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
+        OperatorContext operatorContext = driverContext.addOperatorContext(1, new PlanNodeId("test"), "sink");
+        RevokingOperator revokingOperator = new RevokingOperator(operatorContext, resultBuilder::page, Function.identity());
+        operatorContext.localRevocableMemoryContext().setBytes(100);
+        operatorContext.requestMemoryRevoking();
+        Driver driver = Driver.createDriver(driverContext, createAlwaysBlockedScan(types), revokingOperator);
+
+        assertThat(driver.processForDuration(new Duration(100, MILLISECONDS)).isDone()).isFalse();
+        assertThat(driver.getBlockedReason()).isEqualTo(MEMORY);
     }
 
     @Test
@@ -393,14 +446,26 @@ public class TestDriver
     private PageConsumerOperator createSinkOperator(List<Type> types, int operatorId, String planNodeId)
     {
         // materialize the output to catch some type errors
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         return new PageConsumerOperator(driverContext.addOperatorContext(operatorId, new PlanNodeId(planNodeId), "sink"), resultBuilder::page, Function.identity());
+    }
+
+    private TableScanOperator createAlwaysBlockedScan(List<Type> types)
+    {
+        return new AlwaysBlockedTableScanOperator(
+                driverContext.addOperatorContext(0, new PlanNodeId("scan"), "scan"),
+                new PlanNodeId("source"),
+                (_, _, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                        .addSequencePage(10, 20, 30, 40)
+                        .build()),
+                TEST_TABLE_HANDLE,
+                ImmutableList.of());
     }
 
     private BlockedOperator createBlockedOperator(List<Type> types, int operatorId, String planNodeId)
     {
         // materialize the output to catch some type errors
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         return new BlockedOperator(driverContext.addOperatorContext(operatorId, new PlanNodeId(planNodeId), "sink"), resultBuilder::page, Function.identity());
     }
 
@@ -571,6 +636,26 @@ public class TestDriver
         private boolean isCancelled()
         {
             return blocked.isCancelled();
+        }
+    }
+
+    private static class RevokingOperator
+            extends PageConsumerOperator
+    {
+        private final SettableFuture<Void> revoked = SettableFuture.create();
+
+        public RevokingOperator(
+                OperatorContext operatorContext,
+                Consumer<Page> pageConsumer,
+                Function<Page, Page> pagePreprocessor)
+        {
+            super(operatorContext, pageConsumer, pagePreprocessor);
+        }
+
+        @Override
+        public ListenableFuture<Void> startMemoryRevoke()
+        {
+            return revoked;
         }
     }
 

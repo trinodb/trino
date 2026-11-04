@@ -23,10 +23,13 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
+import org.apache.parquet.schema.Types;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigInteger;
@@ -50,8 +53,8 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
@@ -306,6 +309,78 @@ public class TestDeltaLakeParquetStatisticsUtils
     }
 
     @Test
+    public void testTimestampWithTimeZoneUpperBound()
+    {
+        long epochMillis = Instant.parse("2024-01-15T10:30:00.123Z").toEpochMilli();
+        LongTimestampWithTimeZone subMillisecond = LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, 456_000_000, UTC_KEY);
+        assertThat(toJsonValue(TIMESTAMP_TZ_MICROS, subMillisecond)).isEqualTo("2024-01-15T10:30:00.123Z");
+        assertThat(toJsonValueUpperBound(TIMESTAMP_TZ_MICROS, subMillisecond)).isEqualTo("2024-01-15T10:30:00.124Z");
+        assertThat(toJsonValueUpperBound(TIMESTAMP_TZ_MICROS, LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, 0, UTC_KEY))).isEqualTo("2024-01-15T10:30:00.123Z");
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneStatisticsInt64Micros()
+    {
+        String columnName = "t_timestamp";
+        Statistics<?> stats = Statistics.getBuilderForReading(int64TimestampType(columnName, true, LogicalTypeAnnotation.TimeUnit.MICROS))
+                .withMin(timestampToBytes(LocalDateTime.parse("2020-08-26T01:02:03.123456")))
+                .withMax(timestampToBytes(LocalDateTime.parse("2020-08-26T01:02:03.987654")))
+                .withNumNulls(2)
+                .build();
+
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS)))
+                .isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS)))
+                .isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.988Z"));
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneStatisticsInt64Millis()
+    {
+        String columnName = "t_timestamp";
+        Statistics<?> stats = Statistics.getBuilderForReading(int64TimestampType(columnName, false, LogicalTypeAnnotation.TimeUnit.MILLIS))
+                .withMin(longToBytes(Instant.parse("2020-08-26T01:02:03.123Z").toEpochMilli()))
+                .withMax(longToBytes(Instant.parse("2020-08-26T01:02:03.124Z").toEpochMilli()))
+                .withNumNulls(2)
+                .build();
+
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS)))
+                .isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS)))
+                .isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.124Z"));
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneStatisticsInt64Nanos()
+    {
+        String columnName = "t_timestamp";
+        Statistics<?> stats = Statistics.getBuilderForReading(int64TimestampType(columnName, true, LogicalTypeAnnotation.TimeUnit.NANOS))
+                .withMin(longToBytes(1_598_403_723_123_456_789L))
+                .withMax(longToBytes(1_598_403_723_987_654_321L))
+                .withNumNulls(2)
+                .build();
+
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS)))
+                .isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS)))
+                .isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.988Z"));
+    }
+
+    private static PrimitiveType int64TimestampType(String columnName, boolean isAdjustedToUTC, LogicalTypeAnnotation.TimeUnit unit)
+    {
+        return Types.required(PrimitiveType.PrimitiveTypeName.INT64)
+                .as(LogicalTypeAnnotation.timestampType(isAdjustedToUTC, unit))
+                .named(columnName);
+    }
+
+    private static byte[] longToBytes(long value)
+    {
+        Slice slice = Slices.allocate(8);
+        slice.setLong(0, value);
+        return slice.byteArray();
+    }
+
+    @Test
     public void testTimestampUpperBound()
     {
         long subMillisecond = Instant.parse("2024-01-15T10:30:00Z").getEpochSecond() * MICROSECONDS_PER_SECOND + 123_456;
@@ -313,9 +388,9 @@ public class TestDeltaLakeParquetStatisticsUtils
         assertThat(toJsonValueUpperBound(TIMESTAMP_MICROS, subMillisecond)).isEqualTo("2024-01-15T10:30:00.124Z");
         assertThat(toJsonValueUpperBound(TIMESTAMP_MICROS, subMillisecond - 456)).isEqualTo("2024-01-15T10:30:00.123Z");
 
-        assertThat(jsonValueToTrinoValue(TIMESTAMP_MILLIS, "2024-01-15T10:30:00.123456Z")).isEqualTo(Instant.parse("2024-01-15T10:30:00.123Z").toEpochMilli() * MICROSECONDS_PER_MILLISECOND);
-        assertThat(jsonValueToTrinoValueUpperBound(TIMESTAMP_MILLIS, "2024-01-15T10:30:00.123456Z")).isEqualTo(Instant.parse("2024-01-15T10:30:00.124Z").toEpochMilli() * MICROSECONDS_PER_MILLISECOND);
-        assertThat(jsonValueToTrinoValueUpperBound(TIMESTAMP_MILLIS, "2024-01-15T10:30:00.123Z")).isEqualTo(Instant.parse("2024-01-15T10:30:00.123Z").toEpochMilli() * MICROSECONDS_PER_MILLISECOND);
+        assertThat(jsonValueToTrinoValue(TIMESTAMP_TZ_MICROS, "2024-01-15T10:30:00.123456Z")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Instant.parse("2024-01-15T10:30:00.123Z").toEpochMilli(), 456_000_000, UTC_KEY));
+        assertThat(jsonValueToTrinoValueUpperBound(TIMESTAMP_TZ_MICROS, "2024-01-15T10:30:00.123456Z")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Instant.parse("2024-01-15T10:30:00.124Z").toEpochMilli(), 0, UTC_KEY));
+        assertThat(jsonValueToTrinoValueUpperBound(TIMESTAMP_TZ_MICROS, "2024-01-15T10:30:00.123Z")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Instant.parse("2024-01-15T10:30:00.123Z").toEpochMilli(), 0, UTC_KEY));
     }
 
     @Test

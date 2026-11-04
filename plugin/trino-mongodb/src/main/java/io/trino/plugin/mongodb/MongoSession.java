@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.DBRef;
 import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
+import com.mongodb.MongoTimeoutException;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -97,6 +98,7 @@ import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static io.trino.spi.predicate.FloatingPointValueSet.boundedRanges;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
@@ -267,7 +269,7 @@ public class MongoSession
             Throwable cause = e.getCause();
             if (cause != null) {
                 throwIfInstanceOf(cause, TrinoException.class);
-                if (cause instanceof MongoCommandException) {
+                if (cause instanceof MongoCommandException || cause instanceof MongoTimeoutException) {
                     throw new TrinoException(MONGODB_CLUSTER_ERROR, cause);
                 }
             }
@@ -636,7 +638,8 @@ public class MongoSession
 
         List<Object> singleValues = new ArrayList<>();
         List<Document> disjuncts = new ArrayList<>();
-        for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
+        // BSON accepts infinities. Keep the lower infinity bound because MongoDB orders NaN before numbers.
+        for (Range range : boundedRanges(domain.getValues()).getOrderedRanges()) {
             if (range.isSingleValue()) {
                 Optional<Object> translated = translateValue(range.getSingleValue(), type);
                 if (translated.isEmpty()) {

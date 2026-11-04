@@ -97,7 +97,10 @@ public class TestingPostgreSqlServer
                 .withUsername(USER)
                 .withPassword(PASSWORD)
                 .withLogConsumer(new RemoteDatabaseEventLogConsumer())
-                .withCommand("postgres", "-c", "log_destination=stderr", "-c", "log_statement=all");
+                // PostgreSQL can open the container's stderr as a log file only when the container runs as the postgres user
+                .withCreateContainerCmdModifier(cmd -> cmd.withUser("postgres"))
+                // The logging collector is the only process that writes to stderr so long log lines from concurrent backends do not interleave
+                .withCommand("postgres", "-c", "log_destination=stderr", "-c", "log_statement=all", "-c", "logging_collector=on", "-c", "log_directory=/dev", "-c", "log_filename=stderr", "-c", "log_rotation_age=0", "-c", "log_rotation_size=0");
         if (shouldExposeFixedPorts) {
             exposeFixedPorts(dockerContainer);
         }

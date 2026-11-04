@@ -545,7 +545,7 @@ public class OrcPageSourceFactory
 
         Map<Integer, HiveColumnHandle> baseColumnsByColumnIndex = columns.stream()
                 .map(HiveColumnHandle::getBaseColumn)
-                .collect(toImmutableMap(HiveColumnHandle::getBaseHiveColumnIndex, identity()));
+                .collect(toImmutableMap(HiveColumnHandle::getBaseHiveColumnIndex, identity(), (first, _) -> first));
 
         for (int index = 0; index < columnCount; index++) {
             OrcColumn column = fileColumns.get(index);

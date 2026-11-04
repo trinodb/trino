@@ -13,6 +13,11 @@
  */
 package io.trino.plugin.httpquery;
 
+import com.fasterxml.jackson.annotation.JsonFilter;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.ser.FilterProvider;
+import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.FutureCallback;
@@ -24,7 +29,7 @@ import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
-import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.eventlistener.EventListener;
@@ -38,12 +43,13 @@ import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter.serializeAllExcept;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
-import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -60,8 +66,7 @@ public class HttpEventListener
 
     private final LifeCycleManager lifecycleManager;
 
-    private final JsonCodec<QueryCompletedEvent> queryCompletedEventJsonCodec;
-    private final JsonCodec<QueryCreatedEvent> queryCreatedEventJsonCodec;
+    private final ObjectWriter writer;
 
     private final HttpClient client;
 
@@ -76,11 +81,12 @@ public class HttpEventListener
     private final HttpEventListenerHttpMethod httpMethod;
     private final ScheduledExecutorService executor;
 
+    @JsonFilter("property-name-filter")
+    static class PropertyFilterMixIn {}
+
     @Inject
     public HttpEventListener(
             LifeCycleManager lifecycleManager,
-            JsonCodec<QueryCompletedEvent> queryCompletedEventJsonCodec,
-            JsonCodec<QueryCreatedEvent> queryCreatedEventJsonCodec,
             HttpEventListenerConfig config,
             @ForHttpEventListener HttpClient httpClient)
     {
@@ -88,8 +94,11 @@ public class HttpEventListener
         requireNonNull(config, "http event listener config is null");
         this.client = requireNonNull(httpClient, "http event listener http client is null");
 
-        this.queryCompletedEventJsonCodec = requireNonNull(queryCompletedEventJsonCodec, "queryCompletedEventJsonCodec is null");
-        this.queryCreatedEventJsonCodec = requireNonNull(queryCreatedEventJsonCodec, "queryCreatedEventJsonCodec is null");
+        FilterProvider filter = new SimpleFilterProvider().addFilter("property-name-filter", serializeAllExcept(config.getExcludedFields()));
+        this.writer = new JsonMapperProvider()
+                .get()
+                .addMixIn(Object.class, PropertyFilterMixIn.class)
+                .writer(filter);
         this.logCreated = config.getLogCreated();
         this.logCompleted = config.getLogCompleted();
         this.retryCount = config.getRetryCount();
@@ -122,7 +131,7 @@ public class HttpEventListener
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
         if (logCreated) {
-            sendLog(jsonBodyGenerator(queryCreatedEventJsonCodec, queryCreatedEvent), queryCreatedEvent.getMetadata().getQueryId());
+            sendLog(eventBodyGenerator(queryCreatedEvent), queryCreatedEvent.getMetadata().getQueryId());
         }
     }
 
@@ -130,7 +139,17 @@ public class HttpEventListener
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
         if (logCompleted) {
-            sendLog(jsonBodyGenerator(queryCompletedEventJsonCodec, queryCompletedEvent), queryCompletedEvent.getMetadata().getQueryId());
+            sendLog(eventBodyGenerator(queryCompletedEvent), queryCompletedEvent.getMetadata().getQueryId());
+        }
+    }
+
+    private BodyGenerator eventBodyGenerator(Object event)
+    {
+        try {
+            return createStaticBodyGenerator(writer.writeValueAsBytes(event));
+        }
+        catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
         }
     }
 

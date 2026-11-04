@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
 import static io.trino.testing.containers.environment.Row.row;
 import static java.lang.String.format;
@@ -97,7 +98,7 @@ class TestGrantRevoke
 
         cleanupRoles(env);
 
-        assertThat(listRoles(env)).containsExactlyInAnyOrderElementsOf(PREDEFINED_ROLES);
+        assertEqualsIgnoreOrder(listRoles(env), PREDEFINED_ROLES);
     }
 
     @Test

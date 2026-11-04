@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 
 import java.util.List;
 import java.util.Optional;
@@ -69,7 +70,6 @@ public class BigQueryPageSourceProvider
     }
 
     @Override
-    @SuppressWarnings("deprecation") // TODO (https://github.com/trinodb/trino/issues/29959) migrate to non-deprecated createPageSource overload
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
@@ -77,7 +77,8 @@ public class BigQueryPageSourceProvider
             ConnectorTableHandle table,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         log.debug("createPageSource(transaction=%s, session=%s, split=%s, table=%s, columns=%s)", transaction, session, split, table, columns);
         BigQuerySplit bigQuerySplit = (BigQuerySplit) split;
@@ -97,22 +98,23 @@ public class BigQueryPageSourceProvider
                 .map(BigQueryColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        return createPageSource(session, (BigQueryTableHandle) table, bigQuerySplit, bigQueryColumnHandles);
+        return createPageSource(session, (BigQueryTableHandle) table, bigQuerySplit, bigQueryColumnHandles, memoryContext);
     }
 
     private ConnectorPageSource createPageSource(
             ConnectorSession session,
             BigQueryTableHandle table,
             BigQuerySplit split,
-            List<BigQueryColumnHandle> columnHandles)
+            List<BigQueryColumnHandle> columnHandles,
+            MemoryContext memoryContext)
     {
         return switch (split.mode()) {
-            case STORAGE -> createStoragePageSource(session, split, columnHandles);
+            case STORAGE -> createStoragePageSource(session, split, columnHandles, memoryContext);
             case QUERY -> createQueryPageSource(session, table, columnHandles, split.filter());
         };
     }
 
-    private ConnectorPageSource createStoragePageSource(ConnectorSession session, BigQuerySplit split, List<BigQueryColumnHandle> columnHandles)
+    private ConnectorPageSource createStoragePageSource(ConnectorSession session, BigQuerySplit split, List<BigQueryColumnHandle> columnHandles, MemoryContext memoryContext)
     {
         BigQueryReadClient bigQueryReadClient = bigQueryReadClientFactory.create(session);
         try {
@@ -124,7 +126,8 @@ public class BigQueryPageSourceProvider
                         arrowBufferAllocator.orElseThrow(() -> new IllegalStateException("ArrowBufferAllocator was not bound")),
                         maxReadRowsRetries,
                         split,
-                        columnHandles);
+                        columnHandles,
+                        memoryContext);
             }
             return new BigQueryStorageAvroPageSource(
                     bigQueryReadClient,
@@ -132,7 +135,8 @@ public class BigQueryPageSourceProvider
                     typeManager,
                     maxReadRowsRetries,
                     split,
-                    columnHandles);
+                    columnHandles,
+                    memoryContext);
         }
         catch (Throwable t) {
             closeAllSuppress(t, bigQueryReadClient);

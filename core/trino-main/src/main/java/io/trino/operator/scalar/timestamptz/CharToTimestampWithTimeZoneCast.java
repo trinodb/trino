@@ -36,10 +36,10 @@ public final class CharToTimestampWithTimeZoneCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p) with time zone")
-    public static long castToShort(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("char(x)") Slice value)
+    public static long castToShort(@LiteralParameter("p") int precision, ConnectorSession session, @SqlType("char(x)") Slice value)
     {
         try {
-            return VarcharToTimestampWithTimeZoneCast.toShort((int) precision, trim(value), timezone -> {
+            return VarcharToTimestampWithTimeZoneCast.toShort(precision, trim(value), timezone -> {
                 if (timezone == null) {
                     return session.getTimeZoneKey().getZoneId();
                 }
@@ -53,10 +53,10 @@ public final class CharToTimestampWithTimeZoneCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p) with time zone")
-    public static LongTimestampWithTimeZone castToLong(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("char(x)") Slice value)
+    public static LongTimestampWithTimeZone castToLong(@LiteralParameter("p") int precision, ConnectorSession session, @SqlType("char(x)") Slice value)
     {
         try {
-            return VarcharToTimestampWithTimeZoneCast.toLong((int) precision, trim(value), timezone -> {
+            return VarcharToTimestampWithTimeZoneCast.toLong(precision, trim(value), timezone -> {
                 if (timezone == null) {
                     return session.getTimeZoneKey().getZoneId();
                 }

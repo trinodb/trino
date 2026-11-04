@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
@@ -34,6 +35,7 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
+import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +54,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -147,6 +150,31 @@ public class TestIcebergGlueTableOperationsInsertFailure
         assertUpdate("INSERT INTO " + tableName + " VALUES 'rocks'", 1);
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 'Trino', 'rocks'");
+    }
+
+    @Test
+    public void testRollbackCommitFailure()
+    {
+        String tableName = "test_rollback_failure_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a integer)");
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            long snapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+            updateTableFailure.set(new CommitStateUnknownException("Test-simulated commit state unknown", new RuntimeException("failure")));
+
+            assertThat(query("ALTER TABLE " + tableName + " EXECUTE rollback_to_snapshot(" + snapshotId + ")"))
+                    .failure()
+                    .hasErrorCode(ICEBERG_COMMIT_ERROR)
+                    .hasMessageContaining("Failed to rollback to snapshot")
+                    .satisfies(failure -> assertThat(Throwables.getCausalChain(failure))
+                            .anySatisfy(cause -> assertThat(cause.toString())
+                                    .startsWith(CommitStateUnknownException.class.getName() + ": Test-simulated commit state unknown")));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Test

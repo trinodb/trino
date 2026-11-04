@@ -23,7 +23,6 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.lang.annotation.Retention;
@@ -69,13 +68,6 @@ public class NoMemoryAwarePartitionMemoryEstimator
 
         private boolean isNoMemoryFragment(PlanFragment fragment, Function<PlanFragmentId, PlanFragment> childFragmentLookup)
         {
-            if (fragment.getRoot().getSources().stream()
-                    .anyMatch(planNode -> planNode instanceof RefreshMaterializedViewNode)) {
-                // REFRESH MATERIALIZED VIEW will issue other SQL commands under the hood. If its task memory is
-                // non-zero, then a deadlock scenario is possible if we only have a single node in the cluster.
-                return true;
-            }
-
             // If source fragments are not tagged as "no-memory" assume that they may produce significant amount of data.
             // We stay on the safe side an assume that we should use standard memory estimation for this fragment
             if (!fragment.getRemoteSourceNodes().stream().flatMap(node -> node.getSourceFragmentIds().stream())

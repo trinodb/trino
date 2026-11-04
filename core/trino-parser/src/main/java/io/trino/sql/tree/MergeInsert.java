@@ -28,14 +28,6 @@ public class MergeInsert
     private final List<Identifier> columns;
     private final List<Expression> values;
 
-    @Deprecated
-    public MergeInsert(Optional<Expression> expression, List<Identifier> columns, List<Expression> values)
-    {
-        super(Optional.empty(), expression);
-        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
-    }
-
     public MergeInsert(NodeLocation location, Optional<Expression> expression, List<Identifier> columns, List<Expression> values)
     {
         super(location, expression);

@@ -82,6 +82,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Locale.ENGLISH;
 
 public class Literal
@@ -91,6 +92,7 @@ public class Literal
             .or(CharMatcher.inRange('0', '9'))
             .precomputed();
     private static final Pattern DECIMAL_PATTERN = Pattern.compile("([+-]?)(\\d(?:_?\\d)*)?(?:\\.(\\d(?:_?\\d)*)?)?");
+    private static final Pattern FRACTION_PATTERN = Pattern.compile("\\.(\\d+)");
 
     private Literal() {}
 
@@ -99,8 +101,19 @@ public class Literal
         if (value == null) {
             return null;
         }
-        if (BIGINT.equals(type) || INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type)) {
+        if (BIGINT.equals(type)) {
             return parseLong(value);
+        }
+        if (INTEGER.equals(type)) {
+            long integer = parseLong(value);
+            checkArgument(integer >= Integer.MIN_VALUE && integer <= Integer.MAX_VALUE, "Out of range: %s", integer);
+            return integer;
+        }
+        if (SMALLINT.equals(type)) {
+            return (long) Shorts.checkedCast(parseLong(value));
+        }
+        if (TINYINT.equals(type)) {
+            return (long) SignedBytes.checkedCast(parseLong(value));
         }
         if (BOOLEAN.equals(type)) {
             return parseBoolean(value);
@@ -122,15 +135,19 @@ public class Literal
             return IntervalValues.parse(value, type);
         }
         if (type instanceof TimestampType timestampType) {
+            checkFractionPrecision(value, timestampType.getPrecision());
             return parseTimestamp(timestampType.getPrecision(), value);
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            checkFractionPrecision(value, timestampWithTimeZoneType.getPrecision());
             return parseTimestampWithTimeZone(timestampWithTimeZoneType.getPrecision(), value);
         }
-        if (type instanceof TimeType) {
+        if (type instanceof TimeType timeType) {
+            checkFractionPrecision(value, timeType.getPrecision());
             return parseTime(value);
         }
         if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
+            checkFractionPrecision(value, timeWithTimeZoneType.getPrecision());
             return parseTimeWithTimeZone(timeWithTimeZoneType.getPrecision(), value);
         }
         if (VARBINARY.equals(type)) {
@@ -148,6 +165,17 @@ public class Literal
             return javaUuidToTrinoUuid(UUID.fromString(value));
         }
         throw new IllegalArgumentException("Unsupported literal type: " + type);
+    }
+
+    // values are stored with the precision of the literal, so a more precise value would be generated as is,
+    // or rounded outside the range set by the min and max properties
+    private static void checkFractionPrecision(String value, int precision)
+    {
+        Matcher matcher = FRACTION_PATTERN.matcher(value);
+        if (matcher.find()) {
+            String significantDigits = CharMatcher.is('0').trimTrailingFrom(matcher.group(1));
+            checkArgument(significantDigits.length() <= precision, "Value has more than %s fractional digits: %s", precision, value);
+        }
     }
 
     private static long parseLong(String value)
@@ -200,10 +228,16 @@ public class Literal
         fractionalPart = fractionalPart.replace("_", "");
 
         String unscaledValue = sign + (integralPart.isEmpty() ? "0" : "") + integralPart + fractionalPart;
-        if (decimalType.isShort()) {
-            return Long.parseLong(unscaledValue);
+        // round like a cast to the decimal type
+        BigDecimal decimal = new BigDecimal(new BigInteger(unscaledValue), fractionalPart.length())
+                .setScale(decimalType.getScale(), HALF_UP);
+        if (decimal.precision() > decimalType.getPrecision()) {
+            throw new IllegalArgumentException("DECIMAL value '" + value + "' is out of range for " + decimalType);
         }
-        return Int128.valueOf(new BigInteger(unscaledValue));
+        if (decimalType.isShort()) {
+            return decimal.unscaledValue().longValueExact();
+        }
+        return Int128.valueOf(decimal.unscaledValue());
     }
 
     private static String getMatcherGroup(MatchResult matcher, int group)

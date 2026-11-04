@@ -27,8 +27,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hiveCatalog;
 
@@ -47,7 +45,6 @@ import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hiveCatal
 public class HiveBasicEnvironment
         extends ProductTestEnvironment
 {
-    private static final Pattern HIVE_VERSION_PATTERN = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+).*");
     private static final String HIVE_METASTORE_URI = HiveCatalogPropertiesBuilder.hadoopMetastoreUri();
 
     static {
@@ -265,44 +262,6 @@ public class HiveBasicEnvironment
     }
 
     // Hive version detection
-
-    /**
-     * Detects if Hive has broken Avro timestamps.
-     * In 3.1.0 timestamp semantics in hive changed in backward incompatible way,
-     * which was fixed for Parquet and Avro in 3.1.2 (https://issues.apache.org/jira/browse/HIVE-21002)
-     */
-    public boolean isHiveWithBrokenAvroTimestamps()
-    {
-        int[] version = getHiveVersion();
-        if (version == null) {
-            return false;
-        }
-        return version[0] == 3 &&
-                version[1] == 1 &&
-                (version[2] == 0 || version[2] == 1);
-    }
-
-    /**
-     * Returns the Hive version as an array [major, minor, patch], or null if version cannot be detected.
-     */
-    private int[] getHiveVersion()
-    {
-        try (Connection conn = createHiveConnection()) {
-            String versionString = conn.getMetaData().getDatabaseProductVersion();
-            Matcher matcher = HIVE_VERSION_PATTERN.matcher(versionString);
-            if (!matcher.matches()) {
-                return null;
-            }
-            return new int[] {
-                    Integer.parseInt(matcher.group(1)),
-                    Integer.parseInt(matcher.group(2)),
-                    Integer.parseInt(matcher.group(3)),
-            };
-        }
-        catch (SQLException e) {
-            return null;
-        }
-    }
 
     // Standard ProductTestEnvironment methods
 

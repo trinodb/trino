@@ -174,17 +174,6 @@ public class SparkIcebergJdbcCatalogEnvironment
 
     // PostgreSQL connection methods
 
-    /**
-     * Creates a JDBC connection to the PostgreSQL database.
-     */
-    public Connection createPostgresqlConnection()
-            throws SQLException
-    {
-        String jdbcUrl = "jdbc:postgresql://" + postgresql.getHost() + ":" +
-                postgresql.getMappedPort(POSTGRESQL_PORT) + "/" + POSTGRESQL_DATABASE;
-        return DriverManager.getConnection(jdbcUrl, POSTGRESQL_USER, POSTGRESQL_PASSWORD);
-    }
-
     // Spark JDBC methods
 
     /**

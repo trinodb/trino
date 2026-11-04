@@ -20,6 +20,7 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ThrowableAssert;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -42,9 +43,11 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.UUID;
 
 import static com.google.common.base.Verify.verify;
@@ -955,9 +958,7 @@ public abstract class BaseTestJdbcResultSet
 
                 assertThat(rs.getObject(column)).isEqualTo(sqlDate);
                 assertThat(rs.getObject(column, Date.class)).isEqualTo(sqlDate);
-
-                // There are no days between 1582-10-05 and 1582-10-14
-                assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(LocalDate.of(1582, 10, 20));
+                assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(localDate);
 
                 assertThat(rs.getDate(column)).isEqualTo(sqlDate);
                 assertSqlExceptionThrownBy(() -> rs.getTime(column))
@@ -984,6 +985,45 @@ public abstract class BaseTestJdbcResultSet
                         .hasMessage("Expected column to be a timestamp type but is date");
 
                 assertThat(rs.getString(column)).isEqualTo(localDate.toString());
+            });
+        }
+    }
+
+    @Test
+    public void testLegacyCalendarTimeZone()
+            throws Exception
+    {
+        GregorianCalendar calendar = new GregorianCalendar(legacyTimeZone("EST"));
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "DATE '2013-07-01'", Types.DATE, (rs, column) -> {
+                assertThat(rs.getDate(column, calendar)).isEqualTo(new Date(Instant.parse("2013-07-01T05:00:00Z").toEpochMilli()));
+            });
+            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2013-07-01 03:04:05'", Types.TIMESTAMP, (rs, column) -> {
+                assertThat(rs.getTimestamp(column, calendar)).isEqualTo(Timestamp.from(Instant.parse("2013-07-01T08:04:05Z")));
+            });
+        }
+    }
+
+    @Test
+    public void testDateWithLocalMeanTime()
+            throws Exception
+    {
+        GregorianCalendar calendar = new GregorianCalendar(TimeZone.getTimeZone(ZoneId.of("Africa/Accra")));
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "DATE '1905-06-01'", Types.DATE, (rs, column) -> {
+                assertThat(rs.getDate(column, calendar)).isEqualTo(new Date(Instant.parse("1905-06-01T00:16:08Z").toEpochMilli()));
+            });
+        }
+    }
+
+    @Test
+    public void testDateWithMidnightInGap()
+            throws Exception
+    {
+        GregorianCalendar calendar = new GregorianCalendar(TimeZone.getTimeZone(ZoneId.of("America/Toronto")));
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "DATE '1919-03-31'", Types.DATE, (rs, column) -> {
+                assertThat(rs.getDate(column, calendar)).isEqualTo(new Date(Instant.parse("1919-03-31T04:30:00Z").toEpochMilli()));
             });
         }
     }
@@ -1543,6 +1583,14 @@ public abstract class BaseTestJdbcResultSet
                         assertThat(rs.getObject(column, Map.class)).isEqualTo(ImmutableMap.of("outer", array));
                     });
         }
+    }
+
+    @SuppressModernizer
+    private static TimeZone legacyTimeZone(String id)
+    {
+        TimeZone timeZone = TimeZone.getTimeZone(id);
+        verify(timeZone.getID().equals(id), "Unsupported time zone: %s", id);
+        return timeZone;
     }
 
     private void checkRepresentation(Statement statement, @Language("SQL") String expression, int expectedSqlType, Object expectedRepresentation)

@@ -21,6 +21,8 @@ of a {doc}`select`, an {doc}`insert`, or even at the top level). `VALUES` create
 an anonymous table without column names, but the table and columns can be named
 using an `AS` clause with column aliases.
 
+Subqueries are not supported in row expressions.
+
 ## Examples
 
 Return a table with one column and three rows:

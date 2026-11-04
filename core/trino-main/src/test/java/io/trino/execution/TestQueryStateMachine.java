@@ -72,7 +72,9 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
@@ -515,7 +517,7 @@ public class TestQueryStateMachine
         stateMachine.resultsConsumed();
 
         BasicStagesInfo stages = createBasicStagesInfo(stageCount, StageState.FINISHED, baseStatValue);
-        ResultQueryInfo queryInfo = stateMachine.getResultQueryInfo(Optional.of(stages));
+        ResultQueryInfo queryInfo = stateMachine.getResultQueryInfo(stateMachine.getQueryState(), Optional.of(stages));
         BasicQueryStats stats = queryInfo.queryStats();
 
         assertThat(queryInfo.state()).isEqualTo(QUEUED);
@@ -542,11 +544,62 @@ public class TestQueryStateMachine
         assertStats(stats, baseStatValue * stageCount);
 
         stateMachine.transitionToFailed(new TrinoException(() -> new ErrorCode(0, "", ErrorType.EXTERNAL), "", new IOException()));
-        queryInfo = stateMachine.getResultQueryInfo(Optional.of(stages));
+        queryInfo = stateMachine.getResultQueryInfo(stateMachine.getQueryState(), Optional.of(stages));
         assertThat(queryInfo.failureInfo()).isNotNull();
         assertThat(queryInfo.errorCode().getCode()).isEqualTo(0);
         assertThat(queryInfo.finalQueryInfo()).isTrue();
         assertThat(queryInfo.state()).isEqualTo(FAILED);
+    }
+
+    @Test
+    public void testUpdateResultQueryInfoWithEarlierState()
+    {
+        QueryStateMachine stateMachine = createQueryStateMachine();
+        assertThat(stateMachine.transitionToPlanning()).isTrue();
+        QueryState planningState = stateMachine.getQueryState();
+        assertThat(stateMachine.transitionToStarting()).isTrue();
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+
+        ResultQueryInfo queryInfo = stateMachine.updateResultQueryInfo(planningState, Optional.empty(), Optional::empty);
+        assertThat(queryInfo.state()).isEqualTo(PLANNING);
+        assertThat(queryInfo.stages()).isEmpty();
+
+        QueryState runningState = stateMachine.getQueryState();
+        assertThat(stateMachine.transitionToFailed(newFailedCause())).isTrue();
+
+        queryInfo = stateMachine.updateResultQueryInfo(runningState, Optional.empty(), Optional::empty);
+        assertThat(queryInfo.state()).isEqualTo(RUNNING);
+        assertThat(queryInfo.finalQueryInfo()).isFalse();
+        assertThat(stateMachine.getFinalQueryInfo()).isEmpty();
+
+        queryInfo = stateMachine.updateResultQueryInfo(stateMachine.getQueryState(), Optional.empty(), Optional::empty);
+        assertThat(queryInfo.state()).isEqualTo(FAILED);
+        assertThat(queryInfo.finalQueryInfo()).isTrue();
+        assertThat(stateMachine.getFinalQueryInfo()).isPresent();
+    }
+
+    @Test
+    public void testUpdateFinalQueryInfoBuildsStagesInfoOnlyWhenDone()
+    {
+        QueryStateMachine stateMachine = createQueryStateMachine();
+        assertThat(stateMachine.transitionToPlanning()).isTrue();
+        assertThat(stateMachine.transitionToStarting()).isTrue();
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+
+        AtomicInteger stagesInfoBuilds = new AtomicInteger();
+        Supplier<Optional<StagesInfo>> stagesInfoProvider = () -> {
+            stagesInfoBuilds.incrementAndGet();
+            return Optional.empty();
+        };
+
+        stateMachine.updateFinalQueryInfo(stagesInfoProvider);
+        assertThat(stagesInfoBuilds.get()).isZero();
+        assertThat(stateMachine.getFinalQueryInfo()).isEmpty();
+
+        assertThat(stateMachine.transitionToFailed(newFailedCause())).isTrue();
+        stateMachine.updateFinalQueryInfo(stagesInfoProvider);
+        assertThat(stagesInfoBuilds.get()).isEqualTo(1);
+        assertThat(stateMachine.getFinalQueryInfo()).isPresent();
     }
 
     private void assertStats(BasicQueryStats stats, int expectedStatsValue)

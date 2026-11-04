@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>484-SNAPSHOT</version>
+        <version>485-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -210,6 +210,12 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <configuration>
                     <rules>
+                        <requireUpperBoundDeps>
+                            <excludes combine.children="append">
+                                <!-- JDK11 support dropped by units 1.9+ -->
+                                <exclude>io.airlift:units</exclude>
+                            </excludes>
+                        </requireUpperBoundDeps>
                         <enforceBytecodeVersion>
                             <excludes combine.children="append">
                                 <!-- Used reflectively on JDK22+ for native decompression -->

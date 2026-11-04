@@ -79,7 +79,7 @@ public class TestDoubleMinNAggregation
 
     private void testCustomAggregation(Double[] values, int n)
     {
-        PriorityQueue<Double> heap = new PriorityQueue<>(n, (x, y) -> -Double.compare(x, y));
+        PriorityQueue<Double> heap = new PriorityQueue<>(n, (x, y) -> Double.compare(y, x));
         Arrays.stream(values).filter(Objects::nonNull).forEach(heap::add);
         Double[] expected = new Double[heap.size()];
         for (int i = heap.size() - 1; i >= 0; i--) {

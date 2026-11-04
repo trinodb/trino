@@ -93,6 +93,8 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
     private static final String UNTRUSTED_CLIENT_ID = "untrusted-client";
     private static final String UNTRUSTED_CLIENT_SECRET = "untrusted-secret";
     private static final String UNTRUSTED_CLIENT_AUDIENCE = "https://untrusted.com";
+    protected static final String NO_AUDIENCE_CLIENT_ID = "no-audience-client";
+    protected static final String NO_AUDIENCE_CLIENT_SECRET = "no-audience-secret";
 
     protected OkHttpClient httpClient;
     protected TestingHydraIdentityProvider hydraIdP;
@@ -146,6 +148,13 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                 ImmutableList.of(UNTRUSTED_CLIENT_AUDIENCE),
                 "https://untrusted.com/callback",
                 "https://untrusted.com/logout_callback");
+        hydraIdP.createClient(
+                NO_AUDIENCE_CLIENT_ID,
+                NO_AUDIENCE_CLIENT_SECRET,
+                CLIENT_SECRET_BASIC,
+                ImmutableList.of(),
+                serverUri + "/oauth2/callback",
+                serverUri + "/ui/logout/logout.html");
     }
 
     protected abstract Map<String, String> getOAuth2Config(String idpUrl);
@@ -324,7 +333,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         }
     }
 
-    private Request.Builder uiCall()
+    protected Request.Builder uiCall()
     {
         return new Request.Builder()
                 .url(serverUri.resolve("/ui/").toString())
@@ -386,7 +395,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         }
     }
 
-    private void assertUICallWithCookie(String cookieValue)
+    protected void assertUICallWithCookie(String cookieValue)
             throws IOException
     {
         OkHttpClient httpClient = httpClientWithOAuth2Cookie(cookieValue, true);
@@ -397,7 +406,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         }
     }
 
-    private OkHttpClient httpClientWithOAuth2Cookie(String cookieValue, boolean followRedirects)
+    protected OkHttpClient httpClientWithOAuth2Cookie(String cookieValue, boolean followRedirects)
     {
         OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
         setupInsecureSsl(httpClientBuilder);
@@ -426,7 +435,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         return httpClientBuilder.build();
     }
 
-    private void assertRedirectResponse(Response response)
+    protected void assertRedirectResponse(Response response)
             throws MalformedURLException
     {
         assertThat(response.code()).isEqualTo(SEE_OTHER.getStatusCode());

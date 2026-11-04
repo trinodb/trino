@@ -15,7 +15,11 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.mongodb.MongoTimeoutException;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -27,7 +31,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.mongodb.MongoErrorCode.MONGODB_CLUSTER_ERROR;
 import static io.trino.plugin.mongodb.MongoSession.projectSufficientColumns;
+import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.predicate.Range.equal;
 import static io.trino.spi.predicate.Range.greaterThan;
 import static io.trino.spi.predicate.Range.greaterThanOrEqual;
@@ -35,7 +41,11 @@ import static io.trino.spi.predicate.Range.lessThan;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -49,6 +59,40 @@ public class TestMongoSession
     private static final MongoColumnHandle COL6 = createColumnHandle("grandparent", createUnboundedVarcharType(), "parent", "col6");
 
     private static final MongoColumnHandle ID_COL = new MongoColumnHandle("_id", ImmutableList.of(), ObjectIdType.OBJECT_ID, false, false, Optional.empty());
+
+    @Test
+    public void testGetTableWithUnreachableMongoDbSrv()
+    {
+        try (MongoClient client = MongoClients.create("mongodb+srv://localhost/?serverSelectionTimeoutMS=100")) {
+            MongoSession session = new MongoSession(
+                    TESTING_TYPE_MANAGER,
+                    () -> client,
+                    new MongoClientConfig());
+
+            assertThat(MONGODB_CLUSTER_ERROR.toErrorCode().getType()).isEqualTo(EXTERNAL);
+            assertTrinoExceptionThrownBy(() -> session.getTable(new SchemaTableName("test", "test")))
+                    .hasErrorCode(MONGODB_CLUSTER_ERROR)
+                    .hasCauseInstanceOf(MongoTimeoutException.class);
+        }
+    }
+
+    @Test
+    public void testFloatingPointInfinityBounds()
+    {
+        for (Type type : List.of(DOUBLE, REAL)) {
+            MongoColumnHandle column = createColumnHandle("x", type);
+            Object zero = type.equals(DOUBLE) ? (Object) 0.0 : 0L;
+            Object negativeInfinity = type.equals(DOUBLE) ? (Object) Double.NEGATIVE_INFINITY : Float.NEGATIVE_INFINITY;
+            Object positiveInfinity = type.equals(DOUBLE) ? (Object) Double.POSITIVE_INFINITY : Float.POSITIVE_INFINITY;
+            Object translatedZero = type.equals(DOUBLE) ? (Object) 0.0 : 0.0f;
+            Domain lessThanZero = Domain.create(ValueSet.ofRanges(lessThan(type, zero)), false);
+            assertThat(MongoSession.buildQuery(TupleDomain.withColumnDomains(ImmutableMap.of(column, lessThanZero))))
+                    .isEqualTo(new Document("x", new Document("$gte", negativeInfinity).append("$lt", translatedZero)));
+            Domain greaterThanZero = Domain.create(ValueSet.ofRanges(greaterThan(type, zero)), false);
+            assertThat(MongoSession.buildQuery(TupleDomain.withColumnDomains(ImmutableMap.of(column, greaterThanZero))))
+                    .isEqualTo(new Document("x", new Document("$gt", translatedZero).append("$lte", positiveInfinity)));
+        }
+    }
 
     @Test
     public void testBuildProjectionWithoutId()

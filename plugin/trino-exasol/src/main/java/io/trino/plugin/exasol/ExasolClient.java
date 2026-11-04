@@ -68,6 +68,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FINITE_FLOATING_POINT_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -249,7 +250,7 @@ public class ExasolClient
             case Types.SMALLINT -> Optional.of(smallintColumnMapping());
             case Types.INTEGER -> Optional.of(integerColumnMapping());
             case Types.BIGINT -> Optional.of(bigintColumnMapping());
-            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping(FINITE_FLOATING_POINT_PUSHDOWN));
             case Types.DECIMAL -> {
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 int columnSize = typeHandle.requiredColumnSize();

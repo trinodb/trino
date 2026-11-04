@@ -26,6 +26,8 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TestingIdType.ID;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -38,7 +40,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 public final class TestingTypeManager
         implements TypeManager
 {
-    private static final List<Type> TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, INTEGER, VARCHAR, VARBINARY, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS, DATE, ID, HYPER_LOG_LOG);
+    private static final List<Type> TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, REAL, NUMBER, INTEGER, VARCHAR, VARBINARY, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS, DATE, ID, HYPER_LOG_LOG);
     private static final Set<String> PARAMETRIC_TYPES = ImmutableSet.of(StandardTypes.ARRAY, StandardTypes.ROW, StandardTypes.MAP);
 
     private final TypeOperators typeOperators = new TypeOperators();

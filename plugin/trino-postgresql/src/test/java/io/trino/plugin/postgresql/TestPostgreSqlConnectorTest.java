@@ -161,6 +161,27 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
+    public void testFloatingPointRangePushdownWithNaN()
+    {
+        for (String type : List.of("real", "double")) {
+            try (TestTable table = newTrinoTable(
+                    "test_nan_range_pushdown",
+                    "(id integer, x " + type + ")",
+                    List.of("1, -infinity()", "2, -1", "3, 0", "4, 1", "5, infinity()", "6, nan()", "7, NULL"))) {
+                assertThat(query("SELECT id FROM " + table.getName() + " WHERE x < 0"))
+                        .matches("VALUES 1, 2")
+                        .isFullyPushedDown();
+                assertThat(query("SELECT id FROM " + table.getName() + " WHERE x > 0"))
+                        .matches("VALUES 4, 5")
+                        .isFullyPushedDown();
+                assertThat(query("SELECT id FROM " + table.getName() + " WHERE x < 0 OR x > 0 OR x IS NULL"))
+                        .matches("VALUES 1, 2, 4, 5, 7")
+                        .isFullyPushedDown();
+            }
+        }
+    }
+
+    @Test
     public void testTimestampPrecisionOnCreateTable()
     {
         testTimestampPrecisionOnCreateTable("timestamp(0)", "timestamp(0)");

@@ -414,8 +414,8 @@ public class VariantBlockBuilder
     {
         return new VariantBlockBuilder(
                 blockBuilderStatus,
-                (VariableWidthBlockBuilder) metadataBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
-                (VariableWidthBlockBuilder) valuesBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
+                (VariableWidthBlockBuilder) metadataBlockBuilder.newBlockBuilderLike(expectedEntries, blockBuilderStatus),
+                (VariableWidthBlockBuilder) valuesBlockBuilder.newBlockBuilderLike(expectedEntries, blockBuilderStatus),
                 expectedEntries,
                 null);
     }

@@ -19,6 +19,7 @@ import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 
 import java.util.Objects;
@@ -39,13 +40,19 @@ public final class JdbcColumnHandle
     private final String columnName;
     private final JdbcTypeHandle jdbcTypeHandle;
     private final Type columnType;
+    private final Optional<TimeZoneKey> timeZone;
     private final boolean nullable;
     private final Optional<String> comment;
 
     // All and only required fields
     public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType)
     {
-        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty());
+        this(columnName,
+                jdbcTypeHandle,
+                columnType,
+                Optional.empty(),
+                true,
+                Optional.empty());
     }
 
     /**
@@ -57,12 +64,14 @@ public final class JdbcColumnHandle
             @JsonProperty("columnName") String columnName,
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
+            @JsonProperty("timeZone") Optional<TimeZoneKey> timeZone,
             @JsonProperty("nullable") boolean nullable,
             @JsonProperty("comment") Optional<String> comment)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.nullable = nullable;
         this.comment = requireNonNull(comment, "comment is null");
     }
@@ -86,6 +95,12 @@ public final class JdbcColumnHandle
     }
 
     @JsonProperty
+    public Optional<TimeZoneKey> getTimeZone()
+    {
+        return timeZone;
+    }
+
+    @JsonProperty
     public boolean isNullable()
     {
         return nullable;
@@ -102,6 +117,7 @@ public final class JdbcColumnHandle
         return ColumnMetadata.builder()
                 .setName(columnName)
                 .setType(columnType)
+                .setTimeZone(timeZone)
                 .setNullable(nullable)
                 .setComment(comment)
                 .build();
@@ -170,6 +186,7 @@ public final class JdbcColumnHandle
         private String columnName;
         private JdbcTypeHandle jdbcTypeHandle;
         private Type columnType;
+        private Optional<TimeZoneKey> timeZone = Optional.empty();
         private boolean nullable = true;
         private Optional<String> comment = Optional.empty();
 
@@ -180,6 +197,7 @@ public final class JdbcColumnHandle
             this.columnName = handle.getColumnName();
             this.jdbcTypeHandle = handle.getJdbcTypeHandle();
             this.columnType = handle.getColumnType();
+            this.timeZone = handle.getTimeZone();
             this.nullable = handle.isNullable();
             this.comment = handle.getComment();
         }
@@ -202,6 +220,12 @@ public final class JdbcColumnHandle
             return this;
         }
 
+        public Builder setTimeZone(Optional<TimeZoneKey> timeZone)
+        {
+            this.timeZone = timeZone;
+            return this;
+        }
+
         public Builder setNullable(boolean nullable)
         {
             this.nullable = nullable;
@@ -220,6 +244,7 @@ public final class JdbcColumnHandle
                     columnName,
                     jdbcTypeHandle,
                     columnType,
+                    timeZone,
                     nullable,
                     comment);
         }

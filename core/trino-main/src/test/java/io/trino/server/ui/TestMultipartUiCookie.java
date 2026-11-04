@@ -19,7 +19,6 @@ import jakarta.ws.rs.core.NewCookie;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -65,7 +64,7 @@ class TestMultipartUiCookie
                 .allMatch(NewCookie::isSecure)
                 .allMatch(NewCookie::isHttpOnly)
                 .allMatch(cookie -> cookie.getMaxAge() == DEFAULT_MAX_AGE)
-                .allMatch(cookie -> cookie.getExpiry().equals(Date.from(Instant.EPOCH)))
+                .allMatch(cookie -> cookie.getExpiry().toInstant().equals(Instant.EPOCH))
                 .allMatch(cookie -> (cookie.getName().length() + cookie.getValue().length()) <= MAXIMUM_COOKIE_SIZE);
 
         assertThat(newCookies)

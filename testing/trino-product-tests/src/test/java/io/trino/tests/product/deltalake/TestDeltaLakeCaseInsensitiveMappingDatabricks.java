@@ -26,7 +26,7 @@ import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DAT
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.getDatabricksRuntimeVersion;
-import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_143_RUNTIME_VERSION;
+import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_154_RUNTIME_VERSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -41,7 +41,7 @@ class TestDeltaLakeCaseInsensitiveMappingDatabricks
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     void testGeneratedColumnWithNonLowerCaseColumnName(DeltaLakeDatabricksEnvironment env)
     {
-        if (getDatabricksRuntimeVersion(env).orElseThrow().isAtLeast(DATABRICKS_143_RUNTIME_VERSION)) {
+        if (getDatabricksRuntimeVersion(env).orElseThrow().isAtLeast(DATABRICKS_154_RUNTIME_VERSION)) {
             return;
         }
 
@@ -91,7 +91,7 @@ class TestDeltaLakeCaseInsensitiveMappingDatabricks
                     "ON (t.data = s.data) WHEN MATCHED THEN UPDATE SET data = 1"))
                     .hasMessageContaining("Writing to tables with identity columns is not supported");
 
-            if (getDatabricksRuntimeVersion(env).orElseThrow().isAtLeast(DATABRICKS_143_RUNTIME_VERSION)) {
+            if (getDatabricksRuntimeVersion(env).orElseThrow().isAtLeast(DATABRICKS_154_RUNTIME_VERSION)) {
                 return;
             }
 

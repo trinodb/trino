@@ -120,7 +120,8 @@ public class DeltaHiveTypeTranslator
             return HIVE_DATE.getTypeInfo();
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
-            verify(timestampWithTimeZoneType.getPrecision() == 3, "Unsupported type: %s", type);
+            // predicates on the synthesized $file_modified_time column arrive as timestamp(3), table columns as timestamp(6)
+            verify(timestampWithTimeZoneType.getPrecision() == 3 || timestampWithTimeZoneType.getPrecision() == 6, "Unsupported type: %s", type);
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof TimestampType timestampType) {

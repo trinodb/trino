@@ -31,6 +31,7 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
@@ -1482,6 +1483,9 @@ public class TestTimestamp
 
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.55555555556 Pacific/Apia'");
 
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.4995' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56 Pacific/Apia'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999999999' AS TIMESTAMP(9) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:57.000000000 Pacific/Apia'");
+
         // 5-digit year in the future
         assertThat(assertions.expression("CAST(TIMESTAMP '12001-05-01 12:34:56' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56 Pacific/Apia'");
 
@@ -2416,6 +2420,41 @@ public class TestTimestamp
         assertThat(assertions.expression("CAST(TIMESTAMP '1500-05-10 12:34:56.55' AS TIMESTAMP(1))")).matches("TIMESTAMP '1500-05-10 12:34:56.6'");
 
         assertThat(assertions.expression("CAST(TIMESTAMP '1500-05-10 12:34:56.5' AS TIMESTAMP(0))")).matches("TIMESTAMP '1500-05-10 12:34:57'");
+    }
+
+    @Test
+    public void testRoundAtOverflowBound()
+    {
+        assertThat(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807' AS TIMESTAMP(4))")).matches("TIMESTAMP '294247-01-10 04:00:54.7758'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807000000' AS TIMESTAMP(4))")).matches("TIMESTAMP '294247-01-10 04:00:54.7758'");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807' AS TIMESTAMP(3))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807000000' AS TIMESTAMP(3))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807500000' AS TIMESTAMP(6))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807999999' AS TIMESTAMP(9))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+
+        assertThat(assertions.expression("format_datetime(TIMESTAMP '294247-01-10 04:00:54.775807', 'yyyy-MM-dd HH:mm:ss.SSS')")).isEqualTo("294247-01-10 04:00:54.776");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807' AS TIMESTAMP(3) WITH TIME ZONE)")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807000000' AS TIMESTAMP(3) WITH TIME ZONE)")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807' AS TIMESTAMP(5) WITH TIME ZONE)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807500000' AS TIMESTAMP(6) WITH TIME ZONE)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIMESTAMP '294247-01-10 04:00:54.775807999999' AS TIMESTAMP(9) WITH TIME ZONE)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
     }
 
     @Test

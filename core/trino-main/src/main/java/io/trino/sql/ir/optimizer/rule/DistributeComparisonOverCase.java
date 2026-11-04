@@ -21,7 +21,6 @@ import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions.Comparison;
-import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
@@ -46,6 +45,8 @@ import static io.trino.sql.ir.IrExpressions.matchNullIf;
  *
  * into:
  * <pre>{@code Case(When(c1, op(v, r1)), When(c2, op(v, r2)), ..)))}</pre>
+ *
+ * when {@code v} is a constant. A comparison with a reference stays intact so it remains usable as a join key.
  */
 public class DistributeComparisonOverCase
         implements IrOptimizerRule
@@ -64,7 +65,7 @@ public class DistributeComparisonOverCase
             return Optional.empty();
         }
 
-        if (comparison.left() instanceof Case caseTerm && (comparison.right() instanceof Reference || comparison.right() instanceof Constant)) {
+        if (comparison.left() instanceof Case caseTerm && comparison.right() instanceof Constant) {
             // Leave a desugared NULLIF intact so it stays recognizable for connector pushdown.
             if (matchNullIf(caseTerm) != null) {
                 return Optional.empty();
@@ -72,7 +73,7 @@ public class DistributeComparisonOverCase
             return Optional.of(distribute(session, comparison.operator(), caseTerm, comparison.right()));
         }
 
-        if (comparison.right() instanceof Case caseTerm && (comparison.left() instanceof Reference || comparison.left() instanceof Constant)) {
+        if (comparison.right() instanceof Case caseTerm && comparison.left() instanceof Constant) {
             if (matchNullIf(caseTerm) != null) {
                 return Optional.empty();
             }

@@ -152,8 +152,8 @@ public class TestScanFilterAndProjectOperator
             operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
             operator.noMoreSplits();
 
-            MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
-            MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), toPages(operator));
+            MaterializedResult expected = toMaterializedResult(ImmutableList.of(VARCHAR), ImmutableList.of(input));
+            MaterializedResult actual = toMaterializedResult(ImmutableList.of(VARCHAR), toPages(operator));
 
             assertThat(actual).containsExactlyElementsOf(expected);
         }
@@ -290,8 +290,8 @@ public class TestScanFilterAndProjectOperator
             operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
             operator.noMoreSplits();
 
-            MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
-            MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), toPages(operator));
+            MaterializedResult expected = toMaterializedResult(ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
+            MaterializedResult actual = toMaterializedResult(ImmutableList.of(BIGINT), toPages(operator));
 
             assertThat(actual).containsExactlyElementsOf(expected);
         }
@@ -313,7 +313,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (_, _) -> (_, _, _, _, _, _, _) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                (_, _) -> (_, _, _, _, _, _, memoryContext) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input), memoryContext),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -328,8 +328,8 @@ public class TestScanFilterAndProjectOperator
             operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
             operator.noMoreSplits();
 
-            MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
-            MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), toPages(operator));
+            MaterializedResult expected = toMaterializedResult(ImmutableList.of(VARCHAR), ImmutableList.of(input));
+            MaterializedResult actual = toMaterializedResult(ImmutableList.of(VARCHAR), toPages(operator));
 
             assertThat(actual).containsExactlyElementsOf(expected);
         }

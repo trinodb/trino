@@ -14,7 +14,6 @@
 package io.trino.tests.product.hive;
 
 import io.trino.testing.containers.HadoopContainer;
-import io.trino.testing.containers.HdfsClient;
 import io.trino.testing.containers.MultiNodeTrinoCluster;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
@@ -154,16 +153,6 @@ public class MultinodeHiveCachingEnvironment
     // HDFS access
 
     /**
-     * Creates an HdfsClient for interacting with HDFS via WebHDFS.
-     *
-     * @return a new HdfsClient
-     */
-    public HdfsClient createHdfsClient()
-    {
-        return hadoop.createHdfsClient();
-    }
-
-    /**
      * Returns the default warehouse directory path in HDFS.
      */
     public String getWarehouseDirectory()
@@ -225,14 +214,6 @@ public class MultinodeHiveCachingEnvironment
     }
 
     /**
-     * Returns the multinode Trino cluster.
-     */
-    public MultiNodeTrinoCluster getTrinoCluster()
-    {
-        return trinoCluster;
-    }
-
-    /**
      * Executes a query using the cached Hive catalog.
      */
     public QueryResult executeHiveCached(@Language("SQL") String sql)
@@ -260,24 +241,5 @@ public class MultinodeHiveCachingEnvironment
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute non-cached Hive query: " + sql, e);
         }
-    }
-
-    /**
-     * Retrieves filesystem cache statistics via the JMX catalog.
-     * <p>
-     * Returns cache metrics including cache reads and external reads from the
-     * AlluxioCacheStats MBean. The JMX table name follows the pattern:
-     * io.trino.blob.cache.alluxio:name={name},type=alluxiocachestats
-     *
-     * @return the cache statistics as a QueryResult
-     */
-    public QueryResult getCacheStatistics()
-    {
-        String sql =
-                """
-                SELECT node, "cachereads.alltime.count" as cache_reads, "externalreads.alltime.count" as external_reads
-                FROM jmx.current."io.trino.blob.cache.alluxio:name=hive,type=alluxiocachestats"
-                """;
-        return executeTrino(sql);
     }
 }

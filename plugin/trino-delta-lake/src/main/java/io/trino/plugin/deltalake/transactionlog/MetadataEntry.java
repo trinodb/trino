@@ -289,12 +289,6 @@ public class MetadataEntry
             configuration = ImmutableMap.copyOf(metadataEntry.configuration);
         }
 
-        public Builder setId(String id)
-        {
-            this.id = id;
-            return this;
-        }
-
         public Builder setDescription(Optional<String> description)
         {
             this.description = description;

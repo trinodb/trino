@@ -41,6 +41,7 @@ import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.trino.node.NodeState.ACTIVE;
 import static io.trino.node.NodeState.INACTIVE;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -119,7 +120,7 @@ class TestCoordinatorNodeManager
             assertThat(connectorNodes.stream().anyMatch(InternalNode::isCoordinator)).isTrue();
 
             Set<InternalNode> activeNodes = allNodes.activeNodes();
-            assertThat(activeNodes).containsExactlyInAnyOrderElementsOf(this.activeNodes);
+            assertEqualsIgnoreOrder(activeNodes, this.activeNodes);
 
             for (InternalNode actual : activeNodes) {
                 for (InternalNode expected : this.activeNodes) {
@@ -127,10 +128,10 @@ class TestCoordinatorNodeManager
                 }
             }
 
-            assertThat(activeNodes).containsExactlyInAnyOrderElementsOf(manager.getNodes(ACTIVE));
+            assertEqualsIgnoreOrder(activeNodes, manager.getNodes(ACTIVE));
 
             Set<InternalNode> inactiveNodes = allNodes.inactiveNodes();
-            assertThat(inactiveNodes).containsExactlyInAnyOrderElementsOf(this.inactiveNodes);
+            assertEqualsIgnoreOrder(inactiveNodes, this.inactiveNodes);
 
             for (InternalNode actual : inactiveNodes) {
                 for (InternalNode expected : this.inactiveNodes) {
@@ -138,9 +139,9 @@ class TestCoordinatorNodeManager
                 }
             }
 
-            assertThat(inactiveNodes).containsExactlyInAnyOrderElementsOf(manager.getNodes(INACTIVE));
+            assertEqualsIgnoreOrder(inactiveNodes, manager.getNodes(INACTIVE));
 
-            assertThat(manager.getInvalidNodes()).containsExactlyInAnyOrderElementsOf(invalidNodes);
+            assertEqualsIgnoreOrder(manager.getInvalidNodes(), invalidNodes);
         }
         finally {
             manager.stop();

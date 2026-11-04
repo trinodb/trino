@@ -103,7 +103,7 @@ public class TestIcebergParquetWithBloomFilters
     {
         MaterializedResult actualProperties = computeActual("SELECT * FROM \"" + tableName + "$properties\"");
         assertThat(actualProperties).isNotNull();
-        MaterializedResult expectedProperties = resultBuilder(getSession())
+        MaterializedResult expectedProperties = resultBuilder()
                 .row("write.parquet.bloom-filter-enabled.column.a", "true")
                 .row("write.parquet.bloom-filter-enabled.column.b", "true")
                 .build();

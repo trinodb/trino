@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -38,6 +39,7 @@ final class TestHttpEventListenerConfig
                 .setMaxDelay(Duration.succinctDuration(1, TimeUnit.MINUTES))
                 .setBackoffBase(2.0)
                 .setHttpMethod(HttpEventListenerHttpMethod.POST)
+                .setExcludedFields(Set.of())
                 .setLogCompleted(false)
                 .setLogCreated(false));
     }
@@ -55,7 +57,8 @@ final class TestHttpEventListenerConfig
                 "http-event-listener.connect-http-method", "PUT",
                 "http-event-listener.connect-retry-delay", "101s",
                 "http-event-listener.connect-backoff-base", "1.5",
-                "http-event-listener.connect-max-delay", "10m");
+                "http-event-listener.connect-max-delay", "10m",
+                "http-event-listener.excluded-fields", "payload,ioMetadata,groups,cpuTimeDistribution");
 
         HttpEventListenerConfig expected = new HttpEventListenerConfig()
                 .setLogCompleted(true)
@@ -66,7 +69,8 @@ final class TestHttpEventListenerConfig
                 .setHttpMethod(HttpEventListenerHttpMethod.PUT)
                 .setRetryDelay(Duration.succinctDuration(101, TimeUnit.SECONDS))
                 .setBackoffBase(1.5)
-                .setMaxDelay(Duration.succinctDuration(10, TimeUnit.MINUTES));
+                .setMaxDelay(Duration.succinctDuration(10, TimeUnit.MINUTES))
+                .setExcludedFields(Set.of("payload", "ioMetadata", "groups", "cpuTimeDistribution"));
 
         assertFullMapping(properties, expected);
     }

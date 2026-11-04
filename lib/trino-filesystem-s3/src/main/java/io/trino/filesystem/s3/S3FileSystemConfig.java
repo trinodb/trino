@@ -92,6 +92,7 @@ public class S3FileSystemConfig
         Aws4Signer,
         AsyncAws4Signer,
         Aws4UnsignedPayloadSigner,
+        Aws4SignedPayloadSigner,
         EventStreamAws4Signer,
     }
 

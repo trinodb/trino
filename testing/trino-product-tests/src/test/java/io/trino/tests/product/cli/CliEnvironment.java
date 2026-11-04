@@ -230,14 +230,6 @@ public class CliEnvironment
     }
 
     /**
-     * Returns the default user for CLI operations.
-     */
-    public String getDefaultUser()
-    {
-        return DEFAULT_USER;
-    }
-
-    /**
      * Executes a CLI command with the given arguments.
      * The server URL and user are automatically added.
      */

@@ -22,8 +22,6 @@ import java.lang.runtime.ExactConversionsSupport;
 
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.variant.Header.BasicType.SHORT_STRING;
-import static io.trino.spi.variant.Header.PrimitiveType.DOUBLE;
-import static io.trino.spi.variant.Header.PrimitiveType.FLOAT;
 import static io.trino.spi.variant.Header.PrimitiveType.INT16;
 import static io.trino.spi.variant.Header.PrimitiveType.INT32;
 import static io.trino.spi.variant.Header.PrimitiveType.INT64;

@@ -50,6 +50,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -101,7 +102,7 @@ public class UnwrapDateTruncInComparison
 {
     public UnwrapDateTruncInComparison(PlannerContext plannerContext)
     {
-        super(createRewrite(plannerContext));
+        super(createRewrite(plannerContext), session -> !isFunctionPreimagesEnabled(session));
     }
 
     private static ExpressionRewriter createRewrite(PlannerContext plannerContext)

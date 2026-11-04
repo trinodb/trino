@@ -13,13 +13,15 @@
  */
 package io.trino.plugin.clickhouse;
 
+import com.clickhouse.jdbc.Driver;
 import org.testcontainers.clickhouse.ClickHouseContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.Closeable;
 import java.sql.Connection;
-import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Properties;
 
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
@@ -37,10 +39,10 @@ public class TestingClickHouseServer
      * <a href="https://kb.altinity.com/altinity-kb-setup-and-maintenance/clickhouse-versions/">Versioning schema</a>
      */
     private static final DockerImageName CLICKHOUSE_IMAGE = DockerImageName.parse("clickhouse/clickhouse-server");
+    // https://clickhouse.com/docs/whats-new/changelog#268
+    public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("26.8.34.13");   // LTS
     // https://clickhouse.com/docs/whats-new/changelog#263
-    public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("26.3.1.896");   // LTS
-    // https://clickhouse.com/docs/whats-new/changelog#253
-    public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("25.3.6.56"); // EOL in 1 year after 2025-03-27
+    public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("26.3.1.896"); // LTS
 
     /**
      * <a href="https://docs.altinity.com/altinitystablebuilds/#altinity-stable-builds-life-cycle-table">Altinity Stable Builds Life-Cycle Table</a>
@@ -48,8 +50,8 @@ public class TestingClickHouseServer
      * On Mac/arm 23.3.13.7.altinitystable, 23.8.8.21.altinitystable and 22.8.15.25.altinitystable and later versions available on ARM.
      */
     private static final DockerImageName ALTINITY_IMAGE = DockerImageName.parse("altinity/clickhouse-server").asCompatibleSubstituteFor("clickhouse/clickhouse-server");
-    public static final DockerImageName ALTINITY_LATEST_IMAGE = ALTINITY_IMAGE.withTag("25.8.16.10002.altinitystable");
-    public static final DockerImageName ALTINITY_DEFAULT_IMAGE = ALTINITY_IMAGE.withTag("23.3.19.33.altinitystable");
+    public static final DockerImageName ALTINITY_LATEST_IMAGE = ALTINITY_IMAGE.withTag("26.3.60.10001.altinitystable");
+    public static final DockerImageName ALTINITY_DEFAULT_IMAGE = ALTINITY_IMAGE.withTag("23.8.16.43.altinitystable");
 
     private final ClickHouseContainer dockerContainer;
 
@@ -83,13 +85,23 @@ public class TestingClickHouseServer
 
     public void execute(String sql)
     {
-        try (Connection connection = DriverManager.getConnection(dockerContainer.getJdbcUrl(), dockerContainer.getUsername(), dockerContainer.getPassword());
+        try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to execute statement: " + sql, e);
         }
+    }
+
+    // The v2 JDBC driver does not register itself with DriverManager
+    public Connection createConnection()
+            throws SQLException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("user", dockerContainer.getUsername());
+        properties.setProperty("password", dockerContainer.getPassword());
+        return new Driver().connect(dockerContainer.getJdbcUrl(), properties);
     }
 
     public String getJdbcUrl()

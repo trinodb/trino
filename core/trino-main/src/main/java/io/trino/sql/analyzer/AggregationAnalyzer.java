@@ -29,9 +29,13 @@ import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
+import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentTimestamp;
+import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
@@ -306,6 +310,30 @@ class AggregationAnalyzer
         protected Boolean visitExtract(Extract node, Void context)
         {
             return process(node.getExpression(), context);
+        }
+
+        @Override
+        protected Boolean visitCurrentCatalog(CurrentCatalog node, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        protected Boolean visitCurrentSchema(CurrentSchema node, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        protected Boolean visitCurrentUser(CurrentUser node, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        protected Boolean visitCurrentPath(CurrentPath node, Void context)
+        {
+            return true;
         }
 
         @Override

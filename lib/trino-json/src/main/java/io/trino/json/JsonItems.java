@@ -230,16 +230,6 @@ public final class JsonItems
         }
     }
 
-    /// Streaming tree parse from an [InputStream]; mirrors [#fromText] but
-    /// emits a tree.
-    public static Json parseToTree(InputStream input)
-            throws JsonProcessingException, IOException
-    {
-        try (JsonParser parser = MAPPER.getFactory().createParser(new InputStreamReader(input, UTF_8))) {
-            return parseTreeStream(parser);
-        }
-    }
-
     /// Streaming tree parse from a [Reader]; mirrors [#fromText] but emits a
     /// tree. Used by JSON_VALUE / JSON_QUERY / JSON_OBJECT callers whose
     /// input arrives as text with an explicit charset.

@@ -20,7 +20,11 @@ import io.trino.Session;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.plugin.base.metrics.DistributionSnapshot;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.testing.BaseConnectorSmokeTest;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
@@ -911,6 +915,21 @@ public abstract class BaseIcebergConnectorSmokeTest
                     .projected("column_name", "distinct_values_count")
                     .matches("VALUES (VARCHAR 'id', 3e0), (null, null)");
         }
+    }
+
+    @Test
+    public void testFileSystemMetrics()
+    {
+        QueryRunner.MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(getSession(), "SELECT * FROM region");
+        Map<String, Metrics> catalogMetrics = getQueryRunner().getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(result.queryId())
+                .getQueryStats()
+                .getCatalogMetadataMetrics();
+        assertThat(catalogMetrics).containsKey("iceberg");
+        Map<String, Metric<?>> metrics = catalogMetrics.get("iceberg").getMetrics();
+        assertThat(metrics.keySet()).anyMatch(key -> key.startsWith("filesystem.catalog."));
+        assertThat(((DistributionSnapshot) metrics.get("filesystem.catalog.all.time.distribution")).total()).isGreaterThan(0);
     }
 
     protected void verifyAnalyzeFailurePermissible(Exception e)

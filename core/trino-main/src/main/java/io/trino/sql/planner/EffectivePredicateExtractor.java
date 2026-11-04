@@ -388,16 +388,16 @@ public class EffectivePredicateExtractor
                                 if (!type.isComparable() && !type.isOrderable()) {
                                     return TRUE;
                                 }
-                                if (hasNestedNulls(type, ((Constant) item).value())) {
+                                if (hasNestedNulls(type, constant.value())) {
                                     // A structural value containing a null element has three-valued equality (it is not
                                     // even equal to itself), so it cannot be represented as an exact value in a Domain.
                                     // Skip predicate extraction for it rather than producing an unsound predicate.
                                     return TRUE;
                                 }
-                                if (isFloatingPointNaN(type, ((Constant) item).value())) {
+                                if (isFloatingPointNaN(type, constant.value())) {
                                     hasNaN[i] = true;
                                 }
-                                valuesBuilders.get(i).add(((Constant) item).value());
+                                valuesBuilders.get(i).add(constant.value());
                             }
                         }
                     }

@@ -60,6 +60,7 @@ import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestAnnotationEngineForScalars
 {
@@ -426,6 +427,27 @@ public class TestAnnotationEngineForScalars
         assertThat(functionMetadata.isDeterministic()).isTrue();
         assertThat(functionMetadata.isHidden()).isFalse();
         assertThat(functionMetadata.getDescription()).isEqualTo("Parametric scalar with literal injected");
+    }
+
+    @ScalarFunction("parametric_scalar_inject_short")
+    public static final class ShortInjectionScalarFunction
+    {
+        @SqlType(StandardTypes.BIGINT)
+        @LiteralParameters("x")
+        public static long fun(
+                @LiteralParameter("x") short literalParam,
+                @SqlType("varchar(x)") Slice val)
+        {
+            return literalParam;
+        }
+    }
+
+    @Test
+    public void testShortInjectionScalarParse()
+    {
+        assertThatThrownBy(() -> ScalarFromAnnotationsParser.parseFunctionDefinition(ShortInjectionScalarFunction.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Literal parameter x must be long or int, but is short");
     }
 
     @ScalarFunction("parametric_scalar_inject_constructor")

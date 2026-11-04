@@ -516,7 +516,7 @@ public abstract class BaseHiveConnectorTest
         String schemaName = "schema_" + randomNameSuffix();
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", format("[\"%s\"]", schemaName))
@@ -2623,7 +2623,7 @@ public abstract class BaseHiveConnectorTest
         // verify that we create bucket_count files in each partition
         assertEqualsIgnoreOrder(
                 computeActual(format("SELECT orderpriority_nulls, orderstatus, COUNT(DISTINCT \"$path\") FROM %s GROUP BY 1, 2", tableName)),
-                resultBuilder(getSession(), createVarcharType(1), BIGINT)
+                resultBuilder(createVarcharType(1), BIGINT)
                         .row(null, "F", 4L)
                         .row(null, "O", 4L)
                         .row(null, "P", 4L)
@@ -2783,7 +2783,7 @@ public abstract class BaseHiveConnectorTest
         // verify that we create bucket_count files in each partition
         assertEqualsIgnoreOrder(
                 computeActual(format("SELECT orderstatus, COUNT(DISTINCT \"$path\") FROM %s GROUP BY 1", tableName)),
-                resultBuilder(getSession(), createVarcharType(1), BIGINT)
+                resultBuilder(createVarcharType(1), BIGINT)
                         .row("F", 11L)
                         .row("O", 11L)
                         .row("P", 11L)
@@ -2949,7 +2949,7 @@ public abstract class BaseHiveConnectorTest
         assertThat(partitions).hasSize(3);
 
         MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
-        MaterializedResult expected = resultBuilder(getSession(), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
+        MaterializedResult expected = resultBuilder(canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
                 .row("a", "b", "c")
                 .row("aa", "bb", "cc")
                 .row("aaa", "bbb", "ccc")
@@ -3908,7 +3908,7 @@ public abstract class BaseHiveConnectorTest
                 """);
 
         Type unboundedVarchar = canonicalizeType(VARCHAR);
-        MaterializedResult expected = resultBuilder(getSession(), unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar)
+        MaterializedResult expected = resultBuilder(unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar)
                 .row("grape", canonicalizeType(BIGINT).toString(), "", "")
                 .row("orange", canonicalizeType(BIGINT).toString(), "", "")
                 .row("pear", canonicalizeType(createVarcharType(65535)).toString(), "", "")
@@ -4275,27 +4275,28 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testWriterTaskCountLimitUnpartitioned()
     {
-        testLimitWriterTasks(2, 2, true, true, false, DataSize.of(1, MEGABYTE));
-        testLimitWriterTasks(2, 2, false, true, false, DataSize.of(1, MEGABYTE));
-        testLimitWriterTasks(2, 3, false, false, false, DataSize.of(1, MEGABYTE));
+        testLimitWriterTasks(2, true, true, false, DataSize.of(1, MEGABYTE)).isEqualTo(2L);
+        testLimitWriterTasks(2, false, true, false, DataSize.of(1, MEGABYTE)).isEqualTo(2L);
+        testLimitWriterTasks(2, false, false, false, DataSize.of(1, MEGABYTE)).isEqualTo(3L);
     }
 
     @Test
     public void testWriterTaskCountLimitPartitionedScaleWritersDisabled()
     {
-        testLimitWriterTasks(2, 2, false, true, true, DataSize.of(1, MEGABYTE));
+        testLimitWriterTasks(2, false, true, true, DataSize.of(1, MEGABYTE)).isEqualTo(2L);
     }
 
     @Test
     public void testWriterTaskCountLimitPartitionedScaleWritersEnabled()
     {
-        testLimitWriterTasks(2, 4, true, true, true, DataSize.of(1, MEGABYTE));
+        // Each source task rebalances independently, so one or both partitions scale to the second writer task
+        testLimitWriterTasks(2, true, true, true, DataSize.of(1, MEGABYTE)).isBetween(3L, 4L);
         // Since we track page size for scaling writer instead of actual compressed output file size, we need to have a
         // larger threshold for writerScalingMinDataProcessed. This way we can ensure that the writer scaling is not triggered.
-        testLimitWriterTasks(2, 2, true, true, true, DataSize.of(2, GIGABYTE));
+        testLimitWriterTasks(2, true, true, true, DataSize.of(2, GIGABYTE)).isEqualTo(2L);
     }
 
-    private void testLimitWriterTasks(int maxWriterTasks, int expectedFilesCount, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned, DataSize writerScalingMinDataProcessed)
+    private AbstractLongAssert<?> testLimitWriterTasks(int maxWriterTasks, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned, DataSize writerScalingMinDataProcessed)
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(SCALE_WRITERS, Boolean.toString(scaleWritersEnabled))
@@ -4315,8 +4316,7 @@ public abstract class BaseHiveConnectorTest
                 partitioned ? ", partitioned_by = ARRAY['part_key']" : "");
         try {
             assertUpdate(session, createTableSql, (long) computeActual("SELECT count(*) FROM tpch.sf3.orders").getOnlyValue());
-            long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM %s".formatted(tableName));
-            assertThat(files).isEqualTo(expectedFilesCount);
+            return assertThat((long) computeScalar("SELECT count(DISTINCT \"$path\") FROM %s".formatted(tableName)));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS %s".formatted(tableName));
@@ -4702,7 +4702,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSql, 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('3', '4')", 1);
         MaterializedResult materializedRows = computeActual("SELECT * FROM " + tableName);
-        assertEqualsIgnoreOrder(materializedRows, resultBuilder(getSession(), VARCHAR, VARCHAR)
+        assertEqualsIgnoreOrder(materializedRows, resultBuilder(VARCHAR, VARCHAR)
                 .row("1", "2")
                 .row("3", "4")
                 .build()
@@ -5106,7 +5106,7 @@ public abstract class BaseHiveConnectorTest
                         "SELECT * FROM (VALUES (CAST (101 AS BIGINT), CAST (1 AS BIGINT)), (201, 2), (202, 2), (401, 4), (402, 4), (403, 4)) t(a, z)",
                 6);
 
-        List<MaterializedRow> expectedBefore = resultBuilder(session, BIGINT, BIGINT)
+        List<MaterializedRow> expectedBefore = resultBuilder(BIGINT, BIGINT)
                 .row(101L, 1L)
                 .row(201L, 2L)
                 .row(202L, 2L)
@@ -5115,7 +5115,7 @@ public abstract class BaseHiveConnectorTest
                 .row(403L, 4L)
                 .build()
                 .getMaterializedRows();
-        List<MaterializedRow> expectedAfter = resultBuilder(session, BIGINT, BIGINT)
+        List<MaterializedRow> expectedAfter = resultBuilder(BIGINT, BIGINT)
                 .row(101L, 1L)
                 .row(203L, 2L)
                 .row(204L, 2L)
@@ -5163,7 +5163,7 @@ public abstract class BaseHiveConnectorTest
     {
         Session session = getSession();
 
-        List<MaterializedRow> expected = resultBuilder(session, BIGINT, BIGINT)
+        List<MaterializedRow> expected = resultBuilder(BIGINT, BIGINT)
                 .row(101L, 1L)
                 .row(201L, 2L)
                 .row(202L, 2L)
@@ -5264,8 +5264,8 @@ public abstract class BaseHiveConnectorTest
         assertThatThrownBy(super::testDropAndAddColumnWithSameName)
                 .hasMessageContaining(
                         """
-                        Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):
-                            [1, 3, 2]\
+                        Unexpected:
+                          [1, 3, 2]\
                         """);
     }
 
@@ -5276,7 +5276,7 @@ public abstract class BaseHiveConnectorTest
         // On the default PARQUET format a Hive column rename is metadata-only and data is read by name, so the
         // renamed column reads NULL. ORC reads by index and preserves the data on rename; see testRenameColumnHiveSpecific.
         assertThatThrownBy(super::testRenameColumn)
-                .hasMessageContaining("not equal")
+                .hasMessageContaining("do not match")
                 .hasMessageContaining("[null]");
     }
 
@@ -5286,7 +5286,7 @@ public abstract class BaseHiveConnectorTest
     {
         // See testRenameColumn: on the default PARQUET format a rename orphans the data (read by name), so it reads NULL.
         assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
-                .hasMessageContaining("not equal")
+                .hasMessageContaining("do not match")
                 .hasMessageContaining("[null]");
     }
 
@@ -5339,7 +5339,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate("DROP TABLE char_order_by");
 
-        MaterializedResult expected = resultBuilder(getSession(), createCharType(2))
+        MaterializedResult expected = resultBuilder(createCharType(2))
                 .row("a\0")
                 .row("a ")
                 .row("a ")
@@ -8666,6 +8666,40 @@ public abstract class BaseHiveConnectorTest
             case "a,comma" -> "Hive column names must not contain commas: 'a,comma'".equals(exception.getMessage());
             default -> false;
         };
+    }
+
+    @Override
+    protected boolean isRowFieldNameRejected(Exception exception, String fieldName)
+    {
+        return switch (fieldName) {
+            case "a-hyphen-minus",
+                 "a,comma",
+                 "a:colon",
+                 "a;semicolon",
+                 "an@at",
+                 "a\"quote",
+                 "an'apostrophe",
+                 "a`backtick`",
+                 "a/slash`",
+                 "a\\backslash`" -> "Hive row field names must contain only letters, digits, spaces, '_', '.' or '$': '%s'".formatted(fieldName).equals(exception.getMessage());
+            default -> false;
+        };
+    }
+
+    @Test
+    public void testRowFieldNameWithSpecialCharacters()
+    {
+        String tableName = "test_row_field_name_" + randomNameSuffix();
+        String expectedMessage = "\\QHive row field names must contain only letters, digits, spaces, '_', '.' or '$': 'field:colon'\\E";
+
+        assertQueryFails("CREATE TABLE " + tableName + " (col array(map(varchar, row(\"field:colon\" varchar))))", expectedMessage);
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT CAST(ROW('x') AS row(\"field:colon\" varchar)) col", expectedMessage);
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+
+        assertUpdate("CREATE TABLE " + tableName + " (col row(\"a b.c$d_e\" varchar))");
+        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN new_col row(\"field:colon\" varchar)", expectedMessage);
+        assertThat(getColumnType(tableName, "col")).isEqualTo("row(\"a b.c$d_e\" varchar)");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private void testColumnPruning(Session session, HiveStorageFormat storageFormat)

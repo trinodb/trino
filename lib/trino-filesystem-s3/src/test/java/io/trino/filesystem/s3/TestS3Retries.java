@@ -54,8 +54,8 @@ import static java.lang.Math.toIntExact;
 import static java.lang.Thread.sleep;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.AssertionsForClassTypes.fail;
-import static org.assertj.core.api.AssertionsForClassTypes.within;
+import static org.assertj.core.api.Assertions.fail;
+import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
 @TestInstance(PER_METHOD)

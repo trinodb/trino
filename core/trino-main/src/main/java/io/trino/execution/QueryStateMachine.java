@@ -575,10 +575,8 @@ public class QueryStateMachine
     }
 
     @VisibleForTesting
-    ResultQueryInfo getResultQueryInfo(Optional<BasicStagesInfo> stagesInfo)
+    ResultQueryInfo getResultQueryInfo(QueryState state, Optional<BasicStagesInfo> stagesInfo)
     {
-        QueryState state = queryState.get();
-
         ErrorCode errorCode = null;
         if (state == FAILED) {
             ExecutionFailureInfo failureCause = this.failureCause.get();
@@ -1499,9 +1497,17 @@ public class QueryStateMachine
         return queryInfo;
     }
 
-    public ResultQueryInfo updateResultQueryInfo(Optional<BasicStagesInfo> stages, Supplier<Optional<StagesInfo>> stagesInfoProvider)
+    public void updateFinalQueryInfo(Supplier<Optional<StagesInfo>> stagesInfoProvider)
     {
-        ResultQueryInfo queryInfo = getResultQueryInfo(stages);
+        // query info is final only once the query is done
+        if (isDone()) {
+            updateQueryInfo(stagesInfoProvider.get());
+        }
+    }
+
+    public ResultQueryInfo updateResultQueryInfo(QueryState state, Optional<BasicStagesInfo> stages, Supplier<Optional<StagesInfo>> stagesInfoProvider)
+    {
+        ResultQueryInfo queryInfo = getResultQueryInfo(state, stages);
         if (queryInfo.finalQueryInfo()) {
             QueryInfo fullQueryInfo = getQueryInfo(stagesInfoProvider.get());
             finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(fullQueryInfo));

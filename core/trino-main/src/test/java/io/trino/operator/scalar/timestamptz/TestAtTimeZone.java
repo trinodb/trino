@@ -21,8 +21,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -83,5 +85,20 @@ public class TestAtTimeZone
         assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.1234567891 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.1234567891 +03:04'");
         assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.12345678912 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.12345678912 +03:04'");
         assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.123456789123 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.123456789123 +03:04'");
+    }
+
+    @Test
+    public void testEmptyTimeZone()
+    {
+        // constant folded at planning time
+        assertTrinoExceptionThrownBy(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56 +07:09', '')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("'' is not a valid time zone");
+
+        // evaluated at runtime
+        assertTrinoExceptionThrownBy(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56 +07:09', zone)")
+                .binding("zone", "VARCHAR ''")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("'' is not a valid time zone");
     }
 }

@@ -36,7 +36,6 @@ import java.util.Map;
 
 import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 import static io.trino.tests.product.iceberg.IcebergCatalogPropertiesBuilder.icebergCatalog;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Spark/Iceberg product test environment for interoperability testing.
@@ -267,16 +266,6 @@ public class SparkIcebergEnvironment
     public boolean isRunning()
     {
         return trino != null && trino.isRunning();
-    }
-
-    protected final Network getNetwork()
-    {
-        return requireNonNull(network, "Environment is not started: network is null");
-    }
-
-    protected final HadoopContainer getHadoopContainer()
-    {
-        return requireNonNull(hadoop, "Environment is not started: hadoop is null");
     }
 
     @Override

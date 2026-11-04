@@ -105,7 +105,8 @@ public final class AggregationTestUtils
     public static Block getIntermediateBlock(Type intermediateType, Aggregator aggregator)
     {
         BlockBuilder blockBuilder = intermediateType.createBlockBuilder(null, 1000);
-        aggregator.evaluate(blockBuilder, UpdateMemory.NOOP);
+        aggregator.prepareFinal(UpdateMemory.NOOP);
+        aggregator.evaluate(blockBuilder);
         return blockBuilder.build();
     }
 
@@ -119,7 +120,8 @@ public final class AggregationTestUtils
     public static Block getFinalBlock(Type finalType, Aggregator aggregator)
     {
         BlockBuilder blockBuilder = finalType.createBlockBuilder(null, 1000);
-        aggregator.evaluate(blockBuilder, UpdateMemory.NOOP);
+        aggregator.prepareFinal(UpdateMemory.NOOP);
+        aggregator.evaluate(blockBuilder);
         return blockBuilder.build();
     }
 

@@ -43,6 +43,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static java.time.temporal.IsoFields.QUARTER_OF_YEAR;
+import static java.time.temporal.TemporalAdjusters.lastDayOfMonth;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -403,6 +405,47 @@ public class TestDateTimeFunctions
 
         assertThat(assertions.function("year_of_week", "DATE '2010-01-03'"))
                 .isEqualTo(2009L);
+    }
+
+    @Test
+    public void testDateFields()
+    {
+        // A complete Gregorian cycle covers every combination of leap year and weekday.
+        long start = LocalDate.of(-200, 1, 1).toEpochDay();
+        long end = LocalDate.of(200, 1, 1).toEpochDay();
+        for (long date = start; date < end; date++) {
+            assertDateFields(date);
+        }
+
+        for (long date = Integer.MIN_VALUE; date <= Integer.MAX_VALUE; date += 10_000) {
+            assertDateFields(date);
+        }
+        for (int offset = 0; offset < 10_000; offset++) {
+            assertDateFields((long) Integer.MIN_VALUE + offset);
+            assertDateFields((long) Integer.MAX_VALUE - offset);
+        }
+    }
+
+    private static void assertDateFields(long date)
+    {
+        ISOChronology chronology = ISOChronology.getInstanceUTC();
+        long millis = DAYS.toMillis(date);
+        assertThat(DateTimeFunctions.dayOfWeekFromDate(date))
+                .as("day_of_week for epoch day %d", date)
+                .isEqualTo(chronology.dayOfWeek().get(millis));
+        assertThat(DateTimeFunctions.weekFromDate(date))
+                .as("week for epoch day %d", date)
+                .isEqualTo(chronology.weekOfWeekyear().get(millis));
+        assertThat(DateTimeFunctions.yearOfWeekFromDate(date))
+                .as("year_of_week for epoch day %d", date)
+                .isEqualTo(chronology.weekyear().get(millis));
+        LocalDate localDate = LocalDate.ofEpochDay(date);
+        assertThat(DateTimeFunctions.quarterFromDate(date))
+                .as("quarter for epoch day %d", date)
+                .isEqualTo(localDate.get(QUARTER_OF_YEAR));
+        assertThat(DateTimeFunctions.lastDayOfMonthFromDate(date))
+                .as("last_day_of_month for epoch day %d", date)
+                .isEqualTo(localDate.with(lastDayOfMonth()).toEpochDay());
     }
 
     @Test

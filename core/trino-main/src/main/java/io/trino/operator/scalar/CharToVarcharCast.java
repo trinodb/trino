@@ -17,7 +17,9 @@ import io.airlift.slice.Slice;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.operator.scalar.preimage.CharToVarcharPreimage;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
@@ -34,19 +36,20 @@ public final class CharToVarcharCast
 {
     private CharToVarcharCast() {}
 
+    @FunctionPreimage(CharToVarcharPreimage.class)
     @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("varchar(y)")
     @LiteralParameters({"x", "y"})
-    public static Slice charToVarcharCast(ConnectorSession session, @LiteralParameter("x") long x, @LiteralParameter("y") long y, @SqlType("char(x)") Slice slice)
+    public static Slice charToVarcharCast(ConnectorSession session, @LiteralParameter("x") int x, @LiteralParameter("y") int y, @SqlType("char(x)") Slice slice)
     {
         if (((FullConnectorSession) session).getCharVarcharCoercion() == CharVarcharCoercion.LEGACY) {
             // Legacy: re-pad to the declared CHAR length, truncating to the target VARCHAR length when it is shorter.
             if (x <= y) {
-                return padSpaces(slice, (int) x);
+                return padSpaces(slice, x);
             }
-            return padSpaces(truncateToLength(slice, (int) y), (int) y);
+            return padSpaces(truncateToLength(slice, y), y);
         }
         // CHAR values are stored without trailing spaces; yield the unpadded value, truncated to the target length.
-        return truncateToLength(slice, (int) y);
+        return truncateToLength(slice, y);
     }
 }

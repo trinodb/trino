@@ -607,12 +607,6 @@ public class LakehouseMetadata
     }
 
     @Override
-    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
-    {
-        return icebergMetadata.delegateMaterializedViewRefreshToConnector(session, viewName);
-    }
-
-    @Override
     public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, RetryMode retryMode, RefreshType refreshType)
     {
         List<ConnectorTableHandle> icebergSourceHandles = sourceTableHandles.stream()

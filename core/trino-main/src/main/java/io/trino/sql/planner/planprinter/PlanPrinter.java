@@ -51,6 +51,7 @@ import io.trino.spi.function.table.DescriptorArgument;
 import io.trino.spi.function.table.ScalarArgument;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -63,7 +64,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.OrderingScheme;
-import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
@@ -103,7 +103,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.RowsPerMatch;
@@ -147,7 +146,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -169,7 +167,6 @@ import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjunctsWithDuplicates;
-import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
@@ -179,7 +176,6 @@ import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
-import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Function.identity;
@@ -275,28 +271,6 @@ public class PlanPrinter
                 ImmutableMap.of(),
                 valuePrinter,
                 StatsAndCosts.empty(),
-                Optional.empty(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                new NoOpAnonymizer())
-                .toJson();
-    }
-
-    public static String jsonLogicalPlan(
-            PlanNode plan,
-            Session session,
-            Metadata metadata,
-            FunctionManager functionManager,
-            StatsAndCosts estimatedStatsAndCosts)
-    {
-        TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
-        ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        return new PlanPrinter(
-                plan,
-                tableInfoSupplier,
-                ImmutableMap.of(),
-                valuePrinter,
-                estimatedStatsAndCosts,
                 Optional.empty(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
@@ -402,24 +376,6 @@ public class PlanPrinter
                 new NoOpAnonymizer())
                 .toText(verbose, level));
         return builder.toString();
-    }
-
-    public static String textDistributedPlan(
-            StagesInfo stages,
-            QueryStats queryStats,
-            Metadata metadata,
-            FunctionManager functionManager,
-            Session session,
-            boolean verbose,
-            NodeVersion version)
-    {
-        return textDistributedPlan(
-                stages,
-                queryStats,
-                new ValuePrinter(metadata, functionManager, session),
-                verbose,
-                new NoOpAnonymizer(),
-                version);
     }
 
     public static String textDistributedPlan(
@@ -670,25 +626,6 @@ public class PlanPrinter
                 succinctBytes((long) digest.valueAt(0.95)),
                 succinctBytes((long) digest.valueAt(0.99)),
                 succinctBytes((long) digest.getMax()));
-    }
-
-    public static String graphvizLogicalPlan(PlanNode plan)
-    {
-        // TODO: This should move to something like GraphvizRenderer
-        PlanFragment fragment = new PlanFragment(
-                new PlanFragmentId("graphviz_plan"),
-                plan,
-                ImmutableSet.of(),
-                SINGLE_DISTRIBUTION,
-                OptionalInt.empty(),
-                ImmutableList.of(plan.getId()),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
-                OptionalInt.empty(),
-                StatsAndCosts.empty(),
-                ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
-        return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 
     public static String graphvizDistributedPlan(SubPlan plan)
@@ -1584,16 +1521,6 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitRefreshMaterializedView(RefreshMaterializedViewNode node, Context context)
-        {
-            addNode(node,
-                    "RefreshMaterializedView",
-                    ImmutableMap.of("viewName", anonymizer.anonymize(node.getViewName())),
-                    context);
-            return null;
-        }
-
-        @Override
         public Void visitTableWriter(TableWriterNode node, Context context)
         {
             NodeRepresentation nodeOutput = addNode(node, "TableWriter", context);
@@ -2077,6 +2004,12 @@ public class PlanPrinter
 
         private String formatDomain(Domain domain)
         {
+            if (domain.getValues() instanceof FloatingPointValueSet floatingPoint && floatingPoint.asRanges().isEmpty()) {
+                if (floatingPoint.getOrderedValues().isNone()) {
+                    return domain.isNullAllowed() ? "[NULL, NaN]" : "[NaN]";
+                }
+                return formatDomain(Domain.create(floatingPoint.getOrderedValues(), domain.isNullAllowed())) + " OR [NaN]";
+            }
             ImmutableList.Builder<String> parts = ImmutableList.builder();
 
             if (domain.isNullAllowed()) {
@@ -2156,16 +2089,6 @@ public class PlanPrinter
         private String formatOrderingScheme(OrderingScheme orderingScheme)
         {
             return PlanPrinter.formatOrderingScheme(anonymizer, orderingScheme);
-        }
-
-        @SafeVarargs
-        private String formatHash(Optional<Symbol>... hashes)
-        {
-            List<Symbol> symbols = stream(hashes)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .collect(toImmutableList());
-            return formatSymbols(symbols);
         }
 
         private String formatSymbols(Collection<Symbol> symbols)

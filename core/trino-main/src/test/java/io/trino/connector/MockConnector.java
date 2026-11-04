@@ -153,8 +153,6 @@ public class MockConnector
     private final Supplier<List<PropertyMetadata<?>>> getViewProperties;
     private final Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
-    private final BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector;
-    private final BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView;
     private final BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness> getMaterializedViewFreshness;
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
@@ -211,8 +209,6 @@ public class MockConnector
             Supplier<List<PropertyMetadata<?>>> getViewProperties,
             Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
-            BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector,
-            BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView,
             BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness> getMaterializedViewFreshness,
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
@@ -268,8 +264,6 @@ public class MockConnector
         this.getViewProperties = requireNonNull(getViewProperties, "getViewProperties is null");
         this.getMaterializedViewProperties = requireNonNull(getMaterializedViewProperties, "getMaterializedViewProperties is null");
         this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
-        this.delegateMaterializedViewRefreshToConnector = requireNonNull(delegateMaterializedViewRefreshToConnector, "delegateMaterializedViewRefreshToConnector is null");
-        this.refreshMaterializedView = requireNonNull(refreshMaterializedView, "refreshMaterializedView is null");
         this.getMaterializedViewFreshness = requireNonNull(getMaterializedViewFreshness, "getMaterializedViewFreshness is null");
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
@@ -773,18 +767,6 @@ public class MockConnector
         public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target) {}
 
         @Override
-        public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
-        {
-            return delegateMaterializedViewRefreshToConnector.apply(session, viewName);
-        }
-
-        @Override
-        public CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName)
-        {
-            return refreshMaterializedView.apply(session, viewName);
-        }
-
-        @Override
         public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, RetryMode retryMode, RefreshType refreshType)
         {
             return new MockConnectorInsertTableHandle(((MockConnectorTableHandle) tableHandle).getTableName());
@@ -1145,7 +1127,8 @@ public class MockConnector
                 ConnectorTableHandle table,
                 Optional<ConnectorTableCredentials> tableCredentials,
                 List<ColumnHandle> columns,
-                DynamicFilter dynamicFilter)
+                DynamicFilter dynamicFilter,
+                MemoryContext memoryContext)
         {
             MockConnectorTableHandle handle = (MockConnectorTableHandle) table;
             SchemaTableName tableName = handle.getTableName();
@@ -1173,7 +1156,7 @@ public class MockConnector
                         return projectedRow.build();
                     })
                     .collect(toImmutableList());
-            return new MockConnectorPageSource(new RecordPageSource(new InMemoryRecordSet(types, records)), metrics.apply(tableName));
+            return new MockConnectorPageSource(new RecordPageSource(new InMemoryRecordSet(types, records), memoryContext), metrics.apply(tableName));
         }
 
         private Map<String, Integer> getColumnIndexes(SchemaTableName tableName)

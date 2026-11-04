@@ -53,7 +53,6 @@ import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.apache.iceberg.types.Types.NestedField.optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestEqualityDeleteFilter

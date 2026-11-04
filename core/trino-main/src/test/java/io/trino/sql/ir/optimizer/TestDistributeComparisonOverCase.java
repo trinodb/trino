@@ -52,15 +52,7 @@ public class TestDistributeComparisonOverCase
                                 new Reference(BIGINT, "z")),
                         new Reference(BIGINT, "m"))))
                 .describedAs("case(...) < reference")
-                .isEqualTo(Optional.of(new Case(
-                        ImmutableList.of(
-                                new WhenClause(
-                                        new Reference(BOOLEAN, "a"),
-                                        comparison(LESS_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
-                                new WhenClause(
-                                        new Reference(BOOLEAN, "b"),
-                                        comparison(LESS_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
-                        comparison(LESS_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
+                .isEqualTo(Optional.empty());
 
         assertThat(optimize(
                 comparison(
@@ -92,15 +84,7 @@ public class TestDistributeComparisonOverCase
                                         new WhenClause(new Reference(BOOLEAN, "b"), new Reference(BIGINT, "y"))),
                                 new Reference(BIGINT, "z")))))
                 .describedAs("reference < case(...)")
-                .isEqualTo(Optional.of(new Case(
-                        ImmutableList.of(
-                                new WhenClause(
-                                        new Reference(BOOLEAN, "a"),
-                                        comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
-                                new WhenClause(
-                                        new Reference(BOOLEAN, "b"),
-                                        comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
-                        comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
+                .isEqualTo(Optional.empty());
 
         assertThat(optimize(
                 comparison(
@@ -129,12 +113,12 @@ public class TestDistributeComparisonOverCase
         // NULLIF(x, 1) desugars to a Case; it must be left intact so it stays recognizable for connector pushdown.
         Expression nullIf = nullIf(emptySymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L));
 
-        assertThat(optimize(comparison(EQUAL, nullIf, new Reference(BIGINT, "m"))))
-                .describedAs("nullif(...) = reference")
+        assertThat(optimize(comparison(EQUAL, nullIf, new Constant(BIGINT, 5L))))
+                .describedAs("nullif(...) = constant")
                 .isEqualTo(Optional.empty());
 
-        assertThat(optimize(comparison(EQUAL, new Reference(BIGINT, "m"), nullIf)))
-                .describedAs("reference = nullif(...)")
+        assertThat(optimize(comparison(EQUAL, new Constant(BIGINT, 5L), nullIf)))
+                .describedAs("constant = nullif(...)")
                 .isEqualTo(Optional.empty());
     }
 

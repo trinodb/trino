@@ -13,8 +13,6 @@
  */
 package io.trino.execution.executor.timesharing;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -22,8 +20,6 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.function.Function;
-
-import static com.google.common.base.Preconditions.checkArgument;
 
 class Histogram<K extends Comparable<K>>
 {
@@ -45,45 +41,6 @@ class Histogram<K extends Comparable<K>>
     public static <K extends Comparable<K>> Histogram<K> fromContinuous(Collection<K> buckets)
     {
         return new Histogram<>(buckets, false);
-    }
-
-    public static <D> Histogram<Long> fromContinuous(Collection<D> initialData, Function<D, Long> keyFunction)
-    {
-        if (initialData.isEmpty()) {
-            return new Histogram<Long>(ImmutableList.of(), false);
-        }
-
-        int numBuckets = Math.min(10, (int) Math.sqrt(initialData.size()));
-        long min = initialData.stream()
-                .mapToLong(keyFunction::apply)
-                .min()
-                .orElseThrow();
-        long max = initialData.stream()
-                .mapToLong(keyFunction::apply)
-                .max()
-                .orElseThrow();
-
-        checkArgument(max > min);
-
-        long bucketSize = (max - min) / numBuckets;
-        long bucketRemainder = (max - min) % numBuckets;
-
-        List<Long> minimums = new ArrayList<>();
-
-        long currentMin = min;
-        for (int i = 0; i < numBuckets; i++) {
-            minimums.add(currentMin);
-            long currentMax = currentMin + bucketSize;
-            if (bucketRemainder > 0) {
-                currentMax++;
-                bucketRemainder--;
-            }
-            currentMin = currentMax + 1;
-        }
-
-        minimums.add(numBuckets, currentMin);
-
-        return new Histogram<>(minimums, false);
     }
 
     public <D, F> void printDistribution(

@@ -104,6 +104,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
 import java.sql.Statement;
@@ -148,6 +149,7 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompac
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalMerge;
 import static io.trino.plugin.jdbc.PredicatePushdownController.CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FINITE_FLOATING_POINT_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -207,6 +209,7 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -561,6 +564,33 @@ public class MySqlClient
     }
 
     @Override
+    protected List<JdbcColumnHandle> getColumns(ConnectorSession session, Connection connection, ResultSetMetaData metadata)
+            throws SQLException
+    {
+        return declareUtcZone(super.getColumns(session, connection, metadata));
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+    {
+        return declareUtcZone(super.getColumns(session, schemaTableName, remoteTableName));
+    }
+
+    private static List<JdbcColumnHandle> declareUtcZone(List<JdbcColumnHandle> columns)
+    {
+        return columns.stream()
+                .map(columnHandle -> {
+                    if (!containsTimestampWithTimeZone(columnHandle.getColumnType())) {
+                        return columnHandle;
+                    }
+                    return JdbcColumnHandle.builderFrom(columnHandle)
+                            .setTimeZone(Optional.of(UTC_KEY))
+                            .build();
+                })
+                .collect(toImmutableList());
+    }
+
+    @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         String jdbcTypeName = typeHandle.jdbcTypeName()
@@ -609,7 +639,7 @@ public class MySqlClient
                     realWriteFunction(),
                     DISABLE_PUSHDOWN));
 
-            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping(FINITE_FLOATING_POINT_PUSHDOWN));
 
             case Types.NUMERIC, Types.DECIMAL -> {
                 int decimalDigits = typeHandle.decimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));

@@ -52,7 +52,7 @@ import java.util.Properties;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.testing.containers.TrinoProductTestContainer.withResourceLimits;
+import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
@@ -173,7 +173,7 @@ public abstract class JdbcOAuth2Environment
 
             // Start Trino with OAuth2 authentication using GenericContainer
             // We use GenericContainer instead of TrinoContainer because we need custom HTTPS config
-            trinoContainer = withResourceLimits(new FixedHttpsPortTrinoContainer(DockerImageName.parse(getDefaultTrinoImage())))
+            trinoContainer = configureTrinoContainer(new FixedHttpsPortTrinoContainer(DockerImageName.parse(getDefaultTrinoImage())))
                     .withNetwork(network)
                     .withNetworkAliases(TRINO_HOST)
                     .withExposedPorts(8080, HTTPS_PORT)

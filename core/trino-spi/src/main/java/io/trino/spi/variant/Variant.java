@@ -42,6 +42,9 @@ import java.util.stream.Stream;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
 import static io.trino.spi.variant.Header.BasicType.OBJECT;
 import static io.trino.spi.variant.Header.BasicType.PRIMITIVE;
 import static io.trino.spi.variant.Header.arrayFieldOffsetSize;
@@ -100,6 +103,7 @@ import static io.trino.spi.variant.VariantUtils.verify;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
+import static java.lang.Math.toIntExact;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -510,7 +514,7 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
     {
         verifyType(PrimitiveType.TIME_NTZ_MICROS);
         long microsOfDay = getTimeMicros();
-        long nanoOfDay = multiplyExact(microsOfDay, 1_000L);
+        long nanoOfDay = multiplyExact(microsOfDay, NANOSECONDS_PER_MICROSECOND);
         return LocalTime.ofNanoOfDay(nanoOfDay);
     }
 
@@ -534,13 +538,13 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
         int nanoOfSecond;
         if (primitiveType == PrimitiveType.TIMESTAMP_UTC_MICROS) {
             long micros = getTimestampMicros();
-            seconds = floorDiv(micros, 1_000_000);
-            nanoOfSecond = floorMod(micros, 1_000_000) * 1_000;
+            seconds = floorDiv(micros, MICROSECONDS_PER_SECOND);
+            nanoOfSecond = floorMod(micros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
         }
         else if (primitiveType == PrimitiveType.TIMESTAMP_UTC_NANOS) {
             long nanos = getTimestampNanos();
-            seconds = floorDiv(nanos, 1_000_000_000L);
-            nanoOfSecond = floorMod(nanos, 1_000_000_000);
+            seconds = floorDiv(nanos, NANOSECONDS_PER_SECOND);
+            nanoOfSecond = toIntExact(floorMod(nanos, NANOSECONDS_PER_SECOND));
         }
         else {
             throw new IllegalStateException("Expected primitive TIMESTAMP but got " + primitiveType);
@@ -554,13 +558,13 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
         int nanoOfSecond;
         if (primitiveType == PrimitiveType.TIMESTAMP_NTZ_MICROS) {
             long micros = getTimestampMicros();
-            seconds = floorDiv(micros, 1_000_000);
-            nanoOfSecond = floorMod(micros, 1_000_000) * 1_000;
+            seconds = floorDiv(micros, MICROSECONDS_PER_SECOND);
+            nanoOfSecond = floorMod(micros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
         }
         else if (primitiveType == PrimitiveType.TIMESTAMP_NTZ_NANOS) {
             long nanos = getTimestampNanos();
-            seconds = floorDiv(nanos, 1_000_000_000L);
-            nanoOfSecond = floorMod(nanos, 1_000_000_000);
+            seconds = floorDiv(nanos, NANOSECONDS_PER_SECOND);
+            nanoOfSecond = toIntExact(floorMod(nanos, NANOSECONDS_PER_SECOND));
         }
         else {
             throw new IllegalStateException("Expected primitive TIMESTAMP but got " + primitiveType);

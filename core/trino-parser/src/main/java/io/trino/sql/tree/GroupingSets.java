@@ -38,11 +38,6 @@ public final class GroupingSets
     private final Type type;
     private final List<List<Expression>> sets;
 
-    public GroupingSets(Type type, List<List<Expression>> groupingSets)
-    {
-        this(Optional.empty(), type, groupingSets);
-    }
-
     public GroupingSets(NodeLocation location, Type type, List<List<Expression>> sets)
     {
         this(Optional.of(location), type, sets);

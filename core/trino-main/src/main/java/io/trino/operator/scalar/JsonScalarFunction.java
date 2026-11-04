@@ -118,9 +118,9 @@ public final class JsonScalarFunction
     @ScalarFunction("json_scalar")
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Json fromChar(@LiteralParameter("x") long length, @SqlType("char(x)") Slice value)
+    public static Json fromChar(@LiteralParameter("x") int length, @SqlType("char(x)") Slice value)
     {
-        return JsonItemBuilder.encodeVarchar(padSpaces(value, toIntExact(length)));
+        return JsonItemBuilder.encodeVarchar(padSpaces(value, length));
     }
 
     @ScalarFunction("json_scalar")
@@ -134,10 +134,10 @@ public final class JsonScalarFunction
     @LiteralParameters("p")
     @SqlType(StandardTypes.JSON)
     public static Json fromTime(
-            @LiteralParameter("p") long precision,
+            @LiteralParameter("p") int precision,
             @SqlType("time(p)") long picosOfDay)
     {
-        return JsonItemBuilder.encodeTime(toIntExact(precision), picosOfDay);
+        return JsonItemBuilder.encodeTime(precision, picosOfDay);
     }
 
     @ScalarFunction("json_scalar")
@@ -149,21 +149,21 @@ public final class JsonScalarFunction
         @LiteralParameters({"p", "s"})
         @SqlType(StandardTypes.JSON)
         public static Json fromShort(
-                @LiteralParameter("p") long precision,
-                @LiteralParameter("s") long scale,
+                @LiteralParameter("p") int precision,
+                @LiteralParameter("s") int scale,
                 @SqlType("decimal(p, s)") long value)
         {
-            return JsonItemBuilder.encodeShortDecimal((int) precision, (int) scale, value);
+            return JsonItemBuilder.encodeShortDecimal(precision, scale, value);
         }
 
         @LiteralParameters({"p", "s"})
         @SqlType(StandardTypes.JSON)
         public static Json fromLong(
-                @LiteralParameter("p") long precision,
-                @LiteralParameter("s") long scale,
+                @LiteralParameter("p") int precision,
+                @LiteralParameter("s") int scale,
                 @SqlType("decimal(p, s)") Int128 value)
         {
-            return JsonItemBuilder.encodeLongDecimal((int) precision, (int) scale, value);
+            return JsonItemBuilder.encodeLongDecimal(precision, scale, value);
         }
     }
 
@@ -176,11 +176,11 @@ public final class JsonScalarFunction
         @LiteralParameters("p")
         @SqlType(StandardTypes.JSON)
         public static Json fromShort(
-                @LiteralParameter("p") long precision,
+                @LiteralParameter("p") int precision,
                 @SqlType("time(p) with time zone") long packedTime)
         {
             return JsonItemBuilder.encodeTimeWithTimeZone(
-                    toIntExact(precision),
+                    precision,
                     unpackTimeNanos(packedTime) * PICOSECONDS_PER_NANOSECOND,
                     unpackOffsetMinutes(packedTime));
         }
@@ -188,10 +188,10 @@ public final class JsonScalarFunction
         @LiteralParameters("p")
         @SqlType(StandardTypes.JSON)
         public static Json fromLong(
-                @LiteralParameter("p") long precision,
+                @LiteralParameter("p") int precision,
                 @SqlType("time(p) with time zone") LongTimeWithTimeZone time)
         {
-            return JsonItemBuilder.encodeTimeWithTimeZone(toIntExact(precision), time.getPicoseconds(), time.getOffsetMinutes());
+            return JsonItemBuilder.encodeTimeWithTimeZone(precision, time.getPicoseconds(), time.getOffsetMinutes());
         }
     }
 
@@ -204,19 +204,19 @@ public final class JsonScalarFunction
         @LiteralParameters("p")
         @SqlType(StandardTypes.JSON)
         public static Json fromShort(
-                @LiteralParameter("p") long precision,
+                @LiteralParameter("p") int precision,
                 @SqlType("timestamp(p)") long epochMicros)
         {
-            return JsonItemBuilder.encodeTimestamp(toIntExact(precision), epochMicros, 0);
+            return JsonItemBuilder.encodeTimestamp(precision, epochMicros, 0);
         }
 
         @LiteralParameters("p")
         @SqlType(StandardTypes.JSON)
         public static Json fromLong(
-                @LiteralParameter("p") long precision,
+                @LiteralParameter("p") int precision,
                 @SqlType("timestamp(p)") LongTimestamp value)
         {
-            return JsonItemBuilder.encodeTimestamp(toIntExact(precision), value.getEpochMicros(), value.getPicosOfMicro());
+            return JsonItemBuilder.encodeTimestamp(precision, value.getEpochMicros(), value.getPicosOfMicro());
         }
     }
 
@@ -229,11 +229,11 @@ public final class JsonScalarFunction
         @LiteralParameters("p")
         @SqlType(StandardTypes.JSON)
         public static Json fromShort(
-                @LiteralParameter("p") long precision,
+                @LiteralParameter("p") int precision,
                 @SqlType("timestamp(p) with time zone") long packedEpochMillis)
         {
             return JsonItemBuilder.encodeTimestampWithTimeZone(
-                    toIntExact(precision),
+                    precision,
                     unpackMillisUtc(packedEpochMillis),
                     0,
                     unpackZoneKey(packedEpochMillis).getKey());
@@ -242,11 +242,11 @@ public final class JsonScalarFunction
         @LiteralParameters("p")
         @SqlType(StandardTypes.JSON)
         public static Json fromLong(
-                @LiteralParameter("p") long precision,
+                @LiteralParameter("p") int precision,
                 @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
         {
             return JsonItemBuilder.encodeTimestampWithTimeZone(
-                    toIntExact(precision),
+                    precision,
                     timestamp.getEpochMillis(),
                     timestamp.getPicosOfMilli(),
                     timestamp.getTimeZoneKey());

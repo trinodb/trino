@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 public class LdapSingleQueryGroupProvider
         implements GroupProvider
 {
-    private static final Logger log = Logger.get(LdapFilteringGroupProvider.class);
+    private static final Logger log = Logger.get(LdapSingleQueryGroupProvider.class);
 
     private final LdapClient ldapClient;
     private final String ldapAdminUser;

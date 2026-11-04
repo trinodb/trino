@@ -24,7 +24,7 @@ public class TimeZoneNotSupportedException
 
     public TimeZoneNotSupportedException(String zoneId)
     {
-        super(NOT_SUPPORTED, "Time zone not supported: " + zoneId);
+        super(NOT_SUPPORTED, "Time zone not supported: " + (zoneId.isEmpty() ? "empty zone id" : zoneId));
         this.zoneId = zoneId;
     }
 

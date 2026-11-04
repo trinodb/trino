@@ -178,7 +178,7 @@ public final class DictionaryBlock
         if (sizeInBytes == -1) {
             // size is estimated based on the average dictionary entry size
             double averageEntrySize = dictionary.getSizeInBytes() / (double) dictionary.getPositionCount();
-            sizeInBytes = (long) (averageEntrySize * positionCount) + (Integer.BYTES * (long) positionCount);
+            sizeInBytes = (long) (averageEntrySize * positionCount);
             this.sizeInBytes = sizeInBytes;
         }
         return sizeInBytes;
@@ -223,7 +223,7 @@ public final class DictionaryBlock
         }
 
         double averageEntrySize = dictionary.getSizeInBytes() / (double) dictionary.getPositionCount();
-        return (long) (averageEntrySize * length) + (Integer.BYTES * (long) length);
+        return (long) (averageEntrySize * length);
     }
 
     @Override

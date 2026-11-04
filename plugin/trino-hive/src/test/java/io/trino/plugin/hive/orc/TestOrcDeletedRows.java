@@ -34,7 +34,6 @@ import java.util.Set;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -71,7 +70,7 @@ public class TestOrcDeletedRows
         // page with deleted rows
         Page testPage = createTestPage(0, 10);
         Block block = deletedRows.maskPage(SourcePage.create(testPage), OptionalLong.empty()).getBlock(0);
-        Set<Object> validRows = resultBuilder(SESSION, BIGINT)
+        Set<Object> validRows = resultBuilder(BIGINT)
                 .page(new Page(block))
                 .build()
                 .getOnlyColumnAsSet();
@@ -100,7 +99,7 @@ public class TestOrcDeletedRows
         // page with deleted rows
         Page testPage = createTestPage(0, 8);
         Block block = deletedRows.maskPage(SourcePage.create(testPage), OptionalLong.of(0L)).getBlock(0);
-        Set<Object> validRows = resultBuilder(SESSION, BIGINT)
+        Set<Object> validRows = resultBuilder(BIGINT)
                 .page(new Page(block))
                 .build()
                 .getOnlyColumnAsSet();
@@ -125,7 +124,7 @@ public class TestOrcDeletedRows
         // page with deleted rows
         Page testPage = createTestPage(0, 10);
         Block block = deletedRows.maskPage(SourcePage.create(testPage), OptionalLong.empty()).getBlock(0);
-        Set<Object> validRows = resultBuilder(SESSION, BIGINT)
+        Set<Object> validRows = resultBuilder(BIGINT)
                 .page(new Page(block))
                 .build()
                 .getOnlyColumnAsSet();

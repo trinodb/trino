@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>484-SNAPSHOT</version>
+        <version>485-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -16,9 +16,9 @@
 
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.108.8</dep.nessie.version>
+        <dep.nessie.version>0.109.0</dep.nessie.version>
         <dep.keycloak-admin.version>26.0.12</dep.keycloak-admin.version>
-        <dep.keycloak.version>26.8.0</dep.keycloak.version>
+        <dep.keycloak.version>26.8.1</dep.keycloak.version>
     </properties>
 
     <dependencyManagement>
@@ -968,6 +968,7 @@
                                 <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergBigLakeVendedCredentials.java</exclude>
                                 <exclude>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestIcebergAzureRestCatalogStorageCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
@@ -1028,6 +1029,7 @@
                                 <include>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergBigLakeVendedCredentials.java</include>
                                 <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergAzureRestCatalogStorageCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
                                 <!-- TODO https://github.com/trinodb/trino/pull/31094 Re-enable these tests -->

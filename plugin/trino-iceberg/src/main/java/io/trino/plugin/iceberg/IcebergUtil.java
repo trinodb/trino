@@ -150,6 +150,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROP
 import static io.trino.plugin.iceberg.IcebergTableProperties.GC_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_COMMIT_RETRY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_INFERRED_METRICS_COLUMN_DEFAULTS;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_PREVIOUS_VERSIONS;
 import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
@@ -162,6 +163,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.TARGET_MAX_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getGcEnabled;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxInferredMetricsColumnDefaults;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxPreviousVersions;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
@@ -192,11 +194,13 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static java.lang.Boolean.parseBoolean;
@@ -219,6 +223,7 @@ import static org.apache.iceberg.TableProperties.GC_ENABLED;
 import static org.apache.iceberg.TableProperties.GC_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
+import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
@@ -399,6 +404,11 @@ public final class IcebergUtil
             properties.put(MAX_PREVIOUS_VERSIONS, maxPreviousVersions);
         }
 
+        if (icebergTable.properties().containsKey(METRICS_MAX_INFERRED_COLUMN_DEFAULTS)) {
+            int maxInferredColumnDefaults = parseInt(icebergTable.properties().get(METRICS_MAX_INFERRED_COLUMN_DEFAULTS));
+            properties.put(MAX_INFERRED_METRICS_COLUMN_DEFAULTS, maxInferredColumnDefaults);
+        }
+
         if (icebergTable.properties().containsKey(WRITE_TARGET_FILE_SIZE_BYTES)) {
             properties.put(TARGET_MAX_FILE_SIZE, DataSize.succinctBytes(Long.parseLong(icebergTable.properties().get(WRITE_TARGET_FILE_SIZE_BYTES))));
         }
@@ -475,9 +485,11 @@ public final class IcebergUtil
         List<NestedField> icebergColumns = schema.columns();
         ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 5);
         for (NestedField column : icebergColumns) {
+            Type type = toTrinoType(column.type(), typeManager);
             columns.add(ColumnMetadata.builder()
                     .setName(column.name())
-                    .setType(toTrinoType(column.type(), typeManager))
+                    .setType(type)
+                    .setTimeZone(containsTimestampWithTimeZone(type) ? Optional.of(UTC_KEY) : Optional.empty())
                     .setNullable(column.isOptional())
                     .setComment(Optional.ofNullable(column.doc()))
                     .setDefaultValue(formatIcebergDefaultAsSql(column.writeDefault(), column.type()))
@@ -708,7 +720,8 @@ public final class IcebergUtil
                     return true;
                 },
                 _ -> false,
-                _ -> true);
+                _ -> true,
+                _ -> false);
     }
 
     private static boolean canEnforceRangeWithPartitioningField(PartitionField field, ColumnTransform transform, Range range, MethodHandle targetTypeEqualOperator)
@@ -1015,6 +1028,8 @@ public final class IcebergUtil
                 .ifPresent(value -> propertiesBuilder.put(GC_ENABLED, Boolean.toString(value)));
         getMaxPreviousVersions(tableMetadata.getProperties())
                 .ifPresent(value -> propertiesBuilder.put(METADATA_PREVIOUS_VERSIONS_MAX, Integer.toString(value)));
+        getMaxInferredMetricsColumnDefaults(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(METRICS_MAX_INFERRED_COLUMN_DEFAULTS, Integer.toString(value)));
 
         Optional<HiveCompressionCodec> compressionCodec = IcebergTableProperties.getCompressionCodec(tableMetadata.getProperties());
 
@@ -1395,6 +1410,10 @@ public final class IcebergUtil
         };
     }
 
+    /**
+     * Caches the manifests on {@code snapshot}, so use {@link #loadAllManifestsFromManifestList} instead when
+     * iterating over many snapshots
+     */
     public static List<ManifestFile> loadAllManifestsFromSnapshot(Table icebergTable, @Nullable Snapshot snapshot)
     {
         if (snapshot == null) {
@@ -1426,12 +1445,16 @@ public final class IcebergUtil
      * Each BaseSnapshot object caches manifest files separately, so loading manifests from multiple distinct snapshots
      * results in O(num_snapshots^2) copies of the same manifest file metadata in memory
      */
-    public static List<ManifestFile> loadAllManifestsFromManifestList(Table icebergTable, String manifestListLocation)
+    public static List<ManifestFile> loadAllManifestsFromManifestList(Table icebergTable, Snapshot snapshot)
     {
-        try {
-            return IcebergManifestUtils.read(icebergTable.io(), manifestListLocation);
+        if (snapshot.manifestListLocation() == null) {
+            // This is to maintain support for V1 tables which have embedded manifest lists
+            return loadAllManifestsFromSnapshot(icebergTable, snapshot);
         }
-        catch (NotFoundException | UncheckedIOException e) {
+        try {
+            return IcebergManifestUtils.read(icebergTable.io(), snapshot);
+        }
+        catch (NotFoundException | UncheckedIOException | IllegalArgumentException | IllegalStateException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing manifest file for table %s".formatted(icebergTable.name()), e);
         }
     }

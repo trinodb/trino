@@ -36,7 +36,7 @@ public class NessieContainer
         extends GenericContainer<NessieContainer>
 {
     private static final String IMAGE = "ghcr.io/projectnessie/nessie";
-    private static final String VERSION = "0.108.8";
+    private static final String VERSION = "0.109.0";
 
     public static final String HOST_NAME = "nessie-server";
     public static final int NESSIE_PORT = 19120;
@@ -64,13 +64,5 @@ public class NessieContainer
     public String getNessieUri()
     {
         return "http://" + HOST_NAME + ":" + NESSIE_PORT + "/api/v2";
-    }
-
-    /**
-     * Returns the externally accessible Nessie API URI for connecting from the host.
-     */
-    public String getExternalNessieUri()
-    {
-        return "http://" + getHost() + ":" + getMappedPort(NESSIE_PORT) + "/api/v2";
     }
 }

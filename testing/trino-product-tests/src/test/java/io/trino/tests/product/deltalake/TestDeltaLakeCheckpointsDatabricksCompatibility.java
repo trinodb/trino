@@ -59,9 +59,6 @@ class TestDeltaLakeCheckpointsDatabricksCompatibility
     private static final Pattern LOG_JSON_PATTERN = Pattern.compile("([0-9]{20})\\.json$");
 
     @Test
-    @TestGroup.DeltaLakeDatabricks154
-    @TestGroup.DeltaLakeDatabricks164
-    @TestGroup.DeltaLakeDatabricks173
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     void testDatabricksUsesCheckpointInterval(DeltaLakeDatabricksEnvironment env)
     {

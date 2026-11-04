@@ -1,4 +1,4 @@
--- delimiter: |; types: BIGINT|DECIMAL
+-- delimiter: |; types: INTEGER|DECIMAL
 43|0.00|
 1058|0.00|
 2004|0.00|

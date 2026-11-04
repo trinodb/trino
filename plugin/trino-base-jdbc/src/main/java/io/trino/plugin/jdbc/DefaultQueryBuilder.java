@@ -26,6 +26,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -419,13 +420,6 @@ public class DefaultQueryBuilder
         throw new IllegalArgumentException("Unsupported relation: " + baseRelation);
     }
 
-    protected Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
-    {
-        return client.toColumnMapping(session, connection, column.getJdbcTypeHandle())
-                .orElseThrow(() -> new IllegalStateException(format("Unsupported type %s with handle %s", column.getColumnType(), column.getJdbcTypeHandle())))
-                .getPredicatePushdownController().apply(session, domain).getPushedDown();
-    }
-
     protected void toConjuncts(
             JdbcClient client,
             ConnectorSession session,
@@ -440,8 +434,7 @@ public class DefaultQueryBuilder
         }
         for (Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
             JdbcColumnHandle column = ((JdbcColumnHandle) entry.getKey());
-            Domain domain = pushDownDomain(client, session, connection, column, entry.getValue());
-            result.add(toPredicate(client, session, connection, column, domain, accumulator));
+            result.add(toPredicate(client, session, connection, column, entry.getValue(), accumulator));
         }
     }
 
@@ -468,7 +461,8 @@ public class DefaultQueryBuilder
 
         if (!valueSet.isDiscreteSet()) {
             ValueSet complement = valueSet.complement();
-            if (complement.isDiscreteSet()) {
+            // NaN cannot be represented by an equality or IN value in the excluded set.
+            if (complement.isDiscreteSet() && !(complement instanceof FloatingPointValueSet floatingPoint && floatingPoint.isNaNAllowed())) {
                 return format("NOT (%s)", toPredicate(client, session, connection, column, complement, accumulator));
             }
         }

@@ -735,7 +735,7 @@ public abstract class BaseIcebergSystemTables
 
         long offset = format == PARQUET ? 4L : 3L;
         assertThat(computeActual("SELECT split_offsets FROM test_schema.\"test_table$files\""))
-                .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
+                .isEqualTo(resultBuilder(ImmutableList.of(new ArrayType(BIGINT)))
                         .row(ImmutableList.of(offset))
                         .row(ImmutableList.of(offset))
                         .row(ImmutableList.of(offset))
@@ -1190,6 +1190,20 @@ public abstract class BaseIcebergSystemTables
                     entry("format-version", "2"),
                     entry("sort-order", "y ASC NULLS FIRST"),
                     entry("write.format.default", format.name()));
+        }
+    }
+
+    @Test
+    public void testPropertiesTableWithSortOrderTableProperty()
+    {
+        try (TestTable table = newTrinoTable("test_properties_sort_order", "(x BIGINT, y DOUBLE) WITH (sorted_by = ARRAY['y'])")) {
+            loadTable(table.getName()).updateProperties().set("sort-order", "x ASC NULLS FIRST").commit();
+            assertThat(getTableProperties(table.getName())).containsEntry("sort-order", "y ASC NULLS FIRST");
+        }
+
+        try (TestTable table = newTrinoTable("test_properties_sort_order", "(x BIGINT, y DOUBLE)")) {
+            loadTable(table.getName()).updateProperties().set("sort-order", "x ASC NULLS FIRST").commit();
+            assertThat(getTableProperties(table.getName())).doesNotContainKey("sort-order");
         }
     }
 

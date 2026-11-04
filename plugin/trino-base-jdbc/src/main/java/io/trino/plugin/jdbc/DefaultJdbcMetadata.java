@@ -123,6 +123,8 @@ import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUM
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -134,7 +136,6 @@ public class DefaultJdbcMetadata
     private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
 
     private final JdbcClient jdbcClient;
-    private final TimestampTimeZoneDomain timestampTimeZoneDomain;
     private final boolean precalculateStatisticsForPushdown;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
@@ -145,12 +146,10 @@ public class DefaultJdbcMetadata
 
     public DefaultJdbcMetadata(
             JdbcClient jdbcClient,
-            TimestampTimeZoneDomain timestampTimeZoneDomain,
             boolean precalculateStatisticsForPushdown,
             Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        this.timestampTimeZoneDomain = requireNonNull(timestampTimeZoneDomain, "timestampTimeZoneDomain is null");
         this.precalculateStatisticsForPushdown = precalculateStatisticsForPushdown;
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
     }
@@ -205,17 +204,18 @@ public class DefaultJdbcMetadata
 
         TupleDomain<ColumnHandle> filterDomain;
         ConnectorExpression remainingExpression;
-        switch (timestampTimeZoneDomain) {
-            case ANY -> {
-                filterDomain = constraint.getSummary();
-                remainingExpression = constraint.getExpression();
-            }
-            case UTC_ONLY -> {
-                ExtractionResult extractionResult = UtcConstraintExtractor.extractTupleDomain(constraint);
-                filterDomain = extractionResult.tupleDomain();
-                remainingExpression = extractionResult.remainingExpression();
-            }
-            default -> throw new UnsupportedOperationException("Unsupported timestamp time zone domain: " + timestampTimeZoneDomain);
+
+        boolean utcOnly = constraint.getAssignments().values().stream()
+                .map(JdbcColumnHandle.class::cast)
+                .allMatch(column -> !containsTimestampWithTimeZone(column.getColumnType()) || column.getTimeZone().equals(Optional.of(UTC_KEY)));
+        if (!utcOnly) {
+            filterDomain = constraint.getSummary();
+            remainingExpression = constraint.getExpression();
+        }
+        else {
+            ExtractionResult extractionResult = UtcConstraintExtractor.extractTupleDomain(constraint);
+            filterDomain = extractionResult.tupleDomain();
+            remainingExpression = extractionResult.remainingExpression();
         }
 
         JdbcTableHandle handle = (JdbcTableHandle) table;

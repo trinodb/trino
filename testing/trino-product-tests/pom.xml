@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>484-SNAPSHOT</version>
+        <version>485-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -28,15 +28,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.clickhouse</groupId>
-            <artifactId>clickhouse-jdbc</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.databricks</groupId>
             <artifactId>databricks-jdbc</artifactId>
-            <version>3.4.3</version>
+            <version>3.4.4</version>
             <scope>test</scope>
         </dependency>
 
@@ -380,6 +374,12 @@
         <dependency>
             <groupId>org.xerial.snappy</groupId>
             <artifactId>snappy-java</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
             <scope>test</scope>
         </dependency>
 

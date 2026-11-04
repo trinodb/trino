@@ -3,7 +3,7 @@ description: "Verify checked out commits and setup Java"
 inputs:
   java-version:
     description: "Java version to setup"
-    default: 25.0.4
+    default: 25.0.5
   cache:
     description: "Cache Maven repo (true/false/restore)"
     default: restore
@@ -52,7 +52,7 @@ runs:
         if: runner.os == 'Linux'
         shell: bash
         run: ./.github/bin/configure-docker-hub-mirror.sh
-      - uses: actions/setup-java@v6.0.1
+      - uses: actions/setup-java@v6.1.0
         if: ${{ inputs.java-version != '' }}
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images

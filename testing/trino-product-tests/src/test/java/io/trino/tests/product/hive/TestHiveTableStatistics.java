@@ -15,6 +15,7 @@ package io.trino.tests.product.hive;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.testing.containers.environment.ProductTest;
+import io.trino.testing.containers.environment.QueryResult;
 import io.trino.testing.containers.environment.RequiresEnvironment;
 import io.trino.testing.containers.environment.Row;
 import io.trino.testing.services.junit.Flaky;
@@ -195,7 +196,8 @@ class TestHiveTableStatistics
 
     private static void assertSkewedTableStats(MultinodeHive4Environment env, String tableName, boolean allowWithoutColumnStatistics)
     {
-        List<Row> actualRows = env.executeTrino("SHOW STATS FOR hive.default." + tableName).getRows();
+        QueryResult result = env.executeTrino("SHOW STATS FOR hive.default." + tableName);
+        List<Row> actualRows = result.getRows();
         List<Row> withColumnStats = skewedTableStatsWithColumnStatistics();
         if (allowWithoutColumnStatistics) {
             List<Row> withoutColumnStats = skewedTableStatsWithoutColumnStatistics();
@@ -211,8 +213,7 @@ class TestHiveTableStatistics
             return;
         }
 
-        assertThat(actualRows)
-                .containsExactlyInAnyOrderElementsOf(withColumnStats);
+        assertThat(result).containsOnly(withColumnStats);
     }
 
     // Helper class to simulate anyOf() behavior for statistics comparison

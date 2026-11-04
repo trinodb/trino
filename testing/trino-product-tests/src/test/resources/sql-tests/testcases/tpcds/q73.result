@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|CHAR|CHAR|CHAR|BIGINT|BIGINT
+-- delimiter: |; types: CHAR|CHAR|CHAR|CHAR|INTEGER|BIGINT
 Greene                        |Clarence            |null|N|1541|5|
 Peterson                      |Chantell            |Miss      |N|47551|5|
 Scott                         |Anne                |Dr.       |N|86396|5|

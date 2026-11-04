@@ -41,6 +41,17 @@ via the `trino.server:name=AsyncHttpExecutionMBean:TimeoutExecutor`
 JMX object. If `ActiveCount` is always the same as `PoolSize`, increase the
 number of threads.
 
+## `task.idle-leaf-split-admission.enabled`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `true`
+
+Start leaf splits above `task.min-drivers` while worker threads are idle because
+running leaf splits wait on reading data. The memory used by running leaf splits
+limits how many extra splits start. Set to `false` to start leaf splits only up to
+`task.min-drivers` and `task.min-drivers-per-task`. This can lower peak memory
+usage, but worker threads can then sit idle while splits wait on data.
+
 ## `task.info-update-interval`
 
 - **Type:** {ref}`prop-type-duration`
@@ -87,11 +98,13 @@ via the `RunningSplits` property of the
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** (`task.max-worker-threads` * 2)
 
-The target number of running leaf splits on a worker. This is a minimum value because
-each leaf task is guaranteed at least `3` running splits. Non-leaf tasks are also
-guaranteed to run in order to prevent deadlocks. A lower value may improve responsiveness
-for new tasks, but can result in underutilized resources. A higher value can increase
-resource utilization, but uses additional memory.
+The minimum number of running leaf splits on a worker. Each leaf task is guaranteed
+at least `3` running splits, even above this value. Non-leaf tasks are also
+guaranteed to run in order to prevent deadlocks. While worker threads are idle
+because running leaf splits wait on reading data, the worker starts more leaf splits
+above this value as memory allows. See `task.idle-leaf-split-admission.enabled`.
+A lower value may improve responsiveness for new tasks. A higher value keeps more
+leaf splits running while worker threads are busy, but uses additional memory.
 
 ## `task.min-drivers-per-task`
 

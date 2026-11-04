@@ -20,6 +20,7 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.ParameterizedType;
 import io.airlift.log.Logger;
 import io.trino.spi.TrinoException;
+import org.objectweb.asm.LimitExceededException;
 import org.objectweb.asm.MethodTooLargeException;
 
 import java.lang.invoke.MethodHandles;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.base.Throwables.getCausalChain;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.STATIC;
@@ -157,10 +159,9 @@ public final class CompilerUtils
      * its own class data, since all constants live in the class data rather than the bytes.
      *
      * <p>A too-large generated method surfaces as {@link io.airlift.bytecode.CompilationException}
-     * (with {@link MethodTooLargeException} as its cause) and propagates uncaught: callers that
-     * generate bytecode from a user expression know what advice fits their case (too many
-     * columns, too many filters, and so on) and are expected to translate it into their own
-     * {@link TrinoException} by checking {@link com.google.common.base.Throwables#getRootCause}.
+     * and propagates uncaught: callers that generate bytecode from a user expression know what
+     * advice fits their case (too many columns, too many filters, and so on) and are expected to
+     * translate it into their own {@link TrinoException} by checking {@link #isCompilerLimitExceeded}.
      */
     public static byte[] generateHiddenClassBytes(ClassDefinition classDefinition)
     {
@@ -199,6 +200,16 @@ public final class CompilerUtils
             lookup = ACCESSIBLE_CLASS_LOOKUPS.get(accessedClass);
         }
         return defineHiddenClass(classDefinition, superType, lookup, classData);
+    }
+
+    /**
+     * Returns whether bytecode generation failed because the generated code exceeds a class
+     * file or ASM limit, e.g. because the expression being compiled is too large or complex.
+     */
+    public static boolean isCompilerLimitExceeded(Throwable throwable)
+    {
+        return getCausalChain(throwable).stream()
+                .anyMatch(cause -> cause instanceof MethodTooLargeException || cause instanceof LimitExceededException);
     }
 
     private static <T> Class<? extends T> defineHiddenClass(ClassDefinition classDefinition, Class<T> superType, Lookup lookup, List<Object> classData)

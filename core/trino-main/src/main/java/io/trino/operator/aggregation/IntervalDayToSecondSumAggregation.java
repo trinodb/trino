@@ -83,13 +83,13 @@ public final class IntervalDayToSecondSumAggregation
 
     @SqlNullable
     @OutputFunction("interval day(9) to second(p)")
-    public static void output(@LiteralParameter("p") long precision, @AggregationState LongIntervalState state, BlockBuilder out)
+    public static void output(@LiteralParameter("p") int precision, @AggregationState LongIntervalState state, BlockBuilder out)
     {
         if (state.isNull()) {
             out.appendNull();
             return;
         }
-        IntervalDayTimeType type = createIntervalDayTimeType(DAY, SECOND, IntervalDayTimeType.maxLeadingPrecision(DAY), (int) precision);
+        IntervalDayTimeType type = createIntervalDayTimeType(DAY, SECOND, IntervalDayTimeType.maxLeadingPrecision(DAY), precision);
         if (type.isShort()) {
             type.writeLong(out, state.getMicros());
         }

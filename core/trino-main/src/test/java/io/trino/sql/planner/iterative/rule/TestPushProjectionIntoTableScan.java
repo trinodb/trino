@@ -85,6 +85,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -355,7 +356,7 @@ public class TestPushProjectionIntoTableScan
                     .matches(node(ProjectNode.class, node(TableScanNode.class))
                             .with(ProjectNode.class, project -> {
                                 TableScanNode scan = (TableScanNode) project.getSource();
-                                assertThat(scan.getAssignments().values()).containsExactlyInAnyOrderElementsOf(projectedFields.keySet());
+                                assertEqualsIgnoreOrder(scan.getAssignments().values(), projectedFields.keySet());
                                 // Expanding the projected columns must recover the original expression, including its local binding.
                                 return inlineSymbols(symbol -> projectedFields.get(scan.getAssignments().get(symbol)), project.getAssignments().get(output)).equals(projection);
                             }));

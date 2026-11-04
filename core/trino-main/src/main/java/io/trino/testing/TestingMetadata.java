@@ -315,12 +315,6 @@ public class TestingMetadata
     }
 
     @Override
-    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
-    {
-        return false;
-    }
-
-    @Override
     public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, RetryMode retryMode, RefreshType refreshType)
     {
         queryIdToRefreshType.put(session.getQueryId(), refreshType);

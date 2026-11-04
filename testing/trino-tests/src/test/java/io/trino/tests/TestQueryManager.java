@@ -13,7 +13,6 @@
  */
 package io.trino.tests;
 
-import com.google.common.collect.ImmutableMap;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.dispatcher.DispatchManager;
@@ -151,10 +150,7 @@ public class TestQueryManager
                 .build()) {
             Path hiveDataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
             queryRunner.installPlugin(new TestingHivePlugin(hiveDataDir));
-            queryRunner.createCatalog("hive", "hive", ImmutableMap.of(
-                    "hive.metastore", "file",
-                    "hive.metastore.catalog.dir", hiveDataDir.toFile().getAbsolutePath(),
-                    "fs.hadoop.enabled", "true"));
+            queryRunner.createCatalog("hive", "hive");
 
             Session session = testSessionBuilder()
                     .setCatalog("hive")
@@ -180,10 +176,7 @@ public class TestQueryManager
         try (DistributedQueryRunner queryRunner = TpchQueryRunner.builder().build()) {
             Path hiveDataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
             queryRunner.installPlugin(new TestingHivePlugin(hiveDataDir));
-            queryRunner.createCatalog("hive", "hive", ImmutableMap.of(
-                    "hive.metastore", "file",
-                    "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile().getAbsolutePath(),
-                    "fs.hadoop.enabled", "true"));
+            queryRunner.createCatalog("hive", "hive");
 
             Session session = testSessionBuilder()
                     .setCatalog("hive")

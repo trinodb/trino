@@ -13,14 +13,106 @@
  */
 package io.trino.testing.assertions;
 
+import com.google.common.collect.Iterables;
+import com.google.common.collect.LinkedHashMultiset;
+import com.google.common.collect.Multiset;
+import com.google.common.collect.Multisets;
 import io.airlift.units.Duration;
+
+import java.util.Set;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class Assert
 {
+    private static final int MAX_REPORTED_ELEMENTS = 100;
+
     private Assert() {}
+
+    /**
+     * Asserts that {@code actual} and {@code expected} contain the same elements with the same multiplicities, in any order.
+     * Unlike AssertJ's {@code containsExactlyInAnyOrder}, which is quadratic, this is linear in the element count.
+     */
+    public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected)
+    {
+        assertEqualsIgnoreOrder(actual, expected, "Elements");
+    }
+
+    public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected, String subject)
+    {
+        Multiset<?> actualMultiset = LinkedHashMultiset.create(actual);
+        Multiset<?> expectedMultiset = LinkedHashMultiset.create(expected);
+        if (actualMultiset.equals(expectedMultiset)) {
+            return;
+        }
+
+        Multiset<?> unexpected = Multisets.difference(actualMultiset, expectedMultiset);
+        Multiset<?> missing = Multisets.difference(expectedMultiset, actualMultiset);
+        StringBuilder message = new StringBuilder("%s do not match: %s unexpected, %s missing (actual count: %s, expected count: %s)".formatted(
+                subject,
+                unexpected.size(),
+                missing.size(),
+                actualMultiset.size(),
+                expectedMultiset.size()));
+        appendElements(message, "Unexpected", unexpected);
+        appendElements(message, "Missing", missing);
+        throw new AssertionError(message.toString());
+    }
+
+    /**
+     * Asserts that every element of {@code expected} occurs in {@code actual}, ignoring multiplicities.
+     * Unlike AssertJ's {@code containsAll}, which is quadratic, this is linear in the element count.
+     */
+    public static void assertContainsAll(Iterable<?> actual, Iterable<?> expected)
+    {
+        assertContainsAll(actual, expected, "Elements");
+    }
+
+    public static void assertContainsAll(Iterable<?> actual, Iterable<?> expected, String subject)
+    {
+        Multiset<?> actualMultiset = LinkedHashMultiset.create(actual);
+        Set<?> actualElements = actualMultiset.elementSet();
+        Multiset<Object> missing = LinkedHashMultiset.create();
+        int expectedCount = 0;
+        for (Object element : expected) {
+            expectedCount++;
+            if (!actualElements.contains(element)) {
+                missing.add(element);
+            }
+        }
+        if (missing.isEmpty()) {
+            return;
+        }
+
+        StringBuilder message = new StringBuilder("%s do not contain all expected: %s missing (actual count: %s, expected count: %s)".formatted(
+                subject,
+                missing.size(),
+                actualMultiset.size(),
+                expectedCount));
+        appendElements(message, "Missing", missing);
+        appendElements(message, "Actual", actualMultiset);
+        throw new AssertionError(message.toString());
+    }
+
+    private static void appendElements(StringBuilder message, String title, Multiset<?> elements)
+    {
+        if (elements.isEmpty()) {
+            return;
+        }
+        int distinctCount = elements.entrySet().size();
+        message.append("\n").append(title);
+        if (distinctCount > MAX_REPORTED_ELEMENTS) {
+            message.append(" (first %s of %s distinct)".formatted(MAX_REPORTED_ELEMENTS, distinctCount));
+        }
+        message.append(":");
+        for (Multiset.Entry<?> entry : Iterables.limit(elements.entrySet(), MAX_REPORTED_ELEMENTS)) {
+            message.append("\n  ").append(entry.getElement());
+            if (entry.getCount() > 1) {
+                message.append(" (%s times)".formatted(entry.getCount()));
+            }
+        }
+    }
 
     public static <E extends Exception> void assertEventually(CheckedRunnable<E> assertion)
             throws E

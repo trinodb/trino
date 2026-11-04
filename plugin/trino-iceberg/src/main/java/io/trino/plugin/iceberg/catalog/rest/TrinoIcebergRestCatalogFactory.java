@@ -18,6 +18,8 @@ import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.trino.cache.EvictableCacheBuilder;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.metrics.MeasuredTrinoFileSystem;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -26,6 +28,7 @@ import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.NodeVersion;
+import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
@@ -41,6 +44,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
@@ -142,12 +147,26 @@ public class TrinoIcebergRestCatalogFactory
                             .withHeaders(RESTUtil.configHeaders(config))
                             .build(),
                     (context, config) -> {
-                        ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
-                                ? ((ConnectorIdentity) context.wrappedIdentity())
-                                : ConnectorIdentity.ofUser("fake");
-                        return fileIoFactory.create(fileSystemFactory.create(currentIdentity, config), true, config);
+                        if (context.wrappedIdentity() instanceof RestSessionIdentity sessionIdentity) {
+                            TrinoFileSystem fileSystem = fileSystemFactory.create(sessionIdentity.identity(), config);
+                            // Keep IcebergRestCatalogFileSystem unwrapped so ForwardingFileIo can set storage credentials
+                            if (fileSystem instanceof IcebergRestCatalogFileSystem restFileSystem) {
+                                restFileSystem.measuredWith(sessionIdentity.fileSystemStats());
+                            }
+                            else {
+                                fileSystem = new MeasuredTrinoFileSystem(fileSystem, sessionIdentity.fileSystemStats());
+                            }
+                            return fileIoFactory.create(fileSystem, true, config);
+                        }
+                        return fileIoFactory.create(fileSystemFactory.create(ConnectorIdentity.ofUser("fake"), config), true, config);
                     });
-            icebergCatalogInstance.initialize(catalogName.toString(), catalogPropertiesProvider.catalogProperties());
+            try {
+                icebergCatalogInstance.initialize(catalogName.toString(), catalogPropertiesProvider.catalogProperties());
+            }
+            catch (RuntimeException e) {
+                throwIfInstanceOf(e, TrinoException.class);
+                throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to initialize Iceberg REST catalog", e);
+            }
 
             icebergCatalog = icebergCatalogInstance;
         }

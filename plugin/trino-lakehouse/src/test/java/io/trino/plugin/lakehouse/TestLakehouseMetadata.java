@@ -46,7 +46,6 @@ public class TestLakehouseMetadata
         try {
             EXCLUSIONS = ImmutableSet.<Method>builder()
                     .add(ConnectorMetadata.class.getMethod("supportsMissingColumnsOnInsert"))
-                    .add(ConnectorMetadata.class.getMethod("refreshMaterializedView", ConnectorSession.class, SchemaTableName.class))
                     .add(ConnectorMetadata.class.getMethod("resolveIndex", ConnectorSession.class, ConnectorTableHandle.class, Set.class, Set.class, TupleDomain.class))
                     .add(ConnectorMetadata.class.getMethod("listFunctions", ConnectorSession.class, String.class))
                     .add(ConnectorMetadata.class.getMethod("getFunctions", ConnectorSession.class, SchemaFunctionName.class))
@@ -66,7 +65,6 @@ public class TestLakehouseMetadata
                     .add(ConnectorMetadata.class.getMethod("grantTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class, boolean.class))
                     .add(ConnectorMetadata.class.getMethod("denyTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class))
                     .add(ConnectorMetadata.class.getMethod("revokeTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class, boolean.class))
-                    .add(ConnectorMetadata.class.getMethod("getMaterializedViewFreshness", ConnectorSession.class, SchemaTableName.class))
                     .add(ConnectorMetadata.class.getMethod("createView", ConnectorSession.class, SchemaTableName.class, ConnectorViewDefinition.class, Map.class, SaveMode.class))
                     .build();
         }

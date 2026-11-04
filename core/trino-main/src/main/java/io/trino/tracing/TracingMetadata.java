@@ -15,7 +15,6 @@ package io.trino.tracing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
@@ -96,6 +95,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
@@ -768,24 +768,6 @@ public class TracingMetadata
     }
 
     @Override
-    public boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName)
-    {
-        Span span = startSpan("delegateMaterializedViewRefreshToConnector", viewName);
-        try (var _ = scopedSpan(span)) {
-            return delegate.delegateMaterializedViewRefreshToConnector(session, viewName);
-        }
-    }
-
-    @Override
-    public ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName)
-    {
-        Span span = startSpan("refreshMaterializedView", viewName);
-        try (var _ = scopedSpan(span)) {
-            return delegate.refreshMaterializedView(session, viewName);
-        }
-    }
-
-    @Override
     public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType)
     {
         Span span = startSpan("beginRefreshMaterializedView", tableHandle);
@@ -1422,6 +1404,12 @@ public class TracingMetadata
     }
 
     @Override
+    public Optional<DomainProjection> getDomainProjection(Session session, ResolvedFunction resolvedFunction)
+    {
+        return delegate.getDomainProjection(session, resolvedFunction);
+    }
+
+    @Override
     public ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         Span span = startSpan("getAggregationFunctionMetadata")
@@ -1928,15 +1916,6 @@ public class TracingMetadata
                     privileges.stream().map(EntityPrivilege::name).collect(Collectors.joining("-")),
                     grantOption ? "-grantOption" : "");
             span.setAttribute(TrinoAttributes.PRIVILEGE_GRANT, grant);
-        }
-        return span;
-    }
-
-    private Span startSpan(String methodName, EntityKindAndName entity)
-    {
-        Span span = startSpan(methodName);
-        if (span.isRecording()) {
-            span.setAttribute(TrinoAttributes.ENTITY, String.format("%s-%s", entity.entityKind(), entity.name()));
         }
         return span;
     }

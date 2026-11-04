@@ -27,7 +27,7 @@ public final class SuiteHiveBasic
     public static void main(String[] args)
             throws Exception
     {
-        System.setProperty("trino.product-test.environment-mode", "STRICT");
+        SuiteRunner.initialize(SuiteHiveBasic.class);
 
         List<TestRunResult> results = new ArrayList<>();
 

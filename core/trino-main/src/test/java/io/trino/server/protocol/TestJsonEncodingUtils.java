@@ -93,11 +93,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestJsonEncodingUtils
 {
-    protected QueryDataDecoder createDecoder(List<Column> columns)
-    {
-        return new JsonQueryDataDecoder.Factory().create(columns, DataAttributes.empty(), false);
-    }
-
     protected QueryDataEncoder createEncoder(Session session, List<OutputColumn> columns)
     {
         return new JsonQueryDataEncoder.Factory(new JsonMapper()).create(session, columns);

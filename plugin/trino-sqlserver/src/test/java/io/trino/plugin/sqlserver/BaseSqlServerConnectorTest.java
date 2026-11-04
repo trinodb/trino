@@ -241,7 +241,7 @@ public abstract class BaseSqlServerConnectorTest
     @Override
     protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
     {
-        assertThat(e).hasMessageContaining("was deadlocked on lock resources");
+        assertThat(e).hasMessageMatching("(?s).*(was deadlocked on lock resources|Lock request time out period exceeded).*");
     }
 
     @Test

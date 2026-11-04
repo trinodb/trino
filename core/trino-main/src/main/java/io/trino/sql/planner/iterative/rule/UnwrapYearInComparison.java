@@ -41,6 +41,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -84,7 +85,7 @@ public class UnwrapYearInComparison
 {
     public UnwrapYearInComparison(PlannerContext plannerContext)
     {
-        super(createRewrite(plannerContext));
+        super(createRewrite(plannerContext), session -> !isFunctionPreimagesEnabled(session));
     }
 
     private static ExpressionRewriter createRewrite(PlannerContext plannerContext)

@@ -943,7 +943,7 @@ public class TrinoHiveCatalog
     @Override
     public Metrics getMetrics()
     {
-        return metastore.getMetrics();
+        return metastore.getMetrics().mergeWith(super.getMetrics());
     }
 
     @Override

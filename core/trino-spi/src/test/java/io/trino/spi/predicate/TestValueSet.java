@@ -26,6 +26,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestValueSet
@@ -50,59 +51,59 @@ class TestValueSet
     }
 
     @Test
-    public void testRejectDoubleNaNOnCreate()
+    public void testDoubleNaNOnCreate()
     {
         // ValueSet.of with NaN
-        assertThatThrownBy(() -> ValueSet.of(DOUBLE, Double.NaN))
-                .hasMessage("cannot use NaN as range bound");
+        assertThat(ValueSet.of(DOUBLE, Double.NaN).containsValue(Double.NaN))
+                .isTrue();
 
         // a different NaN
-        assertThatThrownBy(() -> ValueSet.of(DOUBLE, longBitsToDouble(0x7FF8123412341234L)))
-                .hasMessage("cannot use NaN as range bound");
+        assertThat(ValueSet.of(DOUBLE, longBitsToDouble(0x7FF8123412341234L)).containsValue(Double.NaN))
+                .isTrue();
 
         // ValueSet.of with others and NaN
-        assertThatThrownBy(() -> ValueSet.of(DOUBLE, 42., 123., Double.NaN, 127.))
-                .hasMessage("cannot use NaN as range bound");
+        assertThat(ValueSet.of(DOUBLE, 42., 123., Double.NaN, 127.).containsValue(Double.NaN))
+                .isTrue();
 
         // ValueSet.of with others and NaN first
-        assertThatThrownBy(() -> ValueSet.of(DOUBLE, Double.NaN, 42., 123., 127.))
-                .hasMessage("cannot use NaN as range bound");
+        assertThat(ValueSet.of(DOUBLE, Double.NaN, 42., 123., 127.).containsValue(Double.NaN))
+                .isTrue();
 
         // ValueSet.copyOf with NaN
-        assertThatThrownBy(() -> ValueSet.copyOf(DOUBLE, List.of(42., 123., Double.NaN, 127.)))
-                .hasMessage("cannot use NaN as range bound");
+        assertThat(ValueSet.copyOf(DOUBLE, List.of(42., 123., Double.NaN, 127.)).containsValue(Double.NaN))
+                .isTrue();
 
         // ValueSet.copyOf with NaN first, in case the method has a special treatment for first value
-        assertThatThrownBy(() -> ValueSet.copyOf(DOUBLE, List.of(Double.NaN, 42., 123., 127.)))
-                .hasMessage("cannot use NaN as range bound");
+        assertThat(ValueSet.copyOf(DOUBLE, List.of(Double.NaN, 42., 123., 127.)).containsValue(Double.NaN))
+                .isTrue();
     }
 
     @Test
-    public void testRejectRealNaNOnCreate()
+    public void testRealNaNOnCreate()
     {
         // ValueSet.of with NaN
-        assertThatThrownBy(() -> ValueSet.of(REAL, real(Float.NaN)))
-                .hasMessage("cannot use NaN as range bound");
+        assertThat(ValueSet.of(REAL, real(Float.NaN)).containsValue(real(Float.NaN)))
+                .isTrue();
 
         // a different NaN
-        assertThatThrownBy(() -> ValueSet.of(REAL, (long) 0x7FC01234))
-                .hasMessage("cannot use NaN as range bound");
+        assertThat(ValueSet.of(REAL, (long) 0x7FC01234).containsValue(real(Float.NaN)))
+                .isTrue();
 
         // ValueSet.of with others and NaN
-        assertThatThrownBy(() -> ValueSet.of(REAL, real(42), real(123), real(Float.NaN), real(127)))
-                .hasMessage("cannot use NaN as range bound");
+        assertThat(ValueSet.of(REAL, real(42), real(123), real(Float.NaN), real(127)).containsValue(real(Float.NaN)))
+                .isTrue();
 
         // ValueSet.of with others and NaN first
-        assertThatThrownBy(() -> ValueSet.of(REAL, real(Float.NaN), real(42), real(123), real(127)))
-                .hasMessage("cannot use NaN as range bound");
+        assertThat(ValueSet.of(REAL, real(Float.NaN), real(42), real(123), real(127)).containsValue(real(Float.NaN)))
+                .isTrue();
 
         // ValueSet.copyOf with NaN
-        assertThatThrownBy(() -> ValueSet.copyOf(REAL, List.of(real(42), real(123), real(Float.NaN), real(127))))
-                .hasMessage("cannot use NaN as range bound");
+        assertThat(ValueSet.copyOf(REAL, List.of(real(42), real(123), real(Float.NaN), real(127))).containsValue(real(Float.NaN)))
+                .isTrue();
 
         // ValueSet.copyOf with NaN first, in case the method has a special treatment for first value
-        assertThatThrownBy(() -> ValueSet.copyOf(REAL, List.of(real(Float.NaN), real(42), real(123), real(127))))
-                .hasMessage("cannot use NaN as range bound");
+        assertThat(ValueSet.copyOf(REAL, List.of(real(Float.NaN), real(42), real(123), real(127))).containsValue(real(Float.NaN)))
+                .isTrue();
     }
 
     private static long real(float value)

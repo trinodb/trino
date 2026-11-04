@@ -113,6 +113,7 @@ import static io.trino.plugin.opensearch.OpenSearchSessionProperties.isProjectio
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
+import static io.trino.spi.predicate.FloatingPointValueSet.requiresNaNPredicate;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -511,7 +512,9 @@ public class OpenSearchMetadata
         for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
             OpenSearchColumnHandle column = (OpenSearchColumnHandle) entry.getKey();
 
-            if (column.supportsPredicates()) {
+            Domain domain = entry.getValue();
+            // The search query API does not support NaN predicates.
+            if (column.supportsPredicates() && !requiresNaNPredicate(domain.getValues())) {
                 supported.put(column, entry.getValue());
             }
             else {

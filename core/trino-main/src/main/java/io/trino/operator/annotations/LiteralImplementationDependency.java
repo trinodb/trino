@@ -17,16 +17,21 @@ import io.trino.metadata.FunctionBinding;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class LiteralImplementationDependency
         implements ImplementationDependency
 {
     private final String literalName;
+    private final Class<?> type;
 
-    public LiteralImplementationDependency(String literalName)
+    public LiteralImplementationDependency(String literalName, Class<?> type)
     {
         this.literalName = requireNonNull(literalName, "literalName is null");
+        this.type = requireNonNull(type, "type is null");
+        checkArgument(type == long.class || type == int.class, "Literal parameter %s must be long or int, but is %s", literalName, type);
     }
 
     @Override
@@ -35,6 +40,10 @@ public final class LiteralImplementationDependency
     @Override
     public Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        return functionBinding.variables().getNumericVariable(literalName);
+        long value = functionBinding.variables().getNumericVariable(literalName);
+        if (type == int.class) {
+            return toIntExact(value);
+        }
+        return value;
     }
 }

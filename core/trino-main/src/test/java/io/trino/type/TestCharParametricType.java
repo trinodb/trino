@@ -36,4 +36,14 @@ public class TestCharParametricType
                     .isEqualTo("   abc\n   ");
         }
     }
+
+    @Test
+    public void charLengthCountsCodePoints()
+    {
+        try (QueryAssertions assertions = new QueryAssertions()) {
+            assertThat(assertions.expression("CHAR '𝒦𝒫𝒰𝒦𝒟𝒥𝒜'"))
+                    .hasType(createCharType(7))
+                    .isEqualTo("𝒦𝒫𝒰𝒦𝒟𝒥𝒜");
+        }
+    }
 }

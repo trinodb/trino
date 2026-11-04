@@ -30,7 +30,6 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
@@ -63,7 +62,7 @@ public class TestMergeSortedPages
                                 .row(3, 2)
                                 .row(4, 1)
                                 .build()));
-        MaterializedResult expected = resultBuilder(TEST_SESSION, types)
+        MaterializedResult expected = resultBuilder(types)
                 .row(1, 4)
                 .row(2, 3)
                 .row(3, 2)
@@ -95,7 +94,7 @@ public class TestMergeSortedPages
                                 .row(6)
                                 .row(8)
                                 .build()));
-        MaterializedResult expected = resultBuilder(TEST_SESSION, types)
+        MaterializedResult expected = resultBuilder(types)
                 .row(1)
                 .row(2)
                 .row(3)
@@ -174,7 +173,7 @@ public class TestMergeSortedPages
                                 .row(98, 2, 2)
                                 .row(100, 1, 7)
                                 .build()));
-        MaterializedResult expected = resultBuilder(TEST_SESSION, types)
+        MaterializedResult expected = resultBuilder(types)
                 .row(1, 1, 2)
                 .row(2, 1, 2)
                 .row(8, 1, 1)
@@ -239,7 +238,7 @@ public class TestMergeSortedPages
                                 .build(),
                         rowPagesBuilder(types)
                                 .build()));
-        MaterializedResult expected = resultBuilder(TEST_SESSION, types)
+        MaterializedResult expected = resultBuilder(types)
                 .build();
         assertThat(actual).containsExactlyElementsOf(expected);
     }
@@ -283,7 +282,7 @@ public class TestMergeSortedPages
                                 .row(null, "a0", null)
                                 .row(17.0, "a0", null)
                                 .build()));
-        MaterializedResult expected = resultBuilder(TEST_SESSION, types)
+        MaterializedResult expected = resultBuilder(types)
                 .row(15.0, "a2", 17)
                 .row(9.0, "b2", 17)
                 .row(5.0, "c2", 17)
@@ -340,8 +339,8 @@ public class TestMergeSortedPages
         assertThat(mergedPages.isFinished()).isFalse();
 
         Page page = mergedPages.getResult();
-        assertThat(toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page)))
-                .containsExactlyElementsOf(resultBuilder(TEST_SESSION, types)
+        assertThat(toMaterializedResult(types, ImmutableList.of(page)))
+                .containsExactlyElementsOf(resultBuilder(types)
                         .row(1)
                         .build());
 
@@ -397,7 +396,7 @@ public class TestMergeSortedPages
         assertThat(mergedPages.process()).isTrue();
 
         if (mergedPages.isFinished()) {
-            return toMaterializedResult(TEST_SESSION, types, ImmutableList.of());
+            return toMaterializedResult(types, ImmutableList.of());
         }
 
         Page page = mergedPages.getResult();
@@ -405,6 +404,6 @@ public class TestMergeSortedPages
         assertThat(mergedPages.isFinished()).isTrue();
         assertThat(memoryContext.getBytes()).isEqualTo(0L);
 
-        return toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page));
+        return toMaterializedResult(types, ImmutableList.of(page));
     }
 }

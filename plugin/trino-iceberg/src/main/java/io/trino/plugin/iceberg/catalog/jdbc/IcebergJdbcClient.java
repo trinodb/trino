@@ -23,8 +23,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion.V0;
-import static io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion.V1;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergJdbcClient

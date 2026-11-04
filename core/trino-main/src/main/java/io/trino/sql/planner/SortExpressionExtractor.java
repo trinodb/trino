@@ -29,8 +29,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.planner.SymbolsExtractor.extractAll;
 import static java.util.Comparator.comparing;

@@ -138,7 +138,7 @@ idle time, initialization parameters, and accessed catalogs.
 :::{function} runtime.kill_query(query_id, message)
 
 Kill the query identified by `query_id`. The query failure message includes the
-specified `message`. `message` is optional.
+user who killed the query and the specified `message`. `message` is optional.
 
 :::
 

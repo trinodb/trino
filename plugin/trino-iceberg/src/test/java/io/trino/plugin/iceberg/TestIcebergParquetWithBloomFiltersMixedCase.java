@@ -92,7 +92,7 @@ public class TestIcebergParquetWithBloomFiltersMixedCase
     {
         MaterializedResult actualProperties = computeActual("SELECT * FROM \"" + tableName + "$properties\"");
         assertThat(actualProperties).isNotNull();
-        MaterializedResult expectedProperties = resultBuilder(getSession())
+        MaterializedResult expectedProperties = resultBuilder()
                 .row("write.parquet.bloom-filter-enabled.column.dataColumn", "true")
                 .build();
         assertContains(actualProperties, expectedProperties);

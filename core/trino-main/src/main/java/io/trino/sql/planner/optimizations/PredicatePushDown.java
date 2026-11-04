@@ -22,6 +22,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.metadata.FunctionPreimages;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -32,6 +33,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
+import io.trino.sql.planner.ComparisonPreimages;
 import io.trino.sql.planner.EffectivePredicateExtractor;
 import io.trino.sql.planner.EqualityInference;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -82,6 +84,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
+import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
 import static io.trino.SystemSessionProperties.isPredicatePushdownUseTableProperties;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -105,6 +108,7 @@ import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.unwrapCasts;
+import static io.trino.sql.planner.iterative.rule.UnwrapFunctionInComparison.unwrap;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -122,6 +126,7 @@ public class PredicatePushDown
             LESS_THAN_OR_EQUAL);
 
     private final PlannerContext plannerContext;
+    private final ComparisonPreimages comparisonPreimages;
     private final boolean useTableProperties;
     private final boolean dynamicFiltering;
 
@@ -131,6 +136,7 @@ public class PredicatePushDown
             boolean dynamicFiltering)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.comparisonPreimages = new ComparisonPreimages(plannerContext);
         this.useTableProperties = useTableProperties;
         this.dynamicFiltering = dynamicFiltering;
     }
@@ -141,7 +147,7 @@ public class PredicatePushDown
         requireNonNull(plan, "plan is null");
 
         return SimplePlanRewriter.rewriteWith(
-                new Rewriter(context.symbolAllocator(), context.idAllocator(), plannerContext, context.session(), useTableProperties, dynamicFiltering),
+                new Rewriter(context.symbolAllocator(), context.idAllocator(), plannerContext, comparisonPreimages, context.session(), useTableProperties, dynamicFiltering),
                 plan,
                 TRUE);
     }
@@ -152,6 +158,8 @@ public class PredicatePushDown
         private final SymbolAllocator symbolAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final PlannerContext plannerContext;
+        private final ComparisonPreimages comparisonPreimages;
+        private final FunctionPreimages functionPreimages;
         private final IrExpressionOptimizer optimizer;
         private final Metadata metadata;
         private final Session session;
@@ -163,6 +171,7 @@ public class PredicatePushDown
                 SymbolAllocator symbolAllocator,
                 PlanNodeIdAllocator idAllocator,
                 PlannerContext plannerContext,
+                ComparisonPreimages comparisonPreimages,
                 Session session,
                 boolean useTableProperties,
                 boolean dynamicFiltering)
@@ -170,6 +179,9 @@ public class PredicatePushDown
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.comparisonPreimages = requireNonNull(comparisonPreimages, "comparisonPreimages is null");
+            // Shares projection, implementation, and cast resolutions across this pass.
+            this.functionPreimages = comparisonPreimages.newFunctionPreimages();
             this.metadata = plannerContext.getMetadata();
             this.session = requireNonNull(session, "session is null");
             this.dynamicFiltering = dynamicFiltering;
@@ -297,8 +309,10 @@ public class PredicatePushDown
 
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
                     .map(entry -> inlineSymbols(node.getAssignments().assignments(), entry))
-                    .map(conjunct -> canonicalizeExpression(conjunct, plannerContext, getCharVarcharCoercion(session))) // normalize expressions to a form that unwrapCasts understands
-                    .map(conjunct -> unwrapCasts(session, plannerContext, symbolAllocator, conjunct))
+                    .map(conjunct -> canonicalizeExpression(conjunct, plannerContext, getCharVarcharCoercion(session))) // normalize expressions to a form that comparison preimages understand
+                    .map(conjunct -> isFunctionPreimagesEnabled(session)
+                            ? unwrap(plannerContext, comparisonPreimages, functionPreimages, session, symbolAllocator, conjunct)
+                            : unwrapCasts(session, plannerContext, symbolAllocator, conjunct))
                     .collect(Collectors.toList());
 
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(inlinedDeterministicConjuncts));

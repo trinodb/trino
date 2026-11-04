@@ -52,6 +52,8 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -67,6 +69,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.FUNCTION_PREIMAGES_ENABLED;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
@@ -77,7 +80,9 @@ import static io.trino.spi.predicate.Domain.none;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -89,6 +94,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.trino.type.Reals.toReal;
 import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -368,21 +374,25 @@ public class TestDynamicFilterService
         assertThat(dynamicFilter.isBlocked().isDone()).isTrue();
     }
 
-    @Test
-    public void testDynamicFilterCoercion()
+    @ParameterizedTest
+    @CsvSource({"false, false", "true, false", "false, true", "true, true"})
+    public void testDynamicFilterCoercion(boolean preimagesEnabled, boolean floatingPoint)
     {
+        Session coercionSession = Session.builder(session)
+                .setSystemProperty(FUNCTION_PREIMAGES_ENABLED, Boolean.toString(preimagesEnabled))
+                .build();
         DynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         SymbolAllocator symbolAllocator = emptySymbolAllocator();
-        Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
-        Expression df1 = new Cast(symbol1.toSymbolReference(), BIGINT);
+        Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", floatingPoint ? REAL : INTEGER);
+        Expression df1 = new Cast(symbol1.toSymbolReference(), floatingPoint ? DOUBLE : BIGINT);
 
         QueryId queryId = new QueryId("query");
         StageId stageId1 = new StageId(queryId, 1);
 
         dynamicFilterService.registerQuery(
                 queryId,
-                session,
+                coercionSession,
                 ImmutableSet.of(filterId1),
                 ImmutableSet.of(filterId1),
                 ImmutableSet.of());
@@ -401,10 +411,16 @@ public class TestDynamicFilterService
 
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(stageId1, 0, 0),
-                ImmutableMap.of(filterId1, multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L))));
+                ImmutableMap.of(filterId1, floatingPoint
+                        ? multipleValues(DOUBLE, ImmutableList.of(Double.NaN, 2.0))
+                        : multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L))));
         assertThat(dynamicFilter.isComplete()).isTrue();
+        Domain expected = multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L));
+        if (floatingPoint) {
+            expected = preimagesEnabled ? multipleValues(REAL, ImmutableList.of(toReal(Float.NaN), toReal(2))) : Domain.notNull(REAL);
+        }
         assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
-                new TestingColumnHandle("probeColumnA"), multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
+                new TestingColumnHandle("probeColumnA"), expected)));
     }
 
     @Test
@@ -836,7 +852,7 @@ public class TestDynamicFilterService
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                PLANNER_CONTEXT.getTypeOperators(),
+                PLANNER_CONTEXT.getTypeManager(),
                 config);
 
         QueryId queryId = new QueryId("query");
@@ -1001,7 +1017,7 @@ public class TestDynamicFilterService
         return new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                PLANNER_CONTEXT.getTypeOperators(),
+                PLANNER_CONTEXT.getTypeManager(),
                 new DynamicFilterConfig());
     }
 

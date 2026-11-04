@@ -16,14 +16,11 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.FullConnectorSession;
-import io.trino.Session;
 import io.trino.client.StatementStats;
 import io.trino.client.Warning;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
@@ -69,7 +66,6 @@ public class MaterializedResult
 {
     public static final int DEFAULT_PRECISION = 5;
 
-    private final Optional<Session> session;
     private final List<MaterializedRow> rows;
     private final List<Type> types;
     private final List<String> columnNames;
@@ -81,13 +77,12 @@ public class MaterializedResult
     private final List<Warning> warnings;
     private final Optional<StatementStats> statementStats;
 
-    public MaterializedResult(Optional<Session> session, List<MaterializedRow> rows, List<? extends Type> types, List<String> columnNames)
+    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, List<String> columnNames)
     {
-        this(session, rows, types, columnNames, Optional.empty(), ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
+        this(rows, types, columnNames, Optional.empty(), ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public MaterializedResult(
-            Optional<Session> session,
             List<MaterializedRow> rows,
             List<? extends Type> types,
             List<String> columnNames,
@@ -99,7 +94,6 @@ public class MaterializedResult
             List<Warning> warnings,
             Optional<StatementStats> statementStats)
     {
-        this.session = requireNonNull(session, "session is null");
         this.rows = ImmutableList.copyOf(requireNonNull(rows, "rows is null"));
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
@@ -110,11 +104,6 @@ public class MaterializedResult
         this.updateCount = requireNonNull(updateCount, "updateCount is null");
         this.warnings = requireNonNull(warnings, "warnings is null");
         this.statementStats = requireNonNull(statementStats, "statementStats is null");
-    }
-
-    public Session getSession()
-    {
-        return session.orElseThrow(() -> new IllegalStateException("Effective session is not set"));
     }
 
     public int getRowCount()
@@ -252,7 +241,6 @@ public class MaterializedResult
         }
 
         return new MaterializedResult(
-                session,
                 getMaterializedRows().stream()
                         .map(row -> new MaterializedRow(
                                 row.getPrecision(),
@@ -293,7 +281,6 @@ public class MaterializedResult
     public MaterializedResult toTestTypes()
     {
         return new MaterializedResult(
-                session,
                 rows.stream()
                         .map(MaterializedResult::convertToTestTypes)
                         .collect(toImmutableList()),
@@ -337,9 +324,9 @@ public class MaterializedResult
         return new MaterializedRow(trinoRow.getPrecision(), convertedValues);
     }
 
-    public static MaterializedResult materializeSourceDataStream(ConnectorSession session, ConnectorPageSource pageSource, List<Type> types)
+    public static MaterializedResult materializeSourceDataStream(ConnectorPageSource pageSource, List<Type> types)
     {
-        MaterializedResult.Builder builder = resultBuilder(session, types);
+        MaterializedResult.Builder builder = resultBuilder(types);
         while (!pageSource.isFinished()) {
             SourcePage outputPage = pageSource.getNextSourcePage();
             if (outputPage == null) {
@@ -350,36 +337,24 @@ public class MaterializedResult
         return builder.build();
     }
 
-    public static Builder resultBuilder(Session session, Type... types)
+    public static Builder resultBuilder(Type... types)
     {
-        return resultBuilder(session.toConnectorSession(), types);
+        return resultBuilder(ImmutableList.copyOf(types));
     }
 
-    public static Builder resultBuilder(Session session, Iterable<? extends Type> types)
+    public static Builder resultBuilder(Iterable<? extends Type> types)
     {
-        return resultBuilder(session.toConnectorSession(), types);
-    }
-
-    public static Builder resultBuilder(ConnectorSession session, Type... types)
-    {
-        return resultBuilder(session, ImmutableList.copyOf(types));
-    }
-
-    public static Builder resultBuilder(ConnectorSession session, Iterable<? extends Type> types)
-    {
-        return new Builder(session, ImmutableList.copyOf(types));
+        return new Builder(ImmutableList.copyOf(types));
     }
 
     public static class Builder
     {
-        private final ConnectorSession session;
         private final List<Type> types;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
         private List<String> columnNames = ImmutableList.of();
 
-        Builder(ConnectorSession session, List<Type> types)
+        Builder(List<Type> types)
         {
-            this.session = session;
             this.types = ImmutableList.copyOf(types);
         }
 
@@ -439,12 +414,7 @@ public class MaterializedResult
 
         public synchronized MaterializedResult build()
         {
-            if ((session instanceof FullConnectorSession fullConnectorSession)) {
-                return new MaterializedResult(Optional.of(fullConnectorSession.getSession()), rows.build(), types, columnNames);
-            }
-
-            // For TestingConnectorSession we are unable to retrieve full Session which makes the effective session empty in that case
-            return new MaterializedResult(Optional.empty(), rows.build(), types, columnNames);
+            return new MaterializedResult(rows.build(), types, columnNames);
         }
     }
 }

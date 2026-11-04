@@ -55,6 +55,8 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.spi.predicate.FloatingPointValueSet.allOrderedValues;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -789,6 +791,15 @@ public class IoPlanPrinter
                                     .collect(toImmutableSet())),
                     _ -> {
                         throw new IllegalStateException("Unreachable AllOrNone consumer");
+                    },
+                    floatingPoint -> {
+                        floatingPoint.getOrderedValues().getOrderedRanges().stream()
+                                .map(this::formatRange)
+                                .forEach(formattedRanges::add);
+                        if (floatingPoint.isNaNAllowed()) {
+                            FormattedMarker nan = new FormattedMarker(Optional.of("NaN"), Bound.EXACTLY);
+                            formattedRanges.add(new FormattedRange(nan, nan));
+                        }
                     });
 
             return new FormattedDomain(domain.isNullAllowed(), formattedRanges.build());
@@ -796,13 +807,20 @@ public class IoPlanPrinter
 
         private FormattedRange formatRange(Range range)
         {
-            FormattedMarker low = range.isLowUnbounded()
+            boolean lowUnbounded = range.isLowUnbounded();
+            boolean highUnbounded = range.isHighUnbounded();
+            if (typeHasNaN(range.getType()) && !range.isSingleValue()) {
+                Range orderedUniverse = allOrderedValues(range.getType()).getSpan();
+                lowUnbounded |= range.contains(Range.equal(range.getType(), orderedUniverse.getLowBoundedValue()));
+                highUnbounded |= range.contains(Range.equal(range.getType(), orderedUniverse.getHighBoundedValue()));
+            }
+            FormattedMarker low = lowUnbounded
                     ? new FormattedMarker(Optional.empty(), Bound.ABOVE)
                     : new FormattedMarker(
                     Optional.of(valuePrinter.render(range.getType(), range.getLowBoundedValue())),
                     range.isLowInclusive() ? Bound.EXACTLY : Bound.ABOVE);
 
-            FormattedMarker high = range.isHighUnbounded()
+            FormattedMarker high = highUnbounded
                     ? new FormattedMarker(Optional.empty(), Bound.BELOW)
                     : new FormattedMarker(
                     Optional.of(valuePrinter.render(range.getType(), range.getHighBoundedValue())),

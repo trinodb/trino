@@ -51,6 +51,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
+import org.apache.iceberg.MetricsModes;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -73,6 +74,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.geospatial.serde.JtsGeometrySerde.OGC_CRS84_SRID;
 import static io.trino.geospatial.serde.JtsGeometrySerde.ewkbToWkb;
@@ -114,6 +116,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.iceberg.FileContent.DATA;
+import static org.apache.iceberg.TableProperties.METRICS_MODE_COLUMN_CONF_PREFIX;
 import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 
 public class IcebergPageSink
@@ -191,7 +194,7 @@ public class IcebergPageSink
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        this.metricsConfig = MetricsConfig.from(requireNonNull(storageProperties, "storageProperties is null"), null, null);
+        this.metricsConfig = createMetricsConfig(requireNonNull(storageProperties, "storageProperties is null"), outputSchema, metricsSortOrder(outputSchema, sortFields));
         this.maxOpenWriters = maxOpenWriters;
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(partitionColumns, partitionSpec, outputSchema));
         this.targetMaxFileSizeBytes = getTargetMaxFileSizeBytes(storageProperties, targetMaxFileSize);
@@ -586,8 +589,8 @@ public class IcebergPageSink
         long currentMemory = writer.getMemoryUsage();
 
         closedWriterRollbackActions.add(writer.commit());
-
-        verifyNotNullConstraint(writer.getFileMetrics().metrics(), outputSchema);
+        IcebergFileWriter.FileMetrics fileMetrics = writer.getFileMetrics();
+        verifyNotNullConstraint(fileMetrics.metrics(), outputSchema);
 
         validationCpuNanos += writer.getValidationCpuNanos();
         writtenBytes += (writer.getWrittenBytes() - currentWritten);
@@ -600,12 +603,12 @@ public class IcebergPageSink
                 writeContext.getPath(),
                 fileFormat,
                 writer.getWrittenBytes(),
-                new MetricsWrapper(writer.getFileMetrics().metrics()),
+                new MetricsWrapper(fileMetrics.metrics()),
                 partitionSpec.specId(),
                 writeContext.getPartitionData().map(PartitionData::toJson),
                 DATA,
                 Optional.empty(),
-                writer.getFileMetrics().splitOffsets(),
+                fileMetrics.splitOffsets(),
                 sortOrderId,
                 Optional.empty());
 
@@ -720,6 +723,33 @@ public class IcebergPageSink
             return trinoUuidToJavaUuid(UUID.getSlice(block, position));
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
+    }
+
+    // Required columns keep null counts because verifyNotNullConstraint reads them
+    private static MetricsConfig createMetricsConfig(Map<String, String> storageProperties, Schema schema, org.apache.iceberg.SortOrder sortOrder)
+    {
+        MetricsConfig metricsConfig = MetricsConfig.from(storageProperties, schema, sortOrder);
+        Map<String, String> requiredColumnModes = schema.columns().stream()
+                .filter(Types.NestedField::isRequired)
+                .filter(field -> metricsConfig.columnMode(field.name()).equals(MetricsModes.None.get()))
+                .collect(toImmutableMap(field -> METRICS_MODE_COLUMN_CONF_PREFIX + field.name(), _ -> "counts"));
+        if (requiredColumnModes.isEmpty()) {
+            return metricsConfig;
+        }
+        return MetricsConfig.from(
+                ImmutableMap.<String, String>builder()
+                        .putAll(storageProperties)
+                        .putAll(requiredColumnModes)
+                        .buildKeepingLast(),
+                schema,
+                sortOrder);
+    }
+
+    private static org.apache.iceberg.SortOrder metricsSortOrder(Schema schema, List<TrinoSortField> sortFields)
+    {
+        org.apache.iceberg.SortOrder.Builder builder = org.apache.iceberg.SortOrder.builderFor(schema);
+        sortFields.forEach(sortField -> builder.asc(schema.findColumnName(sortField.sourceColumnId())));
+        return builder.build();
     }
 
     private static List<PartitionColumn> toPartitionColumns(List<IcebergColumnHandle> partitionColumns, PartitionSpec partitionSpec, Schema schema)

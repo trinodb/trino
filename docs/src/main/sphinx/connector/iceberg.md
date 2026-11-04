@@ -409,9 +409,11 @@ the following table:
   - `ARRAY(e)`
 * - `MAP(k,v)`
   - `MAP(k,v)`
+* - `UNKNOWN`
+  - `UNKNOWN`
 :::
 
-`TIMESTAMP_NS` and `TIMESTAMPTZ_NS` are supported only for Iceberg format
+`TIMESTAMP_NS`, `TIMESTAMPTZ_NS` and `UNKNOWN` are supported only for Iceberg format
 version `3` tables.
 
 No other types are supported.
@@ -1050,6 +1052,9 @@ The command accepts an optional `clean_expired_metadata` parameter (defaults to 
 When true, cleans up metadata such as partition specs and schemas that are no
 longer referenced by snapshots.
 
+The procedure fails on tables with the `gc_enabled` table property set to
+`false`.
+
 (iceberg-remove-orphan-files)=
 ##### remove_orphan_files
 
@@ -1079,6 +1084,9 @@ The value for `retention_threshold` must be higher than or equal to
 procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
+
+The procedure fails on tables with the `gc_enabled` table property set to
+`false`.
 
 The output of the query has the following metrics:
 
@@ -1139,6 +1147,7 @@ The following table properties can be updated after a table is created:
 - `max_commit_retry`
 - `delete_after_commit_enabled`
 - `max_previous_versions`
+- `max_inferred_metrics_column_defaults`
 - `object_store_layout_enabled`
 - `data_location`
 
@@ -1213,6 +1222,13 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - The max number of previous version metadata files to track.
     Defaults to the value of the `iceberg.max-previous-versions` 
     catalog configuration property, which defaults to `100`.
+* - `max_inferred_metrics_column_defaults`
+  - The maximum number of columns for which column metrics are collected by
+    default. Must be greater than or equal to `0`. Defaults to `100` when not
+    set. Maps to the Iceberg
+    `write.metadata.metrics.max-inferred-column-defaults` table property.
+    The connector applies this limit only to ORC writes. The Parquet and Avro
+    writers ignore it.
 * - `orc_bloom_filter_columns`
   - Comma-separated list of columns to use for ORC bloom filter. It improves the
     performance of queries using Equality and IN predicates when reading ORC

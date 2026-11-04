@@ -82,7 +82,6 @@ public class TestDefaultJdbcMetadata
         metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(
                 database.getJdbcClient(),
                 Optional.empty()),
-                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty());
@@ -94,7 +93,6 @@ public class TestDefaultJdbcMetadata
         metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(
                 database.getJdbcClient(),
                 Optional.of(false)),
-                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
@@ -112,7 +110,6 @@ public class TestDefaultJdbcMetadata
         metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(
                 database.getJdbcClient(),
                 Optional.of(true)),
-                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
@@ -438,7 +435,6 @@ public class TestDefaultJdbcMetadata
                 database.getJdbcClient(),
                 Optional.empty(),
                 Optional.of(tableScanRedirectApplicationResult)),
-                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
 

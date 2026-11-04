@@ -50,9 +50,9 @@ public final class VarcharToTimeWithTimeZoneCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("time(p) with time zone")
-    public static long castToShort(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("varchar(x)") Slice value)
+    public static long castToShort(@LiteralParameter("p") int precision, ConnectorSession session, @SqlType("varchar(x)") Slice value)
     {
-        checkArgument((int) precision <= MAX_SHORT_PRECISION, "precision must be less than max short time with time zone precision");
+        checkArgument(precision <= MAX_SHORT_PRECISION, "precision must be less than max short time with time zone precision");
 
         Matcher matcher = DateTimes.TIME_PATTERN.matcher(trim(value).toStringUtf8());
         if (!matcher.matches()) {
@@ -60,7 +60,7 @@ public final class VarcharToTimeWithTimeZoneCast
         }
 
         try {
-            long nanos = parseTime(matcher) * NANOSECONDS_PER_SECOND + parseFraction((int) precision, matcher, 9);
+            long nanos = parseTime(matcher) * NANOSECONDS_PER_SECOND + parseFraction(precision, matcher, 9);
             nanos %= NANOSECONDS_PER_DAY;
 
             int offsetMinutes = parseOffset(session, matcher);
@@ -74,9 +74,9 @@ public final class VarcharToTimeWithTimeZoneCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("time(p) with time zone")
-    public static LongTimeWithTimeZone castToLong(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("varchar(x)") Slice value)
+    public static LongTimeWithTimeZone castToLong(@LiteralParameter("p") int precision, ConnectorSession session, @SqlType("varchar(x)") Slice value)
     {
-        checkArgument((int) precision > MAX_SHORT_PRECISION && (int) precision <= MAX_PRECISION, "precision out of range");
+        checkArgument(precision > MAX_SHORT_PRECISION && precision <= MAX_PRECISION, "precision out of range");
 
         Matcher matcher = DateTimes.TIME_PATTERN.matcher(trim(value).toStringUtf8());
         if (!matcher.matches()) {
@@ -84,7 +84,7 @@ public final class VarcharToTimeWithTimeZoneCast
         }
 
         try {
-            long picos = parseTime(matcher) * PICOSECONDS_PER_SECOND + parseFraction((int) precision, matcher, 12);
+            long picos = parseTime(matcher) * PICOSECONDS_PER_SECOND + parseFraction(precision, matcher, 12);
             picos %= PICOSECONDS_PER_DAY;
 
             int offsetMinutes = parseOffset(session, matcher);

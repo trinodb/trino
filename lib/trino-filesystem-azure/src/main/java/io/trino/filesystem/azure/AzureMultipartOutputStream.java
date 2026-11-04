@@ -13,20 +13,22 @@
  */
 package io.trino.filesystem.azure;
 
+import com.azure.core.util.BinaryData;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.specialized.BlobOutputStream;
 import com.azure.storage.blob.specialized.BlockBlobClient;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
+import io.trino.filesystem.LinkedBuffer;
 import io.trino.filesystem.TrinoOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
+import jakarta.annotation.Nullable;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -37,17 +39,18 @@ import java.util.concurrent.ExecutorService;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.submit;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
-import static java.lang.Math.clamp;
-import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.System.arraycopy;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class AzureMultipartOutputStream
         extends TrinoOutputStream
 {
+    private static final int BUFFER_CHUNK_SIZE = toIntExact(DataSize.of(1, MEGABYTE).toBytes());
+
     private final AzureLocation location;
     private final BlockBlobClient blockClient;
     private final LocalMemoryContext memoryContext;
@@ -61,9 +64,8 @@ public class AzureMultipartOutputStream
     private final List<ListenableFuture<?>> stagedBlockFutures = new ArrayList<>();
     private int blockNum;
 
-    private byte[] buffer = new byte[0];
-    private int bufferSize;
-    private int initialBufferSize = 64;
+    @Nullable // is null once all data is handed off for upload, or after abort
+    private LinkedBuffer buffer;
 
     public AzureMultipartOutputStream(
             AzureLocation location,
@@ -83,6 +85,10 @@ public class AzureMultipartOutputStream
         this.memoryContext = memoryContext.newLocalMemoryContext(AzureMultipartOutputStream.class.getSimpleName());
         this.blockClient = blobClient.getBlockBlobClient();
         this.uploadExecutor = listeningDecorator(requireNonNull(uploadExecutor, "uploadExecutor is null"));
+        // fixed size chunks, so a block never allocates more than one chunk beyond its size
+        int chunkSize = min(BUFFER_CHUNK_SIZE, writeBlockSizeBytes);
+        this.buffer = new LinkedBuffer(chunkSize, chunkSize);
+        this.memoryContext.setBytes(buffer.allocated());
     }
 
     @Override
@@ -90,9 +96,11 @@ public class AzureMultipartOutputStream
             throws IOException
     {
         ensureOpen();
-        ensureCapacity(1);
-        buffer[bufferSize] = (byte) b;
-        bufferSize++;
+        int allocated = buffer.allocated();
+        buffer.write(b);
+        if (buffer.allocated() != allocated) {
+            memoryContext.addBytes(buffer.allocated() - allocated);
+        }
         flushBuffer(false);
     }
 
@@ -103,11 +111,10 @@ public class AzureMultipartOutputStream
         ensureOpen();
 
         while (length > 0) {
-            ensureCapacity(length);
-
-            int copied = min(buffer.length - bufferSize, length);
-            arraycopy(bytes, offset, buffer, bufferSize, copied);
-            bufferSize += copied;
+            int copied = min(writeBlockSizeBytes - buffer.size(), length);
+            int allocated = buffer.allocated();
+            buffer.write(bytes, offset, copied);
+            memoryContext.addBytes(buffer.allocated() - allocated);
 
             flushBuffer(false);
 
@@ -132,21 +139,6 @@ public class AzureMultipartOutputStream
         }
     }
 
-    private void ensureCapacity(int extra)
-    {
-        int currentCapacity = buffer.length;
-        int capacity = min(writeBlockSizeBytes, bufferSize + extra);
-        if (buffer.length < capacity) {
-            int target = max(buffer.length, initialBufferSize);
-            if (target < capacity) {
-                target += target / 2; // increase 50%
-                target = clamp(target, capacity, writeBlockSizeBytes);
-            }
-            buffer = Arrays.copyOf(buffer, target);
-            memoryContext.addBytes(target - currentCapacity);
-        }
-    }
-
     private void flushBuffer(boolean finished)
             throws IOException
     {
@@ -155,40 +147,39 @@ public class AzureMultipartOutputStream
             BlobOutputStream blobOutputStream = blockClient
                     .getBlobOutputStream(overwrite);
 
-            blobOutputStream.write(buffer, 0, bufferSize);
+            buffer.takeInputStream().transferTo(blobOutputStream);
             blobOutputStream.close();
-            memoryContext.addBytes(-buffer.length);
-            buffer = new byte[0];
+            memoryContext.addBytes(-buffer.allocated());
+            buffer = null;
             return;
         }
 
-        if (bufferSize != writeBlockSizeBytes && (!finished || bufferSize == 0)) {
+        if (buffer.size() != writeBlockSizeBytes && (!finished || buffer.size() == 0)) {
             // If the buffer isn't full yet and we are not finished, do not stage the block
             return;
         }
 
         multiStagingStarted = true;
 
-        byte[] data = buffer;
-        int length = bufferSize;
+        LinkedBuffer data = buffer;
 
         if (finished) {
             this.buffer = null;
         }
         else {
-            this.buffer = new byte[0];
-            this.initialBufferSize = writeBlockSizeBytes;
-            bufferSize = 0;
+            this.buffer = data.startNextPart();
+            memoryContext.addBytes(buffer.allocated());
         }
         String nextBlockId = nextBlockId();
-        stagedBlockFutures.add(submit(stageBlock(nextBlockId, data, length), uploadExecutor));
+        stagedBlockFutures.add(submit(stageBlock(nextBlockId, data), uploadExecutor));
     }
 
-    private Callable<String> stageBlock(String blockId, byte[] data, int length)
+    private Callable<String> stageBlock(String blockId, LinkedBuffer data)
     {
         return () -> {
-            blockClient.stageBlock(blockId, new ByteArrayInputStream(data, 0, length), length);
-            memoryContext.addBytes(-length);
+            // the block must be replayable for retries, which a list of byte buffers is without copying
+            blockClient.stageBlock(blockId, BinaryData.fromListByteBuffer(data.takeByteBuffers()));
+            memoryContext.addBytes(-data.allocated());
             return blockId;
         };
     }

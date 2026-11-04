@@ -32,7 +32,9 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.tpcds.TpcdsMetadata.getTrinoType;
+import static io.trino.plugin.tpcds.TpcdsMetadata.identifierType;
 import static io.trino.spi.type.Chars.trimTrailingSpaces;
 import static io.trino.spi.type.Decimals.rescale;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
@@ -49,17 +51,16 @@ public class TpcdsRecordSet
 
     private final List<Type> columnTypes;
 
-    public TpcdsRecordSet(Results results, List<Column> columns)
+    public TpcdsRecordSet(Results results, List<Column> columns, double scaleFactor)
     {
         requireNonNull(results, "results is null");
 
         this.results = results;
         this.columns = ImmutableList.copyOf(columns);
-        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-        for (Column column : columns) {
-            columnTypes.add(getTrinoType(column.getType()));
-        }
-        this.columnTypes = columnTypes.build();
+        Type identifierType = identifierType(scaleFactor);
+        this.columnTypes = columns.stream()
+                .map(column -> getTrinoType(column.getType(), identifierType))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -103,7 +104,7 @@ public class TpcdsRecordSet
         @Override
         public Type getType(int field)
         {
-            return getTrinoType(columns.get(field).getType());
+            return columnTypes.get(field);
         }
 
         @Override

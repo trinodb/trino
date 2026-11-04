@@ -1268,7 +1268,7 @@ public abstract class AbstractTestJoinQueries
                 "LEFT JOIN (SELECT k, 1 one FROM (values 1) AS r(k)) r " +
                 "ON l.k = r.k GROUP BY a");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                 .row(2L, 1L) // (total rows, # of non null values)
                 .build();
 
@@ -1601,7 +1601,7 @@ public abstract class AbstractTestJoinQueries
                 LIMIT 1
                 """);
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                 .row(2, 2L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -1617,7 +1617,7 @@ public abstract class AbstractTestJoinQueries
                 LIMIT 2
                 """);
 
-        expected = resultBuilder(getSession(), BIGINT, BIGINT)
+        expected = resultBuilder(BIGINT, BIGINT)
                 .row(2, 1L)
                 .row(2, 2L)
                 .build();

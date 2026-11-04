@@ -371,7 +371,7 @@ To build the Web UI locally, run:
 
 To run frontend checks, run:
 
-    bun run check
+    bun run verify
 
 Maven builds package the Web UI automatically, and Maven verification runs the
 frontend checks.

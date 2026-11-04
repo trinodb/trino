@@ -44,13 +44,6 @@ public class ResolvedFunctionCallBuilder
         return this;
     }
 
-    public ResolvedFunctionCallBuilder setArguments(List<Expression> values)
-    {
-        requireNonNull(values, "values is null");
-        argumentValues = new ArrayList<>(values);
-        return this;
-    }
-
     public Call build()
     {
         return new Call(resolvedFunction, argumentValues);

@@ -151,17 +151,6 @@ public class HiveImpersonationEnvironment
 
     // HDFS access
 
-    /**
-     * Creates an HdfsClient for interacting with HDFS.
-     * <p>
-     * The client uses custom DNS resolution to handle redirects to DataNodes
-     * using Docker-internal hostnames, enabling both read and write operations.
-     */
-    public HdfsClient createHdfsClient()
-    {
-        return createHdfsClient("hive");
-    }
-
     public HdfsClient createHdfsClient(String username)
     {
         return hadoop.createHdfsClient(username);

@@ -733,13 +733,14 @@ public class TestIcebergFileOperations
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
                         .build());
 
-        // CAST to date and comparison
+        // CAST to date and comparison. A one-sided range cannot prune the partitions: the '2001' partition may hold
+        // a value such as '20015-01-01', which casts to a date after 2005-01-01.
         assertFileSystemAccesses("SELECT * FROM test_varchar_as_date_predicate WHERE CAST(a AS date) >= DATE '2005-01-01'",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
-                        .add(new FileOperation(MANIFEST, "InputFile.newStream")) // fewer than without filter
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
                         .build());
 
         // CAST to date and BETWEEN
@@ -751,16 +752,94 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(MANIFEST, "InputFile.newStream")) // fewer than without filter
                         .build());
 
-        // conversion to date as a date function
+        // conversion to date as a date function, which is the same one-sided range
         assertFileSystemAccesses("SELECT * FROM test_varchar_as_date_predicate WHERE date(a) >= DATE '2005-01-01'",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
-                        .add(new FileOperation(MANIFEST, "InputFile.newStream")) // fewer than without filter
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
                         .build());
 
         assertUpdate("DROP TABLE test_varchar_as_date_predicate");
+    }
+
+    @Test
+    public void testV3DeleteWithDeletionVector()
+    {
+        String tableName = "test_v3_delete_dv_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (format_version = 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2), ('three', 3)", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('four', 4)", 1);
+
+        // Partially deletes a data file, so a deletion vector is written
+        assertFileSystemAccesses(
+                "DELETE FROM " + tableName + " WHERE key = 'two'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 3)
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
+                        .add(new FileOperation(DELETE, "OutputFile.create"))
+                        .build());
+
+        // Fully deletes a data file, so the data file is removed
+        assertFileSystemAccesses(
+                "DELETE FROM " + tableName + " WHERE key = 'four'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 10)
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
+                        .build());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testV3DeleteWithDeletionVectorOnPartitionedTable()
+    {
+        String tableName = "test_v3_delete_dv_partitioned_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (format_version = 3, partitioning = ARRAY['value'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2), ('three', 2)", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('four', 4)", 1);
+
+        // Partially deletes a data file, so a deletion vector is written
+        assertFileSystemAccesses(
+                "DELETE FROM " + tableName + " WHERE key = 'two'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 3)
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
+                        .add(new FileOperation(DELETE, "OutputFile.create"))
+                        .build());
+
+        // Fully deletes a data file, so the commit skips data manifests of other partitions
+        assertFileSystemAccesses(
+                "DELETE FROM " + tableName + " WHERE key = 'four'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 8)
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
+                        .build());
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

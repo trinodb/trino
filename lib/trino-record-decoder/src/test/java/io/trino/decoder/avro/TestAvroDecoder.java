@@ -1140,11 +1140,6 @@ public class TestAvroDecoder
         checkArrayValues((Block) getObject(decodedRow, handle), handle.getType(), expected);
     }
 
-    private static void checkMapValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Object expected)
-    {
-        checkMapValues((SqlMap) getObject(decodedRow, handle), handle.getType(), expected);
-    }
-
     private static void checkArrayItemIsNull(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, long[] expected)
     {
         Block actualBlock = (Block) getObject(decodedRow, handle);

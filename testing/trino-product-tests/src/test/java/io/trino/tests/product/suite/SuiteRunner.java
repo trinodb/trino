@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.suite;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.testing.containers.environment.EnvironmentManager;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import org.junit.jupiter.api.Tag;
@@ -27,15 +28,23 @@ import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
 import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
 import org.junit.platform.launcher.listeners.TestExecutionSummary;
+import org.yaml.snakeyaml.Yaml;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.lang.annotation.Annotation;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.tests.product.suite.Logging.configureConsoleLogging;
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +66,7 @@ import static java.util.Objects.requireNonNull;
  * Usage in suite main() methods:
  * <pre>{@code
  * public static void main(String[] args) {
- *     System.setProperty("trino.product-test.environment-mode", "STRICT");
+ *     SuiteRunner.initialize(SuiteMysql.class);
  *
  *     List<TestRunResult> results = new ArrayList<>();
  *     results.add(SuiteRunner.forEnvironment(MySqlEnvironment.class)
@@ -76,8 +85,27 @@ public final class SuiteRunner
 {
     private static final String TEST_PACKAGE = "io.trino.tests.product";
     private static final String PRODUCT_TESTS_TIME_ZONE = "Asia/Kathmandu";
+    private static final String SUITES_RESOURCE = "/product-test-suites.yaml";
+
+    private static volatile Class<?> initializedSuite;
 
     private SuiteRunner() {}
+
+    /**
+     * Prepares running the suite: enables the {@link EnvironmentManager.Mode#STRICT strict} environment mode,
+     * and installs only the plugins the suite declares in {@value #SUITES_RESOURCE}. The suite's main method
+     * calls it before any test run.
+     */
+    public static void initialize(Class<?> suiteClass)
+            throws IOException
+    {
+        checkState(initializedSuite == null, "Suite already initialized: %s", initializedSuite);
+        initializedSuite = suiteClass;
+        // Read by EnvironmentManager.shared() when created
+        System.setProperty("trino.product-test.environment-mode", "STRICT");
+        // Fail on use of a plugin the suite does not declare, as CI selects the suites to run by the declared plugins
+        declaredPlugins(suiteClass).ifPresent(EnvironmentManager.shared()::restrictInstalledPlugins);
+    }
 
     /**
      * Extracts the tag string from a {@link TestGroup} annotation class.
@@ -98,6 +126,29 @@ public final class SuiteRunner
         return tag.value();
     }
 
+    /**
+     * Plugins declared for the suite in {@value #SUITES_RESOURCE}, or empty for the smoke suite, which runs with all plugins.
+     */
+    @SuppressWarnings("unchecked")
+    private static Optional<Set<String>> declaredPlugins(Class<?> suiteClass)
+            throws IOException
+    {
+        String suite = suiteClass.getSimpleName();
+        Map<String, ?> config;
+        try (InputStream input = requireNonNull(SuiteRunner.class.getResourceAsStream(SUITES_RESOURCE), SUITES_RESOURCE + " not found")) {
+            config = new Yaml().load(input);
+        }
+        if (suite.equals(config.get("smoke-suite"))) {
+            return Optional.empty();
+        }
+        Map<String, List<String>> suites = (Map<String, List<String>>) config.get("suites");
+        checkArgument(suites.get(suite) != null, "%s does not declare its plugins in %s", suite, SUITES_RESOURCE);
+        return Optional.of(ImmutableSet.<String>builder()
+                .addAll((List<String>) config.get("installed-by-default"))
+                .addAll(suites.get(suite))
+                .build());
+    }
+
     private static FailureInfo failureInfo(TestExecutionSummary.Failure failure)
     {
         TestSource source = failure.getTestIdentifier().getSource().orElse(null);
@@ -116,6 +167,7 @@ public final class SuiteRunner
             List<String> excludeTags)
             throws Exception
     {
+        checkState(initializedSuite != null, "SuiteRunner.initialize must be called first");
         Thread.currentThread().setName(environmentClass.getSimpleName());
         configureConsoleLogging();
         SystemMemoryMonitor.start();

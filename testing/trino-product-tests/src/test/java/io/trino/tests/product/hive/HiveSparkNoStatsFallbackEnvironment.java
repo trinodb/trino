@@ -14,7 +14,6 @@
 package io.trino.tests.product.hive;
 
 import io.trino.testing.containers.HadoopContainer;
-import io.trino.testing.containers.HdfsClient;
 import io.trino.testing.containers.SparkIcebergContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
@@ -203,17 +202,6 @@ public class HiveSparkNoStatsFallbackEnvironment
     }
 
     // HDFS access
-
-    /**
-     * Creates an HdfsClient for interacting with HDFS.
-     * <p>
-     * The client uses custom DNS resolution to handle redirects to DataNodes
-     * using Docker-internal hostnames, enabling both read and write operations.
-     */
-    public HdfsClient createHdfsClient()
-    {
-        return hadoop.createHdfsClient();
-    }
 
     /**
      * Returns the default warehouse directory path in HDFS.

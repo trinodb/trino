@@ -17,7 +17,6 @@ import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.columnar.DynamicPageFilter.DynamicFilterEvaluator;
 import io.trino.sql.ir.Call;
@@ -43,7 +42,6 @@ import static io.trino.sql.gen.columnar.AndFilterEvaluator.createAndExpressionEv
 import static io.trino.sql.gen.columnar.OrFilterEvaluator.createOrExpressionEvaluator;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
-import static io.trino.type.UnknownType.UNKNOWN;
 
 /**
  * Used by PageProcessor to evaluate filter expression on input Page.
@@ -87,8 +85,8 @@ public sealed interface FilterEvaluator
                 if (isNotExpression(call)) {
                     // "not(is_null(reference))" is handled explicitly as it is easy.
                     // more generic cases like "not(equal(reference, constant))" are not handled yet
-                    if (call.arguments().getFirst() instanceof IsNull isNull) {
-                        yield createIsNotNullExpressionEvaluator(charVarcharCoercion, compiler, call, isNull, layout, dynamicFilter);
+                    if (call.arguments().getFirst() instanceof IsNull) {
+                        yield createIsNotNullExpressionEvaluator(charVarcharCoercion, compiler, call, layout, dynamicFilter);
                     }
                     if (call.arguments().getFirst() instanceof Reference reference && reference.type().equals(BOOLEAN)) {
                         yield createReferenceExpressionEvaluator(charVarcharCoercion, compiler, call, layout, dynamicFilter);
@@ -140,22 +138,16 @@ public sealed interface FilterEvaluator
         });
     }
 
-    private static Optional<Supplier<FilterEvaluator>> createIsNotNullExpressionEvaluator(CharVarcharCoercion charVarcharCoercion, ColumnarFilterCompiler compiler, Call call, IsNull isNull, Map<Symbol, Integer> layout, boolean dynamicFilter)
+    private static Optional<Supplier<FilterEvaluator>> createIsNotNullExpressionEvaluator(CharVarcharCoercion charVarcharCoercion, ColumnarFilterCompiler compiler, Call call, Map<Symbol, Integer> layout, boolean dynamicFilter)
     {
         checkArgument(isNotExpression(call), "call %s should be not", call);
         checkArgument(call.arguments().size() == 1);
-        Type argumentType = isNull.value().type();
-        checkArgument(!argumentType.equals(UNKNOWN), "argumentType %s should not be UNKNOWN", argumentType);
-
         Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(charVarcharCoercion, call, layout, dynamicFilter);
         return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
     }
 
     private static Optional<Supplier<FilterEvaluator>> createIsNullExpressionEvaluator(CharVarcharCoercion charVarcharCoercion, ColumnarFilterCompiler compiler, IsNull isNull, Map<Symbol, Integer> layout, boolean dynamicFilter)
     {
-        Type argumentType = isNull.value().type();
-        checkArgument(!argumentType.equals(UNKNOWN), "argumentType %s should not be UNKNOWN", argumentType);
-
         Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(charVarcharCoercion, isNull, layout, dynamicFilter);
         return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
     }

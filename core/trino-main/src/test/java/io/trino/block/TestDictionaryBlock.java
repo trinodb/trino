@@ -30,7 +30,6 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -107,7 +106,7 @@ public class TestDictionaryBlock
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
         ValueBlock dictionary = dictionaryBlock.getDictionary();
         double averageEntrySize = dictionary.getSizeInBytes() / (double) dictionary.getPositionCount();
-        assertThat(dictionaryBlock.getSizeInBytes()).isEqualTo((long) (averageEntrySize * 100) + (100 * SIZE_OF_INT));
+        assertThat(dictionaryBlock.getSizeInBytes()).isEqualTo((long) (averageEntrySize * 100));
     }
 
     @Test
@@ -384,17 +383,17 @@ public class TestDictionaryBlock
 
         int[] allIds = IntStream.range(0, entryCount).toArray();
         Block dictionaryBlock = DictionaryBlock.create(allIds.length, dictionary, allIds);
-        assertThat(dictionaryBlock.getSizeInBytes()).isEqualTo(dictionary.getSizeInBytes() + (Integer.BYTES * (long) entryCount));
+        assertThat(dictionaryBlock.getSizeInBytes()).isEqualTo(dictionary.getSizeInBytes());
 
         int firstHalfLength = entryCount / 2;
         int secondHalfLength = entryCount - firstHalfLength;
         int[] firstHalfIds = IntStream.range(0, firstHalfLength).toArray();
         int[] secondHalfIds = IntStream.range(firstHalfLength, entryCount).toArray();
 
-        assertThat(DictionaryBlock.create(firstHalfIds.length, dictionary, firstHalfIds).getSizeInBytes()).isEqualTo((long) (averageEntrySize * firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
-        assertThat(DictionaryBlock.create(secondHalfIds.length, dictionary, secondHalfIds).getSizeInBytes()).isEqualTo((long) (averageEntrySize * secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
-        assertThat(dictionaryBlock.getRegionSizeInBytes(0, firstHalfLength)).isEqualTo((long) (averageEntrySize * firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
-        assertThat(dictionaryBlock.getRegionSizeInBytes(firstHalfLength, secondHalfLength)).isEqualTo((long) (averageEntrySize * secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
+        assertThat(DictionaryBlock.create(firstHalfIds.length, dictionary, firstHalfIds).getSizeInBytes()).isEqualTo((long) (averageEntrySize * firstHalfLength));
+        assertThat(DictionaryBlock.create(secondHalfIds.length, dictionary, secondHalfIds).getSizeInBytes()).isEqualTo((long) (averageEntrySize * secondHalfLength));
+        assertThat(dictionaryBlock.getRegionSizeInBytes(0, firstHalfLength)).isEqualTo((long) (averageEntrySize * firstHalfLength));
+        assertThat(dictionaryBlock.getRegionSizeInBytes(firstHalfLength, secondHalfLength)).isEqualTo((long) (averageEntrySize * secondHalfLength));
         assertThat(dictionaryBlock.getRegionSizeInBytes(0, 0)).isEqualTo(dictionaryBlock.getRegion(0, 0).getSizeInBytes());
         assertThat(dictionaryBlock.getRegionSizeInBytes(1, 1)).isEqualTo(dictionaryBlock.getRegion(1, 1).getSizeInBytes());
     }

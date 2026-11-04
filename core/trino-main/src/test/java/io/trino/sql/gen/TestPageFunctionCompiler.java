@@ -338,6 +338,82 @@ public class TestPageFunctionCompiler
         Page page = createLongBlockPage(0);
         Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
         assertThat(hiddenType.getObjectValue(result, 0)).isEqualTo(42);
+
+        PageProjection rowProjection = functionResolution.getPageFunctionCompiler()
+                .compileProjection(row, ImmutableMap.of(), SQL_STANDARD, Optional.empty())
+                .get();
+        result = project(rowProjection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(42));
+    }
+
+    @Test
+    public void testNestedRowProjection()
+    {
+        Reference input = new Reference(BIGINT, "$col_0");
+        Row row = new Row(ImmutableList.of(input, new Row(ImmutableList.of(ADD_10_EXPRESSION, input))));
+        RowType rowType = (RowType) row.type();
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(row, LAYOUT, SQL_STANDARD, Optional.empty())
+                .get();
+
+        Page page = createPageWithBlockAtChannel2(createLongsBlock(1L, null, 3L));
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, 3));
+        assertThat(result.getPositionCount()).isEqualTo(3);
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(1L, ImmutableList.of(11L, 1L)));
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(Arrays.asList(null, Arrays.asList(null, null)));
+        assertThat(rowType.getObjectValue(result, 2)).isEqualTo(ImmutableList.of(3L, ImmutableList.of(13L, 3L)));
+
+        result = project(projection, page, SelectedPositions.positionsList(new int[] {2, 1, 0, 2}, 0, 4));
+        assertThat(result.getPositionCount()).isEqualTo(4);
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(3L, ImmutableList.of(13L, 3L)));
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(Arrays.asList(null, Arrays.asList(null, null)));
+        assertThat(rowType.getObjectValue(result, 2)).isEqualTo(ImmutableList.of(1L, ImmutableList.of(11L, 1L)));
+        assertThat(rowType.getObjectValue(result, 3)).isEqualTo(ImmutableList.of(3L, ImmutableList.of(13L, 3L)));
+
+        Page badPage = createPageWithDataAtChannel2(1, Long.MAX_VALUE);
+        assertTrinoExceptionThrownBy(() -> project(projection, badPage, SelectedPositions.positionsRange(0, 2)))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        result = project(projection, page, SelectedPositions.positionsRange(2, 1));
+        assertThat(result.getPositionCount()).isEqualTo(1);
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(3L, ImmutableList.of(13L, 3L)));
+    }
+
+    @Test
+    public void testRowProjectionWithNullRow()
+    {
+        RowType nestedType = RowType.anonymous(ImmutableList.of(BIGINT));
+        Row row = new Row(ImmutableList.of(
+                new Constant(nestedType, null),
+                new Reference(VARCHAR, "value"),
+                new Row(ImmutableList.of(new Constant(BIGINT, null)))));
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(row, ImmutableMap.of(new Symbol(VARCHAR, "value"), 0), SQL_STANDARD, Optional.empty())
+                .get();
+        Page page = new Page(createStringsBlock("abc", "xyz"));
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, 2));
+        RowType rowType = (RowType) row.type();
+        assertThat(result.getPositionCount()).isEqualTo(2);
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(Arrays.asList(null, "abc", nCopies(1, null)));
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(Arrays.asList(null, "xyz", nCopies(1, null)));
+    }
+
+    @Test
+    public void testProjectionWithLargeInputBackedRow()
+    {
+        int fieldCount = MEGAMORPHIC_FIELD_COUNT + 1;
+        Reference input = new Reference(BIGINT, "$col_0");
+        RowType rowType = RowType.anonymous(nCopies(fieldCount, BIGINT));
+        Row row = new Row(nCopies(fieldCount, input), rowType);
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(row, ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0), SQL_STANDARD, Optional.empty())
+                .get();
+
+        Page page = new Page(createLongsBlock(1L, null, 3L));
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(result.getPositionCount()).isEqualTo(3);
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(nCopies(fieldCount, 1L));
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(nCopies(fieldCount, null));
+        assertThat(rowType.getObjectValue(result, 2)).isEqualTo(nCopies(fieldCount, 3L));
     }
 
     @Test

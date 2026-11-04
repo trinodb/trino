@@ -35,7 +35,6 @@ import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -782,13 +781,13 @@ public abstract class BaseFailureRecoveryTest
                 assertThat(actual.getUpdatedTableContent()).isPresent();
                 MaterializedResult expectedUpdatedTableContent = expected.getUpdatedTableContent().get();
                 MaterializedResult actualUpdatedTableContent = actual.getUpdatedTableContent().get();
-                assertEqualsIgnoreOrder(actualUpdatedTableContent, expectedUpdatedTableContent, "For query: \n " + query);
+                assertEqualsIgnoreOrder(actualUpdatedTableContent, expectedUpdatedTableContent, "Rows for query [%s]".formatted(query));
             }
             else if (isExplain) {
                 assertThat(actualQueryResult.getRowCount()).isEqualTo(expectedQueryResult.getRowCount());
             }
             else {
-                assertEqualsIgnoreOrder(actualQueryResult, expectedQueryResult, "For query: \n " + query);
+                assertEqualsIgnoreOrder(actualQueryResult, expectedQueryResult, "Rows for query [%s]".formatted(query));
             }
 
             queryAssertion.accept(actual.getQueryId());
@@ -991,12 +990,5 @@ public abstract class BaseFailureRecoveryTest
         return new Object[] {
                 new ParallelTestRunnable(name, runnable),
         };
-    }
-
-    protected Object[][] moreParallelTests(Object[][] some, Object[]... more)
-    {
-        Object[][] result = Arrays.copyOf(some, some.length + more.length);
-        System.arraycopy(more, 0, result, some.length, more.length);
-        return result;
     }
 }

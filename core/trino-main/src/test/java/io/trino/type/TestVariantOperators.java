@@ -54,6 +54,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.variant.VariantEncoder.encodeObject;
 import static io.trino.spi.variant.VariantEncoder.encodedObjectSize;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -651,6 +652,24 @@ class TestVariantOperators
                 .isEqualTo(epochNanos);
 
         assertCastFromVariant(Variant.NULL_VALUE, "TIMESTAMP(9) WITH TIME ZONE", null);
+    }
+
+    @Test
+    void testCastWithTimestampAtOverflowBound()
+    {
+        assertCastFromVariant(Variant.ofTimestampNanosNtz(Long.MAX_VALUE), "TIMESTAMP(6)", SqlTimestamp.newInstance(6, 9223372036854776L, 0));
+        assertCastFromVariant(Variant.ofTimestampNanosNtz(Long.MAX_VALUE), "TIMESTAMP(3)", SqlTimestamp.newInstance(3, 9223372036855000L, 0));
+        assertCastFromVariant(Variant.ofTimestampNanosNtz(Long.MAX_VALUE), "TIMESTAMP(7)", SqlTimestamp.newInstance(7, 9223372036854775L, 800_000));
+        assertCastFromVariant(Variant.ofTimestampNanosNtz(Long.MIN_VALUE), "TIMESTAMP(6)", SqlTimestamp.newInstance(6, -9223372036854776L, 0));
+        assertCastFromVariant(Variant.ofTimestampNanosUtc(Long.MAX_VALUE), "TIMESTAMP(3) WITH TIME ZONE", SqlTimestampWithTimeZone.newInstance(3, 9223372036855L, 0, UTC_KEY));
+        assertCastFromVariant(Variant.ofTimestampNanosUtc(Long.MAX_VALUE), "TIMESTAMP(7) WITH TIME ZONE", SqlTimestampWithTimeZone.newInstance(7, 9223372036854L, 775_800_000, UTC_KEY));
+        assertCastFromVariant(Variant.ofTimestampNanosNtz(Long.MAX_VALUE), "TIMESTAMP(8)", SqlTimestamp.newInstance(8, 9223372036854775L, 810_000));
+        assertCastFromVariant(Variant.ofTimestampNanosUtc(Long.MAX_VALUE), "TIMESTAMP(8) WITH TIME ZONE", SqlTimestampWithTimeZone.newInstance(8, 9223372036854L, 775_810_000, UTC_KEY));
+
+        assertCastFromVariant(Variant.ofTimestampMicrosNtz(Long.MAX_VALUE), "TIMESTAMP(4)", SqlTimestamp.newInstance(4, 9223372036854775800L, 0));
+        assertCastFromVariantThrows(Variant.ofTimestampMicrosNtz(Long.MAX_VALUE), "TIMESTAMP(5)")
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
     }
 
     @Test

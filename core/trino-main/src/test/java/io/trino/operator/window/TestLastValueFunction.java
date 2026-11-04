@@ -15,7 +15,6 @@ package io.trino.operator.window;
 
 import org.junit.jupiter.api.Test;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -28,7 +27,7 @@ public class TestLastValueFunction
     public void testLastValueUnbounded()
     {
         assertUnboundedWindowQuery("last_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                resultBuilder(INTEGER, VARCHAR, VARCHAR)
                         .row(3, "F", "1993-10-27")
                         .row(5, "F", "1993-10-27")
                         .row(6, "F", "1993-10-27")
@@ -41,7 +40,7 @@ public class TestLastValueFunction
                         .row(34, "O", "1998-07-21")
                         .build());
         assertUnboundedWindowQueryWithNulls("last_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                resultBuilder(BIGINT, VARCHAR, VARCHAR)
                         .row(3L, "F", "1993-10-27")
                         .row(5L, "F", "1993-10-27")
                         .row(6L, "F", "1993-10-27")
@@ -55,7 +54,7 @@ public class TestLastValueFunction
                         .build());
 
         assertUnboundedWindowQuery("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                resultBuilder(INTEGER, VARCHAR, INTEGER)
                         .row(3, "F", 33)
                         .row(5, "F", 33)
                         .row(6, "F", 33)
@@ -68,7 +67,7 @@ public class TestLastValueFunction
                         .row(34, "O", 34)
                         .build());
         assertUnboundedWindowQueryWithNulls("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", null)
                         .row(5L, "F", null)
                         .row(6L, "F", null)
@@ -82,7 +81,7 @@ public class TestLastValueFunction
                         .build());
         // Timestamp
         assertWindowQuery("date_format(last_value(cast(orderdate as TIMESTAMP)) OVER (PARTITION BY orderstatus ORDER BY orderkey), '%Y-%m-%d')",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                resultBuilder(INTEGER, VARCHAR, VARCHAR)
                         .row(3, "F", "1993-10-14")
                         .row(5, "F", "1994-07-30")
                         .row(6, "F", "1992-02-21")
@@ -100,7 +99,7 @@ public class TestLastValueFunction
     public void testLastValueUnboundedIgnoreNulls()
     {
         assertUnboundedWindowQueryWithNulls("last_value(orderkey) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 6L)
                         .row(5L, "F", 6L)
                         .row(6L, "F", 6L)
@@ -118,7 +117,7 @@ public class TestLastValueFunction
     public void testLastValueUnboundedRespectNulls()
     {
         assertUnboundedWindowQueryWithNulls("last_value(orderkey) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", null)
                         .row(5L, "F", null)
                         .row(6L, "F", null)
@@ -138,7 +137,7 @@ public class TestLastValueFunction
         assertWindowQuery(
                 "last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                resultBuilder(INTEGER, VARCHAR, INTEGER)
                         .row(3, "F", 6)
                         .row(5, "F", 33)
                         .row(6, "F", 33)
@@ -153,7 +152,7 @@ public class TestLastValueFunction
         assertWindowQueryWithNulls(
                 "last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 6L)
                         .row(5L, "F", null)
                         .row(6L, "F", null)
@@ -173,7 +172,7 @@ public class TestLastValueFunction
         assertWindowQueryWithNulls(
                 "last_value(orderkey) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 6L)
                         .row(5L, "F", 6L)
                         .row(6L, "F", 6L)
@@ -188,7 +187,7 @@ public class TestLastValueFunction
         assertWindowQueryWithNulls(
                 "last_value(orderkey) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 5L)
                         .row(5L, "F", 6L)
                         .row(6L, "F", 6L)
@@ -208,7 +207,7 @@ public class TestLastValueFunction
         assertWindowQueryWithNulls(
                 "last_value(orderkey) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 6L)
                         .row(5L, "F", null)
                         .row(6L, "F", null)
@@ -223,7 +222,7 @@ public class TestLastValueFunction
         assertWindowQueryWithNulls(
                 "last_value(orderkey) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 5L)
                         .row(5L, "F", 6L)
                         .row(6L, "F", null)

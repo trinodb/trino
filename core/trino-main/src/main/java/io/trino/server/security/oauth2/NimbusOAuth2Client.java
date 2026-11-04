@@ -86,7 +86,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class NimbusOAuth2Client
         implements OAuth2Client
 {
-    private static final Logger LOG = Logger.get(NimbusAirliftHttpClient.class);
+    private static final Logger LOG = Logger.get(NimbusOAuth2Client.class);
 
     private final Issuer issuer;
     private final ClientID clientId;
@@ -97,6 +97,7 @@ public class NimbusOAuth2Client
     private final Duration maxClockSkew;
     private final Optional<String> jwtType;
     private final Optional<String> domainHint;
+    private final boolean requireAudience;
     private final NimbusHttpClient httpClient;
     private final OAuth2ServerConfigProvider serverConfigurationProvider;
     private volatile boolean loaded;
@@ -119,10 +120,14 @@ public class NimbusOAuth2Client
         maxClockSkew = oauthConfig.getMaxClockSkew();
         jwtType = oauthConfig.getJwtType();
         domainHint = oauthConfig.getDomainHint();
+        requireAudience = oauthConfig.isRequireAudience();
 
         accessTokenAudiences = new HashSet<>(oauthConfig.getAdditionalAudiences());
         accessTokenAudiences.add(clientId.getValue());
-        accessTokenAudiences.add(null); // A null value in the set allows JWTs with no audience
+        // With require-audience, null is left out so that Nimbus rejects JWTs that have no aud claim
+        if (!requireAudience) {
+            accessTokenAudiences.add(null); // A null value in the set allows JWTs with no audience
+        }
 
         this.serverConfigurationProvider = requireNonNull(serverConfigurationProvider, "serverConfigurationProvider is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -136,6 +141,11 @@ public class NimbusOAuth2Client
         this.tokenUrl = config.tokenUrl();
         this.userinfoUrl = config.userinfoUrl();
         this.endSessionUrl = config.endSessionUrl();
+        if (requireAudience && userinfoUrl.isPresent()) {
+            // The userinfo endpoint path validates access tokens by calling the IdP instead of verifying claims locally,
+            // so accessTokenAudiences (and therefore require-audience) is never consulted for those tokens.
+            LOG.warn("http-server.authentication.oauth2.require-audience has no effect because access tokens are validated using the userinfo endpoint");
+        }
         try {
             jwsKeySelector = new JWSVerificationKeySelector<>(
                     Stream.concat(JWSAlgorithm.Family.RSA.stream(), JWSAlgorithm.Family.EC.stream()).collect(toImmutableSet()),

@@ -69,6 +69,8 @@ import static org.apache.iceberg.types.EdgeAlgorithm.SPHERICAL;
 
 public final class TypeConverter
 {
+    private static final TypeDescriptor UNKNOWN_TYPE = new TypeDescriptor("unknown");
+
     private TypeConverter() {}
 
     public static Type toTrinoType(org.apache.iceberg.types.Type type, TypeManager typeManager)
@@ -134,7 +136,7 @@ public final class TypeConverter
                 }
                 yield getSphericalGeographyType(typeManager);
             }
-            case UNKNOWN -> throw new TrinoException(NOT_SUPPORTED, format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
+            case UNKNOWN -> typeManager.getType(UNKNOWN_TYPE);
         };
     }
 

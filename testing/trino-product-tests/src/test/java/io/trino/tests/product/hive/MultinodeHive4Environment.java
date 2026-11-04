@@ -218,16 +218,6 @@ public class MultinodeHive4Environment
         return BUCKET_NAME;
     }
 
-    /**
-     * Returns the S3 path for the warehouse directory.
-     *
-     * @return the S3 warehouse path (e.g., "s3a://multinode-hive4-test-bucket/")
-     */
-    public String getWarehousePath()
-    {
-        return "s3a://" + BUCKET_NAME + "/";
-    }
-
     // Standard ProductTestEnvironment methods
 
     @Override
@@ -290,14 +280,6 @@ public class MultinodeHive4Environment
     }
 
     /**
-     * Returns the Hive 4 HiveServer2 container.
-     */
-    public Hive4HiveServerContainer getHiveServer()
-    {
-        return hiveServer;
-    }
-
-    /**
      * Returns the Floci container.
      */
     public Floci getFloci()
@@ -305,43 +287,7 @@ public class MultinodeHive4Environment
         return floci;
     }
 
-    /**
-     * Returns the multinode Trino cluster.
-     */
-    public MultiNodeTrinoCluster getTrinoCluster()
-    {
-        return trinoCluster;
-    }
-
     // Utility methods for distributed query testing
-
-    /**
-     * Returns the expected number of nodes in the cluster (coordinator + workers).
-     *
-     * @return the total number of nodes (2 in this environment: 1 coordinator + 1 worker)
-     */
-    public int getExpectedNodeCount()
-    {
-        return 2; // 1 coordinator + 1 worker
-    }
-
-    /**
-     * Verifies that the cluster has all expected nodes active.
-     *
-     * @return true if all nodes are active, false otherwise
-     */
-    public boolean isClusterFullyActive()
-    {
-        try {
-            QueryResult result = executeTrino("SELECT count(*) FROM system.runtime.nodes WHERE state = 'active'");
-            return result.rows().size() == 1 &&
-                    result.rows().getFirst().size() == 1 &&
-                    ((Number) result.rows().getFirst().getFirst()).intValue() == getExpectedNodeCount();
-        }
-        catch (RuntimeException e) {
-            return false;
-        }
-    }
 
     /**
      * Returns the number of active worker nodes in the cluster.

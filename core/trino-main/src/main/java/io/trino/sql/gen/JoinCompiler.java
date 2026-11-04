@@ -58,7 +58,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -102,6 +101,7 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.isClassDumpEnabled;
+import static io.trino.util.CompilerUtils.isCompilerLimitExceeded;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
@@ -911,7 +911,7 @@ public class JoinCompiler
 
     private static RuntimeException convertCompilationException(RuntimeException e)
     {
-        if (getCausalChain(e).stream().anyMatch(MethodTooLargeException.class::isInstance)) {
+        if (isCompilerLimitExceeded(e)) {
             return new TrinoException(
                     QUERY_EXCEEDED_COMPILER_LIMIT,
                     "Compiler failed. Possible reasons include: the query may have too many columns",

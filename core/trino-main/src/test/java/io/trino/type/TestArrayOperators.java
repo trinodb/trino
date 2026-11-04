@@ -5827,6 +5827,13 @@ public class TestArrayOperators
     @Test
     public void testFlatten()
     {
+        assertThat(assertions.function("flatten", "CAST(ARRAY[] AS ARRAY(ARRAY(INTEGER)))"))
+                .matches("CAST(ARRAY[] AS ARRAY(INTEGER))");
+        assertThat(assertions.function("flatten", "CAST(ARRAY[NULL, ARRAY[], NULL] AS ARRAY(ARRAY(INTEGER)))"))
+                .matches("CAST(ARRAY[] AS ARRAY(INTEGER))");
+        assertThat(assertions.function("flatten", "ARRAY[ARRAY[], sequence(1, 1000), NULL, ARRAY[NULL], ARRAY[]]"))
+                .matches("concat(sequence(1, 1000), ARRAY[CAST(NULL AS BIGINT)])");
+
         // BOOLEAN Tests
         assertThat(assertions.function("flatten", "ARRAY[ARRAY[TRUE, FALSE], ARRAY[FALSE]]"))
                 .hasType(new ArrayType(BOOLEAN))

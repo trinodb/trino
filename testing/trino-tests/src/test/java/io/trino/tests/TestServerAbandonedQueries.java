@@ -50,7 +50,7 @@ public class TestServerAbandonedQueries
     public void setup()
     {
         server = TestingTrinoServer.builder()
-                .setProperties(ImmutableMap.of("query.client.timeout", "1s"))
+                .setProperties(ImmutableMap.of("query.client.timeout", "3s"))
                 .build();
 
         server.installPlugin(new TpchPlugin());
@@ -89,7 +89,7 @@ public class TestServerAbandonedQueries
             while (client.advance()) {
                 client.currentRows().forEach(_ -> {
                     try {
-                        Thread.sleep(100); // 25 rows * 100 ms = 2500 ms > client timeout
+                        Thread.sleep(200); // 25 rows * 200 ms = 5000 ms > client timeout
                     }
                     catch (InterruptedException e) {
                         throw new RuntimeException(e);

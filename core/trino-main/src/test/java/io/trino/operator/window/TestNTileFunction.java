@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -35,7 +34,7 @@ public class TestNTileFunction
     public void testNTile()
     {
         assertWindowQuery("ntile(4) OVER (ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(1, "O", 1L)
                         .row(2, "O", 1L)
                         .row(3, "F", 1L)
@@ -49,7 +48,7 @@ public class TestNTileFunction
                         .build());
 
         assertWindowQuery("ntile(6) OVER (ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(1, "O", 1L)
                         .row(2, "O", 1L)
                         .row(3, "F", 2L)
@@ -63,7 +62,7 @@ public class TestNTileFunction
                         .build());
 
         assertWindowQuery("ntile(20) OVER (ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(1, "O", 1L)
                         .row(2, "O", 2L)
                         .row(3, "F", 3L)
@@ -77,7 +76,7 @@ public class TestNTileFunction
                         .build());
 
         assertWindowQuery("ntile(orderkey) OVER (ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(1, "O", 1L)
                         .row(2, "O", 1L)
                         .row(3, "F", 1L)
@@ -90,7 +89,7 @@ public class TestNTileFunction
                         .row(34, "O", 10L)
                         .build());
         assertWindowQueryWithNulls("ntile(orderkey) OVER (ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                resultBuilder(BIGINT, VARCHAR, BIGINT)
                         .row(1L, null, 1L)
                         .row(3L, "F", 1L)
                         .row(5L, "F", 2L)

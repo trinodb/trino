@@ -307,11 +307,6 @@ public class TestPolymorphicScalarFunction
             return VARCHAR_TO_VARCHAR_RETURN_VALUE;
         }
 
-        public static long varcharToBigint(Slice varchar)
-        {
-            return VARCHAR_TO_BIGINT_RETURN_VALUE;
-        }
-
         public static long varcharToBigintReturnExtraParameter(Slice varchar, long extraParameter)
         {
             return extraParameter;

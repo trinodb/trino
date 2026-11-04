@@ -13,7 +13,9 @@
  */
 package io.trino.operator.scalar.timestamp;
 
+import io.trino.operator.scalar.preimage.OrderPreservingCastPreimage;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -25,6 +27,7 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
 import static java.lang.Math.multiplyExact;
 
+@FunctionPreimage(OrderPreservingCastPreimage.class)
 @ScalarOperator(CAST)
 public final class DateToTimestampCast
 {

@@ -59,21 +59,6 @@ public final class MemoryQueryRunner
         }
 
         @CanIgnoreReturnValue
-        public Builder setMemoryProperties(Map<String, String> memoryProperties)
-        {
-            this.memoryProperties = ImmutableMap.<String, String>builder()
-                    .putAll(requireNonNull(memoryProperties, "memoryProperties is null"));
-            return self();
-        }
-
-        @CanIgnoreReturnValue
-        public Builder addMemoryProperty(String key, String value)
-        {
-            this.memoryProperties.put(key, value);
-            return self();
-        }
-
-        @CanIgnoreReturnValue
         public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
             this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
