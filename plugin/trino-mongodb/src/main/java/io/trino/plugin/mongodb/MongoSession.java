@@ -15,6 +15,7 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,7 +30,6 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.DBRef;
 import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
-import com.mongodb.MongoTimeoutException;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -94,6 +94,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.mongodb.MongoErrorCode.MONGODB_CLUSTER_ERROR;
+import static io.trino.plugin.mongodb.MongoNetworkErrorTranslator.translateNetworkErrors;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.HostAddress.fromParts;
@@ -187,7 +188,8 @@ public class MongoSession
     public MongoSession(TypeManager typeManager, Supplier<MongoClient> client, MongoClientConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.client = requireNonNull(client, "client is null");
+        requireNonNull(client, "client is null");
+        this.client = Suppliers.memoize(() -> translateNetworkErrors(client.get()));
         this.schemaCollection = requireNonNull(config.getSchemaCollection(), "config.getSchemaCollection() is null");
         this.caseInsensitiveNameMatching = config.isCaseInsensitiveNameMatching();
         this.cursorBatchSize = config.getCursorBatchSize();
@@ -269,7 +271,7 @@ public class MongoSession
             Throwable cause = e.getCause();
             if (cause != null) {
                 throwIfInstanceOf(cause, TrinoException.class);
-                if (cause instanceof MongoCommandException || cause instanceof MongoTimeoutException) {
+                if (cause instanceof MongoCommandException) {
                     throw new TrinoException(MONGODB_CLUSTER_ERROR, cause);
                 }
             }
