@@ -91,7 +91,7 @@ class TestDatabricksWithGlueMetastoreCleanUp
             return;
         }
 
-        Set<String> allTestTableNames = findAllTablesInSchema(env, schema).stream()
+        Set<String> allTestTableNames = findAllTablesInSchema(env, schema).orElse(ImmutableSet.of()).stream()
                 .filter(name -> name.toLowerCase(ENGLISH).startsWith("test"))
                 .collect(toImmutableSet());
         log.info("Found %d tables to drop in schema %s", allTestTableNames.size(), schema);
@@ -128,7 +128,7 @@ class TestDatabricksWithGlueMetastoreCleanUp
         if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
             return;
         }
-        if (!schema.equals("default") && findAllTablesInSchema(env, schema).isEmpty()) {
+        if (!schema.equals("default") && findAllTablesInSchema(env, schema).map(Set::isEmpty).orElse(false)) {
             try {
                 env.executeTrinoSql("DROP SCHEMA IF EXISTS hive." + schema);
                 log.info("Dropped schema %s", schema);
@@ -139,17 +139,17 @@ class TestDatabricksWithGlueMetastoreCleanUp
         }
     }
 
-    private Set<String> findAllTablesInSchema(DeltaLakeDatabricksEnvironment env, String schema)
+    private Optional<Set<String>> findAllTablesInSchema(DeltaLakeDatabricksEnvironment env, String schema)
     {
         try {
             QueryResult allTables = env.executeTrinoSql(format("SELECT table_name FROM hive.information_schema.tables WHERE table_schema = '%s'", schema));
-            return allTables.rows().stream()
+            return Optional.of(allTables.rows().stream()
                     .map(row -> (String) row.get(0))
-                    .collect(Collectors.toUnmodifiableSet());
+                    .collect(Collectors.toUnmodifiableSet()));
         }
         catch (Exception e) {
             log.warn(e, "Exception while fetching tables for schema %s", schema);
-            return ImmutableSet.of();
+            return Optional.empty();
         }
     }
 
