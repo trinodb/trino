@@ -31,14 +31,12 @@ class TestFixedPageSource
     @Test
     public void testReportsPagesMemoryUsageToMemoryContext()
     {
-        long memoryUsage = new FixedPageSource(PAGES).getMemoryUsage();
-        assertThat(memoryUsage).isEqualTo(PAGES.stream().mapToLong(Page::getRetainedSizeInBytes).sum());
+        long memoryUsage = PAGES.stream().mapToLong(Page::getRetainedSizeInBytes).sum();
 
         AtomicLong reportedBytes = new AtomicLong(-1);
         try (FixedPageSource pageSource = new FixedPageSource(PAGES, reportedBytes::set)) {
             assertThat(reportedBytes).hasValue(memoryUsage);
-            // the memory must not be accounted for again when getMemoryUsage is polled
-            assertThat(pageSource.getMemoryUsage()).isEqualTo(0);
+            assertThat(pageSource.getMemoryUsage()).isZero();
 
             int pages = 0;
             while (!pageSource.isFinished()) {
@@ -48,22 +46,18 @@ class TestFixedPageSource
             }
             assertThat(pages).isEqualTo(PAGES.size());
         }
-        // getMemoryUsage does not drop after the page source is closed, and neither does the reported usage
-        assertThat(reportedBytes).hasValue(memoryUsage);
+        assertThat(reportedBytes).hasValue(0);
     }
 
     @Test
     public void testReportsSuppliedMemoryUsageToMemoryContext()
     {
-        long memoryUsage = new FixedPageSource(PAGES.iterator(), 1234).getMemoryUsage();
-        assertThat(memoryUsage).isEqualTo(1234);
-
         AtomicLong reportedBytes = new AtomicLong(-1);
         try (FixedPageSource pageSource = new FixedPageSource(PAGES.iterator(), 1234, reportedBytes::set)) {
-            assertThat(reportedBytes).hasValue(memoryUsage);
-            assertThat(pageSource.getMemoryUsage()).isEqualTo(0);
+            assertThat(reportedBytes).hasValue(1234);
+            assertThat(pageSource.getMemoryUsage()).isZero();
         }
-        assertThat(reportedBytes).hasValue(memoryUsage);
+        assertThat(reportedBytes).hasValue(0);
     }
 
     private static Page createPage(int positionCount)

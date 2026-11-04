@@ -41,6 +41,7 @@ import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjected
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.Bitmap.wordsForBits;
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,7 +80,7 @@ class TestHivePageSourceProvider
     private static FixedPageSource createPageSource(List<HiveColumnHandle> columns)
     {
         assertThat(columns).containsOnly(BASE_COLUMN);
-        return new FixedPageSource(ImmutableList.of(createInputPage()));
+        return new FixedPageSource(ImmutableList.of(createInputPage()), NO_LIMIT);
     }
 
     private static Page createInputPage()

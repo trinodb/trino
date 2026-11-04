@@ -175,9 +175,11 @@ public class TestDriver
         TableScanOperator source = new TableScanOperator(
                 driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
-                        .addSequencePage(10, 20, 30, 40)
-                        .build()),
+                (_, _, _, _, _, _, memoryContext) -> new FixedPageSource(
+                        rowPagesBuilder(types)
+                                .addSequencePage(10, 20, 30, 40)
+                                .build(),
+                        memoryContext),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
                 ImmutableList.of());
@@ -256,9 +258,11 @@ public class TestDriver
         TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(
                 driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                (_, _, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
-                        .addSequencePage(10, 20, 30, 40)
-                        .build()),
+                (_, _, _, _, _, _, memoryContext) -> new FixedPageSource(
+                        rowPagesBuilder(types)
+                                .addSequencePage(10, 20, 30, 40)
+                                .build(),
+                        memoryContext),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of());
 
@@ -276,9 +280,11 @@ public class TestDriver
         TableScanOperator source = new AlwaysBlockedTableScanOperator(
                 driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                (_, _, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
-                        .addSequencePage(10, 20, 30, 40)
-                        .build()),
+                (_, _, _, _, _, _, memoryContext) -> new FixedPageSource(
+                        rowPagesBuilder(types)
+                                .addSequencePage(10, 20, 30, 40)
+                                .build(),
+                        memoryContext),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of());
 
@@ -396,9 +402,11 @@ public class TestDriver
         TableScanOperator source = new NotBlockedTableScanOperator(
                 driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
-                        .addSequencePage(10, 20, 30, 40)
-                        .build()),
+                (_, _, _, _, _, _, memoryContext) -> new FixedPageSource(
+                        rowPagesBuilder(types)
+                                .addSequencePage(10, 20, 30, 40)
+                                .build(),
+                        memoryContext),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of());
 
@@ -455,9 +463,11 @@ public class TestDriver
         return new AlwaysBlockedTableScanOperator(
                 driverContext.addOperatorContext(0, new PlanNodeId("scan"), "scan"),
                 new PlanNodeId("source"),
-                (_, _, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
-                        .addSequencePage(10, 20, 30, 40)
-                        .build()),
+                (_, _, _, _, _, _, memoryContext) -> new FixedPageSource(
+                        rowPagesBuilder(types)
+                                .addSequencePage(10, 20, 30, 40)
+                                .build(),
+                        memoryContext),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of());
     }

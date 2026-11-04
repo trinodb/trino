@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.OptionalLong;
 
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -101,9 +102,9 @@ public class ManifestsTable
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         if (snapshotId.isEmpty()) {
-            return new FixedPageSource(ImmutableList.of());
+            return new FixedPageSource(ImmutableList.of(), NO_LIMIT);
         }
-        return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId.orElseThrow()));
+        return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId.orElseThrow()), NO_LIMIT);
     }
 
     private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable, long snapshotId)
