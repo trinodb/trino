@@ -22,6 +22,7 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
+import static java.lang.Math.addExact;
 import static java.lang.Math.multiplyExact;
 
 public class TimestampTzNanosValueWriter
@@ -80,7 +81,12 @@ public class TimestampTzNanosValueWriter
     private static long toNanos(Fixed12Block block, int position)
     {
         long epochMillis = unpackMillisUtc(block.getFixed12First(position));
-        return multiplyExact(epochMillis, NANOSECONDS_PER_MILLISECOND) +
-                roundDiv(block.getFixed12Second(position), PICOSECONDS_PER_NANOSECOND);
+        long nanosOfMilli = roundDiv(block.getFixed12Second(position), PICOSECONDS_PER_NANOSECOND);
+        // Avoid intermediate overflow near Long.MIN_VALUE.
+        if (epochMillis < 0) {
+            epochMillis++;
+            nanosOfMilli -= NANOSECONDS_PER_MILLISECOND;
+        }
+        return addExact(multiplyExact(epochMillis, NANOSECONDS_PER_MILLISECOND), nanosOfMilli);
     }
 }
