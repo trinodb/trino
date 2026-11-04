@@ -65,7 +65,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 public class FileSystemExchangeSink
         implements ExchangeSink
 {
-    public static final String COMMITTED_MARKER_FILE_NAME = "committed";
     public static final String DATA_FILE_SUFFIX = ".data";
 
     private static final int INSTANCE_SIZE = instanceSize(FileSystemExchangeSink.class);
@@ -86,6 +85,7 @@ public class FileSystemExchangeSink
     private final MetricsBuilder metricsBuilder = new MetricsBuilder();
     private final CounterMetricBuilder totalFilesMetric = metricsBuilder.getCounterMetric("FileSystemExchangeSink.filesTotal");
     private final DistributionMetricBuilder fileSizeMetric = metricsBuilder.getDistributionMetric("FileSystemExchangeSink.fileSize");
+    private final boolean commitManifestEnabled;
 
     public FileSystemExchangeSink(
             FileSystemExchangeStorage exchangeStorage,
@@ -96,7 +96,8 @@ public class FileSystemExchangeSink
             int maxPageStorageSizeInBytes,
             int exchangeSinkBufferPoolMinSize,
             int exchangeSinkBuffersPerPartition,
-            long maxFileSizeInBytes)
+            long maxFileSizeInBytes,
+            boolean commitManifestEnabled)
     {
         checkArgument(
                 maxPageStorageSizeInBytes <= maxFileSizeInBytes,
@@ -111,6 +112,7 @@ public class FileSystemExchangeSink
         this.preserveOrderWithinPartition = preserveOrderWithinPartition;
         this.maxPageStorageSizeInBytes = maxPageStorageSizeInBytes;
         this.maxFileSizeInBytes = maxFileSizeInBytes;
+        this.commitManifestEnabled = commitManifestEnabled;
         // buffer pooling to overlap computation and I/O
         this.bufferPool = new BufferPool(stats, max(outputPartitionCount * exchangeSinkBuffersPerPartition, exchangeSinkBufferPoolMinSize), exchangeStorage.getWriteBufferSize());
     }
@@ -177,6 +179,20 @@ public class FileSystemExchangeSink
                 + estimatedSizeOf(writersMap, SizeOf::sizeOf, BufferedStorageWriter::getRetainedSize);
     }
 
+    public ListenableFuture<Void> commit()
+    {
+        if (!commitManifestEnabled) {
+            return exchangeStorage.createEmptyFile(outputDirectory.resolve(CommitManifest.FILE_NAME));
+        }
+
+        List<FileStatus> writtenFiles = writersMap.values().stream()
+                .flatMap(w -> w.getWrittenFiles().stream())
+                .collect(toImmutableList());
+        CommitManifest markerFile = new CommitManifest(writtenFiles);
+
+        return exchangeStorage.writeMarkerFile(outputDirectory, markerFile);
+    }
+
     @Override
     public synchronized CompletableFuture<Void> finish()
     {
@@ -187,11 +203,8 @@ public class FileSystemExchangeSink
 
         ListenableFuture<Void> finishFuture = asVoid(Futures.allAsList(
                 writersMap.values().stream().map(BufferedStorageWriter::finish).collect(toImmutableList())));
+        finishFuture = Futures.transformAsync(finishFuture, _ -> commit(), directExecutor());
         addSuccessCallback(finishFuture, this::destroy);
-        finishFuture = Futures.transformAsync(
-                finishFuture,
-                _ -> exchangeStorage.createEmptyFile(outputDirectory.resolve(COMMITTED_MARKER_FILE_NAME)),
-                directExecutor());
         addExceptionCallback(finishFuture, _ -> abortInternal());
 
         return stats.getExchangeSinkFinish().record(toCompletableFuture(finishFuture));
@@ -323,6 +336,11 @@ public class FileSystemExchangeSink
             writeInternal(sizeSlice);
             writeInternal(data);
             currentFileSize += requiredPageStorageSize;
+        }
+
+        public synchronized List<FileStatus> getWrittenFiles()
+        {
+            return writers.stream().map(ExchangeStorageWriter::getFileStatus).collect(toImmutableList());
         }
 
         public synchronized ListenableFuture<Void> finish()
