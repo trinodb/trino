@@ -28,12 +28,15 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEvaluateBind
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     @Test
     void test()
     {
@@ -82,6 +85,6 @@ public class TestEvaluateBind
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateBind().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new EvaluateBind().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }

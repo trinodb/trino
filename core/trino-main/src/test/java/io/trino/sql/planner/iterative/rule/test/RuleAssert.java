@@ -36,7 +36,9 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Memo;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.PlanTester;
 
 import java.util.Collection;
@@ -139,12 +141,35 @@ public class RuleAssert
                         actual.getOutputSymbols()));
             }
 
+            verifyFilterPredicate(ruleApplication.lookup(), actual);
+
             assertPlan(session, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), ruleApplication.statsProvider(), new Plan(actual, StatsAndCosts.empty()), ruleApplication.lookup(), pattern);
         }
         finally {
             planTester.getPlannerContext().getMetadata().cleanupQuery(session);
             planTester.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
         }
+    }
+
+    /// Checks a rule that rewrote a filter predicate in place against the rows the filter passes,
+    /// rather than only against the expected plan. The values the fake source produces are irrelevant
+    /// to such a rule, so the rows are generated instead.
+    private void verifyFilterPredicate(Lookup lookup, PlanNode actual)
+    {
+        if (!(plan instanceof FilterNode original) || !(actual instanceof FilterNode rewritten)) {
+            return;
+        }
+        if (lookup.resolve(rewritten.getSource()) != original.getSource()) {
+            // the rule changed what the filter reads, so its predicate is over different rows
+            return;
+        }
+        if (!(original.getSource() instanceof ValuesNode)) {
+            // The rows are generated in place of what the source produces, so the source must not
+            // constrain them itself. A table scan does, through its enforced constraint, and a rule may
+            // legitimately leave a predicate that is only correct in combination with that constraint.
+            return;
+        }
+        new FilterPredicateVerifier(planTester.getPlannerContext(), session).verify(original.getPredicate(), rewritten.getPredicate());
     }
 
     private RuleApplication applyRule()

@@ -52,6 +52,8 @@ public class TestEvaluateCall
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of());
     private static final ResolvedFunction APPLY = FUNCTIONS.resolveFunction("apply", fromTypes(BIGINT, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN)));
 
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(FUNCTIONS.getPlannerContext());
+
     @Test
     void test()
     {
@@ -93,6 +95,6 @@ public class TestEvaluateCall
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateCall(FUNCTIONS.getPlannerContext()).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new EvaluateCall(FUNCTIONS.getPlannerContext()).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }
