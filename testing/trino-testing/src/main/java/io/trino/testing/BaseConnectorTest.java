@@ -7032,6 +7032,42 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testMergeNotMatchedBySource()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE));
+
+        String targetTable = "merge_not_matched_by_source_" + randomNameSuffix();
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("customer"));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 13, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+
+        assertUpdate(format("MERGE INTO %s t USING (VALUES ('Aaron', 6, 'Arches'), ('Dave', 1, 'Darbyshire'), ('Ed', 7, 'Etherville')) s(customer, purchases, address) ON (t.customer = s.customer)", targetTable) +
+                "    WHEN NOT MATCHED BY SOURCE AND t.purchases > 10 THEN DELETE" +
+                "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases" +
+                "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)" +
+                "    WHEN NOT MATCHED BY SOURCE THEN UPDATE SET address = 'Unknown'", 5);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Unknown'), ('Dave', 12, 'Devon'), ('Ed', 7, 'Etherville')");
+
+        // Without a WHEN NOT MATCHED case
+        assertUpdate(format("MERGE INTO %s t USING (VALUES 'Aaron', 'Ed') s(customer) ON (t.customer = s.customer)", targetTable) +
+                "    WHEN NOT MATCHED BY SOURCE THEN DELETE", 2);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Ed', 7, 'Etherville')");
+
+        assertQueryFails(
+                format("MERGE INTO %s t USING (VALUES ('Aaron', 'Arches')) s(customer, address) ON (t.customer = s.customer)", targetTable) +
+                        "    WHEN NOT MATCHED BY SOURCE THEN UPDATE SET address = s.address",
+                ".*Reference to source column 's.address' not allowed in WHEN NOT MATCHED BY SOURCE clause");
+        assertQueryFails(
+                format("MERGE INTO %s t USING (VALUES ('Aaron', 6)) s(customer, purchases) ON (t.customer = s.customer)", targetTable) +
+                        "    WHEN NOT MATCHED BY SOURCE AND t.purchases > (SELECT s.purchases) THEN DELETE",
+                ".*Reference to source column 's.purchases' not allowed in WHEN NOT MATCHED BY SOURCE clause");
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
     public void testMergeFruits()
     {
         skipTestUnless(hasBehavior(SUPPORTS_MERGE));

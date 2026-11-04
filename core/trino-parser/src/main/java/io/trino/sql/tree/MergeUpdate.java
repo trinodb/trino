@@ -27,16 +27,29 @@ public final class MergeUpdate
         extends MergeCase
 {
     private final List<Assignment> assignments;
+    private final boolean notMatchedBySource;
 
     public MergeUpdate(NodeLocation location, Optional<Expression> expression, List<Assignment> assignments)
     {
+        this(location, expression, assignments, false);
+    }
+
+    public MergeUpdate(NodeLocation location, Optional<Expression> expression, List<Assignment> assignments, boolean notMatchedBySource)
+    {
         super(location, expression);
         this.assignments = ImmutableList.copyOf(requireNonNull(assignments, "assignments is null"));
+        this.notMatchedBySource = notMatchedBySource;
     }
 
     public List<Assignment> getAssignments()
     {
         return assignments;
+    }
+
+    @Override
+    public boolean isNotMatchedBySource()
+    {
+        return notMatchedBySource;
     }
 
     @Override
@@ -70,7 +83,7 @@ public final class MergeUpdate
     @Override
     public int hashCode()
     {
-        return Objects.hash(expression, assignments);
+        return Objects.hash(expression, assignments, notMatchedBySource);
     }
 
     @Override
@@ -84,7 +97,8 @@ public final class MergeUpdate
         }
         MergeUpdate o = (MergeUpdate) obj;
         return Objects.equals(expression, o.expression) &&
-                Objects.equals(assignments, o.assignments);
+                Objects.equals(assignments, o.assignments) &&
+                notMatchedBySource == o.notMatchedBySource;
     }
 
     @Override
@@ -93,6 +107,7 @@ public final class MergeUpdate
         return toStringHelper(this)
                 .add("expression", expression.orElse(null))
                 .add("assignments", assignments)
+                .add("notMatchedBySource", notMatchedBySource)
                 .omitNullValues()
                 .toString();
     }
