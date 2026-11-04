@@ -62,7 +62,7 @@ class TestDatabricksWithGlueMetastoreCleanUp
     {
         GlueClient glueClient = env.createGlueClient();
         Stopwatch stopwatch = Stopwatch.createStarted();
-        List<String> schemas = env.executeTrinoSql("SELECT DISTINCT(table_schema) FROM hive.information_schema.tables")
+        List<String> schemas = env.executeTrinoSql("SELECT schema_name FROM hive.information_schema.schemata")
                 .rows().stream()
                 .map(row -> (String) row.get(0))
                 .filter(schema -> schema.toLowerCase(ENGLISH).startsWith("test") || schema.equals("default"))
