@@ -61,16 +61,29 @@ public class TestMongoSession
     private static final MongoColumnHandle ID_COL = new MongoColumnHandle("_id", ImmutableList.of(), ObjectIdType.OBJECT_ID, false, false, Optional.empty());
 
     @Test
-    public void testGetTableWithUnreachableMongoDbSrv()
+    public void testUnreachableMongoDb()
     {
-        try (MongoClient client = MongoClients.create("mongodb+srv://localhost/?serverSelectionTimeoutMS=100")) {
+        try (MongoClient client = MongoClients.create("mongodb://localhost:1/?serverSelectionTimeoutMS=100")) {
             MongoSession session = new MongoSession(
                     TESTING_TYPE_MANAGER,
                     () -> client,
                     new MongoClientConfig());
+            RemoteTableName remoteTableName = new RemoteTableName("test", "test");
 
             assertThat(MONGODB_CLUSTER_ERROR.toErrorCode().getType()).isEqualTo(EXTERNAL);
             assertTrinoExceptionThrownBy(() -> session.getTable(new SchemaTableName("test", "test")))
+                    .hasErrorCode(MONGODB_CLUSTER_ERROR)
+                    .hasCauseInstanceOf(MongoTimeoutException.class);
+            assertTrinoExceptionThrownBy(session::getAllSchemas)
+                    .hasErrorCode(MONGODB_CLUSTER_ERROR)
+                    .hasCauseInstanceOf(MongoTimeoutException.class);
+            assertTrinoExceptionThrownBy(() -> session.getAllTables("test"))
+                    .hasErrorCode(MONGODB_CLUSTER_ERROR)
+                    .hasCauseInstanceOf(MongoTimeoutException.class);
+            assertTrinoExceptionThrownBy(() -> session.getCollection(remoteTableName).find().first())
+                    .hasErrorCode(MONGODB_CLUSTER_ERROR)
+                    .hasCauseInstanceOf(MongoTimeoutException.class);
+            assertTrinoExceptionThrownBy(() -> session.execute(new MongoTableHandle(new SchemaTableName("test", "test"), remoteTableName, Optional.empty()), ImmutableList.of()))
                     .hasErrorCode(MONGODB_CLUSTER_ERROR)
                     .hasCauseInstanceOf(MongoTimeoutException.class);
         }
