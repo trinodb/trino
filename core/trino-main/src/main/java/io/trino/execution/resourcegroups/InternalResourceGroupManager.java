@@ -23,6 +23,7 @@ import io.airlift.node.NodeInfo;
 import io.trino.execution.ManagedQueryExecution;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.server.ResourceGroupInfo;
+import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
@@ -104,6 +105,16 @@ public final class InternalResourceGroupManager<C>
         InternalResourceGroup resourceGroup = groups.get(id);
         return Optional.ofNullable(resourceGroup)
                 .map(InternalResourceGroup::getFullInfo);
+    }
+
+    @Override
+    public Optional<Integer> tryGetQueryPosition(QueryId queryId, ResourceGroupId resourceGroupId)
+    {
+        InternalResourceGroup resourceGroup = groups.get(resourceGroupId);
+        if (resourceGroup == null) {
+            return Optional.empty();
+        }
+        return resourceGroup.getQueryPosition(queryId);
     }
 
     @Override

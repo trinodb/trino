@@ -250,7 +250,8 @@ public class TestExchangeMetricsCollector
                 null,
                 null,
                 Optional.empty(),
-                RetryPolicy.NONE);
+                RetryPolicy.NONE,
+                null);
     }
 
     private static class TestingMetricsExchange
