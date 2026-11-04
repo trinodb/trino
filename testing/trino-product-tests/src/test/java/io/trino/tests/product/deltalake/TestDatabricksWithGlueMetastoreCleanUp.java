@@ -25,18 +25,21 @@ import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.Database;
 import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
 import software.amazon.awssdk.services.glue.model.Table;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.dropDeltaTableWithRetry;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -98,7 +101,12 @@ class TestDatabricksWithGlueMetastoreCleanUp
                         log.info("Dropped view %s.%s", schema, tableName);
                     }
                     else {
-                        env.executeTrinoSql(format("DROP TABLE IF EXISTS hive.%s.%s", schema, tableName));
+                        if (isDbfsDeltaTable(table)) {
+                            dropDeltaTableWithRetry(env, schema + "." + tableName);
+                        }
+                        else {
+                            env.executeTrinoSql(format("DROP TABLE IF EXISTS hive.%s.%s", schema, tableName));
+                        }
                         log.info("Dropped table %s.%s", schema, tableName);
                     }
                     droppedTablesCount++;
@@ -135,6 +143,16 @@ class TestDatabricksWithGlueMetastoreCleanUp
             log.warn(e, "Exception while fetching tables for schema %s", schema);
             return ImmutableSet.of();
         }
+    }
+
+    private static boolean isDbfsDeltaTable(Table table)
+    {
+        return "delta".equalsIgnoreCase(table.parameters().get("spark.sql.sources.provider")) &&
+                Optional.ofNullable(table.storageDescriptor())
+                        .map(StorageDescriptor::serdeInfo)
+                        .map(serde -> serde.parameters().get("path"))
+                        .filter(path -> path.startsWith("dbfs:"))
+                        .isPresent();
     }
 
     public static String getTableType(Table glueTable)
