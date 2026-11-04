@@ -16,7 +16,6 @@ package io.trino.tests.product.jdbc;
 import com.google.common.collect.ImmutableSet;
 import io.trino.jdbc.TrinoDriver;
 import io.trino.testing.containers.KerberosContainer;
-import io.trino.testing.containers.TrinoTestImages;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSManager;
@@ -48,6 +47,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
+import static io.trino.testing.containers.TrinoTestImages.getDefaultTrinoImage;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
@@ -127,7 +127,7 @@ public class JdbcKerberosEnvironment
         }
 
         // Start Trino master with Kerberos configuration
-        trinoMaster = configureTrinoContainer(new GenericContainer<>(DockerImageName.parse(TrinoTestImages.getDefaultTrinoImage())))
+        trinoMaster = configureTrinoContainer(new GenericContainer<>(DockerImageName.parse(getDefaultTrinoImage())))
                 .withNetwork(network)
                 .withNetworkAliases("trino-master", "trino-master.docker.cluster")
                 .withCreateContainerCmdModifier(cmd -> cmd.withHostName("trino-master"))

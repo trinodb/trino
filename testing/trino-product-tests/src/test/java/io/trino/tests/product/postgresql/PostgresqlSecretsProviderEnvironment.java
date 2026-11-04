@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.postgresql;
 
-import io.trino.testing.containers.TrinoTestImages;
 import io.trino.tests.product.utils.HostMappingDnsResolver;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -39,6 +38,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
+import static io.trino.testing.containers.TrinoTestImages.getDefaultTrinoImage;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
@@ -100,7 +100,7 @@ public class PostgresqlSecretsProviderEnvironment
 
     private GenericContainer<?> createTrinoContainer(String alias, String fullyQualifiedName, String configProperties)
     {
-        GenericContainer<?> container = configureTrinoContainer(new GenericContainer<>(DockerImageName.parse(TrinoTestImages.getDefaultTrinoImage())))
+        GenericContainer<?> container = configureTrinoContainer(new GenericContainer<>(DockerImageName.parse(getDefaultTrinoImage())))
                 .withNetwork(network)
                 .withNetworkAliases(alias, fullyQualifiedName)
                 .withCreateContainerCmdModifier(command -> command.withHostName(alias))
