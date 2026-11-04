@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.deltalake;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.testing.containers.environment.ProductTest;
@@ -26,6 +27,7 @@ import software.amazon.awssdk.services.glue.model.Database;
 import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
 import software.amazon.awssdk.services.glue.model.Table;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -36,9 +38,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static java.lang.String.format;
-import static java.lang.System.currentTimeMillis;
 import static java.util.Locale.ENGLISH;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 @ProductTest
@@ -50,14 +50,14 @@ class TestDatabricksWithGlueMetastoreCleanUp
 {
     private static final Logger log = Logger.get(TestDatabricksWithGlueMetastoreCleanUp.class);
     private static final Instant SCHEMA_CLEANUP_THRESHOLD = Instant.now().minus(7, ChronoUnit.DAYS);
-    private static final long MAX_JOB_TIME_MILLIS = MINUTES.toMillis(5);
+    private static final Duration MAX_JOB_TIME = Duration.ofMinutes(5);
 
     @Test
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     void testCleanUpOldTablesUsingDelta(DeltaLakeDatabricksEnvironment env)
     {
         GlueClient glueClient = env.createGlueClient();
-        long startTime = currentTimeMillis();
+        Stopwatch stopwatch = Stopwatch.createStarted();
         List<String> schemas = env.executeTrinoSql("SELECT DISTINCT(table_schema) FROM hive.information_schema.tables")
                 .rows().stream()
                 .map(row -> (String) row.get(0))
@@ -65,10 +65,10 @@ class TestDatabricksWithGlueMetastoreCleanUp
                 .collect(toUnmodifiableList());
 
         env.executeTrinoSql("SET SESSION hive.hive_views_legacy_translation = true");
-        schemas.forEach(schema -> cleanSchema(env, schema, startTime, glueClient));
+        schemas.forEach(schema -> cleanSchema(env, schema, stopwatch, glueClient));
     }
 
-    private void cleanSchema(DeltaLakeDatabricksEnvironment env, String schema, long startTime, GlueClient glueClient)
+    private void cleanSchema(DeltaLakeDatabricksEnvironment env, String schema, Stopwatch stopwatch, GlueClient glueClient)
     {
         Database database;
         try {
@@ -103,7 +103,7 @@ class TestDatabricksWithGlueMetastoreCleanUp
                     }
                     droppedTablesCount++;
                 }
-                if (currentTimeMillis() - startTime > MAX_JOB_TIME_MILLIS) {
+                if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) > 0) {
                     break;
                 }
             }
