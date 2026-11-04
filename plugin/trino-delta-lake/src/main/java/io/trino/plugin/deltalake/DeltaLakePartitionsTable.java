@@ -60,6 +60,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ex
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -161,7 +162,7 @@ public class DeltaLakePartitionsTable
             return new EmptyPageSource();
         }
 
-        return new FixedPageSource(buildPages(session));
+        return new FixedPageSource(buildPages(session), NO_LIMIT);
     }
 
     private List<Page> buildPages(ConnectorSession session)

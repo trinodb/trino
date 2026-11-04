@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 import static io.trino.plugin.iceberg.SortFieldUtils.toSortFields;
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
@@ -80,7 +81,7 @@ public class PropertiesTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        return new FixedPageSource(buildPages(tableMetadata, icebergTable));
+        return new FixedPageSource(buildPages(tableMetadata, icebergTable), NO_LIMIT);
     }
 
     private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, BaseTable icebergTable)
