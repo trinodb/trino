@@ -15,6 +15,7 @@
 
     <properties>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
+        <dep.lzo.version>1.0.6</dep.lzo.version>
     </properties>
 
     <dependencies>
@@ -460,7 +461,7 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>copy-iceberg-spark-runtime</id>
+                        <id>copy-test-jars</id>
                         <goals>
                             <goal>copy</goal>
                         </goals>
@@ -481,6 +482,18 @@
                                     <artifactId>iceberg-aws-bundle</artifactId>
                                     <version>${dep.iceberg.version}</version>
                                     <destFileName>iceberg-aws-bundle.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.anarres.lzo</groupId>
+                                    <artifactId>lzo-hadoop</artifactId>
+                                    <version>${dep.lzo.version}</version>
+                                    <destFileName>lzo-hadoop.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.anarres.lzo</groupId>
+                                    <artifactId>lzo-core</artifactId>
+                                    <version>${dep.lzo.version}</version>
+                                    <destFileName>lzo-core.jar</destFileName>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
