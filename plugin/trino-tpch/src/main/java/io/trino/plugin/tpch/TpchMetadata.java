@@ -122,6 +122,11 @@ public class TpchMetadata
             .map(Slices::utf8Slice)
             .collect(toImmutableSet());
 
+    private static final Map<TpchColumn<?>, Set<Slice>> FIXED_COLUMN_VALUES = ImmutableMap.of(
+            OrderColumn.ORDER_STATUS, ORDER_STATUS_VALUES,
+            PartColumn.TYPE, PART_TYPE_VALUES,
+            PartColumn.CONTAINER, PART_CONTAINER_VALUES);
+
     private final Set<String> tableNames;
     private final ColumnNaming columnNaming;
     private final DecimalTypeMapping decimalTypeMapping;
@@ -324,6 +329,15 @@ public class TpchMetadata
             return avoidTrivialOrderStatusRestriction(allowedValues);
         });
         return allowedColumnValues.orElse(emptyMap());
+    }
+
+    /**
+     * Returns whether the domain accepts every value the generator produces for the column
+     */
+    static boolean includesAllValues(TpchColumn<?> column, Domain domain)
+    {
+        Set<Slice> values = FIXED_COLUMN_VALUES.get(column);
+        return values != null && values.stream().allMatch(domain::includesNullableValue);
     }
 
     private static Map<TpchColumn<?>, List<Object>> avoidTrivialOrderStatusRestriction(List<Object> allowedValues)
