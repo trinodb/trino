@@ -25,6 +25,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
@@ -81,10 +82,11 @@ public class InformationSchemaPageSource
     private final Queue<Page> pages = new ArrayDeque<>();
     private final PageBuilder pageBuilder;
     private final Function<Page, Page> projection;
+    private final MemoryContext memoryContext;
 
     private long recordCount;
     private long completedBytes;
-    private long memoryUsageBytes;
+    private long pagesMemoryUsageBytes;
     private boolean closed;
 
     public InformationSchemaPageSource(
@@ -92,7 +94,8 @@ public class InformationSchemaPageSource
             Metadata metadata,
             AccessControl accessControl,
             InformationSchemaTableHandle tableHandle,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            MemoryContext memoryContext)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -146,6 +149,9 @@ public class InformationSchemaPageSource
                 .toArray();
 
         projection = page -> page.getColumns(channels);
+
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        updateMemoryUsage();
     }
 
     @Override
@@ -181,25 +187,25 @@ public class InformationSchemaPageSource
         Page page = pages.poll();
 
         if (page == null) {
+            updateMemoryUsage();
             return null;
         }
 
-        memoryUsageBytes -= page.getRetainedSizeInBytes();
+        pagesMemoryUsageBytes -= page.getRetainedSizeInBytes();
+        updateMemoryUsage();
         Page outputPage = projection.apply(page);
         completedBytes += outputPage.getSizeInBytes();
         return SourcePage.create(outputPage);
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return memoryUsageBytes + pageBuilder.getRetainedSizeInBytes();
-    }
-
-    @Override
     public void close()
     {
         closed = true;
+        pages.clear();
+        pagesMemoryUsageBytes = 0;
+        // The page builder remains retained; its reservation is released by the context's owner.
+        updateMemoryUsage();
     }
 
     private void buildPages()
@@ -392,10 +398,17 @@ public class InformationSchemaPageSource
     private void flushPageBuilder()
     {
         if (!pageBuilder.isEmpty()) {
-            pages.add(pageBuilder.build());
-            memoryUsageBytes += pageBuilder.getRetainedSizeInBytes();
+            Page page = pageBuilder.build();
+            pages.add(page);
+            pagesMemoryUsageBytes += page.getRetainedSizeInBytes();
             pageBuilder.reset();
+            updateMemoryUsage();
         }
+    }
+
+    private void updateMemoryUsage()
+    {
+        memoryContext.setBytes(pagesMemoryUsageBytes + pageBuilder.getRetainedSizeInBytes());
     }
 
     private boolean isLimitExhausted()
