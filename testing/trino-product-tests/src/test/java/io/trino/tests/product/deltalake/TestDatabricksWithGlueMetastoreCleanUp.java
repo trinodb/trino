@@ -53,6 +53,7 @@ class TestDatabricksWithGlueMetastoreCleanUp
 {
     private static final Logger log = Logger.get(TestDatabricksWithGlueMetastoreCleanUp.class);
     private static final Instant SCHEMA_CLEANUP_THRESHOLD = Instant.now().minus(7, ChronoUnit.DAYS);
+    // Stop starting cleanup work after this budget; in-flight operations may finish later.
     private static final Duration MAX_JOB_TIME = Duration.ofMinutes(5);
 
     @Test
@@ -73,6 +74,10 @@ class TestDatabricksWithGlueMetastoreCleanUp
 
     private void cleanSchema(DeltaLakeDatabricksEnvironment env, String schema, Stopwatch stopwatch, GlueClient glueClient)
     {
+        if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+            return;
+        }
+
         Database database;
         try {
             database = glueClient.getDatabase(builder -> builder.name(schema)).database();
@@ -92,6 +97,9 @@ class TestDatabricksWithGlueMetastoreCleanUp
         log.info("Found %d tables to drop in schema %s", allTestTableNames.size(), schema);
         int droppedTablesCount = 0;
         for (String tableName : allTestTableNames) {
+            if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+                break;
+            }
             try {
                 Table table = glueClient.getTable(builder -> builder.databaseName(schema).name(tableName)).table();
                 Instant createTime = table.createTime();
@@ -111,15 +119,15 @@ class TestDatabricksWithGlueMetastoreCleanUp
                     }
                     droppedTablesCount++;
                 }
-                if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) > 0) {
-                    break;
-                }
             }
             catch (Exception e) {
                 log.warn(e, "Exception while dropping table %s.%s", schema, tableName);
             }
         }
         log.info("Dropped %d tables in schema %s", droppedTablesCount, schema);
+        if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+            return;
+        }
         if (!schema.equals("default") && findAllTablesInSchema(env, schema).isEmpty()) {
             try {
                 env.executeTrinoSql("DROP SCHEMA IF EXISTS hive." + schema);
