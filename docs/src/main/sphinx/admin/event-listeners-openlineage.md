@@ -164,6 +164,19 @@ event-listener.config-files=etc/openlineage-event-listener.properties,...
       variables: `$QUERY_ID`, `$USER`, `$SOURCE`, `$CLIENT_IP`.
       For example: `As $USER from $CLIENT_IP via $SOURCE`.
     - `$QUERY_ID`.
+*
+    - openlineage-event-listener.dataset.exclude-pattern
+    - Regular expression that must match the whole dataset name
+      `catalog.schema.table`. Matching datasets are removed from the inputs,
+      outputs, and column lineage of `COMPLETE` and `FAIL` events. The events
+      themselves are still sent, and the SQL text and `trino_metadata` facets
+      are not filtered; disable `trino_metadata` with
+      `openlineage-event-listener.disabled-facets` if needed. Matching is
+      case-sensitive; prefix the pattern with `(?i)` to ignore case. Double
+      every backslash in the properties file, because it is read with Java
+      properties escaping. For example:
+      `iceberg\\.test_.*\\..*`.
+    - None.
 
 :::
 

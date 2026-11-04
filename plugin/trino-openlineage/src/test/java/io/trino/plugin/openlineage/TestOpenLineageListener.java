@@ -15,16 +15,24 @@ package io.trino.plugin.openlineage;
 
 import com.google.common.collect.ImmutableMap;
 import io.openlineage.client.OpenLineage.Job;
+import io.openlineage.client.OpenLineage.OutputDataset;
 import io.openlineage.client.OpenLineage.Run;
 import io.openlineage.client.OpenLineage.RunEvent;
 import io.trino.plugin.base.eventlistener.testing.TestingEventListenerContext;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.eventlistener.QueryCompletedEvent;
+import io.trino.spi.eventlistener.QueryIOMetadata;
+import io.trino.spi.eventlistener.QueryOutputMetadata;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -190,6 +198,47 @@ final class TestOpenLineageListener
                 .extracting(RunEvent::getJob)
                 .extracting(Job::getName)
                 .isEqualTo("queryId-user-some-trino-client-127.0.0.1-abc123");
+    }
+
+    @Test
+    void testDatasetExcludePatternMustMatchWholeName()
+    {
+        QueryCompletedEvent event = completedEventWithOutput("catalog", "schema", "table");
+
+        assertThat(outputNames(event, "catalog\\.schema\\..*")).isEmpty();
+        assertThat(outputNames(event, "catalog\\.schema")).containsExactly("catalog.schema.table");
+        assertThat(outputNames(event, "schema\\.table")).containsExactly("catalog.schema.table");
+        assertThat(outputNames(event, "catalog")).containsExactly("catalog.schema.table");
+    }
+
+    private static List<String> outputNames(QueryCompletedEvent event, String datasetExcludePattern)
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.dataset.exclude-pattern", datasetExcludePattern));
+
+        return listener.getCompletedEvent(event).getOutputs().stream()
+                .map(OutputDataset::getName)
+                .collect(toImmutableList());
+    }
+
+    private static QueryCompletedEvent completedEventWithOutput(String catalog, String schema, String table)
+    {
+        QueryCompletedEvent template = TrinoEventData.queryCompleteEvent;
+        return new QueryCompletedEvent(
+                template.getMetadata(),
+                template.getStatistics(),
+                template.getContext(),
+                new QueryIOMetadata(
+                        List.of(),
+                        Optional.of(new QueryOutputMetadata(catalog, new CatalogVersion("1"), schema, table, Optional.empty(), Optional.empty(), Optional.empty()))),
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                template.getCreateTime(),
+                template.getExecutionStartTime(),
+                template.getEndTime());
     }
 
     private static EventListener createEventListener(Map<String, String> config)
