@@ -134,21 +134,28 @@ public class TpchRecordSet<E extends TpchEntity>
             implements RecordCursor
     {
         private final Iterator<E> rows;
-        private final List<TpchColumn<E>> columns;
         private final List<Type> columnTypes;
         private final List<ColumnMatcher<E>> predicateMatchers;
+        private final TpchColumn<E>[] columnArray;
+        private final LongColumnKind[] longColumnKinds;
         private E row;
         private boolean closed;
 
+        @SuppressWarnings("unchecked")
         public TpchRecordCursor(Iterator<E> rows, TpchTable<E> table, List<TpchColumn<E>> columns, List<Type> columnTypes, TupleDomain<ColumnHandle> predicate)
         {
             this.rows = requireNonNull(rows, "rows is null");
             requireNonNull(table, "table is null");
-            this.columns = requireNonNull(columns, "columns is null");
+            requireNonNull(columns, "columns is null");
             this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
             requireNonNull(predicate, "predicate is null");
             this.predicateMatchers = createMatchers(table, predicate);
             this.closed = predicate.isNone();
+            this.columnArray = columns.toArray(new TpchColumn[0]);
+            this.longColumnKinds = new LongColumnKind[columnArray.length];
+            for (int field = 0; field < columnArray.length; field++) {
+                longColumnKinds[field] = LongColumnKind.of(columnArray[field].getType().getBase());
+            }
         }
 
         @Override
@@ -194,28 +201,21 @@ public class TpchRecordSet<E extends TpchEntity>
         public long getLong(int field)
         {
             checkState(row != null, "No current row");
-            TpchColumn<E> tpchColumn = getTpchColumn(field);
-            if (tpchColumn.getType().getBase() == TpchColumnType.Base.DATE) {
-                return tpchColumn.getDate(row);
-            }
-            if (tpchColumn.getType().getBase() == TpchColumnType.Base.INTEGER) {
-                return tpchColumn.getInteger(row);
-            }
-            return tpchColumn.getIdentifier(row);
+            return longColumnKinds[field].read(columnArray[field], row);
         }
 
         @Override
         public double getDouble(int field)
         {
             checkState(row != null, "No current row");
-            return getTpchColumn(field).getDouble(row);
+            return columnArray[field].getDouble(row);
         }
 
         @Override
         public Slice getSlice(int field)
         {
             checkState(row != null, "No current row");
-            return Slices.utf8Slice(getTpchColumn(field).getString(row));
+            return Slices.utf8Slice(columnArray[field].getString(row));
         }
 
         @Override
@@ -245,11 +245,6 @@ public class TpchRecordSet<E extends TpchEntity>
                 }
             }
             return true;
-        }
-
-        private TpchColumn<E> getTpchColumn(int field)
-        {
-            return columns.get(field);
         }
     }
 
@@ -283,6 +278,31 @@ public class TpchRecordSet<E extends TpchEntity>
         return new DomainMatcher<>(column, type, domain);
     }
 
+    private enum LongColumnKind
+    {
+        DATE,
+        INTEGER,
+        IDENTIFIER;
+
+        static LongColumnKind of(TpchColumnType.Base base)
+        {
+            return switch (base) {
+                case DATE -> DATE;
+                case INTEGER -> INTEGER;
+                case IDENTIFIER, DOUBLE, VARCHAR -> IDENTIFIER;
+            };
+        }
+
+        <E extends TpchEntity> long read(TpchColumn<E> column, E row)
+        {
+            return switch (this) {
+                case DATE -> column.getDate(row);
+                case INTEGER -> column.getInteger(row);
+                case IDENTIFIER -> column.getIdentifier(row);
+            };
+        }
+    }
+
     private interface ColumnMatcher<E extends TpchEntity>
     {
         boolean matches(E row);
@@ -313,12 +333,14 @@ public class TpchRecordSet<E extends TpchEntity>
         private final TpchColumn<E> column;
         private final Type type;
         private final Domain domain;
+        private final LongColumnKind longColumnKind;
 
         private DomainMatcher(TpchColumn<E> column, Type type, Domain domain)
         {
             this.column = requireNonNull(column, "column is null");
             this.type = requireNonNull(type, "type is null");
             this.domain = requireNonNull(domain, "domain is null");
+            this.longColumnKind = LongColumnKind.of(column.getType().getBase());
         }
 
         @Override
@@ -330,11 +352,7 @@ public class TpchRecordSet<E extends TpchEntity>
         private Object trinoObject(E row)
         {
             if (type.getJavaType() == long.class) {
-                return switch (column.getType().getBase()) {
-                    case DATE -> (long) column.getDate(row);
-                    case INTEGER -> (long) column.getInteger(row);
-                    case IDENTIFIER, DOUBLE, VARCHAR -> column.getIdentifier(row);
-                };
+                return longColumnKind.read(column, row);
             }
             if (type.getJavaType() == double.class) {
                 return column.getDouble(row);
