@@ -134,21 +134,28 @@ public class TpchRecordSet<E extends TpchEntity>
             implements RecordCursor
     {
         private final Iterator<E> rows;
-        private final List<TpchColumn<E>> columns;
         private final List<Type> columnTypes;
         private final TupleDomain<ColumnHandle> predicate;
         private final List<ColumnMatcher<E>> predicateMatchers;
+        private final TpchColumn<E>[] columnArray;
+        private final LongColumnKind[] longColumnKinds;
         private E row;
         private boolean closed;
 
+        @SuppressWarnings("unchecked")
         public TpchRecordCursor(Iterator<E> rows, TpchTable<E> table, List<TpchColumn<E>> columns, List<Type> columnTypes, TupleDomain<ColumnHandle> predicate)
         {
             this.rows = requireNonNull(rows, "rows is null");
             requireNonNull(table, "table is null");
-            this.columns = requireNonNull(columns, "columns is null");
+            requireNonNull(columns, "columns is null");
             this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
             this.predicate = requireNonNull(predicate, "predicate is null");
             this.predicateMatchers = createMatchers(table, predicate);
+            this.columnArray = columns.toArray(new TpchColumn[0]);
+            this.longColumnKinds = new LongColumnKind[columnArray.length];
+            for (int field = 0; field < columnArray.length; field++) {
+                longColumnKinds[field] = LongColumnKind.of(columnArray[field].getType().getBase());
+            }
         }
 
         @Override
@@ -194,28 +201,26 @@ public class TpchRecordSet<E extends TpchEntity>
         public long getLong(int field)
         {
             checkState(row != null, "No current row");
-            TpchColumn<E> tpchColumn = getTpchColumn(field);
-            if (tpchColumn.getType().getBase() == TpchColumnType.Base.DATE) {
-                return tpchColumn.getDate(row);
-            }
-            if (tpchColumn.getType().getBase() == TpchColumnType.Base.INTEGER) {
-                return tpchColumn.getInteger(row);
-            }
-            return tpchColumn.getIdentifier(row);
+            TpchColumn<E> tpchColumn = columnArray[field];
+            return switch (longColumnKinds[field]) {
+                case DATE -> tpchColumn.getDate(row);
+                case INTEGER -> tpchColumn.getInteger(row);
+                case IDENTIFIER -> tpchColumn.getIdentifier(row);
+            };
         }
 
         @Override
         public double getDouble(int field)
         {
             checkState(row != null, "No current row");
-            return getTpchColumn(field).getDouble(row);
+            return columnArray[field].getDouble(row);
         }
 
         @Override
         public Slice getSlice(int field)
         {
             checkState(row != null, "No current row");
-            return Slices.utf8Slice(getTpchColumn(field).getString(row));
+            return Slices.utf8Slice(columnArray[field].getString(row));
         }
 
         @Override
@@ -253,11 +258,6 @@ public class TpchRecordSet<E extends TpchEntity>
             }
             return true;
         }
-
-        private TpchColumn<E> getTpchColumn(int field)
-        {
-            return columns.get(field);
-        }
     }
 
     private static <E extends TpchEntity> List<ColumnMatcher<E>> createMatchers(TpchTable<E> table, TupleDomain<ColumnHandle> predicate)
@@ -285,6 +285,22 @@ public class TpchRecordSet<E extends TpchEntity>
             return new AllowedStringsMatcher<>(column, allowedValues.build());
         }
         return new DomainMatcher<>(column, type, domain);
+    }
+
+    private enum LongColumnKind
+    {
+        DATE,
+        INTEGER,
+        IDENTIFIER;
+
+        static LongColumnKind of(TpchColumnType.Base base)
+        {
+            return switch (base) {
+                case DATE -> DATE;
+                case INTEGER -> INTEGER;
+                case IDENTIFIER, DOUBLE, VARCHAR -> IDENTIFIER;
+            };
+        }
     }
 
     private interface ColumnMatcher<E extends TpchEntity>
