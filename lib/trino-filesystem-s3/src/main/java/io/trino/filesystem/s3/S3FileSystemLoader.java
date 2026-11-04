@@ -54,7 +54,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -118,20 +117,9 @@ final class S3FileSystemLoader
     @Override
     public TrinoFileSystemFactory apply(Location location)
     {
-        return new TrinoFileSystemFactory()
-        {
-            @Override
-            public TrinoFileSystem create(ConnectorIdentity identity)
-            {
-                return createFileSystem(location, identity, context.withCredentials(identity));
-            }
-
-            @Override
-            public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
-            {
-                ConnectorIdentity identity = identitySupplier.get();
-                return createFileSystem(location, identity, context.withCredentials(identity, identitySupplier));
-            }
+        return identitySupplier -> {
+            ConnectorIdentity identity = identitySupplier.get();
+            return createFileSystem(location, identity, context.withCredentials(identity, identitySupplier));
         };
     }
 

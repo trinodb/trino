@@ -143,17 +143,6 @@ public class AzureFileSystemFactory
     }
 
     @Override
-    public TrinoFileSystem create(ConnectorIdentity identity)
-    {
-        AzureAuth effectiveAuth = auth;
-        Map<String, String> sasTokens = extractSasTokens(identity);
-        if (!sasTokens.isEmpty()) {
-            effectiveAuth = new AzureAuthSasToken(sasTokens);
-        }
-        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
-    }
-
-    @Override
     public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
     {
         AzureAuth effectiveAuth = auth;

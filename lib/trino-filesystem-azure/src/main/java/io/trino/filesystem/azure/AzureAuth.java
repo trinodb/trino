@@ -20,8 +20,7 @@ public sealed interface AzureAuth
         permits AzureAuthAccessKey,
                 AzureAuthDefault,
                 AzureAuthOauth,
-                AzureAuthRefreshingSasToken,
-                AzureAuthSasToken
+                AzureAuthRefreshingSasToken
 {
     void setAuth(String storageAccount, BlobContainerClientBuilder builder);
 
