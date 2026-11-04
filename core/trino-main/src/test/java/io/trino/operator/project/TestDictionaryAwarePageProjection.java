@@ -208,6 +208,94 @@ public class TestDictionaryAwarePageProjection
         assertThat(firstDictionary).isSameAs(dictionary);
     }
 
+    @Test
+    public void testNestedDictionaryOutput()
+    {
+        Block values = createLongsBlock(100, 101, 102, 103, 104);
+        DictionaryAwarePageProjection projection = nestedDictionaryProjection(values);
+        Block dictionary = createLongsBlock(0, 1, 2, 3);
+
+        // the first page maps the ids to the values under the projected dictionary
+        Block firstOutputBlock = projection.project(
+                null,
+                SourcePage.create(DictionaryBlock.create(6, dictionary, new int[] {0, 1, 2, 3, 3, 2})),
+                SelectedPositions.positionsList(new int[] {0, 2, 3, 5}, 0, 4));
+        assertBlockEquals(BIGINT, firstOutputBlock, createLongsBlock(104, 102, 101, 102));
+        assertThat(((DictionaryBlock) firstOutputBlock).getDictionary()).isSameAs(values);
+
+        // the next page that shares the input dictionary copies the projected values once
+        Block secondOutputBlock = projection.project(
+                null,
+                SourcePage.create(DictionaryBlock.create(3, dictionary, new int[] {3, 1, 0})),
+                SelectedPositions.positionsRange(1, 2));
+        assertBlockEquals(BIGINT, secondOutputBlock, createLongsBlock(103, 104));
+        Block copiedValues = ((DictionaryBlock) secondOutputBlock).getDictionary();
+        assertBlockEquals(BIGINT, copiedValues, createLongsBlock(104, 103, 102, 101));
+
+        Block thirdOutputBlock = projection.project(
+                null,
+                SourcePage.create(DictionaryBlock.create(4, dictionary, new int[] {2, 2, 0, 1})),
+                SelectedPositions.positionsList(new int[] {1, 3}, 0, 2));
+        assertBlockEquals(BIGINT, thirdOutputBlock, createLongsBlock(102, 103));
+        assertThat(((DictionaryBlock) thirdOutputBlock).getDictionary()).isSameAs(copiedValues);
+
+        // a new input dictionary is mapped to the values again
+        Block fourthOutputBlock = projection.project(
+                null,
+                SourcePage.create(DictionaryBlock.create(4, createLongsBlock(3, 2, 1, 0), new int[] {0, 1, 2, 3})),
+                SelectedPositions.positionsRange(0, 4));
+        assertBlockEquals(BIGINT, fourthOutputBlock, createLongsBlock(101, 102, 103, 104));
+        assertThat(((DictionaryBlock) fourthOutputBlock).getDictionary()).isSameAs(values);
+    }
+
+    @Test
+    public void testSparseNestedDictionaryOutput()
+    {
+        Block values = createLongsBlock(100, 101, 102, 103, 104);
+        DictionaryAwarePageProjection projection = nestedDictionaryProjection(values);
+        Block dictionary = createLongsBlock(0, 1, 2, 3, 4, 0);
+
+        Block firstOutputBlock = projection.project(
+                null,
+                SourcePage.create(DictionaryBlock.create(6, dictionary, new int[] {0, 1, 2, 3, 4, 5})),
+                SelectedPositions.positionsList(new int[] {1, 4}, 0, 2));
+        assertBlockEquals(BIGINT, firstOutputBlock, createLongsBlock(103, 100));
+
+        // the pages have selected fewer positions than the input dictionary has, so the ids are still mapped
+        Block secondOutputBlock = projection.project(
+                null,
+                SourcePage.create(DictionaryBlock.create(6, dictionary, new int[] {5, 4, 3, 2, 1, 0})),
+                SelectedPositions.positionsList(new int[] {0, 2}, 0, 2));
+        assertBlockEquals(BIGINT, secondOutputBlock, createLongsBlock(104, 101));
+        assertThat(((DictionaryBlock) secondOutputBlock).getDictionary()).isSameAs(values);
+
+        // once the pages have selected as many positions as the input dictionary has, the projected values are copied
+        Block thirdOutputBlock = projection.project(
+                null,
+                SourcePage.create(DictionaryBlock.create(6, dictionary, new int[] {0, 1, 2, 3, 4, 5})),
+                SelectedPositions.positionsList(new int[] {2, 5}, 0, 2));
+        assertBlockEquals(BIGINT, thirdOutputBlock, createLongsBlock(102, 104));
+        assertBlockEquals(BIGINT, ((DictionaryBlock) thirdOutputBlock).getDictionary(), createLongsBlock(104, 103, 102, 101, 100, 104));
+    }
+
+    // The projection returns a dictionary over its own values, as the columnar array element functions do
+    private static DictionaryAwarePageProjection nestedDictionaryProjection(Block values)
+    {
+        return new DictionaryAwarePageProjection(
+                new TestPageProjection()
+                {
+                    @Override
+                    public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
+                    {
+                        Block block = super.project(session, page, selectedPositions);
+                        int[] ids = new int[block.getPositionCount()];
+                        Arrays.setAll(ids, position -> 4 - (int) BIGINT.getLong(block, position));
+                        return DictionaryBlock.create(ids.length, values, ids);
+                    }
+                },
+                _ -> randomDictionaryId());
+    }
+
     private static Block createDictionaryBlock(int dictionarySize, int blockSize)
     {
         Block dictionary = createLongSequenceBlock(0, dictionarySize);
