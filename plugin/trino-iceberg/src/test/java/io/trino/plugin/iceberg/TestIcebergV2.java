@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
@@ -29,8 +30,15 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Storage;
 import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.hive.HiveStorageFormat;
+import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.Page;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -104,15 +112,18 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.trino.block.BlockAssertions.createIntsBlock;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -126,6 +137,7 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
@@ -142,6 +154,7 @@ import static org.apache.iceberg.formats.FormatModelRegistry.positionDeleteWrite
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -497,20 +510,71 @@ public class TestIcebergV2
             insertRecord(icebergTable, nullableSchema, record);
             insertRecord(icebergTable, nullableSchema, record);
 
-            Location dataDirectory = Location.of(icebergTable.location()).appendPath("data");
-            List<String> dataFiles = listFiles(dataDirectory);
+            Set<Object> dataFiles = computeActual("SELECT file_path FROM \"" + table.getName() + "$files\" WHERE content = 0")
+                    .getOnlyColumnAsSet();
             assertThat(dataFiles).hasSize(2);
+
+            Location dataDirectory = Location.of(icebergTable.location()).appendPath("data");
+            List<String> physicalDataFiles = listFiles(dataDirectory);
+            assertThat(physicalDataFiles).hasSize(2);
 
             assertThat(query("SELECT x FROM " + table.getName()))
                     .matches("VALUES CAST(NULL AS integer), NULL");
 
-            assertThat(query("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE")).failure()
+            String optimizeQuery = "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE";
+            QueryFailedException optimizeFailure = catchThrowableOfType(() -> getQueryRunner().execute(optimizeQuery), QueryFailedException.class);
+            assertThat(optimizeFailure)
                     .hasMessage("NULL value not allowed for NOT NULL column: x");
-            assertEventually(() -> assertEqualsIgnoreOrder(listFiles(dataDirectory), dataFiles, "Data files after failed optimize"));
+            String caseDescription = "format=%s, partitioned=%s, metricsDisabled=%s".formatted(format, partitioned, metricsDisabled);
+            assertEventually(new Duration(30, SECONDS), () -> {
+                List<String> actualPhysicalDataFiles = listFiles(dataDirectory);
+                assertEqualsIgnoreOrder(
+                        actualPhysicalDataFiles,
+                        physicalDataFiles,
+                        describePhysicalFileDifference(physicalDataFiles, actualPhysicalDataFiles, dataDirectory, caseDescription, optimizeFailure.getQueryId().toString()));
+            });
+            assertThat(computeActual("SELECT file_path FROM \"" + table.getName() + "$files\" WHERE content = 0")
+                    .getOnlyColumnAsSet())
+                    .as("Data files in table after failed optimize")
+                    .isEqualTo(dataFiles);
+
+            if (metricsDisabled) {
+                assertPageSinkAbortRollsBack(table.getName(), dataDirectory);
+            }
 
             assertThat(query("SELECT x FROM " + table.getName()))
                     .matches("VALUES CAST(NULL AS integer), NULL");
         }
+    }
+
+    private void assertPageSinkAbortRollsBack(String tableName, Location dataDirectory)
+            throws IOException
+    {
+        List<String> dataFilesBeforeWrite = listFiles(dataDirectory);
+        IcebergMetadata metadata = getConnectorService(getQueryRunner(), IcebergMetadataFactory.class).create(SESSION.getIdentity());
+        try {
+            ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("tpch", tableName), Optional.empty(), Optional.empty());
+            List<ColumnHandle> columns = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
+            ConnectorInsertTableHandle insertHandle = metadata.beginInsert(SESSION, tableHandle, columns, NO_RETRIES);
+            ConnectorPageSink pageSink = getConnectorService(getQueryRunner(), ConnectorPageSinkProvider.class).createPageSink(
+                    new HiveTransactionHandle(true),
+                    SESSION,
+                    insertHandle,
+                    metadata.getTableCredentials(SESSION, insertHandle),
+                    () -> 0);
+            try {
+                pageSink.appendPage(new Page(createIntsBlock((Integer) null))).join();
+                assertThatThrownBy(pageSink::finish)
+                        .hasMessage("NULL value not allowed for NOT NULL column: x");
+            }
+            finally {
+                pageSink.abort();
+            }
+        }
+        finally {
+            metadata.rollback();
+        }
+        assertEqualsIgnoreOrder(listFiles(dataDirectory), dataFilesBeforeWrite, "Data files after page sink abort");
     }
 
     private static void insertRecord(Table table, Schema schema, Record record)
@@ -541,6 +605,45 @@ public class TestIcebergV2
             files.add(listing.next().location().toString());
         }
         return files.build();
+    }
+
+    private String describePhysicalFileDifference(List<String> expectedFiles, List<String> actualFiles, Location dataDirectory, String testCase, String optimizeQueryId)
+            throws IOException
+    {
+        Set<String> expected = ImmutableSet.copyOf(expectedFiles);
+        List<String> extraFiles = actualFiles.stream()
+                .filter(file -> !expected.contains(file))
+                .toList();
+        List<String> missingFiles = expectedFiles.stream()
+                .filter(file -> !actualFiles.contains(file))
+                .toList();
+
+        ImmutableMap.Builder<String, FileEntry> entries = ImmutableMap.builder();
+        FileIterator listing = fileSystemFactory.create(SESSION).listFiles(dataDirectory);
+        while (listing.hasNext()) {
+            FileEntry entry = listing.next();
+            entries.put(entry.location().toString(), entry);
+        }
+        Map<String, FileEntry> entriesByPath = entries.buildOrThrow();
+
+        return "Physical data files after failed OPTIMIZE differ for %s; OPTIMIZE query ID: %s; extra files: %s; missing files: %s"
+                .formatted(testCase, optimizeQueryId, extraFiles.stream()
+                        .map(file -> describePhysicalFile(file, entriesByPath.get(file)))
+                        .toList(), missingFiles.stream()
+                        .map(file -> file.substring(file.lastIndexOf('/') + 1) + " (no longer present)")
+                        .toList());
+    }
+
+    private String describePhysicalFile(String file, FileEntry entry)
+    {
+        String fileName = file.substring(file.lastIndexOf('/') + 1);
+        Matcher matcher = Pattern.compile("\\d{8}_\\d{6}_\\d{5}_[a-z0-9]+").matcher(fileName);
+        String fileQueryId = matcher.find() ? matcher.group() : "none";
+        if (entry == null) {
+            return "%s (query ID: %s; file metadata unavailable)".formatted(fileName, fileQueryId);
+        }
+        return "%s (size: %s bytes; modified: %s; query ID: %s)"
+                .formatted(fileName, entry.length(), entry.lastModified(), fileQueryId);
     }
 
     @Test
