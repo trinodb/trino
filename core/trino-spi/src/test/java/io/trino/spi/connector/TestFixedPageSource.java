@@ -60,6 +60,20 @@ class TestFixedPageSource
         assertThat(reportedBytes).hasValue(0);
     }
 
+    @Test
+    public void testCloseBeforeAllPagesAreRead()
+    {
+        AtomicLong reportedBytes = new AtomicLong(-1);
+        FixedPageSource pageSource = new FixedPageSource(PAGES, reportedBytes::set);
+        assertThat(pageSource.getNextSourcePage()).isNotNull();
+
+        pageSource.close();
+        assertThat(reportedBytes).hasValue(0);
+        assertThat(pageSource.isFinished()).isTrue();
+        assertThat(pageSource.getNextSourcePage()).isNull();
+        assertThat(pageSource.getCompletedBytes()).isEqualTo(PAGES.getFirst().getSizeInBytes());
+    }
+
     private static Page createPage(int positionCount)
     {
         return new Page(new LongArrayBlock(positionCount, Optional.empty(), new long[positionCount]));
