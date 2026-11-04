@@ -15,6 +15,7 @@ package io.trino.spi.connector;
 
 import io.trino.spi.Page;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -23,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 public class FixedPageSource
         implements ConnectorPageSource
 {
-    private final Iterator<Page> pages;
+    private Iterator<Page> pages;
     private final MemoryContext memoryContext;
 
     private long completedBytes;
@@ -60,6 +61,8 @@ public class FixedPageSource
     public void close()
     {
         closed = true;
+        // Drop the remaining pages, so that they are not retained after their memory is released
+        pages = Collections.emptyIterator();
         memoryContext.setBytes(0);
     }
 
