@@ -958,8 +958,7 @@ jobs:
           name: product test distribution
           path: |
             testing/trino-product-tests/target/product-test-distribution
-            testing/trino-product-tests/target/iceberg-spark-runtime.jar
-            testing/trino-product-tests/target/iceberg-aws-bundle.jar
+            testing/trino-product-tests/target/downloaded-jars
           retention-days: 1
       - name: Test product-test matrix script
         run: .github/bin/build-pt-matrix.py --test

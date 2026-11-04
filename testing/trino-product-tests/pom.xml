@@ -467,19 +467,19 @@
                         <phase>process-test-resources</phase>
                         <configuration>
                             <skip>false</skip>
+                            <outputDirectory>${project.build.directory}/downloaded-jars</outputDirectory>
+                            <overWriteReleases>true</overWriteReleases>
                             <artifactItems>
                                 <artifactItem>
                                     <groupId>org.apache.iceberg</groupId>
                                     <artifactId>iceberg-spark-runtime-4.1_2.13</artifactId>
                                     <version>${dep.iceberg.version}</version>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
                                     <destFileName>iceberg-spark-runtime.jar</destFileName>
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>org.apache.iceberg</groupId>
                                     <artifactId>iceberg-aws-bundle</artifactId>
                                     <version>${dep.iceberg.version}</version>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
                                     <destFileName>iceberg-aws-bundle.jar</destFileName>
                                 </artifactItem>
                             </artifactItems>
