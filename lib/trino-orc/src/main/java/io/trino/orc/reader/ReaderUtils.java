@@ -17,6 +17,7 @@ import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 
 import java.util.Arrays;
@@ -27,6 +28,7 @@ import static io.trino.spi.block.Bitmap.expandBits;
 import static io.trino.spi.block.Bitmap.getBits;
 import static io.trino.spi.block.Bitmap.isSet;
 import static io.trino.spi.block.Bitmap.wordsForBits;
+import static io.trino.spi.type.Decimals.longTenToNth;
 import static java.lang.Long.bitCount;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -57,6 +59,27 @@ final class ReaderUtils
                 column.getPath(),
                 column.getColumnType().getOrcTypeKind(),
                 column.getAttributes());
+    }
+
+    /**
+     * Rescales a short decimal to the scale of the column it is read as. Reducing the scale rounds
+     * half away from zero, the same way the long-decimal path and a cast between two decimal types
+     * do. {@link Decimals#rescale(long, int, int)} cannot be used for that direction: it rejects a
+     * target scale smaller than the source one, and a file can hold more decimal places than the
+     * column it is read as.
+     */
+    public static long rescaleShortDecimal(long value, int fromScale, int toScale)
+    {
+        if (toScale >= fromScale) {
+            return Decimals.rescale(value, fromScale, toScale);
+        }
+        long divisor = longTenToNth(fromScale - toScale);
+        long result = value / divisor;
+        long remainder = value % divisor;
+        if (remainder >= divisor / 2 || remainder <= -(divisor / 2)) {
+            result += value < 0 ? -1 : 1;
+        }
+        return result;
     }
 
     public static int minNonNullValueSize(int nonNullCount)
