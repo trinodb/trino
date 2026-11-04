@@ -25,6 +25,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.block.DictionaryBlock.createProjectedDictionaryBlock;
+import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryAwarePageProjection
@@ -36,6 +37,9 @@ public class DictionaryAwarePageProjection
     private Block lastInputDictionary;
     private Optional<Block> lastOutputDictionary;
     private long lastDictionaryUsageCount;
+
+    // The projected dictionary that is itself a dictionary, which is copied when another page shares its input dictionary
+    private DictionaryBlock lastNestedOutputDictionary;
 
     public DictionaryAwarePageProjection(PageProjection projection, Function<DictionaryBlock, DictionaryId> sourceIdFunction)
     {
@@ -84,7 +88,7 @@ public class DictionaryAwarePageProjection
             // and force reprocessing of the whole block using the normal code.
             // The second pass may not fail due to filtering.
             // todo dictionary processing should be able to tolerate failures of unused elements
-            lastOutputDictionary = Optional.empty();
+            clearOutputDictionary();
         }
 
         if (block instanceof DictionaryBlock) {
@@ -102,8 +106,7 @@ public class DictionaryAwarePageProjection
 
             if (block instanceof DictionaryBlock dictionaryBlock) {
                 // if dictionary was processed, produce a dictionary block; otherwise do normal processing
-                int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
-                return createProjectedDictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, sourceIdFunction.apply(dictionaryBlock));
+                return projectDictionary(dictionaryBlock, dictionaryOutput.get(), selectedPositions);
             }
 
             throw new UnsupportedOperationException("unexpected block type " + block.getClass());
@@ -118,10 +121,34 @@ public class DictionaryAwarePageProjection
         return projection.project(session, SourcePage.create(block), selectedPositions);
     }
 
+    // This is not part of project, so project is small enough to be inlined into the page processor
+    private Block projectDictionary(DictionaryBlock dictionaryBlock, Block outputDictionary, SelectedPositions selectedPositions)
+    {
+        int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
+        if (outputDictionary instanceof DictionaryBlock nestedDictionary) {
+            // The projected dictionary is itself a dictionary, so each page maps its selected ids to the values
+            // under it. Once another page shares the input dictionary, copy the projected values, so this and
+            // the following pages select them directly, without the mapping.
+            if (nestedDictionary != lastNestedOutputDictionary) {
+                lastNestedOutputDictionary = nestedDictionary;
+                int[] nestedIds = nestedDictionary.getRawIds();
+                int nestedIdsOffset = nestedDictionary.getRawIdsOffset();
+                for (int index = 0; index < outputIds.length; index++) {
+                    outputIds[index] = nestedIds[nestedIdsOffset + outputIds[index]];
+                }
+                return createProjectedDictionaryBlock(outputIds.length, nestedDictionary.getDictionary(), outputIds, randomDictionaryId());
+            }
+            outputDictionary = nestedDictionary.getDictionary().copyPositions(nestedDictionary.getRawIds(), nestedDictionary.getRawIdsOffset(), nestedDictionary.getPositionCount());
+            clearOutputDictionary();
+            lastOutputDictionary = Optional.of(outputDictionary);
+        }
+        return createProjectedDictionaryBlock(outputIds.length, outputDictionary, outputIds, sourceIdFunction.apply(dictionaryBlock));
+    }
+
     private Block createDictionaryBlockProjection(ConnectorSession session, Optional<Block> dictionary, int blockPositionsCount)
     {
         if (dictionary.isEmpty()) {
-            lastOutputDictionary = Optional.empty();
+            clearOutputDictionary();
             return null;
         }
 
@@ -139,12 +166,18 @@ public class DictionaryAwarePageProjection
         // record the usage count regardless of dictionary processing choice, so we have stats for next time
         lastDictionaryUsageCount = 0;
         lastInputDictionary = dictionary.get();
-        lastOutputDictionary = Optional.empty();
+        clearOutputDictionary();
 
         if (shouldProcessDictionary) {
             return projection.project(session, SourcePage.create(lastInputDictionary), SelectedPositions.positionsRange(0, lastInputDictionary.getPositionCount()));
         }
         return null;
+    }
+
+    private void clearOutputDictionary()
+    {
+        lastOutputDictionary = Optional.empty();
+        lastNestedOutputDictionary = null;
     }
 
     private static int[] filterDictionaryIds(DictionaryBlock dictionaryBlock, SelectedPositions selectedPositions)
