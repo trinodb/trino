@@ -32,12 +32,16 @@ import jakarta.ws.rs.core.SecurityContext;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.emptyToNull;
+import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_AUTH_INFO;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN_FORM;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.getDeleteCookies;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_FORM_URLENCODED;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
+import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN;
+import static jakarta.ws.rs.core.Response.Status.METHOD_NOT_ALLOWED;
 import static java.util.Objects.requireNonNull;
 
 @Path("")
@@ -46,6 +50,8 @@ import static java.util.Objects.requireNonNull;
 @Produces(APPLICATION_JSON)
 public class LoginResource
 {
+    private static final String DEPRECATED_UI_LOGIN = "/ui/login";
+
     private final FormWebUiAuthenticationFilter formWebUiAuthenticationManager;
 
     @Inject
@@ -61,6 +67,20 @@ public class LoginResource
         boolean isPasswordAllowed = formWebUiAuthenticationManager.isPasswordAllowed(securityContext.isSecure());
         Optional<String> username = formWebUiAuthenticationManager.getAuthenticatedUsername(request);
         return new AuthInfo("form", isPasswordAllowed, username.isPresent(), username);
+    }
+
+    @ResourceSecurity(PUBLIC)
+    @POST
+    @Path(DEPRECATED_UI_LOGIN)
+    @Consumes(APPLICATION_FORM_URLENCODED)
+    @Produces(TEXT_PLAIN)
+    public Response deprecatedLogin()
+    {
+        return Response.status(METHOD_NOT_ALLOWED)
+                .allow("GET", "HEAD", "OPTIONS")
+                .type(TEXT_PLAIN)
+                .entity("Web UI form login moved to POST /ui/auth/login in Trino 483. The new endpoint expects an application/json request.")
+                .build();
     }
 
     @POST
