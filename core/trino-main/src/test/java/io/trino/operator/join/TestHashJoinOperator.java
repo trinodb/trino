@@ -99,7 +99,7 @@ import static io.trino.operator.join.JoinTestUtils.innerJoinOperatorFactory;
 import static io.trino.operator.join.JoinTestUtils.instantiateBuildDrivers;
 import static io.trino.operator.join.JoinTestUtils.runDriverInThread;
 import static io.trino.operator.join.JoinTestUtils.setupBuildSide;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
@@ -158,9 +158,9 @@ public class TestHashJoinOperator
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 new IncrementalLoadFactorHashArraySizeSupplier(1)))
-                .hasErrorCode(GENERIC_INTERNAL_ERROR)
-                .hasMessage("Failed to determine hash table size: Too large (1000000001 expected elements with load factor 0.75)")
-                .hasCauseInstanceOf(IllegalArgumentException.class);
+                .hasErrorCode(GENERIC_INSUFFICIENT_RESOURCES)
+                .hasMessage("Size of join hash table can not exceed 805306368 entries")
+                .hasNoCause();
     }
 
     private void testInnerJoin(boolean parallelBuild)
