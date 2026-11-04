@@ -50,6 +50,7 @@ import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.NON_DISCRE
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.UNKNOWN;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
+import static io.trino.spi.type.TypeUtils.isDirectLongComparisonValidType;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
@@ -208,6 +209,10 @@ public final class SortedRangeSet
 
     private static SortedRangeSet fromUnorderedValuesBlock(Type type, Block block)
     {
+        if (isDirectLongComparisonValidType(type) && !block.mayHaveNull()) {
+            return fromUnorderedLongValuesBlock(type, block);
+        }
+
         // choice of placing unordered values first or last does not matter for this code
         MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
 
@@ -244,6 +249,41 @@ public final class SortedRangeSet
                 type,
                 inclusive,
                 DictionaryBlock.create(dictionaryIndex, block, dictionary),
+                DISCRETE);
+    }
+
+    private static SortedRangeSet fromUnorderedLongValuesBlock(Type type, Block block)
+    {
+        long[] values = new long[block.getPositionCount()];
+        for (int position = 0; position < values.length; position++) {
+            values[position] = type.getLong(block, position);
+        }
+        Arrays.sort(values);
+
+        BlockBuilder distinctValues = type.createBlockBuilder(null, values.length);
+        int[] dictionary = new int[values.length * 2];
+        int distinctCount = 0;
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0 && values[i] == values[i - 1]) {
+                continue;
+            }
+            type.writeLong(distinctValues, values[i]);
+            // each distinct value is both the low and the high bound of a single value range
+            dictionary[2 * distinctCount] = distinctCount;
+            dictionary[2 * distinctCount + 1] = distinctCount;
+            distinctCount++;
+        }
+
+        if (distinctCount != values.length) {
+            dictionary = Arrays.copyOf(dictionary, distinctCount * 2);
+        }
+        boolean[] inclusive = new boolean[dictionary.length];
+        Arrays.fill(inclusive, true);
+
+        return new SortedRangeSet(
+                type,
+                inclusive,
+                DictionaryBlock.create(dictionary.length, distinctValues.build(), dictionary),
                 DISCRETE);
     }
 
