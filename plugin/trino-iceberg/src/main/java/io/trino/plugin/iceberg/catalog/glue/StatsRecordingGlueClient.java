@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
+import io.trino.plugin.hive.metastore.glue.GlueCache;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.spi.connector.SchemaTableName;
 import software.amazon.awssdk.services.glue.GlueClient;
@@ -33,11 +34,13 @@ import static java.util.Objects.requireNonNull;
 public class StatsRecordingGlueClient
 {
     private final GlueClient glueClient;
+    private final GlueCache glueCache;
     private final GlueMetastoreStats stats;
 
-    public StatsRecordingGlueClient(GlueClient glueClient, GlueMetastoreStats stats)
+    public StatsRecordingGlueClient(GlueClient glueClient, GlueCache glueCache, GlueMetastoreStats stats)
     {
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
+        this.glueCache = requireNonNull(glueCache, "glueCache is null");
         this.stats = requireNonNull(stats, "stats is null");
     }
 
@@ -59,14 +62,26 @@ public class StatsRecordingGlueClient
 
     public void dropDatabase(String databaseName)
     {
-        stats.getDeleteDatabase().call(() ->
-                glueClient.deleteDatabase(request -> request.name(databaseName)));
+        try {
+            stats.getDeleteDatabase().call(() ->
+                    glueClient.deleteDatabase(request -> request.name(databaseName)));
+        }
+        finally {
+            glueCache.invalidateDatabase(databaseName);
+            glueCache.invalidateDatabaseNames();
+        }
     }
 
     public void createDatabase(DatabaseInput database)
     {
-        stats.getCreateDatabase().call(() ->
-                glueClient.createDatabase(request -> request.databaseInput(database)));
+        try {
+            stats.getCreateDatabase().call(() ->
+                    glueClient.createDatabase(request -> request.databaseInput(database)));
+        }
+        finally {
+            glueCache.invalidateDatabase(database.name());
+            glueCache.invalidateDatabaseNames();
+        }
     }
 
     public Table getTable(SchemaTableName tableName)
@@ -81,28 +96,45 @@ public class StatsRecordingGlueClient
 
     public void deleteTable(String databaseName, String tableName)
     {
-        stats.getDeleteTable().call(() ->
-                glueClient.deleteTable(request -> request
-                        .databaseName(databaseName)
-                        .name(tableName)));
+        try {
+            stats.getDeleteTable().call(() ->
+                    glueClient.deleteTable(request -> request
+                            .databaseName(databaseName)
+                            .name(tableName)));
+        }
+        finally {
+            glueCache.invalidateTable(databaseName, tableName, true);
+            glueCache.invalidateTables(databaseName);
+        }
     }
 
     public void updateTable(String databaseName, TableInput table, Optional<String> versionId)
     {
-        stats.getUpdateTable().call(() ->
-                glueClient.updateTable(request -> {
-                    request.databaseName(databaseName)
-                            .tableInput(table);
-                    versionId.ifPresent(request::versionId);
-                }));
+        try {
+            stats.getUpdateTable().call(() ->
+                    glueClient.updateTable(request -> {
+                        request.databaseName(databaseName)
+                                .tableInput(table);
+                        versionId.ifPresent(request::versionId);
+                    }));
+        }
+        finally {
+            glueCache.invalidateTable(databaseName, table.name(), false);
+        }
     }
 
     public void createTable(String databaseName, TableInput table)
     {
-        stats.getCreateTable().call(() ->
-                glueClient.createTable(request -> request
-                        .databaseName(databaseName)
-                        .tableInput(table)));
+        try {
+            stats.getCreateTable().call(() ->
+                    glueClient.createTable(request -> request
+                            .databaseName(databaseName)
+                            .tableInput(table)));
+        }
+        finally {
+            glueCache.invalidateTable(databaseName, table.name(), true);
+            glueCache.invalidateTables(databaseName);
+        }
     }
 
     public Stream<Table> streamTables(String databaseName)
