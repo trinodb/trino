@@ -347,12 +347,13 @@ A table definition file contains sections for both key and message to map
 the data onto table columns.
 
 Each of the `key` and `message` fields in the table definition is a
-JSON object that must contain two fields:
+JSON object with the following fields:
 
-| Field        | Required | Type       | Description                                                                                 |
-| ------------ | -------- | ---------- | ------------------------------------------------------------------------------------------- |
-| `dataFormat` | required | string     | Selects the decoder for this group of fields.                                               |
-| `fields`     | required | JSON array | A list of field definitions. Each field definition creates a new column in the Trino table. |
+| Field        | Required | Type       | Description                                                                                                 |
+| ------------ | -------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `dataFormat` | required | string     | Selects the decoder for this group of fields.                                                               |
+| `dataSchema` | optional | string     | The path or URL where the Avro or Protobuf schema resides. Used by Avro and Protobuf encoders and decoders. |
+| `fields`     | required | JSON array | A list of field definitions. Each field definition creates a new column in the Trino table.                 |
 
 Each field definition is a JSON object:
 
@@ -373,7 +374,6 @@ Each field definition is a JSON object:
 | `name`       | required | string  | Name of the column in the Trino table.                                                                               |
 | `type`       | required | string  | Trino type of the column.                                                                                            |
 | `dataFormat` | optional | string  | Selects the column decoder for this field. Defaults to the default decoder for this row data format and column type. |
-| `dataSchema` | optional | string  | The path or URL where the Avro schema resides. Used only for Avro decoder.                                           |
 | `mapping`    | optional | string  | Mapping information for the column. This is decoder specific, see below.                                             |
 | `formatHint` | optional | string  | Sets a column-specific format hint to the column decoder.                                                            |
 | `hidden`     | optional | boolean | Hides the column from `DESCRIBE <table name>` and `SELECT *`. Defaults to `false`.                                   |
