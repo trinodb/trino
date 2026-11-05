@@ -63,6 +63,8 @@ import static io.trino.cli.QueryPreprocessor.preprocessQuery;
 import static io.trino.cli.TerminalUtils.closeTerminal;
 import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
+import static io.trino.cli.TerminalUtils.isStandardOutputTerminal;
+import static io.trino.cli.TerminalUtils.mayStandardOutputBeFile;
 import static io.trino.cli.TerminalUtils.terminalEncoding;
 import static io.trino.cli.Trino.formatCliErrorMessage;
 import static io.trino.cli.lexer.StatementSplitter.isEmptyStatement;
@@ -101,6 +103,14 @@ public class Console
     @Mixin
     public ClientOptions clientOptions;
 
+    private boolean agentErrors;
+
+    // True when errors that end the CLI are reported as JSON, which is decided at the start of run
+    boolean reportsAgentErrors()
+    {
+        return agentErrors;
+    }
+
     @Override
     public Integer call()
     {
@@ -119,8 +129,27 @@ public class Console
                 .map(Optional::get)
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        TrinoUri uri = clientOptions.getTrinoUri(restrictedOptions);
-        ClientSession session = clientOptions.toClientSession(uri);
+        boolean outputFormatSpecified = isOptionSpecified("--output-format");
+        Optional<AgentMode> agentMode = AgentMode.resolve(clientOptions.agent, System.getenv(), isStandardOutputTerminal(), mayStandardOutputBeFile(), outputFormatSpecified);
+        // agent mode applies to batch mode only, the query from stdin is known after it is read
+        agentErrors = agentMode.isPresent() && (clientOptions.execute != null || !isNullOrEmpty(clientOptions.file));
+        OutputFormat batchOutputFormat = clientOptions.outputFormat;
+        if (agentMode.isPresent() && !outputFormatSpecified) {
+            batchOutputFormat = OutputFormat.AGENT;
+        }
+
+        TrinoUri uri;
+        ClientSession session;
+        try {
+            uri = clientOptions.getTrinoUri(restrictedOptions);
+            session = clientOptions.toClientSession(uri);
+        }
+        catch (RuntimeException e) {
+            // this runs before stdin is read, and options can prompt for a password from it, so assume
+            // that a query is piped in when stdin is not a terminal
+            agentErrors = agentMode.isPresent() && (agentErrors || !isRealTerminal());
+            throw e;
+        }
         boolean hasQuery = clientOptions.execute != null;
         boolean isFromFile = !isNullOrEmpty(clientOptions.file);
 
@@ -158,6 +187,9 @@ public class Console
             }
         }
 
+        boolean agentBatch = agentMode.isPresent() && hasQuery;
+        agentErrors = agentBatch;
+
         // abort any running query if the CLI is terminated
         AtomicBoolean exiting = new AtomicBoolean();
         ThreadInterruptor interruptor = new ThreadInterruptor();
@@ -179,13 +211,16 @@ public class Console
                 session,
                 clientOptions.debug,
                 clientOptions.maxQueuedRows,
-                clientOptions.maxBufferedRows)) {
+                clientOptions.maxBufferedRows,
+                new AgentLimits(clientOptions.agentMaxRows, clientOptions.agentMaxBytes, clientOptions.agentMaxCellWidth),
+                agentBatch)) {
             if (hasQuery) {
+                agentMode.flatMap(AgentMode::notice).ifPresent(System.err::println);
                 return executeCommand(
                         queryRunner,
                         exiting,
                         query,
-                        clientOptions.outputFormat,
+                        batchOutputFormat,
                         clientOptions.ignoreErrors,
                         clientOptions.progress.orElse(false),
                         clientOptions.decimalDataSize);
@@ -208,6 +243,25 @@ public class Console
         finally {
             exited.countDown();
             interruptor.close();
+        }
+    }
+
+    // True when the option was given on the command line or has a value in the configuration file
+    boolean isOptionSpecified(String name)
+    {
+        CommandLine.Model.OptionSpec option = spec.findOption(name);
+        if (spec.commandLine().getParseResult().hasMatchedOption(option)) {
+            return true;
+        }
+        CommandLine.IDefaultValueProvider provider = spec.defaultValueProvider();
+        if (provider == null) {
+            return false;
+        }
+        try {
+            return provider.defaultValue(option) != null;
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Cannot read the default value of " + name, e);
         }
     }
 
@@ -342,7 +396,7 @@ public class Console
             }
         }
         if (!isEmptyStatement(splitter.getPartialStatement())) {
-            System.err.println("Non-terminated statement: " + splitter.getPartialStatement());
+            printCliError(queryRunner, "Non-terminated statement: " + splitter.getPartialStatement());
             return false;
         }
         return success;
@@ -369,8 +423,9 @@ public class Console
                     sql);
         }
         catch (QueryPreprocessorException e) {
-            System.err.println(e.getMessage());
-            if (queryRunner.isDebug()) {
+            printCliError(queryRunner, e.getMessage());
+            // agent mode reports errors as one line of JSON only
+            if (queryRunner.isDebug() && !queryRunner.isAgentMode()) {
                 e.printStackTrace(System.err);
             }
             return false;
@@ -456,8 +511,23 @@ public class Console
             return success;
         }
         catch (RuntimeException e) {
-            System.err.println(formatCliErrorMessage(e, queryRunner.theme(), queryRunner.isDebug()));
+            if (queryRunner.isAgentMode()) {
+                System.err.println(AgentErrors.exception(e));
+            }
+            else {
+                System.err.println(formatCliErrorMessage(e, queryRunner.theme(), queryRunner.isDebug()));
+            }
             return false;
+        }
+    }
+
+    private static void printCliError(QueryRunner queryRunner, String message)
+    {
+        if (queryRunner.isAgentMode()) {
+            System.err.println(AgentErrors.message(message));
+        }
+        else {
+            System.err.println(message);
         }
     }
 

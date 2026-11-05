@@ -20,10 +20,14 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -65,14 +69,16 @@ public final class OutputHandler
             throws IOException
     {
         BlockingQueue<List<?>> rowQueue = new ArrayBlockingQueue<>(maxQueuedRows);
-        CompletableFuture<Void> readerFuture = CompletableFuture.runAsync(() -> {
+        CompletableFuture<Void> readerTask = CompletableFuture.runAsync(() -> {
             while (client.isRunning()) {
                 for (List<Object> row : client.currentRows()) {
                     putOrThrow(rowQueue, row);
                 }
                 client.advance();
             }
-        }).whenComplete((result, ex) -> putOrThrow(rowQueue, END_TOKEN));
+        });
+        // completes after the end token was queued, which waits while the queue is full
+        CompletableFuture<Void> readerFuture = readerTask.whenComplete((result, ex) -> putOrThrow(rowQueue, END_TOKEN));
 
         List<List<?>> rowBuffer = new ArrayList<>(maxBufferedRows);
         long bufferStart = System.nanoTime();
@@ -108,6 +114,25 @@ public final class OutputHandler
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
+        catch (IOException | RuntimeException e) {
+            // the printer failed or stopped reading, the reader must not stay blocked on a full queue
+            Optional<Throwable> readerFailure = Optional.empty();
+            try {
+                readerFailure = stopReader(client, readerTask, readerFuture, rowQueue);
+            }
+            catch (RuntimeException closeFailure) {
+                e.addSuppressed(closeFailure);
+            }
+            if (readerFailure.isPresent() && e instanceof ResultLimitReachedException) {
+                // the query failed before it was stopped, which must not look like stopping on purpose
+                Throwable failure = readerFailure.get();
+                failure.addSuppressed(e);
+                throwIfInstanceOf(failure, IOException.class);
+                throwIfUnchecked(failure);
+                throw new RuntimeException(failure);
+            }
+            throw e;
+        }
         catch (ExecutionException e) {
             Throwable cause = e.getCause();
             if (cause != null) {
@@ -115,6 +140,62 @@ public final class OutputHandler
                 throwIfUnchecked(cause);
             }
             throw new RuntimeException(e.getCause());
+        }
+    }
+
+    // returns the failure of the reader if the client failed on its own, and not because it was closed here
+    private static Optional<Throwable> stopReader(StatementClient client, CompletableFuture<Void> readerTask, CompletableFuture<Void> readerFuture, BlockingQueue<List<?>> rowQueue)
+    {
+        Optional<Throwable> failedBeforeClose = readerFailure(readerTask);
+        try {
+            client.close();
+        }
+        finally {
+            awaitReader(readerFuture, rowQueue);
+        }
+        if (failedBeforeClose.isPresent() || !client.isClientError()) {
+            return failedBeforeClose;
+        }
+        return readerFailure(readerTask);
+    }
+
+    private static Optional<Throwable> readerFailure(CompletableFuture<Void> readerTask)
+    {
+        if (!readerTask.isCompletedExceptionally()) {
+            return Optional.empty();
+        }
+        try {
+            readerTask.getNow(null);
+            return Optional.empty();
+        }
+        catch (CompletionException e) {
+            return Optional.of(e.getCause() != null ? e.getCause() : e);
+        }
+        catch (CancellationException e) {
+            return Optional.empty();
+        }
+    }
+
+    private static void awaitReader(CompletableFuture<Void> readerFuture, BlockingQueue<List<?>> rowQueue)
+    {
+        while (true) {
+            // make room for a reader that waits to add a row
+            rowQueue.clear();
+            try {
+                readerFuture.get(10, MILLISECONDS);
+                return;
+            }
+            catch (TimeoutException e) {
+                // the reader is still running
+            }
+            catch (ExecutionException e) {
+                // the reader failed, which is expected after the client was closed
+                return;
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
         }
     }
 

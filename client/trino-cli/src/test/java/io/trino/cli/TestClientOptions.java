@@ -22,9 +22,13 @@ import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.client.ClientSession;
 import io.trino.client.uri.TrinoUri;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import picocli.CommandLine;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Optional;
@@ -38,6 +42,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestClientOptions
 {
+    @TempDir
+    private Path tempDirectory;
+
     @Test
     public void testDefaults()
     {
@@ -208,6 +215,39 @@ public class TestClientOptions
         Console console = createConsole("--output-format=JSON");
         ClientOptions options = console.clientOptions;
         assertThat(options.outputFormat).isEqualTo(OutputFormat.JSON);
+    }
+
+    @Test
+    public void testAgentOptions()
+    {
+        assertThat(createConsole().clientOptions.agent).isEmpty();
+        assertThat(createConsole("--agent").clientOptions.agent).contains(true);
+        assertThat(createConsole("--no-agent").clientOptions.agent).contains(false);
+
+        ClientOptions options = createConsole("--agent-max-rows=5", "--agent-max-bytes=6", "--agent-max-cell-width=7").clientOptions;
+        assertThat(options.agentMaxRows).isEqualTo(5);
+        assertThat(options.agentMaxBytes).isEqualTo(6);
+        assertThat(options.agentMaxCellWidth).isEqualTo(7);
+    }
+
+    @Test
+    public void testOutputFormatSpecified()
+            throws Exception
+    {
+        assertThat(createConsole().isOptionSpecified("--output-format")).isFalse();
+        assertThat(createConsole("--output-format=JSON").isOptionSpecified("--output-format")).isTrue();
+        assertThat(createConsole("--output-format", "CSV").isOptionSpecified("--output-format")).isTrue();
+        // an unrelated option does not count
+        assertThat(createConsole("--execute=select 1").isOptionSpecified("--output-format")).isFalse();
+
+        Path configFile = tempDirectory.resolve("config.properties");
+        Files.writeString(configFile, "output-format=JSON\n");
+        Console console = new Console();
+        CommandLine commandLine = createCommandLine(console);
+        ValidatingPropertiesDefaultProvider.attach(commandLine, configFile.toFile());
+        commandLine.parseArgs();
+        assertThat(console.isOptionSpecified("--output-format")).isTrue();
+        assertThat(console.isOptionSpecified("--output-format-interactive")).isFalse();
     }
 
     @Test
@@ -400,6 +440,10 @@ public class TestClientOptions
             case "theme":
             case "maxBufferedRows":
             case "maxQueuedRows":
+            case "agent":
+            case "agentMaxRows":
+            case "agentMaxBytes":
+            case "agentMaxCellWidth":
                 return true;
         }
 
