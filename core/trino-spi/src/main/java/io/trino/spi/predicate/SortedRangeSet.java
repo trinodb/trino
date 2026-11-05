@@ -16,12 +16,16 @@ package io.trino.spi.predicate;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
+import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -212,6 +216,9 @@ public final class SortedRangeSet
         if (isDirectLongComparisonValidType(type) && !block.mayHaveNull()) {
             return fromUnorderedLongValuesBlock(type, block);
         }
+        if (isSliceOrderedType(type) && !block.mayHaveNull()) {
+            return fromUnorderedSliceValuesBlock(type, block);
+        }
 
         // choice of placing unordered values first or last does not matter for this code
         MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
@@ -287,6 +294,33 @@ public final class SortedRangeSet
                 inclusive,
                 DictionaryBlock.create(dictionary.length, distinctValues, dictionary),
                 DISCRETE);
+    }
+
+    /**
+     * Types whose values order and compare equal exactly like their {@link Slice} values, unlike char.
+     */
+    private static boolean isSliceOrderedType(Type type)
+    {
+        return type instanceof VarcharType || type instanceof VarbinaryType || type instanceof UuidType;
+    }
+
+    private static SortedRangeSet fromUnorderedSliceValuesBlock(Type type, Block block)
+    {
+        Slice[] values = new Slice[block.getPositionCount()];
+        for (int position = 0; position < values.length; position++) {
+            values[position] = type.getSlice(block, position);
+        }
+        Arrays.sort(values);
+
+        BlockBuilder distinctValues = type.createBlockBuilder(null, values.length);
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0 && values[i].equals(values[i - 1])) {
+                continue;
+            }
+            type.writeSlice(distinctValues, values[i]);
+        }
+
+        return fromSortedDistinctValues(type, distinctValues.build());
     }
 
     /**
