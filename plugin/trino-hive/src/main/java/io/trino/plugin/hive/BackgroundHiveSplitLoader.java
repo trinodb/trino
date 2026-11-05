@@ -841,7 +841,7 @@ public class BackgroundHiveSplitLoader
         return matcher.matches() && matcher.group(2) != null;
     }
 
-    private static HiveStorageFormat getSymlinkStorageFormat(String serde)
+    static HiveStorageFormat getSymlinkStorageFormat(String serde)
     {
         // LazySimpleSerDe is used by TEXTFILE and SEQUENCEFILE. Use TEXTFILE per Hive behavior.
         if (serde.equals(TEXTFILE.getSerde())) {

@@ -49,6 +49,7 @@ import static java.util.Locale.ENGLISH;
 public class HiveTableProperties
 {
     public static final String EXTERNAL_LOCATION_PROPERTY = "external_location";
+    public static final String SYMLINK_MANIFEST_PROPERTY = "symlink_manifest";
     public static final String STORAGE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
@@ -88,6 +89,11 @@ public class HiveTableProperties
                         EXTERNAL_LOCATION_PROPERTY,
                         "File system location URI for external table",
                         null,
+                        false),
+                booleanProperty(
+                        SYMLINK_MANIFEST_PROPERTY,
+                        "Table data files are listed in symlink manifest files located in the table location (SymlinkTextInputFormat)",
+                        false,
                         false),
                 enumProperty(
                         STORAGE_FORMAT_PROPERTY,
@@ -221,6 +227,11 @@ public class HiveTableProperties
     public static String getExternalLocation(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(EXTERNAL_LOCATION_PROPERTY);
+    }
+
+    public static boolean isSymlinkManifest(Map<String, Object> tableProperties)
+    {
+        return (Boolean) tableProperties.get(SYMLINK_MANIFEST_PROPERTY);
     }
 
     public static String getAvroSchemaUrl(Map<String, Object> tableProperties)
