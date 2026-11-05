@@ -80,7 +80,9 @@ const stripQueryTextWhitespace = (queryText: string) => {
             if (i < maxLines - 1) {
                 formattedQueryText += '\n'
             } else {
-                formattedQueryText += '\n...'
+                if (lines.slice(i + 1).some((line) => line.trim().length > 0)) {
+                    formattedQueryText += '\n...'
+                }
                 break
             }
         }
@@ -320,10 +322,8 @@ const QueryMemory = React.memo(function QueryMemory(props: {
 export const QueryListItem = React.memo(function QueryListItem(props: IQueryListItemProps) {
     const { queryInfo } = props
 
-    const formattedQueryText = useMemo(
-        () => stripQueryTextWhitespace(queryInfo.queryTextPreview),
-        [queryInfo.queryTextPreview]
-    )
+    const queryText = queryInfo.preparedQueryPreview || queryInfo.queryTextPreview
+    const formattedQueryText = useMemo(() => stripQueryTextWhitespace(queryText), [queryText])
 
     return (
         <Grid container spacing={1}>
