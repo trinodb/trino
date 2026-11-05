@@ -30,6 +30,8 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isStatisticsPrecalculationForPushdownEnabled;
+import static io.trino.cost.EstimateConfidence.HIGH;
+import static io.trino.cost.EstimateConfidence.LOW;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.lang.Double.NaN;
 import static java.util.Objects.requireNonNull;
@@ -74,6 +76,8 @@ public class TableScanStatsRule
         return Optional.of(PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(tableStatistics.getRowCount().getValue())
                 .addSymbolStatistics(outputSymbolStats)
+                // a scan the connector reported no row count for is not something to plan around
+                .setConfidence(tableStatistics.getRowCount().isUnknown() ? LOW : HIGH)
                 .build());
     }
 

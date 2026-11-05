@@ -114,7 +114,8 @@ public class PruneTableScanColumns
                         statistics.getOutputRowCount(),
                         statistics.getSymbolStatistics().entrySet().stream()
                                 .filter(entry -> newAssignments.containsKey(entry.getKey()))
-                                .collect(toImmutableMap(Entry::getKey, Entry::getValue))));
+                                .collect(toImmutableMap(Entry::getKey, Entry::getValue)),
+                        statistics.getConfidence()));
 
         return Optional.of(new TableScanNode(
                 node.getId(),
