@@ -434,17 +434,15 @@ public class SqlQueryExecution
 
                 tableExecuteContextManager.registerTableExecuteContextForQuery(getQueryId());
 
+                // read before the query starts, as the final query info of a query that ends while starting clears it
+                QueryScheduler scheduler = queryScheduler.get();
                 if (!stateMachine.transitionToStarting()) {
                     // query already started or finished
                     return;
                 }
 
-                // if query is not finished, start the scheduler, otherwise cancel it
-                QueryScheduler scheduler = queryScheduler.get();
-
-                if (!stateMachine.isDone()) {
-                    scheduler.start();
-                }
+                // the scheduler publishes the final query info when the query is already done
+                scheduler.start();
             }
             catch (Throwable e) {
                 fail(e);
