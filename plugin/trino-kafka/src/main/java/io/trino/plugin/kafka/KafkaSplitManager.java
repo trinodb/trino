@@ -13,10 +13,8 @@
  */
 package io.trino.plugin.kafka;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.plugin.kafka.schema.ContentSchemaProvider;
-import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -25,7 +23,6 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.FixedSplitSource;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
@@ -85,27 +82,17 @@ public class KafkaSplitManager
             partitionBeginOffsets = kafkaFilteringResult.partitionBeginOffsets();
             partitionEndOffsets = kafkaFilteringResult.partitionEndOffsets();
 
-            ImmutableList.Builder<KafkaSplit> splits = ImmutableList.builder();
             Optional<String> keyDataSchemaContents = contentSchemaProvider.getKey(kafkaTableHandle);
             Optional<String> messageDataSchemaContents = contentSchemaProvider.getMessage(kafkaTableHandle);
 
-            for (PartitionInfo partitionInfo : partitionInfos) {
-                TopicPartition topicPartition = toTopicPartition(partitionInfo);
-                HostAddress leader = HostAddress.fromParts(partitionInfo.leader().host(), partitionInfo.leader().port());
-                new Range(partitionBeginOffsets.get(topicPartition), partitionEndOffsets.get(topicPartition))
-                        .partition(messagesPerSplit).stream()
-                        .map(range -> new KafkaSplit(
-                                kafkaTableHandle.topicName(),
-                                kafkaTableHandle.keyDataFormat(),
-                                kafkaTableHandle.messageDataFormat(),
-                                keyDataSchemaContents,
-                                messageDataSchemaContents,
-                                partitionInfo.partition(),
-                                range,
-                                leader))
-                        .forEach(splits::add);
-            }
-            return new FixedSplitSource(splits.build());
+            return new KafkaSplitSource(
+                    kafkaTableHandle,
+                    partitionInfos,
+                    partitionBeginOffsets,
+                    partitionEndOffsets,
+                    keyDataSchemaContents,
+                    messageDataSchemaContents,
+                    messagesPerSplit);
         }
         catch (Exception e) { // Catch all exceptions because Kafka library is written in scala and checked exceptions are not declared in method signature.
             if (e instanceof TrinoException) {
