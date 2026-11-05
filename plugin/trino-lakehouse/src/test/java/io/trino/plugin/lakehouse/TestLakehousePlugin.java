@@ -20,10 +20,13 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestLakehousePlugin
 {
@@ -49,18 +52,63 @@ final class TestLakehousePlugin
                 "delta.object-store-layout.enabled", "true"));
     }
 
+    @Test
+    void testAllowAllAccessControl()
+    {
+        assertAccessControl(ImmutableMap.of("hive.security", "allow-all"));
+    }
+
+    @Test
+    void testReadOnlyAccessControl()
+    {
+        assertAccessControl(ImmutableMap.of("hive.security", "read-only"));
+    }
+
+    @Test
+    void testFileBasedAccessControl()
+            throws Exception
+    {
+        File tempFile = Files.createTempFile("test-lakehouse-plugin-access-control", ".json").toFile();
+        tempFile.deleteOnExit();
+        Files.writeString(tempFile.toPath(), "{}");
+
+        assertAccessControl(ImmutableMap.of(
+                "hive.security", "file",
+                "security.config-file", tempFile.getAbsolutePath()));
+    }
+
+    @Test
+    void testSqlStandardAccessControl()
+    {
+        assertAccessControl(ImmutableMap.of("hive.security", "sql-standard"));
+    }
+
+    @Test
+    void testSystemAccessControl()
+    {
+        Connector connector = createConnector(ImmutableMap.of("hive.security", "system"));
+        try {
+            assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);
+        }
+        finally {
+            connector.shutdown();
+        }
+    }
+
+    private static void assertAccessControl(Map<String, String> config)
+    {
+        Connector connector = createConnector(config);
+        try {
+            assertThat(connector.getAccessControl()).isNotNull();
+        }
+        finally {
+            connector.shutdown();
+        }
+    }
+
     private static void assertCreateConnector(Map<String, String> config)
     {
-        Plugin plugin = new LakehousePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        Connector connector = factory.create(
-                "test",
-                ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", "thrift://foo:1234")
-                        .put("bootstrap.quiet", "true")
-                        .putAll(config)
-                        .buildOrThrow(),
-                new TestingConnectorContext());
+        Connector connector = createConnector(config);
         try {
             assertThat(connector.getTableProperties())
                     .filteredOn(property -> property.getName().equals("object_store_layout_enabled"))
@@ -73,5 +121,19 @@ final class TestLakehousePlugin
         finally {
             connector.shutdown();
         }
+    }
+
+    private static Connector createConnector(Map<String, String> config)
+    {
+        Plugin plugin = new LakehousePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        return factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("bootstrap.quiet", "true")
+                        .putAll(config)
+                        .buildOrThrow(),
+                new TestingConnectorContext());
     }
 }
