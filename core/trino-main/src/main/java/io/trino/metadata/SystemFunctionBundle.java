@@ -104,6 +104,7 @@ import io.trino.operator.scalar.ArrayFilterFunction;
 import io.trino.operator.scalar.ArrayFirstFunction;
 import io.trino.operator.scalar.ArrayHistogramFunction;
 import io.trino.operator.scalar.ArrayIntersectFunction;
+import io.trino.operator.scalar.ArrayIsSortedFunction;
 import io.trino.operator.scalar.ArrayJoin;
 import io.trino.operator.scalar.ArrayLastFunction;
 import io.trino.operator.scalar.ArrayMaxFunction;
@@ -562,6 +563,7 @@ public final class SystemFunctionBundle
                 .scalars(ArrayFirstFunction.class)
                 .scalar(ArrayLastFunction.class)
                 .scalar(ArraySortFunction.class)
+                .scalar(ArrayIsSortedFunction.class)
                 .scalar(ArraySortComparatorFunction.class)
                 .scalar(ArrayShuffleFunction.class)
                 .scalar(ArrayReverseFunction.class)
