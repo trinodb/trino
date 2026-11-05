@@ -208,6 +208,17 @@ public class ColumnarFilterCompiler
         });
     }
 
+    // The dynamic filter IN generated for the distinct non-null values of a discrete set, without an IN expression
+    // to hold them. Returns empty when the values are not eligible for the dynamic filter IN, in which case
+    // the caller has to generate the filter from the IN expression.
+    public Optional<Supplier<ColumnarFilter>> generateInSetDynamicFilter(CharVarcharCoercion charVarcharCoercion, Reference reference, List<Object> distinctNonNullValues, Map<Symbol, Integer> layout)
+    {
+        // an IN over a reference reads the same channel as the reference alone
+        PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(reference, layout);
+        Optional<InSetDynamicFilterGenerator> generator = InSetDynamicFilterGenerator.tryCreate(reference, distinctNonNullValues, result.compactLayout(), metadata, charVarcharCoercion, functionManager, plannerContext.getTypeOperators());
+        return generator.map(inSetGenerator -> compileInSetDynamicFilter(inSetGenerator, result.inputChannels()));
+    }
+
     // Caches the value-independent IN filter class per (value type, set class) and binds the value set
     // for the current filter. The generator decides eligibility; this only handles reuse and instantiation.
     private Supplier<ColumnarFilter> compileInSetDynamicFilter(InSetDynamicFilterGenerator generator, InputChannels inputChannels)
