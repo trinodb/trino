@@ -122,6 +122,14 @@ public sealed interface FilterEvaluator
         return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
     }
 
+    // Same evaluator as the one created for the IN expression over the reference and the values, which must be distinct and not null.
+    // Returns empty when that IN expression would not be compiled to the dynamic filter IN.
+    static Optional<Supplier<FilterEvaluator>> createInSetDynamicFilterEvaluator(CharVarcharCoercion charVarcharCoercion, ColumnarFilterCompiler compiler, Reference reference, List<Object> distinctNonNullValues, Map<Symbol, Integer> layout)
+    {
+        Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateInSetDynamicFilter(charVarcharCoercion, reference, distinctNonNullValues, layout);
+        return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
+    }
+
     private static Optional<Supplier<FilterEvaluator>> createReferenceExpressionEvaluator(CharVarcharCoercion charVarcharCoercion, ColumnarFilterCompiler compiler, Expression expression, Map<Symbol, Integer> layout, boolean dynamicFilter)
     {
         Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(charVarcharCoercion, expression, layout, dynamicFilter);

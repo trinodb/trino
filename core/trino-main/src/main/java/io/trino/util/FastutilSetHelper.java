@@ -60,9 +60,9 @@ public final class FastutilSetHelper
     private FastutilSetHelper() {}
 
     @SuppressWarnings("unchecked")
-    public static Set<?> toFastutilHashSet(Set<?> set, Type type, MethodHandle hashCodeHandle, MethodHandle equalsHandle)
+    public static Set<?> toFastutilHashSet(Collection<?> values, Type type, MethodHandle hashCodeHandle, MethodHandle equalsHandle)
     {
-        requireNonNull(set, "set is null");
+        requireNonNull(values, "values is null");
         requireNonNull(type, "type is null");
 
         // 0.25 as the load factor is chosen because the argument set is assumed to be small (<10000),
@@ -70,16 +70,16 @@ public final class FastutilSetHelper
         // The performance of InCodeGenerator heavily depends on the load factor being small.
         Class<?> javaElementType = type.getJavaType();
         if (javaElementType == long.class) {
-            return createSetForLongJavaType((Set<Long>) set, type, hashCodeHandle, equalsHandle);
+            return createSetForLongJavaType((Collection<Long>) values, type, hashCodeHandle, equalsHandle);
         }
         if (javaElementType == double.class) {
-            return new DoubleOpenCustomHashSet((Collection<Double>) set, 0.25f, new DoubleStrategy(hashCodeHandle, equalsHandle, type));
+            return new DoubleOpenCustomHashSet((Collection<Double>) values, 0.25f, new DoubleStrategy(hashCodeHandle, equalsHandle, type));
         }
         if (javaElementType == boolean.class) {
-            return new BooleanOpenHashSet((Collection<Boolean>) set, 0.25f);
+            return new BooleanOpenHashSet((Collection<Boolean>) values, 0.25f);
         }
         if (!type.getJavaType().isPrimitive()) {
-            return new ObjectOpenCustomHashSet<>(set, 0.25f, new ObjectStrategy(hashCodeHandle, equalsHandle, type));
+            return new ObjectOpenCustomHashSet<>(values, 0.25f, new ObjectStrategy(hashCodeHandle, equalsHandle, type));
         }
         throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getDisplayName());
     }
@@ -124,7 +124,7 @@ public final class FastutilSetHelper
 
         // Note: Caller is expected to validate that values are inside min/max range
         // and the range fits in an integer
-        private LongBitSetFilter(Set<Long> values, long min, long max)
+        private LongBitSetFilter(Collection<Long> values, long min, long max)
         {
             checkArgument(min <= max, "min must be less than or equal to max");
             checkArgument(!values.isEmpty(), "values must not be empty");
@@ -416,7 +416,7 @@ public final class FastutilSetHelper
         }
     }
 
-    private static Set<Long> createSetForLongJavaType(Set<Long> values, Type type, MethodHandle hashCodeHandle, MethodHandle equalsHandle)
+    private static Set<Long> createSetForLongJavaType(Collection<Long> values, Type type, MethodHandle hashCodeHandle, MethodHandle equalsHandle)
     {
         if (values.isEmpty() || !isDirectLongComparisonValidType(type)) {
             return new LongOpenCustomHashSet(values, 0.25f, new LongStrategy(hashCodeHandle, equalsHandle, type));
