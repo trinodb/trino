@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
@@ -143,6 +144,7 @@ public class SpatialJoinOperator
     private final Runnable onClose;
 
     private ListenableFuture<PagesSpatialIndex> pagesSpatialIndexFuture;
+    private final ListenableFuture<Void> pagesSpatialIndexBlocked;
     private final PageBuilder pageBuilder;
     @Nullable
     private Page probe;
@@ -178,6 +180,7 @@ public class SpatialJoinOperator
         this.pagesSpatialIndexFactory = requireNonNull(pagesSpatialIndexFactory, "pagesSpatialIndexFactory is null");
         this.onClose = requireNonNull(onClose, "onClose is null");
         this.pagesSpatialIndexFuture = pagesSpatialIndexFactory.createPagesSpatialIndex();
+        this.pagesSpatialIndexBlocked = Futures.transform(pagesSpatialIndexFuture, _ -> null, directExecutor());
         this.pageBuilder = new PageBuilder(ImmutableList.<Type>builder()
                 .addAll(probeOutputChannels.stream()
                         .map(probeTypes::get)
@@ -190,6 +193,16 @@ public class SpatialJoinOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
+    }
+
+    @Override
+    public ListenableFuture<Void> isBlocked()
+    {
+        // A finishing operator with no probe page completes without the spatial index.
+        if (finishing) {
+            return NOT_BLOCKED;
+        }
+        return pagesSpatialIndexBlocked;
     }
 
     @Override
