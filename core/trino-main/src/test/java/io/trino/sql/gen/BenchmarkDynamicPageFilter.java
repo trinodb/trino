@@ -31,8 +31,10 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Setup;
@@ -85,6 +87,7 @@ public class BenchmarkDynamicPageFilter
     @Param
     public DataSet inputDataSet;
 
+    private TupleDomain<ColumnHandle> filterPredicate;
     private List<Page> inputData;
     private FilterEvaluator filterEvaluator;
 
@@ -154,7 +157,7 @@ public class BenchmarkDynamicPageFilter
     @Setup
     public void setup()
     {
-        TupleDomain<ColumnHandle> filterPredicate = inputDataSet.createFilterTupleDomain(filterSize, nullsAllowed);
+        filterPredicate = inputDataSet.createFilterTupleDomain(filterSize, nullsAllowed);
         inputData = inputDataSet.createInputTestData(filterPredicate, inputNullChance, nonNullsSelectivity, MAX_ROWS);
         filterEvaluator = createDynamicFilterEvaluator(
                 filterPredicate,
@@ -175,6 +178,16 @@ public class BenchmarkDynamicPageFilter
             rowsFiltered += page.getPositionCount() - selectedPositionCount;
         }
         return ((double) rowsFiltered / rowsProcessed) * 100;
+    }
+
+    // The helper builds the evaluator through a new DynamicPageFilter with an uncached compiler,
+    // so every call pays for the domain translation and the filter class generation
+    @Benchmark
+    @BenchmarkMode(Mode.AverageTime)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public FilterEvaluator buildEvaluator()
+    {
+        return createDynamicFilterEvaluator(filterPredicate, ImmutableMap.of(new TestingColumnHandle("dummy"), 0), 1);
     }
 
     private static List<Page> createSingleColumnData(ValueWriter valueWriter, Type type, double nullChance, long rows)
