@@ -26,6 +26,7 @@ import io.trino.spi.block.DictionaryId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.columnar.FilterEvaluator;
+import io.trino.sql.gen.columnar.SelectAllEvaluator;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -36,6 +37,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
 import java.util.function.ObjLongConsumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -58,17 +60,18 @@ public class PageProcessor
 
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
     private final Optional<FilterEvaluator> filterEvaluator;
-    private final Optional<FilterEvaluator> dynamicFilterEvaluator;
+    private final Optional<Supplier<FilterEvaluator>> dynamicFilterSupplier;
     private final List<PageProjection> projections;
     // identity projections return a subset of the input page and cannot expand output size
     private final boolean identityProjections;
 
+    private FilterEvaluator dynamicFilterEvaluator;
     private int projectBatchSize;
 
-    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<FilterEvaluator> dynamicFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
+    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<Supplier<FilterEvaluator>> dynamicFilterSupplier, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
     {
         this.filterEvaluator = requireNonNull(filterEvaluator, "filterEvaluator is null");
-        this.dynamicFilterEvaluator = requireNonNull(dynamicFilterEvaluator, "dynamicFilterEvaluator is null");
+        this.dynamicFilterSupplier = requireNonNull(dynamicFilterSupplier, "dynamicFilterSupplier is null");
         this.identityProjections = !projections.isEmpty() && projections.stream().allMatch(InputPageProjection.class::isInstance);
         this.projections = projections.stream()
                 .map(projection -> {
@@ -113,9 +116,12 @@ public class PageProcessor
             return WorkProcessor.of();
         }
 
+        if (dynamicFilterEvaluator == null) {
+            dynamicFilterEvaluator = dynamicFilterSupplier.map(Supplier::get).orElse(new SelectAllEvaluator());
+        }
         SelectedPositions selectedPositions = positionsRange(0, page.getPositionCount());
-        if (dynamicFilterEvaluator.isPresent()) {
-            FilterEvaluator.SelectionResult dynamicFilterResult = dynamicFilterEvaluator.get().evaluate(session, selectedPositions, page);
+        if (dynamicFilterSupplier.isPresent()) {
+            FilterEvaluator.SelectionResult dynamicFilterResult = dynamicFilterEvaluator.evaluate(session, selectedPositions, page);
             selectedPositions = dynamicFilterResult.selectedPositions();
             metrics.recordDynamicFilterMetrics(dynamicFilterResult.filterTimeNanos(), selectedPositions.size());
         }
