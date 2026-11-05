@@ -26,6 +26,7 @@ import java.util.function.Function;
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.block.DictionaryBlock.createProjectedDictionaryBlock;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryAwarePageProjection
@@ -193,11 +194,8 @@ public class DictionaryAwarePageProjection
             }
         }
         else {
-            int endPosition = selectedPositions.getOffset() + selectedPositions.size();
-            int outputIndex = 0;
-            for (int position = selectedPositions.getOffset(); position < endPosition; position++) {
-                outputIds[outputIndex++] = dictionaryBlock.getId(position);
-            }
+            checkFromIndexSize(selectedPositions.getOffset(), selectedPositions.size(), dictionaryBlock.getPositionCount());
+            System.arraycopy(dictionaryBlock.getRawIds(), dictionaryBlock.getRawIdsOffset() + selectedPositions.getOffset(), outputIds, 0, outputIds.length);
         }
         return outputIds;
     }
