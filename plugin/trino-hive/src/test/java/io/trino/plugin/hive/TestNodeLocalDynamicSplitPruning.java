@@ -51,6 +51,7 @@ import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactori
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -154,7 +155,8 @@ class TestNodeLocalDynamicSplitPruning
                                 false,
                                 ImmutableList.of(),
                                 true))),
-                transaction);
+                transaction,
+                TEST_RESOLVING_IDENTITY);
 
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,

@@ -21,6 +21,7 @@ import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.ColumnHandle;
@@ -39,6 +40,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
@@ -73,6 +75,7 @@ import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -328,6 +331,45 @@ public class TestPushJoinIntoTableScan
                                         columnA2Symbol, COLUMN_A2_HANDLE));
                         TableScanNode right = p.tableScan(
                                 tableBHandleAnotherCatalog,
+                                ImmutableList.of(columnB1Symbol),
+                                ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE));
+
+                        return p.join(
+                                INNER,
+                                left,
+                                right,
+                                new JoinNode.EquiJoinClause(columnA1Symbol, columnB1Symbol));
+                    })
+                    .doesNotFire();
+        }
+    }
+
+    @Test
+    public void testPushJoinIntoTableScanDoesNotFireForTablesResolvedAsDifferentIdentities()
+    {
+        MockConnectorFactory connectorFactory = createMockConnectorFactory(
+                (_, _, _, _, _, _, _, _) -> {
+                    throw new IllegalStateException("applyJoin should not be called!");
+                });
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
+            // for example a table behind a SECURITY DEFINER view joined with a table of the querying user
+            TableHandle tableBHandleOfViewOwner = ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_B)
+                    .withResolvingIdentity(ResolvingIdentity.from(ConnectorIdentity.ofUser("view_owner")));
+
+            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext()))
+                    .withSession(MOCK_SESSION)
+                    .on(p -> {
+                        Symbol columnA1Symbol = p.symbol(COLUMN_A1);
+                        Symbol columnA2Symbol = p.symbol(COLUMN_A2);
+                        Symbol columnB1Symbol = p.symbol(COLUMN_B1);
+                        TableScanNode left = p.tableScan(
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_A),
+                                ImmutableList.of(columnA1Symbol, columnA2Symbol),
+                                ImmutableMap.of(
+                                        columnA1Symbol, COLUMN_A1_HANDLE,
+                                        columnA2Symbol, COLUMN_A2_HANDLE));
+                        TableScanNode right = p.tableScan(
+                                tableBHandleOfViewOwner,
                                 ImmutableList.of(columnB1Symbol),
                                 ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE));
 
@@ -606,7 +648,8 @@ public class TestPushJoinIntoTableScan
         return new TableHandle(
                 catalogHandle,
                 tableHandle,
-                new ConnectorTransactionHandle() {});
+                new ConnectorTransactionHandle() {},
+                TEST_RESOLVING_IDENTITY);
     }
 
     private MockConnectorFactory createMockConnectorFactory(MockConnectorFactory.ApplyJoin applyJoin)

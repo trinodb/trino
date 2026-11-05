@@ -57,6 +57,7 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PipelinedBufferInfo;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.SpoolingOutputStats;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
@@ -147,6 +148,7 @@ public final class HttpRemoteTask
     private final AtomicBoolean speculative;
     private final PlanFragment planFragment;
     private final Map<PlanNodeId, ConnectorTableCredentials> tableCredentials;
+    private final Map<PlanNodeId, ResolvingIdentity> tableIdentities;
 
     private final AtomicLong nextSplitId = new AtomicLong();
 
@@ -222,6 +224,7 @@ public final class HttpRemoteTask
             URI location,
             PlanFragment planFragment,
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            Map<PlanNodeId, ResolvingIdentity> tableIdentities,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             HttpClient httpClient,
@@ -252,6 +255,7 @@ public final class HttpRemoteTask
         requireNonNull(location, "location is null");
         requireNonNull(planFragment, "planFragment is null");
         requireNonNull(tableCredentials, "tableCredentials is null");
+        requireNonNull(tableIdentities, "tableIdentities is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(executor, "executor is null");
@@ -271,6 +275,7 @@ public final class HttpRemoteTask
             this.speculative = new AtomicBoolean(speculative);
             this.planFragment = planFragment;
             this.tableCredentials = ImmutableMap.copyOf(tableCredentials);
+            this.tableIdentities = ImmutableMap.copyOf(tableIdentities);
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
             this.executor = executor;
@@ -778,12 +783,15 @@ public final class HttpRemoteTask
 
         // Workers don't need the embedded JSON representation when the fragment is sent
         Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment.withoutEmbeddedJsonRepresentation()) : Optional.empty();
+        // The identities the tables of the fragment were resolved as are needed to plan it, so they are sent with it
+        Map<PlanNodeId, ResolvingIdentity> identities = fragment.isPresent() ? tableIdentities : ImmutableMap.of();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
                 stageSpan,
                 fragment,
                 tableCredentials,
+                identities,
                 splitAssignments,
                 outputBuffers.get(),
                 dynamicFilterDomains.getDynamicFilterDomains(),

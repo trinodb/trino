@@ -57,6 +57,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestNoMemoryAwarePartitionMemoryEstimator
@@ -168,7 +169,8 @@ public class TestNoMemoryAwarePartitionMemoryEstimator
                 new TableHandle(
                         GlobalSystemConnector.CATALOG_HANDLE,
                         new SystemTableHandle("jdbc", "tables", TupleDomain.all()),
-                        TestingTransactionHandle.create())));
+                        TestingTransactionHandle.create(),
+                        TEST_RESOLVING_IDENTITY)));
         assertThat(estimator).isInstanceOf(NoMemoryPartitionMemoryEstimator.class);
         PartitionMemoryEstimator.MemoryRequirements noMemoryRequirements = new PartitionMemoryEstimator.MemoryRequirements(DataSize.ofBytes(0));
         assertThat(estimator.getInitialMemoryRequirements()).isEqualTo(noMemoryRequirements);
@@ -182,7 +184,8 @@ public class TestNoMemoryAwarePartitionMemoryEstimator
                 new TableHandle(
                         GlobalSystemConnector.CATALOG_HANDLE,
                         new SystemTableHandle("metadata", "blah", TupleDomain.all()),
-                        TestingTransactionHandle.create())));
+                        TestingTransactionHandle.create(),
+                        TEST_RESOLVING_IDENTITY)));
         assertThat(estimator).isInstanceOf(NoMemoryPartitionMemoryEstimator.class);
         PartitionMemoryEstimator.MemoryRequirements noMemoryRequirements = new PartitionMemoryEstimator.MemoryRequirements(DataSize.ofBytes(0));
         assertThat(estimator.getInitialMemoryRequirements()).isEqualTo(noMemoryRequirements);
@@ -225,7 +228,8 @@ public class TestNoMemoryAwarePartitionMemoryEstimator
         return tableScanPlanFragment(fragmentId, new TableHandle(
                 TEST_CATALOG_HANDLE,
                 tableHandle,
-                TestingTransactionHandle.create()));
+                TestingTransactionHandle.create(),
+                TEST_RESOLVING_IDENTITY));
     }
 
     private static PlanFragment tableScanPlanFragment(String fragmentId, TableHandle tableHandle)

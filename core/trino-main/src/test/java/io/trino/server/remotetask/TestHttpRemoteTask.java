@@ -58,6 +58,7 @@ import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.server.DynamicFilterService;
@@ -74,6 +75,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
@@ -84,6 +86,7 @@ import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.TestingSplit;
 import io.trino.type.TypeDescriptorDeserializer;
 import io.trino.type.TypeDescriptorKeyDeserializer;
@@ -218,6 +221,33 @@ public class TestHttpRemoteTask
         poll(() -> remoteTask.getTaskStatus().state().isDone());
         poll(() -> remoteTask.getTaskInfo().taskStatus().state().isDone());
 
+        httpRemoteTaskFactory.stop();
+    }
+
+    @Test
+    @Timeout(30)
+    public void testTableIdentityIsSentNextToThePlanAndNotWithinIt()
+            throws Exception
+    {
+        ResolvingIdentity viewOwner = ResolvingIdentity.from(ConnectorIdentity.ofUser("view_owner"));
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of(), TEST_SESSION, ImmutableMap.of(TABLE_SCAN_NODE_ID, viewOwner));
+
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        remoteTask.start();
+        poll(() -> testingTaskResource.getLastTaskUpdateRequest().isPresent());
+
+        TaskUpdateRequest request = testingTaskResource.getLastTaskUpdateRequest().orElseThrow();
+        TableScanNode scan = (TableScanNode) request.fragment().orElseThrow().getRoot();
+        // the plan a worker receives does not carry the identity its tables were resolved as, so query details cannot expose it
+        assertThat(scan.getTable().resolvingIdentity()).isEmpty();
+        assertThat(request.tableIdentities()).containsExactly(Map.entry(TABLE_SCAN_NODE_ID, viewOwner));
+
+        remoteTask.cancel();
+        poll(() -> remoteTask.getTaskStatus().state().isDone());
         httpRemoteTaskFactory.stop();
     }
 
@@ -659,6 +689,11 @@ public class TestHttpRemoteTask
 
     private HttpRemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory, Set<DynamicFilterId> outboundDynamicFilterIds, Session session)
     {
+        return createRemoteTask(httpRemoteTaskFactory, outboundDynamicFilterIds, session, ImmutableMap.of());
+    }
+
+    private HttpRemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory, Set<DynamicFilterId> outboundDynamicFilterIds, Session session, Map<PlanNodeId, ResolvingIdentity> tableIdentities)
+    {
         return httpRemoteTaskFactory.createRemoteTask(
                 session,
                 Span.getInvalid(),
@@ -667,6 +702,7 @@ public class TestHttpRemoteTask
                 false,
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMap.of(),
+                tableIdentities,
                 ImmutableMultimap.of(),
                 PipelinedOutputBuffers.createInitial(BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(_ -> {}),
@@ -834,6 +870,7 @@ public class TestHttpRemoteTask
         private TaskState taskState;
         private long taskInstanceId = INITIAL_TASK_INSTANCE_ID;
         private Map<DynamicFilterId, Domain> latestDynamicFilterFromCoordinator = ImmutableMap.of();
+        private TaskUpdateRequest lastTaskUpdateRequest;
 
         private long statusFetchCounter;
         private long createOrUpdateCounter;
@@ -884,8 +921,14 @@ public class TestHttpRemoteTask
                 latestDynamicFilterFromCoordinator = taskUpdateRequest.dynamicFilterDomains();
             }
             createOrUpdateCounter++;
+            lastTaskUpdateRequest = taskUpdateRequest;
             lastActivityNanos.set(System.nanoTime());
             return buildTaskInfo();
+        }
+
+        public synchronized Optional<TaskUpdateRequest> getLastTaskUpdateRequest()
+        {
+            return Optional.ofNullable(lastTaskUpdateRequest);
         }
 
         public synchronized SplitAssignment getTaskSplitAssignment(PlanNodeId planNodeId)

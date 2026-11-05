@@ -20,11 +20,13 @@ import io.trino.Session;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.QueryContext;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.operator.TaskContext;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.TableResolvingIdentities;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Map;
@@ -68,6 +70,7 @@ public class SqlTaskExecutionFactory
             OutputBuffer outputBuffer,
             PlanFragment fragment,
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            Map<PlanNodeId, ResolvingIdentity> tableIdentities,
             Runnable notifyStatusChanged)
     {
         TaskContext taskContext = queryContext.addTaskContext(
@@ -81,12 +84,14 @@ public class SqlTaskExecutionFactory
         LocalExecutionPlan localExecutionPlan;
         try (SetThreadName _ = new SetThreadName("Task-" + taskStateMachine.getTaskId())) {
             try (var ignoredSpan = scopedSpan(tracer, "local-planner")) {
+                // The serialized form of a table handle does not carry the identity the table was resolved as
+                PlanFragment planFragment = TableResolvingIdentities.restoreIn(fragment, tableIdentities);
                 localExecutionPlan = planner.plan(
                         taskContext,
-                        fragment.getRoot(),
-                        fragment.getOutputPartitioningScheme(),
-                        fragment.getOutputSkewedBucketCount(),
-                        fragment.getPartitionedSources(),
+                        planFragment.getRoot(),
+                        planFragment.getOutputPartitioningScheme(),
+                        planFragment.getOutputSkewedBucketCount(),
+                        planFragment.getPartitionedSources(),
                         outputBuffer);
             }
             catch (Throwable e) {
