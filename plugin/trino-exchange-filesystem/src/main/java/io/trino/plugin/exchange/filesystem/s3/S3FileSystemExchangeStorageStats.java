@@ -38,6 +38,7 @@ public class S3FileSystemExchangeStorageStats
 {
     private final ExecutionStats createEmptyFile = new ExecutionStats();
     private final ExecutionStats listFilesRecursively = new ExecutionStats();
+    private final ExecutionStats listDirectories = new ExecutionStats();
     private final ExecutionStats deleteRecursively = new ExecutionStats();
     private final ExecutionStats deleteObjects = new ExecutionStats();
     private final DistributionStat deleteObjectsEntriesCount = new DistributionStat();
@@ -65,6 +66,13 @@ public class S3FileSystemExchangeStorageStats
     public ExecutionStats getListFilesRecursively()
     {
         return listFilesRecursively;
+    }
+
+    @Managed
+    @Nested
+    public ExecutionStats getListDirectories()
+    {
+        return listDirectories;
     }
 
     @Managed

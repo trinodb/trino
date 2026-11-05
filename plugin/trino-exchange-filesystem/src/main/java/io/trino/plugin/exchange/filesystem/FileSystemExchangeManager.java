@@ -24,10 +24,12 @@ import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSource;
+import io.trino.spi.exchange.ExtendedExchangeManager;
 import jakarta.annotation.PreDestroy;
 
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -38,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class FileSystemExchangeManager
-        implements ExchangeManager
+        implements ExchangeManager, ExtendedExchangeManager
 {
     public static final String PATH_SEPARATOR = "/";
 
@@ -148,5 +150,25 @@ public class FileSystemExchangeManager
     public void shutdown()
     {
         lifeCycleManager.stop();
+    }
+
+    @Override
+    public List<URI> getBaseDirectories()
+    {
+        return baseDirectories;
+    }
+
+    @Override
+    public void deleteRecursively(List<URI> directories)
+            throws ExecutionException, InterruptedException
+    {
+        exchangeStorage.deleteRecursively(directories).get();
+    }
+
+    @Override
+    public List<URI> listDirectories(URI dir)
+            throws ExecutionException, InterruptedException
+    {
+        return exchangeStorage.listDirectories(dir).get();
     }
 }

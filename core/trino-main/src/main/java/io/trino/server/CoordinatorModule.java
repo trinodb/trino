@@ -46,6 +46,7 @@ import io.trino.dispatcher.QueuedStatementResource;
 import io.trino.event.QueryMonitor;
 import io.trino.event.QueryMonitorConfig;
 import io.trino.exchange.ExchangeMetricsCollector;
+import io.trino.exchange.ExchangeOrphanCleanupJob;
 import io.trino.execution.ClusterSizeMonitor;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.ExecutionFailureInfo;
@@ -205,6 +206,7 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).in(Scopes.SINGLETON);
+        binder.bind(ExchangeOrphanCleanupJob.class).asEagerSingleton();
         newExporter(binder).export(QueryManager.class).as(generator -> generator.generatedNameOf(QueryManager.class)
                 // For backward compatibility
                 .replaceFirst("QueryManager", "SqlQueryManager"));

@@ -35,11 +35,13 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Queue;
 
@@ -132,6 +134,24 @@ public class HadoopFileSystemExchangeStorage
             return immediateFailedFuture(e);
         }
         return immediateFuture(builder.build());
+    }
+
+    @Override
+    public ListenableFuture<List<URI>> listDirectories(URI dir)
+    {
+        try {
+            List<URI> dirs = Arrays.stream(fileSystem.listStatus(new Path(dir)))
+                    .filter(org.apache.hadoop.fs.FileStatus::isDirectory)
+                    .map(s -> s.getPath().toUri())
+                    .toList();
+            return immediateFuture(dirs);
+        }
+        catch (FileNotFoundException e) {
+            return immediateFuture(ImmutableList.of());
+        }
+        catch (IOException e) {
+            return immediateFailedFuture(e);
+        }
     }
 
     @Override
