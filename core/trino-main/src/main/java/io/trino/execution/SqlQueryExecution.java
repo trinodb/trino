@@ -292,8 +292,8 @@ public class SqlQueryExecution
         }
 
         stateMachine.setUpdateType(analysis.getUpdateType());
-        stateMachine.setReferencedTables(analysis.getReferencedTables());
-        stateMachine.setRoutines(analysis.getRoutines());
+        stateMachine.setReferencedTables(analysis.getReferencedTables(), analysis.getRedactedReferencedTables());
+        stateMachine.setRoutines(analysis.getRoutines(), analysis.getRedactedRoutines());
         stateMachine.setSelectColumnsLineageInfo(analysis.getSelectColumnsLineageInfo());
 
         stateMachine.endAnalysis();
@@ -511,7 +511,9 @@ public class SqlQueryExecution
 
         // extract inputs
         try (var _ = scopedSpan(tracer, "extract-inputs")) {
-            stateMachine.setInputs(new InputExtractor(plannerContext.getMetadata(), stateMachine.getSession()).extractInputs(fragmentedPlan));
+            InputExtractor inputExtractor = new InputExtractor(plannerContext.getMetadata(), stateMachine.getSession());
+            List<Input> inputs = inputExtractor.extractInputs(fragmentedPlan);
+            stateMachine.setInputs(inputs, inputExtractor.redactInputs(fragmentedPlan, inputs));
         }
 
         stateMachine.setOutput(analysis.getTarget());

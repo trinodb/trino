@@ -16,9 +16,11 @@ package io.trino.sql.analyzer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
@@ -58,6 +60,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
+import io.trino.sql.ir.SensitiveExpression;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.ComparisonPredicate;
@@ -116,6 +119,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -128,6 +132,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
+import static io.trino.sql.util.AstUtils.preOrder;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -249,6 +254,9 @@ public class Analysis
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, Map<Field, Expression>> columnMasks = new LinkedHashMap<>();
+    private final Set<NodeRef<Expression>> sensitiveExpressions = new LinkedHashSet<>();
+    private final Set<NodeRef<?>> sensitiveExpressionNodes = new HashSet<>();
+    private boolean sensitiveExpressionRedactionEnabled;
 
     private final Map<NodeRef<Table>, Map<ColumnHandle, Expression>> defaultColumnValues = new LinkedHashMap<>();
 
@@ -1349,6 +1357,19 @@ public class Analysis
 
     public List<TableInfo> getReferencedTables()
     {
+        return getReferencedTables(ImmutableMultimap.of(), Expression::toString);
+    }
+
+    /**
+     * Like {@link #getReferencedTables()}, but without the text of sensitive expressions and the columns only they read.
+     */
+    public List<TableInfo> getRedactedReferencedTables()
+    {
+        return getReferencedTables(sensitiveOnlyColumns(), this::redactSensitiveExpression);
+    }
+
+    private List<TableInfo> getReferencedTables(Multimap<TableAndBranch, String> sensitiveOnlyColumns, Function<Expression, String> formatter)
+    {
         return tables.entrySet().stream()
                 .filter(entry -> isInputTable(entry.getKey().getNode()))
                 .map(entry -> {
@@ -1360,10 +1381,11 @@ public class Analysis
                             .filter(Objects::nonNull)
                             .flatMap(Collection::stream)
                             .distinct()
+                            .filter(fieldName -> !sensitiveOnlyColumns.containsEntry(tableAndBranch, fieldName))
                             .map(fieldName -> new ColumnInfo(
                                     fieldName,
                                     resolveColumnMask(table.getNode().getName(), fieldName, columnMasks.getOrDefault(table, ImmutableMap.of()))
-                                            .map(Expression::toString)))
+                                            .map(formatter)))
                             .collect(toImmutableList());
 
                     TableEntry info = entry.getValue();
@@ -1373,7 +1395,7 @@ public class Analysis
                             info.getName().objectName(),
                             info.getAuthorization(),
                             rowFilters.getOrDefault(table, ImmutableList.of()).stream()
-                                    .map(Expression::toString)
+                                    .map(formatter)
                                     .collect(toImmutableList()),
                             columns,
                             info.isDirectlyReferenced(),
@@ -1381,6 +1403,76 @@ public class Analysis
                             info.getReferenceChain());
                 })
                 .collect(toImmutableList());
+    }
+
+    private Multimap<TableAndBranch, String> sensitiveOnlyColumns()
+    {
+        if (sensitiveExpressionNodes.isEmpty()) {
+            return ImmutableMultimap.of();
+        }
+        Multimap<TableAndBranch, String> sensitiveColumns = HashMultimap.create();
+        Multimap<TableAndBranch, String> publicColumns = HashMultimap.create();
+        columnReferences.forEach((node, field) -> addReportingColumn(
+                sensitiveExpressionNodes.contains(node) ? sensitiveColumns : publicColumns, field.getField()));
+
+        // USING keys and required table-function inputs do not have ordinary expression references.
+        joinUsing.forEach((node, using) -> {
+            using.getLeftJoinFields().forEach(index -> addReportingColumn(
+                    publicColumns,
+                    getScope(node.getNode().getLeft()).getRelationType().getFieldByIndex(index)));
+            using.getRightJoinFields().forEach(index -> addReportingColumn(
+                    publicColumns,
+                    getScope(node.getNode().getRight()).getRelationType().getFieldByIndex(index)));
+        });
+        tableFunctionAnalyses.values().forEach(function -> function.getTableArgumentAnalyses().forEach(argument -> {
+            Scope inputScope = getScope(argument.getRelation());
+            function.getRequiredColumns().get(argument.getArgumentName()).forEach(index ->
+                    addReportingColumn(publicColumns, inputScope.getRelationType().getFieldByIndex(index)));
+        }));
+
+        sensitiveColumns.entries().removeIf(entry -> publicColumns.containsEntry(entry.getKey(), entry.getValue()));
+        return sensitiveColumns;
+    }
+
+    private static void addReportingColumn(Multimap<TableAndBranch, String> columns, Field field)
+    {
+        if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
+            columns.put(new TableAndBranch(field.getOriginTable().orElseThrow(), field.getOriginBranch()),
+                    field.getOriginColumnName().orElseThrow());
+        }
+    }
+
+    // Captured from the root session, since view sessions do not carry the system property
+    public void setSensitiveExpressionRedactionEnabled(boolean sensitiveExpressionRedactionEnabled)
+    {
+        this.sensitiveExpressionRedactionEnabled = sensitiveExpressionRedactionEnabled;
+    }
+
+    public boolean isSensitiveExpressionRedactionEnabled()
+    {
+        return sensitiveExpressionRedactionEnabled;
+    }
+
+    void markSensitiveExpression(Expression expression)
+    {
+        sensitiveExpressions.add(NodeRef.of(expression));
+        // Function resolution also attaches to nodes such as TRIM and JSON expressions, not just FunctionCall.
+        preOrder(expression)
+                .map(NodeRef::of)
+                .forEach(sensitiveExpressionNodes::add);
+    }
+
+    public boolean isSensitiveExpression(Expression expression)
+    {
+        return sensitiveExpressions.contains(NodeRef.of(expression));
+    }
+
+    String redactSensitiveExpression(Expression expression)
+    {
+        if (isSensitiveExpression(expression)) {
+            return SensitiveExpression.REDACTED;
+        }
+        return expression.toString();
     }
 
     private static Optional<Expression> resolveColumnMask(QualifiedName tableName, String fieldName, Map<Field, Expression> expressions)
@@ -1403,6 +1495,18 @@ public class Analysis
     public List<RoutineInfo> getRoutines()
     {
         return resolvedFunctions.values().stream()
+                .map(value -> new RoutineInfo(value.function.signature().getName().functionName(), value.getAuthorization()))
+                .collect(toImmutableList());
+    }
+
+    /**
+     * Like {@link #getRoutines()}, but without the function calls of sensitive expressions.
+     */
+    public List<RoutineInfo> getRedactedRoutines()
+    {
+        return resolvedFunctions.entrySet().stream()
+                .filter(entry -> !sensitiveExpressionNodes.contains(entry.getKey()))
+                .map(Map.Entry::getValue)
                 .map(value -> new RoutineInfo(value.function.signature().getName().functionName(), value.getAuthorization()))
                 .collect(toImmutableList());
     }

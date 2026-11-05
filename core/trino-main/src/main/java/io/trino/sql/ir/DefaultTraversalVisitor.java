@@ -172,4 +172,11 @@ public abstract class DefaultTraversalVisitor<C>
 
         return null;
     }
+
+    @Override
+    protected Void visitSensitiveExpression(SensitiveExpression node, C context)
+    {
+        process(node.expression(), context);
+        return null;
+    }
 }

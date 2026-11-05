@@ -102,6 +102,7 @@ import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.AdaptivePlanner;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.PlanFragmentRedactor;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -453,17 +454,26 @@ public class EventDrivenFaultTolerantQueryScheduler
         return stageRegistry.getTotalCpuTime();
     }
 
+    @VisibleForTesting
     @ThreadSafe
-    private static class StageRegistry
+    static class StageRegistry
     {
         private final QueryStateMachine queryStateMachine;
-        private final AtomicReference<SubPlan> plan;
+        private final AtomicReference<PlanState> plan;
+        private final boolean needsRedaction;
         private final Map<StageId, SqlStage> stages = new ConcurrentHashMap<>();
 
         public StageRegistry(QueryStateMachine queryStateMachine, SubPlan plan)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
-            this.plan = new AtomicReference<>(requireNonNull(plan, "plan is null"));
+            // Adaptive planning keeps the sensitive expressions of the original plan
+            this.needsRedaction = PlanFragmentRedactor.needsRedaction(queryStateMachine.getSession(), plan);
+            this.plan = new AtomicReference<>(planState(plan));
+        }
+
+        public boolean needsRedaction()
+        {
+            return needsRedaction;
         }
 
         public void add(SqlStage stage)
@@ -473,7 +483,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public void updatePlan(SubPlan plan)
         {
-            this.plan.set(requireNonNull(plan, "plan is null"));
+            this.plan.set(planState(plan));
         }
 
         public StagesInfo getStages()
@@ -481,14 +491,13 @@ public class EventDrivenFaultTolerantQueryScheduler
             Map<PlanFragmentId, StageInfo> stageInfos = stages.values().stream()
                     .collect(toImmutableMap(stage -> stage.getFragment().getId(), SqlStage::getStageInfo));
             // make sure that plan is not staler than stageInfos since `getStageInfo` is called asynchronously
-            SubPlan plan = requireNonNull(this.plan.get(), "plan is null");
+            PlanState plan = this.plan.get();
             return getStages(plan, stageInfos);
         }
 
-        private StagesInfo getStages(SubPlan plan, Map<PlanFragmentId, StageInfo> infos)
+        private StagesInfo getStages(PlanState planState, Map<PlanFragmentId, StageInfo> infos)
         {
-            Map<PlanFragmentId, PlanFragment> fragments = new HashMap<>();
-            collectFragments(plan, fragments);
+            SubPlan plan = planState.plan();
 
             // Can not use MultiMap as we need to be able to represent empty set as value
             Map<PlanFragmentId, Set<PlanFragmentId>> fragmentsToChildrenMap = new HashMap<>();
@@ -500,10 +509,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             fragmentsToChildrenMap.keySet().forEach(fragmentId -> {
                 StageInfo stageInfo = infos.get(fragmentId);
                 if (stageInfo == null) {
-                    stageInfo = StageInfo.createInitial(
-                            queryStateMachine.getQueryId(),
-                            queryStateMachine.getQueryState().isDone() ? ABORTED : PLANNED,
-                            fragments.get(fragmentId));
+                    stageInfo = planState.initialStageInfos().get(fragmentId)
+                            .withState(queryStateMachine.getQueryState().isDone() ? ABORTED : PLANNED);
                 }
                 reportedStageInfos.put(fragmentId, stageInfo);
             });
@@ -523,6 +530,28 @@ public class EventDrivenFaultTolerantQueryScheduler
             // todo: handle stages which are no longer part of the plan
 
             return new StagesInfo(reportedStageInfos.get(plan.getFragment().getId()).stageId(), ImmutableList.copyOf(reportedStageInfos.values()));
+        }
+
+        // Redacting when the plan is set fails a plan that cannot be redacted, instead of every status request
+        private PlanState planState(SubPlan plan)
+        {
+            Map<PlanFragmentId, PlanFragment> fragments = new HashMap<>();
+            collectFragments(plan, fragments);
+            Map<PlanFragmentId, StageInfo> initialStageInfos = fragments.values().stream()
+                    .collect(toImmutableMap(
+                            PlanFragment::getId,
+                            fragment -> StageInfo.createInitial(queryStateMachine.getQueryId(), PLANNED, PlanFragmentRedactor.redact(fragment, ImmutableMap.of(), needsRedaction))));
+            return new PlanState(plan, initialStageInfos);
+        }
+
+        // The plan and the initial info of its stages are published together, so a reader cannot mix plans
+        private record PlanState(SubPlan plan, Map<PlanFragmentId, StageInfo> initialStageInfos)
+        {
+            private PlanState
+            {
+                requireNonNull(plan, "plan is null");
+                initialStageInfos = ImmutableMap.copyOf(initialStageInfos);
+            }
         }
 
         private void collectFragments(SubPlan plan, Map<PlanFragmentId, PlanFragment> fragments)
@@ -549,7 +578,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             List<BasicStageStats> stageStats = stages.values().stream()
                     .map(SqlStage::getBasicStageStats)
                     .collect(toImmutableList());
-            return aggregateFaultTolerantBasicStageStats(stageStats, plan.get().getAllFragments().size());
+            return aggregateFaultTolerantBasicStageStats(stageStats, plan.get().plan().getAllFragments().size());
         }
 
         public long getUserMemoryReservation()
@@ -1462,6 +1491,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         stageId,
                         fragment,
                         TableInfo.extract(session, metadata, fragment),
+                        stageRegistry.needsRedaction(),
                         remoteTaskFactory,
                         session,
                         summarizeTaskInfo,
@@ -1533,7 +1563,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 Function<PlanFragmentId, PlanFragment> planFragmentLookup = planFragmentId -> {
                     StageExecution stageExecution = stageExecutions.get(getStageId(planFragmentId));
                     checkArgument(stageExecution != null, "stage for fragment %s not started yet", planFragmentId);
-                    return stageExecution.getStageInfo().plan();
+                    return stageExecution.getStageFragment();
                 };
 
                 List<StageExecution> sourceStageExecutions = subPlan.getChildren().stream()

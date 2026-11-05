@@ -36,6 +36,7 @@ import io.trino.execution.TaskId;
 import io.trino.metadata.Metadata;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.PlanFragmentRedactor;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.plan.PlanFragmentId;
 
@@ -77,6 +78,7 @@ class StageManager
             LocalExchangeBucketCountProvider bucketCountProvider)
     {
         Session session = queryStateMachine.getSession();
+        boolean needsRedaction = PlanFragmentRedactor.needsRedaction(session, planTree);
         ImmutableMap.Builder<StageId, SqlStage> stages = ImmutableMap.builder();
         ImmutableList.Builder<SqlStage> stagesInTopologicalOrder = ImmutableList.builder();
         ImmutableList.Builder<SqlStage> coordinatorStagesInTopologicalOrder = ImmutableList.builder();
@@ -91,6 +93,7 @@ class StageManager
                     getStageId(session.getQueryId(), fragment.getId()),
                     fragment,
                     TableInfo.extract(session, metadata, fragment),
+                    needsRedaction,
                     taskFactory,
                     session,
                     summarizeTaskInfo,

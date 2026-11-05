@@ -136,6 +136,44 @@ global property `hide-inaccessible-columns` configured in
 hide-inaccessible-columns = true
 ```
 
+Row filters and column masks are visible in query plans, `EXPLAIN` output,
+query statistics, and error messages. An access control implementation can
+mark an expression as sensitive with `ViewExpression.Builder.sensitive(true)`.
+With the global property `sensitive-expression-redaction-enabled` configured in
+{ref}`config-properties`, Trino replaces sensitive expressions with
+`[REDACTED]` in these details while still applying them:
+
+```properties
+sensitive-expression-redaction-enabled = true
+```
+
+Redaction preserves the plan's operator structure and ordinary expressions.
+Sensitive expressions stay redacted after constant folding. The reported
+statistics of a query with a sensitive expression omit value ranges, which can
+reflect policy bounds through joins or set operations, and so do those of a
+query that calls a user-defined function, since a policy can call it as well.
+Row count and distinct value estimates are still reported. Sensitive row
+filters and column masks are not pushed down to connectors beyond simple column
+domains, and the engine evaluates them after reading the data. If a user's
+predicate is combined with the constraint of a sensitive row filter on the same
+column, the combined constraint is redacted because its values cannot be
+attributed safely to either source. Sensitive row filters and column masks
+cannot contain subqueries.
+
+Event listeners still receive the text of sensitive row filters and column
+masks, the functions they call, and the columns and connector information they
+read. The query plans in events are redacted.
+
+Diagnostic messages for sensitive expressions use `DEBUG` level in
+`io.trino.sql.ir.SensitiveExpressions`,
+`io.trino.sql.analyzer.StatementAnalyzer`, and
+`io.trino.sql.gen.columnar.ColumnarFilterCompiler`. They include exception
+classes and, where available, error code and location. Exception messages are
+omitted because they can contain policy text and protected values. An
+administrator can investigate the full error by evaluating the policy
+expression as an ordinary query in a controlled environment, with access to
+the required data and without reapplying the failing policy.
+
 (security-inside-cluster)=
 ## Securing inside the cluster
 

@@ -27,14 +27,16 @@ public class ViewExpression
     private final Optional<String> schema;
     private final String expression;
     private final List<CatalogSchemaName> path;
+    private final boolean sensitive;
 
-    private ViewExpression(Optional<String> identity, Optional<String> catalog, Optional<String> schema, String expression, List<CatalogSchemaName> path)
+    private ViewExpression(Optional<String> identity, Optional<String> catalog, Optional<String> schema, String expression, List<CatalogSchemaName> path, boolean sensitive)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.expression = requireNonNull(expression, "expression is null");
         this.path = List.copyOf(path);
+        this.sensitive = sensitive;
 
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
@@ -70,6 +72,15 @@ public class ViewExpression
         return path;
     }
 
+    /**
+     * Returns whether this expression is sensitive. When redaction is enabled, the engine redacts sensitive expressions
+     * from query details.
+     */
+    public boolean isSensitive()
+    {
+        return sensitive;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -82,6 +93,7 @@ public class ViewExpression
         private String schema;
         private String expression;
         private List<CatalogSchemaName> path = List.of();
+        private boolean sensitive;
 
         private Builder() {}
 
@@ -114,6 +126,16 @@ public class ViewExpression
             this.path = List.copyOf(path);
         }
 
+        /**
+         * Marks this expression as sensitive, so the engine redacts it from query details when redaction is enabled.
+         * The default is {@code false}.
+         */
+        public Builder sensitive(boolean sensitive)
+        {
+            this.sensitive = sensitive;
+            return this;
+        }
+
         public ViewExpression build()
         {
             return new ViewExpression(
@@ -121,7 +143,8 @@ public class ViewExpression
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
                     expression,
-                    path);
+                    path,
+                    sensitive);
         }
     }
 }
