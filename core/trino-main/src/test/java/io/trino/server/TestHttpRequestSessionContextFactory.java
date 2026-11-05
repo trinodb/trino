@@ -203,6 +203,7 @@ public class TestHttpRequestSessionContextFactory
                 new PreparedStatementEncoder(new ProtocolConfig()),
                 createTestingMetadataManager(),
                 ImmutableSet::of,
+                _ -> ImmutableMap.of(),
                 new AllowAllAccessControl(),
                 new ProtocolConfig()
                         .setAlternateHeaderName(headers.getProtocolName()),
