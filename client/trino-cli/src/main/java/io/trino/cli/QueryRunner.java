@@ -52,8 +52,10 @@ public class QueryRunner
     private final int maxQueuedRows;
     private final int maxBufferedRows;
     private final Theme theme;
+    private final AgentLimits agentLimits;
+    private final boolean agentMode;
 
-    public QueryRunner(Theme theme, TrinoUri uri, ClientSession session, boolean debug, int maxQueuedRows, int maxBufferedRows)
+    public QueryRunner(Theme theme, TrinoUri uri, ClientSession session, boolean debug, int maxQueuedRows, int maxBufferedRows, AgentLimits agentLimits, boolean agentMode)
     {
         this(theme,
                 session,
@@ -61,7 +63,9 @@ public class QueryRunner
                 HttpClientFactory.toHttpClientBuilder(uri, USER_AGENT).build(),
                 HttpClientFactory.unauthenticatedClientBuilder(uri, USER_AGENT).build(),
                 maxQueuedRows,
-                maxBufferedRows);
+                maxBufferedRows,
+                agentLimits,
+                agentMode);
     }
 
     @VisibleForTesting
@@ -72,7 +76,9 @@ public class QueryRunner
             OkHttpClient httpClient,
             OkHttpClient segmentHttpClient,
             int maxQueuedRows,
-            int maxBufferedRows)
+            int maxBufferedRows,
+            AgentLimits agentLimits,
+            boolean agentMode)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -81,6 +87,8 @@ public class QueryRunner
         this.maxQueuedRows = maxQueuedRows;
         this.maxBufferedRows = maxBufferedRows;
         this.theme = requireNonNull(theme, "theme is null");
+        this.agentLimits = requireNonNull(agentLimits, "agentLimits is null");
+        this.agentMode = agentMode;
     }
 
     public ClientSession getSession()
@@ -98,6 +106,11 @@ public class QueryRunner
         return debug;
     }
 
+    public boolean isAgentMode()
+    {
+        return agentMode;
+    }
+
     public Theme theme()
     {
         return theme;
@@ -105,7 +118,8 @@ public class QueryRunner
 
     public Query startQuery(String query)
     {
-        return new Query(startInternalQuery(session.get(), query), debug, maxQueuedRows, maxBufferedRows, theme);
+        ClientSession currentSession = session.get();
+        return new Query(startInternalQuery(currentSession, query), debug, maxQueuedRows, maxBufferedRows, theme, agentLimits, agentMode, currentSession.getTransactionId() != null);
     }
 
     public StatementClient startInternalQuery(String query)
