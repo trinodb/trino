@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc.procedure;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.plugin.jdbc.JdbcClient;
@@ -27,6 +28,7 @@ import java.lang.invoke.MethodHandle;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Map;
 
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -66,20 +68,20 @@ public final class ExecuteProcedure
                 EXECUTE.bindTo(this));
     }
 
-    public void execute(ConnectorSession session, String query)
+    public Map<String, Long> execute(ConnectorSession session, String query)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doExecute(session, query);
+            return ImmutableMap.of("row_count", doExecute(session, query));
         }
     }
 
-    public void doExecute(ConnectorSession session, String query)
+    public long doExecute(ConnectorSession session, String query)
     {
         try (Connection connection = jdbcClient.getConnection(session)) {
             connection.setReadOnly(false);
             try (Statement statement = connection.createStatement()) {
                 //noinspection SqlSourceToSinkFlow
-                statement.executeUpdate(query);
+                return statement.executeUpdate(query);
             }
         }
         catch (SQLException e) {
