@@ -7063,6 +7063,23 @@ public abstract class BaseConnectorTest
                 format("MERGE INTO %s t USING (VALUES ('Aaron', 6)) s(customer, purchases) ON (t.customer = s.customer)", targetTable) +
                         "    WHEN NOT MATCHED BY SOURCE AND t.purchases > (SELECT s.purchases) THEN DELETE",
                 ".*Reference to source column 's.purchases' not allowed in WHEN NOT MATCHED BY SOURCE clause");
+        assertQueryFails(
+                format("MERGE INTO %s t USING (VALUES 'Aaron') s(customer) ON (t.customer = s.customer)", targetTable) +
+                        "    WHEN NOT MATCHED BY SOURCE THEN UPDATE SET address = (SELECT s.*)",
+                ".*Reference to source column 's.customer' not allowed in WHEN NOT MATCHED BY SOURCE clause");
+
+        // With an empty source, every target row is not matched by source
+        assertUpdate(format("MERGE INTO %s t USING (SELECT * FROM (VALUES 'Zed') v(customer) WHERE customer = 'Nobody') s ON (t.customer = s.customer)", targetTable) +
+                "    WHEN NOT MATCHED BY SOURCE AND t.purchases > 10 THEN DELETE" +
+                "    WHEN NOT MATCHED BY SOURCE THEN UPDATE SET purchases = t.purchases + 1", 2);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Ed', 8, 'Etherville')");
+
+        assertUpdate(format("MERGE INTO %s t USING (SELECT * FROM (VALUES 'Zed') v(customer) WHERE customer = 'Nobody') s ON (t.customer = s.customer)", targetTable) +
+                "    WHEN NOT MATCHED THEN INSERT (customer) VALUES (s.customer)" +
+                "    WHEN NOT MATCHED BY SOURCE THEN UPDATE SET address = 'Gone'", 1);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Ed', 8, 'Gone')");
 
         assertUpdate("DROP TABLE " + targetTable);
     }

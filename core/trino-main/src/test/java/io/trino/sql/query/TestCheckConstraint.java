@@ -28,8 +28,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
+import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,6 +101,9 @@ public class TestCheckConstraint
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_not_deterministic"))) {
                         return TPCH_NATION_SCHEMA;
                     }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_hidden_column"))) {
+                        return TPCH_NATION_WITH_HIDDEN_COLUMN;
+                    }
                     throw new UnsupportedOperationException();
                 })
                 .withCheckConstraints(schemaTableName -> {
@@ -136,6 +143,9 @@ public class TestCheckConstraint
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_not_deterministic"))) {
                         return ImmutableList.of("nationkey > random()");
                     }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_hidden_column"))) {
+                        return ImmutableList.of("regionkey < \"$hidden\" + 10");
+                    }
                     throw new UnsupportedOperationException();
                 })
                 .withData(schemaTableName -> {
@@ -147,6 +157,11 @@ public class TestCheckConstraint
                     }
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_multiple_column_constraint"))) {
                         return TPCH_NATION_DATA;
+                    }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_hidden_column"))) {
+                        return TPCH_NATION_DATA.stream()
+                                .<List<?>>map(row -> ImmutableList.builder().addAll(row).add(0).build())
+                                .collect(toImmutableList());
                     }
                     throw new UnsupportedOperationException();
                 })
@@ -662,6 +677,26 @@ public class TestCheckConstraint
                 WHEN NOT MATCHED BY SOURCE THEN DELETE
                 """))
                 .matches("SELECT BIGINT '25'");
+    }
+
+    @Test
+    public void testMergeCheckHiddenColumn()
+    {
+        // Within allowed check constraint
+        assertThat(assertions.query(
+                """
+                MERGE INTO mock.tiny.nation_hidden_column USING (VALUES 0) t(x) ON nationkey = x
+                WHEN MATCHED THEN UPDATE SET regionkey = 9
+                """))
+                .matches("SELECT BIGINT '1'");
+
+        // Outside allowed check constraint
+        assertThat(assertions.query(
+                """
+                MERGE INTO mock.tiny.nation_hidden_column USING (VALUES 0) t(x) ON nationkey = x
+                WHEN MATCHED THEN UPDATE SET regionkey = 10
+                """))
+                .failure().hasMessage("Check constraint violation: (regionkey < (\"$hidden\" + 10))");
     }
 
     @Test

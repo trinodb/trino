@@ -4017,7 +4017,14 @@ class StatementAnalyzer
                 if (operation.isNotMatchedBySource()) {
                     // The source fields follow the target fields in the join scope
                     int targetFieldCount = targetTableScope.getRelationType().getAllFieldCount();
-                    Stream.concat(operation.getExpression().stream(), setExpressions.stream())
+                    List<Expression> clauseExpressions = Stream.concat(operation.getExpression().stream(), setExpressions.stream()).collect(toImmutableList());
+                    // SELECT s.* in a subquery expands to source column references that are not part of the AST
+                    Stream<Expression> expandedSelectExpressions = clauseExpressions.stream()
+                            .flatMap(expression -> preOrder(expression))
+                            .filter(QuerySpecification.class::isInstance)
+                            .flatMap(query -> analysis.getSelectExpressions(query).stream())
+                            .map(SelectExpression::getExpression);
+                    Stream.concat(clauseExpressions.stream(), expandedSelectExpressions)
                             .flatMap(expression -> getReferencesToScope(expression, analysis, joinScope))
                             .filter(reference -> analysis.getResolvedField(reference).getRelationFieldIndex() >= targetFieldCount)
                             .findFirst()
