@@ -725,7 +725,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
     }
 
-    private static class Scheduler
+    @VisibleForTesting
+    static class Scheduler
             implements EventListener<Void>
     {
         private static final int EVENT_BUFFER_CAPACITY = 100;
@@ -1968,7 +1969,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                     executionFailureInfo.remoteHost());
         }
 
-        private static class PreSchedulingTaskContexts
+        @VisibleForTesting
+        static class PreSchedulingTaskContexts
         {
             private final Map<ScheduledTask, PreSchedulingTaskContext> contexts = new HashMap<>();
             private final Map<TaskExecutionClass, AtomicInteger> waitCounters;
@@ -2052,6 +2054,17 @@ public class EventDrivenFaultTolerantQueryScheduler
                     waitCounters.get(executionClass).incrementAndGet();
                 }
                 context.setExecutionClass(executionClass);
+            }
+
+            @Override
+            public String toString()
+            {
+                return toStringHelper(this)
+                        .add("taskCount", contexts.size())
+                        .add("waitCounters", waitCounters)
+                        .add("contexts", contexts.entrySet().stream().limit(10).toList())
+                        .add("omittedContexts", Math.max(0, contexts.size() - 10))
+                        .toString();
             }
         }
     }
@@ -3188,9 +3201,10 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
     }
 
-    private record ScheduledTask(StageId stageId, int partitionId)
+    @VisibleForTesting
+    record ScheduledTask(StageId stageId, int partitionId)
     {
-        private ScheduledTask
+        ScheduledTask
         {
             requireNonNull(stageId, "stageId is null");
             checkArgument(partitionId >= 0, "partitionId must be greater than or equal to zero: %s", partitionId);
@@ -3690,7 +3704,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
     }
 
-    private static class PreSchedulingTaskContext
+    @VisibleForTesting
+    static class PreSchedulingTaskContext
     {
         private final NodeLease nodeLease;
         private TaskExecutionClass executionClass;
@@ -3698,7 +3713,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private boolean waitingForSinkInstanceHandle;
 
         // called only from PreSchedulingTaskContexts
-        private PreSchedulingTaskContext(NodeLease nodeLease, TaskExecutionClass executionClass)
+        PreSchedulingTaskContext(NodeLease nodeLease, TaskExecutionClass executionClass)
         {
             this.nodeLease = requireNonNull(nodeLease, "nodeLease is null");
             this.executionClass = requireNonNull(executionClass, "executionClass is null");
@@ -3721,8 +3736,9 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.executionClass = executionClass;
         }
 
-        // to be called only from TaskExecutionContexts methods
-        private void markWaitingForNodeCompleted()
+        // Called when the scheduler processes the node acquisition event.
+        @VisibleForTesting
+        void markWaitingForNodeCompleted()
         {
             verify(waitingForNode, "waitingForNode flag is false");
             waitingForNode = false;
@@ -3747,7 +3763,9 @@ public class EventDrivenFaultTolerantQueryScheduler
         public String toString()
         {
             return toStringHelper(this)
-                    .add("nodeLease", nodeLease)
+                    .add("nodeFutureDone", nodeLease.getNode().isDone())
+                    .add("nodeFutureCancelled", nodeLease.getNode().isCancelled())
+                    .add("waitingForNode", waitingForNode)
                     .add("executionClass", executionClass)
                     .add("waitingForSinkInstanceHandle", waitingForSinkInstanceHandle)
                     .toString();
