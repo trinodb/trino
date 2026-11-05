@@ -1120,6 +1120,12 @@ class QueryPlanner
             projectionAssignmentsBuilder.putIdentity(symbol);
         }
 
+        // The check constraints are evaluated over the target table columns, including the hidden ones
+        List<io.trino.sql.tree.Expression> constraints = analysis.getCheckConstraints(mergeAnalysis.getTargetTable());
+        if (!constraints.isEmpty()) {
+            projectionAssignmentsBuilder.putIdentities(targetTablePlan.getFieldMappings());
+        }
+
         // Assigns a unique id to each joined row
         // The target table unique_id for matches, and the source table unique_id for non-matches
         // Avoid the scenario where unique_id values become null after right join due to unmatched rows.
@@ -1138,7 +1144,6 @@ class QueryPlanner
 
         // Check the constraints against the column values written by the INSERT and UPDATE cases
         PlanNode mergeRowPlan = subPlanProject;
-        List<io.trino.sql.tree.Expression> constraints = analysis.getCheckConstraints(mergeAnalysis.getTargetTable());
         if (!constraints.isEmpty()) {
             Assignments.Builder assignments = Assignments.builder()
                     .putIdentities(subPlanProject.getOutputSymbols());
