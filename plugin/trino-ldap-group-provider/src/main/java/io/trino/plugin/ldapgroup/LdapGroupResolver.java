@@ -11,18 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.azure;
+package io.trino.plugin.ldapgroup;
 
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.TestInstance.Lifecycle;
+import java.util.Set;
 
-@TestInstance(Lifecycle.PER_CLASS)
-public class TestAzureFileSystemGen2HierarchicalWithEncryption
-        extends TestAzureFileSystemGen2Hierarchical
+interface LdapGroupResolver
 {
-    @Override
-    protected boolean useServerSideEncryptionWithCustomerKey()
-    {
-        return true;
-    }
+    Set<LdapGroup> resolveGroups(String memberDistinguishedName);
 }

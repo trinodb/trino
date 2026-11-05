@@ -224,15 +224,14 @@ public abstract class AbstractListaggAggregationState
     {
         SqlRow sqlRow = ((SingleListaggAggregationState) other).removeTempSerializedState();
 
-        List<Block> fields = sqlRow.getRawFieldBlocks();
         int index = sqlRow.getRawIndex();
-        Slice separator = VARCHAR.getSlice(fields.get(0), index);
-        boolean overflowError = BOOLEAN.getBoolean(fields.get(1), index);
-        Slice overflowFiller = VARCHAR.getSlice(fields.get(2), index);
-        boolean showOverflowEntryCount = BOOLEAN.getBoolean(fields.get(3), index);
+        Slice separator = VARCHAR.getSlice(sqlRow.getRawFieldBlock(0), index);
+        boolean overflowError = BOOLEAN.getBoolean(sqlRow.getRawFieldBlock(1), index);
+        Slice overflowFiller = VARCHAR.getSlice(sqlRow.getRawFieldBlock(2), index);
+        boolean showOverflowEntryCount = BOOLEAN.getBoolean(sqlRow.getRawFieldBlock(3), index);
         initialize(separator, overflowError, overflowFiller, showOverflowEntryCount);
 
-        Block array = new ArrayType(VARCHAR).getObject(fields.get(4), index);
+        Block array = new ArrayType(VARCHAR).getObject(sqlRow.getRawFieldBlock(4), index);
         ValueBlock arrayValues = array.getUnderlyingValueBlock();
         for (int i = 0; i < array.getPositionCount(); i++) {
             add(arrayValues, arrayValues.getUnderlyingValuePosition(i));

@@ -76,7 +76,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run zizmor
-        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
         with:
           inputs: .github
           # Version of the zizmor tool to install and run
@@ -958,8 +958,7 @@ jobs:
           name: product test distribution
           path: |
             testing/trino-product-tests/target/product-test-distribution
-            testing/trino-product-tests/target/iceberg-spark-runtime.jar
-            testing/trino-product-tests/target/iceberg-aws-bundle.jar
+            testing/trino-product-tests/target/downloaded-jars
           retention-days: 1
       - name: Test product-test matrix script
         run: .github/bin/build-pt-matrix.py --test

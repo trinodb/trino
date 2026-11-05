@@ -31,7 +31,8 @@ public interface TaskExecutor
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
             Duration splitConcurrencyAdjustFrequency,
-            OptionalInt maxDriversPerTask);
+            OptionalInt maxDriversPerTask,
+            TaskMemory taskMemory);
 
     void removeTask(TaskHandle taskHandle);
 

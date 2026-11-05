@@ -977,7 +977,25 @@ public class TestJdbcPreparedStatement
         String unicodeAndNull = "abc'xyz\0\u2603\uD835\uDCABtest";
         assertBind((ps, i) -> ps.setString(i, unicodeAndNull), explicitPrepare).roundTripsAs(Types.VARCHAR, unicodeAndNull);
 
-        for (int type : asList(Types.CHAR, Types.NCHAR, Types.VARCHAR, Types.NVARCHAR, Types.LONGVARCHAR, Types.LONGNVARCHAR)) {
+        for (int type : asList(Types.CHAR, Types.NCHAR)) {
+            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type), explicitPrepare).roundTripsAs(Types.CHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, (short) 123, type), explicitPrepare).roundTripsAs(Types.CHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, 123, type), explicitPrepare).roundTripsAs(Types.CHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, 123L, type), explicitPrepare).roundTripsAs(Types.CHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, 123.9f, type), explicitPrepare).roundTripsAs(Types.CHAR, "123.9");
+            assertBind((ps, i) -> ps.setObject(i, 123.9d, type), explicitPrepare).roundTripsAs(Types.CHAR, "123.9");
+            assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type), explicitPrepare).roundTripsAs(Types.CHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type), explicitPrepare).roundTripsAs(Types.CHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), type), explicitPrepare).roundTripsAs(Types.CHAR, "123.9");
+            assertBind((ps, i) -> ps.setObject(i, "hello", type), explicitPrepare).roundTripsAs(Types.CHAR, "hello");
+            assertBind((ps, i) -> ps.setObject(i, "hello ", type), explicitPrepare).resultsIn("char(6)", "CHAR 'hello '");
+            assertBind((ps, i) -> ps.setObject(i, "", type), explicitPrepare).resultsIn("char(0)", "CHAR ''");
+            assertBind((ps, i) -> ps.setObject(i, unicodeAndNull, type), explicitPrepare).roundTripsAs(Types.CHAR, unicodeAndNull);
+            assertBind((ps, i) -> ps.setObject(i, true, type), explicitPrepare).roundTripsAs(Types.CHAR, "true");
+            assertBind((ps, i) -> ps.setObject(i, false, type), explicitPrepare).roundTripsAs(Types.CHAR, "false");
+        }
+
+        for (int type : asList(Types.VARCHAR, Types.NVARCHAR, Types.LONGVARCHAR, Types.LONGNVARCHAR)) {
             assertBind((ps, i) -> ps.setObject(i, (byte) 123, type), explicitPrepare).roundTripsAs(Types.VARCHAR, "123");
             assertBind((ps, i) -> ps.setObject(i, (byte) 123, type), explicitPrepare).roundTripsAs(Types.VARCHAR, "123");
             assertBind((ps, i) -> ps.setObject(i, (short) 123, type), explicitPrepare).roundTripsAs(Types.VARCHAR, "123");

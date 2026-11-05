@@ -4530,6 +4530,11 @@ class StatementAnalyzer
         {
             checkState(!node.getRows().isEmpty());
 
+            List<SubqueryExpression> subqueries = extractExpressions(node.getRows(), SubqueryExpression.class);
+            if (!subqueries.isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, subqueries.getFirst(), "Subqueries are not supported in VALUES");
+            }
+
             List<RowType> rowTypes = node.getRows().stream()
                     .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
                     .map(type -> {

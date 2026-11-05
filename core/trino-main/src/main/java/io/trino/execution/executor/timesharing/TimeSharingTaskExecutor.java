@@ -31,11 +31,14 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.execution.SplitRunner;
+import io.trino.execution.SplitRunner.BlockedReason;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.executor.LeafSplitAdmissionBudget;
 import io.trino.execution.executor.RunningSplitInfo;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
+import io.trino.execution.executor.TaskMemory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
 import io.trino.tracing.TrinoAttributes;
@@ -98,6 +101,7 @@ public class TimeSharingTaskExecutor
     private final int minimumNumberOfDrivers;
     private final int guaranteedNumberOfDriversPerTask;
     private final int maximumNumberOfDriversPerTask;
+    private final boolean idleLeafSplitAdmissionEnabled;
     private final VersionEmbedder versionEmbedder;
     private final Tracer tracer;
 
@@ -136,6 +140,11 @@ public class TimeSharingTaskExecutor
      */
     private final Map<PrioritizedSplitRunner, Future<Void>> blockedSplits = new ConcurrentHashMap<>();
 
+    /**
+     * Leaf splits blocked on their source or on memory.
+     */
+    private final Set<PrioritizedSplitRunner> inFlightLeafSplits = ConcurrentHashMap.newKeySet();
+
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
     private final AtomicLongArray completedSplitsPerLevel = new AtomicLongArray(5);
 
@@ -161,6 +170,8 @@ public class TimeSharingTaskExecutor
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
 
+    private final AtomicLong leafSplitsAdmittedAboveMinDrivers = new AtomicLong();
+
     private final DistributionStat leafSplitsSize = new DistributionStat();
     @GuardedBy("this")
     private long lastLeafSplitsSizeRecordTime;
@@ -180,19 +191,20 @@ public class TimeSharingTaskExecutor
                 versionEmbedder,
                 tracer,
                 splitQueue,
-                Ticker.systemTicker());
+                Ticker.systemTicker(),
+                config.isIdleLeafSplitAdmissionEnabled());
     }
 
     @VisibleForTesting
     public TimeSharingTaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new Duration(10, TimeUnit.MINUTES), testingVersionEmbedder(), noopTracer(), new MultilevelSplitQueue(2), ticker);
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new Duration(10, TimeUnit.MINUTES), testingVersionEmbedder(), noopTracer(), new MultilevelSplitQueue(2), ticker, true);
     }
 
     @VisibleForTesting
     public TimeSharingTaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, MultilevelSplitQueue splitQueue, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new Duration(10, TimeUnit.MINUTES), testingVersionEmbedder(), noopTracer(), splitQueue, ticker);
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new Duration(10, TimeUnit.MINUTES), testingVersionEmbedder(), noopTracer(), splitQueue, ticker, true);
     }
 
     @VisibleForTesting
@@ -205,7 +217,8 @@ public class TimeSharingTaskExecutor
             VersionEmbedder versionEmbedder,
             Tracer tracer,
             MultilevelSplitQueue splitQueue,
-            Ticker ticker)
+            Ticker ticker,
+            boolean idleLeafSplitAdmissionEnabled)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
         checkArgument(guaranteedNumberOfDriversPerTask > 0, "guaranteedNumberOfDriversPerTask must be at least 1");
@@ -225,6 +238,7 @@ public class TimeSharingTaskExecutor
         this.minimumNumberOfDrivers = minDrivers;
         this.guaranteedNumberOfDriversPerTask = guaranteedNumberOfDriversPerTask;
         this.maximumNumberOfDriversPerTask = maximumNumberOfDriversPerTask;
+        this.idleLeafSplitAdmissionEnabled = idleLeafSplitAdmissionEnabled;
         this.waitingSplits = requireNonNull(splitQueue, "splitQueue is null");
         this.tasks = new LinkedList<>();
         this.lastLeafSplitsSizeRecordTime = ticker.read();
@@ -276,7 +290,8 @@ public class TimeSharingTaskExecutor
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
             Duration splitConcurrencyAdjustFrequency,
-            OptionalInt maxDriversPerTask)
+            OptionalInt maxDriversPerTask,
+            TaskMemory taskMemory)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
@@ -285,7 +300,7 @@ public class TimeSharingTaskExecutor
 
         log.debug("Task scheduled %s", taskId);
 
-        TimeSharingTaskHandle taskHandle = new TimeSharingTaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask);
+        TimeSharingTaskHandle taskHandle = new TimeSharingTaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask, taskMemory);
 
         tasks.add(taskHandle);
         return taskHandle;
@@ -338,6 +353,7 @@ public class TimeSharingTaskExecutor
                 allSplits.removeAll(splits);
                 intermediateSplits.removeAll(splits);
                 blockedSplits.keySet().removeAll(splits);
+                splits.forEach(inFlightLeafSplits::remove);
                 waitingSplits.removeAll(splits);
                 recordLeafSplitsSize(pendingUpdates);
             }
@@ -384,6 +400,7 @@ public class TimeSharingTaskExecutor
                     PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(
                             handle,
                             splitId,
+                            !intermediate,
                             taskSplit,
                             splitSpan,
                             tracer,
@@ -509,6 +526,94 @@ public class TimeSharingTaskExecutor
             pendingUpdates.recordSplitQueuedNanos(nanoTime() - split.getCreatedNanos());
             startSplit(split, pendingUpdates);
         }
+        admitAboveMinDrivers(pendingUpdates);
+    }
+
+    // Starts leaf splits above the minimum drivers while runner threads lack runnable splits and memory allows.
+    @GuardedBy("this")
+    private void admitAboveMinDrivers(PendingUpdates pendingUpdates)
+    {
+        if (!idleLeafSplitAdmissionEnabled) {
+            return;
+        }
+        // the minimum drivers loop stops short only when no task has a split to start
+        if (allSplits.size() - intermediateSplits.size() < minimumNumberOfDrivers) {
+            return;
+        }
+        int runnableSplits = runnableSplits() + pendingUpdates.getSplitsToOfferCount();
+        if (isWorkFull(runnableSplits)) {
+            return;
+        }
+        LeafSplitAdmissionBudget budget = new LeafSplitAdmissionBudget();
+        while (!isWorkFull(runnableSplits)) {
+            PrioritizedSplitRunner split = pollAboveMinDrivers(budget);
+            if (split == null) {
+                return;
+            }
+            leafSplitsAdmittedAboveMinDrivers.incrementAndGet();
+            pendingUpdates.recordSplitQueuedNanos(nanoTime() - split.getCreatedNanos());
+            startSplit(split, pendingUpdates);
+            runnableSplits++;
+        }
+    }
+
+    // Reads only concurrent collections, so callers need not hold the executor lock.
+    private int runnableSplits()
+    {
+        return waitingSplits.size() + runningSplits.size();
+    }
+
+    // Runner threads have a runnable split each, or enough leaf splits wait on their source or on memory.
+    private boolean isWorkFull(int runnableSplits)
+    {
+        if (inFlightLeafSplits.size() >= runnerThreads) {
+            return true;
+        }
+        return runnableSplits >= runnerThreads;
+    }
+
+    @GuardedBy("this")
+    private PrioritizedSplitRunner pollAboveMinDrivers(LeafSplitAdmissionBudget budget)
+    {
+        for (Iterator<TimeSharingTaskHandle> iterator = tasks.iterator(); iterator.hasNext(); ) {
+            TimeSharingTaskHandle task = iterator.next();
+            if (task.getRunningLeafSplits() >= min(task.getTargetConcurrency(), task.getMaxDriversPerTask().orElse(maximumNumberOfDriversPerTask))) {
+                continue;
+            }
+            if (task.isParked() || !task.hasQueuedLeafSplits()) {
+                continue;
+            }
+            long estimate = budget.admissibleEstimate(task.getTaskId(), task.getLeafMemoryEstimate(), task.getRunningLeafSplits(), ticker.read());
+            if (estimate == 0) {
+                continue;
+            }
+            PrioritizedSplitRunner split = task.pollNextSplit();
+            if (split != null) {
+                budget.reserve(task.getTaskId(), estimate);
+                // move task to end of list
+                iterator.remove();
+
+                // CAUTION: we are modifying the list in the loop which would normally
+                // cause a ConcurrentModificationException but we exit immediately
+                tasks.add(task);
+                return split;
+            }
+        }
+        return null;
+    }
+
+    private void startNewEntrants()
+    {
+        PendingUpdates pendingUpdates = new PendingUpdates();
+        try {
+            synchronized (this) {
+                addNewEntrants(pendingUpdates);
+                recordLeafSplitsSize(pendingUpdates);
+            }
+        }
+        finally {
+            pendingUpdates.flush();
+        }
     }
 
     private synchronized void startIntermediateSplit(PrioritizedSplitRunner split, PendingUpdates pendingUpdates)
@@ -581,6 +686,14 @@ public class TimeSharingTaskExecutor
                 splitsToOffer = new ArrayList<>();
             }
             splitsToOffer.add(split);
+        }
+
+        int getSplitsToOfferCount()
+        {
+            if (splitsToOffer == null) {
+                return 0;
+            }
+            return splitsToOffer.size();
         }
 
         void recordSplitQueuedNanos(long queuedNanos)
@@ -670,17 +783,44 @@ public class TimeSharingTaskExecutor
                             splitFinished(split);
                         }
                         else {
+                            TimeSharingTaskHandle taskHandle = split.getTaskHandle();
+                            // a higher target concurrency lets this task start another queued leaf split now
+                            boolean admitNewSplits = taskHandle.pollTargetConcurrencyIncreased();
                             if (blocked.isDone()) {
                                 waitingSplits.offer(split);
                             }
                             else {
+                                if (split.isLeaf()) {
+                                    BlockedReason reason = split.getBlockedReason();
+                                    if (reason.isInFlight()) {
+                                        inFlightLeafSplits.add(split);
+                                        // removing the task clears its splits, so a split added after that would stay counted
+                                        if (taskHandle.isDestroyed()) {
+                                            inFlightLeafSplits.remove(split);
+                                        }
+                                    }
+                                    else {
+                                        taskHandle.leafSplitParked(split);
+                                    }
+                                    // a leaf split blocked on anything but memory leaves its runner thread free for another split
+                                    if (idleLeafSplitAdmissionEnabled && reason != BlockedReason.MEMORY && !isWorkFull(runnableSplits())) {
+                                        admitNewSplits = true;
+                                    }
+                                }
                                 blockedSplits.put(split, blocked);
                                 blocked.addListener(() -> {
                                     blockedSplits.remove(split);
+                                    if (split.isLeaf()) {
+                                        inFlightLeafSplits.remove(split);
+                                        taskHandle.leafSplitUnparked(split);
+                                    }
                                     // reset the level priority to prevent previously-blocked splits from starving existing splits
                                     split.resetLevelPriority();
                                     waitingSplits.offer(split);
                                 }, executor);
+                            }
+                            if (admitNewSplits) {
+                                startNewEntrants();
                             }
                         }
                     }
@@ -780,6 +920,18 @@ public class TimeSharingTaskExecutor
     public int getBlockedSplits()
     {
         return blockedSplits.size();
+    }
+
+    @Managed
+    public int getInFlightLeafSplits()
+    {
+        return inFlightLeafSplits.size();
+    }
+
+    @Managed
+    public long getLeafSplitsAdmittedAboveMinDrivers()
+    {
+        return leafSplitsAdmittedAboveMinDrivers.get();
     }
 
     @Managed

@@ -54,6 +54,7 @@ public class DirectExchangeClientFactory
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
+    private final DataSize maxResponseContentLength;
     private final boolean acknowledgePages;
     private final ScheduledExecutorService scheduler;
     private final ThreadPoolExecutorMBean executorMBean;
@@ -94,7 +95,7 @@ public class DirectExchangeClientFactory
             DataSize maxBufferedBytes,
             DataSize deduplicationBufferSize,
             DataSize maxResponseSize,
-            DataSize maxClientResponseSize,
+            DataSize maxResponseContentLength,
             int concurrentRequestMultiplier,
             Duration maxErrorDuration,
             boolean acknowledgePages,
@@ -116,7 +117,8 @@ public class DirectExchangeClientFactory
         // Use only 0.75 of the maxResponseSize to leave room for additional bytes from the encoding
         // TODO figure out a better way to compute the size of data that will be transferred over the network
         requireNonNull(maxResponseSize, "maxResponseSize is null");
-        long maxResponseSizeBytes = (long) (Math.min(maxClientResponseSize.toBytes(), maxResponseSize.toBytes()) * 0.75);
+        this.maxResponseContentLength = requireNonNull(maxResponseContentLength, "maxResponseContentLength is null");
+        long maxResponseSizeBytes = (long) (Math.min(maxResponseContentLength.toBytes(), maxResponseSize.toBytes()) * 0.75);
         this.maxResponseSize = DataSize.ofBytes(maxResponseSizeBytes);
 
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
@@ -173,6 +175,7 @@ public class DirectExchangeClientFactory
                 dataIntegrityVerification,
                 buffer,
                 maxResponseSize,
+                maxResponseContentLength,
                 concurrentRequestMultiplier,
                 maxErrorDuration,
                 acknowledgePages,

@@ -30,6 +30,7 @@ import io.trino.sql.ir.Logical;
 import io.trino.type.CharVarcharCoercion;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -76,14 +77,22 @@ public final class ValueSetToExpression
         if (values.isAll()) {
             return TRUE;
         }
+        // A set of single values has no ranges to coalesce
+        if (values instanceof SortedRangeSet && values.isDiscreteSet()) {
+            return equalsAnyOf(charVarcharCoercion, values.getType(), values.getDiscreteSet(), operand);
+        }
         return combineDisjunctsWithDefault(values.getValuesProcessor().transform(
                 ranges -> extractDisjuncts(charVarcharCoercion, values.getType(), ranges, operand),
                 discrete -> extractDisjuncts(charVarcharCoercion, values.getType(), discrete, operand),
                 _ -> { throw new IllegalStateException("Case should not be reachable"); },
                 floatingPoint -> {
                     List<Expression> predicates = new ArrayList<>();
-                    if (!floatingPoint.getOrderedValues().isNone()) {
-                        predicates.addAll(extractDisjuncts(charVarcharCoercion, values.getType(), new FloatingPointValueSet(floatingPoint.getOrderedValues(), false).getRanges(), operand));
+                    SortedRangeSet orderedValues = floatingPoint.getOrderedValues();
+                    if (orderedValues.isDiscreteSet()) {
+                        predicates.add(equalsAnyOf(charVarcharCoercion, values.getType(), orderedValues.getDiscreteSet(), operand));
+                    }
+                    else if (!orderedValues.isNone()) {
+                        predicates.addAll(extractDisjuncts(charVarcharCoercion, values.getType(), new FloatingPointValueSet(orderedValues, false).getRanges(), operand));
                     }
                     if (floatingPoint.isNaNAllowed()) {
                         predicates.add(comparison(metadata, charVarcharCoercion, IDENTICAL, operand, new Constant(values.getType(), FloatingPointValueSet.nanValue(values.getType()))));
@@ -259,25 +268,26 @@ public final class ValueSetToExpression
 
     private List<Expression> extractDisjuncts(CharVarcharCoercion charVarcharCoercion, Type type, DiscreteValues discreteValues, Expression reference)
     {
-        List<Expression> values = discreteValues.getValues().stream()
+        Expression predicate = equalsAnyOf(charVarcharCoercion, type, discreteValues.getValues(), reference);
+        if (!discreteValues.isInclusive()) {
+            predicate = not(metadata, charVarcharCoercion, predicate);
+        }
+        return ImmutableList.of(predicate);
+    }
+
+    private Expression equalsAnyOf(CharVarcharCoercion charVarcharCoercion, Type type, Collection<Object> discreteValues, Expression reference)
+    {
+        List<Expression> values = discreteValues.stream()
                 .map(object -> new Constant(type, object))
                 .collect(toList());
 
         // If values is empty, then the equatableValues was either ALL or NONE, both of which should already have been checked for
         checkState(!values.isEmpty());
 
-        Expression predicate;
         if (values.size() == 1) {
-            predicate = comparison(metadata, charVarcharCoercion, EQUAL, reference, getOnlyElement(values));
+            return comparison(metadata, charVarcharCoercion, EQUAL, reference, getOnlyElement(values));
         }
-        else {
-            predicate = new In(reference, values);
-        }
-
-        if (!discreteValues.isInclusive()) {
-            predicate = not(metadata, charVarcharCoercion, predicate);
-        }
-        return ImmutableList.of(predicate);
+        return new In(reference, values);
     }
 
     private static boolean isBetween(Range range)

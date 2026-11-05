@@ -28,6 +28,7 @@ import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.metrics.MeasuredTrinoFileSystem;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.base.metrics.ApiCallStats;
 import io.trino.plugin.iceberg.ColumnIdentity;
@@ -150,6 +151,7 @@ public class TrinoRestCatalog
             .maximumSize(PER_QUERY_CACHE_SIZE)
             .build();
     private final ApiCallStats apiCallStats = new ApiCallStats();
+    private final ApiCallStats fileSystemStats = new ApiCallStats();
 
     public TrinoRestCatalog(
             IcebergFileSystemFactory fileSystemFactory,
@@ -198,7 +200,7 @@ public class TrinoRestCatalog
     @Override
     public Metrics getMetrics()
     {
-        return apiCallStats.toMetrics("metastore");
+        return apiCallStats.toMetrics("metastore").mergeWith(fileSystemStats.toMetrics("filesystem.catalog"));
     }
 
     @Override
@@ -582,7 +584,7 @@ public class TrinoRestCatalog
             log.warn(e, "Failed to delete table data referenced by metadata");
         }
         if (isGcEnabled(metadata)) {
-            deleteTableDirectory(fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(table.io())), schemaTableName, table.location());
+            deleteTableDirectory(new MeasuredTrinoFileSystem(fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(table.io())), fileSystemStats), schemaTableName, table.location());
         }
     }
 
@@ -1019,7 +1021,7 @@ public class TrinoRestCatalog
     private SessionCatalog.SessionContext convert(ConnectorSession session)
     {
         return switch (sessionType) {
-            case NONE -> new SessionContext(randomUUID().toString(), null, credentials, ImmutableMap.of(), session.getIdentity());
+            case NONE -> new SessionContext(randomUUID().toString(), null, credentials, ImmutableMap.of(), new RestSessionIdentity(session.getIdentity(), fileSystemStats));
             case USER -> {
                 String sessionId = format("%s-%s-%s", session.getUser(), session.getQueryId(), session.getSource().orElse("default"));
 
@@ -1046,7 +1048,7 @@ public class TrinoRestCatalog
                         .put(OAuth2Properties.JWT_TOKEN_TYPE, subjectJwt)
                         .buildOrThrow();
 
-                yield new SessionCatalog.SessionContext(sessionId, session.getUser(), credentials, properties, session.getIdentity());
+                yield new SessionCatalog.SessionContext(sessionId, session.getUser(), credentials, properties, new RestSessionIdentity(session.getIdentity(), fileSystemStats));
             }
         };
     }

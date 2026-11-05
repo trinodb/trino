@@ -34,9 +34,13 @@ import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.MapBlock;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metric;
@@ -46,7 +50,9 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.SimpleGroupFactory;
@@ -76,6 +82,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -101,6 +108,7 @@ import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.JsonType.JSON;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.singletonList;
@@ -849,6 +857,106 @@ public class TestParquetReader
 
             assertThat(reader.nextPage().getPositionCount()).isEqualTo(256);
         }
+    }
+
+    @Test
+    public void testAdaptiveBatchSizeForArrayColumn()
+            throws IOException
+    {
+        int rowCount = 200;
+        int elementsPerRow = 1_000;
+        Block arrays = fixedLengthArrays(rowCount, elementsPerRow, sequentialBigints(rowCount * elementsPerRow));
+        DataSize maxReadBlockSize = DataSize.ofBytes(100_000);
+        assertThat(readLargestPageSizeInBytes(new ArrayType(BIGINT), arrays, rowCount, maxReadBlockSize)).isLessThanOrEqualTo(maxReadBlockSize.toBytes());
+    }
+
+    @Test
+    public void testAdaptiveBatchSizeForMapColumn()
+            throws IOException
+    {
+        int rowCount = 200;
+        int entriesPerRow = 500;
+        MapType mapType = new MapType(BIGINT, BIGINT, new TypeOperators());
+        Block maps = MapBlock.fromKeyValueBlock(
+                Optional.empty(),
+                fixedLengthOffsets(rowCount, entriesPerRow),
+                sequentialBigints(rowCount * entriesPerRow),
+                sequentialBigints(rowCount * entriesPerRow),
+                mapType);
+        DataSize maxReadBlockSize = DataSize.ofBytes(100_000);
+        // the batch size estimate does not count the 8 byte hash table slot per map entry
+        assertThat(readLargestPageSizeInBytes(mapType, maps, rowCount, maxReadBlockSize)).isLessThanOrEqualTo(maxReadBlockSize.toBytes() * 3 / 2);
+    }
+
+    @Test
+    public void testAdaptiveBatchSizeForRowWithArrayColumn()
+            throws IOException
+    {
+        int rowCount = 200;
+        int elementsPerRow = 1_000;
+        Block rows = RowBlock.fromFieldBlocks(rowCount, new Block[] {
+                sequentialBigints(rowCount),
+                fixedLengthArrays(rowCount, elementsPerRow, sequentialBigints(rowCount * elementsPerRow)),
+        });
+        DataSize maxReadBlockSize = DataSize.ofBytes(100_000);
+        assertThat(readLargestPageSizeInBytes(rowType(field("id", BIGINT), field("elements", new ArrayType(BIGINT))), rows, rowCount, maxReadBlockSize))
+                .isLessThanOrEqualTo(maxReadBlockSize.toBytes());
+    }
+
+    @Test
+    public void testAdaptiveBatchSizeForNestedArrayColumn()
+            throws IOException
+    {
+        int rowCount = 200;
+        int innerArraysPerRow = 10;
+        int elementsPerInnerArray = 100;
+        int innerArrayCount = rowCount * innerArraysPerRow;
+        Block innerArrays = fixedLengthArrays(innerArrayCount, elementsPerInnerArray, sequentialBigints(innerArrayCount * elementsPerInnerArray));
+        Block arrays = fixedLengthArrays(rowCount, innerArraysPerRow, innerArrays);
+        DataSize maxReadBlockSize = DataSize.ofBytes(100_000);
+        assertThat(readLargestPageSizeInBytes(new ArrayType(new ArrayType(BIGINT)), arrays, rowCount, maxReadBlockSize)).isLessThanOrEqualTo(maxReadBlockSize.toBytes());
+    }
+
+    private static long readLargestPageSizeInBytes(Type type, Block values, int rowCount, DataSize maxReadBlockSize)
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("values");
+        List<Type> types = ImmutableList.of(type);
+        ParquetReaderOptions readerOptions = ParquetReaderOptions.builder()
+                .withMaxReadBlockSize(maxReadBlockSize)
+                .withMaxReadBlockRowCount(rowCount)
+                .build();
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(ParquetWriterOptions.builder().build(), types, columnNames, ImmutableList.of(new Page(values))),
+                readerOptions);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, readerOptions, newSimpleAggregatedMemoryContext(), types, columnNames, TupleDomain.all())) {
+            int rowsRead = 0;
+            long largestPageSize = 0;
+            for (SourcePage page = reader.nextPage(); page != null; page = reader.nextPage()) {
+                largestPageSize = max(largestPageSize, page.getBlock(0).getSizeInBytes());
+                rowsRead += page.getPositionCount();
+            }
+            assertThat(rowsRead).isEqualTo(rowCount);
+            return largestPageSize;
+        }
+    }
+
+    private static Block fixedLengthArrays(int arrayCount, int elementsPerArray, Block elements)
+    {
+        return ArrayBlock.fromElementBlock(arrayCount, Optional.empty(), fixedLengthOffsets(arrayCount, elementsPerArray), elements);
+    }
+
+    private static int[] fixedLengthOffsets(int entryCount, int length)
+    {
+        return IntStream.rangeClosed(0, entryCount)
+                .map(entry -> entry * length)
+                .toArray();
+    }
+
+    private static Block sequentialBigints(int positionCount)
+    {
+        return new LongArrayBlock(positionCount, Optional.empty(), LongStream.range(0, positionCount).toArray());
     }
 
     @Test

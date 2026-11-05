@@ -11,17 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc;
+package io.trino.filesystem.azure;
 
-public enum TimestampTimeZoneDomain
+import org.junit.jupiter.api.TestInstance;
+
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class TestAzureFileSystemOAuthFlatAzureWithEncryption
+        extends TestAzureFileSystemOAuthFlatAzure
 {
-    /**
-     * Connector can produce {@link io.trino.spi.type.TimestampWithTimeZoneType} values with varying zones.
-     */
-    ANY,
-
-    /**
-     * Connector can produce {@link io.trino.spi.type.TimestampWithTimeZoneType} values only with UTC zone.
-     */
-    UTC_ONLY,
+    @Override
+    protected boolean useServerSideEncryptionWithCustomerKey()
+    {
+        return true;
+    }
 }

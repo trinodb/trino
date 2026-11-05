@@ -386,6 +386,9 @@ public class TestDomainTranslator
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false));
         assertThat(toPredicate(tupleDomain)).isEqualTo(in(C_BIGINT, ImmutableList.of(1L, 2L)));
 
+        tupleDomain = tupleDomain(C_DOUBLE, Domain.multipleValues(DOUBLE, ImmutableList.of(1.0, 2.0, Double.NaN)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(in(C_DOUBLE, ImmutableList.of(1.0, 2.0)), comparison(IDENTICAL, C_DOUBLE.toSymbolReference(), doubleLiteral(Double.NaN))));
+
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L)), true));
         assertThat(toPredicate(tupleDomain)).isEqualTo(or(isNull(C_BIGINT), lessThan(C_BIGINT, bigintLiteral(1L))));
 

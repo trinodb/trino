@@ -17,7 +17,10 @@ import com.azure.identity.ClientSecretCredential;
 import com.azure.identity.ClientSecretCredentialBuilder;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
+
+import static java.util.Objects.requireNonNull;
 
 public final class AzureAuthOauth
         implements AzureAuth
@@ -27,17 +30,18 @@ public final class AzureAuthOauth
     @Inject
     public AzureAuthOauth(AzureAuthOAuthConfig config)
     {
-        this(config.getClientEndpoint(), config.getTenantId(), config.getClientId(), config.getClientSecret());
+        this(new ClientSecretCredentialBuilder()
+                .authorityHost(config.getClientEndpoint())
+                .tenantId(config.getTenantId())
+                .clientId(config.getClientId())
+                .clientSecret(config.getClientSecret())
+                .build());
     }
 
-    public AzureAuthOauth(String clientEndpoint, String tenantId, String clientId, String clientSecret)
+    @VisibleForTesting
+    AzureAuthOauth(ClientSecretCredential credential)
     {
-        credential = new ClientSecretCredentialBuilder()
-                .authorityHost(clientEndpoint)
-                .tenantId(tenantId)
-                .clientId(clientId)
-                .clientSecret(clientSecret)
-                .build();
+        this.credential = requireNonNull(credential, "credential is null");
     }
 
     @Override

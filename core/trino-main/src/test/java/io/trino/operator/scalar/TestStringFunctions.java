@@ -1259,6 +1259,17 @@ public class TestStringFunctions
     @Test
     public void testSplit()
     {
+        assertThat(assertions.function("split", "''", "'.'"))
+                .isEqualTo(ImmutableList.of(""));
+        assertThat(assertions.function("split", "'abc'", "'abcdef'", "2147483647"))
+                .isEqualTo(ImmutableList.of("abc"));
+        assertThat(assertions.function("split", "'aaaaa'", "'aa'"))
+                .isEqualTo(ImmutableList.of("", "", "a"));
+        assertThat(assertions.function("split", "'" + "a.".repeat(1000) + "'", "'.'"))
+                .isEqualTo(ImmutableList.builder().addAll(nCopies(1000, "a")).add("").build());
+        assertThat(assertions.function("split", "'" + "a.".repeat(1000) + "'", "'.'", "2"))
+                .isEqualTo(ImmutableList.of("a", "a.".repeat(999)));
+
         assertThat(assertions.function("split", "'a.b.c'", "'.'"))
                 .hasType(new ArrayType(createVarcharType(5)))
                 .isEqualTo(ImmutableList.of("a", "b", "c"));

@@ -64,7 +64,6 @@ final class TestIcebergAzureRestCatalogStorageCredentialsRefresh
     private final String containerLocation = "abfss://%s@%s/".formatted(container, accountHost);
 
     private String sasToken;
-    private long sasTokenExpiresAtMs;
     private TrinoFileSystem fileSystem;
 
     @BeforeAll
@@ -97,7 +96,6 @@ final class TestIcebergAzureRestCatalogStorageCredentialsRefresh
     {
         OffsetDateTime sasTokenExpiry = OffsetDateTime.now().plusHours(1);
         sasToken = generateAccountSasToken(sasTokenExpiry);
-        sasTokenExpiresAtMs = sasTokenExpiry.toInstant().toEpochMilli();
 
         return "%sazure-storage-creds-rest-refresh-test-%s/".formatted(containerLocation, randomNameSuffix());
     }
@@ -162,10 +160,16 @@ final class TestIcebergAzureRestCatalogStorageCredentialsRefresh
                 return ImmutableMap.<String, String>builder()
                         .put(AzureProperties.ADLS_SAS_TOKEN_PREFIX + accountHost, sasToken)
                         .put(AzureProperties.ADLS_REFRESH_CREDENTIALS_ENABLED, "true")
-                        .put(AzureProperties.ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX + accountHost, Long.toString(sasTokenExpiresAtMs))
+                        .put(AzureProperties.ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX + accountHost, Long.toString(sessionTokenExpirationTime.get().toEpochMilli()))
                         .buildOrThrow();
             }
         };
+    }
+
+    @Override
+    protected int expectedVendedCredentialsRefreshCountDuringWrite()
+    {
+        return 4;
     }
 
     @Override
@@ -173,6 +177,8 @@ final class TestIcebergAzureRestCatalogStorageCredentialsRefresh
     {
         return ImmutableMap.<String, String>builder()
                 .put("fs.azure.enabled", "true")
+                .put("azure.write-block-size", WRITE_PART_SIZE.toString())
+                .put("azure.max-single-upload-size", WRITE_PART_SIZE.toString())
                 .put("azure.auth-type", "DEFAULT")
                 .buildOrThrow();
     }

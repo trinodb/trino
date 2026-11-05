@@ -11,18 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.azure;
+package io.trino.execution.executor.dedicated;
 
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.TestInstance.Lifecycle;
+import io.trino.execution.SplitRunner.BlockedReason;
 
-@TestInstance(Lifecycle.PER_CLASS)
-public class TestAzureFileSystemOAuthGen2HierarchicalWithEncryption
-        extends TestAzureFileSystemOAuthGen2Hierarchical
+interface SplitBlockedListener
 {
-    @Override
-    protected boolean useServerSideEncryptionWithCustomerKey()
-    {
-        return true;
-    }
+    // Accounts for a split that blocks and returns the action that undoes it once the split unblocks.
+    Runnable splitBlocked(TaskEntry task, boolean leaf, BlockedReason reason);
 }

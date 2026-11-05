@@ -410,12 +410,23 @@ public class VariantBlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         return new VariantBlockBuilder(
                 blockBuilderStatus,
                 (VariableWidthBlockBuilder) metadataBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
                 (VariableWidthBlockBuilder) valuesBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
+                BlockUtil.calculateBlockResetSize(positionCount),
+                null);
+    }
+
+    @Override
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
+    {
+        return new VariantBlockBuilder(
+                blockBuilderStatus,
+                (VariableWidthBlockBuilder) metadataBlockBuilder.newBlockBuilderLike(expectedEntries, blockBuilderStatus),
+                (VariableWidthBlockBuilder) valuesBlockBuilder.newBlockBuilderLike(expectedEntries, blockBuilderStatus),
                 expectedEntries,
                 null);
     }

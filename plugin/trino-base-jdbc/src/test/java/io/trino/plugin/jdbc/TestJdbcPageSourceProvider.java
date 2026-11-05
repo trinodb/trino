@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import dev.failsafe.RetryPolicy;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -23,6 +24,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.DynamicFilterSnapshot;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
@@ -47,6 +49,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
@@ -114,7 +117,7 @@ public class TestJdbcPageSourceProvider
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient, executor, RetryPolicy.ofDefaults());
-        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction, SESSION, split, table, Optional.empty(), ImmutableList.of(textColumn, textShortColumn, valueColumn), DynamicFilter.EMPTY);
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction, SESSION, split, table, Optional.empty(), ImmutableList.of(textColumn, textShortColumn, valueColumn), DynamicFilter.EMPTY, MemoryContext.NO_LIMIT);
         assertThat(pageSource).withFailMessage("pageSource is null").isNotNull();
 
         Map<String, Long> data = new LinkedHashMap<>();
@@ -172,7 +175,7 @@ public class TestJdbcPageSourceProvider
                     valueColumn, Domain.singleValue(BIGINT, 2L))));
 
             List<String> values = new ArrayList<>();
-            try (ConnectorPageSource pageSource = provider.createPageSource(new JdbcTransactionHandle(), SESSION, filteredSplit, constrainedTable, Optional.empty(), columns, DynamicFilter.EMPTY)) {
+            try (ConnectorPageSource pageSource = provider.createPageSource(new JdbcTransactionHandle(), SESSION, filteredSplit, constrainedTable, Optional.empty(), columns, DynamicFilter.EMPTY, MemoryContext.NO_LIMIT)) {
                 while (!pageSource.isFinished()) {
                     SourcePage page = pageSource.getNextSourcePage();
                     if (page == null) {
@@ -186,6 +189,42 @@ public class TestJdbcPageSourceProvider
             // Declining the dynamic filter must preserve the already-enforced table constraint.
             assertThat(values).containsExactlyInAnyOrder("one", "two", "three");
             assertThat(connections).hasValue(1);
+        }
+    }
+
+    @Test
+    public void testMergePageSourceReportsMemoryOnce()
+            throws Exception
+    {
+        ColumnHandle mergeRowIdColumn = new DefaultJdbcMetadata(jdbcClient, false, ImmutableSet.of())
+                .getMergeRowIdColumnHandle(SESSION, table);
+        JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient, executor, RetryPolicy.ofDefaults());
+        AtomicLong reportedBytes = new AtomicLong(-1);
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                new JdbcTransactionHandle(),
+                SESSION,
+                split,
+                table,
+                Optional.empty(),
+                ImmutableList.of(valueColumn, mergeRowIdColumn),
+                DynamicFilter.EMPTY,
+                reportedBytes::set)) {
+            assertThat(pageSource).isInstanceOf(MergeJdbcPageSource.class);
+            // the delegate reports its memory to the context, so polling must not account for it again
+            assertThat(reportedBytes.get()).isPositive();
+            assertThat(pageSource.getMemoryUsage()).isZero();
+
+            int positions = 0;
+            while (!pageSource.isFinished()) {
+                SourcePage page = pageSource.getNextSourcePage();
+                if (page != null) {
+                    assertThat(page.getChannelCount()).isEqualTo(2);
+                    positions += page.getPositionCount();
+                }
+            }
+            assertThat(positions).isEqualTo(6);
+            assertThat(reportedBytes.get()).isPositive();
+            assertThat(pageSource.getMemoryUsage()).isZero();
         }
     }
 
@@ -275,6 +314,6 @@ public class TestJdbcPageSourceProvider
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient, executor, RetryPolicy.ofDefaults());
-        return pageSourceProvider.createPageSource(transaction, SESSION, split, jdbcTableHandle, Optional.empty(), columns, DynamicFilter.EMPTY);
+        return pageSourceProvider.createPageSource(transaction, SESSION, split, jdbcTableHandle, Optional.empty(), columns, DynamicFilter.EMPTY, MemoryContext.NO_LIMIT);
     }
 }

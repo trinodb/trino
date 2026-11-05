@@ -24,13 +24,18 @@ import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.execution.SplitRunner;
+import io.trino.execution.SplitRunner.BlockedReason;
 import io.trino.execution.TaskId;
 import io.trino.execution.executor.scheduler.Schedulable;
 import io.trino.execution.executor.scheduler.SchedulerContext;
 import io.trino.tracing.TrinoAttributes;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.function.LongConsumer;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -45,13 +50,19 @@ class SplitProcessor
     private final int splitId;
     private final SplitRunner split;
     private final Tracer tracer;
+    // Accounts for the split blocking and returns the action that undoes it once the split unblocks.
+    private final Function<BlockedReason, Runnable> splitBlocked;
+    // Receives the scheduled time of each processing quantum.
+    private final LongConsumer quantumProcessed;
 
-    public SplitProcessor(TaskId taskId, int splitId, SplitRunner split, Tracer tracer)
+    public SplitProcessor(TaskId taskId, int splitId, SplitRunner split, Tracer tracer, Function<BlockedReason, Runnable> splitBlocked, LongConsumer quantumProcessed)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.splitId = splitId;
         this.split = requireNonNull(split, "split is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.splitBlocked = requireNonNull(splitBlocked, "splitBlocked is null");
+        this.quantumProcessed = requireNonNull(quantumProcessed, "quantumProcessed is null");
     }
 
     @Override
@@ -74,7 +85,9 @@ class SplitProcessor
         try (SetThreadName _ = new SetThreadName("SplitRunner-" + taskId + "-" + splitId)) {
             while (!split.isFinished()) {
                 try (var ignored2 = processSpan.makeCurrent()) {
+                    long quantumStartNanos = System.nanoTime();
                     ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);
+                    quantumProcessed.accept(System.nanoTime() - quantumStartNanos);
                     CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
                     long scheduledNanos = elapsed.wall().roundTo(NANOSECONDS);
@@ -97,9 +110,16 @@ class SplitProcessor
                         else {
                             processSpan.addEvent("blocked");
                             processSpan.end();
-                            if (!context.block(blocked)) {
-                                processSpan = null;
-                                return;
+                            Runnable unblocked = runOnce(splitBlocked.apply(split.getBlockedReason()));
+                            blocked.addListener(unblocked, directExecutor());
+                            try {
+                                if (!context.block(blocked)) {
+                                    processSpan = null;
+                                    return;
+                                }
+                            }
+                            finally {
+                                unblocked.run();
                             }
                         }
                         processSpan = newSpan(splitSpan, processSpan);
@@ -134,5 +154,15 @@ class SplitProcessor
         }
 
         return builder.startSpan();
+    }
+
+    private static Runnable runOnce(Runnable action)
+    {
+        AtomicBoolean done = new AtomicBoolean();
+        return () -> {
+            if (done.compareAndSet(false, true)) {
+                action.run();
+            }
+        };
     }
 }

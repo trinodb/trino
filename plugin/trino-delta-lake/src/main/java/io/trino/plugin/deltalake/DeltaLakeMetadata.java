@@ -892,11 +892,19 @@ public class DeltaLakeMetadata
             Optional<DeltaLakeTableDescriptor> descriptor = loadDescriptorFromChecksum(table.schemaTableName(), fileSystem, tableLocation, endTableVersion);
             if (descriptor.isPresent()) {
                 latestTableVersions.put(table.schemaTableName(), descriptor.get().version());
-                return descriptor.get();
+                return requireNonEmptyColumns(table.schemaTableName(), descriptor.get());
             }
         }
 
-        return loadDescriptorFromTransactionLog(session, table, fileSystem, endTableVersion);
+        return requireNonEmptyColumns(table.schemaTableName(), loadDescriptorFromTransactionLog(session, table, fileSystem, endTableVersion));
+    }
+
+    private static DeltaLakeTableDescriptor requireNonEmptyColumns(SchemaTableName tableName, DeltaLakeTableDescriptor descriptor)
+    {
+        if (getExactColumnNames(descriptor.metadataEntry()).isEmpty()) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Delta table %s has no columns".formatted(tableName));
+        }
+        return descriptor;
     }
 
     private Optional<DeltaLakeTableDescriptor> loadDescriptorFromChecksum(

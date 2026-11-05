@@ -88,10 +88,16 @@ final class TestIcebergGcsRestCatalogVendedCredentialsRefresh
                 return ImmutableMap.<String, String>builder()
                         .put(GCPProperties.GCS_OAUTH2_TOKEN, oauthToken)
                         .put(GCPProperties.GCS_OAUTH2_REFRESH_CREDENTIALS_ENABLED, "true")
-                        .put(GCPProperties.GCS_OAUTH2_TOKEN_EXPIRES_AT, Long.toString(tokenExpiresAtMs))
+                        .put(GCPProperties.GCS_OAUTH2_TOKEN_EXPIRES_AT, Long.toString(sessionTokenExpirationTime.get().toEpochMilli()))
                         .buildOrThrow();
             }
         };
+    }
+
+    @Override
+    protected int expectedVendedCredentialsRefreshCountDuringWrite()
+    {
+        return 4;
     }
 
     @Override
@@ -99,6 +105,7 @@ final class TestIcebergGcsRestCatalogVendedCredentialsRefresh
     {
         return ImmutableMap.<String, String>builder()
                 .put("fs.gcs.enabled", "true")
+                .put("gcs.write-block-size", WRITE_PART_SIZE.toString())
                 .put("gcs.auth-type", "APPLICATION_DEFAULT")
                 .put("gcs.endpoint", flociGcp.getEndpoint().toString())
                 .put("gcs.project-id", FLOCI_GCP_PROJECT_ID)

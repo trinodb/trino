@@ -31,6 +31,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.type.TypeTemplates.arrayType;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.methodHandle;
+import static java.lang.Math.addExact;
 import static java.lang.Math.toIntExact;
 
 public class ArrayFlattenFunction
@@ -68,11 +69,18 @@ public class ArrayFlattenFunction
 
     public static Block flatten(Type type, Type arrayType, Block array)
     {
-        if (array.getPositionCount() == 0) {
+        int expectedEntries = 0;
+        for (int i = 0; i < array.getPositionCount(); i++) {
+            if (!array.isNull(i)) {
+                Block subArray = (Block) arrayType.getObject(array, i);
+                expectedEntries = addExact(expectedEntries, subArray.getPositionCount());
+            }
+        }
+        if (expectedEntries == 0) {
             return type.createBlockBuilder(null, 0).build();
         }
 
-        BlockBuilder builder = type.createBlockBuilder(null, array.getPositionCount(), toIntExact(array.getSizeInBytes() / array.getPositionCount()));
+        BlockBuilder builder = type.createBlockBuilder(null, expectedEntries, toIntExact(array.getSizeInBytes() / expectedEntries));
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!array.isNull(i)) {
                 Block subArray = (Block) arrayType.getObject(array, i);

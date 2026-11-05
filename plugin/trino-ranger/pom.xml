@@ -93,6 +93,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
             <scope>provided</scope>
@@ -140,7 +146,7 @@
         <dependency>
             <groupId>org.apache.hadoop.thirdparty</groupId>
             <artifactId>hadoop-shaded-guava</artifactId>
-            <version>1.5.0</version>
+            <version>1.6.0</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -397,6 +403,16 @@
                                 <include>com.amazonaws:*:*</include>
                             </includes>
                         </bannedDependencies>
+                        <requireUpperBoundDeps>
+                            <excludes combine.children="append">
+                                <!-- Jetty 11 pinned until Ranger upgrades to Jetty 12 -->
+                                <exclude>org.eclipse.jetty:jetty-alpn-client</exclude>
+                                <exclude>org.eclipse.jetty:jetty-client</exclude>
+                                <exclude>org.eclipse.jetty:jetty-http</exclude>
+                                <exclude>org.eclipse.jetty:jetty-io</exclude>
+                                <exclude>org.eclipse.jetty:jetty-util</exclude>
+                            </excludes>
+                        </requireUpperBoundDeps>
                     </rules>
                 </configuration>
             </plugin>

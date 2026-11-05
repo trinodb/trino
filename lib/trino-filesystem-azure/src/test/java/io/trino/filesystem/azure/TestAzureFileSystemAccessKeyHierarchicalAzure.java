@@ -23,7 +23,7 @@ import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
 @TestInstance(Lifecycle.PER_CLASS)
-class TestAzureFileSystemGen2Hierarchical
+class TestAzureFileSystemAccessKeyHierarchicalAzure
         extends AbstractTestAzureFileSystem
 {
     @BeforeAll

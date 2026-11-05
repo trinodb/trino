@@ -38,6 +38,8 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
+import io.trino.spi.connector.MemoryUsageReportingPageSource;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
@@ -80,10 +82,11 @@ public class RedshiftPageSourceProvider
             ConnectorTableHandle table,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         if (split instanceof JdbcSplit) {
-            return jdbcPageSourceProvider.createPageSource(transaction, session, split, table, tableCredentials, columns, dynamicFilter);
+            return jdbcPageSourceProvider.createPageSource(transaction, session, split, table, tableCredentials, columns, dynamicFilter, memoryContext);
         }
 
         RedshiftUnloadSplit redshiftUnloadSplit = ((RedshiftUnloadSplit) split);
@@ -98,7 +101,7 @@ public class RedshiftPageSourceProvider
         catch (IOException e) {
             throw new TrinoException(REDSHIFT_PARQUET_CURSOR_ERROR, format("Failed to open Parquet file: %s", path), e);
         }
-        return new RedshiftParquetPageSource(parquetReader);
+        return new MemoryUsageReportingPageSource(new RedshiftParquetPageSource(parquetReader), memoryContext);
     }
 
     private ParquetReader parquetReader(TrinoInputFile inputFile, List<ColumnHandle> columns)

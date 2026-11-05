@@ -11,17 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.azure;
+package io.trino.execution.executor;
 
-import org.junit.jupiter.api.TestInstance;
-
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class TestAzureFileSystemOAuthGen2FlatWithEncryption
-        extends TestAzureFileSystemOAuthGen2Flat
+// Memory figures that leaf split admission reads for a task.
+public interface TaskMemory
 {
-    @Override
-    protected boolean useServerSideEncryptionWithCustomerKey()
-    {
-        return true;
-    }
+    // User memory held by the task's leaf pipelines.
+    long getLeafPipelineBytes();
+
+    // Largest user memory held by one leaf driver.
+    long getLeafDriverMaxBytes();
+
+    // Bytes the query can still reserve on this node.
+    long getQueryFreeBytes();
+
+    // Bytes the query may reserve on this node in total.
+    long getQueryMaxBytes();
+
+    // Free bytes in the node memory pool.
+    long getPoolFreeBytes();
 }
