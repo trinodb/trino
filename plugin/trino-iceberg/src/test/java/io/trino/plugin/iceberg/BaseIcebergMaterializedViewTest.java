@@ -1233,6 +1233,39 @@ public abstract class BaseIcebergMaterializedViewTest
     }
 
     @Test
+    public void testComputePartitionStatsAllowedOnMaterializedView()
+    {
+        // COMPUTE_PARTITION_STATS is allowed both through the materialized view and through the storage table name
+        String mvName = "test_compute_partition_stats_mv_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " WITH (partitioning = ARRAY['_date']) AS SELECT * FROM base_table1");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 6);
+
+        assertUpdate("ALTER MATERIALIZED VIEW " + mvName + " EXECUTE COMPUTE_PARTITION_STATS");
+        assertUpdate("ALTER TABLE \"" + mvName + "$materialized_view_storage\" EXECUTE COMPUTE_PARTITION_STATS");
+        assertThat(query("SELECT count(*) FROM " + mvName)).matches("VALUES BIGINT '6'");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+    }
+
+    @Test
+    public void testDropPartitionStatsAllowedOnMaterializedView()
+    {
+        // DROP_PARTITION_STATS is allowed both through the materialized view and through the storage table name
+        String mvName = "test_drop_partition_stats_mv_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " WITH (partitioning = ARRAY['_date']) AS SELECT * FROM base_table1");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 6);
+        assertUpdate("ALTER MATERIALIZED VIEW " + mvName + " EXECUTE COMPUTE_PARTITION_STATS");
+
+        assertThat(query("ALTER MATERIALIZED VIEW " + mvName + " EXECUTE DROP_PARTITION_STATS"))
+                .matches("VALUES (VARCHAR 'removed_partition_statistics_count', BIGINT '1')");
+        assertThat(query("ALTER TABLE \"" + mvName + "$materialized_view_storage\" EXECUTE DROP_PARTITION_STATS"))
+                .matches("VALUES (VARCHAR 'removed_partition_statistics_count', BIGINT '0')");
+        assertThat(query("SELECT count(*) FROM " + mvName)).matches("VALUES BIGINT '6'");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+    }
+
+    @Test
     public void testMaterializedViewOptimizePreservesDependencyMetadata()
     {
         String sourceTable = "test_optimize_preserve_src_" + randomNameSuffix();
