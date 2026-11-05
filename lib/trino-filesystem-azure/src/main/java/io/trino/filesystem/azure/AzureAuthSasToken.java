@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
+import static io.trino.filesystem.azure.AzureSasTokens.sasToken;
+
 public final class AzureAuthSasToken
         implements AzureAuth
 {
@@ -32,20 +34,12 @@ public final class AzureAuthSasToken
     @Override
     public void setAuth(String storageAccount, BlobContainerClientBuilder builder)
     {
-        String sasToken = sasTokens.get(storageAccount);
-        if (sasToken == null) {
-            throw new IllegalStateException("No SAS token provided for storage account: " + storageAccount);
-        }
-        builder.sasToken(sasToken);
+        builder.sasToken(sasToken(sasTokens, storageAccount));
     }
 
     @Override
     public void setAuth(String storageAccount, DataLakeServiceClientBuilder builder)
     {
-        String sasToken = sasTokens.get(storageAccount);
-        if (sasToken == null) {
-            throw new IllegalStateException("No SAS token provided for storage account: " + storageAccount);
-        }
-        builder.sasToken(sasToken);
+        builder.sasToken(sasToken(sasTokens, storageAccount));
     }
 }

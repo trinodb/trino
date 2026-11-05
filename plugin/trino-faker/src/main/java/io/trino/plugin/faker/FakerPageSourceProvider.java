@@ -28,9 +28,6 @@ import net.datafaker.Faker;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.Random;
-import java.util.random.RandomGenerator.JumpableGenerator;
-import java.util.random.RandomGeneratorFactory;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -38,20 +35,13 @@ public class FakerPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final Locale locale;
-    private final JumpableGenerator jumpableRandom;
     private final Faker faker;
 
     @Inject
     public FakerPageSourceProvider(FakerConfig config)
     {
         locale = config.getLocale();
-        // Every split should generate data in a sequence that does not overlap with other splits.
-        // To make data generation deterministic, use a generator with the same seed,
-        // but advance its state by a different offset for every split.
-        // A jumpable random generator's state can be advanced forward by a big distance in a single call.
-        // Xoroshiro128PlusPlus state has a period of 2^128, and a jump distance of 2^64.
-        jumpableRandom = (JumpableGenerator) RandomGeneratorFactory.of("Xoroshiro128PlusPlus").create(1);
-        faker = new Faker(locale, Random.from(jumpableRandom.copy()));
+        faker = new Faker(locale);
     }
 
     @Override
@@ -70,17 +60,8 @@ public class FakerPageSourceProvider
                 .collect(toImmutableList());
 
         FakerSplit fakerSplit = (FakerSplit) split;
-        Random random = random(fakerSplit.splitNumber());
-        return new FakerPageSource(new Faker(locale, random), random, handles, fakerSplit.rowsOffset(), fakerSplit.rowsCount());
-    }
-
-    private Random random(long index)
-    {
-        JumpableGenerator jumpableRandom = this.jumpableRandom.copy();
-        for (long i = 0; i < index; i++) {
-            jumpableRandom.jump();
-        }
-        return Random.from(jumpableRandom);
+        FakerTableHandle fakerTable = (FakerTableHandle) table;
+        return new FakerPageSource(locale, fakerTable.seed(), handles, fakerSplit.rowsOffset(), fakerSplit.rowsCount());
     }
 
     public void validateGenerator(String generator)

@@ -26,14 +26,12 @@ public class SqlRow
     private static final int INSTANCE_SIZE = instanceSize(SqlRow.class);
 
     private final Block[] fieldBlocks;
-    private final List<Block> fieldBlocksList;
     private final int rawIndex;
 
     public SqlRow(int rawIndex, Block[] fieldBlocks)
     {
         this.rawIndex = rawIndex;
         this.fieldBlocks = requireNonNull(fieldBlocks, "fieldBlocks is null");
-        fieldBlocksList = List.of(fieldBlocks);
     }
 
     public int getFieldCount()
@@ -53,7 +51,7 @@ public class SqlRow
 
     public List<Block> getRawFieldBlocks()
     {
-        return fieldBlocksList;
+        return List.of(fieldBlocks);
     }
 
     public long getSizeInBytes()

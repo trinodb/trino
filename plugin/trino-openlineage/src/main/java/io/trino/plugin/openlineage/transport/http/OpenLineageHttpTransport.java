@@ -15,6 +15,7 @@ package io.trino.plugin.openlineage.transport.http;
 
 import com.google.inject.Inject;
 import io.openlineage.client.transports.HttpConfig;
+import io.openlineage.client.transports.HttpProxyConfig;
 import io.openlineage.client.transports.HttpSslContextConfig;
 import io.openlineage.client.transports.HttpTransport;
 import io.openlineage.client.transports.TokenProvider;
@@ -61,7 +62,8 @@ public class OpenLineageHttpTransport
                         this.urlParams,
                         this.headers,
                         this.compression == Compression.GZIP ? HttpConfig.Compression.GZIP : null,
-                        new HttpSslContextConfig()));
+                        new HttpSslContextConfig(),
+                        new HttpProxyConfig()));
     }
 
     private static TokenProvider createTokenProvider(String token)

@@ -484,6 +484,16 @@ public class RowBlockBuilder
     }
 
     @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    {
+        BlockBuilder[] newBlockBuilders = new BlockBuilder[fieldBlockBuilders.length];
+        for (int i = 0; i < fieldBlockBuilders.length; i++) {
+            newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
+        }
+        return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, BlockUtil.calculateBlockResetSize(positionCount), null);
+    }
+
+    @Override
     public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
         BlockBuilder[] newBlockBuilders = new BlockBuilder[fieldBlockBuilders.length];

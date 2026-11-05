@@ -26,7 +26,6 @@ runs:
       path: |
         **/target/surefire-reports
         **/target/checkstyle-*
-        testing/trino-product-tests/target/*
         logs/*
       retention-days: 5
   - name: Upload test report

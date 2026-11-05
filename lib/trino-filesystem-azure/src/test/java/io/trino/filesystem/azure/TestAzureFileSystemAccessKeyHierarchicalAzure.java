@@ -23,17 +23,13 @@ import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
 @TestInstance(Lifecycle.PER_CLASS)
-public class TestAzureFileSystemOAuthGen2Hierarchical
+class TestAzureFileSystemAccessKeyHierarchicalAzure
         extends AbstractTestAzureFileSystem
 {
     @BeforeAll
     void setup()
             throws IOException
     {
-        String account = requireEnv("ABFS_HIERARCHICAL_ACCOUNT");
-        String tenantId = requireEnv("ABFS_OAUTH_TENANT_ID");
-        String clientId = requireEnv("ABFS_OAUTH_CLIENT_ID");
-        String clientSecret = requireEnv("ABFS_OAUTH_CLIENT_SECRET");
-        initializeWithOAuth(account, tenantId, clientId, clientSecret, HIERARCHICAL);
+        initializeWithAccessKeyAndMultipartWrites(requireEnv("ABFS_HIERARCHICAL_ACCOUNT"), requireEnv("ABFS_HIERARCHICAL_ACCESS_KEY"), HIERARCHICAL);
     }
 }

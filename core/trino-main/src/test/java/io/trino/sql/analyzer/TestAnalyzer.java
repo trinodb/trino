@@ -1123,6 +1123,23 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testRepeatedSampledSubquery()
+    {
+        analyze("SELECT DISTINCT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50)) AS x FROM t1 ORDER BY x");
+        analyze("SELECT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50)) FROM t1 ORDER BY (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50))");
+        assertFails("SELECT DISTINCT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50)) FROM t1 ORDER BY (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50))")
+                .hasErrorCode(EXPRESSION_NOT_IN_DISTINCT);
+
+        analyze("SELECT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50) WHERE t2.a = t1.a) FROM t1 GROUP BY 1");
+        assertFails("SELECT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50) WHERE t2.a = t1.a) FROM t1 GROUP BY (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50) WHERE t2.a = t1.a)")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+
+        // a sample that keeps all rows or none is deterministic
+        analyze("SELECT DISTINCT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (100)) FROM t1 ORDER BY (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (100))");
+        analyze("SELECT DISTINCT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (0)) FROM t1 ORDER BY (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (0))");
+    }
+
+    @Test
     public void testNonBooleanWhereClause()
     {
         assertFails("SELECT * FROM t1 WHERE a")
@@ -4828,6 +4845,28 @@ public class TestAnalyzer
                 .hasMessage("line 1:1: Values rows have mismatched types: row(integer, integer) vs row(varchar(1), varchar(1))");
 
         analyze("VALUES 'a', ('a'), ROW('a'), CAST(ROW('a') AS row(char(5)))");
+    }
+
+    @Test
+    public void testSubqueriesInValues()
+    {
+        assertFails("VALUES (SELECT 1)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Subqueries are not supported in VALUES");
+
+        assertFails("VALUES (1, 2 + (SELECT 3))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:16: Subqueries are not supported in VALUES");
+
+        assertFails("VALUES EXISTS(SELECT 1)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Subqueries are not supported in VALUES");
+
+        assertFails("VALUES 1 IN (SELECT 1)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:10: Subqueries are not supported in VALUES");
+
+        analyze("SELECT (SELECT x FROM (VALUES 1) t(x))");
     }
 
     @Test

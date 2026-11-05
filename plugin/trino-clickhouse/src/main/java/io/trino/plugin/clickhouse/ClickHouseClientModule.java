@@ -15,6 +15,7 @@ package io.trino.plugin.clickhouse;
 
 import com.clickhouse.client.api.ClientConfigProperties;
 import com.clickhouse.jdbc.Driver;
+import com.clickhouse.jdbc.DriverProperties;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -71,6 +72,8 @@ public class ClickHouseClientModule
         // clickhouse-jdbc decodes them as UTF-8 (replacing invalid sequences with U+FFFD) before
         // getBytes() re-encodes, corrupting non-UTF-8 varbinary data.
         properties.setProperty(ClientConfigProperties.BINARY_STRING_SUPPORT.getKey(), "true");
+        // SHOW statements based metadata returns null table comments
+        properties.setProperty(DriverProperties.METADATA_USE_SHOW_STATEMENTS.getKey(), "false");
         return new ClickHouseConnectionFactory(DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
                 .setConnectionProperties(properties)
                 .setOpenTelemetry(openTelemetry)

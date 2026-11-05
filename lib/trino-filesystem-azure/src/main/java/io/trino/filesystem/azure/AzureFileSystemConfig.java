@@ -18,12 +18,15 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.net.URI;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.Math.max;
@@ -39,6 +42,7 @@ public class AzureFileSystemConfig
 
     private AuthType authType = AuthType.DEFAULT;
     private String endpoint = "core.windows.net";
+    private Optional<URI> serviceEndpoint = Optional.empty();
     private DataSize readBlockSize = DataSize.of(4, Unit.MEGABYTE);
     private DataSize writeBlockSize = DataSize.of(4, Unit.MEGABYTE);
     private int maxWriteConcurrency = 8;
@@ -77,6 +81,34 @@ public class AzureFileSystemConfig
     {
         this.endpoint = endpoint;
         return this;
+    }
+
+    public Optional<URI> getServiceEndpoint()
+    {
+        return serviceEndpoint;
+    }
+
+    @Config("azure.service-endpoint")
+    @ConfigDescription("Base URI for requests to an Azure-compatible storage service")
+    public AzureFileSystemConfig setServiceEndpoint(URI serviceEndpoint)
+    {
+        this.serviceEndpoint = Optional.ofNullable(serviceEndpoint);
+        return this;
+    }
+
+    @AssertTrue(message = "azure.service-endpoint must be an HTTPS root URI")
+    public boolean isServiceEndpointValid()
+    {
+        return serviceEndpoint
+                .map(uri -> "https".equalsIgnoreCase(uri.getScheme())
+                        && uri.getHost() != null
+                        && uri.getPort() != 0
+                        && uri.getPort() <= 65535
+                        && (uri.getRawPath() == null || uri.getRawPath().isEmpty() || uri.getRawPath().equals("/"))
+                        && uri.getRawUserInfo() == null
+                        && uri.getRawQuery() == null
+                        && uri.getRawFragment() == null)
+                .orElse(true);
     }
 
     @NotNull

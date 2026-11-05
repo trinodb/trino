@@ -13,12 +13,14 @@
  */
 package io.trino.sql.query;
 
+import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -102,6 +104,26 @@ public class TestValues
                 .matches("VALUES " +
                         "ROW(null, null), " +
                         "ROW(REAL '1', DOUBLE '1')");
+    }
+
+    @Test
+    public void testSubqueries()
+    {
+        for (String query : ImmutableList.of(
+                "VALUES (SELECT 1)",
+                "VALUES (1, (SELECT count(*) FROM (VALUES 1, 2) t(x)))",
+                "VALUES 1, (SELECT 2)",
+                "SELECT * FROM (VALUES (1 + (SELECT 2))) t(x)",
+                "VALUES CAST((SELECT 1) AS BIGINT)",
+                "VALUES IF(false, (SELECT 1), 0)",
+                "VALUES EXISTS(SELECT 1)",
+                "VALUES 1 IN (SELECT 1)",
+                "VALUES 1 = ANY(SELECT 1)",
+                "SELECT * FROM (VALUES 1) t(x), LATERAL (VALUES (SELECT x))")) {
+            assertThat(assertions.query(query))
+                    .failure().hasErrorCode(NOT_SUPPORTED)
+                    .hasMessageContaining("Subqueries are not supported in VALUES");
+        }
     }
 
     @Test

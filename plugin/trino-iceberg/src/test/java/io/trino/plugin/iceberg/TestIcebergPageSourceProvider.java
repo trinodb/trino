@@ -49,6 +49,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.MemoryContext;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -57,6 +58,12 @@ import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.avro.Avro;
+import org.apache.iceberg.data.GenericRecord;
+import org.apache.iceberg.data.Record;
+import org.apache.iceberg.data.avro.DataWriter;
+import org.apache.iceberg.inmemory.InMemoryOutputFile;
+import org.apache.iceberg.io.FileAppender;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -78,6 +85,7 @@ import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
+import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
@@ -226,6 +234,55 @@ class TestIcebergPageSourceProvider
     }
 
     @Test
+    void testMemoryTrackingWithAvroDataFile(@TempDir Path tempDir)
+            throws IOException
+    {
+        ColumnIdentity regionkeyIdentity = new ColumnIdentity(1, "regionkey", PRIMITIVE, ImmutableList.of());
+        IcebergColumnHandle regionkeyHandle = IcebergColumnHandle.optional(regionkeyIdentity).columnType(BIGINT).build();
+        Schema tableSchema = new Schema(optional(regionkeyIdentity.getId(), "regionkey", Types.LongType.get()));
+
+        Path dataFilePath = tempDir.resolve("data.avro");
+        writeAvroFileToDisk(dataFilePath, tableSchema, ImmutableList.of(
+                GenericRecord.create(tableSchema).copy("regionkey", 1L),
+                GenericRecord.create(tableSchema).copy("regionkey", 2L),
+                GenericRecord.create(tableSchema).copy("regionkey", 3L)));
+        LocalInputFile dataInputFile = new LocalInputFile(dataFilePath.toFile());
+
+        IcebergPageSourceProvider provider = createPageSourceProvider(MemoryContext.NO_LIMIT);
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        try (ConnectorPageSource pageSource = provider.createPageSource(
+                createSession(),
+                ImmutableList.of(regionkeyHandle),
+                tableSchema,
+                PartitionSpec.unpartitioned(),
+                new PartitionData(new Object[] {}),
+                ImmutableList.of(),
+                DynamicFilter.EMPTY,
+                TupleDomain.all(),
+                TupleDomain.all(),
+                dataInputFile.location().toString(),
+                0,
+                dataInputFile.length(),
+                dataInputFile.length(),
+                3, // fileRecordCount
+                AVRO,
+                new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of()),
+                OptionalLong.of(0), // dataSequenceNumber
+                OptionalLong.empty(),
+                Optional.empty(),
+                memoryContext,
+                Optional.empty())) {
+            SourcePage page = pageSource.getNextSourcePage();
+            assertThat(page.getPositionCount()).isEqualTo(3);
+            // the page builder retains the blocks of the returned page
+            assertThat(memoryContext.getBytes()).isGreaterThanOrEqualTo(page.getSizeInBytes());
+            // the memory must not be accounted for again when getMemoryUsage is polled
+            assertThat(pageSource.getMemoryUsage()).isZero();
+        }
+        assertThat(memoryContext.getBytes()).isZero();
+    }
+
+    @Test
     void testParquetFooterCacheMissAndHit()
             throws IOException
     {
@@ -293,6 +350,19 @@ class TestIcebergPageSourceProvider
     {
         Slice parquetBytes = writeParquetFile(ParquetWriterOptions.builder().build(), types, columnNames, ImmutableList.of(page));
         Files.write(path, parquetBytes.getBytes());
+    }
+
+    private static void writeAvroFileToDisk(Path path, Schema schema, List<Record> records)
+            throws IOException
+    {
+        InMemoryOutputFile outputFile = new InMemoryOutputFile();
+        try (FileAppender<Record> writer = Avro.write(outputFile)
+                .schema(schema)
+                .createWriterFunc(DataWriter::create)
+                .build()) {
+            writer.addAll(records);
+        }
+        Files.write(path, outputFile.toByteArray());
     }
 
     private static Block createBigintBlock(long... values)

@@ -13,27 +13,16 @@
  */
 package io.trino.filesystem.azure;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 
-import java.io.IOException;
-
-import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.FLAT;
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
-
 @TestInstance(Lifecycle.PER_CLASS)
-public class TestAzureFileSystemOAuthGen2Flat
-        extends AbstractTestAzureFileSystem
+public class TestAzureFileSystemOAuthHierarchicalFlociWithEncryption
+        extends TestAzureFileSystemOAuthHierarchicalFloci
 {
-    @BeforeAll
-    void setup()
-            throws IOException
+    @Override
+    protected boolean useServerSideEncryptionWithCustomerKey()
     {
-        String account = requireEnv("ABFS_FLAT_ACCOUNT");
-        String tenantId = requireEnv("ABFS_OAUTH_TENANT_ID");
-        String clientId = requireEnv("ABFS_OAUTH_CLIENT_ID");
-        String clientSecret = requireEnv("ABFS_OAUTH_CLIENT_SECRET");
-        initializeWithOAuth(account, tenantId, clientId, clientSecret, FLAT);
+        return true;
     }
 }
