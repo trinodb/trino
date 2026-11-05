@@ -4046,6 +4046,9 @@ public class DeltaLakeMetadata
         }
 
         DeltaLakeTableHandle handle = checkValidTableHandle(tableHandle);
+        // ANALYZE commits to the transaction log when it backfills missing file statistics
+        checkWriteAllowed(session, handle);
+        checkWriteSupported(handle);
         MetadataEntry metadata = handle.getMetadataEntry();
 
         Optional<Instant> filesModifiedAfterFromProperties = getFilesModifiedAfterProperty(analyzeProperties);
