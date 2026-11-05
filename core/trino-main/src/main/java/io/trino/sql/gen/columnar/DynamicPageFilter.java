@@ -21,7 +21,10 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
@@ -41,6 +44,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
+import static io.trino.sql.gen.columnar.FilterEvaluator.createInSetDynamicFilterEvaluator;
 import static java.util.Objects.requireNonNull;
 
 public final class DynamicPageFilter
@@ -128,6 +132,10 @@ public final class DynamicPageFilter
                 .entrySet().stream()
                 .map(entry -> {
                     Symbol symbol = columnHandles.get(entry.getKey());
+                    Optional<Supplier<FilterEvaluator>> inSetEvaluator = createInSetEvaluator(compiler, charVarcharCoercion, symbol, entry.getValue());
+                    if (inSetEvaluator.isPresent()) {
+                        return inSetEvaluator;
+                    }
                     Expression expression = domainTranslator.toPredicate(getCharVarcharCoercion(session), entry.getValue(), symbol.toSymbolReference());
                     // Run the expression derived from TupleDomain through IR optimizer to simplify predicates. E.g. SimplifyContinuousInValues
                     expression = irExpressionOptimizer.process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);
@@ -143,6 +151,38 @@ public final class DynamicPageFilter
             }
             return new DynamicFilterEvaluator(filterEvaluators, selectivityThreshold);
         };
+    }
+
+    // Builds the filter from the values of a discrete set of non-null values, which is what an equi-join produces
+    // and which the IR optimizer only changes when they are continuous.
+    private Optional<Supplier<FilterEvaluator>> createInSetEvaluator(ColumnarFilterCompiler compiler, CharVarcharCoercion charVarcharCoercion, Symbol symbol, Domain domain)
+    {
+        if (domain.isNullAllowed() || !(domain.getValues() instanceof SortedRangeSet values) || !values.isDiscreteSet()) {
+            return Optional.empty();
+        }
+        List<Object> discreteValues = values.getDiscreteSet();
+        // a single value is translated to a comparison
+        if (discreteValues.size() < 2 || isContinuousRange(values.getType(), discreteValues)) {
+            return Optional.empty();
+        }
+        return createInSetDynamicFilterEvaluator(charVarcharCoercion, compiler, symbol.toSymbolReference(), discreteValues, sourceLayout);
+    }
+
+    // Whether the values may be simplified by SimplifyContinuousInValues to a range, which is any set of consecutive
+    // values of a type represented as long
+    private static boolean isContinuousRange(Type type, List<Object> distinctValues)
+    {
+        if (type.getJavaType() != long.class) {
+            return false;
+        }
+        long min = Long.MAX_VALUE;
+        long max = Long.MIN_VALUE;
+        for (Object value : distinctValues) {
+            long longValue = (long) value;
+            min = Math.min(min, longValue);
+            max = Math.max(max, longValue);
+        }
+        return max - min == distinctValues.size() - 1;
     }
 
     static final class DynamicFilterEvaluator
