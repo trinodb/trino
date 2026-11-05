@@ -261,21 +261,23 @@ public final class SortedRangeSet
         Arrays.sort(values);
 
         BlockBuilder distinctValues = type.createBlockBuilder(null, values.length);
-        int[] dictionary = new int[values.length * 2];
-        int distinctCount = 0;
         for (int i = 0; i < values.length; i++) {
             if (i > 0 && values[i] == values[i - 1]) {
                 continue;
             }
             type.writeLong(distinctValues, values[i]);
-            // each distinct value is both the low and the high bound of a single value range
-            dictionary[2 * distinctCount] = distinctCount;
-            dictionary[2 * distinctCount + 1] = distinctCount;
-            distinctCount++;
         }
 
-        if (distinctCount != values.length) {
-            dictionary = Arrays.copyOf(dictionary, distinctCount * 2);
+        return fromSortedDistinctValues(type, distinctValues.build());
+    }
+
+    private static SortedRangeSet fromSortedDistinctValues(Type type, Block distinctValues)
+    {
+        // each distinct value is both the low and the high bound of a single value range
+        int[] dictionary = new int[distinctValues.getPositionCount() * 2];
+        for (int i = 0; i < distinctValues.getPositionCount(); i++) {
+            dictionary[2 * i] = i;
+            dictionary[2 * i + 1] = i;
         }
         boolean[] inclusive = new boolean[dictionary.length];
         Arrays.fill(inclusive, true);
@@ -283,7 +285,7 @@ public final class SortedRangeSet
         return new SortedRangeSet(
                 type,
                 inclusive,
-                DictionaryBlock.create(dictionary.length, distinctValues.build(), dictionary),
+                DictionaryBlock.create(dictionary.length, distinctValues, dictionary),
                 DISCRETE);
     }
 
