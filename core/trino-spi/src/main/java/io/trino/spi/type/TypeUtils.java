@@ -105,6 +105,23 @@ public final class TypeUtils
         return type == REAL || type == DOUBLE || type == NUMBER;
     }
 
+    /**
+     * Returns whether values of {@code type} are equal exactly when their {@code long} representations
+     * are equal, and are ordered like their {@code long} representations. Such values can be compared,
+     * hashed and sorted directly as {@code long}, instead of going through the type specific operators.
+     */
+    public static boolean isDirectLongComparisonValidType(Type type)
+    {
+        return type instanceof TinyintType ||
+                type instanceof SmallintType ||
+                type instanceof IntegerType ||
+                type instanceof BigintType ||
+                type instanceof TimeType ||
+                type instanceof DateType ||
+                type instanceof TimestampType timestampType && timestampType.isShort() ||
+                type instanceof DecimalType decimalType && decimalType.isShort();
+    }
+
     public static boolean isFloatingPointNaN(Type type, Object value)
     {
         requireNonNull(type, "type is null");
