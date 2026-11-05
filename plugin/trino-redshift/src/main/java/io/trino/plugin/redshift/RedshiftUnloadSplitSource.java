@@ -51,6 +51,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -72,6 +74,8 @@ public class RedshiftUnloadSplitSource
     private final String unloadOutputPath;
     private final TrinoFileSystem fileSystem;
     private final CompletableFuture<Void> resultSetFuture;
+    private final AtomicBoolean closed = new AtomicBoolean();
+    private final AtomicReference<PreparedStatement> activeStatement = new AtomicReference<>();
 
     private List<FileInfo> unloadedFilePaths = ImmutableList.of();
     private boolean finished;
@@ -105,12 +109,21 @@ public class RedshiftUnloadSplitSource
             try (Connection connection = jdbcClient.getConnection(session)) {
                 String redshiftSelectSql = buildRedshiftSelectSql(session, connection, jdbcTableHandle, columns);
                 try (PreparedStatement statement = buildRedshiftUnloadSql(session, connection, columns, redshiftSelectSql, unloadOutputPath)) {
-                    // Exclusively set readOnly to false to avoid query failing with "ERROR: transaction is read-only".
-                    connection.setReadOnly(false);
-                    log.debug("Executing: %s", statement);
-                    long start = System.nanoTime();
-                    statement.execute(); // Return value of `statement.execute()` is not useful to determine whether UNLOAD command produced any result as it always return false.
-                    log.info("Redshift UNLOAD command for %s query took %s", queryFragmentId, nanosSince(start));
+                    activeStatement.set(statement);
+                    try {
+                        if (closed.get()) {
+                            return;
+                        }
+                        // Exclusively set readOnly to false to avoid query failing with "ERROR: transaction is read-only".
+                        connection.setReadOnly(false);
+                        log.debug("Executing: %s", statement);
+                        long start = System.nanoTime();
+                        statement.execute(); // Return value of `statement.execute()` is not useful to determine whether UNLOAD command produced any result as it always return false.
+                        log.info("Redshift UNLOAD command for %s query took %s", queryFragmentId, nanosSince(start));
+                    }
+                    finally {
+                        activeStatement.set(null);
+                    }
                 }
             }
             catch (SQLException e) {
@@ -139,6 +152,17 @@ public class RedshiftUnloadSplitSource
     @Override
     public void close()
     {
+        if (closed.compareAndSet(false, true)) {
+            PreparedStatement statement = activeStatement.get();
+            if (statement != null) {
+                try {
+                    statement.cancel();
+                }
+                catch (SQLException e) {
+                    log.debug(e, "Failed to cancel Redshift UNLOAD statement");
+                }
+            }
+        }
         resultSetFuture.cancel(true);
     }
 
