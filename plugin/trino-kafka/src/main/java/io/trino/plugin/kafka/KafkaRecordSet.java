@@ -150,14 +150,22 @@ public class KafkaRecordSet
         @Override
         public boolean advanceNextPosition()
         {
-            if (records.hasNext()) {
-                return nextRow(records.next());
+            while (true) {
+                if (records.hasNext()) {
+                    return nextRow(records.next());
+                }
+                if (kafkaConsumer.position(topicPartition) >= split.getMessagesRange().end()) {
+                    return false;
+                }
+                records = kafkaConsumer.poll(Duration.ofMillis(CONSUMER_POLL_TIMEOUT)).iterator();
+                if (records.hasNext()) {
+                    continue;
+                }
+                Long currentEndOffset = kafkaConsumer.endOffsets(ImmutableList.of(topicPartition)).get(topicPartition);
+                if (currentEndOffset != null && kafkaConsumer.position(topicPartition) >= currentEndOffset) {
+                    return false;
+                }
             }
-            if (kafkaConsumer.position(topicPartition) >= split.getMessagesRange().end()) {
-                return false;
-            }
-            records = kafkaConsumer.poll(Duration.ofMillis(CONSUMER_POLL_TIMEOUT)).iterator();
-            return advanceNextPosition();
         }
 
         private boolean nextRow(ConsumerRecord<byte[], byte[]> message)
