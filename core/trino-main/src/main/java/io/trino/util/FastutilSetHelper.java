@@ -17,14 +17,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.cache.NonEvictableCache;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
@@ -52,6 +44,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.spi.type.TypeUtils.isDirectLongComparisonValidType;
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
 import static java.lang.Math.ceil;
@@ -450,21 +443,5 @@ public final class FastutilSetHelper
             return new LongOpenHashSet(values, 0.25f);
         }
         return new LongBitSetFilter(values, min, max);
-    }
-
-    /**
-     * Types for which the {@code long} representation can be compared and hashed directly,
-     * instead of going through the type specific EQUAL and HASH_CODE operators.
-     */
-    public static boolean isDirectLongComparisonValidType(Type type)
-    {
-        return type instanceof TinyintType ||
-                type instanceof SmallintType ||
-                type instanceof IntegerType ||
-                type instanceof BigintType ||
-                type instanceof TimeType ||
-                type instanceof DateType ||
-                type instanceof TimestampType timestampType && timestampType.isShort() ||
-                type instanceof DecimalType decimalType && decimalType.isShort();
     }
 }
