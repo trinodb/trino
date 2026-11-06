@@ -83,6 +83,12 @@ final class ArrayElementBlockProjection
             }
         }
 
+        return selectElements(elements, ids, missingElementCount);
+    }
+
+    /// Returns the elements at the ids, where a negative id selects a null. The ids are modified.
+    static Block selectElements(Block elements, int[] ids, int missingElementCount)
+    {
         if (elements instanceof DictionaryBlock dictionaryElements) {
             // Select the values under the dictionary directly, so the missing elements are resolved against the
             // values instead of copies of the dictionary, and the result needs no second ids array
