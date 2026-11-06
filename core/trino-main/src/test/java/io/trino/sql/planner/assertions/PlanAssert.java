@@ -79,6 +79,6 @@ public final class PlanAssert
     {
         return PlanNodeSearcher.searchFrom(node, Lookup.from(Stream::of))
                 .where(GroupReference.class::isInstance)
-                .findFirst().isPresent();
+                .matches();
     }
 }
