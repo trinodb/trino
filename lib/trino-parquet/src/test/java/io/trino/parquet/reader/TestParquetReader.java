@@ -60,6 +60,7 @@ import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.example.ExampleParquetWriter;
 import org.apache.parquet.io.LocalOutputFile;
 import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.schema.LogicalTypeAnnotation.IntLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.MessageTypeParser;
 import org.apache.parquet.schema.Types;
@@ -115,6 +116,7 @@ import static java.util.Collections.singletonList;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.parquet.hadoop.ParquetFileWriter.Mode.OVERWRITE;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.intType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.timestampType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
@@ -1068,6 +1070,113 @@ public class TestParquetReader
                 timeZone)) {
             for (SourcePage page = reader.nextPage(); page != null; page = reader.nextPage()) {
                 values.addAll(blockValues(page.getBlock(0)));
+            }
+        }
+        return values.build();
+    }
+
+    @Test
+    public void testUnsignedIntegerStatisticsAcrossSignBit(@TempDir Path directory)
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .required(INT32).as(intType(32, false)).named("value")
+                .named("test");
+        File file = directory.resolve("unsigned.parquet").toFile();
+        try (ParquetWriter<Group> writer = ExampleParquetWriter.builder(new LocalOutputFile(file.toPath()))
+                .withType(schema)
+                .withWriteMode(OVERWRITE)
+                .withDictionaryEncoding(false)
+                .withPageRowCountLimit(2)
+                // the page row count limit is only enforced when the page size is checked, by default after 100 rows
+                .withMinRowCountForPageSizeCheck(1)
+                .build()) {
+            SimpleGroupFactory factory = new SimpleGroupFactory(schema);
+            for (long value : ImmutableList.of(1L, 2L, 3000000000L, 4294967295L, 3L, 3000000000L)) {
+                writer.write(factory.newGroup().append("value", (int) value));
+            }
+        }
+
+        // The bounds of the row group and of the third page straddle the sign bit, so they arrive inverted,
+        // while the bounds of the second page do not, so that page is still skipped
+        ImmutableList.Builder<Long> values = ImmutableList.builder();
+        try (ParquetReader reader = createFilteredParquetReader(file, ImmutableList.of(BIGINT), ImmutableList.of("value"), TupleDomain.withColumnDomains(ImmutableMap.of("value", Domain.singleValue(BIGINT, 1L))))) {
+            for (SourcePage page = reader.nextPage(); page != null; page = reader.nextPage()) {
+                values.addAll(blockValues(page.getBlock(0)));
+            }
+            assertThat(((Count<?>) reader.getMetrics().getMetrics().get(COLUMN_INDEX_ROWS_FILTERED)).getTotal()).isEqualTo(2);
+        }
+        assertThat(values.build()).hasSize(4).startsWith(1L, 2L, 3L);
+    }
+
+    @Test
+    public void testUnsignedIntegerBloomFilterAcrossSignBit(@TempDir Path directory)
+            throws IOException
+    {
+        File file = directory.resolve("unsigned.parquet").toFile();
+
+        // The bounds of the row group straddle the sign bit, so only the bloom filter can prune it, which it does for a lookup of the stored integer
+        assertThat(readIntegersWithBloomFilter(file, intType(32, false), 1L << 31, INTEGER, 7L)).isEmpty();
+        assertThat(readIntegersWithBloomFilter(file, intType(64, false), 1L << 63, BIGINT, 7L)).isEmpty();
+
+        // but the 8-byte lookup of a bigint cannot find a stored 4-byte integer
+        assertThat(readIntegersWithBloomFilter(file, intType(32, false), 1L << 31, BIGINT, 1L)).hasSize(3).startsWith(1L, 2L);
+
+        // and neither can the 4-byte lookup of an integer find a stored 8-byte integer, so the maximum, which does not fit an integer, fails the read
+        assertThatThrownBy(() -> readIntegersWithBloomFilter(file, intType(64, false), 1L << 63, INTEGER, 1L))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("integer overflow");
+    }
+
+    @Test
+    public void testBloomFilterLookupAtAnotherWidth(@TempDir Path directory)
+            throws IOException
+    {
+        File file = directory.resolve("signed.parquet").toFile();
+
+        // The bounds hold 3, so only the bloom filter can prune the row group, which it does for a lookup of the stored integer
+        assertThat(readIntegersWithBloomFilter(file, intType(32, true), 5L, INTEGER, 3L)).isEmpty();
+        assertThat(readIntegersWithBloomFilter(file, intType(64, true), 5L, BIGINT, 3L)).isEmpty();
+
+        // but a lookup at another width cannot find even a stored value
+        assertThat(readIntegersWithBloomFilter(file, intType(32, true), 5L, BIGINT, 1L)).containsExactly(1L, 2L, 5L);
+        assertThat(readIntegersWithBloomFilter(file, intType(64, true), 5L, INTEGER, 1L)).containsExactly(1L, 2L, 5L);
+    }
+
+    private static List<Long> readIntegersWithBloomFilter(File file, IntLogicalTypeAnnotation annotation, long maximum, Type type, long predicateValue)
+            throws IOException
+    {
+        boolean storedAsInt32 = annotation.getBitWidth() == 32;
+        MessageType schema = Types.buildMessage()
+                .required(storedAsInt32 ? INT32 : INT64).as(annotation).named("value")
+                .named("test");
+        try (ParquetWriter<Group> writer = ExampleParquetWriter.builder(new LocalOutputFile(file.toPath()))
+                .withType(schema)
+                .withWriteMode(OVERWRITE)
+                // the bloom filter would not be used with dictionary encoding
+                .withDictionaryEncoding(false)
+                .withBloomFilterEnabled(true)
+                .build()) {
+            SimpleGroupFactory factory = new SimpleGroupFactory(schema);
+            for (long value : ImmutableList.of(1L, 2L, maximum)) {
+                Group group = factory.newGroup();
+                if (storedAsInt32) {
+                    group.append("value", (int) value);
+                }
+                else {
+                    group.append("value", value);
+                }
+                writer.write(group);
+            }
+        }
+
+        ImmutableList.Builder<Long> values = ImmutableList.builder();
+        try (ParquetReader reader = createFilteredParquetReader(file, ImmutableList.of(type), ImmutableList.of("value"), TupleDomain.withColumnDomains(ImmutableMap.of("value", Domain.singleValue(type, predicateValue))))) {
+            for (SourcePage page = reader.nextPage(); page != null; page = reader.nextPage()) {
+                Block block = page.getBlock(0);
+                for (int position = 0; position < block.getPositionCount(); position++) {
+                    values.add(type.getLong(block, position));
+                }
             }
         }
         return values.build();

@@ -53,6 +53,7 @@ import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.IntLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
@@ -267,6 +268,11 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            // the filter of an integer column holds hashes of the stored integers, which only a lookup as an integer of the same width can find
+            if (isIntegerBloomFilterUnusable(effectivePredicateDomain.getType(), column.getPrimitiveType())) {
+                continue;
+            }
+
             Optional<Collection<Object>> discreteValues = extractDiscreteValues(domainCompactionThreshold, effectivePredicateDomain.getValues());
             // values are not discrete, so bloom filter isn't helpful
             if (discreteValues.isEmpty()) {
@@ -354,6 +360,18 @@ public class TupleDomainParquetPredicate
             DateTimeZone timeZone)
     {
         checkArgument(minimums.size() == maximums.size(), "Expected minimums and maximums to have the same size");
+
+        // The bounds of an unsigned integer follow unsigned order, while the reader returns the stored bits as a signed value.
+        // Both orders agree unless the bounds straddle the sign bit, in which case the minimum reads as non-negative and the maximum as negative.
+        // A decimal with a scale is left out, because the reader rescales its values but not these bounds, which then wrongly prune a page that does not straddle.
+        if (column.getPrimitiveType().getLogicalTypeAnnotation() instanceof IntLogicalTypeAnnotation integerAnnotation && !integerAnnotation.isSigned()
+                && !(type instanceof DecimalType decimalType && decimalType.getScale() > 0)) {
+            for (int i = 0; i < minimums.size(); i++) {
+                if (asLong(minimums.get(i)) >= 0 && asLong(maximums.get(i)) < 0) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
+            }
+        }
 
         if (type.equals(BOOLEAN)) {
             boolean hasTrueValues = minimums.stream().anyMatch(value -> (boolean) value) || maximums.stream().anyMatch(value -> (boolean) value);
@@ -754,6 +772,15 @@ public class TupleDomainParquetPredicate
         }
 
         return true;
+    }
+
+    private static boolean isIntegerBloomFilterUnusable(Type type, PrimitiveType parquetType)
+    {
+        return switch (parquetType.getPrimitiveTypeName()) {
+            case INT32 -> type != TINYINT && type != SMALLINT && type != INTEGER && type != DATE;
+            case INT64 -> type != BIGINT;
+            default -> false;
+        };
     }
 
     private static Optional<Collection<Object>> extractDiscreteValues(int domainCompactionThreshold, ValueSet valueSet)
