@@ -116,6 +116,7 @@ jobs:
               - '.github/**'
 
   maven-checks:
+    if: false # DO NOT MERGE: stress run
     permissions:
       actions: write # to dispatch cancel-merge-queue-workflow on failure
       contents: read
@@ -179,7 +180,7 @@ jobs:
       actions: write # to dispatch cancel-merge-queue-workflow on failure
       contents: read
     needs: path-filters
-    if: github.event_name == 'schedule' || needs.path-filters.outputs.maven == 'true'
+    if: false # DO NOT MERGE: stress run
     runs-on: macos-latest # Homebrew installs a different mvnd version on Linux than on macOS
     timeout-minutes: 45
     steps:
@@ -213,7 +214,7 @@ jobs:
       actions: write # to dispatch cancel-merge-queue-workflow on failure
       contents: read
     needs: path-filters
-    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.path-filters.outputs.non_docs == 'true'
+    if: false # DO NOT MERGE: stress run
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -256,7 +257,7 @@ jobs:
 
   check-commits-dispatcher:
     needs: path-filters
-    if: github.event_name == 'pull_request' && needs.path-filters.outputs.non_docs == 'true'
+    if: false # DO NOT MERGE: stress run
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -318,7 +319,7 @@ jobs:
       actions: write # to dispatch cancel-merge-queue-workflow on failure
       contents: read
     needs: path-filters
-    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.path-filters.outputs.non_docs == 'true'
+    if: false # DO NOT MERGE: stress run
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -357,7 +358,7 @@ jobs:
       actions: write # to dispatch cancel-merge-queue-workflow on failure
       contents: read
     needs: path-filters
-    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.path-filters.outputs.non_docs == 'true'
+    if: false # DO NOT MERGE: stress run
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -407,7 +408,7 @@ jobs:
       actions: write # to dispatch cancel-merge-queue-workflow on failure
       contents: read
     needs: path-filters
-    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.path-filters.outputs.non_docs == 'true'
+    if: false # DO NOT MERGE: stress run
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -544,15 +545,8 @@ jobs:
           EVENT_SCHEDULE: ${{ github.event.schedule }}
           PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
         run: |
-          # GIB doesn't run on master, so make sure the file always exist
-          touch gib-impacted.log
-          ./.github/bin/build-matrix-schedule-aware.py build \
-            --schedule-config ./.github/schedule-config.yml \
-            --impacted gib-impacted.log \
-            --event-name "$EVENT_NAME" \
-            --event-schedule "$EVENT_SCHEDULE" \
-            --pr-labels "$PR_LABELS" \
-            --verbose > matrix.json
+          # DO NOT MERGE: stress run. Cells 0-9 run the full module, cells 10-19 loop TestWorkerRestart alone.
+          jq -nc '{include: [range(20) | {modules: "testing/trino-tests", rep: ., "timeout-minutes": 60, name: "stress \(if . < 10 then "full" else "alone" end) \(.)"}]}' > matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
       - name: Cancel merge queue workflow
@@ -612,7 +606,19 @@ jobs:
           && ! (contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
-        run: $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" ${MATRIX_PROFILE:+-P "${MATRIX_PROFILE}"}
+        # DO NOT MERGE: stress run
+        env:
+          STRESS_REP: ${{ matrix.rep }}
+        run: |
+          if [ "${STRESS_REP}" -lt 10 ]; then
+            $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}"
+          else
+            failed=0
+            for i in $(seq 10); do
+              $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" -Dtest=TestWorkerRestart -Dsurefire.failIfNoSpecifiedTests=false || { echo "::error::iteration $i failed"; failed=1; }
+            done
+            exit $failed
+          fi
       # Additional tests for selected modules
       - name: HDFS file system cache isolated JVM tests
         id: tests-hdfs-isolated
@@ -902,7 +908,7 @@ jobs:
       actions: write # to dispatch cancel-merge-queue-workflow on failure
       contents: read
     needs: path-filters
-    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.path-filters.outputs.non_docs == 'true'
+    if: false # DO NOT MERGE: stress run
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
