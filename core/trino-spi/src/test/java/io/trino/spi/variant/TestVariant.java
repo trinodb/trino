@@ -13,7 +13,6 @@
  */
 package io.trino.spi.variant;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -597,7 +596,7 @@ class TestVariant
     @Test
     void testString()
     {
-        for (String text : List.of("", "Hello, Iceberg Variants!", Strings.repeat("Hello, Iceberg Variants!", 100))) {
+        for (String text : List.of("", "Hello, Iceberg Variants!", "Hello, Iceberg Variants!".repeat(100))) {
             Slice textSlice = utf8Slice(text);
             int expectedSize = text.length() <= 63 ? 1 + textSlice.length() : 5 + textSlice.length();
             assertPrimitiveEncoding(
