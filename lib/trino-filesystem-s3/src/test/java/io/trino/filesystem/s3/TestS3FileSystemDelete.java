@@ -126,12 +126,29 @@ class TestS3FileSystemDelete
         try (TestingS3Client client = new TestingS3Client(
                 3,
                 response(error("retry-first", "InternalError", "Please try again"), error("retry-second", "InternalError", "Please try again")),
+                response(error("retry-first", "InternalError", "Please try again")),
                 response())) {
             fileSystem(client).deleteFiles(List.of(location("deleted"), location("retry-first"), location("retry-second")));
 
-            assertThat(client.requests).hasSize(2);
+            assertThat(client.requests).hasSize(3);
             assertThat(keys(client.requests.getFirst())).containsExactlyInAnyOrder("deleted", "retry-first", "retry-second");
-            assertThat(keys(client.requests.getLast())).containsExactlyInAnyOrder("retry-first", "retry-second");
+            assertThat(keys(client.requests.get(1))).containsExactlyInAnyOrder("retry-first", "retry-second");
+            assertThat(keys(client.requests.getLast())).containsExactly("retry-first");
+        }
+    }
+
+    @Test
+    void testPermanentFailureOnRetryIsReported()
+    {
+        try (TestingS3Client client = new TestingS3Client(
+                3,
+                response(error("retry", "InternalError", "Please try again")),
+                response(error("retry", "AccessDenied", "Access denied")))) {
+            assertThatThrownBy(() -> fileSystem(client).deleteFiles(List.of(location("retry"))))
+                    .isInstanceOf(IOException.class)
+                    .hasMessage("Failed to delete one or more files: {s3://bucket/retry=Access denied (AccessDenied)}");
+            assertThat(client.requests).hasSize(2);
+            assertThat(keys(client.requests.getLast())).containsExactly("retry");
         }
     }
 
