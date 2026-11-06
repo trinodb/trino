@@ -72,7 +72,6 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.planner.EngineExpressions.containsEngineExpression;
 import static java.util.Arrays.stream;
 import static java.util.Collections.emptyIterator;
-import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -184,7 +183,7 @@ public class InformationSchemaMetadata
                 tableHandle.prefixes().isEmpty() ? TupleDomain.none() : TupleDomain.all(),
                 Optional.empty(),
                 Optional.empty(),
-                emptyList());
+                ImmutableList.of());
     }
 
     @Override

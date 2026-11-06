@@ -53,7 +53,6 @@ import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.invoke.MethodType.methodType;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
@@ -516,7 +515,7 @@ public class RowType
     {
         boolean comparable = fields.stream().allMatch(field -> field.getType().isComparable());
         if (!comparable) {
-            return emptyList();
+            return List.of();
         }
 
         // for large rows, use a generic loop with a megamorphic call site
@@ -619,7 +618,7 @@ public class RowType
     {
         boolean comparable = fields.stream().allMatch(field -> field.getType().isComparable());
         if (!comparable) {
-            return emptyList();
+            return List.of();
         }
 
         // for large rows, use a generic loop with a megamorphic call site
@@ -687,7 +686,7 @@ public class RowType
     {
         boolean comparable = fields.stream().allMatch(field -> field.getType().isComparable());
         if (!comparable) {
-            return emptyList();
+            return List.of();
         }
 
         // for large rows, use a generic loop with a megamorphic call site
@@ -776,7 +775,7 @@ public class RowType
     {
         boolean comparable = fields.stream().allMatch(field -> field.getType().isComparable());
         if (!comparable) {
-            return emptyList();
+            return List.of();
         }
 
         // for large rows, use a generic loop with a megamorphic call site
@@ -846,7 +845,7 @@ public class RowType
     {
         boolean orderable = fields.stream().allMatch(field -> field.getType().isOrderable());
         if (!orderable) {
-            return emptyList();
+            return List.of();
         }
 
         List<MethodHandle> comparisonOperators = new ArrayList<>(fields.size());
@@ -946,7 +945,7 @@ public class RowType
     {
         boolean orderable = fields.stream().allMatch(field -> field.getType().isOrderable());
         if (!orderable) {
-            return emptyList();
+            return List.of();
         }
 
         List<MethodHandle> equalOperators = new ArrayList<>(fields.size());

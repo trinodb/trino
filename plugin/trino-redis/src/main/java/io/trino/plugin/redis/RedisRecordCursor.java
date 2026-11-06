@@ -53,7 +53,6 @@ import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static redis.clients.jedis.params.ScanParams.SCAN_POINTER_START;
@@ -361,7 +360,7 @@ public class RedisRecordCursor
                 Domain domain = entry.getValue();
                 if (domain.isSingleValue()) {
                     String value = ((Slice) domain.getSingleValue()).toStringUtf8();
-                    keys = keyStringPrefix.isEmpty() || value.contains(keyStringPrefix) ? Lists.newArrayList(value) : emptyList();
+                    keys = keyStringPrefix.isEmpty() || value.contains(keyStringPrefix) ? Lists.newArrayList(value) : ImmutableList.of();
                     log.debug("Set pushdown keys %s with single value", keys.toString());
                     return;
                 }

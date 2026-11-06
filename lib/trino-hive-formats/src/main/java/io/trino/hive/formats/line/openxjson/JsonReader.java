@@ -13,6 +13,8 @@
  */
 package io.trino.hive.formats.line.openxjson;
 
+import com.google.common.collect.ImmutableMap;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,7 +22,6 @@ import java.util.Map;
 import java.util.StringJoiner;
 import java.util.function.Function;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -101,7 +102,7 @@ final class JsonReader<T>
         // Peek to see if this is the empty object.
         int first = seekNextToken();
         if (first == '}') {
-            return emptyMap();
+            return ImmutableMap.of();
         }
         else if (first != -1) {
             position--;

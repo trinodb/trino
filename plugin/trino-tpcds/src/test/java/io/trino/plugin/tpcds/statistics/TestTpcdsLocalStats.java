@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.tpcds.statistics;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.testing.QueryRunner;
@@ -32,7 +33,6 @@ import static io.trino.testing.statistics.MetricComparisonStrategies.noError;
 import static io.trino.testing.statistics.MetricComparisonStrategies.relativeError;
 import static io.trino.testing.statistics.Metrics.OUTPUT_ROW_COUNT;
 import static io.trino.testing.statistics.Metrics.distinctValuesCount;
-import static java.util.Collections.emptyMap;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -54,7 +54,7 @@ public class TestTpcdsLocalStats
 
         QueryRunner queryRunner = new StandaloneQueryRunner(defaultSession);
         queryRunner.installPlugin(new TpcdsPlugin());
-        queryRunner.createCatalog("tpcds", "tpcds", emptyMap());
+        queryRunner.createCatalog("tpcds", "tpcds", ImmutableMap.of());
         statisticsAssertion = new StatisticsAssertion(queryRunner);
     }
 

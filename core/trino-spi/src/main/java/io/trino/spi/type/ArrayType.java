@@ -47,7 +47,6 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static java.lang.Math.toIntExact;
 import static java.lang.invoke.MethodHandles.insertArguments;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
@@ -152,7 +151,7 @@ public class ArrayType
     private static List<OperatorMethodHandle> getEqualOperatorMethodHandles(TypeOperators typeOperators, Type elementType)
     {
         if (!elementType.isComparable()) {
-            return emptyList();
+            return List.of();
         }
         MethodHandle equalOperator = typeOperators.getEqualOperator(elementType, simpleConvention(NULLABLE_RETURN, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(EQUAL_CONVENTION, EQUAL.bindTo(equalOperator)));
@@ -161,7 +160,7 @@ public class ArrayType
     private static List<OperatorMethodHandle> getHashCodeOperatorMethodHandles(TypeOperators typeOperators, Type elementType)
     {
         if (!elementType.isComparable()) {
-            return emptyList();
+            return List.of();
         }
         MethodHandle elementHashCodeOperator = typeOperators.getHashCodeOperator(elementType, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(elementHashCodeOperator)));
@@ -170,7 +169,7 @@ public class ArrayType
     private static List<OperatorMethodHandle> getXxHash64OperatorMethodHandles(TypeOperators typeOperators, Type elementType)
     {
         if (!elementType.isComparable()) {
-            return emptyList();
+            return List.of();
         }
         MethodHandle elementHashCodeOperator = typeOperators.getXxHash64Operator(elementType, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(elementHashCodeOperator)));
@@ -179,7 +178,7 @@ public class ArrayType
     private static List<OperatorMethodHandle> getIdenticalOperatorInvokers(TypeOperators typeOperators, Type elementType)
     {
         if (!elementType.isComparable()) {
-            return emptyList();
+            return List.of();
         }
         MethodHandle elementIdenticalOperator = typeOperators.getIdenticalOperator(elementType, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(IDENTICAL_CONVENTION, IDENTICAL.bindTo(elementIdenticalOperator)));
@@ -188,7 +187,7 @@ public class ArrayType
     private static List<OperatorMethodHandle> getIndeterminateOperatorInvokers(TypeOperators typeOperators, Type elementType)
     {
         if (!elementType.isComparable()) {
-            return emptyList();
+            return List.of();
         }
         MethodHandle elementIndeterminateOperator = typeOperators.getIndeterminateOperator(elementType, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(INDETERMINATE_CONVENTION, INDETERMINATE.bindTo(elementIndeterminateOperator)));
@@ -197,7 +196,7 @@ public class ArrayType
     private static List<OperatorMethodHandle> getComparisonOperatorInvokers(TypeOperators typeOperators, Type elementType, boolean nullsFirst)
     {
         if (!elementType.isOrderable()) {
-            return emptyList();
+            return List.of();
         }
         InvocationConvention elementConvention = simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL);
         // compare non-null elements with the same null ordering, so nested nulls are ordered consistently
@@ -211,7 +210,7 @@ public class ArrayType
     private static List<OperatorMethodHandle> getLessThanOperatorInvokers(TypeOperators typeOperators, Type elementType, boolean orEqual)
     {
         if (!elementType.isOrderable()) {
-            return emptyList();
+            return List.of();
         }
         InvocationConvention elementConvention = simpleConvention(NULLABLE_RETURN, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL);
         MethodHandle elementEqual = typeOperators.getEqualOperator(elementType, elementConvention);

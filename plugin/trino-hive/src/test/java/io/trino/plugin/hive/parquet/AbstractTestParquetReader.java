@@ -18,6 +18,7 @@ import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
 import io.airlift.units.DataSize;
@@ -153,7 +154,7 @@ public abstract class AbstractTestParquetReader
     public void testEmptyArrays()
             throws Exception
     {
-        Iterable<List<Integer>> values = limit(cycle(singletonList(Collections.emptyList())), 30_000);
+        Iterable<List<Integer>> values = limit(cycle(singletonList(ImmutableList.of())), 30_000);
         tester.testRoundTrip(getStandardListObjectInspector(javaIntObjectInspector), values, values, new ArrayType(INTEGER));
     }
 
@@ -2181,7 +2182,7 @@ public abstract class AbstractTestParquetReader
                 array = new ArrayList<>();
             }
             if (ThreadLocalRandom.current().nextInt(10) == 0) {
-                arrays.add(Collections.emptyList());
+                arrays.add(ImmutableList.of());
             }
             array.add(valuesIter.next());
         }
@@ -2205,7 +2206,7 @@ public abstract class AbstractTestParquetReader
                 array = new ArrayList<>();
             }
             if (count % 20 == 0) {
-                arrays.add(Collections.emptyList());
+                arrays.add(ImmutableList.of());
             }
             array.add(valuesIter.next());
             ++count;
@@ -2226,7 +2227,7 @@ public abstract class AbstractTestParquetReader
                 map = new HashMap<>();
             }
             if (count % 10 == 0) {
-                maps.add(Collections.emptyMap());
+                maps.add(ImmutableMap.of());
             }
             map.put(keysIterator.next(), valuesIterator.next());
             ++count;
@@ -2246,7 +2247,7 @@ public abstract class AbstractTestParquetReader
                 map = new HashMap<>();
             }
             if (ThreadLocalRandom.current().nextInt(10) == 0) {
-                maps.add(Collections.emptyMap());
+                maps.add(ImmutableMap.of());
             }
             map.put(keysIterator.next(), valuesIterator.next());
         }

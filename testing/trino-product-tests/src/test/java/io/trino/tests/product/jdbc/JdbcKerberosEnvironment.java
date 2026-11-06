@@ -49,7 +49,6 @@ import java.util.Properties;
 
 import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static org.ietf.jgss.GSSCredential.DEFAULT_LIFETIME;
 import static org.ietf.jgss.GSSCredential.INITIATE_ONLY;
@@ -377,7 +376,7 @@ public class JdbcKerberosEnvironment
         KerberosPrincipal principal = new KerberosPrincipal(KERBEROS_PRINCIPAL);
         Configuration configuration = createKerberosConfiguration(KERBEROS_PRINCIPAL, keytabPath.toAbsolutePath().toString());
 
-        Subject subject = new Subject(false, ImmutableSet.of(principal), emptySet(), emptySet());
+        Subject subject = new Subject(false, ImmutableSet.of(principal), ImmutableSet.of(), ImmutableSet.of());
         try {
             LoginContext loginContext = new LoginContext("", subject, null, configuration);
             loginContext.login();

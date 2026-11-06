@@ -93,8 +93,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -314,11 +312,11 @@ public class TpchMetadata
     private Map<TpchColumn<?>, List<Object>> getColumnValuesRestrictions(TpchTable<?> tpchTable, TupleDomain<ColumnHandle> constraintSummary)
     {
         if (constraintSummary.isAll()) {
-            return emptyMap();
+            return ImmutableMap.of();
         }
         if (constraintSummary.isNone()) {
             Set<TpchColumn<?>> columns = ImmutableSet.copyOf(tpchTable.getColumns());
-            return asMap(columns, _ -> emptyList());
+            return asMap(columns, _ -> ImmutableList.of());
         }
         Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().orElseThrow();
         Optional<Domain> orderStatusDomain = Optional.ofNullable(domains.get(toColumnHandle(OrderColumn.ORDER_STATUS)));
@@ -328,7 +326,7 @@ public class TpchMetadata
                     .collect(toList());
             return avoidTrivialOrderStatusRestriction(allowedValues);
         });
-        return allowedColumnValues.orElse(emptyMap());
+        return allowedColumnValues.orElse(ImmutableMap.of());
     }
 
     /**
@@ -343,7 +341,7 @@ public class TpchMetadata
     private static Map<TpchColumn<?>, List<Object>> avoidTrivialOrderStatusRestriction(List<Object> allowedValues)
     {
         if (allowedValues.containsAll(ORDER_STATUS_VALUES)) {
-            return emptyMap();
+            return ImmutableMap.of();
         }
         return ImmutableMap.of(OrderColumn.ORDER_STATUS, allowedValues);
     }

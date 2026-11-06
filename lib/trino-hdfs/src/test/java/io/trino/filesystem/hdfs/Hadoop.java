@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.hdfs;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.hdfs.ConfigurationInitializer;
@@ -30,7 +31,6 @@ import java.util.function.Supplier;
 import static com.google.common.base.StandardSystemProperty.USER_NAME;
 import static io.trino.testing.TestingProperties.getDockerImagesVersion;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -60,7 +60,7 @@ public class Hadoop
         super(IMAGE,
                 "hadoop-master",
                 Set.of(HDFS_PORT),
-                emptyMap(),
+                ImmutableMap.of(),
                 Map.of("HADOOP_USER_NAME", requireNonNull(USER_NAME.value())),
                 Optional.empty(),
                 1);

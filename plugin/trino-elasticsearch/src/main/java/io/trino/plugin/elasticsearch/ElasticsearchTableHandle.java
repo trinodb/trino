@@ -23,7 +23,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -59,8 +58,8 @@ public record ElasticsearchTableHandle(
                 ImmutableMap.of(),
                 query,
                 ImmutableSet.of(),
-                Collections.emptyList(),
-                Collections.emptyList(),
+                ImmutableList.of(),
+                ImmutableList.of(),
                 Optional.empty());
     }
 

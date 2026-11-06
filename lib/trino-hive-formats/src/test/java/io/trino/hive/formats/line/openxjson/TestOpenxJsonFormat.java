@@ -112,7 +112,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.joining;
@@ -186,8 +185,8 @@ public class TestOpenxJsonFormat
         assertExactLine(columns, Arrays.asList(null, Arrays.asList(true, null), null), "{\"b\":{\"x\":true}}", DEFAULT_OPEN_X_JSON_OPTIONS);
         assertExactLine(columns, Arrays.asList(null, Arrays.asList(true, null), null), "{\"a\":null,\"b\":{\"x\":true,\"y\":null},\"c\":null}", explicitNulls);
         // empty map
-        assertExactLine(columns, Arrays.asList(null, null, emptyMap()), "{\"c\":{}}", DEFAULT_OPEN_X_JSON_OPTIONS);
-        assertExactLine(columns, Arrays.asList(null, null, emptyMap()), "{\"a\":null,\"b\":null,\"c\":{}}", explicitNulls);
+        assertExactLine(columns, Arrays.asList(null, null, ImmutableMap.of()), "{\"c\":{}}", DEFAULT_OPEN_X_JSON_OPTIONS);
+        assertExactLine(columns, Arrays.asList(null, null, ImmutableMap.of()), "{\"a\":null,\"b\":null,\"c\":{}}", explicitNulls);
         // map with null value (Starburst does not write null values)
         assertThat(writeTrinoLine(columns, Arrays.asList(null, null, singletonMap(42L, null)), DEFAULT_OPEN_X_JSON_OPTIONS))
                 .isEqualTo("{\"c\":{\"42\":null}}");

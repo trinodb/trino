@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.redis;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.decoder.DispatchingRowDecoderFactory;
 import io.trino.decoder.RowDecoder;
@@ -29,7 +30,6 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -61,7 +61,7 @@ public class RedisRecordSetProvider
                 session,
                 new RowDecoderSpec(
                         redisSplit.getKeyDataFormat(),
-                        emptyMap(),
+                        ImmutableMap.of(),
                         redisColumns.stream()
                                 .filter(col -> !col.isInternal())
                                 .filter(RedisColumnHandle::isKeyDecoder)
@@ -71,7 +71,7 @@ public class RedisRecordSetProvider
                 session,
                 new RowDecoderSpec(
                         redisSplit.getValueDataFormat(),
-                        emptyMap(),
+                        ImmutableMap.of(),
                         redisColumns.stream()
                                 .filter(col -> !col.isInternal())
                                 .filter(col -> !col.isKeyDecoder())

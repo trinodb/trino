@@ -45,7 +45,6 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -85,10 +84,10 @@ public class TestDropCatalogTask
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
 
         DropCatalog statement = new DropCatalog(new NodeLocation(1, 1), new Identifier(TEST_CATALOG), false, false);
-        getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
+        getFutureValue(task.execute(statement, createNewQuery(), ImmutableList.of(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
         assertThatExceptionOfType(TrinoException.class)
-                .isThrownBy(() -> getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP)))
+                .isThrownBy(() -> getFutureValue(task.execute(statement, createNewQuery(), ImmutableList.of(), WarningCollector.NOOP)))
                 .withMessage("Catalog '%s' not found", TEST_CATALOG);
     }
 
@@ -99,9 +98,9 @@ public class TestDropCatalogTask
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
 
         DropCatalog statement = new DropCatalog(new NodeLocation(1, 1), new Identifier(TEST_CATALOG), true, false);
-        getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
+        getFutureValue(task.execute(statement, createNewQuery(), ImmutableList.of(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
-        getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
+        getFutureValue(task.execute(statement, createNewQuery(), ImmutableList.of(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
     }
 
@@ -112,7 +111,7 @@ public class TestDropCatalogTask
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
 
         DropCatalog statement = new DropCatalog(new NodeLocation(1, 1), new Identifier(TEST_CATALOG.toUpperCase(ENGLISH)), false, false);
-        getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
+        getFutureValue(task.execute(statement, createNewQuery(), ImmutableList.of(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
     }
 
@@ -122,7 +121,7 @@ public class TestDropCatalogTask
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), "system")).isTrue();
 
         DropCatalog statement = new DropCatalog(new NodeLocation(1, 1), new Identifier("system"), false, false);
-        assertTrinoExceptionThrownBy(() -> task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP))
+        assertTrinoExceptionThrownBy(() -> task.execute(statement, createNewQuery(), ImmutableList.of(), WarningCollector.NOOP))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("Dropping system catalog is not allowed");
 

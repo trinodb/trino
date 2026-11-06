@@ -1073,7 +1073,7 @@ public class TestCachingHiveMetastore
                 "queryId",
                 5,
                 Collections.singletonList(new SchemaTableName("test", "test")),
-                Collections.emptyList());
+                ImmutableList.of());
     }
 
     private static HiveColumnStatistics intColumnStats(int nullsCount)

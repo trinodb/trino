@@ -42,12 +42,9 @@ java/util/Optional.get:()Ljava/lang/Object;
 # Trino's code style mandates the static format() over String.formatted(); see .github/DEVELOPMENT.md
 java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
 
-# Collections.singletonList/emptyList/singleton/emptySet/emptyMap are allowed; the List/Set/Map.of() analogues have different semantics (e.g. null handling)
+# Collections.singletonList/singleton are allowed; the List/Set/Map.of() analogues have different semantics (e.g. null handling)
 java/util/Collections.singletonList:(Ljava/lang/Object;)Ljava/util/List;
-java/util/Collections.emptyList:()Ljava/util/List;
 java/util/Collections.singleton:(Ljava/lang/Object;)Ljava/util/Set;
-java/util/Collections.emptySet:()Ljava/util/Set;
-java/util/Collections.emptyMap:()Ljava/util/Map;
 java/util/Collections.singletonMap:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
 
 # toUnmodifiableList() rejects nulls whereas Stream.toList() permits them; they are not interchangeable
