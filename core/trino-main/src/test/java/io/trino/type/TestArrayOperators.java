@@ -83,6 +83,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.gen.ColumnarProjectionAssertions.region;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.JsonType.JSON;
@@ -6264,5 +6265,17 @@ public class TestArrayOperators
             BIGINT.writeLong(builder, value.applyAsLong(position));
         }
         return builder.build();
+    }
+
+    @Test
+    public void testColumnarCardinality()
+    {
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("cardinality", new Reference(VARCHAR_ARRAY, "input")),
+                new Input("input", VARCHAR_ARRAY, varcharArrayBlock()));
+        // the offsets of a region do not start at the first array
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("cardinality", new Reference(VARCHAR_ARRAY, "input")),
+                new Input("input", VARCHAR_ARRAY, region(VARCHAR_ARRAY, varcharArrayBlock())));
     }
 }

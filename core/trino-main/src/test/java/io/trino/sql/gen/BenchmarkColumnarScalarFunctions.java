@@ -98,6 +98,7 @@ public class BenchmarkColumnarScalarFunctions
             "map_keys",
             "map_values",
             "map_entries",
+            "map_cardinality",
             "flatten",
             "reverse",
             "trim_array",
@@ -107,6 +108,8 @@ public class BenchmarkColumnarScalarFunctions
             "element_at",
             "element_at_nulls",
             "element_at_column",
+            "cardinality",
+            "cardinality_nulls",
             "row_field",
             "row_constructor",
     })
@@ -131,10 +134,10 @@ public class BenchmarkColumnarScalarFunctions
         Expression expression;
         Map<Symbol, Integer> layout;
         Supplier<Page> pageSupplier;
-        if (ImmutableList.of("flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column").contains(function)) {
+        if (ImmutableList.of("flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "cardinality", "cardinality_nulls").contains(function)) {
             ArrayType innerArrayType = new ArrayType(VARCHAR);
             inputType = new ArrayType(innerArrayType);
-            Block arrays = createNestedArrayBlock((ArrayType) inputType, function.equals("element_at_nulls"));
+            Block arrays = createNestedArrayBlock((ArrayType) inputType, function.endsWith("_nulls"));
             pageSupplier = () -> new Page(encode(arrays, encoding));
             layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
             if (function.equals("element_at_column")) {
@@ -162,7 +165,7 @@ public class BenchmarkColumnarScalarFunctions
             }
             else {
                 expression = call(
-                        FUNCTIONS.resolveFunction(function, fromTypes(inputType)),
+                        FUNCTIONS.resolveFunction(function.equals("cardinality_nulls") ? "cardinality" : function, fromTypes(inputType)),
                         new Reference(inputType, "input"));
             }
         }
@@ -191,7 +194,7 @@ public class BenchmarkColumnarScalarFunctions
         else {
             inputType = new MapType(BIGINT, VARCHAR, TYPE_OPERATORS);
             expression = call(
-                    FUNCTIONS.resolveFunction(function, fromTypes(inputType)),
+                    FUNCTIONS.resolveFunction(function.equals("map_cardinality") ? "cardinality" : function, fromTypes(inputType)),
                     new Reference(inputType, "input"));
             Block maps = createMapBlock((MapType) inputType);
             pageSupplier = () -> new Page(encode(maps, encoding));
@@ -359,7 +362,7 @@ public class BenchmarkColumnarScalarFunctions
     @Test
     public void testBenchmark()
     {
-        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "row_field", "row_constructor")) {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "map_cardinality", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "cardinality", "cardinality_nulls", "row_field", "row_constructor")) {
             for (String encoding : ImmutableList.of("flat", "dictionary", "fresh_dictionary", "rle")) {
                 for (String selection : ImmutableList.of("all", "sparse", "very_sparse")) {
                     this.function = function;
