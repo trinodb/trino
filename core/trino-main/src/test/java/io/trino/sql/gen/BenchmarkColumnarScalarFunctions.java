@@ -67,6 +67,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntFunction;
 import java.util.function.IntToLongFunction;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -117,6 +118,7 @@ public class BenchmarkColumnarScalarFunctions
             "map_element_at_bigint",
             "map_element_at_missing",
             "map_subscript",
+            "substr",
             "row_field",
             "row_constructor",
     })
@@ -196,6 +198,17 @@ public class BenchmarkColumnarScalarFunctions
             Block maps = createStringKeyMapBlock((MapType) inputType);
             pageSupplier = () -> new Page(encode(maps, encoding));
             layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
+        }
+        else if (function.equals("substr")) {
+            inputType = VARCHAR;
+            expression = call(
+                    FUNCTIONS.resolveFunction("substr", fromTypes(VARCHAR, BIGINT, BIGINT)),
+                    new Reference(VARCHAR, "input"),
+                    new Constant(BIGINT, 7L),
+                    new Constant(BIGINT, 5L));
+            Block values = createTextBlock(position -> "field-value-" + position);
+            pageSupplier = () -> new Page(encode(values, encoding));
+            layout = ImmutableMap.of(new Symbol(VARCHAR, "input"), 0);
         }
         else if (function.equals("concat") || function.equals("concat_nulls")) {
             inputType = VARCHAR;
@@ -363,6 +376,15 @@ public class BenchmarkColumnarScalarFunctions
         return builder.build();
     }
 
+    private static Block createTextBlock(IntFunction<String> value)
+    {
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            VARCHAR.writeSlice(builder, Slices.utf8Slice(value.apply(position)));
+        }
+        return builder.build();
+    }
+
     private static Block createVarcharBlockWithNulls(int field)
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, POSITION_COUNT);
@@ -429,7 +451,7 @@ public class BenchmarkColumnarScalarFunctions
     @Test
     public void testBenchmark()
     {
-        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "map_cardinality", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "cardinality", "cardinality_nulls", "concat", "concat_nulls", "map_element_at", "map_element_at_bigint", "map_element_at_missing", "map_subscript", "row_field", "row_constructor")) {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "map_cardinality", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "cardinality", "cardinality_nulls", "concat", "concat_nulls", "map_element_at", "map_element_at_bigint", "map_element_at_missing", "map_subscript", "substr", "row_field", "row_constructor")) {
             for (String encoding : ImmutableList.of("flat", "dictionary", "fresh_dictionary", "rle")) {
                 for (String selection : ImmutableList.of("all", "sparse", "very_sparse")) {
                     this.function = function;

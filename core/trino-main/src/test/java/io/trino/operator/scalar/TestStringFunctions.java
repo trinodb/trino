@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.block.Block;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
+import java.util.function.IntToLongFunction;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -2778,13 +2780,65 @@ public class TestStringFunctions
 
     private static Block varcharBlock(IntPredicate isNull, IntFunction<String> value)
     {
+        return sliceBlock(isNull, position -> utf8Slice(value.apply(position)));
+    }
+
+    @Test
+    public void testColumnarSubstring()
+    {
+        Block input = varcharBlock(position -> position % 7 == 3, position -> switch (position % 3) {
+            case 0 -> "Żółw-value-" + position;
+            case 1 -> "";
+            default -> "value-" + position;
+        });
+        for (Block values : ImmutableList.of(input, region(VARCHAR, input), unicodeBlock())) {
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function("substr", new Reference(VARCHAR, "input"), new Constant(BIGINT, 3L)),
+                    new Input("input", VARCHAR, values));
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function("substring", new Reference(VARCHAR, "input"), new Constant(BIGINT, -4L), new Constant(BIGINT, 2L)),
+                    new Input("input", VARCHAR, values));
+        }
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("substr", new Reference(VARCHAR, "input"), new Reference(BIGINT, "start"), new Reference(BIGINT, "length")),
+                new Input("input", VARCHAR, input),
+                new Input("start", BIGINT, longBlock(position -> position % 11 == 2, position -> (position % 9) - 4)),
+                new Input("length", BIGINT, longBlock(position -> position % 13 == 7, position -> (position % 5) - 1)));
+    }
+
+    private static Block sliceBlock(IntPredicate isNull, IntFunction<Slice> value)
+    {
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, POSITION_COUNT);
         for (int position = 0; position < POSITION_COUNT; position++) {
             if (isNull.test(position)) {
                 builder.appendNull();
             }
             else {
-                VARCHAR.writeString(builder, value.apply(position));
+                VARCHAR.writeSlice(builder, value.apply(position));
+            }
+        }
+        return builder.build();
+    }
+
+    private static Block unicodeBlock()
+    {
+        // the Deseret letters are supplementary code points, and the bytes are not valid UTF-8
+        return sliceBlock(position -> position % 7 == 3, position -> switch (position % 3) {
+            case 0 -> utf8Slice("\uD801\uDC28\uD801\uDC00-Ab-" + position);
+            case 1 -> Slices.wrappedBuffer((byte) 'A', (byte) 0xFF, (byte) ' ', (byte) 'b', (byte) 0xC3);
+            default -> utf8Slice(" Ascii-" + position + " ");
+        });
+    }
+
+    private static Block longBlock(IntPredicate isNull, IntToLongFunction value)
+    {
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            if (isNull.test(position)) {
+                builder.appendNull();
+            }
+            else {
+                BIGINT.writeLong(builder, value.applyAsLong(position));
             }
         }
         return builder.build();

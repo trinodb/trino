@@ -23,6 +23,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.function.ColumnarScalar;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
@@ -30,6 +31,7 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SelectedPositions;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Chars;
@@ -285,6 +287,24 @@ public final class StringFunctions
         while (foundInstances < instance);
 
         return countCodePoints(string, 0, index + 1);
+    }
+
+    @ColumnarScalar
+    @ScalarFunction(value = "substring", alias = "substr")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block substringColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column, @SqlType(StandardTypes.BIGINT) Block start)
+    {
+        return SubstringBlockProjection.project(selectedPositions, column, start, null);
+    }
+
+    @ColumnarScalar
+    @ScalarFunction(value = "substring", alias = "substr")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block substringColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column, @SqlType(StandardTypes.BIGINT) Block start, @SqlType(StandardTypes.BIGINT) Block length)
+    {
+        return SubstringBlockProjection.project(selectedPositions, column, start, length);
     }
 
     @Description("Suffix starting at given index")
