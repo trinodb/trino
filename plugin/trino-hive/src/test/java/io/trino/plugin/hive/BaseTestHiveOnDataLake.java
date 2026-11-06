@@ -281,7 +281,8 @@ abstract class BaseTestHiveOnDataLake
                 " format='TEXTFILE'" +
                 ")");
 
-        getQueryRunner().execute("CALL system.sync_partition_metadata(schema_name => '" + HIVE_TEST_SCHEMA + "', table_name => '" + tableName + "', mode => 'ADD')");
+        assertThat(query("CALL system.sync_partition_metadata(schema_name => '" + HIVE_TEST_SCHEMA + "', table_name => '" + tableName + "', mode => 'ADD')"))
+                .matches("VALUES (VARCHAR 'added_partitions_count', BIGINT '1'), ('dropped_partitions_count', 0)");
 
         assertQuery("SELECT * FROM " + fullyQualifiedTestTableName, "VALUES ('hello', 'world', 'part_val'), ('bye', 'world', 'part_val')");
 
