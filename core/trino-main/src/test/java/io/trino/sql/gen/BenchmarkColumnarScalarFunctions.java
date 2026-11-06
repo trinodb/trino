@@ -123,6 +123,8 @@ public class BenchmarkColumnarScalarFunctions
             "lower_utf8",
             "lower_mixed",
             "substr",
+            "trim",
+            "trim_noop",
             "row_field",
             "row_constructor",
     })
@@ -218,6 +220,14 @@ public class BenchmarkColumnarScalarFunctions
                     new Reference(VARCHAR, "input"));
             // the values are lower case, so lower returns its input, and every eighth value of the utf8 input is not ASCII
             Block values = createTextBlock(position -> (function.equals("lower_utf8") && position % 8 == 0 ? "Żółw-" : "field-value-") + position);
+            pageSupplier = () -> new Page(encode(values, encoding));
+            layout = ImmutableMap.of(new Symbol(VARCHAR, "input"), 0);
+        }
+        else if (function.equals("trim") || function.equals("trim_noop")) {
+            inputType = VARCHAR;
+            expression = call(FUNCTIONS.resolveFunction("trim", fromTypes(VARCHAR)), new Reference(VARCHAR, "input"));
+            // the values of trim_noop have no whitespace to trim, so trim returns its input
+            Block values = createTextBlock(position -> function.equals("trim") ? "  field-value-" + position + " " : "field-value-" + position);
             pageSupplier = () -> new Page(encode(values, encoding));
             layout = ImmutableMap.of(new Symbol(VARCHAR, "input"), 0);
         }
@@ -473,7 +483,7 @@ public class BenchmarkColumnarScalarFunctions
     @Test
     public void testBenchmark()
     {
-        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "map_cardinality", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "cardinality", "cardinality_nulls", "concat", "concat_nulls", "map_element_at", "map_element_at_bigint", "map_element_at_missing", "map_subscript", "lower_noop", "upper", "lower_utf8", "lower_mixed", "substr", "row_field", "row_constructor")) {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "map_cardinality", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "cardinality", "cardinality_nulls", "concat", "concat_nulls", "map_element_at", "map_element_at_bigint", "map_element_at_missing", "map_subscript", "lower_noop", "upper", "lower_utf8", "lower_mixed", "substr", "trim", "trim_noop", "row_field", "row_constructor")) {
             for (String encoding : ImmutableList.of("flat", "dictionary", "fresh_dictionary", "rle")) {
                 for (String selection : ImmutableList.of("all", "sparse", "very_sparse")) {
                     this.function = function;
