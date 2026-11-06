@@ -62,9 +62,6 @@ com/google/common/collect/Lists.newArrayList:([Ljava/lang/Object;)Ljava/util/Arr
 # Guava's CharStreams.copy is allowed alongside Reader.transferTo(Writer)
 com/google/common/io/CharStreams.copy:(Ljava/lang/Readable;Ljava/lang/Appendable;)J
 
-# Guava's Files.copy is allowed alongside java.nio.file.Files.copy
-com/google/common/io/Files.copy:(Ljava/io/File;Ljava/io/File;)V
-
 # Guava's Files.createParentDirs is allowed alongside java.nio.file.Files.createDirectories
 com/google/common/io/Files.createParentDirs:(Ljava/io/File;)V
 
