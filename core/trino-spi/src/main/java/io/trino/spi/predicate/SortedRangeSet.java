@@ -181,6 +181,15 @@ public final class SortedRangeSet
             Arrays.sort(values);
             return fromOrderedLongValues(type, values);
         }
+        if (isSliceOrderedType(type)) {
+            Slice[] values = new Slice[1 + rest.length];
+            values[0] = (Slice) requireNonNull(first, "value is null");
+            for (int i = 0; i < rest.length; i++) {
+                values[i + 1] = (Slice) requireNonNull(rest[i], "value is null");
+            }
+            Arrays.sort(values);
+            return fromOrderedSliceValues(type, values);
+        }
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1 + rest.length);
         checkNotNaN(type, first);
@@ -209,6 +218,16 @@ public final class SortedRangeSet
             Arrays.sort(primitiveValues);
             return fromOrderedLongValues(type, primitiveValues);
         }
+        if (isSliceOrderedType(type)) {
+            Slice[] sliceValues = new Slice[values.size()];
+            int index = 0;
+            for (Object value : values) {
+                sliceValues[index] = (Slice) requireNonNull(value, "value is null");
+                index++;
+            }
+            Arrays.sort(sliceValues);
+            return fromOrderedSliceValues(type, sliceValues);
+        }
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, values.size());
         for (Object value : values) {
@@ -223,9 +242,7 @@ public final class SortedRangeSet
     private static SortedRangeSet fromUnorderedValuesBlock(Type type, Block block)
     {
         checkArgument(!isDirectLongComparisonValidType(type), "Unexpected type in generic builder: %s", type);
-        if (isSliceOrderedType(type)) {
-            return fromUnorderedSliceValuesBlock(type, block);
-        }
+        checkArgument(!isSliceOrderedType(type), "Unexpected type in generic builder: %s", type);
 
         // choice of placing unordered values first or last does not matter for this code
         MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
@@ -302,14 +319,8 @@ public final class SortedRangeSet
         return type instanceof VarcharType || type instanceof VarbinaryType || type instanceof UuidType;
     }
 
-    private static SortedRangeSet fromUnorderedSliceValuesBlock(Type type, Block block)
+    private static SortedRangeSet fromOrderedSliceValues(Type type, Slice[] values)
     {
-        Slice[] values = new Slice[block.getPositionCount()];
-        for (int position = 0; position < values.length; position++) {
-            values[position] = type.getSlice(block, position);
-        }
-        Arrays.sort(values);
-
         BlockBuilder distinctValues = type.createBlockBuilder(null, values.length);
         int distinctCount = 0;
         for (int i = 0; i < values.length; i++) {
