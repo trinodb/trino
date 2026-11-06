@@ -13,9 +13,12 @@
  */
 package io.trino.plugin.ldapgroup;
 
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.base.ldap.LdapClient;
 import io.trino.plugin.base.ldap.LdapQuery;
 import io.trino.spi.security.GroupProvider;
@@ -23,6 +26,7 @@ import io.trino.spi.security.GroupProvider;
 import javax.naming.NamingException;
 import javax.naming.directory.SearchResult;
 
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 
@@ -40,6 +44,10 @@ public class LdapFilteringGroupProvider
     private final String ldapAdminPassword;
     private final String userBaseDN;
     private final String userSearchFilter;
+    private final String groupBaseDN;
+    private final String groupsNameAttribute;
+    private final String combinedGroupSearchFilter;
+    private final LoadingCache<String, Set<String>> groupsCache;
 
     @Inject
     public LdapFilteringGroupProvider(
@@ -53,6 +61,19 @@ public class LdapFilteringGroupProvider
         this.ldapAdminPassword = config.getLdapAdminPassword();
         this.userBaseDN = config.getLdapUserBaseDN();
         this.userSearchFilter = config.getLdapUserSearchFilter();
+        this.groupBaseDN = filteringConfig.getLdapGroupBaseDN();
+        this.groupsNameAttribute = config.getLdapGroupsNameAttribute();
+
+        String groupsSearchMemberAttribute = filteringConfig.getLdapGroupsSearchMemberAttribute();
+        combinedGroupSearchFilter = filteringConfig.getLdapGroupsSearchFilter()
+                .map(filter -> String.format("(&(%s)(%s={0}))", filter, groupsSearchMemberAttribute))
+                .orElse(String.format("(%s={0})", groupsSearchMemberAttribute));
+
+        groupsCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(Duration.ofMillis(config.getLdapGroupCacheTtl().toMillis()))
+                .maximumSize(config.getLdapGroupCacheSize())
+                .shareResultsAndFailuresEvenIfDisabled()
+                .build(CacheLoader.from(this::loadGroups));
     }
 
     /**
@@ -60,11 +81,23 @@ public class LdapFilteringGroupProvider
      * Filters groups by user membership AND filter expression {@link LdapFilteringGroupProviderConfig#getLdapGroupsSearchFilter()}.
      * If {@link LdapGroupProviderConfig#getLdapGroupsNameAttribute()} is missing from group document, fallback on full name.
      * Swallows LDAP exceptions.
+     * Results are cached per user based on the configured cache TTL.
      *
      * @return Names of groups that the user is a member of
      */
     @Override
     public Set<String> getGroups(String user)
+    {
+        return groupsCache.getUnchecked(user);
+    }
+
+    /**
+     * Loads groups from LDAP for the specified user.
+     * Swallows LDAP exceptions.
+     *
+     * @return Names of groups that the user is a member of
+     */
+    private Set<String> loadGroups(String user)
     {
         Optional<String> userDistinguishedName;
         try {
