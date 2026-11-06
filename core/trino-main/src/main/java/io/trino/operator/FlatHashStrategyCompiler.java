@@ -199,7 +199,7 @@ public final class FlatHashStrategyCompiler
                 .append(constructor.getThis().setField(typesField, loadConstant(callSiteBinder, ImmutableList.copyOf(types), List.class)))
                 .ret();
 
-        boolean anyVariableWidth = (int) types.stream().filter(Type::isFlatVariableWidth).count() > 0;
+        boolean anyVariableWidth = types.stream().anyMatch(Type::isFlatVariableWidth);
         definition.declareMethod(a(PUBLIC), "isAnyVariableWidth", type(boolean.class)).getBody()
                 .append(constantBoolean(anyVariableWidth).ret());
 
