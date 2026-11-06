@@ -714,8 +714,6 @@ public class IcebergMetadata
         }
 
         if (isMaterializedViewStorage(tableName.getTableName())) {
-            verify(endVersion.isEmpty(), "Materialized views do not support versioned queries");
-
             SchemaTableName materializedViewName = new SchemaTableName(tableName.getSchemaName(), tableNameFrom(tableName.getTableName()));
             if (getMaterializedView(session, materializedViewName).isEmpty()) {
                 throw new TableNotFoundException(tableName);
@@ -724,6 +722,16 @@ public class IcebergMetadata
             BaseTable storageTable = catalog.getMaterializedViewStorageTable(session, materializedViewName)
                     .orElseThrow(() -> new TrinoException(TABLE_NOT_FOUND, "Storage table metadata not found for materialized view " + tableName));
 
+            if (endVersion.isPresent()) {
+                long snapshotId = getSnapshotIdFromVersion(session, storageTable, endVersion.get());
+                return tableHandleForSnapshot(
+                        session,
+                        tableName,
+                        storageTable,
+                        OptionalLong.of(snapshotId),
+                        schemaFor(storageTable, snapshotId),
+                        Optional.empty());
+            }
             return tableHandleForCurrentSnapshot(session, tableName, storageTable);
         }
 
