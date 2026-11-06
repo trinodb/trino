@@ -27,4 +27,6 @@ public interface ExchangeStorageWriter
     ListenableFuture<Void> abort();
 
     long getRetainedSize();
+
+    FileStatus getFileStatus();
 }

@@ -33,7 +33,15 @@ public interface FileSystemExchangeStorage
 
     ListenableFuture<Void> deleteRecursively(List<URI> directories);
 
+    ListenableFuture<Void> deleteDirectoriesIfEmpty(List<URI> directories);
+
+    ListenableFuture<Void> deleteFiles(List<URI> files);
+
     ListenableFuture<List<FileStatus>> listFilesRecursively(URI dir);
+
+    ListenableFuture<Void> writeMarkerFile(URI directory, CommitManifest manifest);
+
+    ListenableFuture<CommitManifest> readMarkerFile(URI uri);
 
     int getWriteBufferSize();
 
