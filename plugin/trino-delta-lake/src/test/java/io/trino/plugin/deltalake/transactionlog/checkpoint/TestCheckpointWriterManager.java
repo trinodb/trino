@@ -37,7 +37,12 @@ import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReader;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReaderFactory;
+import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.TrinoParquetDataSource;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.spi.NodeVersion;
+import org.apache.parquet.format.Encoding;
 import io.trino.spi.connector.SchemaTableName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -348,6 +353,75 @@ public class TestCheckpointWriterManager
         {
             delegate.abort();
         }
+    }
+
+    @Test
+    public void testDeltaLengthByteArrayEncodingEnabled(@TempDir Path tableDirectory)
+            throws Exception
+    {
+        assertThat(checkpointEncodings(tableDirectory, new ParquetWriterConfig()))
+                .contains(Encoding.DELTA_LENGTH_BYTE_ARRAY);
+    }
+
+    @Test
+    public void testDeltaLengthByteArrayEncodingDisabled(@TempDir Path tableDirectory)
+            throws Exception
+    {
+        assertThat(checkpointEncodings(tableDirectory, new ParquetWriterConfig().setDeltaLengthByteArrayEncodingEnabled(false)))
+                .doesNotContain(Encoding.DELTA_LENGTH_BYTE_ARRAY);
+    }
+
+    private Set<Encoding> checkpointEncodings(Path tableDirectory, ParquetWriterConfig parquetWriterConfig)
+            throws Exception
+    {
+        String tableLocation = tableDirectory.toUri().toString();
+        Location transactionLogDirectory = Location.of(tableLocation).appendPath("_delta_log");
+        // Long incompressible paths make the dictionary writer fall back to a non-dictionary encoding
+        Set<AddFileEntry> previousCheckpointAdds = IntStream.range(0, 2000)
+                .mapToObj(index -> addFileEntry(IntStream.range(0, 32)
+                        .mapToObj(part -> sha256().hashLong(index * 32L + part).toString())
+                        .collect(joining("", "", ".parquet"))))
+                .collect(toImmutableSet());
+        new CheckpointWriter(TESTING_TYPE_MANAGER, checkpointSchemaManager, "test", ParquetWriterOptions.builder().build()).write(
+                new CheckpointEntries(METADATA_ENTRY, PROTOCOL_ENTRY, ImmutableSet.of(), previousCheckpointAdds, ImmutableSet.of()),
+                fileSystem.newOutputFile(transactionLogDirectory.appendPath("00000000000000000000.checkpoint.parquet")));
+        fileSystem.newOutputFile(transactionLogDirectory.appendPath("_last_checkpoint"))
+                .createOrOverwrite(jsonCodec(LastCheckpoint.class).toJsonBytes(new LastCheckpoint(0, previousCheckpointAdds.size() + 2, Optional.empty(), Optional.empty())));
+        Files.writeString(tableDirectory.resolve("_delta_log/00000000000000000001.json"), TAIL_ADD_JSON);
+
+        DeltaLakeFileSystemFactory fileSystemFactory = new DefaultDeltaLakeFileSystemFactory(_ -> fileSystem, new NoOpTableCredentialsProvider());
+        FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        TransactionLogAccess transactionLogAccess = new TransactionLogAccess(
+                TESTING_TYPE_MANAGER,
+                checkpointSchemaManager,
+                new DeltaLakeConfig(),
+                stats,
+                fileSystemFactory,
+                new ParquetReaderConfig(),
+                newDirectExecutorService(),
+                new FileSystemTransactionLogReaderFactory(fileSystemFactory));
+        CheckpointWriterManager checkpointWriterManager = new CheckpointWriterManager(
+                TESTING_TYPE_MANAGER,
+                checkpointSchemaManager,
+                fileSystemFactory,
+                new NodeVersion("test"),
+                transactionLogAccess,
+                stats,
+                jsonCodec(LastCheckpoint.class),
+                new DeltaLakeConfig(),
+                parquetWriterConfig,
+                newDirectExecutorService());
+
+        checkpointWriterManager.writeCheckpoint(SESSION, loadSnapshot(tableLocation, fileSystemFactory, ParquetReaderOptions.builder().build()), Optional.empty());
+
+        TrinoParquetDataSource checkpoint = new TrinoParquetDataSource(
+                fileSystem.newInputFile(transactionLogDirectory.appendPath("00000000000000000001.checkpoint.parquet")),
+                ParquetReaderOptions.builder().build(),
+                stats);
+        return MetadataReader.readFooter(checkpoint, Optional.empty()).getBlocks().stream()
+                .flatMap(block -> block.columns().stream())
+                .flatMap(column -> column.getEncodings().stream())
+                .collect(toImmutableSet());
     }
 
     // Buffers the data and creates or overwrites the file when closed, like an object store upload
