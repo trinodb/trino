@@ -283,6 +283,7 @@ public class TestSqlKeywords
                         "SIMPLE",
                         "SKIP",
                         "SOME",
+                        "SOURCE",
                         "STALE",
                         "START",
                         "STATS",
