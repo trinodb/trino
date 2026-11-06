@@ -74,11 +74,13 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnLineageInfo;
@@ -238,6 +240,7 @@ public class TestAnalyzer
     private static final String SECOND_CATALOG = "c2";
     private static final String THIRD_CATALOG = "c3";
     private static final String FAILING_CATALOG = "failing";
+    private static final String VERSIONED_MV_CATALOG = "versioned_mv";
     private static final String CATALOG_FOR_IDENTIFIER_CHAIN_TESTS = "cat";
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
@@ -6444,6 +6447,19 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testAnalyzeVersionedStaleMaterializedView()
+    {
+        // Unversioned read of a stale materialized view with WHEN STALE FAIL is rejected
+        assertFails("SELECT * FROM versioned_mv.default.stale_mv")
+                .hasErrorCode(VIEW_IS_STALE)
+                .hasMessage("line 1:15: Materialized view 'versioned_mv.default.stale_mv' is stale");
+
+        // Versioned reads use the storage table regardless of freshness
+        analyze("SELECT * FROM versioned_mv.default.stale_mv FOR VERSION AS OF 123");
+        analyze("SELECT * FROM versioned_mv.default.stale_mv FOR VERSION AS OF 'dev'");
+    }
+
+    @Test
     public void testAnalyzeInvalidFreshMaterializedView()
     {
         testAnalyzeInvalidFreshMaterializedView(INLINE);
@@ -8628,6 +8644,32 @@ public class TestAnalyzer
                     case "unclassified_failure" -> throw new IllegalStateException("Unexpected failure");
                     case "wrapped_user_failure" -> throw new RuntimeException("Wrapped failure", new TrinoException(PERMISSION_DENIED, "Denied"));
                     default -> null;
+                })
+                .build(), ImmutableMap.of());
+
+        SchemaTableName versionedMaterializedView = new SchemaTableName("default", "stale_mv");
+        SchemaTableName versionedMaterializedViewStorage = new SchemaTableName("default", "stale_mv_storage");
+        planTester.createCatalog(VERSIONED_MV_CATALOG, MockConnectorFactory.builder()
+                .withName("versioned_mv")
+                .withBranches(ImmutableList.of("dev"))
+                .withGetColumns(_ -> ImmutableList.of(new ColumnMetadata("x", BIGINT)))
+                .withGetMaterializedViews((_, _) -> ImmutableMap.of(
+                        versionedMaterializedView, new ConnectorMaterializedViewDefinition(
+                                "SELECT x FROM base",
+                                Optional.of(new CatalogSchemaTableName(VERSIONED_MV_CATALOG, versionedMaterializedViewStorage)),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("x", BIGINT.getTypeId(), Optional.empty())),
+                                Optional.of(Duration.ZERO),
+                                Optional.of(WhenStaleBehavior.FAIL),
+                                Optional.empty(),
+                                Optional.of("owner"),
+                                ImmutableList.of())))
+                .withGetMaterializedViewsFreshness((_, materializedViewName) -> {
+                    if (materializedViewName.equals(versionedMaterializedView)) {
+                        return new MaterializedViewFreshness(MaterializedViewFreshness.Freshness.STALE, Optional.empty());
+                    }
+                    throw new UnsupportedOperationException("getMaterializedViewsFreshness not supported for " + materializedViewName);
                 })
                 .build(), ImmutableMap.of());
 
