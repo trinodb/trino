@@ -49,7 +49,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class TestTupleDomain
+public class TestTupleDomain
 {
     public record TestingColumnHandle(String name)
             implements ColumnHandle {}
