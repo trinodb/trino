@@ -283,24 +283,6 @@ public final class SortedRangeSet
                 DISCRETE);
     }
 
-    private static SortedRangeSet fromSortedDistinctValues(Type type, Block distinctValues)
-    {
-        // each distinct value is both the low and the high bound of a single value range
-        int[] dictionary = new int[distinctValues.getPositionCount() * 2];
-        for (int i = 0; i < distinctValues.getPositionCount(); i++) {
-            dictionary[2 * i] = i;
-            dictionary[2 * i + 1] = i;
-        }
-        boolean[] inclusive = new boolean[dictionary.length];
-        Arrays.fill(inclusive, true);
-
-        return new SortedRangeSet(
-                type,
-                inclusive,
-                DictionaryBlock.create(dictionary.length, distinctValues, dictionary),
-                DISCRETE);
-    }
-
     /**
      * Types whose values order and compare equal exactly like their {@link Slice} values, unlike char.
      */
@@ -318,14 +300,29 @@ public final class SortedRangeSet
         Arrays.sort(values);
 
         BlockBuilder distinctValues = type.createBlockBuilder(null, values.length);
+        int distinctCount = 0;
         for (int i = 0; i < values.length; i++) {
             if (i > 0 && values[i].equals(values[i - 1])) {
                 continue;
             }
             type.writeSlice(distinctValues, values[i]);
+            distinctCount++;
         }
 
-        return fromSortedDistinctValues(type, distinctValues.build());
+        // each distinct value is both the low and the high bound of a single value range
+        int[] dictionary = new int[distinctCount * 2];
+        for (int i = 0; i < distinctCount; i++) {
+            dictionary[2 * i] = i;
+            dictionary[2 * i + 1] = i;
+        }
+        boolean[] inclusive = new boolean[dictionary.length];
+        Arrays.fill(inclusive, true);
+
+        return new SortedRangeSet(
+                type,
+                inclusive,
+                DictionaryBlock.create(dictionary.length, distinctValues.build(), dictionary),
+                DISCRETE);
     }
 
     /**
