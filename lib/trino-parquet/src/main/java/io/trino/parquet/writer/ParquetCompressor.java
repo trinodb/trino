@@ -32,7 +32,10 @@ import static java.util.Objects.requireNonNull;
 
 interface ParquetCompressor
 {
-    ParquetDataOutput compress(ByteBuffer input)
+    /**
+     * Compresses the input into the output buffer of {@code buffers}; the result is valid until the next call with the same buffers.
+     */
+    ParquetDataOutput compress(ByteBuffer input, CompressionBuffers buffers)
             throws IOException;
 
     static ParquetCompressor getCompressor(CompressionCodec codec)
@@ -56,7 +59,7 @@ interface ParquetCompressor
             implements ParquetCompressor
     {
         @Override
-        public ParquetDataOutput compress(ByteBuffer input)
+        public ParquetDataOutput compress(ByteBuffer input, CompressionBuffers buffers)
                 throws IOException
         {
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -78,12 +81,10 @@ interface ParquetCompressor
         }
 
         @Override
-        public ParquetDataOutput compress(ByteBuffer input)
+        public ParquetDataOutput compress(ByteBuffer input, CompressionBuffers buffers)
                 throws IOException
         {
-            int minCompressionBufferSize = compressor.maxCompressedLength(input.remaining());
-            byte[] compressionBuffer = new byte[minCompressionBufferSize];
-            // TODO compressedDataSize > bytes.length?
+            byte[] compressionBuffer = buffers.output(compressor.maxCompressedLength(input.remaining()));
             int compressedDataSize = compressor.compress(MemorySegment.ofBuffer(input), MemorySegment.ofArray(compressionBuffer));
             return createDataOutput(Slices.wrappedBuffer(compressionBuffer, 0, compressedDataSize));
         }
