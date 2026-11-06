@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
@@ -45,6 +46,8 @@ import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionProcessorState.Processed;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
+import io.trino.spi.function.table.TableMetadataArgument;
+import io.trino.spi.function.table.TableMetadataArgumentSpecification;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 
@@ -311,6 +314,42 @@ public class TestingTableFunctions
                 ConnectorAccessControl accessControl)
         {
             return ANALYSIS;
+        }
+    }
+
+    public static class TableMetadataArgumentFunction
+            extends AbstractConnectorTableFunction
+    {
+        public static final String FUNCTION_NAME = "table_metadata_argument_function";
+
+        public TableMetadataArgumentFunction()
+        {
+            super(SCHEMA_NAME,
+                    FUNCTION_NAME,
+                    ImmutableList.of(
+                            TableMetadataArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .build()),
+                    GENERIC_TABLE,
+                    "");
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
+        {
+            ConnectorTableMetadata tableMetadata = ((TableMetadataArgument) arguments.get("INPUT")).getTableMetadata();
+            List<Descriptor.Field> fields = tableMetadata.getColumns().stream()
+                    .filter(column -> !column.isHidden())
+                    .map(column -> new Descriptor.Field(column.getName(), Optional.of(column.getType())))
+                    .collect(toImmutableList());
+            return TableFunctionAnalysis.builder()
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
+                    .returnedType(new Descriptor(fields))
+                    .build();
         }
     }
 
