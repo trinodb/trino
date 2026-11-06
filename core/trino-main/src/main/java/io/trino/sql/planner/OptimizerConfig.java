@@ -78,6 +78,7 @@ public class OptimizerConfig
     private boolean enableIntermediateAggregations;
     private boolean pushPartialAggregationThroughJoin = true;
     private boolean preAggregateCaseAggregationsEnabled = true;
+    private boolean parallelizeChainedAggregations = true;
     private boolean enableForcedExchangeBelowGroupId = true;
     private boolean optimizeTopNRanking = true;
     private boolean skipRedundantSort = true;
@@ -464,6 +465,19 @@ public class OptimizerConfig
     public OptimizerConfig setPreAggregateCaseAggregationsEnabled(boolean preAggregateCaseAggregationsEnabled)
     {
         this.preAggregateCaseAggregationsEnabled = preAggregateCaseAggregationsEnabled;
+        return this;
+    }
+
+    public boolean isParallelizeChainedAggregations()
+    {
+        return parallelizeChainedAggregations;
+    }
+
+    @Config("optimizer.parallelize-chained-aggregations")
+    @ConfigDescription("Redistribute rows between chained aggregations to parallelize the outer partial aggregation")
+    public OptimizerConfig setParallelizeChainedAggregations(boolean parallelizeChainedAggregations)
+    {
+        this.parallelizeChainedAggregations = parallelizeChainedAggregations;
         return this;
     }
 
