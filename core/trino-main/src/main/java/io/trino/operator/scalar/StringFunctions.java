@@ -127,6 +127,25 @@ public final class StringFunctions
         return countCodePoints(slice, 0, byteCountWithoutTrailingSpace(slice, 0, slice.length()));
     }
 
+    @ColumnarScalar
+    @ScalarFunction("replace")
+    @LiteralParameters({"x", "y"})
+    @SqlType("varchar(x)")
+    public static Block replaceColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column, @SqlType("varchar(y)") Block search)
+    {
+        return ReplaceBlockProjection.project(selectedPositions, column, search, null);
+    }
+
+    @ColumnarScalar
+    @ScalarFunction("replace")
+    @LiteralParameters({"x", "y", "z", "u"})
+    @Constraint(variable = "u", expression = "min(2147483647, x + z * (x + 1))")
+    @SqlType("varchar(u)")
+    public static Block replaceColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column, @SqlType("varchar(y)") Block search, @SqlType("varchar(z)") Block replace)
+    {
+        return ReplaceBlockProjection.project(selectedPositions, column, search, replace);
+    }
+
     @Description("Greedily removes occurrences of a pattern in a string")
     @ScalarFunction(neverFails = true)
     @LiteralParameters({"x", "y"})

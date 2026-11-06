@@ -22,10 +22,13 @@ import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SelectedPositions;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlVarbinary;
@@ -54,6 +57,7 @@ import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -2927,5 +2931,67 @@ public class TestStringFunctions
                 new Input("input", VARCHAR, input),
                 new Input("delimiter", VARCHAR, varcharBlock(position -> position % 11 == 5, position -> position % 2 == 0 ? "," : "-")),
                 new Input("index", BIGINT, longBlock(position -> position % 13 == 6, position -> INVALID.test(position) ? (position % 2) - 1 : (position % 3) + 1)));
+    }
+
+    @Test
+    public void testColumnarReplace()
+    {
+        // the search string matches at the end of a value, in adjacent matches, and as the whole value
+        Block input = varcharBlock(position -> position % 7 == 3, position -> switch (position % 6) {
+            case 0 -> "a-b-c-" + position;
+            case 1 -> "";
+            case 2 -> "Żółw-" + position;
+            case 3 -> "--" + position + "--";
+            case 4 -> "-";
+            default -> "no match " + position;
+        });
+        // the values of the second input do not contain the search string, so replace returns its input
+        for (Block values : ImmutableList.of(input, varcharBlock(position -> position % 7 == 3, position -> "value " + position))) {
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("-"))),
+                    new Input("input", VARCHAR, values));
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("-")), new Constant(VARCHAR, utf8Slice("_+_"))),
+                    new Input("input", VARCHAR, values));
+        }
+        // an empty search string inserts the replacement around every character
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("")), new Constant(VARCHAR, utf8Slice("."))),
+                new Input("input", VARCHAR, input));
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Reference(VARCHAR, "search"), new Reference(VARCHAR, "replacement")),
+                new Input("input", VARCHAR, input),
+                new Input("search", VARCHAR, varcharBlock(position -> position % 11 == 5, position -> switch (position % 3) {
+                    case 0 -> "-";
+                    case 1 -> "ół";
+                    default -> "w";
+                })),
+                new Input("replacement", VARCHAR, varcharBlock(position -> position % 13 == 6, position -> "<" + position + ">")));
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("-")), new Constant(VARCHAR, utf8Slice("+"))),
+                new Input("input", VARCHAR, region(VARCHAR, input)));
+        // a null constant makes every result null
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("-")), new Constant(VARCHAR, null)),
+                new Input("input", VARCHAR, input));
+    }
+
+    @Test
+    public void testColumnarReplaceOfLargeRun()
+    {
+        // the lengths of the selected values add up to more than the largest array, while every result is empty
+        int positionCount = 2048;
+        Slice value = utf8Slice("a".repeat(1 << 20));
+        Block input = RunLengthEncodedBlock.create(VARCHAR, value, positionCount);
+        Block searches = DictionaryBlock.create(positionCount, writeNativeValue(VARCHAR, value), new int[positionCount]);
+
+        Block result = ReplaceBlockProjection.project(SelectedPositions.positionsRange(0, positionCount), input, searches, null);
+
+        assertThat(result.getPositionCount()).isEqualTo(positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            assertThat(VARCHAR.getSlice(result, position).length()).isEqualTo(0);
+        }
+        // the result does not retain a buffer of the size of the input
+        assertThat(result.getRetainedSizeInBytes()).isLessThan(value.length());
     }
 }
