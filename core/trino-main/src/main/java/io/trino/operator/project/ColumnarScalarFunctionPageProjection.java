@@ -97,7 +97,8 @@ public final class ColumnarScalarFunctionPageProjection
      * The function arguments are the region of the page between the first and the last selected
      * position, so they can be passed without copying, and the work of a function that reuses the
      * structure of its arguments is bounded by this region. Selected positions are passed to the
-     * function relative to the start of this region.
+     * function relative to the start of this region. When the region covers most of the page, the
+     * whole page is passed instead, with the selected positions unchanged.
      */
     private Block projectPositionsList(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
@@ -120,6 +121,13 @@ public final class ColumnarScalarFunctionPageProjection
         int length = max - min + 1;
         if (ascending && length == size) {
             return evaluate(session, page, min, size, positionsRange(0, size));
+        }
+        // A region that covers at least 7/8 of the page bounds little work, so the page is passed with the selected
+        // positions as they are, which avoids copying them
+        int pagePositionCount = page.getPositionCount();
+        int wholePageLength = pagePositionCount - (pagePositionCount >> 3);
+        if (length >= wholePageLength) {
+            return evaluate(session, page, 0, pagePositionCount, positionsList(positions, offset, size));
         }
 
         int[] relativePositions = new int[size];

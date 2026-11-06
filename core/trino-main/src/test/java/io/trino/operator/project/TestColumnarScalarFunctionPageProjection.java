@@ -81,6 +81,22 @@ public class TestColumnarScalarFunctionPageProjection
     }
 
     @Test
+    public void testWideListSelection()
+    {
+        // the selected positions span the page, so the page is passed with the selected positions unchanged
+        Block result = projectSelected(SelectedPositions.positionsList(new int[] {99, 0, 2, 5}, 1, 3), 6, ImmutableList.of(0, 2, 5), true);
+        assertLongs(result, 10, 30, 60);
+
+        // a region of 14 of the 16 positions covers 7/8 of the page
+        result = projectSelected(SelectedPositions.positionsList(new int[] {13, 0, 7}, 0, 3), 16, 16, ImmutableList.of(13, 0, 7), true);
+        assertLongs(result, 140, 10, 80);
+
+        // a region of 13 of the 16 positions is passed as a region
+        result = projectSelected(SelectedPositions.positionsList(new int[] {1, 5, 13}, 0, 3), 16, 13, ImmutableList.of(0, 4, 12), true);
+        assertLongs(result, 20, 60, 140);
+    }
+
+    @Test
     public void testContiguousListSelection()
     {
         Block result = projectSelected(SelectedPositions.positionsList(new int[] {2, 3, 4}, 0, 3), 3, ImmutableList.of(0, 1, 2), false);
@@ -114,6 +130,11 @@ public class TestColumnarScalarFunctionPageProjection
 
     private static Block projectSelected(SelectedPositions selectedPositions, int expectedArgumentPositions, List<Integer> expectedSelected, boolean expectedList)
     {
+        return projectSelected(selectedPositions, 6, expectedArgumentPositions, expectedSelected, expectedList);
+    }
+
+    private static Block projectSelected(SelectedPositions selectedPositions, int pagePositionCount, int expectedArgumentPositions, List<Integer> expectedSelected, boolean expectedList)
+    {
         ColumnarScalarFunctionPageProjection projection = new ColumnarScalarFunctionPageProjection(
                 new Reference(BIGINT, "test"),
                 true,
@@ -125,7 +146,11 @@ public class TestColumnarScalarFunctionPageProjection
                     assertThat(toList(selected)).isEqualTo(expectedSelected);
                     return selected.select(arguments.getBlock(0));
                 });
-        return projection.project(SESSION, SourcePage.create(new Page(longBlock(10, 20, 30, 40, 50, 60))), selectedPositions);
+        long[] values = new long[pagePositionCount];
+        for (int position = 0; position < pagePositionCount; position++) {
+            values[position] = (position + 1) * 10L;
+        }
+        return projection.project(SESSION, SourcePage.create(new Page(longBlock(values))), selectedPositions);
     }
 
     private static List<Integer> toList(io.trino.spi.function.SelectedPositions selectedPositions)
