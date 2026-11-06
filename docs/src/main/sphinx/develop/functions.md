@@ -193,8 +193,12 @@ public final class IsEqualOrNullFunction
 A scalar function can provide an optional implementation that evaluates a
 whole column at once. Add one only when the function can operate directly on
 the structure of its input blocks, such as projecting fields or rearranging
-nested values. For ordinary value computation, the generated row loop is
-normally simpler and faster than a handwritten column loop.
+nested values, or when it avoids work the generated row loop does for each
+value, such as allocating a slice for each result, copying each result to a
+block builder, or copying values that the function returns unchanged. For
+other value computation, the generated row loop is normally simpler and faster
+than a handwritten column loop, so measure a columnar implementation against it
+before adding one.
 
 The engine uses the columnar implementation when the function call is a
 top-level projection and every argument is a direct input column or a
