@@ -38,6 +38,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Collections;
+import java.util.List;
 
 import static io.trino.block.BlockSerdeUtil.writeBlock;
 import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
@@ -1940,7 +1941,7 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[ARRAY[ARRAY[1]]]")
                 .binding("b", "ARRAY[ARRAY[ARRAY[2]]]"))
                 .hasType(new ArrayType(new ArrayType(new ArrayType(INTEGER))))
-                .isEqualTo(asList(singletonList(Ints.asList(1)), singletonList(Ints.asList(2))));
+                .isEqualTo(asList(List.of(Ints.asList(1)), List.of(Ints.asList(2))));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "ARRAY[]")

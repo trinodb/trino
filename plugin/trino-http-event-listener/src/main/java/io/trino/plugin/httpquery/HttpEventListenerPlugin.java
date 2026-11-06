@@ -13,10 +13,9 @@
  */
 package io.trino.plugin.httpquery;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.Plugin;
 import io.trino.spi.eventlistener.EventListenerFactory;
-
-import static java.util.Collections.singletonList;
 
 public class HttpEventListenerPlugin
         implements Plugin
@@ -24,6 +23,6 @@ public class HttpEventListenerPlugin
     @Override
     public Iterable<EventListenerFactory> getEventListenerFactories()
     {
-        return singletonList(new HttpEventListenerFactory());
+        return ImmutableList.of(new HttpEventListenerFactory());
     }
 }

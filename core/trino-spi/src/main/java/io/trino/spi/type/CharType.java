@@ -24,6 +24,7 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.ScalarOperator;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -40,7 +41,6 @@ import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MIN_CODE_POINT;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
-import static java.util.Collections.singletonList;
 
 public final class CharType
         extends AbstractVariableWidthType
@@ -85,7 +85,7 @@ public final class CharType
         super(
                 new TypeDescriptor(
                         NAME,
-                        singletonList(TypeParameter.numericParameter(length))),
+                        List.of(TypeParameter.numericParameter(length))),
                 Slice.class);
 
         if (length < 0 || length > MAX_LENGTH) {

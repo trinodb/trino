@@ -23,6 +23,7 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -34,7 +35,6 @@ import static io.trino.spi.type.Slices.sliceRepresentation;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MIN_CODE_POINT;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 
 public final class VarcharType
         extends AbstractVariableWidthType
@@ -90,7 +90,7 @@ public final class VarcharType
         super(
                 new TypeDescriptor(
                         NAME,
-                        singletonList(TypeParameter.numericParameter(length))),
+                        List.of(TypeParameter.numericParameter(length))),
                 Slice.class);
 
         if (length < 0) {

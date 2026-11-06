@@ -181,7 +181,6 @@ import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -2620,7 +2619,7 @@ public final class MetadataManager
             ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
 
             List<CatalogHandle> catalogHandles = prefix.asQualifiedObjectName()
-                    .map(qualifiedTableName -> singletonList(catalogMetadata.getCatalogHandle(session, qualifiedTableName, Optional.empty(), Optional.empty())))
+                    .map(qualifiedTableName -> List.of(catalogMetadata.getCatalogHandle(session, qualifiedTableName, Optional.empty(), Optional.empty())))
                     .orElseGet(catalogMetadata::listCatalogHandles);
             for (CatalogHandle catalogHandle : catalogHandles) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);

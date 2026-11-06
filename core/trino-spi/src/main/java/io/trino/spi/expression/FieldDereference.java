@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Objects;
 
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class FieldDereference
@@ -62,7 +61,7 @@ public class FieldDereference
     @Override
     public List<? extends ConnectorExpression> getChildren()
     {
-        return singletonList(target);
+        return List.of(target);
     }
 
     @Override

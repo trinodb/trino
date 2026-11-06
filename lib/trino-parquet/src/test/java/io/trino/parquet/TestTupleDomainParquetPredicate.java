@@ -109,7 +109,6 @@ import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoField.MICRO_OF_SECOND;
 import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
@@ -750,7 +749,7 @@ public class TestTupleDomainParquetPredicate
         String value = "Test";
         ColumnDescriptor column = createColumnDescriptor(BINARY, "VarcharColumn");
         TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createVarcharType(255), utf8Slice(value));
-        TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
+        TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, List.of(column), UTC);
         PrimitiveType type = column.getPrimitiveType();
         Statistics<?> stats = Statistics.getBuilderForReading(type)
                 .withMin(value.getBytes(UTF_8))
@@ -776,7 +775,7 @@ public class TestTupleDomainParquetPredicate
         ColumnDescriptor column = createColumnDescriptor(INT32, "Test column");
         TupleDomain<ColumnDescriptor> effectivePredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
                 column, Domain.create(ValueSet.of(typeForParquetInt32, 42L, 43L, 44L, 112L), false)));
-        TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
+        TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, List.of(column), UTC);
 
         assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, intColumnStats(32, 42)), ID))
                 .isEqualTo(Optional.of(ImmutableList.of(column)));
@@ -792,7 +791,7 @@ public class TestTupleDomainParquetPredicate
         ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0);
         TupleDomain<ColumnDescriptor> effectivePredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
                 column, Domain.create(ValueSet.of(BIGINT, 42L, 43L, 44L, 404L), false)));
-        TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
+        TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, List.of(column), UTC);
 
         assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, longColumnStats(32, 42)), ID))
                 .isEqualTo(Optional.of(ImmutableList.of(column)));
@@ -805,14 +804,14 @@ public class TestTupleDomainParquetPredicate
     {
         ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(BINARY).named("Test column"), 0, 0);
         TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createVarcharType(255), EMPTY_SLICE);
-        TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
+        TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, List.of(column), UTC);
         DictionaryPage page = new DictionaryPage(Slices.wrappedBuffer(new byte[] {0, 0, 0, 0}), 1, PLAIN_DICTIONARY);
         assertThat(parquetPredicate.matches(new DictionaryDescriptor(column, true, Optional.of(page)))).isTrue();
         assertThat(parquetPredicate.matches(new DictionaryDescriptor(column, false, Optional.of(page)))).isTrue();
 
         effectivePredicate = withColumnDomains(ImmutableMap.of(
                 column, singleValue(createVarcharType(255), Slices.utf8Slice("abc"), true)));
-        parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
+        parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, List.of(column), UTC);
         assertThat(parquetPredicate.matches(new DictionaryDescriptor(column, true, Optional.of(page)))).isTrue();
         assertThat(parquetPredicate.matches(new DictionaryDescriptor(column, false, Optional.of(page)))).isFalse();
     }
@@ -830,7 +829,7 @@ public class TestTupleDomainParquetPredicate
         // only non-nulls allowed
         predicate = new TupleDomainParquetPredicate(
                 withColumnDomains(Map.of(descriptor, notNull(type))),
-                singletonList(column),
+                List.of(column),
                 UTC);
         assertThat(predicate.matches(new DictionaryDescriptor(column, true, Optional.of(dictionary)))).isFalse();
         assertThat(predicate.matches(new DictionaryDescriptor(column, false, Optional.of(dictionary)))).isFalse();
@@ -838,7 +837,7 @@ public class TestTupleDomainParquetPredicate
         // only nulls allowed
         predicate = new TupleDomainParquetPredicate(
                 withColumnDomains(Map.of(descriptor, onlyNull(type))),
-                singletonList(column),
+                List.of(column),
                 UTC);
         assertThat(predicate.matches(new DictionaryDescriptor(column, true, Optional.of(dictionary)))).isTrue();
         assertThat(predicate.matches(new DictionaryDescriptor(column, false, Optional.of(dictionary)))).isFalse();
@@ -846,7 +845,7 @@ public class TestTupleDomainParquetPredicate
         // mixed non-nulls and nulls allowed
         predicate = new TupleDomainParquetPredicate(
                 withColumnDomains(Map.of(descriptor, singleValue(type, EMPTY_SLICE, true))),
-                singletonList(column),
+                List.of(column),
                 UTC);
         assertThat(predicate.matches(new DictionaryDescriptor(column, true, Optional.of(dictionary)))).isTrue();
         assertThat(predicate.matches(new DictionaryDescriptor(column, false, Optional.of(dictionary)))).isFalse();
@@ -862,7 +861,7 @@ public class TestTupleDomainParquetPredicate
                 columnA, Domain.create(ValueSet.of(BIGINT, 42L, 43L, 44L, 404L), false),
                 columnB, Domain.create(ValueSet.ofRanges(range(BIGINT, 42L, true, 404L, true)), false)));
 
-        TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(columnA), UTC);
+        TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, List.of(columnA), UTC);
         assertThat(parquetPredicate.getIndexLookupCandidates(
                 ImmutableMap.of(columnA, 2L, columnB, 2L),
                 ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(42, 500)),
