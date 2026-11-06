@@ -1972,6 +1972,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         @VisibleForTesting
         static class PreSchedulingTaskContexts
         {
+            private static final int MAX_CONTEXTS_TO_LOG = 10;
+
             private final Map<ScheduledTask, PreSchedulingTaskContext> contexts = new HashMap<>();
             private final Map<TaskExecutionClass, AtomicInteger> waitCounters;
 
@@ -2062,8 +2064,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return toStringHelper(this)
                         .add("taskCount", contexts.size())
                         .add("waitCounters", waitCounters)
-                        .add("contexts", contexts.entrySet().stream().limit(10).toList())
-                        .add("omittedContexts", Math.max(0, contexts.size() - 10))
+                        .add("contexts", contexts.entrySet().stream().limit(MAX_CONTEXTS_TO_LOG).toList())
+                        .add("omittedContexts", Math.max(0, contexts.size() - MAX_CONTEXTS_TO_LOG))
                         .toString();
             }
         }
