@@ -2932,6 +2932,33 @@ public class TestDeltaLakeBasic
         }
     }
 
+    @Test
+    public void testVacuumHonorsTableDeletedFileRetention()
+            throws Exception
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
+        String tableName = "test_vacuum_table_retention_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath(), tableLocation);
+        Path firstCommit = tableLocation.resolve("_delta_log/00000000000000000000.json");
+        String configuration = "\"configuration\":{\"delta.enableDeletionVectors\":\"true\"";
+        assertThat(Files.readString(firstCommit)).contains(configuration);
+        Files.writeString(firstCommit, Files.readString(firstCommit).replace(configuration, configuration + ",\"delta.deletedFileRetentionDuration\":\"interval 30 days\""));
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertQueryFails(
+                sessionWithShortRetentionUnlocked,
+                "CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '7d')",
+                "\\QRetention specified (7.00d) is shorter than the table's delta.deletedFileRetentionDuration property (30.00d)");
+        assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '30d')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private static Path createDeletionVectorFile(Path directory, Instant lastModified)
             throws IOException
     {
