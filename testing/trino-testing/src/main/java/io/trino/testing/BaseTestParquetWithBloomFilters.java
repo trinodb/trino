@@ -23,6 +23,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.Arrays;
 import java.util.List;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -60,6 +61,37 @@ public abstract class BaseTestParquetWithBloomFilters
     void testBloomFilterColumnWithDictionaryPage()
     {
         createParquetTableWithBloomFilter(COLUMN_NAME, ImmutableList.of(1, 1));
+    }
+
+    @Test
+    void testBloomFilterMatchesEitherZero()
+    {
+        // -0.0 and 0.0 are the same value, but the bloom filter hashes the bits of the zero that was written
+        testBloomFilterMatchesEitherZero("-0e0", "0e0");
+        testBloomFilterMatchesEitherZero("0e0", "-0e0");
+    }
+
+    private void testBloomFilterMatchesEitherZero(String writtenZero, String queriedZero)
+    {
+        String tableName = "parquet_bloom_filter_zero_" + randomNameSuffix();
+        // distinct values do not compress into a dictionary, so the chunk is PLAIN encoded and keeps its bloom filter
+        assertUpdate(format("CREATE TABLE %s WITH (format = 'PARQUET', parquet_bloom_filter_columns = ARRAY['%s']) AS SELECT * FROM (VALUES %s, 1e0, 3e0) t(%s)", tableName, COLUMN_NAME, writtenZero, COLUMN_NAME), 3);
+
+        // 2 lies between the minimum and maximum, so only the bloom filter can prune it
+        String missingValueQuery = format("SELECT * FROM %s WHERE %s = 2", tableName, COLUMN_NAME);
+        assertQueryStats(
+                bloomFiltersDisabled(getSession()),
+                missingValueQuery,
+                queryStats -> assertThat(queryStats.getPhysicalInputPositions()).isGreaterThan(0),
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
+        assertQueryStats(
+                getSession(),
+                missingValueQuery,
+                queryStats -> assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(0),
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
+
+        assertThat(query(format("SELECT count(*) FROM %s WHERE %s = %s", tableName, COLUMN_NAME, queriedZero))).matches("VALUES BIGINT '1'");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     protected void testBloomFilterRowGroupPruning(CatalogSchemaTableName tableName, String columnName)

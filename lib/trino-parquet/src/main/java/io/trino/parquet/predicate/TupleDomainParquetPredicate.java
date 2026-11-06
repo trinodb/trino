@@ -741,10 +741,19 @@ public class TupleDomainParquetPredicate
             return bloomFilter.findHash(bloomFilter.hash(((Number) predicateValue).longValue()));
         }
         else if (sqlType == DOUBLE) {
-            return bloomFilter.findHash(bloomFilter.hash(((Double) predicateValue).doubleValue()));
+            double value = (Double) predicateValue;
+            // Trino equates signed zeros, but they hash differently and the file may hold either.
+            if (value == 0) {
+                return bloomFilter.findHash(bloomFilter.hash(0.0)) || bloomFilter.findHash(bloomFilter.hash(-0.0));
+            }
+            return bloomFilter.findHash(bloomFilter.hash(value));
         }
         else if (sqlType == REAL) {
-            return bloomFilter.findHash(bloomFilter.hash(intBitsToFloat(toIntExact(((Number) predicateValue).longValue()))));
+            float value = intBitsToFloat(toIntExact(((Number) predicateValue).longValue()));
+            if (value == 0) {
+                return bloomFilter.findHash(bloomFilter.hash(0.0f)) || bloomFilter.findHash(bloomFilter.hash(-0.0f));
+            }
+            return bloomFilter.findHash(bloomFilter.hash(value));
         }
         else if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
             return bloomFilter.findHash(bloomFilter.hash(Binary.fromConstantByteBuffer(((Slice) predicateValue).toByteBuffer())));

@@ -188,6 +188,32 @@ public class TestTupleDomainParquetPredicate
     }
 
     @Test
+    public void testSignedZeroBloomFilterMembership()
+    {
+        // -0.0 and 0.0 are the same Trino value, but producers hash the bits of the zero they store.
+        for (double storedZero : List.of(0.0, -0.0)) {
+            BlockSplitBloomFilter doubleBloom = new BlockSplitBloomFilter(1024);
+            doubleBloom.insertHash(doubleBloom.hash(storedZero));
+            assertThat(checkInBloomFilter(doubleBloom, 0.0, DOUBLE)).isTrue();
+            assertThat(checkInBloomFilter(doubleBloom, -0.0, DOUBLE)).isTrue();
+            assertThat(checkInBloomFilter(doubleBloom, 42.0, DOUBLE)).isFalse();
+
+            BlockSplitBloomFilter realBloom = new BlockSplitBloomFilter(1024);
+            realBloom.insertHash(realBloom.hash((float) storedZero));
+            assertThat(checkInBloomFilter(realBloom, (long) floatToRawIntBits(0.0f), REAL)).isTrue();
+            assertThat(checkInBloomFilter(realBloom, (long) floatToRawIntBits(-0.0f), REAL)).isTrue();
+            assertThat(checkInBloomFilter(realBloom, (long) floatToRawIntBits(42.0f), REAL)).isFalse();
+        }
+
+        // A filter holding neither zero still proves both absent.
+        BlockSplitBloomFilter bloom = new BlockSplitBloomFilter(1024);
+        assertThat(checkInBloomFilter(bloom, 0.0, DOUBLE)).isFalse();
+        assertThat(checkInBloomFilter(bloom, -0.0, DOUBLE)).isFalse();
+        assertThat(checkInBloomFilter(bloom, (long) floatToRawIntBits(0.0f), REAL)).isFalse();
+        assertThat(checkInBloomFilter(bloom, (long) floatToRawIntBits(-0.0f), REAL)).isFalse();
+    }
+
+    @Test
     public void testBoolean()
             throws ParquetCorruptionException
     {

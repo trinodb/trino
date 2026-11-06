@@ -124,6 +124,32 @@ public class TestTupleDomainOrcPredicate
     }
 
     @Test
+    public void testSignedZeroBloomFilterMembership()
+    {
+        // -0.0 and 0.0 are the same Trino value, but producers hash the bits of the zero they store.
+        for (double storedZero : List.of(0.0, -0.0)) {
+            BloomFilter doubleBloom = new BloomFilter(100, 0.01);
+            doubleBloom.addDouble(storedZero);
+            assertThat(checkInBloomFilter(doubleBloom, 0.0, DOUBLE)).isTrue();
+            assertThat(checkInBloomFilter(doubleBloom, -0.0, DOUBLE)).isTrue();
+            assertThat(checkInBloomFilter(doubleBloom, 42.0, DOUBLE)).isFalse();
+
+            BloomFilter realBloom = new BloomFilter(100, 0.01);
+            realBloom.addFloat((float) storedZero);
+            assertThat(checkInBloomFilter(realBloom, (long) floatToRawIntBits(0.0f), REAL)).isTrue();
+            assertThat(checkInBloomFilter(realBloom, (long) floatToRawIntBits(-0.0f), REAL)).isTrue();
+            assertThat(checkInBloomFilter(realBloom, (long) floatToRawIntBits(42.0f), REAL)).isFalse();
+        }
+
+        // A filter holding neither zero still proves both absent.
+        BloomFilter bloom = new BloomFilter(100, 0.01);
+        assertThat(checkInBloomFilter(bloom, 0.0, DOUBLE)).isFalse();
+        assertThat(checkInBloomFilter(bloom, -0.0, DOUBLE)).isFalse();
+        assertThat(checkInBloomFilter(bloom, (long) floatToRawIntBits(0.0f), REAL)).isFalse();
+        assertThat(checkInBloomFilter(bloom, (long) floatToRawIntBits(-0.0f), REAL)).isFalse();
+    }
+
+    @Test
     public void testBoolean()
     {
         assertThat(getDomain(BOOLEAN, 0, null)).isEqualTo(none(BOOLEAN));
