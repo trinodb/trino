@@ -38,6 +38,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,8 +49,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getDeletedFileRetentionDuration;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorSupported;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.parseIntervalDuration;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
@@ -73,6 +76,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeSchemaSupport
 {
@@ -306,6 +310,39 @@ public class TestDeltaLakeSchemaSupport
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new MapType(TIMESTAMP_TZ_SECONDS, TIMESTAMP_TZ_SECONDS, new TypeOperators()))).hasMessage("Unsupported type: timestamp(0) with time zone");
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_SECONDS)))).hasMessage("Unsupported type: timestamp(0) with time zone");
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new ArrayType(TIMESTAMP_TZ_SECONDS))).hasMessage("Unsupported type: timestamp(0) with time zone");
+    }
+
+    @Test
+    public void testParseIntervalDuration()
+    {
+        assertThat(parseIntervalDuration("interval 1 week")).hasValue(Duration.ofDays(7));
+        assertThat(parseIntervalDuration("interval 30 days")).hasValue(Duration.ofDays(30));
+        assertThat(parseIntervalDuration("INTERVAL 2 Hours")).hasValue(Duration.ofHours(2));
+        assertThat(parseIntervalDuration("1 day 12 hours")).hasValue(Duration.ofHours(36));
+        assertThat(parseIntervalDuration("interval 0 seconds")).hasValue(Duration.ZERO);
+        assertThat(parseIntervalDuration("interval 5 milliseconds 10 microseconds")).hasValue(Duration.ofNanos(5_010_000));
+        assertThat(parseIntervalDuration("interval -1 day")).hasValue(Duration.ofDays(-1));
+        assertThat(parseIntervalDuration("interval 1.5 seconds")).hasValue(Duration.ofMillis(1500));
+        assertThat(parseIntervalDuration("interval .5 second")).hasValue(Duration.ofMillis(500));
+        assertThat(parseIntervalDuration("interval 0.0000019 seconds")).hasValue(Duration.ofNanos(1000));
+
+        assertThat(parseIntervalDuration("")).isEmpty();
+        assertThat(parseIntervalDuration("interval")).isEmpty();
+        assertThat(parseIntervalDuration("interval 1")).isEmpty();
+        assertThat(parseIntervalDuration("interval 1 month")).isEmpty();
+        assertThat(parseIntervalDuration("interval 1.5 days")).isEmpty();
+        assertThat(parseIntervalDuration("interval 1e3 seconds")).isEmpty();
+        assertThat(parseIntervalDuration("interval 9223372036854776 seconds")).isEmpty();
+        assertThat(parseIntervalDuration("interval 9223372036854775807 weeks")).isEmpty();
+    }
+
+    @Test
+    public void testGetDeletedFileRetentionDuration()
+    {
+        assertThat(getDeletedFileRetentionDuration(metadataEntry(ImmutableMap.of()))).isEmpty();
+        assertThat(getDeletedFileRetentionDuration(metadataEntry(ImmutableMap.of("delta.deletedFileRetentionDuration", "interval 30 days")))).hasValue(Duration.ofDays(30));
+        assertThatThrownBy(() -> getDeletedFileRetentionDuration(metadataEntry(ImmutableMap.of("delta.deletedFileRetentionDuration", "30 years"))))
+                .hasMessage("Invalid value for table property delta.deletedFileRetentionDuration: 30 years");
     }
 
     @Test

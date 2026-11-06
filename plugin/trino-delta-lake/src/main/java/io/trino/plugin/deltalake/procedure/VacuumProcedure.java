@@ -74,6 +74,8 @@ import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkUnsupportedUniver
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkValidTableHandle;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.toUriFormat;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinRetention;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.DELETED_FILE_RETENTION_DURATION_CONFIGURATION_KEY;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getDeletedFileRetentionDuration;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedWriterFeatures;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -82,6 +84,7 @@ import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class VacuumProcedure
         implements Provider<Procedure>
@@ -203,6 +206,15 @@ public class VacuumProcedure
             if (!unsupportedWriterFeatures.isEmpty()) {
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %s writer features".formatted(unsupportedWriterFeatures));
             }
+
+            Optional<Duration> tableRetention = getDeletedFileRetentionDuration(handle.getMetadataEntry())
+                    .map(duration -> new Duration(duration.toMillis(), MILLISECONDS).convertToMostSuccinctTimeUnit());
+            tableRetention.ifPresent(duration -> checkProcedureArgument(
+                    retentionDuration.compareTo(duration) >= 0,
+                    "Retention specified (%s) is shorter than the table's %s property (%s)",
+                    retentionDuration,
+                    DELETED_FILE_RETENTION_DURATION_CONFIGURATION_KEY,
+                    duration));
 
             TableSnapshot tableSnapshot = metadata.getSnapshot(session, handle, Optional.of(handle.getReadVersion()));
             String tableLocation = tableSnapshot.getTableLocation();
