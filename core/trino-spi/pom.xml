@@ -273,6 +273,10 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method void io.trino.spi.type.TrinoNumber::&lt;init&gt;(io.airlift.slice.Slice)</old>
+                                </item>
+                                <item>
                                     <code>java.method.numberOfParametersChanged</code>
                                     <old>method void io.trino.spi.connector.RecordPageSource::&lt;init&gt;(io.trino.spi.connector.RecordSet)</old>
                                     <new>method void io.trino.spi.connector.RecordPageSource::&lt;init&gt;(io.trino.spi.connector.RecordSet, io.trino.spi.connector.MemoryContext)</new>
