@@ -60,6 +60,9 @@ final class YdbColumnMappings
             case "date32" -> dateWriteFunction(YDB_DATE32_SQL_TYPE);
             default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported YDB date type: " + typeName);
         };
+        // YDB Date stores only 1970-01-01 through 2105-12-31, so a Trino predicate such as d > DATE '1960-01-01'
+        // cannot be bound as a Date parameter. Push down only Date32 predicates whose bounds fit the Date32 range.
+        // https://ydb.tech/docs/en/yql/reference/types/primitive#datetime
         return ColumnMapping.longMapping(
                 DATE,
                 dateReadFunctionUsingLocalDate(),
@@ -93,6 +96,8 @@ final class YdbColumnMappings
                     }
                     statement.setObject(index, value, sqlType);
                 }),
+                // The Trino type is signed and wider, so predicates such as u > -1 carry values that cannot be bound
+                // as a YDB unsigned parameter
                 DISABLE_PUSHDOWN);
     }
 
@@ -106,6 +111,8 @@ final class YdbColumnMappings
             }
             statement.setObject(index, value.toBigInteger().longValue(), sqlType);
         });
+        // decimal(20, 0) predicates can carry negative values or values above 2^64 - 1, such as u > -1,
+        // which cannot be bound as a YDB Uint64 parameter
         return ColumnMapping.objectMapping(type, longDecimalReadFunction(type), writer, DISABLE_PUSHDOWN);
     }
 
@@ -117,15 +124,13 @@ final class YdbColumnMappings
                     type,
                     shortDecimalReadFunction(type),
                     LongWriteFunction.of(sqlType, (statement, index, value) ->
-                            statement.setObject(index, BigDecimal.valueOf(value, type.getScale()), sqlType)),
-                    DISABLE_PUSHDOWN);
+                            statement.setObject(index, BigDecimal.valueOf(value, type.getScale()), sqlType)));
         }
         return ColumnMapping.objectMapping(
                 type,
                 longDecimalReadFunction(type),
                 objectWriteFunction(sqlType, (statement, index, value) ->
-                        statement.setObject(index, new BigDecimal(value.toBigInteger(), type.getScale()), sqlType)),
-                DISABLE_PUSHDOWN);
+                        statement.setObject(index, new BigDecimal(value.toBigInteger(), type.getScale()), sqlType)));
     }
 
     private static ObjectWriteFunction objectWriteFunction(int sqlType, ObjectWriteFunction.ObjectWriteFunctionImplementation<Int128> implementation)

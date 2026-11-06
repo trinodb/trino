@@ -50,7 +50,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
 
-import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -71,9 +70,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.max;
@@ -168,14 +165,8 @@ public class YdbClient
             case "uint16" -> Optional.of(unsignedColumnMapping(INTEGER, 4));
             case "uint32" -> Optional.of(unsignedColumnMapping(BIGINT, 6));
             case "uint64" -> Optional.of(unsignedBigintColumnMapping());
-            case "float" -> {
-                ColumnMapping valueMapping = realColumnMapping();
-                yield Optional.of(ColumnMapping.mapping(REAL, valueMapping.getReadFunction(), valueMapping.getWriteFunction(), DISABLE_PUSHDOWN));
-            }
-            case "double" -> {
-                ColumnMapping valueMapping = doubleColumnMapping();
-                yield Optional.of(ColumnMapping.mapping(DOUBLE, valueMapping.getReadFunction(), valueMapping.getWriteFunction(), DISABLE_PUSHDOWN));
-            }
+            case "float" -> Optional.of(realColumnMapping());
+            case "double" -> Optional.of(doubleColumnMapping());
             case "date", "date32" -> Optional.of(dateColumnMapping(typeHandle));
             default -> Optional.empty();
         };
@@ -202,12 +193,7 @@ public class YdbClient
             }
 
             DecimalType decimalType = createDecimalType(precision, max(scale, 0));
-            ColumnMapping decimalMapping = decimalColumnMapping(decimalType);
-            return Optional.of(ColumnMapping.mapping(
-                    decimalType,
-                    decimalMapping.getReadFunction(),
-                    decimalMapping.getWriteFunction(),
-                    DISABLE_PUSHDOWN));
+            return Optional.of(decimalColumnMapping(decimalType));
         }
 
         return getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(typeHandle) : Optional.empty();
