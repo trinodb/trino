@@ -78,4 +78,46 @@ public class TestProtocolEntry
                 }\
                 """);
     }
+
+    @Test
+    public void testBuilderAddsImpliedLegacyFeatures()
+    {
+        assertThat(ProtocolEntry.builder(new ProtocolEntry(1, 4, Optional.empty(), Optional.empty())).enableTimestampNtz().build())
+                .isEqualTo(new ProtocolEntry(
+                        3,
+                        7,
+                        Optional.of(ImmutableSet.of("timestampNtz")),
+                        Optional.of(ImmutableSet.of("appendOnly", "invariants", "checkConstraints", "changeDataFeed", "generatedColumns", "timestampNtz"))));
+
+        assertThat(ProtocolEntry.builder(new ProtocolEntry(2, 6, Optional.empty(), Optional.empty())).enableDeletionVector().build())
+                .isEqualTo(new ProtocolEntry(
+                        3,
+                        7,
+                        Optional.of(ImmutableSet.of("columnMapping", "deletionVectors")),
+                        Optional.of(ImmutableSet.of("appendOnly", "invariants", "checkConstraints", "changeDataFeed", "generatedColumns", "columnMapping", "identityColumns", "deletionVectors"))));
+
+        // columnMapping is not implied without reader version 2
+        assertThat(ProtocolEntry.builder(new ProtocolEntry(1, 5, Optional.empty(), Optional.empty())).enableTimestampNtz().build())
+                .isEqualTo(new ProtocolEntry(
+                        3,
+                        7,
+                        Optional.of(ImmutableSet.of("timestampNtz")),
+                        Optional.of(ImmutableSet.of("appendOnly", "invariants", "checkConstraints", "changeDataFeed", "generatedColumns", "timestampNtz"))));
+
+        // Reader version 2 does not imply columnMapping on its own
+        assertThat(ProtocolEntry.builder(new ProtocolEntry(2, 7, Optional.empty(), Optional.of(ImmutableSet.of("appendOnly")))).enableDeletionVector().build())
+                .isEqualTo(new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of("deletionVectors")), Optional.of(ImmutableSet.of("appendOnly", "deletionVectors"))));
+
+        // columnMapping listed as a writer feature is added to reader features
+        assertThat(ProtocolEntry.builder(new ProtocolEntry(2, 7, Optional.empty(), Optional.of(ImmutableSet.of("columnMapping")))).enableDeletionVector().build())
+                .isEqualTo(new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of("columnMapping", "deletionVectors")), Optional.of(ImmutableSet.of("columnMapping", "deletionVectors"))));
+
+        // Legacy versions are kept when the table does not move to table features
+        assertThat(ProtocolEntry.builder(new ProtocolEntry(1, 2, Optional.empty(), Optional.empty())).enableChangeDataFeed().build())
+                .isEqualTo(new ProtocolEntry(1, 4, Optional.empty(), Optional.empty()));
+
+        // New tables do not list features for the default legacy versions
+        assertThat(ProtocolEntry.builder(1, 2).enableTimestampNtz().build())
+                .isEqualTo(new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of("timestampNtz")), Optional.of(ImmutableSet.of("timestampNtz"))));
+    }
 }

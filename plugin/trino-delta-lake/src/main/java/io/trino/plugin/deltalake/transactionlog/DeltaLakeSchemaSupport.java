@@ -643,7 +643,14 @@ public final class DeltaLakeSchemaSupport
     private static String getInvariantsWriterFeature(JsonNode node)
     {
         JsonNode invariants = node.get("metadata").get("delta.invariants");
-        return invariants == null || invariants.isNull() ? null : invariants.asString();
+        if (invariants == null || invariants.isNull()) {
+            return null;
+        }
+
+        String expression = invariants.asString();
+        // Delta Lake stores invariants as JSON, which tables upgraded from legacy protocol versions keep,
+        // but column metadata set directly through Spark may hold the bare expression
+        return expression.startsWith("{") ? extractInvariantsExpression(expression) : expression;
     }
 
     @Nullable
