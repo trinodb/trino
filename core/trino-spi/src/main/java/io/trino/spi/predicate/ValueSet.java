@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 @JsonTypeInfo(
@@ -69,7 +70,7 @@ public interface ValueSet
         if (typeHasNaN(type)) {
             List<Object> values = new ArrayList<>();
             values.add(first);
-            values.addAll(List.of(rest));
+            values.addAll(asList(rest));
             return FloatingPointValueSet.copyOf(type, values);
         }
         if (type.isOrderable()) {
@@ -102,7 +103,7 @@ public interface ValueSet
         }
         List<Range> ranges = new ArrayList<>();
         ranges.add(first);
-        ranges.addAll(List.of(rest));
+        ranges.addAll(asList(rest));
         return ofRanges(ranges);
     }
 
