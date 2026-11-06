@@ -2883,11 +2883,66 @@ public class TestDeltaLakeBasic
         }
     }
 
+    @Test
+    public void testVacuumSkipsHiddenPaths()
+            throws Exception
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
+        try (TestTable table = newTrinoTable("test_vacuum_hidden_paths", "(x int, _part int) WITH (partitioned_by = ARRAY['_part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 1)", 1);
+
+            Path tablePath = Path.of(new URI(getTableLocation(table.getName())));
+            Instant expired = Instant.now().minus(1, HOURS);
+            Path streamingCheckpoint = createFile(tablePath.resolve("_checkpoints/offsets"), "0", expired);
+            Path hiddenFile = createFile(tablePath, ".hidden", expired);
+            Path hiddenFileInPartition = createFile(tablePath.resolve("_part=1"), ".hidden", expired);
+            Path changeDataFile = createFile(tablePath.resolve("_change_data"), "cdc.parquet", expired);
+            Path unreferencedFileInPartition = createFile(tablePath.resolve("_part=1"), "unreferenced.parquet", expired);
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(CURRENT_SCHEMA, '" + table.getName() + "', '10m')");
+
+            assertThat(streamingCheckpoint).exists();
+            assertThat(hiddenFile).exists();
+            assertThat(hiddenFileInPartition).exists();
+            assertThat(changeDataFile).doesNotExist();
+            assertThat(unreferencedFileInPartition).doesNotExist();
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES (1, 1)");
+        }
+    }
+
+    @Test
+    public void testVacuumEscapedPartitionColumn()
+            throws Exception
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
+        try (TestTable table = newTrinoTable("test_vacuum_escaped_partition", "(x int, \"_p:q\" int) WITH (partitioned_by = ARRAY['_p:q'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 1)", 1);
+
+            Path tablePath = Path.of(new URI(getTableLocation(table.getName())));
+            Path unreferencedFile = createFile(tablePath.resolve("_p%3Aq=1"), "unreferenced.parquet", Instant.now().minus(1, HOURS));
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + table.getName() + "', retention => '10m')");
+
+            assertThat(unreferencedFile).doesNotExist();
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES (1, 1)");
+        }
+    }
+
     private static Path createDeletionVectorFile(Path directory, Instant lastModified)
             throws IOException
     {
+        return createFile(directory, "deletion_vector_" + randomUUID() + ".bin", lastModified);
+    }
+
+    private static Path createFile(Path directory, String name, Instant lastModified)
+            throws IOException
+    {
         Files.createDirectories(directory);
-        Path file = directory.resolve("deletion_vector_" + randomUUID() + ".bin");
+        Path file = directory.resolve(name);
         Files.write(file, new byte[0]);
         Files.setLastModifiedTime(file, FileTime.from(lastModified));
         return file;
