@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.List;
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
 import java.util.function.IntToLongFunction;
@@ -2842,5 +2843,31 @@ public class TestStringFunctions
             }
         }
         return builder.build();
+    }
+
+    @Test
+    public void testColumnarCaseConversion()
+    {
+        List<Block> inputs = ImmutableList.of(
+                varcharBlock(position -> position % 7 == 3, position -> position % 3 == 0 ? "lower-" + position : "Mixed-Case-" + position),
+                varcharBlock(position -> position % 7 == 3, position -> "lower-" + position),
+                varcharBlock(position -> position % 7 == 3, position -> "UPPER-" + position),
+                varcharBlock(_ -> false, position -> switch (position % 4) {
+                    case 0 -> "Żółw-Ab-" + position;
+                    // the case of the Kelvin sign, the dotless i, and the long s converts to an ASCII letter
+                    case 1 -> "\u212A\u0131\u017F-Ab-" + position;
+                    default -> "ascii-Ab-" + position;
+                }),
+                // the first value that is not ASCII follows values with letters to convert
+                varcharBlock(position -> position % 7 == 3, position -> position == 25 ? "Żółw-Ab" : "Ascii-Ab-" + position),
+                region(VARCHAR, varcharBlock(position -> position % 7 == 3, position -> position % 3 == 0 ? "Żółw-Ab-" + position : "Ascii-Ab-" + position)),
+                unicodeBlock());
+        for (String function : ImmutableList.of("lower", "upper")) {
+            for (Block input : inputs) {
+                COLUMNAR.assertEquivalent(
+                        COLUMNAR.function(function, new Reference(VARCHAR, "input")),
+                        new Input("input", VARCHAR, input));
+            }
+        }
     }
 }

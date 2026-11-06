@@ -118,6 +118,10 @@ public class BenchmarkColumnarScalarFunctions
             "map_element_at_bigint",
             "map_element_at_missing",
             "map_subscript",
+            "lower_noop",
+            "upper",
+            "lower_utf8",
+            "lower_mixed",
             "substr",
             "row_field",
             "row_constructor",
@@ -198,6 +202,24 @@ public class BenchmarkColumnarScalarFunctions
             Block maps = createStringKeyMapBlock((MapType) inputType);
             pageSupplier = () -> new Page(encode(maps, encoding));
             layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
+        }
+        else if (function.equals("lower_mixed")) {
+            inputType = VARCHAR;
+            expression = call(FUNCTIONS.resolveFunction("lower", fromTypes(VARCHAR)), new Reference(VARCHAR, "input"));
+            // the values have upper case letters, and every eighth value is not ASCII, but none of the sparsely selected values
+            Block values = createTextBlock(position -> (position % 8 == 5 ? "Żółw-" : "Field-Value-") + position);
+            pageSupplier = () -> new Page(encode(values, encoding));
+            layout = ImmutableMap.of(new Symbol(VARCHAR, "input"), 0);
+        }
+        else if (function.equals("lower_noop") || function.equals("upper") || function.equals("lower_utf8")) {
+            inputType = VARCHAR;
+            expression = call(
+                    FUNCTIONS.resolveFunction(function.equals("upper") ? "upper" : "lower", fromTypes(VARCHAR)),
+                    new Reference(VARCHAR, "input"));
+            // the values are lower case, so lower returns its input, and every eighth value of the utf8 input is not ASCII
+            Block values = createTextBlock(position -> (function.equals("lower_utf8") && position % 8 == 0 ? "Żółw-" : "field-value-") + position);
+            pageSupplier = () -> new Page(encode(values, encoding));
+            layout = ImmutableMap.of(new Symbol(VARCHAR, "input"), 0);
         }
         else if (function.equals("substr")) {
             inputType = VARCHAR;
@@ -451,7 +473,7 @@ public class BenchmarkColumnarScalarFunctions
     @Test
     public void testBenchmark()
     {
-        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "map_cardinality", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "cardinality", "cardinality_nulls", "concat", "concat_nulls", "map_element_at", "map_element_at_bigint", "map_element_at_missing", "map_subscript", "substr", "row_field", "row_constructor")) {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "map_cardinality", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "cardinality", "cardinality_nulls", "concat", "concat_nulls", "map_element_at", "map_element_at_bigint", "map_element_at_missing", "map_subscript", "lower_noop", "upper", "lower_utf8", "lower_mixed", "substr", "row_field", "row_constructor")) {
             for (String encoding : ImmutableList.of("flat", "dictionary", "fresh_dictionary", "rle")) {
                 for (String selection : ImmutableList.of("all", "sparse", "very_sparse")) {
                     this.function = function;
