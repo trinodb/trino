@@ -2894,4 +2894,38 @@ public class TestStringFunctions
             }
         }
     }
+
+    @Test
+    public void testColumnarSplitPart()
+    {
+        Block input = varcharBlock(position -> position % 7 == 3, position -> switch (position % 4) {
+            case 0 -> "a,b,c-" + position;
+            case 1 -> "";
+            case 2 -> "Żółw,," + position;
+            default -> "no delimiter " + position;
+        });
+        for (long index : new long[] {1, 2, 3}) {
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function("split_part", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice(",")), new Constant(BIGINT, index)),
+                    new Input("input", VARCHAR, input));
+        }
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("split_part", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice(",")), new Constant(BIGINT, 2L)),
+                new Input("input", VARCHAR, region(VARCHAR, input)));
+        // a null constant makes every result null
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("split_part", new Reference(VARCHAR, "input"), new Constant(VARCHAR, null), new Constant(BIGINT, 1L)),
+                new Input("input", VARCHAR, input));
+        // an empty delimiter splits every character
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("split_part", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("")), new Constant(BIGINT, 2L)),
+                new Input("input", VARCHAR, input));
+        // split_part fails for an index that is not positive
+        COLUMNAR.assertEquivalentForValidPositions(
+                COLUMNAR.function("split_part", new Reference(VARCHAR, "input"), new Reference(VARCHAR, "delimiter"), new Reference(BIGINT, "index")),
+                INVALID,
+                new Input("input", VARCHAR, input),
+                new Input("delimiter", VARCHAR, varcharBlock(position -> position % 11 == 5, position -> position % 2 == 0 ? "," : "-")),
+                new Input("index", BIGINT, longBlock(position -> position % 13 == 6, position -> INVALID.test(position) ? (position % 2) - 1 : (position % 3) + 1)));
+    }
 }

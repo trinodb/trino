@@ -485,6 +485,15 @@ public final class StringFunctions
         return parts.build();
     }
 
+    @ColumnarScalar
+    @ScalarFunction("split_part")
+    @LiteralParameters({"x", "y"})
+    @SqlType("varchar(x)")
+    public static Block splitPartColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column, @SqlType("varchar(y)") Block delimiter, @SqlType(StandardTypes.BIGINT) Block index)
+    {
+        return SplitPartBlockProjection.project(selectedPositions, column, delimiter, index);
+    }
+
     @SqlNullable
     @Description("Splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
