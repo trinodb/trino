@@ -110,7 +110,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoField.MICRO_OF_SECOND;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
-import static java.util.Collections.singletonMap;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
@@ -830,7 +829,7 @@ public class TestTupleDomainParquetPredicate
 
         // only non-nulls allowed
         predicate = new TupleDomainParquetPredicate(
-                withColumnDomains(singletonMap(descriptor, notNull(type))),
+                withColumnDomains(Map.of(descriptor, notNull(type))),
                 singletonList(column),
                 UTC);
         assertThat(predicate.matches(new DictionaryDescriptor(column, true, Optional.of(dictionary)))).isFalse();
@@ -838,7 +837,7 @@ public class TestTupleDomainParquetPredicate
 
         // only nulls allowed
         predicate = new TupleDomainParquetPredicate(
-                withColumnDomains(singletonMap(descriptor, onlyNull(type))),
+                withColumnDomains(Map.of(descriptor, onlyNull(type))),
                 singletonList(column),
                 UTC);
         assertThat(predicate.matches(new DictionaryDescriptor(column, true, Optional.of(dictionary)))).isTrue();
@@ -846,7 +845,7 @@ public class TestTupleDomainParquetPredicate
 
         // mixed non-nulls and nulls allowed
         predicate = new TupleDomainParquetPredicate(
-                withColumnDomains(singletonMap(descriptor, singleValue(type, EMPTY_SLICE, true))),
+                withColumnDomains(Map.of(descriptor, singleValue(type, EMPTY_SLICE, true))),
                 singletonList(column),
                 UTC);
         assertThat(predicate.matches(new DictionaryDescriptor(column, true, Optional.of(dictionary)))).isTrue();
@@ -945,7 +944,7 @@ public class TestTupleDomainParquetPredicate
     {
         ColumnDescriptor predicateColumn = new ColumnDescriptor(column.getPath(), column.getPrimitiveType(), 0, 0);
         Domain predicateDomain = singleValue(type, value);
-        Map<ColumnDescriptor, Domain> predicateColumns = singletonMap(predicateColumn, predicateDomain);
+        Map<ColumnDescriptor, Domain> predicateColumns = Map.of(predicateColumn, predicateDomain);
         return withColumnDomains(predicateColumns);
     }
 

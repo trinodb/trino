@@ -39,7 +39,6 @@ import javax.security.auth.kerberos.KerberosPrincipal;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -254,7 +253,7 @@ final class TestRangerSystemAccessControl
         Map<SchemaTableName, Set<String>> tableColumns = ImmutableMap.of(TABLE_ALICE_SCH1_TBL1.getSchemaTableName(), columns);
 
         assertThat(accessControlManager.filterColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1.getCatalogName(), tableColumns)).isEqualTo(tableColumns);
-        assertThat(accessControlManager.filterColumns(context(BOB), TABLE_ALICE_SCH1_TBL1.getCatalogName(), tableColumns)).isEqualTo(Collections.singletonMap(TABLE_ALICE_SCH1_TBL1.getSchemaTableName(), ImmutableSet.of()));
+        assertThat(accessControlManager.filterColumns(context(BOB), TABLE_ALICE_SCH1_TBL1.getCatalogName(), tableColumns)).isEqualTo(Map.of(TABLE_ALICE_SCH1_TBL1.getSchemaTableName(), ImmutableSet.of()));
 
         assertThatThrownBy(() -> accessControlManager.checkCanAddColumn(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanAlterColumn(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);

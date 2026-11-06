@@ -503,19 +503,19 @@ public class TestOpenxJsonFormat
         assertValue(type, "\"" + jsonValue + "\"", nonCanonicalValue);
 
         // field names are not canonicalized
-        internalAssertValueTrino(new MapType(type, BIGINT, TYPE_OPERATORS), "{" + jsonValue + ":43}", singletonMap(nonCanonicalValue, 43L), DEFAULT_OPEN_X_JSON_OPTIONS);
+        internalAssertValueTrino(new MapType(type, BIGINT, TYPE_OPERATORS), "{" + jsonValue + ":43}", Map.of(nonCanonicalValue, 43L), DEFAULT_OPEN_X_JSON_OPTIONS);
         // starburst version does not allow for non-canonical field names, but original version does
         assertValueFailsHive(new MapType(type, BIGINT, TYPE_OPERATORS), "{" + jsonValue + ":43}", DEFAULT_OPEN_X_JSON_OPTIONS, false);
 
         // unquoted values are canonicalized (using slightly different rules)
         internalAssertValueTrino(type, jsonValue, trinoCanonicalValue, DEFAULT_OPEN_X_JSON_OPTIONS);
         internalAssertValueTrino(new ArrayType(type), "[" + jsonValue + "]", singletonList(trinoCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
-        internalAssertValueTrino(new MapType(BIGINT, type, TYPE_OPERATORS), "{43:" + jsonValue + "}", singletonMap(43L, trinoCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
+        internalAssertValueTrino(new MapType(BIGINT, type, TYPE_OPERATORS), "{43:" + jsonValue + "}", Map.of(43L, trinoCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
 
         if (type instanceof VarcharType varcharType && varcharType.isUnbounded()) {
             internalAssertValueHive(type, jsonValue, hiveCanonicalValue, DEFAULT_OPEN_X_JSON_OPTIONS);
             internalAssertValueHive(new ArrayType(type), "[" + jsonValue + "]", singletonList(hiveCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
-            internalAssertValueHive(new MapType(BIGINT, type, TYPE_OPERATORS), "{\"43\":" + jsonValue + "}", singletonMap(43L, hiveCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
+            internalAssertValueHive(new MapType(BIGINT, type, TYPE_OPERATORS), "{\"43\":" + jsonValue + "}", Map.of(43L, hiveCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
         }
         else {
             // varchar and char type in Starburst doesn't support canonicalization (the code above uses Hive string type)
@@ -1256,7 +1256,7 @@ public class TestOpenxJsonFormat
             internalAssertValueTrino(
                     new MapType(BIGINT, type, TYPE_OPERATORS),
                     "{ \"1234\" : " + jsonValue + " }",
-                    singletonMap(1234L, expectedValue),
+                    Map.of(1234L, expectedValue),
                     options,
                     readOnly);
         }
