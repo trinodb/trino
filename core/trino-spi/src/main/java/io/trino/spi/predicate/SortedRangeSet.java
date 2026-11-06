@@ -172,6 +172,15 @@ public final class SortedRangeSet
         if (rest.length == 0) {
             return of(type, first);
         }
+        if (isDirectLongComparisonValidType(type)) {
+            long[] values = new long[1 + rest.length];
+            values[0] = (long) requireNonNull(first, "value is null");
+            for (int i = 0; i < rest.length; i++) {
+                values[i + 1] = (long) requireNonNull(rest[i], "value is null");
+            }
+            Arrays.sort(values);
+            return fromOrderedLongValues(type, values);
+        }
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1 + rest.length);
         checkNotNaN(type, first);
@@ -190,6 +199,16 @@ public final class SortedRangeSet
         if (values.isEmpty()) {
             return none(type);
         }
+        if (isDirectLongComparisonValidType(type)) {
+            long[] primitiveValues = new long[values.size()];
+            int index = 0;
+            for (Object value : values) {
+                primitiveValues[index] = (long) requireNonNull(value, "value is null");
+                index++;
+            }
+            Arrays.sort(primitiveValues);
+            return fromOrderedLongValues(type, primitiveValues);
+        }
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, values.size());
         for (Object value : values) {
@@ -203,9 +222,7 @@ public final class SortedRangeSet
 
     private static SortedRangeSet fromUnorderedValuesBlock(Type type, Block block)
     {
-        if (isDirectLongComparisonValidType(type)) {
-            return fromUnorderedLongValuesBlock(type, block);
-        }
+        checkArgument(!isDirectLongComparisonValidType(type), "Unexpected type in generic builder: %s", type);
         if (isSliceOrderedType(type)) {
             return fromUnorderedSliceValuesBlock(type, block);
         }
@@ -247,14 +264,8 @@ public final class SortedRangeSet
                 DISCRETE);
     }
 
-    private static SortedRangeSet fromUnorderedLongValuesBlock(Type type, Block block)
+    private static SortedRangeSet fromOrderedLongValues(Type type, long[] values)
     {
-        long[] values = new long[block.getPositionCount()];
-        for (int position = 0; position < values.length; position++) {
-            values[position] = type.getLong(block, position);
-        }
-        Arrays.sort(values);
-
         int distinctCount = values.length > 0 ? 1 : 0;
         for (int i = 1; i < values.length; i++) {
             if (values[i] != values[i - 1]) {
