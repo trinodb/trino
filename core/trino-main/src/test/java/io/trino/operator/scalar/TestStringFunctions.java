@@ -2928,4 +2928,47 @@ public class TestStringFunctions
                 new Input("delimiter", VARCHAR, varcharBlock(position -> position % 11 == 5, position -> position % 2 == 0 ? "," : "-")),
                 new Input("index", BIGINT, longBlock(position -> position % 13 == 6, position -> INVALID.test(position) ? (position % 2) - 1 : (position % 3) + 1)));
     }
+
+    @Test
+    public void testColumnarReplace()
+    {
+        // the search string matches at the end of a value, in adjacent matches, and as the whole value
+        Block input = varcharBlock(position -> position % 7 == 3, position -> switch (position % 6) {
+            case 0 -> "a-b-c-" + position;
+            case 1 -> "";
+            case 2 -> "Żółw-" + position;
+            case 3 -> "--" + position + "--";
+            case 4 -> "-";
+            default -> "no match " + position;
+        });
+        // the values of the second input do not contain the search string, so replace returns its input
+        for (Block values : ImmutableList.of(input, varcharBlock(position -> position % 7 == 3, position -> "value " + position))) {
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("-"))),
+                    new Input("input", VARCHAR, values));
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("-")), new Constant(VARCHAR, utf8Slice("_+_"))),
+                    new Input("input", VARCHAR, values));
+        }
+        // an empty search string inserts the replacement around every character
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("")), new Constant(VARCHAR, utf8Slice("."))),
+                new Input("input", VARCHAR, input));
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Reference(VARCHAR, "search"), new Reference(VARCHAR, "replacement")),
+                new Input("input", VARCHAR, input),
+                new Input("search", VARCHAR, varcharBlock(position -> position % 11 == 5, position -> switch (position % 3) {
+                    case 0 -> "-";
+                    case 1 -> "ół";
+                    default -> "w";
+                })),
+                new Input("replacement", VARCHAR, varcharBlock(position -> position % 13 == 6, position -> "<" + position + ">")));
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("-")), new Constant(VARCHAR, utf8Slice("+"))),
+                new Input("input", VARCHAR, region(VARCHAR, input)));
+        // a null constant makes every result null
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("-")), new Constant(VARCHAR, null)),
+                new Input("input", VARCHAR, input));
+    }
 }
