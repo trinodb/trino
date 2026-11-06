@@ -2399,13 +2399,21 @@ class StatementAnalyzer
             if (optionalMaterializedView.isPresent()) {
                 MaterializedViewDefinition materializedViewDefinition = optionalMaterializedView.get();
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name, getBranchName(table));
-                if (isMaterializedViewSufficientlyFresh(session, name, materializedViewDefinition)) {
+                boolean versioned = table.getQueryPeriod().isPresent();
+                // Versioned reads always use the storage table, as freshness relates only to its current snapshot
+                if (versioned || isMaterializedViewSufficientlyFresh(session, name, materializedViewDefinition)) {
                     // If materialized view is sufficiently fresh with respect to its grace period, answer the query using the storage table
                     QualifiedName storageName = getMaterializedViewStorageTableName(materializedViewDefinition)
-                            .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' is fresh but does not have storage table name", name));
+                            .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' does not have storage table name", name));
                     QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName);
                     checkStorageTableNotRedirected(storageTableName);
-                    TableHandle tableHandle = metadata.getTableHandle(session, storageTableName)
+                    Optional<TableVersion> startVersion = Optional.empty();
+                    Optional<TableVersion> endVersion = Optional.empty();
+                    if (versioned) {
+                        startVersion = extractTableVersion(table, table.getQueryPeriod().get().getStart(), scope);
+                        endVersion = extractTableVersion(table, table.getQueryPeriod().get().getEnd(), scope);
+                    }
+                    TableHandle tableHandle = metadata.getTableHandle(session, storageTableName, startVersion, endVersion)
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName));
                     return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.of(tableHandle));
                 }
