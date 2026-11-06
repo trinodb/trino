@@ -25,6 +25,8 @@ import io.trino.node.InternalNode;
 import io.trino.spi.QueryId;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.EAGER_SPECULATIVE;
+import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.STANDARD;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -75,14 +77,31 @@ public class TestPreSchedulingTaskContext
         ScheduledTask task = new ScheduledTask(new StageId(new QueryId("query"), 0), 0);
         SettableFuture<InternalNode> node = SettableFuture.create();
         contexts.addContext(task, new TestingNodeLease(node), STANDARD);
+        ScheduledTask speculativeTask = new ScheduledTask(task.stageId(), 1);
+        SettableFuture<InternalNode> speculativeNode = SettableFuture.create();
+        contexts.addContext(speculativeTask, new TestingNodeLease(speculativeNode), SPECULATIVE);
+        ScheduledTask eagerSpeculativeTask = new ScheduledTask(task.stageId(), 2);
+        SettableFuture<InternalNode> eagerSpeculativeNode = SettableFuture.create();
+        contexts.addContext(eagerSpeculativeTask, new TestingNodeLease(eagerSpeculativeNode), EAGER_SPECULATIVE);
         assertThat(contexts.toString())
-                .contains("taskCount=1", "STANDARD=1", "waitingForNode=true", "nodeFutureDone=false", "omittedContexts=0");
+                .contains("taskCount=3", "waitCounters={STANDARD=1, SPECULATIVE=1, EAGER_SPECULATIVE=1}", "waitingForNode=true", "nodeFutureDone=false", "omittedContexts=0")
+                .contains("executionClass=STANDARD", "executionClass=SPECULATIVE", "executionClass=EAGER_SPECULATIVE");
 
         node.set(null);
         contexts.markWaitingForNodeCompleted(task);
         contexts.getContext(task).setWaitingForSinkInstanceHandle(true);
         assertThat(contexts.toString())
-                .contains("STANDARD=0", "waitingForNode=false", "nodeFutureDone=true", "waitingForSinkInstanceHandle=true");
+                .contains("waitCounters={STANDARD=0, SPECULATIVE=1, EAGER_SPECULATIVE=1}", "waitingForNode=false", "nodeFutureDone=true", "waitingForSinkInstanceHandle=true");
+
+        speculativeNode.set(null);
+        contexts.markWaitingForNodeCompleted(speculativeTask);
+        assertThat(contexts.toString())
+                .contains("waitCounters={STANDARD=0, SPECULATIVE=0, EAGER_SPECULATIVE=1}");
+
+        eagerSpeculativeNode.set(null);
+        contexts.markWaitingForNodeCompleted(eagerSpeculativeTask);
+        assertThat(contexts.toString())
+                .contains("waitCounters={STANDARD=0, SPECULATIVE=0, EAGER_SPECULATIVE=0}");
     }
 
     @Test
