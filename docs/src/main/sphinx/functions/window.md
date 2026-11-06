@@ -40,7 +40,7 @@ ORDER BY clerk, orderdate, orderkey
 
 ## Ranking functions
 
-:::{function} cume_dist() -> bigint
+:::{function} cume_dist() -> double
 Returns the cumulative distribution of a value in a group of values.
 The result is the number of rows preceding or peer with the row in the
 window ordering of the window partition divided by the total number of
