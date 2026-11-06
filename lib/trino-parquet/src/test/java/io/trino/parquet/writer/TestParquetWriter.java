@@ -17,6 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.compress.v3.Compressor;
+import io.airlift.compress.v3.lz4.Lz4Compressor;
+import io.airlift.compress.v3.lz4.Lz4Decompressor;
+import io.airlift.compress.v3.snappy.SnappyCompressor;
+import io.airlift.compress.v3.zstd.ZstdCompressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -72,11 +77,13 @@ import org.assertj.core.data.Percentage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -91,6 +98,7 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
+import java.util.zip.GZIPOutputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -949,6 +957,135 @@ public class TestParquetWriter
             }
         }
         assertThat(readBackBuilder.build()).isEqualTo(sliceValues);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CompressionCodec.class, names = {"UNCOMPRESSED", "GZIP", "SNAPPY", "ZSTD", "LZ4"})
+    public void testWidePagesCompressedThroughSharedBuffers(CompressionCodec codec)
+            throws IOException
+    {
+        // pages above 4 MB and a dictionary page in each of three row groups
+        int rowCount = 100_000;
+        Random random = new Random(42);
+        List<Slice> wideValues = new ArrayList<>(rowCount);
+        List<Slice> narrowValues = new ArrayList<>(rowCount);
+        for (int i = 0; i < rowCount; i++) {
+            byte[] value = new byte[300];
+            random.nextBytes(value);
+            wideValues.add(Slices.wrappedBuffer(value));
+            narrowValues.add(Slices.utf8Slice("value-" + (i % 100)));
+        }
+        List<String> columnNames = ImmutableList.of("narrow", "wide");
+        List<Type> types = ImmutableList.of(VARCHAR, VARBINARY);
+        ParquetWriterOptions writerOptions = ParquetWriterOptions.builder()
+                .setMaxPageSize(DataSize.of(4, MEGABYTE))
+                .setBatchSize(10_000)
+                .setMaxRowGroupRowCount(40_000)
+                .setUseDeltaLengthByteArrayEncoding(true)
+                .build();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try (ParquetWriter writer = createParquetWriter(outputStream, writerOptions, types, columnNames, codec)) {
+            int inputPageSize = 25_000;
+            for (int offset = 0; offset < rowCount; offset += inputPageSize) {
+                BlockBuilder wide = VARBINARY.createBlockBuilder(null, inputPageSize);
+                BlockBuilder narrow = VARCHAR.createBlockBuilder(null, inputPageSize);
+                for (int i = offset; i < offset + inputPageSize; i++) {
+                    VARBINARY.writeSlice(wide, wideValues.get(i));
+                    VARCHAR.writeSlice(narrow, narrowValues.get(i));
+                }
+                writer.write(new Page(narrow.build(), wide.build()));
+            }
+        }
+        Slice file = Slices.wrappedBuffer(outputStream.toByteArray());
+        ParquetDataSource dataSource = new TestingParquetDataSource(file, ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        assertThat(parquetMetadata.getBlocks()).hasSize(3);
+
+        int widePagesAbove4MB = 0;
+        int dictionaryPages = 0;
+        for (BlockMetadata block : parquetMetadata.getBlocks()) {
+            for (ColumnChunkMetadata column : block.columns()) {
+                SliceInput input = file.slice(toIntExact(column.getStartingPos()), toIntExact(column.getTotalSize())).getInput();
+                while (input.isReadable()) {
+                    PageHeader header = Util.readPageHeader(input);
+                    Slice compressed = input.readSlice(header.getCompressed_page_size());
+                    Slice uncompressed = decompressPage(codec, compressed, header.getUncompressed_page_size());
+                    assertThat(uncompressed.length()).isEqualTo(header.getUncompressed_page_size());
+                    assertThat(compressed).isEqualTo(compress(codec, uncompressed));
+                    if (header.getType() == PageType.DICTIONARY_PAGE) {
+                        dictionaryPages++;
+                    }
+                    else if (column.getPath().toDotString().equals("wide") && header.getUncompressed_page_size() >= 4 * 1024 * 1024) {
+                        widePagesAbove4MB++;
+                    }
+                }
+                if (column.getPath().toDotString().equals("wide")) {
+                    assertThat(column.getEncodings()).contains(Encoding.DELTA_LENGTH_BYTE_ARRAY);
+                }
+                else {
+                    assertThat(column.hasDictionaryPage()).isTrue();
+                }
+            }
+        }
+        assertThat(widePagesAbove4MB).isEqualTo(5);
+        assertThat(dictionaryPages).isEqualTo(3);
+
+        if (codec == CompressionCodec.LZ4) {
+            // the reader expects Hadoop-framed LZ4 while the writer emits raw LZ4 blocks
+            return;
+        }
+        List<Slice> readWideValues = new ArrayList<>(rowCount);
+        List<Slice> readNarrowValues = new ArrayList<>(rowCount);
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, types, columnNames)) {
+            SourcePage page;
+            while ((page = reader.nextPage()) != null) {
+                Block narrow = page.getBlock(0);
+                Block wide = page.getBlock(1);
+                for (int i = 0; i < page.getPositionCount(); i++) {
+                    readWideValues.add(VARBINARY.getSlice(wide, i));
+                    readNarrowValues.add(VARCHAR.getSlice(narrow, i));
+                }
+            }
+        }
+        assertThat(readWideValues).isEqualTo(wideValues);
+        assertThat(readNarrowValues).isEqualTo(narrowValues);
+    }
+
+    private static Slice decompressPage(CompressionCodec codec, Slice compressed, int uncompressedSize)
+            throws IOException
+    {
+        if (codec == CompressionCodec.LZ4) {
+            byte[] output = new byte[uncompressedSize];
+            int size = Lz4Decompressor.create().decompress(compressed.byteArray(), compressed.byteArrayOffset(), compressed.length(), output, 0, output.length);
+            return Slices.wrappedBuffer(output, 0, size);
+        }
+        return decompress(new ParquetDataSourceId("test"), codec, compressed, uncompressedSize);
+    }
+
+    private static Slice compress(CompressionCodec codec, Slice uncompressed)
+    {
+        if (codec == CompressionCodec.UNCOMPRESSED) {
+            return uncompressed;
+        }
+        if (codec == CompressionCodec.GZIP) {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            try (GZIPOutputStream gzip = new GZIPOutputStream(output)) {
+                gzip.write(uncompressed.getBytes());
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            return Slices.wrappedBuffer(output.toByteArray());
+        }
+        Compressor compressor = switch (codec) {
+            case SNAPPY -> SnappyCompressor.create();
+            case ZSTD -> ZstdCompressor.create();
+            case LZ4 -> Lz4Compressor.create();
+            default -> throw new IllegalArgumentException("Unexpected codec: " + codec);
+        };
+        byte[] output = new byte[compressor.maxCompressedLength(uncompressed.length())];
+        int compressedSize = compressor.compress(uncompressed.byteArray(), uncompressed.byteArrayOffset(), uncompressed.length(), output, 0, output.length);
+        return Slices.wrappedBuffer(output, 0, compressedSize);
     }
 
     @Test

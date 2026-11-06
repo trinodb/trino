@@ -20,19 +20,22 @@ import io.airlift.compress.v3.zstd.ZstdCompressor;
 import io.airlift.slice.Slices;
 import org.apache.parquet.format.CompressionCodec;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.util.zip.GZIPOutputStream;
+import java.util.zip.CRC32;
+import java.util.zip.Deflater;
 
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 interface ParquetCompressor
 {
-    ParquetDataOutput compress(ByteBuffer input)
+    /**
+     * Compresses the input into the output buffer of {@code buffers}; the result is valid until the next call with the same buffers.
+     */
+    ParquetDataOutput compress(ByteBuffer input, CompressionBuffers buffers)
             throws IOException;
 
     static ParquetCompressor getCompressor(CompressionCodec codec)
@@ -55,15 +58,44 @@ interface ParquetCompressor
     class GzipCompressor
             implements ParquetCompressor
     {
+        // the header written by GZIPOutputStream: magic, deflate, no flags, no modification time, default level, unknown OS
+        private static final byte[] HEADER = {0x1F, (byte) 0x8B, 8, 0, 0, 0, 0, 0, 0, (byte) 0xFF};
+        private static final int TRAILER_SIZE = 8;
+
         @Override
-        public ParquetDataOutput compress(ByteBuffer input)
+        public ParquetDataOutput compress(ByteBuffer input, CompressionBuffers buffers)
                 throws IOException
         {
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            try (GZIPOutputStream outputStream = new GZIPOutputStream(byteArrayOutputStream)) {
-                Channels.newChannel(outputStream).write(input);
+            int inputSize = input.remaining();
+            CRC32 crc = new CRC32();
+            crc.update(input.duplicate());
+
+            // zlib's deflateBound plus slack for the raw stream
+            byte[] output = buffers.output(toIntExact(HEADER.length + inputSize + (inputSize >> 12) + (inputSize >> 14) + (inputSize >> 25) + 64L + TRAILER_SIZE));
+            System.arraycopy(HEADER, 0, output, 0, HEADER.length);
+            int size = HEADER.length;
+
+            Deflater deflater = buffers.deflater();
+            deflater.setInput(input);
+            deflater.finish();
+            while (!deflater.finished()) {
+                int written = deflater.deflate(output, size, output.length - TRAILER_SIZE - size);
+                if (written == 0) {
+                    throw new IOException("Insufficient output buffer for GZIP compression");
+                }
+                size += written;
             }
-            return createDataOutput(byteArrayOutputStream);
+            writeLittleEndianInt(output, size, (int) crc.getValue());
+            writeLittleEndianInt(output, size + 4, inputSize);
+            return createDataOutput(Slices.wrappedBuffer(output, 0, size + TRAILER_SIZE));
+        }
+
+        private static void writeLittleEndianInt(byte[] output, int offset, int value)
+        {
+            output[offset] = (byte) value;
+            output[offset + 1] = (byte) (value >> 8);
+            output[offset + 2] = (byte) (value >> 16);
+            output[offset + 3] = (byte) (value >> 24);
         }
     }
 
@@ -78,12 +110,10 @@ interface ParquetCompressor
         }
 
         @Override
-        public ParquetDataOutput compress(ByteBuffer input)
+        public ParquetDataOutput compress(ByteBuffer input, CompressionBuffers buffers)
                 throws IOException
         {
-            int minCompressionBufferSize = compressor.maxCompressedLength(input.remaining());
-            byte[] compressionBuffer = new byte[minCompressionBufferSize];
-            // TODO compressedDataSize > bytes.length?
+            byte[] compressionBuffer = buffers.output(compressor.maxCompressedLength(input.remaining()));
             int compressedDataSize = compressor.compress(MemorySegment.ofBuffer(input), MemorySegment.ofArray(compressionBuffer));
             return createDataOutput(Slices.wrappedBuffer(compressionBuffer, 0, compressedDataSize));
         }
