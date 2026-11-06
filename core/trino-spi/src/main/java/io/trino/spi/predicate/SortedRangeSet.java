@@ -213,10 +213,10 @@ public final class SortedRangeSet
 
     private static SortedRangeSet fromUnorderedValuesBlock(Type type, Block block)
     {
-        if (isDirectLongComparisonValidType(type) && !block.mayHaveNull()) {
+        if (isDirectLongComparisonValidType(type)) {
             return fromUnorderedLongValuesBlock(type, block);
         }
-        if (isSliceOrderedType(type) && !block.mayHaveNull()) {
+        if (isSliceOrderedType(type)) {
             return fromUnorderedSliceValuesBlock(type, block);
         }
 
