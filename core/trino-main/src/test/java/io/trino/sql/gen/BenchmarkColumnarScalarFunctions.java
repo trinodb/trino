@@ -110,6 +110,8 @@ public class BenchmarkColumnarScalarFunctions
             "element_at_column",
             "cardinality",
             "cardinality_nulls",
+            "concat",
+            "concat_nulls",
             "row_field",
             "row_constructor",
     })
@@ -175,6 +177,18 @@ public class BenchmarkColumnarScalarFunctions
             Block rows = createRowBlock();
             pageSupplier = () -> new Page(encode(rows, encoding));
             layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
+        }
+        else if (function.equals("concat") || function.equals("concat_nulls")) {
+            inputType = VARCHAR;
+            expression = call(
+                    FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR, VARCHAR)),
+                    new Reference(VARCHAR, "field0"),
+                    new Constant(VARCHAR, Slices.utf8Slice(" ")),
+                    new Reference(VARCHAR, "field1"));
+            Block first = createVarcharBlock(0);
+            Block second = function.equals("concat_nulls") ? createVarcharBlockWithNulls(1) : createVarcharBlock(1);
+            pageSupplier = () -> new Page(encode(first, encoding), encode(second, encoding));
+            layout = ImmutableMap.of(new Symbol(VARCHAR, "field0"), 0, new Symbol(VARCHAR, "field1"), 1);
         }
         else if (function.equals("row_constructor")) {
             inputType = VARCHAR;
@@ -310,6 +324,20 @@ public class BenchmarkColumnarScalarFunctions
         return builder.build();
     }
 
+    private static Block createVarcharBlockWithNulls(int field)
+    {
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            if (position % 7 == 3) {
+                builder.appendNull();
+            }
+            else {
+                VARCHAR.writeSlice(builder, Slices.utf8Slice("field-" + field + "-value-" + position));
+            }
+        }
+        return builder.build();
+    }
+
     private static final class SparsePageFilter
             implements PageFilter
     {
@@ -362,7 +390,7 @@ public class BenchmarkColumnarScalarFunctions
     @Test
     public void testBenchmark()
     {
-        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "map_cardinality", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "cardinality", "cardinality_nulls", "row_field", "row_constructor")) {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "map_cardinality", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "cardinality", "cardinality_nulls", "concat", "concat_nulls", "row_field", "row_constructor")) {
             for (String encoding : ImmutableList.of("flat", "dictionary", "fresh_dictionary", "rle")) {
                 for (String selection : ImmutableList.of("all", "sparse", "very_sparse")) {
                     this.function = function;

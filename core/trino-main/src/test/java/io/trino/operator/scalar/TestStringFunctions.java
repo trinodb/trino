@@ -18,6 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -26,6 +29,10 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.StandardTypes;
+import io.trino.sql.gen.ColumnarProjectionAssertions;
+import io.trino.sql.gen.ColumnarProjectionAssertions.Input;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,6 +40,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.function.IntFunction;
+import java.util.function.IntPredicate;
+
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
@@ -40,9 +51,12 @@ import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.gen.ColumnarProjectionAssertions.dictionaryOverRegion;
+import static io.trino.sql.gen.ColumnarProjectionAssertions.region;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.util.Collections.nCopies;
@@ -55,6 +69,11 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestStringFunctions
 {
     private QueryAssertions assertions;
+
+    private static final ColumnarProjectionAssertions COLUMNAR = new ColumnarProjectionAssertions(new TestingFunctionResolution());
+    private static final int POSITION_COUNT = 40;
+    // positions with invalid arguments for the functions that can fail
+    private static final IntPredicate INVALID = position -> position % 3 == 1;
 
     @BeforeAll
     public void init()
@@ -2715,5 +2734,59 @@ public class TestStringFunctions
         assertThat(assertions.function("soundex", "'x123'"))
                 .hasType(createVarcharType(4))
                 .isEqualTo("X000");
+    }
+
+    @Test
+    public void testColumnarConcat()
+    {
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("concat", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice(" - ")), new Reference(VARCHAR, "other")),
+                new Input("input", VARCHAR, varcharBlock(position -> position % 7 == 3)),
+                new Input("other", VARCHAR, varcharBlock(position -> position % 5 == 1)));
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("concat", new Reference(VARBINARY, "input"), new Reference(VARBINARY, "other")),
+                new Input("input", VARBINARY, varcharBlock(_ -> false)),
+                new Input("other", VARBINARY, varcharBlock(position -> position % 5 == 1)));
+        // the values are read through a region, and through a dictionary whose ids start past its first id
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function(
+                        "concat",
+                        new Constant(VARCHAR, utf8Slice("<")),
+                        new Reference(VARCHAR, "input"),
+                        new Reference(VARCHAR, "other"),
+                        new Constant(VARCHAR, utf8Slice(">"))),
+                new Input("input", VARCHAR, region(VARCHAR, varcharBlock(position -> position % 7 == 3))),
+                new Input("other", VARCHAR, dictionaryOverRegion(VARCHAR, varcharBlock(position -> position % 5 == 1))));
+        // a null constant makes every result null
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("concat", new Reference(VARCHAR, "input"), new Constant(VARCHAR, null)),
+                new Input("input", VARCHAR, varcharBlock(position -> position % 7 == 3)));
+        // concat fails when the result is too large
+        String large = "x".repeat(600_000);
+        COLUMNAR.assertEquivalentForValidPositions(
+                COLUMNAR.function("concat", new Reference(VARCHAR, "input"), new Reference(VARCHAR, "other")),
+                INVALID,
+                new Input("input", VARCHAR, varcharBlock(_ -> false, position -> INVALID.test(position) ? large : "value-" + position)),
+                new Input("other", VARCHAR, varcharBlock(_ -> false, position -> INVALID.test(position) ? large : "other-" + position)));
+    }
+
+    private static Block varcharBlock(IntPredicate isNull)
+    {
+        // every fourth value is empty
+        return varcharBlock(isNull, position -> position % 4 == 0 ? "" : "value-" + position);
+    }
+
+    private static Block varcharBlock(IntPredicate isNull, IntFunction<String> value)
+    {
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            if (isNull.test(position)) {
+                builder.appendNull();
+            }
+            else {
+                VARCHAR.writeString(builder, value.apply(position));
+            }
+        }
+        return builder.build();
     }
 }

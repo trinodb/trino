@@ -18,12 +18,14 @@ import io.airlift.slice.Slices;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ColumnarScalarFunction;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.TypeDescriptor;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -74,6 +76,15 @@ public final class ConcatFunction
                 FAIL_ON_NULL,
                 nCopies(arity, NEVER_NULL),
                 customMethodHandle);
+    }
+
+    @Override
+    public Optional<ColumnarScalarFunction> getColumnarScalarFunction(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    {
+        if (boundSignature.getArity() < 2) {
+            return Optional.empty();
+        }
+        return Optional.of((_, arguments, selectedPositions) -> ConcatBlockProjection.project(selectedPositions, arguments, MAX_OUTPUT_LENGTH));
     }
 
     public static Slice concat(Slice[] values)
