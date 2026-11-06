@@ -170,7 +170,6 @@ public class TestDeltaLakeBasic
             new ResourceTable("uniform_hudi", "deltalake/uniform_hudi"),
             new ResourceTable("uniform_iceberg_v1", "databricks133/uniform_iceberg_v1"),
             new ResourceTable("uniform_iceberg_v2", "databricks143/uniform_iceberg_v2"),
-            new ResourceTable("unsupported_writer_feature", "deltalake/unsupported_writer_feature"),
             new ResourceTable("unsupported_writer_version", "deltalake/unsupported_writer_version"),
             new ResourceTable("variant", "databricks153/variant"),
             new ResourceTable("variant_types", "databricks153/variant_types"),
@@ -2086,31 +2085,59 @@ public class TestDeltaLakeBasic
                         entry("delta.identity.allowExplicitInsert", false));
     }
 
+    /**
+     * @see databricks122.identity_columns
+     * @see deltalake.table_feature_identity_column
+     */
     @Test
     public void testWritesToTableWithIdentityColumnFails()
             throws Exception
     {
-        String tableName = "test_identity_columns_" + randomNameSuffix();
+        testWritesToTableFails("databricks122/identity_columns", "Writing to tables with identity columns is not supported");
+        testWritesToTableFails("deltalake/table_feature_identity_column", "Writing to tables with identity columns is not supported");
+    }
+
+    /**
+     * @see deltalake.table_feature_generated_column
+     */
+    @Test
+    public void testWritesToTableWithGeneratedColumnFails()
+            throws Exception
+    {
+        testWritesToTableFails("deltalake/table_feature_generated_column", "Writing to tables with generated columns is not supported");
+    }
+
+    /**
+     * @see deltalake.table_feature_generated_column
+     */
+    @Test
+    public void testRenameAndDropColumnWithGeneratedColumnFails()
+            throws Exception
+    {
+        String tableName = "test_generated_column_ddl_" + randomNameSuffix();
         Path tableLocation = catalogDir.resolve(tableName);
-        copyDirectoryContents(new File(Resources.getResource("databricks122/identity_columns").toURI()).toPath(), tableLocation);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/table_feature_generated_column").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
-        // Disallowing all statements just in case though some statements may be unrelated to identity columns
-        assertQueryFails(
-                "INSERT INTO " + tableName + " VALUES (4, 4)",
-                "Writing to tables with identity columns is not supported");
-        assertQueryFails(
-                "UPDATE " + tableName + " SET a = 3",
-                "Writing to tables with identity columns is not supported");
-        assertQueryFails(
-                "DELETE FROM " + tableName,
-                "Writing to tables with identity columns is not supported");
-        assertQueryFails(
-                "MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1",
-                "Writing to tables with identity columns is not supported");
-        assertQueryFails(
-                "ALTER TABLE " + tableName + " EXECUTE optimize",
-                "Writing to tables with identity columns is not supported");
+        assertQueryFails("ALTER TABLE " + tableName + " RENAME COLUMN a TO renamed", "Cannot rename column in table with generated columns");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "Cannot drop column from table with generated columns");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 2), (2, 4)");
+    }
+
+    private void testWritesToTableFails(String resourcePath, String expectedMessage)
+            throws Exception
+    {
+        String tableName = "test_writes_fail_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource(resourcePath).toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // Disallowing all statements just in case though some statements may be unrelated to identity or generated columns
+        assertQueryFails("INSERT INTO " + tableName + " VALUES (4, 4)", expectedMessage);
+        assertQueryFails("UPDATE " + tableName + " SET a = 3", expectedMessage);
+        assertQueryFails("DELETE FROM " + tableName, expectedMessage);
+        assertQueryFails("MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1", expectedMessage);
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE optimize", expectedMessage);
     }
 
     @Test
@@ -2122,25 +2149,41 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("databricks133/identity_columns_table_feature").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
-        // Disallowing all statements just in case though some statements may be unrelated to identity columns
-        assertQueryFails(
-                "INSERT INTO " + tableName + " VALUES (4, 4)",
-                "\\QUnsupported writer features: [identityColumns]");
-        assertQueryFails(
-                "UPDATE " + tableName + " SET a = 3",
-                "\\QUnsupported writer features: [identityColumns]");
-        assertQueryFails(
-                "DELETE FROM " + tableName,
-                "\\QUnsupported writer features: [identityColumns]");
-        assertQueryFails(
-                "MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1",
-                "\\QUnsupported writer features: [identityColumns]");
+        // The feature is supported, but the table has no identity columns
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 4)", 1);
+        assertUpdate("UPDATE " + tableName + " SET a = 3", 1);
+        assertUpdate("MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 4)");
+        assertUpdate("DELETE FROM " + tableName, 1);
+
+        // Replacing the table would interfere with writer features, so these still fail
         assertQueryFails(
                 "CREATE OR REPLACE TABLE " + tableName + " (a int, b int)",
                 "\\QUnsupported writer features: [identityColumns]");
         assertQueryFails(
                 "CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 a, 2 b",
                 "\\QUnsupported writer features: [identityColumns]");
+    }
+
+    /**
+     * @see deltalake.generated_columns_table_feature
+     */
+    @Test
+    public void testGeneratedColumnsTableFeature()
+            throws Exception
+    {
+        String tableName = "test_generated_columns_table_feature_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/generated_columns_table_feature").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // The feature is supported, but the table has no generated columns
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10)", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 10)");
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN b DROP NOT NULL");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL)", 1);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     /**
@@ -4074,40 +4117,37 @@ public class TestDeltaLakeBasic
     }
 
     /**
-     * @see deltalake.unsupported_writer_feature
+     * @see deltalake.allow_column_defaults
      */
     @Test
     public void testUnsupportedWriterFeature()
     {
-        assertQueryReturnsEmptyResult("SELECT * FROM unsupported_writer_feature");
+        assertQuery("SELECT * FROM allow_column_defaults", "VALUES (1, 16)");
 
         assertQueryFails(
-                "ALTER TABLE unsupported_writer_feature ADD COLUMN new_col int",
-                "\\QUnsupported writer features: [generatedColumns]");
+                "ALTER TABLE allow_column_defaults ADD COLUMN new_col int",
+                "\\QUnsupported writer features: [allowColumnDefaults]");
         assertQueryFails(
-                "ALTER TABLE unsupported_writer_feature RENAME COLUMN a TO renamed",
-                "\\QUnsupported writer features: [generatedColumns]");
+                "ALTER TABLE allow_column_defaults RENAME COLUMN a TO renamed",
+                "\\QUnsupported writer features: [allowColumnDefaults]");
         assertQueryFails(
-                "ALTER TABLE unsupported_writer_feature DROP COLUMN b",
-                "\\QUnsupported writer features: [generatedColumns]");
+                "ALTER TABLE allow_column_defaults DROP COLUMN b",
+                "\\QUnsupported writer features: [allowColumnDefaults]");
         assertQueryFails(
-                "ALTER TABLE unsupported_writer_feature ALTER COLUMN b DROP NOT NULL",
-                "\\QUnsupported writer features: [generatedColumns]");
+                "ALTER TABLE allow_column_defaults EXECUTE OPTIMIZE",
+                "\\QUnsupported writer features: [allowColumnDefaults]");
         assertQueryFails(
-                "ALTER TABLE unsupported_writer_feature EXECUTE OPTIMIZE",
-                "\\QUnsupported writer features: [generatedColumns]");
-        assertQueryFails(
-                "ALTER TABLE unsupported_writer_feature ALTER COLUMN b SET DATA TYPE bigint",
+                "ALTER TABLE allow_column_defaults ALTER COLUMN b SET DATA TYPE bigint",
                 "This connector does not support setting column types");
         assertQueryFails(
-                "COMMENT ON TABLE unsupported_writer_feature IS 'test comment'",
-                "\\QUnsupported writer features: [generatedColumns]");
+                "COMMENT ON TABLE allow_column_defaults IS 'test comment'",
+                "\\QUnsupported writer features: [allowColumnDefaults]");
         assertQueryFails(
-                "COMMENT ON COLUMN unsupported_writer_feature.a IS 'test column comment'",
-                "\\QUnsupported writer features: [generatedColumns]");
+                "COMMENT ON COLUMN allow_column_defaults.a IS 'test column comment'",
+                "\\QUnsupported writer features: [allowColumnDefaults]");
         assertQueryFails(
-                "CALL delta.system.vacuum('tpch', 'unsupported_writer_feature', '7d')",
-                "\\QCannot execute vacuum procedure with [generatedColumns] writer features");
+                "CALL delta.system.vacuum('tpch', 'allow_column_defaults', '7d')",
+                "\\QCannot execute vacuum procedure with [allowColumnDefaults] writer features");
     }
 
     /**

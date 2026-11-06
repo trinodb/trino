@@ -2236,6 +2236,9 @@ public class DeltaLakeMetadata
         checkUnsupportedWriterFeatures(protocolEntry);
 
         checkSupportedWriterVersion(table);
+        if (!getGeneratedColumnExpressions(metadataEntry).isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop column from table with generated columns");
+        }
         ColumnMappingMode columnMappingMode = getColumnMappingMode(metadataEntry, protocolEntry);
         if (columnMappingMode != ColumnMappingMode.NAME && columnMappingMode != ColumnMappingMode.ID) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot drop column from table using column mapping mode " + columnMappingMode);
@@ -2321,6 +2324,9 @@ public class DeltaLakeMetadata
         checkSupportedWriterVersion(table);
         if (changeDataFeedEnabled(table.getMetadataEntry(), protocolEntry).orElse(false)) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot rename column when change data feed is enabled");
+        }
+        if (!getGeneratedColumnExpressions(table.getMetadataEntry()).isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot rename column in table with generated columns");
         }
 
         MetadataEntry metadataEntry = table.getMetadataEntry();
