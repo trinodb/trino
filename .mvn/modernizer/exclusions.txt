@@ -59,9 +59,6 @@ com/google/common/base/Joiner.join:(Ljava/lang/Iterable;)Ljava/lang/String;
 # Lists.newArrayList(...) is more readable than new ArrayList<>(Arrays.asList(...))
 com/google/common/collect/Lists.newArrayList:([Ljava/lang/Object;)Ljava/util/ArrayList;
 
-# Guava's Strings.repeat is allowed alongside String.repeat(int)
-com/google/common/base/Strings.repeat:(Ljava/lang/String;I)Ljava/lang/String;
-
 # Guava's CharStreams.copy is allowed alongside Reader.transferTo(Writer)
 com/google/common/io/CharStreams.copy:(Ljava/lang/Readable;Ljava/lang/Appendable;)J
 
