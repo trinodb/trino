@@ -64,6 +64,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.gen.ColumnarProjectionAssertions.region;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -1930,5 +1931,17 @@ public class TestMapOperators
             });
         }
         return builder.build();
+    }
+
+    @Test
+    public void testColumnarCardinality()
+    {
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("cardinality", new Reference(BIGINT_VARCHAR_MAP, "input")),
+                new Input("input", BIGINT_VARCHAR_MAP, mapBlock()));
+        // the offsets of a region do not start at the first map
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("cardinality", new Reference(BIGINT_VARCHAR_MAP, "input")),
+                new Input("input", BIGINT_VARCHAR_MAP, region(BIGINT_VARCHAR_MAP, mapBlock())));
     }
 }
