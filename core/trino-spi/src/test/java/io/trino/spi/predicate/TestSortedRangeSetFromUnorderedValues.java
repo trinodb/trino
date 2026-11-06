@@ -62,7 +62,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Checks that building a {@link SortedRangeSet} from unordered values gives the same
  * result as the original list based sorting algorithm, which is kept here as a reference.
  */
-class TestSortedRangeSetFromUnorderedValues
+public class TestSortedRangeSetFromUnorderedValues
 {
     private static final long SEED = 20260503;
     private static final List<Integer> SIZES = List.of(1, 2, 3, 10, 17, 33, 100, 1000, 20000);
@@ -113,7 +113,7 @@ class TestSortedRangeSetFromUnorderedValues
     }
 
     @Test
-    void testCollection()
+    public void testCollection()
     {
         Random random = new Random(SEED);
         for (TypeCase typeCase : typeCases()) {
@@ -130,7 +130,7 @@ class TestSortedRangeSetFromUnorderedValues
     }
 
     @Test
-    void testVarargs()
+    public void testVarargs()
     {
         Random random = new Random(SEED);
         for (TypeCase typeCase : typeCases()) {
@@ -148,7 +148,7 @@ class TestSortedRangeSetFromUnorderedValues
     }
 
     @Test
-    void testNegativeZero()
+    public void testNegativeZero()
     {
         // zeros of different sign are distinct values
         List<Object> values = List.of(0.0, -0.0, 1.0, -0.0, 0.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
@@ -158,7 +158,7 @@ class TestSortedRangeSetFromUnorderedValues
     }
 
     @Test
-    void testKeepsFirstOfEqualValues()
+    public void testKeepsFirstOfEqualValues()
     {
         long warsaw = packDateTimeWithZone(1000, "Europe/Warsaw");
         long utc = packDateTimeWithZone(1000, "UTC");

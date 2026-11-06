@@ -30,7 +30,7 @@ import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class TestAllOrNoneValueSet
+public class TestAllOrNoneValueSet
 {
     @Test
     public void testAll()
