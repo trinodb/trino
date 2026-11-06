@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.procedure;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
@@ -64,7 +65,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.metastore.Partitions.escapePathName;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.MAX_WRITER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkUnsupportedUniversalFormat;
@@ -72,7 +75,6 @@ import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkValidTableHandle;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.toUriFormat;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinRetention;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedWriterFeatures;
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -253,7 +255,7 @@ public class VacuumProcedure
                     retainedPaths.size());
 
             long allPathsChecked = 0;
-            long transactionLogFiles = 0;
+            long hiddenFiles = 0;
             long retainedKnownFiles = 0;
             long retainedUnknownFiles = 0;
             long removedFiles = 0;
@@ -269,20 +271,22 @@ public class VacuumProcedure
                         location,
                         tableLocation);
 
-                // Paths are RFC 2396 URI encoded https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
-                String relativePath = toUriFormat(location.substring(commonPathPrefix.length()));
-                if (relativePath.isEmpty()) {
+                String rawRelativePath = location.substring(commonPathPrefix.length());
+                if (rawRelativePath.isEmpty()) {
                     // A file returned for "tableLocation/", might be possible on S3.
                     continue;
                 }
                 allPathsChecked++;
 
-                // ignore tableLocation/_delta_log/**
-                if (relativePath.equals(TRANSACTION_LOG_DIRECTORY) || relativePath.startsWith(TRANSACTION_LOG_DIRECTORY + "/")) {
-                    log.debug("[%s] skipping a file inside transaction log dir: %s", queryId, location);
-                    transactionLogFiles++;
+                // ignore tableLocation/_delta_log/** and other hidden paths, such as streaming checkpoints
+                if (isHiddenPath(rawRelativePath, handle.getMetadataEntry().getOriginalPartitionColumns())) {
+                    log.debug("[%s] skipping a hidden file: %s", queryId, location);
+                    hiddenFiles++;
                     continue;
                 }
+
+                // Paths are RFC 2396 URI encoded https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
+                String relativePath = toUriFormat(rawRelativePath);
 
                 // skip retained files
                 if (retainedPaths.contains(relativePath)) {
@@ -314,16 +318,31 @@ public class VacuumProcedure
             }
 
             log.info(
-                    "[%s] finished vacuuming table %s [%s]: files checked: %s; metadata files: %s; retained known files: %s; retained unknown files: %s; removed files: %s",
+                    "[%s] finished vacuuming table %s [%s]: files checked: %s; hidden files: %s; retained known files: %s; retained unknown files: %s; removed files: %s",
                     queryId,
                     tableName,
                     tableLocation,
                     allPathsChecked,
-                    transactionLogFiles,
+                    hiddenFiles,
                     retainedKnownFiles,
                     retainedUnknownFiles,
                     removedFiles);
         }
+    }
+
+    // Mirrors DeltaTableUtils.isHiddenDirectory in Delta Lake Spark, applied to every path segment.
+    // https://github.com/delta-io/delta/blob/master/spark/src/main/scala/org/apache/spark/sql/delta/DeltaTable.scala#L289
+    private static boolean isHiddenPath(String relativePath, List<String> partitionColumns)
+    {
+        for (String name : Splitter.on('/').split(relativePath)) {
+            if ((name.startsWith(".") || name.startsWith("_"))
+                    && !name.startsWith("_delta_index")
+                    && !name.startsWith(CHANGE_DATA_FOLDER_NAME)
+                    && partitionColumns.stream().noneMatch(column -> name.startsWith(escapePathName(column) + "="))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Stream<String> retainedFilePaths(AddFileEntry add)
