@@ -87,7 +87,6 @@ import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -533,7 +532,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS array(ARRAY(BIGINT)))")
                 .binding("a", "JSON '[[1, 2], [3, null], [], [null, null], null]'"))
                 .hasType(new ArrayType(new ArrayType(BIGINT)))
-                .isEqualTo(asList(asList(1L, 2L), asList(3L, null), emptyList(), asList(null, null), null));
+                .isEqualTo(asList(asList(1L, 2L), asList(3L, null), ImmutableList.of(), asList(null, null), null));
 
         assertThat(assertions.expression("CAST(a AS ARRAY(MAP(VARCHAR, BIGINT)))")
                 .binding(

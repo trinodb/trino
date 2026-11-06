@@ -19,7 +19,6 @@ import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.util.Collections.emptyList;
 
 public class TestExchangeStatsRule
         extends BaseStatsCalculatorTest
@@ -39,7 +38,7 @@ public class TestExchangeStatsRule
                                 .addInputsSet(pb.symbol("i21", BIGINT), pb.symbol("i22", BIGINT), pb.symbol("i23", BIGINT), pb.symbol("i24", BIGINT))
                                 .fixedHashDistributionPartitioningScheme(
                                         ImmutableList.of(pb.symbol("o1", BIGINT), pb.symbol("o2", BIGINT), pb.symbol("o3", BIGINT), pb.symbol("o4", BIGINT)),
-                                        emptyList())
+                                        ImmutableList.of())
                                 .addSource(pb.values(pb.symbol("i11", BIGINT), pb.symbol("i12", BIGINT), pb.symbol("i13", BIGINT), pb.symbol("i14", BIGINT)))
                                 .addSource(pb.values(pb.symbol("i21", BIGINT), pb.symbol("i22", BIGINT), pb.symbol("i23", BIGINT), pb.symbol("i24", BIGINT)))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()

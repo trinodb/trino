@@ -89,7 +89,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -844,7 +843,7 @@ public abstract class BaseHiveConnectorTest
                 .setCatalog(getSession().getCatalog())
                 .setSchema("test_createschema_authorization_role")
                 .setIdentity(Identity.forUser("user")
-                        .withConnectorRoles(Collections.emptyMap())
+                        .withConnectorRoles(ImmutableMap.of())
                         .build())
                 .build();
 
@@ -9302,14 +9301,14 @@ public abstract class BaseHiveConnectorTest
                                 Optional.of(tableLocation),
                                 Optional.empty(),
                                 false,
-                                Collections.emptyMap()),
+                                ImmutableMap.of()),
                         List.of(new Column("t", HiveType.HIVE_TIMESTAMPLOCALTZ, Optional.empty(), Map.of())),
                         List.of(),
-                        Collections.emptyMap(),
+                        ImmutableMap.of(),
                         Optional.empty(),
                         Optional.empty(),
                         OptionalLong.empty()),
-                PrincipalPrivileges.fromHivePrivilegeInfos(Collections.emptySet()));
+                PrincipalPrivileges.fromHivePrivilegeInfos(ImmutableSet.of()));
 
         long microsFraction = switch (timestampPrecision) {
             case MILLISECONDS -> 123;

@@ -23,9 +23,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptySet;
-
 public interface Connector
 {
     /**
@@ -120,7 +117,7 @@ public interface Connector
      */
     default Set<SystemTable> getSystemTables()
     {
-        return emptySet();
+        return Set.of();
     }
 
     /**
@@ -136,12 +133,12 @@ public interface Connector
      */
     default Set<Procedure> getProcedures()
     {
-        return emptySet();
+        return Set.of();
     }
 
     default Set<TableProcedureMetadata> getTableProcedures()
     {
-        return emptySet();
+        return Set.of();
     }
 
     /**
@@ -149,7 +146,7 @@ public interface Connector
      */
     default Set<ConnectorTableFunction> getTableFunctions()
     {
-        return emptySet();
+        return Set.of();
     }
 
     /**
@@ -157,7 +154,7 @@ public interface Connector
      */
     default List<PropertyMetadata<?>> getSessionProperties()
     {
-        return emptyList();
+        return List.of();
     }
 
     /**
@@ -165,7 +162,7 @@ public interface Connector
      */
     default List<PropertyMetadata<?>> getSchemaProperties()
     {
-        return emptyList();
+        return List.of();
     }
 
     /**
@@ -173,7 +170,7 @@ public interface Connector
      */
     default List<PropertyMetadata<?>> getAnalyzeProperties()
     {
-        return emptyList();
+        return List.of();
     }
 
     /**
@@ -181,7 +178,7 @@ public interface Connector
      */
     default List<PropertyMetadata<?>> getBranchProperties()
     {
-        return emptyList();
+        return List.of();
     }
 
     /**
@@ -189,7 +186,7 @@ public interface Connector
      */
     default List<PropertyMetadata<?>> getTableProperties()
     {
-        return emptyList();
+        return List.of();
     }
 
     /**
@@ -197,7 +194,7 @@ public interface Connector
      */
     default List<PropertyMetadata<?>> getViewProperties()
     {
-        return emptyList();
+        return List.of();
     }
 
     /**
@@ -205,7 +202,7 @@ public interface Connector
      */
     default List<PropertyMetadata<?>> getMaterializedViewProperties()
     {
-        return emptyList();
+        return List.of();
     }
 
     /**
@@ -213,7 +210,7 @@ public interface Connector
      */
     default List<PropertyMetadata<?>> getColumnProperties()
     {
-        return emptyList();
+        return List.of();
     }
 
     /**
@@ -258,6 +255,6 @@ public interface Connector
 
     default Set<ConnectorCapabilities> getCapabilities()
     {
-        return emptySet();
+        return Set.of();
     }
 }

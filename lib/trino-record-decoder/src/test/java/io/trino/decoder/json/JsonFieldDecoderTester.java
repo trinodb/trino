@@ -13,6 +13,7 @@
  */
 package io.trino.decoder.json;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.decoder.DecoderColumnHandle;
@@ -30,7 +31,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.decoder.util.DecoderTestUtil.TESTING_SESSION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -131,7 +131,7 @@ public class JsonFieldDecoderTester
                 false,
                 false);
 
-        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, emptyMap(), ImmutableSet.of(columnHandle)));
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, ImmutableMap.of(), ImmutableSet.of(columnHandle)));
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json.getBytes(UTF_8))
                 .orElseThrow(AssertionError::new);
         assertThat(decodedRow).containsKey(columnHandle);
