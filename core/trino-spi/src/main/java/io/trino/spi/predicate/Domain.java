@@ -103,7 +103,7 @@ public final class Domain
         if (values.size() == 1) {
             return singleValue(type, values.get(0), nullAllowed);
         }
-        return new Domain(ValueSet.of(type, values.get(0), values.subList(1, values.size()).toArray()), nullAllowed);
+        return new Domain(ValueSet.copyOf(type, values), nullAllowed);
     }
 
     public Type getType()
