@@ -294,47 +294,23 @@ public class InMemoryRecordSet
     {
         long completedBytes = 0;
         for (Object value : record) {
-            if (value == null) {
-                // do nothing
-            }
-            else if (value instanceof Boolean) {
-                completedBytes++;
-            }
-            else if (value instanceof Number) {
-                completedBytes += 8;
-            }
-            else if (value instanceof String string) {
-                completedBytes += string.length();
-            }
-            else if (value instanceof byte[] bytes) {
-                completedBytes += bytes.length;
-            }
-            else if (value instanceof Block block) {
-                completedBytes += block.getSizeInBytes();
-            }
-            else if (value instanceof SqlMap map) {
-                completedBytes += map.getSizeInBytes();
-            }
-            else if (value instanceof SqlRow row) {
-                completedBytes += row.getSizeInBytes();
-            }
-            else if (value instanceof Slice slice) {
-                completedBytes += slice.length();
-            }
-            else if (value instanceof LongTimestamp) {
-                completedBytes += LongTimestamp.INSTANCE_SIZE;
-            }
-            else if (value instanceof LongTimestampWithTimeZone) {
-                completedBytes += LongTimestampWithTimeZone.INSTANCE_SIZE;
-            }
-            else if (value instanceof LongTimeWithTimeZone) {
-                completedBytes += LongTimeWithTimeZone.INSTANCE_SIZE;
-            }
-            else if (value instanceof Int128) {
-                completedBytes += Int128.INSTANCE_SIZE;
-            }
-            else {
-                throw new IllegalArgumentException("Unknown type: " + value.getClass());
+            switch (value) {
+                case null -> {
+                    // do nothing
+                }
+                case Boolean _ -> completedBytes++;
+                case Number _ -> completedBytes += 8;
+                case String string -> completedBytes += string.length();
+                case byte[] bytes -> completedBytes += bytes.length;
+                case Block block -> completedBytes += block.getSizeInBytes();
+                case SqlMap map -> completedBytes += map.getSizeInBytes();
+                case SqlRow row -> completedBytes += row.getSizeInBytes();
+                case Slice slice -> completedBytes += slice.length();
+                case LongTimestamp _ -> completedBytes += LongTimestamp.INSTANCE_SIZE;
+                case LongTimestampWithTimeZone _ -> completedBytes += LongTimestampWithTimeZone.INSTANCE_SIZE;
+                case LongTimeWithTimeZone _ -> completedBytes += LongTimeWithTimeZone.INSTANCE_SIZE;
+                case Int128 _ -> completedBytes += Int128.INSTANCE_SIZE;
+                default -> throw new IllegalArgumentException("Unknown type: " + value.getClass());
             }
         }
         return completedBytes;
