@@ -1215,6 +1215,58 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    void testAddColumnRetainsLegacyWriterFeatures()
+            throws IOException
+    {
+        try (TestTable table = newTrinoTable("test_legacy_writer_features_", "(id int, v int) WITH (change_data_feed_enabled = true)")) {
+            String tableName = table.getName();
+            Path tableLocation = Path.of(getTableLocation(tableName).replace("file://", ""));
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20)", 2);
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN ts timestamp(6)");
+            assertThat(loadProtocolEntry(2, tableLocation)).isEqualTo(new ProtocolEntry(
+                    3,
+                    7,
+                    Optional.of(ImmutableSet.of("timestampNtz")),
+                    Optional.of(ImmutableSet.of("appendOnly", "invariants", "checkConstraints", "changeDataFeed", "generatedColumns", "timestampNtz"))));
+
+            assertUpdate("UPDATE " + tableName + " SET v = 11 WHERE id = 1", 1);
+            assertQuery(
+                    "SELECT id, v, _change_type FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "', 2))",
+                    "VALUES (1, 10, 'update_preimage'), (1, 11, 'update_postimage')");
+        }
+    }
+
+    /**
+     * @see databricks122.identity_columns
+     */
+    @Test
+    void testAddColumnRetainsIdentityColumnsFeature()
+            throws Exception
+    {
+        String tableName = "test_add_column_identity_columns_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/identity_columns").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN ts timestamp(6)");
+        assertThat(loadProtocolEntry(1, tableLocation).writerFeatures()).hasValueSatisfying(features -> assertThat(features).contains("identityColumns"));
+
+        assertQueryFails("INSERT INTO " + tableName + " VALUES (4, 4, NULL)", "Writing to tables with identity columns is not supported");
+    }
+
+    @Test
+    void testSetChangeDataFeedOnWriterFeaturesTable()
+            throws IOException
+    {
+        try (TestTable table = newTrinoTable("test_cdf_writer_features_", "(id int) WITH (deletion_vectors_enabled = true)")) {
+            Path tableLocation = Path.of(getTableLocation(table.getName()).replace("file://", ""));
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES change_data_feed_enabled = true");
+            assertThat(loadProtocolEntry(1, tableLocation).writerFeatures()).hasValue(ImmutableSet.of("deletionVectors", "changeDataFeed"));
+        }
+    }
+
+    @Test
     void testCreateOrReplaceWithDeletionVectors()
             throws Exception
     {
@@ -2044,7 +2096,7 @@ public class TestDeltaLakeBasic
         assertThat(protocolEntryByAddColumn.minReaderVersion()).isEqualTo(3);
         assertThat(protocolEntryByAddColumn.minWriterVersion()).isEqualTo(7);
         assertThat(protocolEntryByAddColumn.readerFeatures()).hasValue(ImmutableSet.of("timestampNtz"));
-        assertThat(protocolEntryByAddColumn.writerFeatures()).hasValue(ImmutableSet.of("timestampNtz"));
+        assertThat(protocolEntryByAddColumn.writerFeatures()).hasValue(ImmutableSet.of("appendOnly", "invariants", "timestampNtz"));
 
         assertUpdate("DROP TABLE " + tableName);
     }
