@@ -53,6 +53,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -142,6 +143,21 @@ public class TracingConnectorMetadata
         Span span = startSpan("getTableHandle", tableName);
         try (var _ = scopedSpan(span)) {
             return delegate.getTableHandle(session, tableName, startVersion, endVersion);
+        }
+    }
+
+    @Override
+    public boolean managesViewSecurity()
+    {
+        return delegate.managesViewSecurity();
+    }
+
+    @Override
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion, List<ReferencingView> referencingViews)
+    {
+        Span span = startSpan("getTableHandle", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandle(session, tableName, startVersion, endVersion, referencingViews);
         }
     }
 
@@ -879,6 +895,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("getView", viewName);
         try (var _ = scopedSpan(span)) {
             return delegate.getView(session, viewName);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName, List<ReferencingView> referencingViews)
+    {
+        Span span = startSpan("getView", viewName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getView(session, viewName, referencingViews);
         }
     }
 

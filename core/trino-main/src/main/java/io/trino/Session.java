@@ -72,6 +72,7 @@ public final class Session
     private final boolean clientTransactionSupport;
     private final Identity identity;
     private final Identity originalIdentity;
+    private final Optional<Identity> invokerIdentity;
     private final Optional<String> source;
     private final Optional<String> catalog;
     private final Optional<String> schema;
@@ -130,12 +131,77 @@ public final class Session
             Optional<Slice> exchangeEncryptionKey,
             Optional<String> queryDataEncoding)
     {
+        this(queryId,
+                querySpan,
+                transactionId,
+                clientTransactionSupport,
+                identity,
+                originalIdentity,
+                Optional.empty(),
+                source,
+                catalog,
+                schema,
+                path,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                clientCapabilities,
+                resourceEstimates,
+                start,
+                systemProperties,
+                defaultedSystemProperties,
+                catalogProperties,
+                defaultedCatalogProperties,
+                sessionPropertyManager,
+                preparedStatements,
+                protocolHeaders,
+                exchangeEncryptionKey,
+                queryDataEncoding);
+    }
+
+    private Session(
+            QueryId queryId,
+            Span querySpan,
+            Optional<TransactionId> transactionId,
+            boolean clientTransactionSupport,
+            Identity identity,
+            Identity originalIdentity,
+            Optional<Identity> invokerIdentity,
+            Optional<String> source,
+            Optional<String> catalog,
+            Optional<String> schema,
+            SqlPath path,
+            Optional<String> traceToken,
+            TimeZoneKey timeZoneKey,
+            Locale locale,
+            Optional<String> remoteUserAddress,
+            Optional<String> userAgent,
+            Optional<String> clientInfo,
+            Set<String> clientTags,
+            Set<String> clientCapabilities,
+            ResourceEstimates resourceEstimates,
+            Instant start,
+            Map<String, String> systemProperties,
+            Set<String> defaultedSystemProperties,
+            Map<String, Map<String, String>> catalogProperties,
+            Map<String, Set<String>> defaultedCatalogProperties,
+            SessionPropertyManager sessionPropertyManager,
+            Map<String, String> preparedStatements,
+            ProtocolHeaders protocolHeaders,
+            Optional<Slice> exchangeEncryptionKey,
+            Optional<String> queryDataEncoding)
+    {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.querySpan = requireNonNull(querySpan, "querySpan is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.identity = requireNonNull(identity, "identity is null");
         this.originalIdentity = requireNonNull(originalIdentity, "originalIdentity is null");
+        this.invokerIdentity = requireNonNull(invokerIdentity, "invokerIdentity is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -192,6 +258,50 @@ public final class Session
     public Identity getOriginalIdentity()
     {
         return originalIdentity;
+    }
+
+    /**
+     * Identity of the user that runs the query. Unlike {@link #getIdentity()}, it is not replaced
+     * by the view owner when a SECURITY DEFINER view is analyzed.
+     */
+    public Identity getInvokerIdentity()
+    {
+        return invokerIdentity.orElse(identity);
+    }
+
+    public Session withIdentity(Identity identity)
+    {
+        return new Session(
+                queryId,
+                querySpan,
+                transactionId,
+                clientTransactionSupport,
+                identity,
+                originalIdentity,
+                invokerIdentity,
+                source,
+                catalog,
+                schema,
+                path,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                clientCapabilities,
+                resourceEstimates,
+                start,
+                systemProperties,
+                defaultedSystemProperties,
+                catalogProperties,
+                defaultedCatalogProperties,
+                sessionPropertyManager,
+                preparedStatements,
+                protocolHeaders,
+                exchangeEncryptionKey,
+                queryDataEncoding);
     }
 
     public Optional<String> getSource()
@@ -386,6 +496,7 @@ public final class Session
                         .withConnectorRoles(connectorRoles.buildOrThrow())
                         .build(),
                 originalIdentity,
+                invokerIdentity,
                 source,
                 catalog,
                 schema,
@@ -461,6 +572,7 @@ public final class Session
                 clientTransactionSupport,
                 identity,
                 originalIdentity,
+                invokerIdentity,
                 source,
                 catalog,
                 schema,
@@ -496,6 +608,7 @@ public final class Session
                 clientTransactionSupport,
                 identity,
                 originalIdentity,
+                invokerIdentity,
                 source,
                 catalog,
                 schema,
@@ -530,6 +643,7 @@ public final class Session
                 clientTransactionSupport,
                 identity,
                 originalIdentity,
+                invokerIdentity,
                 source,
                 catalog,
                 schema,
@@ -686,6 +800,18 @@ public final class Session
 
     public Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, SqlPath sqlPath)
     {
+        return createViewSessionBuilder(catalog, schema, identity, sqlPath).build();
+    }
+
+    public Session createViewSessionKeepingInvokerIdentity(Optional<String> catalog, Optional<String> schema, Identity identity, List<CatalogSchemaName> viewPath)
+    {
+        return createViewSessionBuilder(catalog, schema, identity, path.forView(viewPath))
+                .setInvokerIdentity(getInvokerIdentity())
+                .build();
+    }
+
+    private SessionBuilder createViewSessionBuilder(Optional<String> catalog, Optional<String> schema, Identity identity, SqlPath sqlPath)
+    {
         return builder(sessionPropertyManager)
                 .setQueryId(getQueryId())
                 .setTransactionId(getTransactionId().orElse(null))
@@ -701,8 +827,7 @@ public final class Session
                 .setUserAgent(getUserAgent().orElse(null))
                 .setClientInfo(getClientInfo().orElse(null))
                 .setTraceToken(getTraceToken())
-                .setStart(getStart())
-                .build();
+                .setStart(getStart());
     }
 
     public static SessionBuilder builder(SessionPropertyManager sessionPropertyManager)
@@ -729,6 +854,7 @@ public final class Session
         private boolean clientTransactionSupport;
         private Identity identity;
         private Identity originalIdentity;
+        private Identity invokerIdentity;
         private String source;
         private String catalog;
         private String schema;
@@ -767,6 +893,7 @@ public final class Session
             this.clientTransactionSupport = session.clientTransactionSupport;
             this.identity = session.identity;
             this.originalIdentity = session.originalIdentity;
+            this.invokerIdentity = session.invokerIdentity.orElse(null);
             this.source = session.source.orElse(null);
             this.catalog = session.catalog.orElse(null);
             this.path = session.path;
@@ -933,6 +1060,13 @@ public final class Session
         }
 
         @CanIgnoreReturnValue
+        public SessionBuilder setInvokerIdentity(Identity invokerIdentity)
+        {
+            this.invokerIdentity = invokerIdentity;
+            return this;
+        }
+
+        @CanIgnoreReturnValue
         public SessionBuilder setUserAgent(String userAgent)
         {
             this.userAgent = userAgent;
@@ -1038,6 +1172,7 @@ public final class Session
                     clientTransactionSupport,
                     identity,
                     originalIdentity,
+                    Optional.ofNullable(invokerIdentity),
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),

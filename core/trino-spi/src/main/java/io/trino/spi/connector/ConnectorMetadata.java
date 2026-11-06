@@ -118,6 +118,26 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Returns a table handle for the specified table name and version, or {@code null} if {@code tableName} relation does not exist
+     * or is not a table (e.g. is a view, or a materialized view).
+     *
+     * @param referencingViews views the table is resolved through, outermost first, with their security mode; empty if referenced directly, may include other catalogs
+     * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
+     *         cannot be queried.
+     * @see #getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional)
+     */
+    @Nullable
+    default ConnectorTableHandle getTableHandle(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            Optional<ConnectorTableVersion> startVersion,
+            Optional<ConnectorTableVersion> endVersion,
+            List<ReferencingView> referencingViews)
+    {
+        return getTableHandle(session, tableName, startVersion, endVersion);
+    }
+
+    /**
      * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
      * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
      * <p>
@@ -437,7 +457,7 @@ public interface ConnectorMetadata
                         return RelationCommentMetadata.forRedirectedTable(tableName);
                     }
                     try {
-                        ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+                        ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty(), List.of());
                         if (tableHandle == null) {
                             // disappeared during listing
                             return null;
@@ -1041,6 +1061,27 @@ public interface ConnectorMetadata
     default Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Whether the connector applies the security mode of views itself. If so, {@code getTableHandle} and {@code getView}
+     * receive the identity of the user running the query, not the owner of a SECURITY DEFINER view.
+     */
+    default boolean managesViewSecurity()
+    {
+        return false;
+    }
+
+    /**
+     * Gets the view data for the specified view name. Returns {@link Optional#empty()} if {@code viewName}
+     * relation does not or is not a view (e.g. is a table, or a materialized view).
+     *
+     * @param referencingViews views the view is resolved through, outermost first, with their security mode; empty if referenced directly, may include other catalogs
+     * @see #getView(ConnectorSession, SchemaTableName)
+     */
+    default Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName, List<ReferencingView> referencingViews)
+    {
+        return getView(session, viewName);
     }
 
     /**

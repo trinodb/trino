@@ -32,6 +32,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -57,6 +58,7 @@ public class TestLakehouseMetadata
                     .add(ConnectorMetadata.class.getMethod("applyTableScanRedirect", ConnectorSession.class, ConnectorTableHandle.class))
                     .add(ConnectorMetadata.class.getMethod("redirectTable", ConnectorSession.class, SchemaTableName.class))
                     .add(ConnectorMetadata.class.getMethod("getMaxWriterTasks", ConnectorSession.class))
+                    .add(ConnectorMetadata.class.getMethod("getView", ConnectorSession.class, SchemaTableName.class, List.class))
                     .add(ConnectorMetadata.class.getMethod("createBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class, Optional.class, SaveMode.class, Map.class))
                     .add(ConnectorMetadata.class.getMethod("dropBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class))
                     .add(ConnectorMetadata.class.getMethod("fastForwardBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class, String.class))
@@ -66,6 +68,7 @@ public class TestLakehouseMetadata
                     .add(ConnectorMetadata.class.getMethod("denyTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class))
                     .add(ConnectorMetadata.class.getMethod("revokeTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class, boolean.class))
                     .add(ConnectorMetadata.class.getMethod("createView", ConnectorSession.class, SchemaTableName.class, ConnectorViewDefinition.class, Map.class, SaveMode.class))
+                    .add(ConnectorMetadata.class.getMethod("getTableHandle", ConnectorSession.class, SchemaTableName.class, Optional.class, Optional.class))
                     .build();
         }
         catch (NoSuchMethodException e) {
