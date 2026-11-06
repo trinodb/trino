@@ -113,13 +113,15 @@ public class FlakyTestRetryExtension
                 }
 
                 if (attempt <= MAX_RETRIES) {
-                    try {
-                        SECONDS.sleep(attempt);
-                    }
-                    catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throwable.addSuppressed(e);
-                        throw throwable;
+                    if (!Thread.currentThread().isInterrupted()) {
+                        try {
+                            SECONDS.sleep(attempt);
+                        }
+                        catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throwable.addSuppressed(e);
+                            throw throwable;
+                        }
                     }
                     log.warn(throwable,
                             "Test %s attempt %d failed (issue: %s), retrying...",

@@ -15,10 +15,14 @@ package io.trino.testing.services.junit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class FlakyRetryFixture
 {
     static int attempts;
+    static boolean interruptedRetry;
     static boolean interruptedAfterEach;
 
     @Test
@@ -35,6 +39,16 @@ class FlakyRetryFixture
                 throw new RuntimeException("MATCHING_FAILURE", e);
             }
         }
+        interruptedRetry = Thread.currentThread().isInterrupted();
+    }
+
+    @Test
+    @Timeout(value = 500, unit = MILLISECONDS)
+    @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "MATCHING_FAILURE")
+    void testTimeoutDuringBackoff()
+    {
+        attempts++;
+        throw new RuntimeException("MATCHING_FAILURE");
     }
 
     @AfterEach
