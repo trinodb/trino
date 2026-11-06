@@ -49,6 +49,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.predicate.Preconditions.checkArgument;
+import static io.trino.spi.predicate.Preconditions.checkState;
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.DISCRETE;
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.NON_DISCRETE;
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.UNKNOWN;
@@ -101,9 +103,7 @@ public final class SortedRangeSet
     private SortedRangeSet(Type type, boolean[] inclusive, Block sortedRanges, DiscreteSetMarker discreteSetMarker)
     {
         requireNonNull(type, "type is null");
-        if (!type.isOrderable()) {
-            throw new IllegalArgumentException("Type is not orderable: " + type);
-        }
+        checkArgument(type.isOrderable(), "Type is not orderable: %s", type);
         this.type = type;
         this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
         this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
@@ -114,20 +114,12 @@ public final class SortedRangeSet
 
         requireNonNull(inclusive, "inclusive is null");
         requireNonNull(sortedRanges, "sortedRanges is null");
-        if (inclusive.length % 2 != 0) {
-            throw new IllegalArgumentException("Malformed inclusive markers");
-        }
-        if (inclusive.length != sortedRanges.getPositionCount()) {
-            throw new IllegalArgumentException(format("Size mismatch between inclusive markers and sortedRanges block: %s, %s", inclusive.length, sortedRanges.getPositionCount()));
-        }
+        checkArgument(inclusive.length % 2 == 0, "Malformed inclusive markers");
+        checkArgument(inclusive.length == sortedRanges.getPositionCount(), "Size mismatch between inclusive markers and sortedRanges block: %s, %s", inclusive.length, sortedRanges.getPositionCount());
         for (int position = 0; position < sortedRanges.getPositionCount(); position++) {
             if (sortedRanges.isNull(position)) {
-                if (inclusive[position]) {
-                    throw new IllegalArgumentException("Invalid inclusive marker for null value at position " + position);
-                }
-                if (position != 0 && position != sortedRanges.getPositionCount() - 1) {
-                    throw new IllegalArgumentException(format("Invalid null value at position %s of %s", position, sortedRanges.getPositionCount()));
-                }
+                checkArgument(!inclusive[position], "Invalid inclusive marker for null value at position %s", position);
+                checkArgument(position == 0 || position == sortedRanges.getPositionCount() - 1, "Invalid null value at position %s of %s", position, sortedRanges.getPositionCount());
             }
         }
         this.inclusive = inclusive;
@@ -168,9 +160,7 @@ public final class SortedRangeSet
             @JsonProperty("sortedRanges") Block sortedRanges,
             @JsonProperty("discreteSetMarker") DiscreteSetMarker discreteSetMarker)
     {
-        if (sortedRanges instanceof BlockBuilder) {
-            throw new IllegalArgumentException("sortedRanges must be a block: " + sortedRanges);
-        }
+        checkArgument(!(sortedRanges instanceof BlockBuilder), "sortedRanges must be a block: %s", sortedRanges);
         return new SortedRangeSet(type, inclusive.clone(), sortedRanges, discreteSetMarker);
     }
 
@@ -236,9 +226,7 @@ public final class SortedRangeSet
 
         for (int i = 1; i < indexes.size(); i++) {
             int compare = compareValues(comparisonOperator, block, indexes.get(i - 1), block, indexes.get(i));
-            if (compare > 0) {
-                throw new IllegalStateException("Values not sorted");
-            }
+            checkState(compare <= 0, "Values not sorted");
             if (compare == 0) {
                 // equal, skip
                 continue;
@@ -357,9 +345,7 @@ public final class SortedRangeSet
 
     static SortedRangeSet of(List<Range> rangeList)
     {
-        if (rangeList.isEmpty()) {
-            throw new IllegalArgumentException("cannot use empty rangeList");
-        }
+        checkArgument(!rangeList.isEmpty(), "cannot use empty rangeList");
         return copyOf(rangeList.get(0).getType(), rangeList);
     }
 
@@ -537,9 +523,7 @@ public final class SortedRangeSet
 
     public Range getSpan()
     {
-        if (isNone()) {
-            throw new IllegalStateException("Cannot get span if no ranges exist");
-        }
+        checkState(!isNone(), "Cannot get span if no ranges exist");
         int lastIndex = (getRangeCount() - 1) * 2 + 1;
         return new RangeView(
                 type,
@@ -1388,9 +1372,7 @@ public final class SortedRangeSet
             resultRangeIndex++;
         }
 
-        if (resultRangeIndex * 2 != inclusive.length) {
-            throw new IllegalStateException("Incorrect number of ranges written");
-        }
+        checkState(resultRangeIndex * 2 == inclusive.length, "Incorrect number of ranges written");
 
         return new SortedRangeSet(
                 type,
@@ -1401,9 +1383,7 @@ public final class SortedRangeSet
 
     private SortedRangeSet checkCompatibility(ValueSet other)
     {
-        if (!getType().equals(other.getType())) {
-            throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
-        }
+        checkState(getType().equals(other.getType()), "Mismatched types: %s vs %s", getType(), other.getType());
         if (!(other instanceof SortedRangeSet sortedRangeSet)) {
             throw new IllegalStateException(format("ValueSet is not a SortedRangeSet: %s", other.getClass()));
         }
@@ -1542,9 +1522,7 @@ public final class SortedRangeSet
                 return Optional.empty();
             }
             Iterator<?> iterator = discreteValues.get().iterator();
-            if (!iterator.hasNext()) {
-                throw new IllegalStateException("discreteValues iterator is empty");
-            }
+            checkState(iterator.hasNext(), "discreteValues iterator is empty");
             if (!range.isLowInclusive()) {
                 iterator.next();
             }
@@ -1631,15 +1609,11 @@ public final class SortedRangeSet
         requireNonNull(type, "type is null");
         requireNonNull(unsortedRanges, "unsortedRanges is null");
 
-        if (!type.isOrderable()) {
-            throw new IllegalArgumentException("Type is not orderable: " + type);
-        }
+        checkArgument(type.isOrderable(), "Type is not orderable: %s", type);
 
         List<Range> ranges = new ArrayList<>(unsortedRanges);
         for (Range range : ranges) {
-            if (!type.equals(range.getType())) {
-                throw new IllegalArgumentException(format("Range type %s does not match builder type %s", range.getType(), type));
-            }
+            checkArgument(type.equals(range.getType()), "Range type %s does not match builder type %s", range.getType(), type);
         }
 
         ranges.sort(Range::compareLowBound);
@@ -1695,9 +1669,7 @@ public final class SortedRangeSet
 
     private static void checkNotNaN(Type type, Object value)
     {
-        if (isFloatingPointNaN(type, value)) {
-            throw new IllegalArgumentException("cannot use NaN as range bound");
-        }
+        checkArgument(!isFloatingPointNaN(type, value), "cannot use NaN as range bound");
     }
 
     private static class RangeView
@@ -1784,9 +1756,7 @@ public final class SortedRangeSet
          */
         public Optional<RangeView> tryMergeWithNext(RangeView next)
         {
-            if (this.compareTo(next) > 0) {
-                throw new IllegalArgumentException("next before this");
-            }
+            checkArgument(this.compareTo(next) <= 0, "next before this");
 
             if (this.isHighUnbounded()) {
                 return Optional.of(this);
