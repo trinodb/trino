@@ -53,7 +53,6 @@ import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.invoke.MethodType.methodType;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -525,7 +524,7 @@ public class RowType
                 MethodHandle equalOperator = typeOperators.getEqualOperator(field.getType(), simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
                 equalOperators.add(equalOperator);
             }
-            return singletonList(new OperatorMethodHandle(EQUAL_CONVENTION, EQUAL.bindTo(equalOperators)));
+            return List.of(new OperatorMethodHandle(EQUAL_CONVENTION, EQUAL.bindTo(equalOperators)));
         }
 
         // (SqlRow, SqlRow):Boolean
@@ -547,7 +546,7 @@ public class RowType
             // (SqlRow, SqlRow):Boolean
             equal = permuteArguments(equal, methodType(Boolean.class, SqlRow.class, SqlRow.class), 0, 1, 0, 1);
         }
-        return singletonList(new OperatorMethodHandle(EQUAL_CONVENTION, equal));
+        return List.of(new OperatorMethodHandle(EQUAL_CONVENTION, equal));
     }
 
     private static Boolean megamorphicEqualOperator(List<MethodHandle> equalOperators, SqlRow leftRow, SqlRow rightRow)
@@ -626,7 +625,7 @@ public class RowType
             List<MethodHandle> hashCodeOperators = fields.stream()
                     .map(field -> getHashOperator.apply(field.getType()))
                     .toList();
-            return singletonList(new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(hashCodeOperators)));
+            return List.of(new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(hashCodeOperators)));
         }
 
         // (SqlRow):long
@@ -648,7 +647,7 @@ public class RowType
             // (SqlRow):long
             hashCode = permuteArguments(hashCode, methodType(long.class, SqlRow.class), 0, 0);
         }
-        return singletonList(new OperatorMethodHandle(HASH_CODE_CONVENTION, hashCode));
+        return List.of(new OperatorMethodHandle(HASH_CODE_CONVENTION, hashCode));
     }
 
     private static long megamorphicHashCodeOperator(List<MethodHandle> hashCodeOperators, SqlRow row)
@@ -694,7 +693,7 @@ public class RowType
             List<MethodHandle> identicalOperators = fields.stream()
                     .map(field -> typeOperators.getIdenticalOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)))
                     .toList();
-            return singletonList(new OperatorMethodHandle(IDENTICAL_CONVENTION, IDENTICAL.bindTo(identicalOperators)));
+            return List.of(new OperatorMethodHandle(IDENTICAL_CONVENTION, IDENTICAL.bindTo(identicalOperators)));
         }
 
         // (SqlRow, SqlRow):boolean
@@ -718,7 +717,7 @@ public class RowType
         }
         identical = CHAIN_IDENTICAL_START.bindTo(identical);
 
-        return singletonList(new OperatorMethodHandle(IDENTICAL_CONVENTION, identical));
+        return List.of(new OperatorMethodHandle(IDENTICAL_CONVENTION, identical));
     }
 
     private static boolean megamorphicIdenticalOperator(List<MethodHandle> identicalOperators, SqlRow leftRow, SqlRow rightRow)
@@ -783,7 +782,7 @@ public class RowType
             List<MethodHandle> indeterminateOperators = fields.stream()
                     .map(field -> typeOperators.getIndeterminateOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)))
                     .toList();
-            return singletonList(new OperatorMethodHandle(INDETERMINATE_CONVENTION, INDETERMINATE.bindTo(indeterminateOperators)));
+            return List.of(new OperatorMethodHandle(INDETERMINATE_CONVENTION, INDETERMINATE.bindTo(indeterminateOperators)));
         }
 
         // (SqlRow):long
@@ -805,7 +804,7 @@ public class RowType
             // (SqlRow):boolean
             indeterminate = permuteArguments(indeterminate, methodType(boolean.class, SqlRow.class), 0, 0);
         }
-        return singletonList(new OperatorMethodHandle(INDETERMINATE_CONVENTION, indeterminate));
+        return List.of(new OperatorMethodHandle(INDETERMINATE_CONVENTION, indeterminate));
     }
 
     private static boolean megamorphicIndeterminateOperator(List<MethodHandle> indeterminateOperators, SqlRow row)
@@ -860,7 +859,7 @@ public class RowType
 
         // for large rows, use a generic loop with a megamorphic call site
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
-            return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, insertArguments(COMPARISON, 0, nullsFirst, comparisonOperators)));
+            return List.of(new OperatorMethodHandle(COMPARISON_CONVENTION, insertArguments(COMPARISON, 0, nullsFirst, comparisonOperators)));
         }
 
         // (SqlRow, SqlRow):long
@@ -875,7 +874,7 @@ public class RowType
             // (SqlRow, SqlRow):long
             comparison = permuteArguments(comparison, methodType(long.class, SqlRow.class, SqlRow.class), 0, 1, 0, 1);
         }
-        return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, comparison));
+        return List.of(new OperatorMethodHandle(COMPARISON_CONVENTION, comparison));
     }
 
     private static long megamorphicComparisonOperator(boolean nullsFirst, List<MethodHandle> comparisonOperators, SqlRow leftRow, SqlRow rightRow)
@@ -958,7 +957,7 @@ public class RowType
 
         // for large rows, use a generic loop with a megamorphic call site
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
-            return singletonList(new OperatorMethodHandle(LESS_THAN_CONVENTION, insertArguments(LESS_THAN, 0, orEqual, equalOperators, lessThanOperators)));
+            return List.of(new OperatorMethodHandle(LESS_THAN_CONVENTION, insertArguments(LESS_THAN, 0, orEqual, equalOperators, lessThanOperators)));
         }
 
         // (SqlRow, SqlRow):int
@@ -975,7 +974,7 @@ public class RowType
         }
         // (SqlRow, SqlRow):Boolean
         MethodHandle lessThanResult = filterReturnValue(lessThan, insertArguments(LESS_THAN_RESULT, 0, orEqual));
-        return singletonList(new OperatorMethodHandle(LESS_THAN_CONVENTION, lessThanResult));
+        return List.of(new OperatorMethodHandle(LESS_THAN_CONVENTION, lessThanResult));
     }
 
     private static Boolean megamorphicLessThanOperator(boolean orEqual, List<MethodHandle> equalOperators, List<MethodHandle> lessThanOperators, SqlRow leftRow, SqlRow rightRow)

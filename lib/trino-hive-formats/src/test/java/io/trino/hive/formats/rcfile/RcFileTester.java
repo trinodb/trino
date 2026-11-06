@@ -69,7 +69,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -248,7 +247,7 @@ public class RcFileTester
             Iterable<Object> simpleStructs = transform(insertNullEvery(5, writeValues), RcFileTester::toHiveStruct);
             testRoundTripType(
                     RowType.from(ImmutableList.of(RowType.field("field", createRowType(type)))),
-                    transform(simpleStructs, Collections::singletonList),
+                    transform(simpleStructs, ImmutableList::of),
                     skipFormatsSet);
         }
 

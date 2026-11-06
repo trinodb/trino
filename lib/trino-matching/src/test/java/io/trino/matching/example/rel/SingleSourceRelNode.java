@@ -15,8 +15,6 @@ package io.trino.matching.example.rel;
 
 import java.util.List;
 
-import static java.util.Collections.singletonList;
-
 public interface SingleSourceRelNode
         extends RelNode
 {
@@ -25,6 +23,6 @@ public interface SingleSourceRelNode
     @Override
     default List<RelNode> getSources()
     {
-        return singletonList(getSource());
+        return List.of(getSource());
     }
 }

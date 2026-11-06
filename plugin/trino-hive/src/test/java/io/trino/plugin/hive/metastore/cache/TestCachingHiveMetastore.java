@@ -57,7 +57,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1072,7 +1071,7 @@ public class TestCachingHiveMetastore
                 new AcidTransactionOwner("test"),
                 "queryId",
                 5,
-                Collections.singletonList(new SchemaTableName("test", "test")),
+                ImmutableList.of(new SchemaTableName("test", "test")),
                 ImmutableList.of());
     }
 
