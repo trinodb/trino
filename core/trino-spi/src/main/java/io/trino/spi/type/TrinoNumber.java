@@ -73,7 +73,7 @@ public class TrinoNumber
 
     private final Slice bytes;
 
-    public TrinoNumber(Slice bytes)
+    TrinoNumber(Slice bytes)
     {
         switch (bytes.length()) {
             case 0, 1 -> throw new IllegalArgumentException("Invalid bytes length for TrinoNumber: " + bytes.length());
