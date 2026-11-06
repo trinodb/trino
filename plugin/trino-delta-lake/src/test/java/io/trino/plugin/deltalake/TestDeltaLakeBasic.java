@@ -2043,7 +2043,7 @@ public class TestDeltaLakeBasic
         assertThat(protocolEntryByAddColumn.minReaderVersion()).isEqualTo(3);
         assertThat(protocolEntryByAddColumn.minWriterVersion()).isEqualTo(7);
         assertThat(protocolEntryByAddColumn.readerFeatures()).hasValue(ImmutableSet.of("timestampNtz"));
-        assertThat(protocolEntryByAddColumn.writerFeatures()).hasValue(ImmutableSet.of("timestampNtz"));
+        assertThat(protocolEntryByAddColumn.writerFeatures()).hasValue(ImmutableSet.of("timestampNtz", "appendOnly", "invariants"));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -2124,6 +2124,28 @@ public class TestDeltaLakeBasic
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 2), (2, 4)");
     }
 
+    /**
+     * @see deltalake.invariants
+     */
+    @Test
+    public void testColumnInvariantsAfterProtocolUpgrade()
+            throws Exception
+    {
+        String tableName = "test_column_invariants_after_protocol_upgrade_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/invariants").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN ts timestamp(6)");
+        ProtocolEntry protocolEntry = getEntriesFromJson(2, tableLocation.resolve("_delta_log").toString()).get(1).getProtocol();
+        assertThat(protocolEntry.minWriterVersion()).isEqualTo(7);
+        assertThat(protocolEntry.writerFeatures()).hasValueSatisfying(features -> assertThat(features).contains("invariants"));
+
+        assertQueryFails("INSERT INTO " + tableName + " VALUES (3, NULL)", "\\QCheck constraint violation: (\"dummy\" < 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL)", 1);
+        assertQuery("SELECT dummy FROM " + tableName, "VALUES 1, 2");
+    }
+
     private void testWritesToTableFails(String resourcePath, String expectedMessage)
             throws Exception
     {
@@ -2155,14 +2177,8 @@ public class TestDeltaLakeBasic
         assertUpdate("MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 4)");
         assertUpdate("DELETE FROM " + tableName, 1);
-
-        // Replacing the table would interfere with writer features, so these still fail
-        assertQueryFails(
-                "CREATE OR REPLACE TABLE " + tableName + " (a int, b int)",
-                "\\QUnsupported writer features: [identityColumns]");
-        assertQueryFails(
-                "CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 a, 2 b",
-                "\\QUnsupported writer features: [identityColumns]");
+        assertUpdate("CREATE OR REPLACE TABLE " + tableName + " (a int, b int)");
+        assertUpdate("CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 a, 2 b", 1);
     }
 
     /**

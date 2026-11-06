@@ -13,14 +13,18 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.slice.SizeOf;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.primitives.Ints.max;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -33,9 +37,14 @@ import static io.trino.plugin.deltalake.DeltaLakeMetadata.DELETION_VECTORS_SUPPO
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DELETION_VECTORS_SUPPORTED_WRITER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.TIMESTAMP_NTZ_SUPPORTED_READER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.APPEND_ONLY_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.CHANGE_DATA_FEED_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.CHECK_CONSTRAINTS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.COLUMN_MAPPING_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.DELETION_VECTORS_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.GENERATED_COLUMNS_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.IDENTITY_COLUMNS_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.INVARIANTS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.MIN_VERSION_SUPPORTS_READER_FEATURES;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.MIN_VERSION_SUPPORTS_WRITER_FEATURES;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.TIMESTAMP_NTZ_FEATURE_NAME;
@@ -50,6 +59,19 @@ public record ProtocolEntry(
 {
     private static final Logger log = Logger.get(ProtocolEntry.class);
     private static final int INSTANCE_SIZE = instanceSize(ProtocolEntry.class);
+
+    // Features implicitly supported by legacy protocol versions, which must be listed when upgrading a table to use table features.
+    // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#writer-version-requirements
+    // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#reader-version-requirements
+    // Reference implementation: https://github.com/delta-io/delta/blob/master/spark/src/main/scala/org/apache/spark/sql/delta/actions/TableFeatureSupport.scala
+    private static final List<LegacyFeature> LEGACY_FEATURES = ImmutableList.of(
+            new LegacyFeature(APPEND_ONLY_FEATURE_NAME, OptionalInt.empty(), OptionalInt.of(2)),
+            new LegacyFeature(INVARIANTS_FEATURE_NAME, OptionalInt.empty(), OptionalInt.of(2)),
+            new LegacyFeature(CHECK_CONSTRAINTS_FEATURE_NAME, OptionalInt.empty(), OptionalInt.of(3)),
+            new LegacyFeature(CHANGE_DATA_FEED_FEATURE_NAME, OptionalInt.empty(), OptionalInt.of(CDF_SUPPORTED_WRITER_VERSION)),
+            new LegacyFeature(GENERATED_COLUMNS_FEATURE_NAME, OptionalInt.empty(), OptionalInt.of(4)),
+            new LegacyFeature(COLUMN_MAPPING_FEATURE_NAME, OptionalInt.of(COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION), OptionalInt.of(COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION)),
+            new LegacyFeature(IDENTITY_COLUMNS_FEATURE_NAME, OptionalInt.empty(), OptionalInt.of(6)));
 
     public ProtocolEntry
     {
@@ -116,12 +138,31 @@ public record ProtocolEntry(
 
     public static Builder builder(ProtocolEntry protocolEntry)
     {
-        return new Builder(protocolEntry.minReaderVersion, protocolEntry.minWriterVersion, protocolEntry.readerFeatures, protocolEntry.writerFeatures);
+        return new Builder(
+                protocolEntry.minReaderVersion,
+                protocolEntry.minWriterVersion,
+                protocolEntry.readerFeatures,
+                protocolEntry.writerFeatures,
+                impliedWriterFeatures(protocolEntry.minReaderVersion, protocolEntry.minWriterVersion));
     }
 
     public static Builder builder(int readerVersion, int writerVersion)
     {
-        return new Builder(readerVersion, writerVersion, Optional.empty(), Optional.empty());
+        return new Builder(readerVersion, writerVersion, Optional.empty(), Optional.empty(), ImmutableSet.of());
+    }
+
+    private static Set<String> impliedWriterFeatures(int readerVersion, int writerVersion)
+    {
+        if (writerVersion >= MIN_VERSION_SUPPORTS_WRITER_FEATURES) {
+            return ImmutableSet.of();
+        }
+
+        return LEGACY_FEATURES.stream()
+                .filter(feature -> feature.minWriterVersion().isPresent()
+                        && writerVersion >= feature.minWriterVersion().orElseThrow()
+                        && readerVersion >= feature.minReaderVersion().orElse(0))
+                .map(LegacyFeature::name)
+                .collect(toImmutableSet());
     }
 
     public static class Builder
@@ -130,13 +171,20 @@ public record ProtocolEntry(
         private int writerVersion;
         private final Set<String> readerFeatures = new HashSet<>();
         private final Set<String> writerFeatures = new HashSet<>();
+        private final Set<String> impliedWriterFeatures;
 
-        private Builder(int readerVersion, int writerVersion, Optional<Set<String>> readerFeatures, Optional<Set<String>> writerFeatures)
+        private Builder(
+                int readerVersion,
+                int writerVersion,
+                Optional<Set<String>> readerFeatures,
+                Optional<Set<String>> writerFeatures,
+                Set<String> impliedWriterFeatures)
         {
             this.readerVersion = readerVersion;
             this.writerVersion = writerVersion;
             requireNonNull(readerFeatures, "readerFeatures is null").ifPresent(this.readerFeatures::addAll);
             requireNonNull(writerFeatures, "writerFeatures is null").ifPresent(this.writerFeatures::addAll);
+            this.impliedWriterFeatures = requireNonNull(impliedWriterFeatures, "impliedWriterFeatures is null");
         }
 
         public Builder enableChangeDataFeed()
@@ -175,6 +223,18 @@ public record ProtocolEntry(
 
         public ProtocolEntry build()
         {
+            writerFeatures.addAll(impliedWriterFeatures);
+
+            // Legacy reader-writer features in writerFeatures must also be listed in readerFeatures
+            // https://github.com/delta-io/delta/blob/07119d9aa22f2e3ab60013ea0ce2538573652410/PROTOCOL.md#L961
+            if (readerVersion >= MIN_VERSION_SUPPORTS_READER_FEATURES) {
+                LEGACY_FEATURES.stream()
+                        .filter(feature -> feature.minReaderVersion().isPresent())
+                        .map(LegacyFeature::name)
+                        .filter(writerFeatures::contains)
+                        .forEach(readerFeatures::add);
+            }
+
             return new ProtocolEntry(
                     readerVersion,
                     writerVersion,
@@ -182,4 +242,6 @@ public record ProtocolEntry(
                     writerVersion < MIN_VERSION_SUPPORTS_WRITER_FEATURES ? Optional.empty() : Optional.of(writerFeatures));
         }
     }
+
+    private record LegacyFeature(String name, OptionalInt minReaderVersion, OptionalInt minWriterVersion) {}
 }
