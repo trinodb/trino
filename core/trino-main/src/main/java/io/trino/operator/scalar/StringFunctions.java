@@ -689,6 +689,15 @@ public final class StringFunctions
         return codePoints;
     }
 
+    @ColumnarScalar
+    @ScalarFunction("lower")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block lowerColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column)
+    {
+        return CaseConversionBlockProjection.toLowerCase(selectedPositions, column);
+    }
+
     @Description("Converts the string to lower case")
     @ScalarFunction(neverFails = true)
     @LiteralParameters("x")
@@ -705,6 +714,15 @@ public final class StringFunctions
     public static Slice charLower(@SqlType("char(x)") Slice slice)
     {
         return lower(slice);
+    }
+
+    @ColumnarScalar
+    @ScalarFunction("upper")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block upperColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column)
+    {
+        return CaseConversionBlockProjection.toUpperCase(selectedPositions, column);
     }
 
     @Description("Converts the string to upper case")
