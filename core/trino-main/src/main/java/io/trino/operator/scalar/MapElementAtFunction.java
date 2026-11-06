@@ -19,6 +19,7 @@ import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ColumnarScalarFunction;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
@@ -27,6 +28,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -97,6 +99,19 @@ public class MapElementAtFunction
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 methodHandle);
+    }
+
+    @Override
+    public Optional<ColumnarScalarFunction> getColumnarScalarFunction(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    {
+        MapType mapType = (MapType) boundSignature.getArgumentType(0);
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
+        if (!MapElementBlockProjection.isSupported(valueType)) {
+            return Optional.empty();
+        }
+        return Optional.of((session, arguments, selectedPositions) ->
+                MapElementBlockProjection.project(session, selectedPositions, arguments.getBlock(0), arguments.getBlock(1), keyType, valueType, null));
     }
 
     @UsedByGeneratedCode

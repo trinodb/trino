@@ -22,6 +22,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ColumnarScalarFunction;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
@@ -33,6 +34,7 @@ import io.trino.spi.type.TypeTemplates;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
@@ -106,6 +108,20 @@ public class MapSubscriptOperator
                 methodHandle);
     }
 
+    @Override
+    public Optional<ColumnarScalarFunction> getColumnarScalarFunction(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    {
+        MapType mapType = (MapType) boundSignature.getArgumentType(0);
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
+        if (!MapElementBlockProjection.isSupported(valueType)) {
+            return Optional.empty();
+        }
+        MissingKeyExceptionFactory missingKeyExceptionFactory = new MissingKeyExceptionFactory(functionDependencies, keyType);
+        return Optional.of((session, arguments, selectedPositions) ->
+                MapElementBlockProjection.project(session, selectedPositions, arguments.getBlock(0), arguments.getBlock(1), keyType, valueType, missingKeyExceptionFactory));
+    }
+
     @UsedByGeneratedCode
     public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, SqlMap sqlMap, boolean key)
     {
@@ -146,7 +162,7 @@ public class MapSubscriptOperator
         return readNativeValue(valueType, sqlMap.getRawValueBlock(), sqlMap.getRawOffset() + index);
     }
 
-    private static class MissingKeyExceptionFactory
+    static class MissingKeyExceptionFactory
     {
         private final MethodHandle castMethod;
 

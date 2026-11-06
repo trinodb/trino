@@ -73,6 +73,7 @@ import java.util.stream.Stream;
 
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
@@ -112,6 +113,10 @@ public class BenchmarkColumnarScalarFunctions
             "cardinality_nulls",
             "concat",
             "concat_nulls",
+            "map_element_at",
+            "map_element_at_bigint",
+            "map_element_at_missing",
+            "map_subscript",
             "row_field",
             "row_constructor",
     })
@@ -176,6 +181,20 @@ public class BenchmarkColumnarScalarFunctions
             expression = new FieldReference(new Reference(inputType, "input"), 2);
             Block rows = createRowBlock();
             pageSupplier = () -> new Page(encode(rows, encoding));
+            layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
+        }
+        else if (function.startsWith("map_element_at") || function.equals("map_subscript")) {
+            Type valueType = function.equals("map_element_at_bigint") ? BIGINT : VARCHAR;
+            inputType = new MapType(VARCHAR, valueType, TYPE_OPERATORS);
+            Constant key = new Constant(VARCHAR, Slices.utf8Slice(function.equals("map_element_at_missing") ? "missing" : "key-3"));
+            expression = call(
+                    function.equals("map_subscript")
+                            ? FUNCTIONS.resolveOperator(SUBSCRIPT, ImmutableList.of(inputType, VARCHAR))
+                            : FUNCTIONS.resolveFunction("element_at", fromTypes(inputType, VARCHAR)),
+                    new Reference(inputType, "input"),
+                    key);
+            Block maps = createStringKeyMapBlock((MapType) inputType);
+            pageSupplier = () -> new Page(encode(maps, encoding));
             layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
         }
         else if (function.equals("concat") || function.equals("concat_nulls")) {
@@ -267,6 +286,26 @@ public class BenchmarkColumnarScalarFunctions
                 for (int element = 0; element < ELEMENTS_PER_VALUE; element++) {
                     BIGINT.writeLong(keyBuilder, value * ELEMENTS_PER_VALUE + element);
                     VARCHAR.writeSlice(valueBuilder, Slices.utf8Slice("value-" + value + "-" + element));
+                }
+            });
+        }
+        return builder.build();
+    }
+
+    private static Block createStringKeyMapBlock(MapType mapType)
+    {
+        MapBlockBuilder builder = mapType.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            int value = position;
+            builder.buildEntry((keyBuilder, valueBuilder) -> {
+                for (int element = 0; element < ELEMENTS_PER_VALUE; element++) {
+                    VARCHAR.writeSlice(keyBuilder, Slices.utf8Slice("key-" + element));
+                    if (mapType.getValueType() == BIGINT) {
+                        BIGINT.writeLong(valueBuilder, value * ELEMENTS_PER_VALUE + element);
+                    }
+                    else {
+                        VARCHAR.writeSlice(valueBuilder, Slices.utf8Slice("value-" + value + "-" + element));
+                    }
                 }
             });
         }
@@ -390,7 +429,7 @@ public class BenchmarkColumnarScalarFunctions
     @Test
     public void testBenchmark()
     {
-        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "map_cardinality", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "cardinality", "cardinality_nulls", "concat", "concat_nulls", "row_field", "row_constructor")) {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "map_cardinality", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "element_at_nulls", "element_at_column", "cardinality", "cardinality_nulls", "concat", "concat_nulls", "map_element_at", "map_element_at_bigint", "map_element_at_missing", "map_subscript", "row_field", "row_constructor")) {
             for (String encoding : ImmutableList.of("flat", "dictionary", "fresh_dictionary", "rle")) {
                 for (String selection : ImmutableList.of("all", "sparse", "very_sparse")) {
                     this.function = function;
