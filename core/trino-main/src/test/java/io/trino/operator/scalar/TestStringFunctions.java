@@ -2870,4 +2870,28 @@ public class TestStringFunctions
             }
         }
     }
+
+    @Test
+    public void testColumnarTrim()
+    {
+        List<Block> inputs = ImmutableList.of(
+                varcharBlock(position -> position % 7 == 3, position -> switch (position % 5) {
+                    case 0 -> "  value-" + position + " ";
+                    case 1 -> "";
+                    case 2 -> "   ";
+                    // an em space is whitespace that is not ASCII
+                    case 3 -> "\u2003value-" + position + "\u2003";
+                    default -> "value-" + position;
+                }),
+                varcharBlock(position -> position % 7 == 3, position -> "value-" + position),
+                region(VARCHAR, varcharBlock(position -> position % 7 == 3, position -> position % 2 == 0 ? " value-" + position + " " : "value-" + position)),
+                unicodeBlock());
+        for (String function : ImmutableList.of("trim", "ltrim", "rtrim")) {
+            for (Block input : inputs) {
+                COLUMNAR.assertEquivalent(
+                        COLUMNAR.function(function, new Reference(VARCHAR, "input")),
+                        new Input("input", VARCHAR, input));
+            }
+        }
+    }
 }

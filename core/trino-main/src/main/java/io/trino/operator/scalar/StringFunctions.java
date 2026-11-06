@@ -19,6 +19,7 @@ import io.airlift.slice.InvalidUtf8Exception;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.trino.operator.scalar.TrimBlockProjection.Trim;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -534,6 +535,15 @@ public final class StringFunctions
         return null;
     }
 
+    @ColumnarScalar
+    @ScalarFunction("ltrim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block leftTrimColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column)
+    {
+        return TrimBlockProjection.project(selectedPositions, column, Trim.LEFT);
+    }
+
     @Description("Removes whitespace from the beginning of a string")
     @ScalarFunction(value = "ltrim", neverFails = true)
     @LiteralParameters("x")
@@ -553,6 +563,15 @@ public final class StringFunctions
         return SliceUtf8.leftTrim(slice);
     }
 
+    @ColumnarScalar
+    @ScalarFunction("rtrim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block rightTrimColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column)
+    {
+        return TrimBlockProjection.project(selectedPositions, column, Trim.RIGHT);
+    }
+
     @Description("Removes whitespace from the end of a string")
     @ScalarFunction(value = "rtrim", neverFails = true)
     @LiteralParameters("x")
@@ -570,6 +589,15 @@ public final class StringFunctions
     public static Slice charRightTrim(@SqlType("char(x)") Slice slice)
     {
         return rightTrim(slice);
+    }
+
+    @ColumnarScalar
+    @ScalarFunction("trim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block trimColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column)
+    {
+        return TrimBlockProjection.project(selectedPositions, column, Trim.BOTH);
     }
 
     @Description("Removes whitespace from the beginning and end of a string")
