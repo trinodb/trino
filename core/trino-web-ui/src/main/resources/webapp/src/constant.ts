@@ -15,6 +15,9 @@ export enum StoreKey {
     Config = 'app-config',
 }
 
+// Height of the fixed app bar; sticky elements below it offset by this much
+export const APP_BAR_HEIGHT = 43
+
 export const Texts = {
     Auth: {
         Authenticating: 'Authenticating to Trino...',
@@ -49,23 +52,35 @@ export const Texts = {
     },
     Menu: {
         Header: {
-            Themes: 'Themes',
-            Settings: 'Settings',
-            Profile: 'Profile',
+            Home: 'Dashboard',
+            LightMode: 'Switch to light mode',
+            DarkMode: 'Switch to dark mode',
+            Nodes: 'Cluster nodes',
+            HideQueryText: 'Hide query text',
+            ShowQueryText: 'Show query text',
             Logout: 'Logout',
-        },
-        Drawer: {
-            Dashboard: 'Dashboard',
-            Workers: 'Workers',
-            QueryHistory: 'Query history',
-            DemoComponents: 'Demo components',
         },
     },
     QueryList: {
         NoQueries: 'No Queries',
         NoMatchedFilterQueries: 'No queries matched filters',
+        Actions: {
+            Copy: 'Copy query text',
+            Copied: 'Query text copied',
+            CopyFailed: 'Could not copy to the clipboard',
+            Kill: 'Kill query',
+            KillRequested: 'Kill requested',
+            KillConfirmTitle: 'Kill this query?',
+            KillConfirmCancel: 'Cancel',
+            AlreadyDone: 'This query has already finished',
+            Expand: 'Show full query',
+            Collapse: 'Show less',
+        },
         Filter: {
             Search: 'Search',
+            SearchFilters: 'Search filters',
+            MyQueries: 'My queries',
+            AllQueries: 'All',
             SearchPlaceholder:
                 'User, source, query ID, state, resource group, error name, query text, client tags or trace token',
             State: 'State',
@@ -75,8 +90,6 @@ export const Texts = {
                 FINISHED: 'Finished',
             },
 
-            SortBy: 'SortBy',
-            Ordering: 'Ordering',
             ReorderInterval: 'Reorder Interval',
             Limit: 'Limit',
         },

@@ -11,13 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo, useRef } from 'react'
 import { Box, useTheme } from '@mui/material'
 import { SxProps, Theme } from '@mui/material/styles'
 
 export interface CodePreviewProps {
     code: string
     height?: string
+    // Cap on rendered lines, counting soft-wrapped ones; overflow ends in an ellipsis
+    maxLines?: number
+    // Called with true while maxLines hides part of the text
+    onClampedChange?: (clamped: boolean) => void
     sx?: SxProps<Theme>
 }
 
@@ -188,7 +192,8 @@ const DARK_COLORS: Record<Token['type'], string> = {
 }
 
 export const CodePreview = React.memo(function CodePreview(props: CodePreviewProps) {
-    const { code, height, sx } = props
+    const { code, height, maxLines, onClampedChange, sx } = props
+    const clampRef = useRef<HTMLSpanElement>(null)
     const theme = useTheme()
     const isDark = theme.palette.mode === 'dark'
     const colors = isDark ? DARK_COLORS : LIGHT_COLORS
@@ -201,6 +206,23 @@ export const CodePreview = React.memo(function CodePreview(props: CodePreviewPro
             </span>
         ))
     }, [code, colors])
+
+    // Tell the caller whether the line clamp is hiding text; re-checked whenever the box resizes
+    useEffect(() => {
+        if (!onClampedChange) {
+            return
+        }
+        const element = clampRef.current
+        if (!element) {
+            onClampedChange(false)
+            return
+        }
+        const check = () => onClampedChange(element.scrollHeight > element.clientHeight + 1)
+        check()
+        const observer = new ResizeObserver(check)
+        observer.observe(element)
+        return () => observer.disconnect()
+    }, [highlighted, maxLines, onClampedChange])
 
     return (
         <Box
@@ -223,7 +245,23 @@ export const CodePreview = React.memo(function CodePreview(props: CodePreviewPro
                 ...sx,
             }}
         >
-            {highlighted}
+            {maxLines ? (
+                // -webkit-line-clamp counts rendered (wrapped) lines, so the cap holds for long single lines too
+                <Box
+                    ref={clampRef}
+                    component="span"
+                    sx={{
+                        display: '-webkit-box',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: maxLines,
+                        overflow: 'hidden',
+                    }}
+                >
+                    {highlighted}
+                </Box>
+            ) : (
+                highlighted
+            )}
         </Box>
     )
 })

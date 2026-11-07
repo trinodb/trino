@@ -27,6 +27,7 @@ import {
     TableRow,
     Typography,
 } from '@mui/material'
+import { amber, blue, deepOrange, green, indigo, orange, purple, teal } from '@mui/material/colors'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
 import { Texts } from '../constant.ts'
 import { StackInfo, killQueryApi, QueryStage, QueryStages, QueryStatusInfo, Session } from '../api/webapp/api.ts'
@@ -35,6 +36,7 @@ import {
     addToHistory,
     formatCount,
     formatDataSize,
+    formatDurationClock,
     formatShortDateTime,
     getStageNumber,
     parseAndFormatDataSize,
@@ -42,6 +44,7 @@ import {
     parseDuration,
 } from '../utils/utils.ts'
 import { QueryStageCard } from './QueryStageCard'
+import { BreakdownRow } from './BreakdownRow.tsx'
 import { CodeBlock } from './CodeBlock.tsx'
 import { useQueryStatus } from './QueryStatusContext'
 
@@ -84,6 +87,9 @@ const initialDerivedStatus: IDerivedQueryStatus = {
 
     lastRefresh: null,
 }
+
+// Halves the default vertical cell padding; long unbroken values (user names, IDs) wrap instead of widening the page
+const compactTableSx = { '& .MuiTableCell-root': { py: 1, overflowWrap: 'anywhere' } }
 
 export const QueryOverview = () => {
     const { queryStatusInfo, loading, error } = useQueryStatus()
@@ -268,27 +274,176 @@ export const QueryOverview = () => {
 
     const renderSparkLine = (data: number[], numberFormatter: (n: number | null) => string) => {
         return (
-            <Grid container>
-                <Grid size={12} sx={{ textAlign: 'right' }}>
-                    {numberFormatter(data[data.length - 1])}
-                </Grid>
-                <Grid size={12}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ flexGrow: 1, minWidth: 0, height: 20 }}>
                     {data.length > 1 ? (
                         <SparkLineChart
                             data={data}
                             valueFormatter={numberFormatter}
-                            height={53}
+                            height={20}
                             area
                             showHighlight
                             showTooltip
                         />
-                    ) : (
-                        <div />
-                    )}
-                </Grid>
-            </Grid>
+                    ) : null}
+                </Box>
+                <Box sx={{ minWidth: 72, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {numberFormatter(data[data.length - 1])}
+                </Box>
+            </Box>
         )
     }
+
+    // Splits driver time into disjoint segments that sum to scheduled + blocked time. Scheduled time is CPU plus
+    // off-CPU wall on a driver thread; blocked time is spent off-thread waiting on a future. Storage write and output
+    // write come from per-operator stats (table writers and task/partitioned output operators), whose wall and CPU
+    // timings are slices of the same driver timer. Sub-totals are clamped so overlapping sources (read time includes
+    // some CPU, every blocked operator records the same blocked interval) never exceed their parent.
+    const renderTimeBreakdown = (queryStatusInfo: QueryStatusInfo) => {
+        const queryStats = queryStatusInfo.queryStats
+        const operatorTime = (operatorTypes: string[]) => {
+            const time = { cpu: 0, wall: 0, blocked: 0 }
+            for (const stage of queryStatusInfo.stages?.stages ?? []) {
+                for (const operator of stage.stageStats.operatorSummaries ?? []) {
+                    if (operatorTypes.includes(operator.operatorType)) {
+                        time.cpu +=
+                            (parseDuration(operator.addInputCpu) || 0) +
+                            (parseDuration(operator.getOutputCpu) || 0) +
+                            (parseDuration(operator.finishCpu) || 0)
+                        time.wall +=
+                            (parseDuration(operator.addInputWall) || 0) +
+                            (parseDuration(operator.getOutputWall) || 0) +
+                            (parseDuration(operator.finishWall) || 0)
+                        time.blocked += parseDuration(operator.blockedWall) || 0
+                    }
+                }
+            }
+            return time
+        }
+        const writer = operatorTime(['TableWriterOperator', 'MergeWriterOperator', 'TableFinishOperator'])
+        const output = operatorTime(['TaskOutputOperator', 'PartitionedOutputOperator'])
+
+        const cpu = parseDuration(queryStats.totalCpuTime) || 0
+        const writeCpu = Math.min(cpu, writer.cpu)
+        const outputCpu = Math.min(cpu - writeCpu, output.cpu)
+
+        const offCpu = Math.max(0, (parseDuration(queryStats.totalScheduledTime) || 0) - cpu)
+        const storageRead = Math.min(offCpu, parseDuration(queryStats.physicalInputReadTime) || 0)
+        const writeOffCpu = Math.min(offCpu - storageRead, Math.max(0, writer.wall - writer.cpu))
+        const outputOffCpu = Math.min(offCpu - storageRead - writeOffCpu, Math.max(0, output.wall - output.cpu))
+
+        const blocked = parseDuration(queryStats.totalBlockedTime) || 0
+        const inputBlocked = Math.min(blocked, parseDuration(queryStats.inputBlockedTime) || 0)
+        const outputBlocked = Math.min(blocked - inputBlocked, parseDuration(queryStats.outputBlockedTime) || 0)
+        const writeBlocked = Math.min(blocked - inputBlocked - outputBlocked, writer.blocked)
+
+        const segments = [
+            {
+                label: 'CPU',
+                short: 'CPU',
+                description: 'On CPU, outside storage and output writes',
+                color: blue[700],
+                value: cpu - writeCpu - outputCpu,
+            },
+            {
+                label: 'Storage write CPU',
+                description: 'On CPU in table writers: encoding and compressing files, commit',
+                color: blue[400],
+                value: writeCpu,
+            },
+            {
+                label: 'Output write CPU',
+                description: 'On CPU in output operators: serializing pages into output buffers',
+                color: blue[200],
+                value: outputCpu,
+            },
+            {
+                label: 'Storage read',
+                description: 'Off-CPU wall time inside connector reads (storage I/O wait)',
+                color: teal[800],
+                value: storageRead,
+            },
+            {
+                label: 'Storage write',
+                description: 'Off-CPU wall time in table writers (storage I/O wait)',
+                color: teal[600],
+                value: writeOffCpu,
+            },
+            {
+                label: 'Output write',
+                description: 'Off-CPU wall time in output operators',
+                color: teal[400],
+                value: outputOffCpu,
+            },
+            {
+                label: 'Other off-CPU',
+                description: 'Scheduled on a thread but not on CPU, outside reads and writes',
+                color: teal[200],
+                value: offCpu - storageRead - writeOffCpu - outputOffCpu,
+            },
+            {
+                label: 'Input wait',
+                description: 'Blocked waiting for input: upstream stages (exchange), splits or async reads',
+                color: deepOrange[600],
+                value: inputBlocked,
+            },
+            {
+                label: 'Output wait',
+                description: 'Blocked on a full output buffer (downstream backpressure)',
+                color: amber[800],
+                value: outputBlocked,
+            },
+            {
+                label: 'Storage write wait',
+                description: 'Blocked on asynchronous table writes or file commits',
+                color: orange[400],
+                value: writeBlocked,
+            },
+            {
+                label: 'Other blocked',
+                description: 'Blocked inside the pipeline: memory, join build side, local exchange',
+                color: amber[300],
+                value: blocked - inputBlocked - outputBlocked - writeBlocked,
+            },
+        ]
+        return <BreakdownRow label="Time breakdown" segments={segments} formatValue={formatDurationClock} />
+    }
+
+    // Bytes moved over the network, split by traffic type. Each counter is measured at a different operator, so
+    // the segments do not overlap: connector reads at the source scan, exchange input at the receiving
+    // ExchangeOperator, connector writes at the table writer, and client output at the output stage.
+    const renderNetworkBreakdown = (queryStats: QueryStatusInfo['queryStats']) => (
+        <BreakdownRow
+            label="Network breakdown"
+            segments={[
+                {
+                    label: 'Storage read',
+                    description: 'Read by connectors (object storage for Iceberg/Hive)',
+                    color: indigo[400],
+                    value: parseDataSize(queryStats.physicalInputDataSize) || 0,
+                },
+                {
+                    label: 'Exchange',
+                    description: 'Shuffled between tasks of different stages',
+                    color: teal[500],
+                    value: parseDataSize(queryStats.internalNetworkInputDataSize) || 0,
+                },
+                {
+                    label: 'Storage write',
+                    description: 'Written by connectors',
+                    color: purple[400],
+                    value: parseDataSize(queryStats.physicalWrittenDataSize) || 0,
+                },
+                {
+                    label: 'Client output',
+                    description: 'Returned to the client by the output stage',
+                    color: green[600],
+                    value: parseDataSize(queryStats.outputDataSize) || 0,
+                },
+            ]}
+            formatValue={formatDataSize}
+        />
+    )
 
     const renderWarningInfo = () => {
         if (queryStatusInfo?.warnings?.length) {
@@ -300,7 +455,7 @@ export const QueryOverview = () => {
                     </Box>
 
                     <TableContainer>
-                        <Table aria-label="simple table">
+                        <Table aria-label="simple table" sx={compactTableSx}>
                             <TableBody>
                                 {queryStatusInfo.warnings.map((warning) => (
                                     <TableRow>
@@ -328,7 +483,7 @@ export const QueryOverview = () => {
                     </Box>
 
                     <TableContainer>
-                        <Table aria-label="simple table">
+                        <Table aria-label="simple table" sx={compactTableSx}>
                             <TableBody>
                                 <TableRow>
                                     <TableCell sx={{ fontWeight: 'bold' }}>Error type</TableCell>
@@ -454,7 +609,7 @@ export const QueryOverview = () => {
             {!loading && !error && queryStatusInfo && (
                 <Grid container spacing={0}>
                     <Grid size={{ xs: 12 }}>
-                        <Box sx={{ pt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ pt: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                                 <QueryProgressBar queryInfoBase={queryStatusInfo} />
                             </Box>
@@ -484,7 +639,7 @@ export const QueryOverview = () => {
                                 <Divider />
                             </Box>
                             <TableContainer>
-                                <Table aria-label="simple table">
+                                <Table aria-label="simple table" sx={compactTableSx}>
                                     <TableBody>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>User</TableCell>
@@ -545,7 +700,7 @@ export const QueryOverview = () => {
                                 <Divider />
                             </Box>
                             <TableContainer>
-                                <Table aria-label="simple table">
+                                <Table aria-label="simple table" sx={compactTableSx}>
                                     <TableBody>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Resource group</TableCell>
@@ -600,7 +755,7 @@ export const QueryOverview = () => {
                                 <Divider />
                             </Box>
                             <TableContainer>
-                                <Table aria-label="simple table">
+                                <Table aria-label="simple table" sx={compactTableSx}>
                                     <TableBody>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>CPU time</TableCell>
@@ -818,8 +973,10 @@ export const QueryOverview = () => {
                                 <Divider />
                             </Box>
                             <TableContainer>
-                                <Table aria-label="simple table">
+                                <Table aria-label="simple table" sx={compactTableSx}>
                                     <TableBody>
+                                        {renderTimeBreakdown(queryStatusInfo)}
+                                        {renderNetworkBreakdown(queryStatusInfo.queryStats)}
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                                                 Parallelism

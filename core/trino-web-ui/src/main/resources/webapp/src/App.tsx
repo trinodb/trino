@@ -33,7 +33,6 @@ import { useConfigStore, Theme as ThemeStore } from './store'
 import { darkTheme, lightTheme } from './theme'
 import trinoLogo from './assets/trino.svg'
 import { QueryDetails } from './components/QueryDetails'
-import { WorkerStatus } from './components/WorkerStatus'
 import { loader } from '@monaco-editor/react'
 import * as monaco from './monaco'
 
@@ -79,7 +78,6 @@ const Screen = () => {
                 {routers.flatMap((router) => {
                     return [<Route {...router.routeProps} key={router.itemKey} />]
                 })}
-                <Route path="/workers/:nodeId" element={<WorkerStatus />} />
                 <Route path="/queries/:queryId" element={<QueryDetails />} />
                 <Route path="/" element={<Navigate to="/dashboard" />} />
                 <Route path="*" element={<NotFound />} key={'*'} />
