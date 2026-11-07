@@ -373,7 +373,7 @@ public final class StringFunctions
 
         int indexStart = offsetOfCodePoint(utf8, startCodePoint);
         int indexEnd;
-        if (startCodePoint + lengthCodePoints < codePoints) {
+        if ((long) startCodePoint + lengthCodePoints < codePoints) {
             indexEnd = offsetOfCodePoint(utf8, indexStart, lengthCodePoints);
         }
         else {
