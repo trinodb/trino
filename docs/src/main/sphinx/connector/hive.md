@@ -766,6 +766,10 @@ The following procedures are available:
   file system paths to use lowercase (e.g. `col_x=SomeValue`). Partitions on the file system
   not conforming to this convention are ignored, unless the argument is set to `false`.
 
+  The procedure returns the number of partitions added and dropped as rows with
+  the `metric` and `value` columns. The `added_partitions_count` and
+  `dropped_partitions_count` metrics are returned.
+
 - `system.drop_stats(schema_name, table_name, partition_values)`
 
   Drops statistics for a subset of partitions or the entire table. The partitions are specified as an
