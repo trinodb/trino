@@ -19,8 +19,9 @@ import com.google.common.io.Closer;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.mysql.cj.jdbc.MysqlDataSource;
+import com.google.inject.Singleton;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
@@ -117,16 +118,12 @@ public class TestDbSessionPropertyManagerIntegration
     {
         queryRunner.getCoordinator().getSessionPropertyDefaults()
                 .setConfigurationManager("db-test", ImmutableMap.<String, String>builder()
-                        .put("session-property-manager.db.url", mysqlContainer.getJdbcUrl())
-                        .put("session-property-manager.db.username", mysqlContainer.getUsername())
-                        .put("session-property-manager.db.password", mysqlContainer.getPassword())
+                        .put("session-property-manager.config-db-url", mysqlContainer.getJdbcUrl())
+                        .put("session-property-manager.config-db-user", mysqlContainer.getUsername())
+                        .put("session-property-manager.config-db-password", mysqlContainer.getPassword())
                         .buildOrThrow());
 
-        MysqlDataSource dataSource = new MysqlDataSource();
-        dataSource.setURL(mysqlContainer.getJdbcUrl());
-        dataSource.setUser(mysqlContainer.getUsername());
-        dataSource.setPassword(mysqlContainer.getPassword());
-        dao = Jdbi.create(dataSource)
+        dao = Jdbi.create(mysqlContainer.getJdbcUrl(), mysqlContainer.getUsername(), mysqlContainer.getPassword())
                 .installPlugin(new SqlObjectPlugin())
                 .onDemand(SessionPropertiesDao.class);
     }
@@ -215,6 +212,13 @@ public class TestDbSessionPropertyManagerIntegration
             binder.bind(DbSpecsProvider.class).to(TestingDbSpecsProvider.class).in(Scopes.SINGLETON);
             binder.bind(SessionPropertiesDao.class).toProvider(SessionPropertiesDaoProvider.class).in(Scopes.SINGLETON);
             newExporter(binder).export(DbSessionPropertyManager.class).withGeneratedName();
+        }
+
+        @Provides
+        @Singleton
+        public static Jdbi create(DbSessionPropertyManagerConfig config)
+        {
+            return Jdbi.create(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword());
         }
     }
 
