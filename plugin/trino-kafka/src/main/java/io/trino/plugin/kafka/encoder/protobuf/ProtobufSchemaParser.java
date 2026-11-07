@@ -20,11 +20,11 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import io.confluent.kafka.schemaregistry.ParsedSchema;
-import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema;
 import io.trino.decoder.protobuf.ProtobufRowDecoder;
 import io.trino.plugin.kafka.KafkaTopicFieldDescription;
 import io.trino.plugin.kafka.KafkaTopicFieldGroup;
 import io.trino.plugin.kafka.schema.ProtobufAnySupportConfig;
+import io.trino.plugin.kafka.schema.confluent.ConfluentProtobufSchema;
 import io.trino.plugin.kafka.schema.confluent.SchemaParser;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -40,8 +40,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryDynamicMessageProvider.readerSchemaReference;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -71,22 +73,25 @@ public class ProtobufSchemaParser
     }
 
     @Override
-    public KafkaTopicFieldGroup parse(ConnectorSession session, String subject, ParsedSchema parsedSchema)
+    public KafkaTopicFieldGroup parse(ConnectorSession session, String subject, int schemaId, ParsedSchema parsedSchema)
     {
-        ProtobufSchema protobufSchema = (ProtobufSchema) parsedSchema;
+        checkArgument(parsedSchema instanceof ConfluentProtobufSchema, "Unexpected schema type for subject '%s': %s", subject, parsedSchema.schemaType());
+        Descriptor descriptor = ((ConfluentProtobufSchema) parsedSchema).getMessageDescriptor(subject);
+        // the table carries a reference to the message its columns come from, so records are read
+        // with that schema even when a newer version is registered between describing the table
+        // and reading it
         return new KafkaTopicFieldGroup(
                 ProtobufRowDecoder.NAME,
-                Optional.empty(),
+                Optional.of(readerSchemaReference(schemaId, descriptor)),
                 Optional.of(subject),
-                Streams.concat(getFields(protobufSchema.toDescriptor()),
-                                getOneofs(protobufSchema.toDescriptor()))
+                Streams.concat(getFields(descriptor), getOneofs(descriptor))
                         .collect(toImmutableList()));
     }
 
     private Stream<KafkaTopicFieldDescription> getFields(Descriptor descriptor)
     {
-        // Determine oneof fields from the descriptor
-        Set<String> oneofFieldNames = descriptor.getOneofs().stream()
+        // Determine oneof fields from the descriptor; the synthetic oneofs of proto3 optional fields are not oneofs to the user
+        Set<String> oneofFieldNames = descriptor.getRealOneofs().stream()
                 .map(Descriptors.OneofDescriptor::getFields)
                 .flatMap(List::stream)
                 .map(FieldDescriptor::getName)
@@ -108,7 +113,7 @@ public class ProtobufSchemaParser
     private Stream<KafkaTopicFieldDescription> getOneofs(Descriptor descriptor)
     {
         return descriptor
-                .getOneofs()
+                .getRealOneofs()
                 .stream()
                 .map(oneofDescriptor ->
                         new KafkaTopicFieldDescription(

@@ -14,7 +14,6 @@
 package io.trino.decoder.protobuf;
 
 import com.google.protobuf.Descriptors.Descriptor;
-import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.trino.spi.TrinoException;
@@ -46,6 +45,12 @@ public class FixedSchemaDynamicMessageProvider
         }
     }
 
+    @Override
+    public Optional<Descriptor> getReaderDescriptor()
+    {
+        return Optional.of(descriptor);
+    }
+
     public static class Factory
             implements DynamicMessageProvider.Factory
     {
@@ -53,14 +58,9 @@ public class FixedSchemaDynamicMessageProvider
         public DynamicMessageProvider create(Optional<String> protoFile)
         {
             checkState(protoFile.isPresent(), "proto file is missing");
-            try {
-                Descriptor descriptor = ProtobufUtils.getFileDescriptor(protoFile.orElseThrow()).findMessageTypeByName(DEFAULT_MESSAGE);
-                checkState(descriptor != null, "Message %s not found", DEFAULT_MESSAGE);
-                return new FixedSchemaDynamicMessageProvider(descriptor);
-            }
-            catch (DescriptorValidationException descriptorValidationException) {
-                throw new TrinoException(ProtobufErrorCode.INVALID_PROTO_FILE, "Unable to parse protobuf schema", descriptorValidationException);
-            }
+            Descriptor descriptor = ProtobufUtils.getFileDescriptor(protoFile.orElseThrow()).findMessageTypeByName(DEFAULT_MESSAGE);
+            checkState(descriptor != null, "Message %s not found", DEFAULT_MESSAGE);
+            return new FixedSchemaDynamicMessageProvider(descriptor);
         }
     }
 }
