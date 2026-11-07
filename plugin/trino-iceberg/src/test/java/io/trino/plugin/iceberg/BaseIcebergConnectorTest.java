@@ -5224,9 +5224,9 @@ public abstract class BaseIcebergConnectorTest
         assertQuery(session, "SELECT DISTINCT b FROM test_metadata_optimization WHERE b < 7", "VALUES (6)");
         assertQuery(session, "SELECT DISTINCT b FROM test_metadata_optimization WHERE c > 8", "VALUES (9)");
 
-        // Predicates on hidden columns are enforced by the split source, so the optimization must not apply
         assertQuery(session, "SELECT DISTINCT b, c FROM test_metadata_optimization WHERE \"$partition\" = 'b=6/c=7'", "VALUES (6, 7)");
-        assertQuery(session, "SELECT DISTINCT b, c FROM test_metadata_optimization WHERE \"$path\" = (SELECT \"$path\" FROM test_metadata_optimization WHERE a = 5)", "VALUES (6, 7)");
+        String path = (String) computeScalar("SELECT \"$path\" FROM test_metadata_optimization WHERE a = 5");
+        assertQuery(session, "SELECT DISTINCT b, c FROM test_metadata_optimization WHERE \"$path\" = '" + path + "'", "VALUES (6, 7)");
         assertQueryReturnsEmptyResult(session, "SELECT DISTINCT b, c FROM test_metadata_optimization WHERE \"$file_modified_time\" < TIMESTAMP '2000-01-01 00:00:00 UTC'");
 
         // Assert behavior after metadata delete

@@ -264,6 +264,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.size;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.Duration.ZERO;
 import static io.trino.filesystem.Locations.isS3Tables;
 import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
@@ -374,8 +375,10 @@ import static io.trino.plugin.iceberg.IcebergUtil.getFileScanPartitionSpec;
 import static io.trino.plugin.iceberg.IcebergUtil.getHiveCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumns;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
+import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
@@ -1016,19 +1019,21 @@ public class IcebergMetadata
         Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
 
         TupleDomain<IcebergColumnHandle> enforcedPredicate = table.getEnforcedPredicate();
-        // Predicates on hidden columns are enforced by the split source and cannot be applied to a scan
-        boolean hasHiddenColumnPredicate = !enforcedPredicate.filter((column, _) -> isMetadataColumnId(column.getId())).isAll();
+        // Filtering by $file_modified_time needs a file system call per data file, so leave it to the split source
+        boolean hasFileModifiedTimePredicate = !enforcedPredicate.filter((column, _) -> column.isFileModifiedTimeColumn()).isAll();
 
         DiscretePredicates discretePredicates = null;
-        if (!partitionSourceIds.isEmpty() && !hasHiddenColumnPredicate) {
+        if (!partitionSourceIds.isEmpty() && !hasFileModifiedTimePredicate) {
             // Extract identity partition columns
             Map<Integer, IcebergColumnHandle> columns = getProjectedColumns(icebergTable.schema(), typeManager, partitionSourceIds).stream()
                     .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 
             Supplier<Map<StructLikeWrapperWithFieldIdToIndex, PartitionSpec>> lazyUniquePartitions = Suppliers.memoize(() -> {
+                Domain partitionDomain = getPartitionDomain(enforcedPredicate);
+                Domain pathDomain = getPathDomain(enforcedPredicate);
                 TableScan tableScan = icebergTable.newScan()
                         .useSnapshot(table.getSnapshotId().orElseThrow())
-                        .filter(toIcebergExpression(enforcedPredicate))
+                        .filter(toIcebergExpression(enforcedPredicate.filter((column, _) -> !isMetadataColumnId(column.getId()))))
                         .planWith(icebergPlanningExecutor);
 
                 Map<Integer, PartitionSpec> specsById = icebergTable.specs();
@@ -1036,6 +1041,12 @@ public class IcebergMetadata
                     Map<StructLikeWrapperWithFieldIdToIndex, PartitionSpec> partitions = new HashMap<>();
                     for (FileScanTask fileScanTask : fileScanTasks) {
                         PartitionSpec spec = getFileScanPartitionSpec(fileScanTask, specsById);
+                        if (!partitionDomain.isAll() && !partitionDomain.includesNullableValue(utf8Slice(spec.partitionToPath(fileScanTask.file().partition())))) {
+                            continue;
+                        }
+                        if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().location()))) {
+                            continue;
+                        }
                         StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(spec, fileScanTask.file().partition());
                         partitions.putIfAbsent(structLikeWrapperWithFieldIdToIndex, spec);
                     }
