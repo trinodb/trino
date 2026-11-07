@@ -371,8 +371,7 @@ public final class IcebergUtil
         compressionCodec.ifPresent(hiveCompressionCodec -> properties.put(COMPRESSION_CODEC, HiveCompressionOption.valueOf(hiveCompressionCodec.name())));
 
         SortOrder sortOrder = icebergTable.sortOrder();
-        // TODO: Support sort column transforms (https://github.com/trinodb/trino/issues/15088)
-        if (sortOrder.isSorted() && sortOrder.fields().stream().allMatch(sortField -> sortField.transform().isIdentity())) {
+        if (sortOrder.isSorted()) {
             List<String> sortColumnNames = toSortFields(sortOrder);
             properties.put(SORTED_BY_PROPERTY, sortColumnNames);
         }

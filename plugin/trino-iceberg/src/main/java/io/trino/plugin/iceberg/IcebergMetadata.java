@@ -1744,9 +1744,6 @@ public class IcebergMetadata
         }
         ImmutableList.Builder<TrinoSortField> sortFields = ImmutableList.builder();
         for (SortField sortField : sortOrder.fields()) {
-            if (!sortField.transform().isIdentity()) {
-                continue;
-            }
             if (schema.accessorForField(sortField.sourceId()) == null) {
                 continue;
             }
@@ -1755,7 +1752,7 @@ public class IcebergMetadata
         }
 
         List<TrinoSortField> supportedSortFields = sortFields.build();
-        // Trino supports sorting only by identity transforms, so the supported sort fields in Trino may be a subset of the iceberg table sort order.
+        // The supported sort fields in Trino may be a subset of the iceberg table sort order (e.g., if a column was dropped).
         // The writer can populate sort_order_id in the iceberg metadata only when the iceberg table sort order is fully supported by Trino.
         if (supportedSortFields.size() == sortOrder.fields().size()) {
             return new SortFieldInfo(sortOrderId, supportedSortFields);

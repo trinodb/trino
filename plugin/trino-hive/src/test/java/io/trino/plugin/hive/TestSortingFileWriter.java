@@ -54,6 +54,7 @@ public class TestSortingFileWriter
                 ImmutableList.of(ASC_NULLS_FIRST),
                 PAGE_SORTER,
                 new TypeOperators(),
+                ImmutableList.of(),
                 ImmutableList.of());
         long emptyMemoryUsage = writer.getMemoryUsage();
 

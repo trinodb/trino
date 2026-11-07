@@ -39,7 +39,6 @@ import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.LongTimestamp;
@@ -149,7 +148,6 @@ public class IcebergPageSink
     private final List<Type> columnTypes;
     // Per sort field: index path from root struct to the leaf field (e.g. [1, 0] for top.nested)
     private final List<List<Integer>> sortIndexPaths;
-    private final List<SortOrder> sortOrders;
     // Maps column index to top-level types that contain geometry
     private final Map<Integer, org.apache.iceberg.types.Type> columnsWithGeometry;
 
@@ -228,22 +226,18 @@ public class IcebergPageSink
 
         if (sortedWritingEnabled) {
             ImmutableList.Builder<List<Integer>> sortIndexPaths = ImmutableList.builder();
-            ImmutableList.Builder<SortOrder> sortOrders = ImmutableList.builder();
             for (TrinoSortField sortField : sortFields) {
                 if (outputSchema.findField(sortField.sourceColumnId()) == null) {
                     throw new TrinoException(ICEBERG_INVALID_METADATA, "Unable to find sort field source column in the table schema: " + sortField);
                 }
                 List<Integer> nestedFieldIds = getNestedFieldIds(outputSchema.asStruct(), sortField.sourceColumnId());
                 sortIndexPaths.add(getIndexPathToField(outputSchema.asStruct(), nestedFieldIds));
-                sortOrders.add(sortField.sortOrder());
             }
             this.sortIndexPaths = sortIndexPaths.build();
-            this.sortOrders = sortOrders.build();
             this.sortOrderId = sortOrderId;
         }
         else {
             this.sortIndexPaths = ImmutableList.of();
-            this.sortOrders = ImmutableList.of();
             this.sortOrderId = org.apache.iceberg.SortOrder.unsorted().orderId();
         }
     }
@@ -541,7 +535,7 @@ public class IcebergPageSink
                         sortingFileWriterMaxOpenFiles,
                         columnTypes,
                         sortIndexPaths,
-                        sortOrders,
+                        sortFields,
                         pageSorter,
                         typeManager.getTypeOperators());
                 writer = new WriteContext(sortedFileWriter, outputPath, partitionData);
