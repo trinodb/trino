@@ -41,10 +41,14 @@ import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
 
 import java.lang.invoke.MethodHandle;
+import java.util.AbstractSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -60,6 +64,7 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.sql.gen.BytecodeUtils.generateToString;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.createClassInstanceDirect;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateGetInputChannels;
+import static io.trino.sql.gen.columnar.InColumnarFilterGenerator.MAX_SWITCH_CASE_VALUES;
 import static io.trino.sql.gen.columnar.InColumnarFilterGenerator.generateInFilterMethods;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.FastutilSetHelper.toFastutilHashSet;
@@ -85,7 +90,7 @@ public final class InSetDynamicFilterGenerator
         }
         Type valueType = valueReference.type();
         // FastutilSetHelper does not handle indeterminate values in structural types
-        if (valueType instanceof ArrayType || valueType instanceof MapType || valueType instanceof RowType) {
+        if (isStructural(valueType)) {
             return Optional.empty();
         }
         ImmutableSet.Builder<Object> valuesBuilder = ImmutableSet.builder();
@@ -105,12 +110,45 @@ public final class InSetDynamicFilterGenerator
         if (InColumnarFilterGenerator.useSwitchCaseGeneration(valueType, in.valueList())) {
             return Optional.empty();
         }
+        return Optional.of(create(valueReference, values, layout, metadata, charVarcharCoercion, functionManager, typeOperators));
+    }
+
+    // Creates the generator straight from the values of a discrete set, without materializing an IN expression.
+    // The values must be distinct and not null. Returns empty when the values are not eligible for a dynamic
+    // filter, which is the case for the same types and sizes as in tryCreate(In, ...).
+    public static Optional<InSetDynamicFilterGenerator> tryCreate(Reference valueReference, List<Object> distinctNonNullValues, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager, TypeOperators typeOperators)
+    {
+        Type valueType = valueReference.type();
+        if (isStructural(valueType) || distinctNonNullValues.isEmpty()) {
+            return Optional.empty();
+        }
+        // The same condition as in tryCreate(In, ...); only lists shorter than the threshold can use a switch,
+        // so the expression list is built only for them
+        if (distinctNonNullValues.size() < MAX_SWITCH_CASE_VALUES) {
+            List<Expression> constants = distinctNonNullValues.stream()
+                    .map(value -> (Expression) new Constant(valueType, value))
+                    .collect(toImmutableList());
+            if (InColumnarFilterGenerator.useSwitchCaseGeneration(valueType, constants)) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(create(valueReference, new DistinctValues(distinctNonNullValues), layout, metadata, charVarcharCoercion, functionManager, typeOperators));
+    }
+
+    private static boolean isStructural(Type valueType)
+    {
+        return valueType instanceof ArrayType || valueType instanceof MapType || valueType instanceof RowType;
+    }
+
+    private static InSetDynamicFilterGenerator create(Reference valueReference, Set<Object> values, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager, TypeOperators typeOperators)
+    {
+        Type valueType = valueReference.type();
         ResolvedFunction resolvedEquals = metadata.resolveOperator(charVarcharCoercion, EQUAL, ImmutableList.of(valueType, valueType));
         ResolvedFunction resolvedHashCode = metadata.resolveOperator(charVarcharCoercion, HASH_CODE, ImmutableList.of(valueType));
         MethodHandle equalsHandle = functionManager.getScalarFunctionImplementation(resolvedEquals, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle();
         MethodHandle hashCodeHandle = functionManager.getScalarFunctionImplementation(resolvedHashCode, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
         Set<?> valueSet = toFastutilHashSet(values, valueType, hashCodeHandle, equalsHandle);
-        return Optional.of(new InSetDynamicFilterGenerator(valueReference, layout, valueSet, typeOperators));
+        return new InSetDynamicFilterGenerator(valueReference, layout, valueSet, typeOperators);
     }
 
     private InSetDynamicFilterGenerator(Reference valueReference, Map<Symbol, Integer> layout, Set<?> valueSet, TypeOperators typeOperators)
@@ -196,5 +234,30 @@ public final class InSetDynamicFilterGenerator
                 .append(result.set(scope.getThis()
                         .getField(valueSetField)
                         .invoke("contains", boolean.class, element)));
+    }
+
+    // A read-only view of a list of distinct values as a set, which spares hashing the values
+    // that the fastutil set built from them hashes anyway. It is only iterated and measured.
+    private static final class DistinctValues
+            extends AbstractSet<Object>
+    {
+        private final List<Object> values;
+
+        private DistinctValues(List<Object> values)
+        {
+            this.values = requireNonNull(values, "values is null");
+        }
+
+        @Override
+        public Iterator<Object> iterator()
+        {
+            return values.iterator();
+        }
+
+        @Override
+        public int size()
+        {
+            return values.size();
+        }
     }
 }

@@ -97,6 +97,10 @@ import static java.util.Objects.requireNonNull;
 
 public class InColumnarFilterGenerator
 {
+    // Lookup in Set is generally faster than switch case for not super tiny IN lists.
+    // Tipping point is between 5 and 10 (using round 8)
+    static final int MAX_SWITCH_CASE_VALUES = 8;
+
     private final Reference valueReference;
     private final Map<Symbol, Integer> layout;
     private final TypeOperators typeOperators;
@@ -271,9 +275,7 @@ public class InColumnarFilterGenerator
         if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
             throw new UnsupportedOperationException("Structural type not supported");
         }
-        if (values.size() >= 8) {
-            // Lookup in Set is generally faster than switch case for not super tiny IN lists.
-            // Tipping point is between 5 and 10 (using round 8)
+        if (values.size() >= MAX_SWITCH_CASE_VALUES) {
             return false;
         }
 
