@@ -49,6 +49,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.predicate.Preconditions.checkArgument;
+import static io.trino.spi.predicate.Preconditions.checkState;
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.DISCRETE;
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.NON_DISCRETE;
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.UNKNOWN;
@@ -101,9 +103,7 @@ public final class SortedRangeSet
     private SortedRangeSet(Type type, boolean[] inclusive, Block sortedRanges, DiscreteSetMarker discreteSetMarker)
     {
         requireNonNull(type, "type is null");
-        if (!type.isOrderable()) {
-            throw new IllegalArgumentException("Type is not orderable: " + type);
-        }
+        checkArgument(type.isOrderable(), "Type is not orderable: %s", type);
         this.type = type;
         this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
         this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
@@ -114,20 +114,12 @@ public final class SortedRangeSet
 
         requireNonNull(inclusive, "inclusive is null");
         requireNonNull(sortedRanges, "sortedRanges is null");
-        if (inclusive.length % 2 != 0) {
-            throw new IllegalArgumentException("Malformed inclusive markers");
-        }
-        if (inclusive.length != sortedRanges.getPositionCount()) {
-            throw new IllegalArgumentException(format("Size mismatch between inclusive markers and sortedRanges block: %s, %s", inclusive.length, sortedRanges.getPositionCount()));
-        }
+        checkArgument(inclusive.length % 2 == 0, "Malformed inclusive markers");
+        checkArgument(inclusive.length == sortedRanges.getPositionCount(), "Size mismatch between inclusive markers and sortedRanges block: %s, %s", inclusive.length, sortedRanges.getPositionCount());
         for (int position = 0; position < sortedRanges.getPositionCount(); position++) {
             if (sortedRanges.isNull(position)) {
-                if (inclusive[position]) {
-                    throw new IllegalArgumentException("Invalid inclusive marker for null value at position " + position);
-                }
-                if (position != 0 && position != sortedRanges.getPositionCount() - 1) {
-                    throw new IllegalArgumentException(format("Invalid null value at position %s of %s", position, sortedRanges.getPositionCount()));
-                }
+                checkArgument(!inclusive[position], "Invalid inclusive marker for null value at position %s", position);
+                checkArgument(position == 0 || position == sortedRanges.getPositionCount() - 1, "Invalid null value at position %s of %s", position, sortedRanges.getPositionCount());
             }
         }
         this.inclusive = inclusive;
@@ -168,9 +160,7 @@ public final class SortedRangeSet
             @JsonProperty("sortedRanges") Block sortedRanges,
             @JsonProperty("discreteSetMarker") DiscreteSetMarker discreteSetMarker)
     {
-        if (sortedRanges instanceof BlockBuilder) {
-            throw new IllegalArgumentException("sortedRanges must be a block: " + sortedRanges);
-        }
+        checkArgument(!(sortedRanges instanceof BlockBuilder), "sortedRanges must be a block: %s", sortedRanges);
         return new SortedRangeSet(type, inclusive.clone(), sortedRanges, discreteSetMarker);
     }
 
@@ -181,6 +171,24 @@ public final class SortedRangeSet
     {
         if (rest.length == 0) {
             return of(type, first);
+        }
+        if (isDirectLongComparisonValidType(type)) {
+            long[] values = new long[1 + rest.length];
+            values[0] = (long) requireNonNull(first, "value is null");
+            for (int i = 0; i < rest.length; i++) {
+                values[i + 1] = (long) requireNonNull(rest[i], "value is null");
+            }
+            Arrays.sort(values);
+            return fromOrderedLongValues(type, values);
+        }
+        if (isSliceOrderedType(type)) {
+            Slice[] values = new Slice[1 + rest.length];
+            values[0] = (Slice) requireNonNull(first, "value is null");
+            for (int i = 0; i < rest.length; i++) {
+                values[i + 1] = (Slice) requireNonNull(rest[i], "value is null");
+            }
+            Arrays.sort(values);
+            return fromOrderedSliceValues(type, values);
         }
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1 + rest.length);
@@ -200,6 +208,26 @@ public final class SortedRangeSet
         if (values.isEmpty()) {
             return none(type);
         }
+        if (isDirectLongComparisonValidType(type)) {
+            long[] primitiveValues = new long[values.size()];
+            int index = 0;
+            for (Object value : values) {
+                primitiveValues[index] = (long) requireNonNull(value, "value is null");
+                index++;
+            }
+            Arrays.sort(primitiveValues);
+            return fromOrderedLongValues(type, primitiveValues);
+        }
+        if (isSliceOrderedType(type)) {
+            Slice[] sliceValues = new Slice[values.size()];
+            int index = 0;
+            for (Object value : values) {
+                sliceValues[index] = (Slice) requireNonNull(value, "value is null");
+                index++;
+            }
+            Arrays.sort(sliceValues);
+            return fromOrderedSliceValues(type, sliceValues);
+        }
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, values.size());
         for (Object value : values) {
@@ -213,12 +241,8 @@ public final class SortedRangeSet
 
     private static SortedRangeSet fromUnorderedValuesBlock(Type type, Block block)
     {
-        if (isDirectLongComparisonValidType(type)) {
-            return fromUnorderedLongValuesBlock(type, block);
-        }
-        if (isSliceOrderedType(type)) {
-            return fromUnorderedSliceValuesBlock(type, block);
-        }
+        checkArgument(!isDirectLongComparisonValidType(type), "Unexpected type in generic builder: %s", type);
+        checkArgument(!isSliceOrderedType(type), "Unexpected type in generic builder: %s", type);
 
         // choice of placing unordered values first or last does not matter for this code
         MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
@@ -236,9 +260,7 @@ public final class SortedRangeSet
 
         for (int i = 1; i < indexes.size(); i++) {
             int compare = compareValues(comparisonOperator, block, indexes.get(i - 1), block, indexes.get(i));
-            if (compare > 0) {
-                throw new IllegalStateException("Values not sorted");
-            }
+            checkState(compare <= 0, "Values not sorted");
             if (compare == 0) {
                 // equal, skip
                 continue;
@@ -259,14 +281,8 @@ public final class SortedRangeSet
                 DISCRETE);
     }
 
-    private static SortedRangeSet fromUnorderedLongValuesBlock(Type type, Block block)
+    private static SortedRangeSet fromOrderedLongValues(Type type, long[] values)
     {
-        long[] values = new long[block.getPositionCount()];
-        for (int position = 0; position < values.length; position++) {
-            values[position] = type.getLong(block, position);
-        }
-        Arrays.sort(values);
-
         int distinctCount = values.length > 0 ? 1 : 0;
         for (int i = 1; i < values.length; i++) {
             if (values[i] != values[i - 1]) {
@@ -295,11 +311,29 @@ public final class SortedRangeSet
                 DISCRETE);
     }
 
-    private static SortedRangeSet fromSortedDistinctValues(Type type, Block distinctValues)
+    /**
+     * Types whose values order and compare equal exactly like their {@link Slice} values, unlike char.
+     */
+    private static boolean isSliceOrderedType(Type type)
     {
+        return type instanceof VarcharType || type instanceof VarbinaryType || type instanceof UuidType;
+    }
+
+    private static SortedRangeSet fromOrderedSliceValues(Type type, Slice[] values)
+    {
+        BlockBuilder distinctValues = type.createBlockBuilder(null, values.length);
+        int distinctCount = 0;
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0 && values[i].equals(values[i - 1])) {
+                continue;
+            }
+            type.writeSlice(distinctValues, values[i]);
+            distinctCount++;
+        }
+
         // each distinct value is both the low and the high bound of a single value range
-        int[] dictionary = new int[distinctValues.getPositionCount() * 2];
-        for (int i = 0; i < distinctValues.getPositionCount(); i++) {
+        int[] dictionary = new int[distinctCount * 2];
+        for (int i = 0; i < distinctCount; i++) {
             dictionary[2 * i] = i;
             dictionary[2 * i + 1] = i;
         }
@@ -309,35 +343,8 @@ public final class SortedRangeSet
         return new SortedRangeSet(
                 type,
                 inclusive,
-                DictionaryBlock.create(dictionary.length, distinctValues, dictionary),
+                DictionaryBlock.create(dictionary.length, distinctValues.build(), dictionary),
                 DISCRETE);
-    }
-
-    /**
-     * Types whose values order and compare equal exactly like their {@link Slice} values, unlike char.
-     */
-    private static boolean isSliceOrderedType(Type type)
-    {
-        return type instanceof VarcharType || type instanceof VarbinaryType || type instanceof UuidType;
-    }
-
-    private static SortedRangeSet fromUnorderedSliceValuesBlock(Type type, Block block)
-    {
-        Slice[] values = new Slice[block.getPositionCount()];
-        for (int position = 0; position < values.length; position++) {
-            values[position] = type.getSlice(block, position);
-        }
-        Arrays.sort(values);
-
-        BlockBuilder distinctValues = type.createBlockBuilder(null, values.length);
-        for (int i = 0; i < values.length; i++) {
-            if (i > 0 && values[i].equals(values[i - 1])) {
-                continue;
-            }
-            type.writeSlice(distinctValues, values[i]);
-        }
-
-        return fromSortedDistinctValues(type, distinctValues.build());
     }
 
     /**
@@ -357,9 +364,7 @@ public final class SortedRangeSet
 
     static SortedRangeSet of(List<Range> rangeList)
     {
-        if (rangeList.isEmpty()) {
-            throw new IllegalArgumentException("cannot use empty rangeList");
-        }
+        checkArgument(!rangeList.isEmpty(), "cannot use empty rangeList");
         return copyOf(rangeList.get(0).getType(), rangeList);
     }
 
@@ -537,9 +542,7 @@ public final class SortedRangeSet
 
     public Range getSpan()
     {
-        if (isNone()) {
-            throw new IllegalStateException("Cannot get span if no ranges exist");
-        }
+        checkState(!isNone(), "Cannot get span if no ranges exist");
         int lastIndex = (getRangeCount() - 1) * 2 + 1;
         return new RangeView(
                 type,
@@ -1388,9 +1391,7 @@ public final class SortedRangeSet
             resultRangeIndex++;
         }
 
-        if (resultRangeIndex * 2 != inclusive.length) {
-            throw new IllegalStateException("Incorrect number of ranges written");
-        }
+        checkState(resultRangeIndex * 2 == inclusive.length, "Incorrect number of ranges written");
 
         return new SortedRangeSet(
                 type,
@@ -1401,9 +1402,7 @@ public final class SortedRangeSet
 
     private SortedRangeSet checkCompatibility(ValueSet other)
     {
-        if (!getType().equals(other.getType())) {
-            throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
-        }
+        checkState(getType().equals(other.getType()), "Mismatched types: %s vs %s", getType(), other.getType());
         if (!(other instanceof SortedRangeSet sortedRangeSet)) {
             throw new IllegalStateException(format("ValueSet is not a SortedRangeSet: %s", other.getClass()));
         }
@@ -1542,9 +1541,7 @@ public final class SortedRangeSet
                 return Optional.empty();
             }
             Iterator<?> iterator = discreteValues.get().iterator();
-            if (!iterator.hasNext()) {
-                throw new IllegalStateException("discreteValues iterator is empty");
-            }
+            checkState(iterator.hasNext(), "discreteValues iterator is empty");
             if (!range.isLowInclusive()) {
                 iterator.next();
             }
@@ -1631,15 +1628,11 @@ public final class SortedRangeSet
         requireNonNull(type, "type is null");
         requireNonNull(unsortedRanges, "unsortedRanges is null");
 
-        if (!type.isOrderable()) {
-            throw new IllegalArgumentException("Type is not orderable: " + type);
-        }
+        checkArgument(type.isOrderable(), "Type is not orderable: %s", type);
 
         List<Range> ranges = new ArrayList<>(unsortedRanges);
         for (Range range : ranges) {
-            if (!type.equals(range.getType())) {
-                throw new IllegalArgumentException(format("Range type %s does not match builder type %s", range.getType(), type));
-            }
+            checkArgument(type.equals(range.getType()), "Range type %s does not match builder type %s", range.getType(), type);
         }
 
         ranges.sort(Range::compareLowBound);
@@ -1695,9 +1688,7 @@ public final class SortedRangeSet
 
     private static void checkNotNaN(Type type, Object value)
     {
-        if (isFloatingPointNaN(type, value)) {
-            throw new IllegalArgumentException("cannot use NaN as range bound");
-        }
+        checkArgument(!isFloatingPointNaN(type, value), "cannot use NaN as range bound");
     }
 
     private static class RangeView
@@ -1784,9 +1775,7 @@ public final class SortedRangeSet
          */
         public Optional<RangeView> tryMergeWithNext(RangeView next)
         {
-            if (this.compareTo(next) > 0) {
-                throw new IllegalArgumentException("next before this");
-            }
+            checkArgument(this.compareTo(next) <= 0, "next before this");
 
             if (this.isHighUnbounded()) {
                 return Optional.of(this);

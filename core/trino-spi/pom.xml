@@ -285,6 +285,10 @@
                                     <justification>Require a MemoryContext to replace polling through ConnectorPageSource.getMemoryUsage</justification>
                                 </item>
                                 <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method void io.trino.spi.type.TrinoNumber::&lt;init&gt;(io.airlift.slice.Slice)</old>
+                                </item>
+                                <item>
                                     <ignore>true</ignore>
                                     <code>java.method.removed</code>
                                     <old>method boolean io.trino.spi.connector.ConnectorMetadata::delegateMaterializedViewRefreshToConnector(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName)</old>
