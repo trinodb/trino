@@ -34,6 +34,11 @@ public class ForwardingInputFile
         this.inputFile = requireNonNull(inputFile, "inputFile is null");
     }
 
+    public TrinoInputFile inputFile()
+    {
+        return inputFile;
+    }
+
     @Override
     public long getLength()
     {

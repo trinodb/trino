@@ -151,6 +151,19 @@ implementation is used:
     query plan and therefore improve query processing performance. Setting to
     `false` is not recommended and does not disable statistics gathering.
   - `true`
+* - `iceberg.partition-statistics.enabled`
+  - Use [partition statistics files](iceberg-partition-statistics) and the
+    snapshot summary for row count estimates instead of reading the metadata of
+    every data file. The equivalent [catalog session property](/sql/set-session)
+    is `partition_statistics_enabled` for session specific use.
+  - `true`
+* - `iceberg.partition-statistics.min-data-files`
+  - Minimum number of data files a scan would otherwise read metadata for before
+    [partition statistics](iceberg-partition-statistics) are used. Set to `0` to
+    use them whenever a partition statistics file is present. The equivalent
+    [catalog session property](/sql/set-session) is
+    `partition_statistics_min_data_files` for session specific use.
+  - `10000`
 * - `iceberg.extended-statistics.collect-on-write`
   - Enable collection of extended statistics for write operations. The
     equivalent catalog session property is
@@ -2489,6 +2502,41 @@ This query collects statistics for columns `col_1` and `col_2`.
 Note that if statistics were previously collected for all columns, they must be
 dropped using the {ref}`drop_extended_stats <drop-extended-stats>` command
 before re-analyzing.
+
+(iceberg-partition-statistics)=
+#### Partition statistics
+
+If the scanned snapshot of a table has an Iceberg partition statistics file, the
+connector estimates the row count from that file instead of reading the metadata
+of every data file. Such a file is written, for example, by the Spark
+`compute_partition_stats` procedure. Partition statistics files in the Avro and
+Parquet formats are read, and files in other formats, including ORC, are
+ignored.
+
+Without a predicate, the row count comes from the snapshot summary, unless the
+table has format version 3 and the snapshot has position deletes. Otherwise, the
+connector evaluates the predicate for each partition in the partition statistics
+file. Position deletes are subtracted only for tables with format version 3, and
+only for partitions whose position deletes are all deletion vectors. Partition
+statistics files with too many partitions to cache are not used.
+
+In this mode, predicates on columns that are not partition columns do not use
+the minimum and maximum values of each data file to exclude files, so estimates
+for such predicates can be higher than with full metadata reads. Null fractions
+and data sizes are estimated from a sample of at most 1000 data files, and
+minimum and maximum values are not available. Predicates on the `$path` column
+still read the metadata of all data files. The `statistics_enabled` catalog
+session property still disables all statistics.
+
+This behavior is enabled by default and applies when the scan would otherwise
+read the metadata of at least `iceberg.partition-statistics.min-data-files` data
+files, computed from the counts in the manifest list. The default of 10000 is
+close to the point where reading the metadata of every data file costs about as
+much as reading the partition statistics file; below it the full read is cheap
+and keeps column minimum and maximum values. Set the
+`partition_statistics_enabled` catalog session property to `false` to disable
+the behavior for a session, or the minimum to `0` to use a partition statistics
+file whenever it is present.
 
 (iceberg-table-redirection)=
 ### Table redirection
