@@ -610,7 +610,7 @@ public final class IcebergUtil
                 .flatMap(IcebergUtil::primitiveFieldTypes);
     }
 
-    private static Stream<Entry<Integer, PrimitiveType>> primitiveFieldTypes(NestedField nestedField)
+    static Stream<Entry<Integer, PrimitiveType>> primitiveFieldTypes(NestedField nestedField)
     {
         org.apache.iceberg.types.Type fieldType = nestedField.type();
         if (fieldType.isPrimitiveType()) {
