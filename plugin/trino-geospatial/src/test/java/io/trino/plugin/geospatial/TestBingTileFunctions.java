@@ -42,7 +42,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -725,9 +724,9 @@ public class TestBingTileFunctions
                 .isEqualTo(ImmutableList.of("1230301230", "1230301231"));
 
         // Empty geometries
-        assertGeometryToBingTiles("POINT EMPTY", 10, emptyList());
-        assertGeometryToBingTiles("POLYGON EMPTY", 10, emptyList());
-        assertGeometryToBingTiles("GEOMETRYCOLLECTION EMPTY", 10, emptyList());
+        assertGeometryToBingTiles("POINT EMPTY", 10, ImmutableList.of());
+        assertGeometryToBingTiles("POLYGON EMPTY", 10, ImmutableList.of());
+        assertGeometryToBingTiles("GEOMETRYCOLLECTION EMPTY", 10, ImmutableList.of());
 
         // Invalid input
         // Longitude out of range

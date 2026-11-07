@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -21,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -44,7 +44,7 @@ public class TestOAuth2Config
                 .setScopes(ImmutableSet.of("openid"))
                 .setChallengeTimeout(new Duration(15, MINUTES))
                 .setPrincipalField("sub")
-                .setAdditionalAudiences(Collections.emptyList())
+                .setAdditionalAudiences(ImmutableList.of())
                 .setRequireAudience(false)
                 .setMaxClockSkew(new Duration(1, MINUTES))
                 .setJwtType(null)

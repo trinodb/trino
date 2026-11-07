@@ -112,7 +112,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.joining;
@@ -186,8 +185,8 @@ public class TestOpenxJsonFormat
         assertExactLine(columns, Arrays.asList(null, Arrays.asList(true, null), null), "{\"b\":{\"x\":true}}", DEFAULT_OPEN_X_JSON_OPTIONS);
         assertExactLine(columns, Arrays.asList(null, Arrays.asList(true, null), null), "{\"a\":null,\"b\":{\"x\":true,\"y\":null},\"c\":null}", explicitNulls);
         // empty map
-        assertExactLine(columns, Arrays.asList(null, null, emptyMap()), "{\"c\":{}}", DEFAULT_OPEN_X_JSON_OPTIONS);
-        assertExactLine(columns, Arrays.asList(null, null, emptyMap()), "{\"a\":null,\"b\":null,\"c\":{}}", explicitNulls);
+        assertExactLine(columns, Arrays.asList(null, null, ImmutableMap.of()), "{\"c\":{}}", DEFAULT_OPEN_X_JSON_OPTIONS);
+        assertExactLine(columns, Arrays.asList(null, null, ImmutableMap.of()), "{\"a\":null,\"b\":null,\"c\":{}}", explicitNulls);
         // map with null value (Starburst does not write null values)
         assertThat(writeTrinoLine(columns, Arrays.asList(null, null, singletonMap(42L, null)), DEFAULT_OPEN_X_JSON_OPTIONS))
                 .isEqualTo("{\"c\":{\"42\":null}}");
@@ -207,15 +206,15 @@ public class TestOpenxJsonFormat
         assertValue(VARCHAR, "{\"FOO\":42,\"FoO\":42}", "{\"FOO\":42,\"FoO\":42}", caseSensitive, false);
 
         // top level column
-        assertLine(ImmutableList.of(new Column("foo", BOOLEAN, 0)), "{\"FoO\":true}", singletonList(true), DEFAULT_OPEN_X_JSON_OPTIONS);
+        assertLine(ImmutableList.of(new Column("foo", BOOLEAN, 0)), "{\"FoO\":true}", ImmutableList.of(true), DEFAULT_OPEN_X_JSON_OPTIONS);
         assertLine(ImmutableList.of(new Column("foo", BOOLEAN, 0)), "{\"FoO\":true}", singletonList(null), caseSensitive);
 
         // row value
-        assertValue(rowType(field("a", rowType(field("foo", BOOLEAN)))), "{\"a\":{\"FoO\":true}}", singletonList(singletonList(true)), DEFAULT_OPEN_X_JSON_OPTIONS, false);
-        assertValue(rowType(field("a", rowType(field("foo", BOOLEAN)))), "{\"a\":{\"FoO\":true}}", singletonList(singletonList(null)), caseSensitive, false);
+        assertValue(rowType(field("a", rowType(field("foo", BOOLEAN)))), "{\"a\":{\"FoO\":true}}", List.of(List.of(true)), DEFAULT_OPEN_X_JSON_OPTIONS, false);
+        assertValue(rowType(field("a", rowType(field("foo", BOOLEAN)))), "{\"a\":{\"FoO\":true}}", List.of(singletonList(null)), caseSensitive, false);
 
         // multiple levels
-        assertValue(rowType(field("a", rowType(field("foo", BOOLEAN)))), "{\"A\":{\"FoO\":true}}", singletonList(singletonList(true)), DEFAULT_OPEN_X_JSON_OPTIONS, false);
+        assertValue(rowType(field("a", rowType(field("foo", BOOLEAN)))), "{\"A\":{\"FoO\":true}}", List.of(List.of(true)), DEFAULT_OPEN_X_JSON_OPTIONS, false);
         assertValue(rowType(field("a", rowType(field("foo", BOOLEAN)))), "{\"A\":{\"FoO\":true}}", singletonList(null), caseSensitive, false);
     }
 
@@ -226,28 +225,28 @@ public class TestOpenxJsonFormat
 
         // top level column
         assertLine(ImmutableList.of(new Column("a_b", BIGINT, 0)), "{\"a.b\":42}", singletonList(null), DEFAULT_OPEN_X_JSON_OPTIONS);
-        assertLine(ImmutableList.of(new Column("a_b", BIGINT, 0)), "{\"a.b\":42}", singletonList(42L), dotsInFieldNames);
+        assertLine(ImmutableList.of(new Column("a_b", BIGINT, 0)), "{\"a.b\":42}", ImmutableList.of(42L), dotsInFieldNames);
         // todo Starburst is always case-sensitive for dotted names
         internalAssertLineHive(ImmutableList.of(new Column("a_b", BIGINT, 0)), "{\"a.B\":42}", singletonList(null), dotsInFieldNames);
-        internalAssertLineTrino(ImmutableList.of(new Column("a_b", BIGINT, 0)), "{\"a.B\":42}", singletonList(42L), dotsInFieldNames, false);
+        internalAssertLineTrino(ImmutableList.of(new Column("a_b", BIGINT, 0)), "{\"a.B\":42}", ImmutableList.of(42L), dotsInFieldNames, false);
 
         // row value
-        assertValue(rowType(field("a", rowType(field("x_y", BIGINT)))), "{\"a\":{\"x.y\":42}}", singletonList(singletonList(null)), DEFAULT_OPEN_X_JSON_OPTIONS, false);
-        assertValue(rowType(field("a", rowType(field("x_y", BIGINT)))), "{\"a\":{\"x.y\":42}}", singletonList(singletonList(42L)), dotsInFieldNames, false);
+        assertValue(rowType(field("a", rowType(field("x_y", BIGINT)))), "{\"a\":{\"x.y\":42}}", List.of(singletonList(null)), DEFAULT_OPEN_X_JSON_OPTIONS, false);
+        assertValue(rowType(field("a", rowType(field("x_y", BIGINT)))), "{\"a\":{\"x.y\":42}}", List.of(List.of(42L)), dotsInFieldNames, false);
         // todo Starburst is always case-sensitive for dotted names
-        internalAssertValueHive(rowType(field("a", rowType(field("x_y", BIGINT)))), "{\"a\":{\"X.y\":42}}", singletonList(singletonList(null)), dotsInFieldNames);
-        internalAssertValueTrino(rowType(field("a", rowType(field("x_y", BIGINT)))), "{\"a\":{\"X.y\":42}}", singletonList(singletonList(42L)), dotsInFieldNames);
+        internalAssertValueHive(rowType(field("a", rowType(field("x_y", BIGINT)))), "{\"a\":{\"X.y\":42}}", List.of(singletonList(null)), dotsInFieldNames);
+        internalAssertValueTrino(rowType(field("a", rowType(field("x_y", BIGINT)))), "{\"a\":{\"X.y\":42}}", List.of(List.of(42L)), dotsInFieldNames);
 
         // multiple levels
         assertValue(rowType(field("a_b", rowType(field("x_y", BIGINT)))), "{\"a.b\":{\"x.y\":42}}", singletonList(null), DEFAULT_OPEN_X_JSON_OPTIONS, false);
-        assertValue(rowType(field("a_b", rowType(field("x_y", BIGINT)))), "{\"a.b\":{\"x.y\":42}}", singletonList(singletonList(42L)), dotsInFieldNames, false);
+        assertValue(rowType(field("a_b", rowType(field("x_y", BIGINT)))), "{\"a.b\":{\"x.y\":42}}", List.of(List.of(42L)), dotsInFieldNames, false);
 
         // field mappings are not considered for dotted names
         OpenXJsonOptions mappedFieldNames = OpenXJsonOptions.builder(dotsInFieldNames)
                 .addFieldMapping("apple", "a_b")
                 .build();
         assertLine(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"a.b\":42}", singletonList(null), mappedFieldNames);
-        assertLine(ImmutableList.of(new Column("a_b", BIGINT, 0)), "{\"a.b\":42}", singletonList(42L), mappedFieldNames);
+        assertLine(ImmutableList.of(new Column("a_b", BIGINT, 0)), "{\"a.b\":42}", ImmutableList.of(42L), mappedFieldNames);
     }
 
     @Test
@@ -264,24 +263,24 @@ public class TestOpenxJsonFormat
 
         // top level column
         assertLine(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"a\":42}", singletonList(null), DEFAULT_OPEN_X_JSON_OPTIONS);
-        assertLine(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"a\":42}", singletonList(42L), mappedFieldNames);
+        assertLine(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"a\":42}", ImmutableList.of(42L), mappedFieldNames);
         // mappings follow case sensitivity
-        internalAssertLineTrino(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"A\":42}", singletonList(42L), mappedFieldNames, false);
+        internalAssertLineTrino(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"A\":42}", ImmutableList.of(42L), mappedFieldNames, false);
         internalAssertLineTrino(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"A\":42}", singletonList(null), caseSensitiveMapping, false);
         // declared mappings are case-sensitive
-        assertLine(ImmutableList.of(new Column("Apple", BIGINT, 0)), "{\"a\":42}", singletonList(42L), mappedFieldNames);
+        assertLine(ImmutableList.of(new Column("Apple", BIGINT, 0)), "{\"a\":42}", ImmutableList.of(42L), mappedFieldNames);
 
         // row value
-        assertValue(rowType(field("x", rowType(field("banana", BIGINT)))), "{\"x\":{\"b\":42}}", singletonList(singletonList(null)), DEFAULT_OPEN_X_JSON_OPTIONS, false);
-        assertValue(rowType(field("x", rowType(field("banana", BIGINT)))), "{\"x\":{\"b\":42}}", singletonList(singletonList(42L)), mappedFieldNames, false);
-        internalAssertValueTrino(rowType(field("x", rowType(field("banana", BIGINT)))), "{\"x\":{\"B\":42}}", singletonList(singletonList(42L)), mappedFieldNames);
-        internalAssertValueTrino(rowType(field("x", rowType(field("Banana", BIGINT)))), "{\"x\":{\"B\":42}}", singletonList(singletonList(null)), caseSensitiveMapping);
+        assertValue(rowType(field("x", rowType(field("banana", BIGINT)))), "{\"x\":{\"b\":42}}", List.of(singletonList(null)), DEFAULT_OPEN_X_JSON_OPTIONS, false);
+        assertValue(rowType(field("x", rowType(field("banana", BIGINT)))), "{\"x\":{\"b\":42}}", List.of(List.of(42L)), mappedFieldNames, false);
+        internalAssertValueTrino(rowType(field("x", rowType(field("banana", BIGINT)))), "{\"x\":{\"B\":42}}", List.of(List.of(42L)), mappedFieldNames);
+        internalAssertValueTrino(rowType(field("x", rowType(field("Banana", BIGINT)))), "{\"x\":{\"B\":42}}", List.of(singletonList(null)), caseSensitiveMapping);
 
         // multiple levels
         assertValue(rowType(field("apple", rowType(field("banana", BIGINT)))), "{\"a\":{\"b\":42}}", singletonList(null), DEFAULT_OPEN_X_JSON_OPTIONS, false);
-        assertValue(rowType(field("apple", rowType(field("banana", BIGINT)))), "{\"a\":{\"b\":42}}", singletonList(singletonList(42L)), mappedFieldNames, false);
-        assertValue(rowType(field("apple", rowType(field("banana", BIGINT)))), "{\"a\":{\"B\":42}}", singletonList(singletonList(42L)), mappedFieldNames, false);
-        assertValue(rowType(field("apple", rowType(field("banana", BIGINT)))), "{\"a\":{\"B\":42}}", singletonList(singletonList(null)), caseSensitiveMapping, false);
+        assertValue(rowType(field("apple", rowType(field("banana", BIGINT)))), "{\"a\":{\"b\":42}}", List.of(List.of(42L)), mappedFieldNames, false);
+        assertValue(rowType(field("apple", rowType(field("banana", BIGINT)))), "{\"a\":{\"B\":42}}", List.of(List.of(42L)), mappedFieldNames, false);
+        assertValue(rowType(field("apple", rowType(field("banana", BIGINT)))), "{\"a\":{\"B\":42}}", List.of(singletonList(null)), caseSensitiveMapping, false);
     }
 
     @Test
@@ -504,19 +503,19 @@ public class TestOpenxJsonFormat
         assertValue(type, "\"" + jsonValue + "\"", nonCanonicalValue);
 
         // field names are not canonicalized
-        internalAssertValueTrino(new MapType(type, BIGINT, TYPE_OPERATORS), "{" + jsonValue + ":43}", singletonMap(nonCanonicalValue, 43L), DEFAULT_OPEN_X_JSON_OPTIONS);
+        internalAssertValueTrino(new MapType(type, BIGINT, TYPE_OPERATORS), "{" + jsonValue + ":43}", Map.of(nonCanonicalValue, 43L), DEFAULT_OPEN_X_JSON_OPTIONS);
         // starburst version does not allow for non-canonical field names, but original version does
         assertValueFailsHive(new MapType(type, BIGINT, TYPE_OPERATORS), "{" + jsonValue + ":43}", DEFAULT_OPEN_X_JSON_OPTIONS, false);
 
         // unquoted values are canonicalized (using slightly different rules)
         internalAssertValueTrino(type, jsonValue, trinoCanonicalValue, DEFAULT_OPEN_X_JSON_OPTIONS);
-        internalAssertValueTrino(new ArrayType(type), "[" + jsonValue + "]", singletonList(trinoCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
-        internalAssertValueTrino(new MapType(BIGINT, type, TYPE_OPERATORS), "{43:" + jsonValue + "}", singletonMap(43L, trinoCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
+        internalAssertValueTrino(new ArrayType(type), "[" + jsonValue + "]", List.of(trinoCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
+        internalAssertValueTrino(new MapType(BIGINT, type, TYPE_OPERATORS), "{43:" + jsonValue + "}", Map.of(43L, trinoCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
 
         if (type instanceof VarcharType varcharType && varcharType.isUnbounded()) {
             internalAssertValueHive(type, jsonValue, hiveCanonicalValue, DEFAULT_OPEN_X_JSON_OPTIONS);
-            internalAssertValueHive(new ArrayType(type), "[" + jsonValue + "]", singletonList(hiveCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
-            internalAssertValueHive(new MapType(BIGINT, type, TYPE_OPERATORS), "{\"43\":" + jsonValue + "}", singletonMap(43L, hiveCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
+            internalAssertValueHive(new ArrayType(type), "[" + jsonValue + "]", List.of(hiveCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
+            internalAssertValueHive(new MapType(BIGINT, type, TYPE_OPERATORS), "{\"43\":" + jsonValue + "}", Map.of(43L, hiveCanonicalValue), DEFAULT_OPEN_X_JSON_OPTIONS);
         }
         else {
             // varchar and char type in Starburst doesn't support canonicalization (the code above uses Hive string type)
@@ -1257,7 +1256,7 @@ public class TestOpenxJsonFormat
             internalAssertValueTrino(
                     new MapType(BIGINT, type, TYPE_OPERATORS),
                     "{ \"1234\" : " + jsonValue + " }",
-                    singletonMap(1234L, expectedValue),
+                    Map.of(1234L, expectedValue),
                     options,
                     readOnly);
         }

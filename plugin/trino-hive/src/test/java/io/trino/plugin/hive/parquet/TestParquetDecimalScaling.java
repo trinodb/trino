@@ -44,7 +44,6 @@ import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Files;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -509,7 +508,7 @@ public class TestParquetDecimalScaling
                 getStandardStructObjectInspector(ImmutableList.of("value"), inspectors),
                 new Iterator[] {ImmutableList.of(HiveDecimal.create(writeValue)).stream().iterator()},
                 schema,
-                Collections.singletonList("hive_record"),
+                List.of("hive_record"),
                 writerVersion);
 
         if (overflows(new BigDecimal(writeValue).unscaledValue(), schemaPrecision)) {
@@ -592,7 +591,7 @@ public class TestParquetDecimalScaling
             List<String> columnNames,
             WriterVersion writerVersion)
     {
-        Properties tableProperties = createTableProperties(columnNames, Collections.singletonList(inspector));
+        Properties tableProperties = createTableProperties(columnNames, List.of(inspector));
 
         JobConf jobConf = new JobConf(false);
         jobConf.setEnum(COMPRESSION, UNCOMPRESSED);
@@ -644,7 +643,7 @@ public class TestParquetDecimalScaling
                 getStandardStructObjectInspector(columnNames, inspectors),
                 values,
                 schema,
-                Collections.singletonList("hive_record"),
+                List.of("hive_record"),
                 writerVersion);
     }
 

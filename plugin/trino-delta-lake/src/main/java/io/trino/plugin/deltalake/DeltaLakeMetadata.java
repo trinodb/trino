@@ -1114,7 +1114,7 @@ public class DeltaLakeMetadata
 
     private Stream<TableInfo> streamTables(ConnectorSession session, Optional<String> optionalSchemaName)
     {
-        List<Callable<List<TableInfo>>> tasks = optionalSchemaName.map(Collections::singletonList)
+        List<Callable<List<TableInfo>>> tasks = optionalSchemaName.map(List::of)
                 .orElseGet(() -> listSchemaNames(session))
                 .stream()
                 .map(schemaName -> (Callable<List<TableInfo>>) () -> metastore.getAllTables(schemaName))

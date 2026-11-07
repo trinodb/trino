@@ -43,7 +43,6 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -58,7 +57,7 @@ public final class TupleDomain<T>
     private static final int INSTANCE_SIZE = instanceSize(TupleDomain.class);
 
     private static final TupleDomain<?> NONE = new TupleDomain<>(Optional.empty());
-    private static final TupleDomain<?> ALL = new TupleDomain<>(Optional.of(emptyMap()));
+    private static final TupleDomain<?> ALL = new TupleDomain<>(Optional.of(Map.of()));
 
     /**
      * TupleDomain is internally represented as a normalized map of each column to its

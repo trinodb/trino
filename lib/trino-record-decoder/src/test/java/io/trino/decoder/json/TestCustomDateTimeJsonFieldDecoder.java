@@ -13,6 +13,7 @@
  */
 package io.trino.decoder.json;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.decoder.DecoderTestColumnHandle;
@@ -30,7 +31,6 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCustomDateTimeJsonFieldDecoder
@@ -100,7 +100,7 @@ public class TestCustomDateTimeJsonFieldDecoder
                 false,
                 false,
                 false);
-        assertThatThrownBy(() -> new JsonRowDecoderFactory(new JsonMapperProvider().get()).create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, emptyMap(), ImmutableSet.of(columnHandle))))
+        assertThatThrownBy(() -> new JsonRowDecoderFactory(new JsonMapperProvider().get()).create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, ImmutableMap.of(), ImmutableSet.of(columnHandle))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("invalid Joda Time pattern 'XXMM/yyyy/dd H:m:sXX' passed as format hint for column 'some_column'");
     }

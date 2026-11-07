@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.hdfs;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -39,7 +40,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Set;
 
-import static java.util.Collections.emptySet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHdfsFileSystemHdfs
@@ -63,7 +63,7 @@ public class TestHdfsFileSystemHdfs
         HdfsConfig hdfsConfig = new HdfsConfig();
         hdfsConfiguration = new DynamicHdfsConfiguration(
                 new HdfsConfigurationInitializer(hdfsConfig, Set.of(Hadoop.SINGLE_DATANODE_CONFIGURATION_INITIALIZER)),
-                emptySet());
+                ImmutableSet.of());
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         hdfsContext = new HdfsContext(ConnectorIdentity.ofUser("test"));
 

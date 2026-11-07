@@ -87,7 +87,7 @@ final class TestPrimitiveValueWriter
             for (int maxDictionaryPageSize : MAX_DICTIONARY_PAGE_SIZES) {
                 for (int count : REPEATED_COUNTS) {
                     for (Object value : testCase.values()) {
-                        Block rleBlock = RunLengthEncodedBlock.create(createBlock(testCase.trinoType(), singletonList(value)), count);
+                        Block rleBlock = RunLengthEncodedBlock.create(createBlock(testCase.trinoType(), List.of(value)), count);
                         assertThat(rleBlock).isInstanceOf(RunLengthEncodedBlock.class);
                         assertWritesMatch(testCase, maxDictionaryPageSize, rleBlock, createBlock(testCase.trinoType(), nCopies(count, value)));
                     }

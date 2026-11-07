@@ -13,6 +13,7 @@
  */
 package io.trino.operator.join;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.TaskContext;
 import io.trino.operator.join.spilling.PartitionedConsumption;
@@ -23,7 +24,6 @@ import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Collections.emptyList;
 
 public interface LookupSourceFactory
         extends JoinBridge
@@ -40,7 +40,7 @@ public interface LookupSourceFactory
     {
         return immediateFuture(new PartitionedConsumption<>(
                 1,
-                emptyList(),
+                ImmutableList.of(),
                 _ -> {
                     throw new UnsupportedOperationException();
                 },
