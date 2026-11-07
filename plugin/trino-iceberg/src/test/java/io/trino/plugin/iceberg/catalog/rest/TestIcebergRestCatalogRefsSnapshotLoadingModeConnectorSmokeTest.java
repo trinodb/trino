@@ -131,6 +131,10 @@ final class TestIcebergRestCatalogRefsSnapshotLoadingModeConnectorSmokeTest
     }
 
     @Test
+    @Override // Extended statistics on write is disabled in REFS mode
+    public void testShowStatsAfterUpdateAndExpireSnapshots() {}
+
+    @Test
     @Override
     public void testMaterializedView()
     {
