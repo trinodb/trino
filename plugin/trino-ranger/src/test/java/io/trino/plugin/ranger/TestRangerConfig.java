@@ -33,7 +33,9 @@ final class TestRangerConfig
         assertRecordedDefaults(recordDefaults(RangerConfig.class)
                 .setServiceName(null)
                 .setPluginConfigResource(List.of())
-                .setHadoopConfigResource(List.of()));
+                .setHadoopConfigResource(List.of())
+                .setExtraCredentialsGroupsKey(null)
+                .setExtraCredentialsGroupsSeparator("|"));
     }
 
     @Test
@@ -47,12 +49,16 @@ final class TestRangerConfig
                 .put("ranger.service.name", "trino")
                 .put("ranger.plugin.config.resource", pluginConfigResourceFile.toString())
                 .put("ranger.hadoop.config.resource", hadoopConfigResourceFile.toString())
+                .put("ranger.extra-credentials.groups-key", "trino.groups")
+                .put("ranger.extra-credentials.groups-separator", ",")
                 .buildOrThrow();
 
         RangerConfig expected = new RangerConfig()
                 .setServiceName("trino")
                 .setPluginConfigResource(List.of(pluginConfigResourceFile.toFile()))
-                .setHadoopConfigResource(List.of(hadoopConfigResourceFile.toFile()));
+                .setHadoopConfigResource(List.of(hadoopConfigResourceFile.toFile()))
+                .setExtraCredentialsGroupsKey("trino.groups")
+                .setExtraCredentialsGroupsSeparator(",");
 
         assertFullMapping(properties, expected);
     }
