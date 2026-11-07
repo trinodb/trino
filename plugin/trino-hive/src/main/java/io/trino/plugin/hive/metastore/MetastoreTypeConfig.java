@@ -25,6 +25,7 @@ public class MetastoreTypeConfig
         THRIFT,
         FILE,
         GLUE,
+        LAKEHOUSE,
     }
 
     private MetastoreType metastoreType = THRIFT;
