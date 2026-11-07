@@ -71,6 +71,7 @@ suites:
   SuiteHdfsImpersonation: [hive]
   SuiteTwoHives: [hive]
   SuiteHive4: [hive]
+  SuiteHive4HttpThriftMetastore: [hive]
   SuiteHudi: [hudi, hive]
   SuiteHiveTransactional: [hive]
   SuiteAuthorization: [hive]

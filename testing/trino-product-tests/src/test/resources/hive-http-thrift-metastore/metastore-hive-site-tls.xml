@@ -1,0 +1,21 @@
+    <!-- Serve HTTPS with the metastore's own TLS; the certificate SAN covers the "metastore" host name -->
+    <property>
+        <name>hive.metastore.use.SSL</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>hive.metastore.keystore.path</name>
+        <value>/opt/hive/conf/hms-keystore.jks</value>
+    </property>
+    <property>
+        <name>hive.metastore.keystore.password</name>
+        <value>changeit</value>
+    </property>
+    <property>
+        <name>hive.metastore.keystore.type</name>
+        <value>JKS</value>
+    </property>
+    <property>
+        <name>hive.metastore.keymanagerfactory.algorithm</name>
+        <value>SunX509</value>
+    </property>
