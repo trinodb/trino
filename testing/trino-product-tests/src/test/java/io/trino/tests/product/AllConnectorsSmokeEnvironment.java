@@ -77,6 +77,7 @@ public class AllConnectorsSmokeEnvironment
             "singlestore",
             "snowflake",
             "sqlserver",
+            "teradata",
             "tpcds",
             "trino_thrift");
 
