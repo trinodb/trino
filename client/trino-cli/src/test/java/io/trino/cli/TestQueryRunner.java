@@ -110,7 +110,9 @@ public class TestQueryRunner
                 httpClient,
                 segmentHttpClient,
                 1000,
-                500);
+                500,
+                AgentLimits.DEFAULT,
+                false);
 
         queryRunner.close();
 
@@ -175,7 +177,9 @@ public class TestQueryRunner
                 clientSession,
                 false,
                 1000,
-                500);
+                500,
+                AgentLimits.DEFAULT,
+                false);
     }
 
     static PrintStream nullPrintStream()

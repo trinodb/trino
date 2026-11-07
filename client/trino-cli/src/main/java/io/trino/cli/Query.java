@@ -63,20 +63,29 @@ public class Query
 {
     private static final Logger log = Logger.getLogger(Query.class.getName());
 
+    private static final long AGENT_PROGRESS_INTERVAL_MILLIS = 5_000;
+
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final StatementClient client;
     private final boolean debug;
     private final int maxQueuedRows;
     private final int maxBufferedRows;
     private final Theme theme;
+    private final AgentLimits agentLimits;
+    private final boolean agentMode;
+    private final boolean inTransaction;
+    private boolean resultLimitReached;
 
-    public Query(StatementClient client, boolean debug, int maxQueuedRows, int maxBufferedRows, Theme theme)
+    public Query(StatementClient client, boolean debug, int maxQueuedRows, int maxBufferedRows, Theme theme, AgentLimits agentLimits, boolean agentMode, boolean inTransaction)
     {
         this.client = requireNonNull(client, "client is null");
         this.debug = debug;
         this.maxQueuedRows = maxQueuedRows;
         this.maxBufferedRows = maxBufferedRows;
         this.theme = requireNonNull(theme, "theme is null");
+        this.agentLimits = requireNonNull(agentLimits, "agentLimits is null");
+        this.agentMode = agentMode;
+        this.inTransaction = inTransaction;
     }
 
     public Optional<String> getSetCatalog()
@@ -146,6 +155,11 @@ public class Query
 
     public boolean renderOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, Optional<String> pager, boolean showProgress, boolean decimalDataSize)
     {
+        // the progress bar of StatusPrinter needs a terminal, a program reading the output gets a line instead
+        AgentProgressPrinter agentProgress = null;
+        if (agentMode && !showProgress) {
+            agentProgress = new AgentProgressPrinter(client::currentStatusInfo, errorChannel, AGENT_PROGRESS_INTERVAL_MILLIS);
+        }
         Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = terminal.handle(Signal.INT, signal -> {
             if (ignoreUserInterrupt.get() || client.isClientAborted()) {
@@ -158,6 +172,9 @@ public class Query
             return renderQueryOutput(terminal, out, errorChannel, outputFormat, pager, showProgress, decimalDataSize);
         }
         finally {
+            if (agentProgress != null) {
+                agentProgress.close();
+            }
             terminal.handle(Signal.INT, oldHandler);
             Thread.interrupted(); // clear interrupt status
         }
@@ -187,7 +204,7 @@ public class Query
             // if there is updateCount print it
             // if there are columns(resultSet) then print it
             else if (results.getColumns() == null) {
-                errorChannel.printf("Query %s has no columns\n", results.getId());
+                printError(errorChannel, results.getId(), format("Query %s has no columns", results.getId()));
                 return false;
             }
             else {
@@ -197,6 +214,15 @@ public class Query
 
         checkState(!client.isRunning());
 
+        if (resultLimitReached) {
+            // the query may have failed after the rows that were read
+            if (client.finalStatusInfo().getError() != null) {
+                renderFailure(errorChannel);
+                return false;
+            }
+            return true;
+        }
+
         warningsPrinter.print(client.finalStatusInfo().getWarnings(), true, true);
 
         if (showProgress) {
@@ -204,11 +230,11 @@ public class Query
         }
 
         if (client.isClientAborted()) {
-            errorChannel.println("Query aborted by user");
+            printError(errorChannel, client.currentStatusInfo().getId(), "Query aborted by user");
             return false;
         }
         if (client.isClientError()) {
-            errorChannel.println("Query is gone (server restarted?)");
+            printError(errorChannel, client.currentStatusInfo().getId(), "Query is gone (server restarted?)");
             return false;
         }
 
@@ -219,6 +245,11 @@ public class Query
         }
 
         return true;
+    }
+
+    private boolean finishedWithoutError()
+    {
+        return client.isFinished() && client.finalStatusInfo().getError() == null;
     }
 
     private boolean isInteractive(Optional<String> pager)
@@ -284,6 +315,16 @@ public class Query
             System.out.println("(query aborted by user)");
             client.close();
         }
+        catch (ResultLimitReachedException e) {
+            resultLimitReached = true;
+            try {
+                client.close();
+            }
+            catch (RuntimeException closeFailure) {
+                // stopping early is a successful outcome
+                log.log(FINE, "failed to close the client after stopping early", closeFailure);
+            }
+        }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -319,7 +360,7 @@ public class Query
             handler.processRows(client);
         }
         catch (RuntimeException | IOException e) {
-            if (client.isClientAborted() && !(e instanceof QueryAbortedException)) {
+            if (client.isClientAborted() && !(e instanceof QueryAbortedException) && !(e instanceof ResultLimitReachedException)) {
                 throw new QueryAbortedException(e);
             }
             throw e;
@@ -345,6 +386,9 @@ public class Query
                 .map(Column::getName)
                 .collect(toImmutableList());
         switch (format) {
+            case AGENT:
+                // cancelling a query fails the transaction it runs in, so its rows are read and not printed
+                return new AgentTablePrinter(columns, writer, agentLimits, !inTransaction, this::finishedWithoutError);
             case AUTO:
                 return new AutoTablePrinter(columns, writer, maxWidth, theme);
             case ALIGNED:
@@ -390,6 +434,11 @@ public class Query
         QueryError error = results.getError();
         checkState(error != null);
 
+        if (agentMode) {
+            out.println(AgentErrors.queryFailure(results.getId(), error));
+            return;
+        }
+
         out.printf("Query %s failed: %s%n", results.getId(), error.getMessage());
         if (debug && (error.getFailureInfo() != null)) {
             error.getFailureInfo().toException().printStackTrace(out);
@@ -398,6 +447,16 @@ public class Query
             renderErrorLocation(client.getQuery(), error.getErrorLocation(), out);
         }
         out.println();
+    }
+
+    private void printError(PrintStream out, String queryId, String message)
+    {
+        if (agentMode) {
+            out.println(AgentErrors.queryMessage(queryId, message));
+        }
+        else {
+            out.println(message);
+        }
     }
 
     private void renderErrorLocation(String query, ErrorLocation location, PrintStream out)

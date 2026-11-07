@@ -263,6 +263,9 @@ public class ClientOptions
     @Option(names = "--progress", paramLabel = "<progress>", description = "Show query progress", negatable = true)
     public Optional<Boolean> progress;
 
+    @Option(names = "--agent", description = "Use defaults for programs that read the output: the AGENT output format in batch mode. Enabled automatically when an AI agent is detected and the output is not a terminal. Can be set with the " + AgentMode.ENVIRONMENT_VARIABLE + " environment variable", negatable = true)
+    public Optional<Boolean> agent;
+
     @Option(names = "--execute", paramLabel = "<execute>", description = "Execute specified statements and exit")
     public String execute;
 
@@ -336,8 +339,18 @@ public class ClientOptions
     @Option(names = "--max-queued-rows", paramLabel = "<maxQueuedRows>", description = "Maximum number of rows to queue before blocking the query (default: ${DEFAULT-VALUE})")
     public int maxQueuedRows = 50_000;
 
+    @Option(names = "--agent-max-rows", paramLabel = "<rows>", description = "Maximum number of rows the AGENT output format prints in full; 0 or less for unlimited (default: ${DEFAULT-VALUE})")
+    public int agentMaxRows = AgentLimits.DEFAULT_MAX_ROWS;
+
+    @Option(names = "--agent-max-bytes", paramLabel = "<bytes>", description = "Maximum size of the rows the AGENT output format prints in full; 0 or less for unlimited (default: ${DEFAULT-VALUE})")
+    public int agentMaxBytes = AgentLimits.DEFAULT_MAX_BYTES;
+
+    @Option(names = "--agent-max-cell-width", paramLabel = "<characters>", description = "Maximum width of a value in the AGENT output format; 0 or less for unlimited (default: ${DEFAULT-VALUE})")
+    public int agentMaxCellWidth = AgentLimits.DEFAULT_MAX_CELL_WIDTH;
+
     public enum OutputFormat
     {
+        AGENT,
         AUTO,
         ALIGNED,
         VERTICAL,
