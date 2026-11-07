@@ -82,7 +82,7 @@ public class SystemTablesMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
 
-        return SystemTableHandle.fromSchemaTableName(tableName);
+        return SystemTableHandle.fromSchemaTableName(tableName, table.orElseThrow().getSourceTableHandles());
     }
 
     @Override
@@ -167,7 +167,7 @@ public class SystemTablesMetadata
         if (newDomain.isNone()) {
             // TODO (https://github.com/trinodb/trino/issues/3647) indicate the table scan is empty
         }
-        table = new SystemTableHandle(table.schemaName(), table.tableName(), newDomain);
+        table = new SystemTableHandle(table.schemaName(), table.tableName(), newDomain, table.sourceTableHandles());
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), constraint.getExpression(), false));
     }
 

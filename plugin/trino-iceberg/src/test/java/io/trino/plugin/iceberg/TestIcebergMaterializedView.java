@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -183,6 +184,36 @@ public class TestIcebergMaterializedView
         finally {
             assertUpdate("DROP MATERIALIZED VIEW " + qualifiedMaterializedViewName);
             assertUpdate("DROP TABLE " + sourceTableName);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewFilesSystemTableUsesStorageTableHandle()
+    {
+        String materializedViewName = "materialized_view_files_source_" + randomNameSuffix();
+        String qualifiedMaterializedViewName = "iceberg.tpch." + materializedViewName;
+        assertUpdate("CREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + " AS SELECT 1 AS value");
+        try {
+            assertUpdate("REFRESH MATERIALIZED VIEW " + qualifiedMaterializedViewName, 1);
+
+            IcebergMetadata metadata = getConnectorService(getQueryRunner(), IcebergMetadataFactory.class).create(SESSION.getIdentity());
+            SchemaTableName materializedView = new SchemaTableName("tpch", materializedViewName);
+            SchemaTableName storageTable = metadata.getMaterializedView(SESSION, materializedView)
+                    .orElseThrow()
+                    .getStorageTable()
+                    .orElseThrow()
+                    .getSchemaTableName();
+            SystemTable filesTable = metadata.getSystemTable(
+                            SESSION,
+                            new SchemaTableName("tpch", materializedViewName + "$files"))
+                    .orElseThrow();
+            IcebergTableHandle sourceTable = (IcebergTableHandle) filesTable.getSourceTableHandles().getFirst();
+
+            assertThat(sourceTable.getSchemaName()).isEqualTo(storageTable.getSchemaName());
+            assertThat(sourceTable.getTableName()).isEqualTo(storageTable.getTableName());
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW " + qualifiedMaterializedViewName);
         }
     }
 

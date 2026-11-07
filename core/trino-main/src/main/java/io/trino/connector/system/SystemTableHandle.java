@@ -13,16 +13,19 @@
  */
 package io.trino.connector.system;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.List;
+
 import static io.trino.metadata.MetadataUtil.checkSchemaName;
 import static io.trino.metadata.MetadataUtil.checkTableName;
 import static java.util.Objects.requireNonNull;
 
-public record SystemTableHandle(String schemaName, String tableName, TupleDomain<ColumnHandle> constraint)
+public record SystemTableHandle(String schemaName, String tableName, TupleDomain<ColumnHandle> constraint, List<ConnectorTableHandle> sourceTableHandles)
         implements ConnectorTableHandle
 {
     public SystemTableHandle
@@ -30,12 +33,13 @@ public record SystemTableHandle(String schemaName, String tableName, TupleDomain
         checkSchemaName(schemaName);
         checkTableName(tableName);
         requireNonNull(constraint, "constraint is null");
+        sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
     }
 
-    public static SystemTableHandle fromSchemaTableName(SchemaTableName tableName)
+    public static SystemTableHandle fromSchemaTableName(SchemaTableName tableName, List<ConnectorTableHandle> sourceTableHandles)
     {
         requireNonNull(tableName, "tableName is null");
-        return new SystemTableHandle(tableName.getSchemaName(), tableName.getTableName(), TupleDomain.all());
+        return new SystemTableHandle(tableName.getSchemaName(), tableName.getTableName(), TupleDomain.all(), sourceTableHandles);
     }
 
     public SchemaTableName schemaTableName()
