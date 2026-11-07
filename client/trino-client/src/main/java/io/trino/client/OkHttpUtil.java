@@ -22,6 +22,7 @@ import io.trino.client.auth.kerberos.DelegatedConstrainedContextProvider;
 import io.trino.client.auth.kerberos.DelegatedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.GSSContextProvider;
 import io.trino.client.auth.kerberos.LoginBasedUnconstrainedContextProvider;
+import io.trino.client.auth.kerberos.NativeGSSContextProvider;
 import io.trino.client.auth.kerberos.SpnegoHandler;
 import io.trino.client.uri.LoggingLevel;
 import okhttp3.Credentials;
@@ -389,6 +390,7 @@ public final class OkHttpUtil
             String servicePrincipalPattern,
             String remoteServiceName,
             boolean useCanonicalHostname,
+            boolean useNativeGss,
             Optional<String> principal,
             Optional<File> kerberosConfig,
             Optional<File> keytab,
@@ -399,6 +401,12 @@ public final class OkHttpUtil
         GSSContextProvider contextProvider;
         if (delegatedKerberos) {
             contextProvider = getDelegatedGSSContextProvider(gssCredential);
+        }
+        else if (useNativeGss) {
+            // Use the credentials acquired by the native GSS implementation.
+            // On Windows, Java uses SSPI to obtain the Kerberos tickets of the
+            // logged-in user without the need to enter any username or password.
+            contextProvider = new NativeGSSContextProvider();
         }
         else {
             contextProvider = new LoginBasedUnconstrainedContextProvider(principal, kerberosConfig, keytab, credentialCache);
@@ -417,7 +425,7 @@ public final class OkHttpUtil
     {
         return gssCredential.map(DelegatedConstrainedContextProvider::new)
                 .map(gssCred -> (GSSContextProvider) gssCred)
-                .orElse(new DelegatedUnconstrainedContextProvider());
+                .orElseGet(DelegatedUnconstrainedContextProvider::new);
     }
 
     private static class SingleLabelDomainSNISSLSocketFactory
