@@ -198,6 +198,40 @@ public class TestTrinoHiveCatalogWithHiveMetastore
     }
 
     @Test
+    public void testCreateTableWithUnknownType()
+            throws Exception
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        String namespace = "test_unknown_type_" + randomNameSuffix();
+        SchemaTableName tableName = new SchemaTableName(namespace, "test_table");
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "x", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "y", Types.UnknownType.get()),
+                Types.NestedField.optional(3, "z", Types.StructType.of(
+                        Types.NestedField.optional(4, "a", Types.IntegerType.get()),
+                        Types.NestedField.optional(5, "b", Types.UnknownType.get()))));
+        try (AutoCloseableCloser testCloser = AutoCloseableCloser.create()) {
+            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            testCloser.register(() -> catalog.dropNamespace(SESSION, namespace));
+            catalog.newCreateTableTransaction(
+                            SESSION,
+                            tableName,
+                            schema,
+                            PartitionSpec.unpartitioned(),
+                            SortOrder.unsorted(),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION, tableName)),
+                            ImmutableMap.of("format-version", "3"))
+                    .commitTransaction();
+            testCloser.register(() -> catalog.dropTable(SESSION, tableName));
+
+            assertThat(catalog.loadTable(SESSION, tableName).schema().asStruct()).isEqualTo(schema.asStruct());
+            assertThat(metastore.getTable(namespace, tableName.getTableName()).orElseThrow().getDataColumns())
+                    .extracting(column -> column.getType().getHiveTypeName().toString())
+                    .containsExactly("int", "void", "struct<a:int,b:void>");
+        }
+    }
+
+    @Test
     public void testCreateMaterializedView()
             throws IOException
     {
