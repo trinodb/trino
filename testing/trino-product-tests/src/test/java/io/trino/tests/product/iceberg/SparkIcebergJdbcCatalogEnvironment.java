@@ -34,6 +34,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.Map;
 
+import static io.trino.testing.containers.SparkContainers.sparkThriftServerWaitStrategy;
 import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 import static java.util.Map.entry;
 
@@ -365,8 +366,7 @@ public class SparkIcebergJdbcCatalogEnvironment
                     "--conf",
                     "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
                     "spark-internal");
-            waitingFor(Wait.forListeningPort()
-                    .withStartupTimeout(Duration.ofMinutes(3)));
+            waitingFor(sparkThriftServerWaitStrategy(SPARK_THRIFT_PORT));
         }
 
         /**
