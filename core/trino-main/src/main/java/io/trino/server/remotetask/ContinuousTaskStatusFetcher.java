@@ -230,6 +230,7 @@ class ContinuousTaskStatusFetcher
     {
         // change to new value if old value is not changed and new value has a newer version
         AtomicBoolean taskMismatch = new AtomicBoolean();
+        long previousInstanceId = taskStatus.get().taskInstanceId();
         taskStatus.setIf(newValue, oldValue -> {
             // did the task instance id change
             if (oldValue.taskInstanceId() != 0 && oldValue.taskInstanceId() != newValue.taskInstanceId()) {
@@ -244,6 +245,15 @@ class ContinuousTaskStatusFetcher
             // don't update to an older version (same version is ok)
             return newValue.version() >= oldValue.version();
         });
+
+        if (previousInstanceId == 0 && newValue.taskInstanceId() != 0) {
+            log.info("DIAG Task %s status learned task instance id %s (version %s, state %s, current instance id %s)",
+                    taskId,
+                    newValue.taskInstanceId(),
+                    newValue.version(),
+                    newValue.state(),
+                    taskStatus.get().taskInstanceId());
+        }
 
         if (taskMismatch.get()) {
             // This will also set the task status to FAILED state directly.

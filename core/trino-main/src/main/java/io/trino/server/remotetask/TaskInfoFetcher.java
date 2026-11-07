@@ -269,12 +269,13 @@ public class TaskInfoFetcher
             // Defer until TaskStatusFetcher (running in loop) detects the mismatch and marks the task done (FAILED) locally.
             // Finalizing now would use task info from the restarted worker's task instance.
             if (!localTaskStatus.state().isDone()) {
-                log.debug(
-                        "Task %s received TaskInfo with mismatched instance id (expected %s, observed %s) but local status is %s; deferring finalization",
+                log.info(
+                        "DIAG Task %s received TaskInfo with mismatched instance id (expected %s, observed %s) but local status is %s with instance id %s; deferring finalization",
                         taskId,
                         expectedTaskInstanceId.get(),
                         newTaskInfo.taskStatus().taskInstanceId(),
-                        localTaskStatus.state());
+                        localTaskStatus.state(),
+                        localTaskStatus.taskInstanceId());
                 return;
             }
             log.warn(
@@ -412,7 +413,12 @@ public class TaskInfoFetcher
         }
         long expected = expectedTaskInstanceId.get();
         if (expected == 0) {
-            expectedTaskInstanceId.compareAndSet(0, remoteInstanceId);
+            if (expectedTaskInstanceId.compareAndSet(0, remoteInstanceId)) {
+                log.info("DIAG Task %s info learned task instance id %s (status fetcher instance id %s)",
+                        taskId,
+                        remoteInstanceId,
+                        taskStatusFetcher.getTaskStatus().taskInstanceId());
+            }
             return false;
         }
         return expected != remoteInstanceId;
