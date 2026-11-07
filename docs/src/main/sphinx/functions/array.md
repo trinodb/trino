@@ -408,8 +408,10 @@ A day-time step must be an exact whole number of days, at any interval precision
 
 Generate a sequence of timestamps from `start` to `stop`, incrementing by `step`.
 The type of `step` can be either `INTERVAL DAY TO SECOND` or `INTERVAL YEAR TO MONTH`.
-For a day-time step, the result timestamps retain the greater fractional-second
-precision of the endpoints and the step.
+The result type is `array(timestamp(p))`, where the precision `p` is the
+fractional-second precision of the endpoints and the step: for a day-time step,
+it is the greater of the endpoint and step precisions; for a year-month step,
+it is the endpoint precision.
 :::
 
 :::{function} shuffle(x) -> array
