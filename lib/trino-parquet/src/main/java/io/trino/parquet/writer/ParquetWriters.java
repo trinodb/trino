@@ -185,6 +185,7 @@ final class ParquetWriters
             MessageType messageType,
             Map<List<String>, Type> trinoTypes,
             CompressionCodec compressionCodec,
+            CompressionBuffers compressionBuffers,
             ParquetWriterOptions writerOptions,
             Optional<DateTimeZone> parquetTimeZone)
     {
@@ -194,6 +195,7 @@ final class ParquetWriters
                 trinoTypes,
                 valuesWriterFactory,
                 compressionCodec,
+                compressionBuffers,
                 writerOptions,
                 parquetTimeZone);
         ParquetTypeVisitor.visit(messageType, writeBuilder);
@@ -207,6 +209,7 @@ final class ParquetWriters
         private final Map<List<String>, Type> trinoTypes;
         private final TrinoValuesWriterFactory valuesWriterFactory;
         private final CompressionCodec compressionCodec;
+        private final CompressionBuffers compressionBuffers;
         private final int maxPageSize;
         private final int pageValueCountLimit;
         private final Set<String> bloomFilterColumns;
@@ -220,6 +223,7 @@ final class ParquetWriters
                 Map<List<String>, Type> trinoTypes,
                 TrinoValuesWriterFactory valuesWriterFactory,
                 CompressionCodec compressionCodec,
+                CompressionBuffers compressionBuffers,
                 ParquetWriterOptions writerOptions,
                 Optional<DateTimeZone> parquetTimeZone)
         {
@@ -227,6 +231,7 @@ final class ParquetWriters
             this.trinoTypes = requireNonNull(trinoTypes, "trinoTypes is null");
             this.valuesWriterFactory = requireNonNull(valuesWriterFactory, "valuesWriterFactory is null");
             this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+            this.compressionBuffers = requireNonNull(compressionBuffers, "compressionBuffers is null");
             this.maxPageSize = writerOptions.getMaxPageSize();
             this.pageValueCountLimit = writerOptions.getMaxPageValueCount();
             this.maxBloomFilterSize = writerOptions.getMaxBloomFilterSize();
@@ -338,6 +343,7 @@ final class ParquetWriters
                     newDefinitionLevelWriter(columnDescriptor, maxPageSize),
                     newRepetitionLevelWriter(columnDescriptor, maxPageSize),
                     compressionCodec,
+                    compressionBuffers,
                     maxPageSize,
                     pageValueCountLimit,
                     bloomFilter);
