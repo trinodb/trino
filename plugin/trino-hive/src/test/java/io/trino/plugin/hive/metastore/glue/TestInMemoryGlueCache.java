@@ -23,6 +23,9 @@ import io.trino.metastore.Partition;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
+import io.trino.metastore.cache.CachingHiveMetastoreConfig;
+import io.trino.node.InternalNode;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.SchemaTableName;
@@ -30,6 +33,7 @@ import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.security.PrincipalType;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,6 +42,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -48,13 +53,21 @@ class TestInMemoryGlueCache
 {
     private static GlueCache createGlueCache()
     {
+        return createGlueCache(true, true, true);
+    }
+
+    private static GlueCache createGlueCache(boolean cacheMissing, boolean cacheMissingPartitions, boolean cacheMissingStats)
+    {
         return new InMemoryGlueCache(
                 new CatalogName("testing"),
                 new Duration(1, TimeUnit.DAYS),
                 new Duration(1, TimeUnit.DAYS),
                 Optional.of(new Duration(12, TimeUnit.HOURS)),
                 1,
-                Long.MAX_VALUE);
+                Long.MAX_VALUE,
+                cacheMissing,
+                cacheMissingPartitions,
+                cacheMissingStats);
     }
 
     @Test
@@ -172,6 +185,39 @@ class TestInMemoryGlueCache
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("test");
         assertThat(glueCache.getDatabase("db1", () -> Optional.of(testDatabase("after exception")))).contains(testDatabase("after exception"));
+    }
+
+    @Test
+    void testGetDatabaseWithoutCachingMissing()
+    {
+        GlueCache glueCache = createGlueCache(false, true, true);
+        AtomicInteger calls = new AtomicInteger();
+
+        // Missing -> missing -> present -> cached
+        assertThat(glueCache.getDatabase("db1", () -> {
+            calls.incrementAndGet();
+            return Optional.empty();
+        })).isEmpty();
+        assertThat(glueCache.getDatabase("db1", () -> {
+            calls.incrementAndGet();
+            return Optional.empty();
+        })).isEmpty();
+        assertThat(calls.get()).isEqualTo(2);
+
+        assertThat(glueCache.getDatabase("db1", () -> {
+            calls.incrementAndGet();
+            return Optional.of(testDatabase("db1"));
+        })).contains(testDatabase("db1"));
+        assertThat(calls.get()).isEqualTo(3);
+
+        assertThat(glueCache.getDatabase("db1", () -> { throw new RuntimeException(); })).contains(testDatabase("db1"));
+
+        // Bulk warming via getDatabaseNames still caches present databases
+        assertThat(glueCache.getDatabaseNames(cacheDatabase -> {
+            cacheDatabase.accept(testDatabase("db2", "warmed"));
+            return ImmutableList.of("db1", "db2");
+        })).containsExactly("db1", "db2");
+        assertThat(glueCache.getDatabase("db2", () -> { throw new RuntimeException(); })).contains(testDatabase("db2", "warmed"));
     }
 
     @Test
@@ -303,6 +349,41 @@ class TestInMemoryGlueCache
     }
 
     @Test
+    void testGetTableWithoutCachingMissing()
+    {
+        GlueCache glueCache = createGlueCache(false, true, true);
+        AtomicInteger calls = new AtomicInteger();
+
+        // Missing -> missing -> present -> cached
+        assertThat(glueCache.getTable("db1", "table1", () -> {
+            calls.incrementAndGet();
+            return Optional.empty();
+        })).isEmpty();
+        assertThat(glueCache.getTable("db1", "table1", () -> {
+            calls.incrementAndGet();
+            return Optional.empty();
+        })).isEmpty();
+        assertThat(calls.get()).isEqualTo(2);
+
+        assertThat(glueCache.getTable("db1", "table1", () -> {
+            calls.incrementAndGet();
+            return Optional.of(testTable("db1", "table1"));
+        })).contains(testTable("db1", "table1"));
+        assertThat(calls.get()).isEqualTo(3);
+
+        assertThat(glueCache.getTable("db1", "table1", () -> { throw new RuntimeException(); }))
+                .contains(testTable("db1", "table1"));
+
+        // Bulk warming via getTables still caches present tables
+        assertThat(glueCache.getTables("db1", cacheTable -> {
+            cacheTable.accept(testTable("db1", "table2", "warmed"));
+            return ImmutableList.of(testTableInfo("db1", "table1"), testTableInfo("db1", "table2"));
+        })).containsExactlyInAnyOrder(testTableInfo("db1", "table1"), testTableInfo("db1", "table2"));
+        assertThat(glueCache.getTable("db1", "table2", () -> { throw new RuntimeException(); }))
+                .contains(testTable("db1", "table2", "warmed"));
+    }
+
+    @Test
     void testGetTableColumnStatistics()
     {
         GlueCache glueCache = createGlueCache();
@@ -357,6 +438,32 @@ class TestInMemoryGlueCache
                     return Map.of("col1", testStats(111), "col2", testStats(222));
                 }))
                 .isEqualTo(Map.of("col1", testStats(111), "col2", testStats(222)));
+    }
+
+    @Test
+    void testGetTableColumnStatisticsWithoutCachingMissing()
+    {
+        GlueCache glueCache = createGlueCache(true, true, false);
+        assertThat(glueCache.getTableColumnStatistics("db", "table", Set.of("col1", "col2"),
+                missingColumns -> {
+                    assertThat(missingColumns).containsExactlyInAnyOrder("col1", "col2");
+                    return Map.of();
+                }))
+                .isEmpty();
+        assertThat(glueCache.getTableColumnStatistics("db", "table", Set.of("col1", "col2"),
+                missingColumns -> {
+                    assertThat(missingColumns).containsExactlyInAnyOrder("col1", "col2");
+                    return Map.of("col1", testStats(1));
+                }))
+                .isEqualTo(Map.of("col1", testStats(1)));
+        assertThat(glueCache.getTableColumnStatistics("db", "table", Set.of("col1", "col2"),
+                missingColumns -> {
+                    assertThat(missingColumns).containsExactly("col2");
+                    return Map.of("col2", testStats(2));
+                }))
+                .isEqualTo(Map.of("col1", testStats(1), "col2", testStats(2)));
+        assertThat(glueCache.getTableColumnStatistics("db", "table", Set.of("col1", "col2"), _ -> { throw new RuntimeException(); }))
+                .isEqualTo(Map.of("col1", testStats(1), "col2", testStats(2)));
     }
 
     @Test
@@ -535,6 +642,33 @@ class TestInMemoryGlueCache
     }
 
     @Test
+    void testGetPartitionWithoutCachingMissing()
+    {
+        GlueCache glueCache = createGlueCache(true, false, true);
+        AtomicInteger calls = new AtomicInteger();
+
+        // Missing -> missing -> present -> cached
+        assertThat(glueCache.getPartition("db1", "table1", testPartitionName("part1"), () -> {
+            calls.incrementAndGet();
+            return Optional.empty();
+        })).isEmpty();
+        assertThat(glueCache.getPartition("db1", "table1", testPartitionName("part1"), () -> {
+            calls.incrementAndGet();
+            return Optional.empty();
+        })).isEmpty();
+        assertThat(calls.get()).isEqualTo(2);
+
+        assertThat(glueCache.getPartition("db1", "table1", testPartitionName("part1"), () -> {
+            calls.incrementAndGet();
+            return Optional.of(testPartition("part1", "initial"));
+        })).contains(testPartition("part1", "initial"));
+        assertThat(calls.get()).isEqualTo(3);
+
+        assertThat(glueCache.getPartition("db1", "table1", testPartitionName("part1"), () -> { throw new RuntimeException(); }))
+                .contains(testPartition("part1", "initial"));
+    }
+
+    @Test
     void testBatchGetPartitions()
             throws InterruptedException
     {
@@ -682,6 +816,51 @@ class TestInMemoryGlueCache
                     return Map.of("col1", testStats(1111), "col2", testStats(2222));
                 }))
                 .isEqualTo(Map.of("col1", testStats(1111), "col2", testStats(2222)));
+    }
+
+    @Test
+    void testGetPartitionColumnStatisticsWithoutCachingMissing()
+    {
+        GlueCache glueCache = createGlueCache(true, true, false);
+        assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2"),
+                missingColumns -> {
+                    assertThat(missingColumns).containsExactlyInAnyOrder("col1", "col2");
+                    return Map.of();
+                }))
+                .isEmpty();
+        assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2"),
+                missingColumns -> {
+                    assertThat(missingColumns).containsExactlyInAnyOrder("col1", "col2");
+                    return Map.of("col1", testStats(1));
+                }))
+                .isEqualTo(Map.of("col1", testStats(1)));
+        assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2"),
+                missingColumns -> {
+                    assertThat(missingColumns).containsExactly("col2");
+                    return Map.of("col2", testStats(2));
+                }))
+                .isEqualTo(Map.of("col1", testStats(1), "col2", testStats(2)));
+        assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2"), _ -> { throw new RuntimeException(); }))
+                .isEqualTo(Map.of("col1", testStats(1), "col2", testStats(2)));
+    }
+
+    @Test
+    void testCreateGlueCacheWithCacheMissingDisabled()
+    {
+        CachingHiveMetastoreConfig config = new CachingHiveMetastoreConfig()
+                .setMetastoreCacheTtl(new Duration(1, TimeUnit.DAYS))
+                .setStatsCacheTtl(new Duration(1, TimeUnit.DAYS))
+                .setCacheMissing(false)
+                .setCacheMissingPartitions(false)
+                .setCacheMissingStats(false);
+        GlueCache glueCache = GlueMetastoreModule.createGlueCache(
+                config,
+                new CatalogName("testing"),
+                new InternalNode("test", URI.create("http://localhost:8080"), NodeVersion.UNKNOWN, true));
+
+        assertThat(glueCache.getTable("db1", "table1", Optional::empty)).isEmpty();
+        assertThat(glueCache.getTable("db1", "table1", () -> Optional.of(testTable("db1", "table1"))))
+                .contains(testTable("db1", "table1"));
     }
 
     @Test

@@ -127,9 +127,6 @@ public final class GlueMetastoreModule
                 (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
 
         checkState(config.isPartitionCacheEnabled(), "Disabling partitions cache is not supported with Glue v2");
-        checkState(config.isCacheMissing(), "Disabling cache missing is not supported with Glue v2");
-        checkState(config.isCacheMissingPartitions(), "Disabling cache missing partitions is not supported with Glue v2");
-        checkState(config.isCacheMissingStats(), "Disabling cache missing stats is not supported with Glue v2");
 
         if (enabled) {
             return new InMemoryGlueCache(
@@ -138,7 +135,10 @@ public final class GlueMetastoreModule
                     statsCacheTtl,
                     config.getMetastoreRefreshInterval(),
                     config.getMaxMetastoreRefreshThreads(),
-                    config.getMetastoreCacheMaximumSize());
+                    config.getMetastoreCacheMaximumSize(),
+                    config.isCacheMissing(),
+                    config.isCacheMissingPartitions(),
+                    config.isCacheMissingStats());
         }
         return GlueCache.NOOP;
     }

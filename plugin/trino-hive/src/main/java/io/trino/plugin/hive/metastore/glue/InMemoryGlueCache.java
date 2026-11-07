@@ -52,6 +52,7 @@ import java.util.function.BiFunction;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static com.google.common.cache.CacheLoader.asyncReloading;
@@ -90,6 +91,8 @@ class InMemoryGlueCache
     private final AtomicLong databaseInvalidationCounter = new AtomicLong();
     private final AtomicLong tableInvalidationCounter = new AtomicLong();
     private final AtomicLong partitionInvalidationCounter = new AtomicLong();
+    private final boolean cacheMissing;
+    private final boolean cacheMissingPartitions;
 
     public InMemoryGlueCache(
             CatalogName catalogName,
@@ -97,8 +100,13 @@ class InMemoryGlueCache
             Duration statsCacheTtl,
             Optional<Duration> refreshInterval,
             int maxMetastoreRefreshThreads,
-            long maximumSize)
+            long maximumSize,
+            boolean cacheMissing,
+            boolean cacheMissingPartitions,
+            boolean cacheMissingStats)
     {
+        this.cacheMissing = cacheMissing;
+        this.cacheMissingPartitions = cacheMissingPartitions;
         this.refreshExecutor = newCachedThreadPool(daemonThreadsNamed("hive-metastore-" + catalogName + "-%s"));
         Executor boundedRefreshExecutor = new ReentrantBoundedExecutor(refreshExecutor, maxMetastoreRefreshThreads);
 
@@ -115,8 +123,8 @@ class InMemoryGlueCache
         this.functionCache = buildCache(metadataCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ValueHolder::new);
 
         OptionalLong statsCacheTtlMillis = OptionalLong.of(statsCacheTtl.toMillis());
-        this.tableColumnStatsCache = buildCache(statsCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ColumnStatisticsHolder::new);
-        this.partitionColumnStatsCache = buildCache(statsCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ColumnStatisticsHolder::new);
+        this.tableColumnStatsCache = buildCache(statsCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, () -> new ColumnStatisticsHolder(cacheMissingStats));
+        this.partitionColumnStatsCache = buildCache(statsCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, () -> new ColumnStatisticsHolder(cacheMissingStats));
     }
 
     @PreDestroy
@@ -166,7 +174,7 @@ class InMemoryGlueCache
     @Override
     public Optional<Database> getDatabase(String databaseName, Supplier<Optional<Database>> loader)
     {
-        return databaseCache.getUnchecked(databaseName).getValue(loader);
+        return getOptional(databaseCache, databaseName, loader, cacheMissing);
     }
 
     @Override
@@ -190,7 +198,7 @@ class InMemoryGlueCache
     @Override
     public Optional<Table> getTable(String databaseName, String tableName, Supplier<Optional<Table>> loader)
     {
-        return tableCache.getUnchecked(new SchemaTableName(databaseName, tableName)).getValue(loader);
+        return getOptional(tableCache, new SchemaTableName(databaseName, tableName), loader, cacheMissing);
     }
 
     @Override
@@ -240,7 +248,7 @@ class InMemoryGlueCache
     @Override
     public Optional<Partition> getPartition(String databaseName, String tableName, PartitionName partitionName, Supplier<Optional<Partition>> loader)
     {
-        return partitionCache.getUnchecked(new PartitionKey(databaseName, tableName, partitionName)).getValue(loader);
+        return getOptional(partitionCache, new PartitionKey(databaseName, tableName, partitionName), loader, cacheMissingPartitions);
     }
 
     @Override
@@ -439,6 +447,18 @@ class InMemoryGlueCache
         return cacheBuilder.build(cacheLoader);
     }
 
+    private static <K, V> Optional<V> getOptional(
+            LoadingCache<K, ValueHolder<Optional<V>>> cache,
+            K key,
+            Supplier<Optional<V>> loader,
+            boolean cacheMissing)
+    {
+        if (cacheMissing) {
+            return cache.getUnchecked(key).getValue(loader);
+        }
+        return cache.getUnchecked(key).getValue(loader, Optional::isPresent);
+    }
+
     private static <K, V> void cacheValue(LoadingCache<K, ValueHolder<V>> cache, K key, V value, BooleanSupplier test)
     {
         // get the current value before checking the invalidation counter
@@ -462,13 +482,23 @@ class InMemoryGlueCache
 
         public V getValue(Supplier<V> loader)
         {
-            if (value == null) {
+            return getValue(loader, _ -> true);
+        }
+
+        public V getValue(Supplier<V> loader, Predicate<V> shouldCache)
+        {
+            V currentValue = value;
+            if (currentValue == null) {
                 writeLock.lock();
                 try {
-                    if (value == null) {
-                        value = loader.get();
-                        if (value == null) {
+                    currentValue = value;
+                    if (currentValue == null) {
+                        currentValue = loader.get();
+                        if (currentValue == null) {
                             throw new IllegalStateException("Value loader returned null");
+                        }
+                        if (shouldCache.test(currentValue)) {
+                            value = currentValue;
                         }
                     }
                 }
@@ -476,7 +506,7 @@ class InMemoryGlueCache
                     writeLock.unlock();
                 }
             }
-            return value;
+            return currentValue;
         }
 
         public Optional<V> getValueIfPresent()
@@ -504,6 +534,12 @@ class InMemoryGlueCache
     {
         private final Lock writeLock = new ReentrantLock();
         private final Map<String, Optional<HiveColumnStatistics>> cache = new ConcurrentHashMap<>();
+        private final boolean cacheMissingStats;
+
+        public ColumnStatisticsHolder(boolean cacheMissingStats)
+        {
+            this.cacheMissingStats = cacheMissingStats;
+        }
 
         public Map<String, HiveColumnStatistics> getColumnStatistics(Set<String> columnNames, Function<Set<String>, Map<String, HiveColumnStatistics>> loader)
         {
@@ -524,9 +560,12 @@ class InMemoryGlueCache
                     Map<String, HiveColumnStatistics> loadedColumnStatistics = loader.apply(missingColumnNames);
                     for (String missingColumnName : missingColumnNames) {
                         HiveColumnStatistics value = loadedColumnStatistics.get(missingColumnName);
-                        cache.put(missingColumnName, Optional.ofNullable(value));
                         if (value != null) {
+                            cache.put(missingColumnName, Optional.of(value));
                             result.put(missingColumnName, value);
+                        }
+                        else if (cacheMissingStats) {
+                            cache.put(missingColumnName, Optional.empty());
                         }
                     }
                 }
