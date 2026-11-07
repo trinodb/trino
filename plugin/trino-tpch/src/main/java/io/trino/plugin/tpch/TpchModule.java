@@ -39,6 +39,7 @@ public class TpchModule
     @Override
     protected void setup(Binder binder)
     {
+        binder.bind(TpchTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(Connector.class).to(TpchConnector.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).to(TpchMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSourceProvider.class).to(TpchPageSourceProvider.class).in(Scopes.SINGLETON);

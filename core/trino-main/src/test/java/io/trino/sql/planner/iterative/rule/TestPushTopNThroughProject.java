@@ -126,7 +126,7 @@ public class TestPushTopNThroughProject
         TableHandle nationTableHandle = new TableHandle(
                 tester().getCurrentCatalogHandle(),
                 new TpchTableHandle("sf1", "nation", 1.0),
-                TpchTransactionHandle.INSTANCE);
+                new TpchTransactionHandle());
 
         ColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
 
@@ -162,7 +162,7 @@ public class TestPushTopNThroughProject
         TableHandle nationTableHandle = new TableHandle(
                 tester().getCurrentCatalogHandle(),
                 new TpchTableHandle("sf1", "nation", 1.0),
-                TpchTransactionHandle.INSTANCE);
+                new TpchTransactionHandle());
 
         ColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
 
