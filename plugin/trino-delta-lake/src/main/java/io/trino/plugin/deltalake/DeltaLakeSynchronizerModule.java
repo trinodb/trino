@@ -20,6 +20,7 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.deltalake.transactionlog.writer.AzureTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.GcsTransactionLogSynchronizer;
+import io.trino.plugin.deltalake.transactionlog.writer.NoIsolationSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.S3ConditionalWriteLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.S3LockBasedTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
@@ -34,6 +35,9 @@ public class DeltaLakeSynchronizerModule
     protected void setup(Binder binder)
     {
         var synchronizerBinder = newMapBinder(binder, String.class, TransactionLogSynchronizer.class);
+
+        // Local filesystem (file://) — unsafe, requires delta.enable-non-concurrent-writes=true
+        synchronizerBinder.addBinding("file").to(NoIsolationSynchronizer.class).in(Scopes.SINGLETON);
 
         // Azure
         synchronizerBinder.addBinding("abfs").to(AzureTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
