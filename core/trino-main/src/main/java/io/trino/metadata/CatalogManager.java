@@ -58,7 +58,7 @@ public interface CatalogManager
         }
 
         @Override
-        public void dropCatalog(CatalogName catalogName, boolean exists)
+        public Optional<Catalog> dropCatalog(CatalogName catalogName, boolean exists)
         {
             throw new UnsupportedOperationException();
         }
@@ -77,5 +77,10 @@ public interface CatalogManager
 
     void createCatalog(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists);
 
-    void dropCatalog(CatalogName catalogName, boolean exists);
+    /**
+     * Drops the catalog with the given name and returns the catalog that was removed, or empty if no
+     * catalog with that name existed. The returned catalog is the one that was actually unregistered,
+     * so callers can safely make decisions based on the state of the removed catalog itself.
+     */
+    Optional<Catalog> dropCatalog(CatalogName catalogName, boolean exists);
 }
