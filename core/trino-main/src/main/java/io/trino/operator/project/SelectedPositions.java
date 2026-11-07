@@ -13,6 +13,8 @@
  */
 package io.trino.operator.project;
 
+import io.trino.spi.block.Block;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -98,6 +100,21 @@ public class SelectedPositions
     public int size()
     {
         return size;
+    }
+
+    /**
+     * Returns a block containing the selected positions of the specified block, without
+     * copying the values of the block.
+     */
+    public Block select(Block block)
+    {
+        if (isList) {
+            return block.getPositions(positions, offset, size);
+        }
+        if (offset == 0 && size == block.getPositionCount()) {
+            return block;
+        }
+        return block.getRegion(offset, size);
     }
 
     public SelectedPositions subRange(int start, int end)

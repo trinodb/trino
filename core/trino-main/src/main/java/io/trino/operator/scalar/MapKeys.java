@@ -14,18 +14,33 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.function.ColumnarScalarImplementation;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SelectedPositions;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
+
+import static io.trino.operator.scalar.MapBlockProjection.project;
 
 @ScalarFunction(value = "map_keys", neverFails = true)
 @Description("Returns the keys of the given map(K,V) as an array")
 public final class MapKeys
 {
     private MapKeys() {}
+
+    @ColumnarScalarImplementation
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType("array(K)")
+    public static Block getKeysColumnar(SelectedPositions selectedPositions, @SqlType("map(K,V)") Block mapColumn)
+    {
+        ColumnarMap map = ColumnarMap.toColumnarMap(mapColumn);
+        return selectedPositions.select(project(mapColumn, map, map.getKeysBlock()));
+    }
 
     @TypeParameter("K")
     @TypeParameter("V")
