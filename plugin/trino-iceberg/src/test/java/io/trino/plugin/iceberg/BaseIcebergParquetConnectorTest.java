@@ -170,17 +170,32 @@ public abstract class BaseIcebergParquetConnectorTest
     void testTableChangesOnMultiRowGroups()
             throws Exception
     {
+        int rowCount = new QueryManagerConfig().getScheduleSplitBatchSize() + 1;
         try (TestTable table = newTrinoTable(
                 "test_table_changes_function_multi_row_groups_",
-                "WITH (parquet_writer_row_group_size = '" + getTableChangesParquetRowGroupSize() + "') AS SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem WITH NO DATA")) {
+                """
+                WITH (parquet_writer_row_group_size = '%s') AS
+                SELECT orderkey, partkey, suppkey, lpad(CAST(partkey AS varchar), 512, '0') AS padding
+                FROM tpch.tiny.lineitem
+                WITH NO DATA
+                """.formatted(getTableChangesParquetRowGroupSize()))) {
             long initialSnapshot = getMostRecentSnapshotId(table.getName());
-            assertUpdate("INSERT INTO %s SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem".formatted(table.getName()), 60175L);
+            // Padding makes each row larger than the default row group size.
+            assertUpdate(
+                    """
+                    INSERT INTO %s
+                    SELECT orderkey, partkey, suppkey, lpad(CAST(partkey AS varchar), 512, '0')
+                    FROM tpch.tiny.lineitem
+                    ORDER BY orderkey, linenumber
+                    LIMIT %s
+                    """.formatted(table.getName(), rowCount),
+                    rowCount);
             long snapshotAfterInsert = getMostRecentSnapshotId(table.getName());
             DateTimeFormatter instantMillisFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSVV").withZone(UTC);
             String snapshotAfterInsertTime = getSnapshotTime(table.getName(), snapshotAfterInsert).format(instantMillisFormatter);
 
             // make sure splits are processed in more than one batch
-            // Decrease parquet row groups size or add more columns if this test fails
+            // Decrease parquet row groups size or increase padding if this test fails
             String filePath = getOnlyTableFilePath(table.getName());
             ParquetMetadata parquetMetadata = getParquetFileMetadata(fileSystem.newInputFile(Location.of(filePath)));
             int blocksSize = parquetMetadata.getBlocks().size();
@@ -192,7 +207,12 @@ public abstract class BaseIcebergParquetConnectorTest
                     SELECT orderkey, partkey, suppkey, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal
                     FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))
                     """.formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
-                    "SELECT orderkey, partkey, suppkey, 'insert', %s, '%s', 0 FROM lineitem".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
+                    """
+                    SELECT orderkey, partkey, suppkey, 'insert', %s, '%s', 0
+                    FROM lineitem
+                    ORDER BY orderkey, linenumber
+                    LIMIT %s
+                    """.formatted(snapshotAfterInsert, snapshotAfterInsertTime, rowCount));
         }
     }
 
