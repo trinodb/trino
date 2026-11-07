@@ -3790,8 +3790,46 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testWidthBucketLargeBounds()
+    {
+        // Preserve boundary rounding when the original arithmetic does not overflow.
+        assertThat(assertions.function("width_bucket", "15E0", "0E0", "22E0", "22"))
+                .isEqualTo(16L);
+        assertThat(assertions.function("width_bucket", "15E0", "22E0", "0E0", "22"))
+                .isEqualTo(7L);
+        assertThat(assertions.function("width_bucket", "0E0", "-1E308", "1E308", "10"))
+                .isEqualTo(6L);
+        assertThat(assertions.function("width_bucket", "5E307", "0E0", "1E308", "10"))
+                .isEqualTo(6L);
+        assertThat(assertions.function("width_bucket", "-5E307", "-1E308", "0E0", "10"))
+                .isEqualTo(6L);
+        assertThat(assertions.function("width_bucket", "-5E307", "-1E308", "1E308", "10"))
+                .isEqualTo(3L);
+        assertThat(assertions.function("width_bucket", "5E307", "-1E308", "1E308", "10"))
+                .isEqualTo(8L);
+        assertThat(assertions.function("width_bucket", "-5E307", "1E308", "-1E308", "10"))
+                .isEqualTo(8L);
+        assertThat(assertions.function("width_bucket", "5E307", "1E308", "-1E308", "10"))
+                .isEqualTo(3L);
+        assertThat(assertions.function("width_bucket", "-1E308", "-1E308", "1E308", "10"))
+                .isEqualTo(1L);
+        assertThat(assertions.function("width_bucket", "1E308", "-1E308", "1E308", "10"))
+                .isEqualTo(11L);
+        assertThat(assertions.function("width_bucket", "-1.5E308", "-1E308", "1E308", "10"))
+                .isEqualTo(0L);
+        assertThat(assertions.function("width_bucket", "1.5E308", "-1E308", "1E308", "10"))
+                .isEqualTo(11L);
+        assertThat(assertions.function("width_bucket", "1E-310", "0E0", "2E-310", "10"))
+                .isEqualTo(6L);
+    }
+
+    @Test
     public void testWidthBucketOverflowAscending()
     {
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "5E0", "0E0", "4E0", Long.toString(Long.MAX_VALUE))::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Bucket for value 5.0 is out of range");
+
         assertTrinoExceptionThrownBy(assertions.function("width_bucket", "infinity()", "0", "4", Long.toString(Long.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("Bucket for value Infinity is out of range");
@@ -3804,6 +3842,19 @@ public class TestMathFunctions
     @Test
     public void testWidthBucketOverflowDescending()
     {
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "-1E0", "4E0", "0E0", Long.toString(Long.MAX_VALUE))::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Bucket for value -1.0 is out of range");
+
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "-infinity()", "4E0", "0E0", Long.toString(Long.MAX_VALUE))::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Bucket for value -Infinity is out of range");
+
+        assertThat(assertions.function("width_bucket", "-1E0", "4E0", "0E0", Long.toString(Long.MAX_VALUE - 1)))
+                .isEqualTo(Long.MAX_VALUE);
+        assertThat(assertions.function("width_bucket", "0E0", "4E0", "0E0", Long.toString(Long.MAX_VALUE)))
+                .isEqualTo(Long.MAX_VALUE);
+
         assertTrinoExceptionThrownBy(assertions.function("width_bucket", "infinity()", "4", "0", Long.toString(Long.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("Bucket for value Infinity is out of range");
