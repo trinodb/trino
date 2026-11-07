@@ -18,14 +18,13 @@ import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.iceberg.delete.DeleteFile;
+import io.trino.plugin.iceberg.encryption.ParquetFileDecryptionData;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -114,41 +113,5 @@ public record IcebergSplit(
                     .mapToLong(DeleteFile::recordCount).sum());
         }
         return helper.toString();
-    }
-
-    public record ParquetFileDecryptionData(byte[] fileEncryptionKey, byte[] fileAadPrefix)
-    {
-        private static final int INSTANCE_SIZE = instanceSize(ParquetFileDecryptionData.class);
-
-        public ParquetFileDecryptionData
-        {
-            requireNonNull(fileEncryptionKey, "fileEncryptionKey is null");
-            requireNonNull(fileAadPrefix, "fileAadPrefix is null");
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            return o instanceof ParquetFileDecryptionData other
-                    && Arrays.equals(fileEncryptionKey, other.fileEncryptionKey)
-                    && Arrays.equals(fileAadPrefix, other.fileAadPrefix);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(Arrays.hashCode(fileEncryptionKey), Arrays.hashCode(fileAadPrefix));
-        }
-
-        @Override
-        public String toString()
-        {
-            return "[REDACTED]";
-        }
-
-        public long getRetainedSizeInBytes()
-        {
-            return INSTANCE_SIZE + SizeOf.sizeOf(fileEncryptionKey) + SizeOf.sizeOf(fileAadPrefix);
-        }
     }
 }
