@@ -40,6 +40,7 @@ import static io.trino.plugin.iceberg.ParquetFooterCacheType.MEMORY;
 import static io.trino.plugin.iceberg.ParquetFooterCacheType.NONE;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestIcebergConfig
@@ -56,6 +57,8 @@ public class TestIcebergConfig
                 .setUseFileSizeFromMetadata(true)
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(true)
+                .setCommitLockEnabled(false)
+                .setCommitLockWaitTimeout(new Duration(1, MINUTES))
                 .setCatalogType(HIVE_METASTORE)
                 .setDynamicFilteringWaitTimeout(new Duration(1, SECONDS))
                 .setTableStatisticsEnabled(true)
@@ -108,6 +111,8 @@ public class TestIcebergConfig
                 .put("iceberg.use-file-size-from-metadata", "false")
                 .put("iceberg.max-partitions-per-writer", "222")
                 .put("iceberg.unique-table-location", "false")
+                .put("iceberg.commit-lock.enabled", "true")
+                .put("iceberg.commit-lock.wait-timeout", "30s")
                 .put("iceberg.catalog.type", "GLUE")
                 .put("iceberg.dynamic-filtering.wait-timeout", "1h")
                 .put("iceberg.table-statistics-enabled", "false")
@@ -156,6 +161,8 @@ public class TestIcebergConfig
                 .setUseFileSizeFromMetadata(false)
                 .setMaxPartitionsPerWriter(222)
                 .setUniqueTableLocation(false)
+                .setCommitLockEnabled(true)
+                .setCommitLockWaitTimeout(new Duration(30, SECONDS))
                 .setCatalogType(GLUE)
                 .setDynamicFilteringWaitTimeout(Duration.valueOf("1h"))
                 .setTableStatisticsEnabled(false)
