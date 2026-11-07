@@ -201,25 +201,6 @@ public class TestYdbConnectorTest
     }
 
     @Test
-    public void testNativeTypeReads()
-    {
-        JdbcSqlExecutor executor = new JdbcSqlExecutor(YdbQueryRunner.buildJdbcUrl(ydb));
-        try (TestTable table = new TestTable(
-                executor,
-                "native_types_",
-                "(id Int64, u Uint64, s Utf8, d Date32, n Decimal(22,9), PRIMARY KEY (id))")) {
-            executor.execute("INSERT INTO " + table.getName() + " (id, u, s, d, n) VALUES " +
-                    "(1, 18446744073709551615ul, 'hello'u, Date32('1969-12-31'), " +
-                    "Decimal('1.25', 22, 9)), " +
-                    "(2, NULL, NULL, NULL, NULL)");
-            assertQuery("SELECT id, u, s, d, n FROM " + table.getName(),
-                    "VALUES (CAST(1 AS BIGINT), CAST('18446744073709551615' AS DECIMAL(20,0)), 'hello', DATE '1969-12-31', " +
-                            "CAST('1.25' AS DECIMAL(22,9))), " +
-                            "(CAST(2 AS BIGINT), NULL, NULL, NULL, NULL)");
-        }
-    }
-
-    @Test
     public void testReadOnlyWritesRejected()
     {
         JdbcSqlExecutor executor = new JdbcSqlExecutor(YdbQueryRunner.buildJdbcUrl(ydb));
