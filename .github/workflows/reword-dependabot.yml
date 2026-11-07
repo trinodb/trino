@@ -1,0 +1,82 @@
+name: reword-dependabot
+
+# Dependabot writes its own commit messages and offers no setting for subject
+# length, so some of them break the rules that the check-commit-messages job in
+# ci.yml enforces. This workflow amends the commit message and force pushes the
+# result back onto the pull request branch.
+#
+# One-time setup: add a Dependabot secret named REWORD_PAT holding a token with
+# "Contents: read and write" on this repository, either a fine-grained personal
+# access token or a GitHub App installation token. It has to be a Dependabot
+# secret, under Settings, Secrets and variables, Dependabot, because workflows
+# triggered by Dependabot cannot read Actions secrets.
+#
+# The automatic GITHUB_TOKEN cannot do the push, because pushes made with it
+# deliberately do not start new workflow runs, so CI would never run against
+# the amended commit and the pull request would wait for status checks that
+# never arrive.
+#
+# Until the secret exists the job logs a notice and stops, so pull requests are
+# never blocked by the missing configuration.
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  reword:
+    if: >-
+      github.repository == 'trinodb/trino' &&
+      github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check for a push token
+        id: push-token
+        env:
+          REWORD_PAT: ${{ secrets.REWORD_PAT }}
+        run: |
+          if [ -n "$REWORD_PAT" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::REWORD_PAT is not configured, skipping rewording"
+          fi
+
+      - uses: actions/checkout@v7.0.1
+        if: steps.push-token.outputs.available == 'true'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          # The parent of HEAD must be present, otherwise amending a shallow
+          # commit drops its parent and rewrites the branch history
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Reword the commit message
+        id: reword
+        if: steps.push-token.outputs.available == 'true'
+        run: |
+          git config user.name "Trino bot"
+          git config user.email "trino-bot@trino.io"
+          .github/bin/reword-dependabot-commit.py
+
+      - name: Push the reworded commit
+        if: steps.reword.outputs.changed == 'true'
+        env:
+          REWORD_PAT: ${{ secrets.REWORD_PAT }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # The lease fails the push if Dependabot updated the branch meanwhile;
+          # the run triggered by that update rewords the new commit instead
+          git push \
+            --force-with-lease="refs/heads/${HEAD_REF}:${HEAD_SHA}" \
+            "https://x-access-token:${REWORD_PAT}@github.com/${GITHUB_REPOSITORY}.git" \
+            "HEAD:refs/heads/${HEAD_REF}"
