@@ -63,6 +63,7 @@ import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -72,6 +73,10 @@ import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.MaterializedViewDependency.Foreign;
+import io.trino.spi.connector.MaterializedViewDependency.MaterializedView;
+import io.trino.spi.connector.MaterializedViewDependency.Table;
+import io.trino.spi.connector.MaterializedViewDependency.View;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
@@ -1301,9 +1306,15 @@ public final class MetadataManager
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType)
+    public InsertTableHandle beginRefreshMaterializedView(
+            Session session,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
+            List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
+            RefreshType refreshType)
     {
-        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogHandle catalogHandle = storageTableHandle.catalogHandle();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogHandle);
@@ -1313,25 +1324,45 @@ public final class MetadataManager
                 .map(TableHandle::connectorHandle)
                 .collect(Collectors.toList());
 
+        List<ConnectorViewHandle> sourceConnectorViewHandles = sourceViewHandles.stream()
+                .filter(handle -> handle.catalogHandle().equals(catalogHandle))
+                .map(ViewHandle::connectorHandle)
+                .collect(toImmutableList());
+
+        boolean hasForeignSourceRelations = sourceConnectorHandles.size() < sourceTableHandles.size() || sourceConnectorViewHandles.size() < sourceViewHandles.size();
         ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(
                 session.toConnectorSession(catalogHandle),
-                tableHandle.connectorHandle(),
+                materializedViewHandle.connectorHandle(),
+                storageTableHandle.connectorHandle(),
                 sourceConnectorHandles,
-                sourceConnectorHandles.size() < sourceTableHandles.size(),
+                sourceConnectorViewHandles,
+                hasForeignSourceRelations,
                 getRetryPolicy(session).getRetryMode(),
                 refreshType);
 
-        return new InsertTableHandle(tableHandle.catalogHandle(), transactionHandle, handle);
+        return new InsertTableHandle(storageTableHandle.catalogHandle(), transactionHandle, handle);
+    }
+
+    @Override
+    public Optional<ViewHandle> getViewHandle(Session session, QualifiedObjectName viewName)
+    {
+        CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, viewName.catalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        return metadata.getViewHandle(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName())
+                .map(connectorHandle -> new ViewHandle(catalogHandle, connectorHandle));
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
-            TableHandle tableHandle,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
             InsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
@@ -1343,14 +1374,22 @@ public final class MetadataManager
                 .map(TableHandle::connectorHandle)
                 .collect(toImmutableList());
 
+        List<ConnectorViewHandle> sourceConnectorViewHandles = sourceViewHandles.stream()
+                .filter(handle -> handle.catalogHandle().equals(catalogHandle))
+                .map(ViewHandle::connectorHandle)
+                .collect(toImmutableList());
+
+        boolean hasForeignSourceRelations = sourceConnectorHandles.size() < sourceTableHandles.size() || sourceConnectorViewHandles.size() < sourceViewHandles.size();
         return metadata.finishRefreshMaterializedView(
                 session.toConnectorSession(catalogHandle),
-                tableHandle.connectorHandle(),
+                materializedViewHandle.connectorHandle(),
+                storageTableHandle.connectorHandle(),
                 insertHandle.connectorHandle(),
                 fragments,
                 computedStatistics,
                 sourceConnectorHandles,
-                sourceConnectorHandles.size() < sourceTableHandles.size(),
+                sourceConnectorViewHandles,
+                hasForeignSourceRelations,
                 !sourceTableFunctions.isEmpty(),
                 hasNonDeterministicFunctions);
     }
@@ -1937,6 +1976,48 @@ public final class MetadataManager
             return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName(), considerGracePeriod);
         }
         return new MaterializedViewFreshness(STALE, Optional.empty());
+    }
+
+    @Override
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName, boolean considerGracePeriod, MaterializedViewDependencies dependencies)
+    {
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName, Optional.empty(), Optional.empty());
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+            ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+            io.trino.spi.connector.MaterializedViewDependencies connectorDependencies = new io.trino.spi.connector.MaterializedViewDependencies(
+                    toConnectorDependencies(catalogHandle, dependencies.dependencies()),
+                    dependencies.hasTableFunctions(),
+                    dependencies.hasNonDeterministicFunctions());
+            return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName(), considerGracePeriod, connectorDependencies);
+        }
+        return new MaterializedViewFreshness(STALE, Optional.empty());
+    }
+
+    private static List<io.trino.spi.connector.MaterializedViewDependency> toConnectorDependencies(CatalogHandle catalogHandle, List<MaterializedViewDependency> dependencies)
+    {
+        return dependencies.stream()
+                .map(dependency -> toConnectorDependency(catalogHandle, dependency))
+                .collect(toImmutableList());
+    }
+
+    private static io.trino.spi.connector.MaterializedViewDependency toConnectorDependency(CatalogHandle catalogHandle, MaterializedViewDependency dependency)
+    {
+        // Connectors only receive handles of their own catalog
+        return switch (dependency) {
+            case MaterializedViewDependency.Table table when table.handle().catalogHandle().equals(catalogHandle) -> new Table(table.handle().connectorHandle());
+            case MaterializedViewDependency.View view when view.handle().catalogHandle().equals(catalogHandle) -> new View(view.handle().connectorHandle(), toConnectorDependencies(catalogHandle, view.dependencies()));
+            case MaterializedViewDependency.MaterializedView materializedView when materializedView.handle().catalogHandle().equals(catalogHandle) -> new MaterializedView(
+                    materializedView.handle().connectorHandle(),
+                    materializedView.storageTable()
+                            .filter(storageTable -> storageTable.catalogHandle().equals(catalogHandle))
+                            .map(TableHandle::connectorHandle),
+                    materializedView.dependencies().map(dependencies -> toConnectorDependencies(catalogHandle, dependencies)));
+            default -> new Foreign(dependency.name().asCatalogSchemaTableName());
+        };
     }
 
     @Override

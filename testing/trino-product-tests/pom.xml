@@ -474,13 +474,13 @@
                                 <artifactItem>
                                     <groupId>org.apache.iceberg</groupId>
                                     <artifactId>iceberg-spark-runtime-4.1_2.13</artifactId>
-                                    <version>${dep.iceberg.version}</version>
+                                    <version>${dep.iceberg.stable.version}</version>
                                     <destFileName>iceberg-spark-runtime.jar</destFileName>
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>org.apache.iceberg</groupId>
                                     <artifactId>iceberg-aws-bundle</artifactId>
-                                    <version>${dep.iceberg.version}</version>
+                                    <version>${dep.iceberg.stable.version}</version>
                                     <destFileName>iceberg-aws-bundle.jar</destFileName>
                                 </artifactItem>
                                 <artifactItem>

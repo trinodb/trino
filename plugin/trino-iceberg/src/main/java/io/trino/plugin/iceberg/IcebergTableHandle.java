@@ -43,6 +43,7 @@ public class IcebergTableHandle
     private final String tableName;
     private final TableType tableType;
     private final OptionalLong snapshotId;
+    private final Optional<String> branch;
     private final String tableSchemaJson;
     // Empty means the partitioning spec is not known (can be the case for certain time travel queries).
     private final OptionalInt specId;
@@ -84,6 +85,7 @@ public class IcebergTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
             @JsonProperty("snapshotId") OptionalLong snapshotId,
+            @JsonProperty("branch") Optional<String> branch,
             @JsonProperty("tableSchemaJson") String tableSchemaJson,
             @JsonProperty("specId") OptionalInt specId,
             @JsonProperty("partitionSpecJsons") Map<Integer, String> partitionSpecJsons,
@@ -101,6 +103,7 @@ public class IcebergTableHandle
                 tableName,
                 tableType,
                 snapshotId,
+                branch,
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
@@ -124,6 +127,7 @@ public class IcebergTableHandle
             String tableName,
             TableType tableType,
             OptionalLong snapshotId,
+            Optional<String> branch,
             String tableSchemaJson,
             OptionalInt specId,
             Map<Integer, String> partitionSpecJsons,
@@ -145,6 +149,7 @@ public class IcebergTableHandle
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        this.branch = requireNonNull(branch, "branch is null");
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "schemaJson is null");
         this.specId = requireNonNull(specId, "specId is null");
         this.partitionSpecJsons = ImmutableMap.copyOf(requireNonNull(partitionSpecJsons, "partitionSpecJsons is null"));
@@ -190,6 +195,12 @@ public class IcebergTableHandle
     public OptionalLong getSnapshotId()
     {
         return snapshotId;
+    }
+
+    @JsonProperty
+    public Optional<String> getBranch()
+    {
+        return branch;
     }
 
     @JsonProperty
@@ -308,6 +319,7 @@ public class IcebergTableHandle
                 tableName,
                 tableType,
                 snapshotId,
+                branch,
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
@@ -333,6 +345,7 @@ public class IcebergTableHandle
                 tableName,
                 tableType,
                 snapshotId,
+                branch,
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
@@ -358,6 +371,7 @@ public class IcebergTableHandle
                 tableName,
                 tableType,
                 snapshotId,
+                branch,
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
@@ -383,6 +397,7 @@ public class IcebergTableHandle
                 tableName,
                 tableType,
                 snapshotId,
+                branch,
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
@@ -428,6 +443,7 @@ public class IcebergTableHandle
                 Objects.equals(nameMappingJson, that.nameMappingJson) &&
                 Objects.equals(tableLocation, that.tableLocation) &&
                 Objects.equals(storageProperties, that.storageProperties) &&
+                Objects.equals(branch, that.branch) &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
                 Objects.equals(constraintColumns, that.constraintColumns) &&
                 Objects.equals(forAnalyze, that.forAnalyze);
@@ -452,6 +468,7 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
+                branch,
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,

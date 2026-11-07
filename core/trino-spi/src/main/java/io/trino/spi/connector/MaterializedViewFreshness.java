@@ -24,11 +24,21 @@ public final class MaterializedViewFreshness
 {
     private final Freshness freshness;
     private final Optional<Instant> lastKnownFreshTime;
+    private final boolean requiresDependencies;
 
     public MaterializedViewFreshness(Freshness freshness, Optional<Instant> lastKnownFreshTime)
     {
+        this(freshness, lastKnownFreshTime, false);
+    }
+
+    public MaterializedViewFreshness(Freshness freshness, Optional<Instant> lastKnownFreshTime, boolean requiresDependencies)
+    {
         this.freshness = requireNonNull(freshness, "freshness is null");
         this.lastKnownFreshTime = requireNonNull(lastKnownFreshTime, "lastKnownFreshTime is null");
+        if (requiresDependencies && freshness != Freshness.UNKNOWN) {
+            throw new IllegalArgumentException("requiresDependencies can only be set for UNKNOWN freshness");
+        }
+        this.requiresDependencies = requiresDependencies;
     }
 
     public Freshness getFreshness()
@@ -42,6 +52,17 @@ public final class MaterializedViewFreshness
     public Optional<Instant> getLastKnownFreshTime()
     {
         return lastKnownFreshTime;
+    }
+
+    /**
+     * Whether the connector could determine the freshness if the engine provided the relations the
+     * materialized view query depends on, through
+     * {@link ConnectorMetadata#getMaterializedViewFreshness(ConnectorSession, SchemaTableName, boolean, MaterializedViewDependencies)}.
+     * Only set together with {@link Freshness#UNKNOWN}.
+     */
+    public boolean requiresDependencies()
+    {
+        return requiresDependencies;
     }
 
     /**
@@ -64,13 +85,14 @@ public final class MaterializedViewFreshness
         }
         MaterializedViewFreshness that = (MaterializedViewFreshness) obj;
         return freshness == that.freshness
-                && Objects.equals(lastKnownFreshTime, that.lastKnownFreshTime);
+                && Objects.equals(lastKnownFreshTime, that.lastKnownFreshTime)
+                && requiresDependencies == that.requiresDependencies;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(freshness, lastKnownFreshTime);
+        return Objects.hash(freshness, lastKnownFreshTime, requiresDependencies);
     }
 
     @Override
@@ -79,6 +101,7 @@ public final class MaterializedViewFreshness
         return new StringJoiner(", ", MaterializedViewFreshness.class.getSimpleName() + "[", "]")
                 .add("freshness=" + freshness)
                 .add("lastKnownFreshTime=" + lastKnownFreshTime.orElse(null))
+                .add("requiresDependencies=" + requiresDependencies)
                 .toString();
     }
 

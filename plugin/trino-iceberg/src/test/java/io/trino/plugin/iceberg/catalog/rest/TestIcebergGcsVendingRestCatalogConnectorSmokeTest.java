@@ -76,9 +76,7 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_RENAME_MATERIALIZED_VIEW,
-                 SUPPORTS_RENAME_SCHEMA -> false;
+            case SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -164,14 +162,6 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
                 .create(ConnectorIdentity.forUser(SESSION.getUser())
                         .withExtraCredentials(ImmutableMap.of(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, OAUTH_TOKEN))
                         .build());
-    }
-
-    @Test
-    @Override
-    public void testMaterializedView()
-    {
-        assertThatThrownBy(super::testMaterializedView)
-                .hasMessageContaining("createMaterializedView is not supported for Iceberg REST catalog");
     }
 
     @Test
