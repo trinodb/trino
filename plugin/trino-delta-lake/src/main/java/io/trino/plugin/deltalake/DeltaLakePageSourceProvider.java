@@ -219,7 +219,7 @@ public class DeltaLakePageSourceProvider
                     ImmutableSet.of(),
                     partitionKeys,
                     partitionValues,
-                    generatePages(split.fileRowCount().get(), onlyRowIdColumn(regularColumns)),
+                    generatePages(split.fileRowCount().get(), onlyRowIdColumn(regularColumns), memoryContext),
                     split.path(),
                     split.fileSize(),
                     split.fileModifiedTime());
@@ -434,7 +434,7 @@ public class DeltaLakePageSourceProvider
         return columns.size() == 1 && getOnlyElement(columns).baseColumnName().equals(ROW_ID_COLUMN_NAME);
     }
 
-    private static ConnectorPageSource generatePages(long totalRowCount, boolean projectRowNumber)
+    private static ConnectorPageSource generatePages(long totalRowCount, boolean projectRowNumber, MemoryContext memoryContext)
     {
         return new FixedPageSource(
                 new AbstractIterator<>()
@@ -460,7 +460,8 @@ public class DeltaLakePageSourceProvider
                         return page;
                     }
                 },
-                0);
+                0,
+                memoryContext);
     }
 
     private static Block createRowNumberBlock(long baseIndex, int size)
