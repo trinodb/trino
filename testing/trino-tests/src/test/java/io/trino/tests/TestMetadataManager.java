@@ -270,7 +270,7 @@ public class TestMetadataManager
             for (int i = 0; i < metadataQueryCount; i++) {
                 metadataQueries.add(completionService.submit(() -> {
                     barrier.await(10, SECONDS);
-                    queryRunner.execute("TABLE system.jdbc.columns");
+                    queryRunner.execute("SELECT count(*) FROM system.jdbc.columns");
                     return null;
                 }));
             }
