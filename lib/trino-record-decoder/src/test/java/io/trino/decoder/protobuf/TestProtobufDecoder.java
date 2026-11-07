@@ -649,6 +649,15 @@ public class TestProtobufDecoder
         checkValue(decodedRow, bytesColumn, Slices.wrappedBuffer(bytesData));
     }
 
+    @Test
+    public void testInvalidMessageIsReportedAsCorrupt()
+            throws Exception
+    {
+        DecoderTestColumnHandle stringColumn = new DecoderTestColumnHandle(0, "stringColumn", VARCHAR, "stringColumn", null, null, false, false, false);
+        RowDecoder decoder = createRowDecoder("all_datatypes.proto", ImmutableSet.of(stringColumn));
+        assertThat(decoder.decodeRow(new byte[] {0x0A, 0x7F})).isEmpty();
+    }
+
     private Timestamp getTimestamp(SqlTimestamp sqlTimestamp)
     {
         return Timestamp.newBuilder()

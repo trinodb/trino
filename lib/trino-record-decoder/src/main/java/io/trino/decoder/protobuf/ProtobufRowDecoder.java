@@ -17,6 +17,7 @@ import com.google.protobuf.DynamicMessage;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
@@ -24,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.decoder.protobuf.ProtobufErrorCode.INVALID_PROTOBUF_MESSAGE;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 
@@ -47,10 +49,18 @@ public class ProtobufRowDecoder
     @Override
     public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data)
     {
-        DynamicMessage message = dynamicMessageProvider.parseDynamicMessage(data);
-        return Optional.of(columnDecoders.entrySet().stream()
-                .collect(toImmutableMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue().decodeField(message))));
+        try {
+            DynamicMessage message = dynamicMessageProvider.parseDynamicMessage(data);
+            return Optional.of(columnDecoders.entrySet().stream()
+                    .collect(toImmutableMap(
+                            Map.Entry::getKey,
+                            entry -> entry.getValue().decodeField(message))));
+        }
+        catch (TrinoException e) {
+            if (e.getErrorCode().equals(INVALID_PROTOBUF_MESSAGE.toErrorCode())) {
+                return Optional.empty();
+            }
+            throw e;
+        }
     }
 }
