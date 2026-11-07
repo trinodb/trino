@@ -31,14 +31,10 @@ import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
-import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeUtils;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
@@ -106,6 +102,8 @@ public final class MemoryPageSourceProvider
         private final List<ColumnHandle> columns;
         private final DynamicFilter dynamicFilter;
         private final boolean enableLazyDynamicFiltering;
+        private TupleDomain<ColumnHandle> filteredPredicate;
+        private DomainPageFilter pageFilter;
         private long rows;
         private long completedPositions;
         private boolean closed;
@@ -160,7 +158,17 @@ public final class MemoryPageSourceProvider
             completedPositions += page.getPositionCount();
 
             if (!predicate.isAll()) {
-                applyFilter(page, predicate.transformKeys(columns::indexOf).getDomains().get());
+                // The predicate instance only changes when the dynamic filter is narrowed
+                if (predicate != filteredPredicate) {
+                    pageFilter = DomainPageFilter.create(predicate.transformKeys(columns::indexOf).getDomains().get());
+                    filteredPredicate = predicate;
+                }
+                // Selected positions are retained by the page, so they must not be reused across pages
+                int[] positions = new int[page.getPositionCount()];
+                int length = pageFilter.filter(page, positions);
+                if (length != page.getPositionCount()) {
+                    page.selectPositions(positions, 0, length);
+                }
             }
             rows += page.getPositionCount();
             return page;
@@ -190,31 +198,5 @@ public final class MemoryPageSourceProvider
                     "finished", new LongCount(closed ? 1 : 0),
                     "started", new LongCount(1)));
         }
-    }
-
-    private static void applyFilter(SourcePage page, Map<Integer, Domain> domains)
-    {
-        int[] positions = new int[page.getPositionCount()];
-        int length = 0;
-        for (int position = 0; position < page.getPositionCount(); ++position) {
-            if (positionMatchesPredicate(page, position, domains)) {
-                positions[length++] = position;
-            }
-        }
-        page.selectPositions(positions, 0, length);
-    }
-
-    private static boolean positionMatchesPredicate(SourcePage page, int position, Map<Integer, Domain> domains)
-    {
-        for (Entry<Integer, Domain> entry : domains.entrySet()) {
-            int channel = entry.getKey();
-            Domain domain = entry.getValue();
-            Object value = TypeUtils.readNativeValue(domain.getType(), page.getBlock(channel), position);
-            if (!domain.includesNullableValue(value)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 }
