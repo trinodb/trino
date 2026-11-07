@@ -1082,6 +1082,14 @@ public class TestStringFunctions
                 .binding("length", "3"))
                 .hasType(createVarcharType(4))
                 .isEqualTo("end");
+
+        assertThat(assertions.function("substr", "'abcde'", "-1", "2147483647"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("e");
+
+        assertThat(assertions.function("substr", "'abcde'", "-3", "2147483647"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("cde");
     }
 
     @Test
