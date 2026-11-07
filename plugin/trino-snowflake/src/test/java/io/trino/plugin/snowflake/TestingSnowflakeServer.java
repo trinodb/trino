@@ -22,6 +22,7 @@ import java.sql.Statement;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.snowflake.SnowflakeClientModule.setOutputProperties;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 
@@ -31,7 +32,9 @@ public final class TestingSnowflakeServer
 
     public static final String TEST_URL = requiredNonEmptySystemProperty("snowflake.test.server.url");
     public static final String TEST_USER = requiredNonEmptySystemProperty("snowflake.test.server.user");
-    public static final String TEST_PASSWORD = requiredNonEmptySystemProperty("snowflake.test.server.password");
+    public static final Optional<String> TEST_PASSWORD = Optional.ofNullable(System.getProperty("snowflake.test.server.password"));
+    public static final Optional<String> TEST_PRIVATE_KEY = Optional.ofNullable(System.getProperty("snowflake.test.server.private-key"));
+    public static final Optional<String> TEST_PRIVATE_KEY_PASSPHRASE = Optional.ofNullable(System.getProperty("snowflake.test.server.private-key-passphrase"));
     public static final String TEST_DATABASE = requiredNonEmptySystemProperty("snowflake.test.server.database");
     public static final String TEST_WAREHOUSE = requiredNonEmptySystemProperty("snowflake.test.server.warehouse");
     public static final Optional<String> TEST_ROLE = Optional.ofNullable(System.getProperty("snowflake.test.server.role"));
@@ -57,7 +60,16 @@ public final class TestingSnowflakeServer
     {
         Properties properties = new Properties();
         properties.setProperty("user", TEST_USER);
-        properties.setProperty("password", TEST_PASSWORD);
+        checkArgument(
+                TEST_PRIVATE_KEY.isPresent() || TEST_PASSWORD.isPresent(),
+                "At least one of the private key or password must be set");
+        if (TEST_PRIVATE_KEY.isPresent()) {
+            properties.setProperty("private_key_base64", TEST_PRIVATE_KEY.get());
+            TEST_PRIVATE_KEY_PASSPHRASE.ifPresent(passphrase -> properties.setProperty("private_key_pwd", passphrase));
+        }
+        else {
+            properties.setProperty("password", TEST_PASSWORD.get());
+        }
         properties.setProperty("db", TEST_DATABASE);
         properties.setProperty("schema", TEST_SCHEMA);
         properties.setProperty("warehouse", TEST_WAREHOUSE);
