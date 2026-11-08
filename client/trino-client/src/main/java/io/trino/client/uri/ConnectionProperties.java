@@ -404,6 +404,13 @@ final class ConnectionProperties
             super(PropertyName.ENCODING, NOT_REQUIRED, Encoding::areEncodingsValid, STRING_CONVERTER);
         }
 
+        // The value is a list of encodings, but listing the supported ones, in the order of preference, helps to build it
+        @Override
+        public String[] getChoices()
+        {
+            return QueryDataDecoders.getSupportedEncodings().toArray(String[]::new);
+        }
+
         public static Optional<String> areEncodingsValid(Properties properties)
         {
             List<String> supportedEncodings = Splitter.on(",").trimResults().omitEmptyStrings()

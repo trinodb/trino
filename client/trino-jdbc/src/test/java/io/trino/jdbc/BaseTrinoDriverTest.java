@@ -425,7 +425,8 @@ public abstract class BaseTrinoDriverTest
                 .contains("{name=user, required=false}")
                 .contains("{name=password, required=false}")
                 .contains("{name=accessToken, required=false}")
-                .contains("{name=SSL, value=false, required=false, choices=[true, false]}");
+                .contains("{name=SSL, value=false, required=false, choices=[true, false]}")
+                .contains("{name=encoding, required=false, choices=[json+zstd, json+lz4, json]}");
     }
 
     @Test
