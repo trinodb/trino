@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.gen;
+package io.trino.sql.gen.columnar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,9 +33,6 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
-import io.trino.sql.gen.columnar.DynamicPageFilter;
-import io.trino.sql.gen.columnar.FilterEvaluator;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
 import io.trino.util.DynamicFiltersTestUtil.TestingDynamicFilter;
