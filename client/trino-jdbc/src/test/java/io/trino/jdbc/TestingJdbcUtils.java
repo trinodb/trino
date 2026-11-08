@@ -25,6 +25,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLWarning;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -91,6 +92,15 @@ public final class TestingJdbcUtils
             rows.add(row);
         }
         return rows.build();
+    }
+
+    public static List<String> warningMessages(SQLWarning warning)
+    {
+        ImmutableList.Builder<String> messages = ImmutableList.builder();
+        for (SQLWarning current = warning; current != null; current = current.getNextWarning()) {
+            messages.add(current.getMessage());
+        }
+        return messages.build();
     }
 
     @SafeVarargs

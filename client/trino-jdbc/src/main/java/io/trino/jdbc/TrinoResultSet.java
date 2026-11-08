@@ -46,7 +46,7 @@ public class TrinoResultSet
             throws SQLException
     {
         requireNonNull(client, "client is null");
-        List<Column> columns = getColumns(client, progressCallback);
+        List<Column> columns = getColumns(client, progressCallback, warningsManager);
         return new TrinoResultSet(statement, client, columns, maxRows, progressCallback, warningsManager);
     }
 
@@ -121,12 +121,13 @@ public class TrinoResultSet
         client.cancelLeafStage();
     }
 
-    private static List<Column> getColumns(StatementClient client, Consumer<QueryStats> progressCallback)
+    private static List<Column> getColumns(StatementClient client, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         while (client.isRunning()) {
             QueryStatusInfo results = client.currentStatusInfo();
             progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
+            warningsManager.addWarnings(results.getWarnings());
             List<Column> columns = results.getColumns();
             if (columns != null) {
                 return columns;
