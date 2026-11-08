@@ -18,11 +18,15 @@ import io.trino.spi.type.MapType;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class BufferedMapValueBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(BufferedMapValueBuilder.class);
+
+    private static final int INITIAL_BUFFER_SIZE = 1;
+    private static final int MAX_BUFFER_SIZE = 1024;
 
     private final MapType mapType;
     private final HashBuildMode hashBuildMode;
@@ -32,17 +36,17 @@ public class BufferedMapValueBuilder
 
     public static BufferedMapValueBuilder createBuffered(MapType mapType)
     {
-        return new BufferedMapValueBuilder(mapType, HashBuildMode.DUPLICATE_NOT_CHECKED, 1024);
+        return new BufferedMapValueBuilder(mapType, HashBuildMode.DUPLICATE_NOT_CHECKED, INITIAL_BUFFER_SIZE);
     }
 
     public static BufferedMapValueBuilder createBufferedStrict(MapType mapType)
     {
-        return new BufferedMapValueBuilder(mapType, HashBuildMode.STRICT_EQUALS, 1024);
+        return new BufferedMapValueBuilder(mapType, HashBuildMode.STRICT_EQUALS, INITIAL_BUFFER_SIZE);
     }
 
     public static BufferedMapValueBuilder createBufferedDistinctStrict(MapType mapType)
     {
-        return new BufferedMapValueBuilder(mapType, HashBuildMode.STRICT_NOT_DISTINCT_FROM, 1024);
+        return new BufferedMapValueBuilder(mapType, HashBuildMode.STRICT_NOT_DISTINCT_FROM, INITIAL_BUFFER_SIZE);
     }
 
     BufferedMapValueBuilder(MapType mapType, HashBuildMode hashBuildMode, int bufferSize)
@@ -69,11 +73,7 @@ public class BufferedMapValueBuilder
 
         // grow or reset builders if necessary
         if (keyBlockBuilder.getPositionCount() + entryCount > bufferSize) {
-            if (bufferSize < entryCount) {
-                bufferSize = entryCount;
-            }
-            keyBlockBuilder = keyBlockBuilder.newBlockBuilderLike(bufferSize, null);
-            valueBlockBuilder = valueBlockBuilder.newBlockBuilderLike(bufferSize, null);
+            resetBuilders(entryCount);
         }
 
         int startSize = keyBlockBuilder.getPositionCount();
@@ -97,6 +97,13 @@ public class BufferedMapValueBuilder
         Block keyBlock = keyBlockBuilder.build().getRegion(startSize, endSize - startSize);
         Block valueBlock = valueBlockBuilder.build().getRegion(startSize, endSize - startSize);
         return new SqlMap(mapType, hashBuildMode, keyBlock, valueBlock);
+    }
+
+    private void resetBuilders(int entryCount)
+    {
+        bufferSize = max(entryCount, min(bufferSize * 2, MAX_BUFFER_SIZE));
+        keyBlockBuilder = keyBlockBuilder.newBlockBuilderLike(bufferSize, null);
+        valueBlockBuilder = valueBlockBuilder.newBlockBuilderLike(bufferSize, null);
     }
 
     private boolean equalizeBlockBuilders()
