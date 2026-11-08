@@ -32,9 +32,12 @@ import java.io.Console;
 import java.lang.annotation.Retention;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -339,6 +342,15 @@ public class ClientOptions
     @Option(names = "--max-queued-rows", paramLabel = "<maxQueuedRows>", description = "Maximum number of rows to queue before blocking the query (default: ${DEFAULT-VALUE})")
     public int maxQueuedRows = 50_000;
 
+    @Option(names = "--driver-path", paramLabel = "<path>", description = "JAR file, or directory with JAR files, of the JDBC driver for a URL of a database other than Trino (option can be used multiple times)")
+    public List<Path> driverPaths = new ArrayList<>();
+
+    @Option(names = "--driver-class", paramLabel = "<class>", description = "Class name of the JDBC driver, for drivers that are not registered as a service")
+    public Optional<String> driverClass;
+
+    @Option(names = "--connection-property", paramLabel = "<property>", description = "JDBC driver connection property (option can be used multiple times; format is key=value)")
+    public Map<String, String> connectionProperties = new LinkedHashMap<>();
+
     public enum OutputFormat
     {
         AUTO,
@@ -407,10 +419,13 @@ public class ClientOptions
             if (url.isPresent() && server.isPresent()) {
                 throw new IllegalArgumentException("Using both the URL parameter and the --server option is not allowed");
             }
-            return createDriverManagerConnectionFactory(jdbcUrl.get(), restrictedProperties);
+            return createDriverConnectionFactory(jdbcUrl.get(), restrictedProperties);
         }
 
-        return new TrinoConnectionFactory(toTrinoJdbcUrl(restrictedProperties), toTrinoConnectionProperties(), clientRequestTimeout);
+        if (!driverPaths.isEmpty() || driverClass.isPresent()) {
+            throw new IllegalArgumentException("Options '--driver-path' and '--driver-class' can only be used with JDBC URLs of databases other than Trino");
+        }
+        return new TrinoConnectionFactory(toTrinoJdbcUrl(restrictedProperties), toTrinoConnectionProperties(restrictedProperties), clientRequestTimeout);
     }
 
     /**
@@ -444,7 +459,7 @@ public class ClientOptions
     /**
      * Returns the Trino JDBC driver connection properties set by options, in the format of the driver.
      */
-    public Properties toTrinoConnectionProperties()
+    public Properties toTrinoConnectionProperties(Map<String, String> restrictedProperties)
     {
         Map<String, String> urlProperties = getUrlProperties(getServerUri());
         Properties properties = new Properties();
@@ -532,10 +547,12 @@ public class ClientOptions
         if (!urlProperties.containsKey(SSL)) {
             isSecureScheme(getServerUri()).ifPresent(secure -> properties.setProperty(SSL, String.valueOf(secure)));
         }
+        // explicit properties override the defaults set above
+        properties.putAll(getConnectionProperties(restrictedProperties));
         return properties;
     }
 
-    private ConnectionFactory createDriverManagerConnectionFactory(String jdbcUrl, Map<String, String> restrictedProperties)
+    private ConnectionFactory createDriverConnectionFactory(String jdbcUrl, Map<String, String> restrictedProperties)
     {
         Set<String> unsupportedProperties = Sets.difference(restrictedProperties.keySet(), GENERIC_DRIVER_PROPERTIES);
         if (!unsupportedProperties.isEmpty()) {
@@ -544,13 +561,43 @@ public class ClientOptions
                     restrictedProperties.get(unsupportedProperties.iterator().next())));
         }
         Properties properties = new Properties();
+        properties.putAll(getConnectionProperties(restrictedProperties));
         if (restrictedProperties.containsKey(USER)) {
-            user.ifPresent(value -> properties.setProperty("user", value));
+            user.ifPresent(value -> properties.setProperty(USER, value));
         }
         if (password) {
-            properties.setProperty("password", getPassword());
+            properties.setProperty(PASSWORD, getPassword());
         }
-        return new DriverManagerConnectionFactory(jdbcUrl, properties, catalog, schema);
+        try {
+            return DriverConnectionFactory.builder(jdbcUrl)
+                    .setProperties(properties)
+                    .setCatalog(catalog)
+                    .setSchema(schema)
+                    .setDriverPaths(driverPaths)
+                    .setDriverClass(driverClass)
+                    .build();
+        }
+        catch (SQLException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
+    }
+
+    private Map<String, String> getConnectionProperties(Map<String, String> restrictedProperties)
+    {
+        for (String property : connectionProperties.keySet()) {
+            if (property.equals(PASSWORD) || property.equals(OAUTH2_CLIENT_SECRET)) {
+                throw new IllegalArgumentException(format(
+                        "Connection property '%s' cannot be set with the --connection-property option, use the --password or --oauth2-client-secret option instead",
+                        property));
+            }
+            if (restrictedProperties.containsKey(property)) {
+                throw new IllegalArgumentException(format(
+                        "Connection property '%s' cannot be set with the --connection-property option when option '%s' is set",
+                        property,
+                        restrictedProperties.get(property)));
+            }
+        }
+        return connectionProperties;
     }
 
     private static boolean isNonTrinoJdbcUrl(String url)

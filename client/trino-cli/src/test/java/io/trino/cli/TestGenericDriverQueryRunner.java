@@ -20,9 +20,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
-import java.util.Properties;
 
 import static io.trino.cli.ClientOptions.OutputFormat.ALIGNED;
 import static io.trino.cli.ClientOptions.OutputFormat.CSV_HEADER;
@@ -101,9 +101,10 @@ public class TestGenericDriverQueryRunner
     }
 
     private static ConnectionFactory createConnectionFactory()
+            throws SQLException
     {
-        // keep the database open as long as any connection uses it
+        // the database is kept as long as any connection uses it
         String url = "jdbc:h2:mem:test_" + randomUUID().toString().replace("-", "");
-        return new DriverManagerConnectionFactory(url, new Properties(), Optional.empty(), Optional.empty());
+        return DriverConnectionFactory.builder(url).build();
     }
 }

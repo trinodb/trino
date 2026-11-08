@@ -147,6 +147,11 @@ mode:
   - Adds extra tags information about the client and the CLI user. Separate
     multiple tags with commas. The tags can be used as input for
     [](/admin/resource-groups).
+* - `--connection-property`
+  - Sets a connection property of the JDBC driver, for properties without a
+    dedicated option. Property can be used multiple times with the format
+    `name=value`. See {doc}`the JDBC driver parameter reference </client/jdbc>`
+    to find out property names.
 * - `--debug`
   - Enables display of debug information during CLI usage for
     [](cli-troubleshooting). Displays more information about query
@@ -247,7 +252,7 @@ mode:
 :::
 
 Most of the options can also be set as parameters in the URL. This means
-a JDBC URL can be used in the CLI after removing the `jdbc:` prefix.
+a JDBC URL, with or without the `jdbc:` prefix, can be used in the CLI.
 However, the same parameter may not be specified using both methods.
 See {doc}`the JDBC driver parameter reference </client/jdbc>`
 to find out URL parameter names. For example:
@@ -255,6 +260,49 @@ to find out URL parameter names. For example:
 ```text
 ./trino 'https://trino.example.com?SSL=true&SSLVerification=FULL&clientInfo=extra'
 ```
+
+(cli-other-databases)=
+## Other databases
+
+The CLI runs queries using JDBC, so it can also connect to other databases with
+their JDBC driver. Specify the JDBC URL of the database instead of the Trino
+server URL, and the path to the JAR file of the driver, or a directory with
+JAR files of the driver and its dependencies:
+
+```text
+./trino jdbc:postgresql://postgres.example.com/sales \
+  --driver-path postgresql.jar \
+  --user alice --password
+```
+
+The following options configure the connection to other databases:
+
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
+
+* - Option
+  - Description
+* - `--driver-path`
+  - Path to the JAR file of the JDBC driver, or a directory with JAR files.
+    Option can be used multiple times. Not needed if the driver is already on
+    the class path.
+* - `--driver-class`
+  - Class name of the JDBC driver, for drivers that are not registered as a
+    `java.sql.Driver` service.
+* - `--connection-property`
+  - Sets a connection property of the JDBC driver. Option can be used multiple
+    times with the format `name=value`.
+:::
+
+The `--user`, `--password`, `--catalog`, and `--schema` options are also
+supported. Other connection options are specific to Trino.
+
+Features that depend on Trino, like the detailed query progress, partial
+cancellation with `Ctrl+P`, and showing the location of an error in the query,
+are not available with other drivers. Queries are split into statements and
+highlighted using the Trino SQL syntax, which can differ from the syntax of
+other databases.
 
 (cli-tls)=
 ## TLS/HTTPS

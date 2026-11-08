@@ -208,7 +208,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--catalog=test", "jdbc:h2:mem:test");
         assertThat(console.clientOptions.createConnectionFactory(ImmutableMap.of("catalog", "--catalog")))
-                .isInstanceOf(DriverManagerConnectionFactory.class);
+                .isInstanceOf(DriverConnectionFactory.class);
 
         assertThatThrownBy(() -> createConsole("--session=a=b", "jdbc:h2:mem:test").clientOptions.createConnectionFactory(ImmutableMap.of("sessionProperties", "--session")))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -220,10 +220,50 @@ public class TestClientOptions
     }
 
     @Test
+    public void testExplicitConnectionProperties()
+    {
+        ClientSession session = toClientSession(createConsole("--connection-property", "source=other", "--connection-property", "clientInfo=info").clientOptions);
+        assertThat(session.getSource()).isEqualTo("other");
+        assertThat(session.getClientInfo()).isEqualTo("info");
+
+        ClientOptions options = createConsole("--source=mine", "--connection-property", "source=other").clientOptions;
+        assertThatThrownBy(() -> options.toTrinoConnectionProperties(ImmutableMap.of("source", "--source")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Connection property 'source' cannot be set with the --connection-property option when option '--source' is set");
+
+        assertThatThrownBy(() -> createConsole("--connection-property", "password=secret").clientOptions.toTrinoConnectionProperties(ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("Connection property 'password' cannot be set with the --connection-property option");
+    }
+
+    @Test
+    public void testDriverOptions()
+    {
+        assertThat(createConsole("--driver-class=org.h2.Driver", "jdbc:h2:mem:test").clientOptions.createConnectionFactory(ImmutableMap.of()))
+                .isInstanceOf(DriverConnectionFactory.class);
+
+        assertThatThrownBy(() -> createConsole("--driver-class=org.example.Missing", "jdbc:h2:mem:test").clientOptions.createConnectionFactory(ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("Cannot load JDBC driver class org.example.Missing");
+
+        assertThatThrownBy(() -> createConsole("--driver-path=/no/such/driver.jar", "jdbc:h2:mem:test").clientOptions.createConnectionFactory(ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Driver path does not exist: /no/such/driver.jar");
+
+        assertThatThrownBy(() -> createConsole("jdbc:unknown://localhost").clientOptions.createConnectionFactory(ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No JDBC driver found for URL jdbc:unknown://localhost, use the --driver-path option to load it");
+
+        assertThatThrownBy(() -> createConsole("--driver-class=org.h2.Driver", "trino://localhost:8080").clientOptions.createConnectionFactory(ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Options '--driver-path' and '--driver-class' can only be used with JDBC URLs of databases other than Trino");
+    }
+
+    @Test
     public void testConnectionProperties()
     {
         ClientOptions options = createConsole("--server=http://test:443", "--external-authentication").clientOptions;
-        Properties properties = options.toTrinoConnectionProperties();
+        Properties properties = options.toTrinoConnectionProperties(ImmutableMap.of());
         assertThat(properties.getProperty("SSL")).isEqualTo("false");
         assertThat(properties.getProperty("source")).isEqualTo("trino-cli");
         assertThat(properties.getProperty("externalAuthenticationTokenCache")).isEqualTo("MEMORY");
@@ -452,6 +492,9 @@ public class TestClientOptions
             case "theme":
             case "maxBufferedRows":
             case "maxQueuedRows":
+            case "driverPaths":
+            case "driverClass":
+            case "connectionProperties":
                 return true;
         }
 
@@ -469,7 +512,7 @@ public class TestClientOptions
     private static TrinoUri toTrinoUri(ClientOptions options)
     {
         String url = options.toTrinoJdbcUrl(ImmutableMap.of());
-        return TrinoUri.create(url.substring("jdbc:".length()), options.toTrinoConnectionProperties());
+        return TrinoUri.create(url.substring("jdbc:".length()), options.toTrinoConnectionProperties(ImmutableMap.of()));
     }
 
     private static Console createConsole(String... args)
