@@ -1819,10 +1819,7 @@ public class IcebergMetadata
     private void stageStatistics(ConnectorSession session, Transaction transaction, IcebergWritableTableHandle table, Collection<ComputedStatistics> computedStatistics)
     {
         Table icebergTable = transaction.table();
-        if (isS3Tables(icebergTable.location())) {
-            log.debug("S3 Tables do not support statistics: %s", table.name());
-        }
-        else if (!computedStatistics.isEmpty()) {
+        if (!computedStatistics.isEmpty()) {
             long newSnapshotId = icebergTable.currentSnapshot().snapshotId();
 
             CollectedStatistics collectedStatistics = processComputedTableStatistics(icebergTable, computedStatistics);
@@ -3347,9 +3344,6 @@ public class IcebergMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         BaseTable icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
-        if (isS3Tables(icebergTable.location())) {
-            throw new TrinoException(NOT_SUPPORTED, "S3 Tables do not support analyze");
-        }
         setWriteTable(icebergTable);
         return handle;
     }

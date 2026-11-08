@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import io.trino.Session;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
@@ -21,11 +22,13 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -116,10 +119,23 @@ final class TestIcebergS3TablesConnectorSmokeTest
         throw new UnsupportedOperationException();
     }
 
+    @Test
     @Override
-    protected void verifyAnalyzeFailurePermissible(Exception e)
+    public void testAnalyze()
     {
-        assertThat(e).hasMessageContaining("S3 Tables do not support analyze");
+        Session noStatsOnWrite = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", COLLECT_EXTENDED_STATISTICS_ON_WRITE, "false")
+                .build();
+
+        try (TestTable table = newTrinoTable("test_analyze", "(id int)")) {
+            assertUpdate(noStatsOnWrite, "INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+            assertUpdate("ANALYZE " + table.getName());
+
+            // AWS Glue Iceberg REST Catalog accepts set-statistics updates for S3 Tables but does not return statistics in table metadata
+            assertThat(query("SHOW STATS FOR " + table.getName())).result()
+                    .projected("column_name", "distinct_values_count")
+                    .matches("VALUES (VARCHAR 'id', null), (null, null)");
+        }
     }
 
     @Test
