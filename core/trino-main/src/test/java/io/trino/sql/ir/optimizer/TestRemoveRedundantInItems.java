@@ -87,7 +87,7 @@ public class TestRemoveRedundantInItems
                                 new Reference(BIGINT, "x"),
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT)))))
                 .describedAs("exact match found, another item can fail")
-                .isEqualTo(Optional.empty());
+                .isEqualTo(Optional.of(ifExpression(new Call(IS_INDETERMINATE, ImmutableList.of(new Reference(BIGINT, "x"))), NULL_BOOLEAN, TRUE)));
 
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"),
@@ -96,11 +96,7 @@ public class TestRemoveRedundantInItems
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT),
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT)))))
                 .describedAs("exact match found, another item can fail, duplicate removed")
-                .isEqualTo(Optional.of(
-                        new In(new Reference(BIGINT, "x"),
-                                ImmutableList.of(
-                                        new Reference(BIGINT, "x"),
-                                        new Cast(new Reference(VARCHAR, "y"), BIGINT)))));
+                .isEqualTo(Optional.of(ifExpression(new Call(IS_INDETERMINATE, ImmutableList.of(new Reference(BIGINT, "x"))), NULL_BOOLEAN, TRUE)));
 
         assertThat(optimize(
                 new In(new Reference(DOUBLE, "x"),
@@ -135,12 +131,7 @@ public class TestRemoveRedundantInItems
                                 new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
                                 new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))))
                 .describedAs("non-deterministic items")
-                .isEqualTo(Optional.of(new In(
-                        new Reference(TINYINT, "x"),
-                        ImmutableList.of(
-                                new Reference(TINYINT, "x"),
-                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
-                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))));
+                .isEqualTo(Optional.of(ifExpression(new Call(FUNCTIONS.resolveOperator(INDETERMINATE, ImmutableList.of(TINYINT)), ImmutableList.of(new Reference(TINYINT, "x"))), NULL_BOOLEAN, TRUE)));
 
         assertThat(optimize(
                 new In(new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
