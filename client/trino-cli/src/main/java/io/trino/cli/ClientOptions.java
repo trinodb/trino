@@ -479,9 +479,6 @@ public class ClientOptions
         builder.setDisableCompression(disableCompression);
         builder.setTimeout(clientRequestTimeout);
         networkLogging.ifPresent(builder::setHttpLoggingLevel);
-        if (!resourceEstimates.isEmpty()) {
-            builder.setResourceEstimates(toResourceEstimates(resourceEstimates));
-        }
 
         try {
             return builder.build();

@@ -14,6 +14,7 @@
 package io.trino.cli;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.ClientResourceEstimate;
@@ -234,6 +235,8 @@ public class TestClientOptions
         assertThat(options.resourceEstimates).isEqualTo(ImmutableList.of(
                 new ClientResourceEstimate("resource1", "1B"),
                 new ClientResourceEstimate("resource2", "2.2h")));
+        assertThat(options.toClientSession(options.getTrinoUri()).getResourceEstimates())
+                .isEqualTo(ImmutableMap.of("resource1", "1B", "resource2", "2.2h"));
     }
 
     @Test
