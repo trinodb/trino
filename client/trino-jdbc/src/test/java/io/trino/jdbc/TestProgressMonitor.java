@@ -74,7 +74,7 @@ public class TestProgressMonitor
                 nextUriId == null ? null : server.url(format("/v1/statement/%s/%s", queryId, nextUriId)).uri(),
                 responseColumns,
                 data == null ? QueryData.NULL : TypedQueryData.of(data),
-                new StatementStats(state, state.equals("QUEUED"), true, OptionalDouble.of(0), OptionalDouble.of(0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
+                new StatementStats(state, state.equals("QUEUED"), true, OptionalDouble.of(0), OptionalDouble.of(25), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1024, null),
                 null,
                 ImmutableList.of(),
                 null,
@@ -110,7 +110,11 @@ public class TestProgressMonitor
                 List<QueryStats> queryStatsList = progressMonitor.finish();
                 assertThat(queryStatsList).hasSizeGreaterThanOrEqualTo(5); // duplicate stats is possible
                 assertThat(queryStatsList.get(0).getState()).isEqualTo("QUEUED");
-                assertThat(queryStatsList.get(queryStatsList.size() - 1).getState()).isEqualTo("FINISHED");
+                QueryStats finalStats = queryStatsList.get(queryStatsList.size() - 1);
+                assertThat(finalStats.getState()).isEqualTo("FINISHED");
+                assertThat(finalStats.getRunningPercentage()).hasValue(25);
+                assertThat(finalStats.getSpilledBytes()).isEqualTo(1024);
+                assertThat(finalStats.getInfoUri()).hasValue(server.url("/query.html?20160128_214710_00012_rk68b").uri());
             }
         }
     }

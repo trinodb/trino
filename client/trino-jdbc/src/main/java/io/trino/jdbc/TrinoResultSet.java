@@ -18,6 +18,7 @@ import io.trino.client.Column;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
 
+import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
@@ -36,6 +37,7 @@ public class TrinoResultSet
     private final Statement statement;
     private final StatementClient client;
     private final String queryId;
+    private final Optional<URI> infoUri;
 
     // written while holding the lock, but read without it, because every column access checks it
     private volatile boolean closed;
@@ -62,6 +64,7 @@ public class TrinoResultSet
         requireNonNull(progressCallback, "progressCallback is null");
 
         this.queryId = client.currentStatusInfo().getId();
+        this.infoUri = Optional.ofNullable(client.currentStatusInfo().getInfoUri());
     }
 
     public String getQueryId()
@@ -71,7 +74,7 @@ public class TrinoResultSet
 
     public QueryStats getStats()
     {
-        return QueryStats.create(queryId, client.getStats());
+        return QueryStats.create(queryId, infoUri, client.getStats());
     }
 
     void setCloseStatementOnClose()
@@ -126,7 +129,7 @@ public class TrinoResultSet
     {
         while (client.isRunning()) {
             QueryStatusInfo results = client.currentStatusInfo();
-            progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
+            progressCallback.accept(QueryStats.create(results));
             warningsManager.addWarnings(results.getWarnings());
             List<Column> columns = results.getColumns();
             if (columns != null) {

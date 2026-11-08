@@ -77,7 +77,7 @@ public class AsyncResultIterator
             try {
                 do {
                     QueryStatusInfo results = client.currentStatusInfo();
-                    progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
+                    progressCallback.accept(QueryStats.create(results));
                     warningsManager.addWarnings(results.getWarnings());
                     for (List<Object> row : client.currentRows()) {
                         rowQueue.put(row);
@@ -95,7 +95,7 @@ public class AsyncResultIterator
 
                 verify(client.isFinished());
                 QueryStatusInfo results = client.finalStatusInfo();
-                progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
+                progressCallback.accept(QueryStats.create(results));
                 warningsManager.addWarnings(results.getWarnings());
                 if (results.getError() != null) {
                     throw new RuntimeException(resultsException(results));
