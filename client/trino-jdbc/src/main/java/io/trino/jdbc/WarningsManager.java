@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 final class WarningsManager
 {
     @GuardedBy("this")
-    private final Set<Warning.Code> warningsSeen = new HashSet<>();
+    private final Set<Warning> warningsSeen = new HashSet<>();
 
     @GuardedBy("this")
     private SQLWarning firstWarning;
@@ -57,7 +57,7 @@ final class WarningsManager
     public synchronized void addWarnings(List<Warning> warnings)
     {
         for (Warning warning : warnings) {
-            if (warningsSeen.add(warning.getWarningCode())) {
+            if (warningsSeen.add(warning)) {
                 addWarning(warning);
             }
         }
