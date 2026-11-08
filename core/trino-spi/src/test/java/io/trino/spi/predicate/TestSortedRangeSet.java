@@ -1015,6 +1015,75 @@ public class TestSortedRangeSet
         assertJsonRoundTrip(SortedRangeSet.none(DOUBLE));
         assertJsonRoundTrip(SortedRangeSet.of(VARCHAR, utf8Slice("abc")));
         assertJsonRoundTrip(SortedRangeSet.of(Range.equal(BOOLEAN, true), Range.equal(BOOLEAN, false)));
+        assertJsonRoundTrip(SortedRangeSet.of(Range.lessThan(BIGINT, 0L), Range.greaterThanOrEqual(BIGINT, 10L)));
+    }
+
+    @Test
+    public void testJsonSerializationOfMixedInclusiveMarkers()
+            throws Exception
+    {
+        List<Range> mixedBounds = new ArrayList<>();
+        for (long low = 0; low < 100; low += 4) {
+            mixedBounds.add(Range.range(BIGINT, low, low % 8 == 0, low + 2, low % 3 == 0));
+        }
+        assertJsonRoundTrip(SortedRangeSet.of(mixedBounds.get(0), mixedBounds.subList(1, mixedBounds.size()).toArray(new Range[0])));
+
+        // bound counts that fill the packed bytes exactly
+        for (int rangeCount : List.of(4, 8)) {
+            SortedRangeSet set = SortedRangeSet.of(mixedBounds.get(0), mixedBounds.subList(1, rangeCount).toArray(new Range[0]));
+            assertThat(set.getRangeCount()).isEqualTo(rangeCount);
+            assertJsonRoundTrip(set);
+        }
+    }
+
+    @Test
+    public void testJsonRejectsMissingInclusiveMarkers()
+    {
+        JsonMapper mapper = createJsonMapper();
+        ObjectNode json = mapper.valueToTree(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        json.putNull("inclusive");
+        assertThatThrownBy(() -> mapper.treeToValue(json, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("inclusive is null");
+    }
+
+    @Test
+    public void testJsonRejectsMissingSortedRanges()
+    {
+        JsonMapper mapper = createJsonMapper();
+        ObjectNode json = mapper.valueToTree(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        json.putNull("sortedRanges");
+        assertThatThrownBy(() -> mapper.treeToValue(json, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(NullPointerException.class)
+                .hasRootCauseMessage("sortedRanges is null");
+    }
+
+    @Test
+    public void testJsonRejectsMissizedInclusiveMarkers()
+    {
+        JsonMapper mapper = createJsonMapper();
+        ObjectNode shortJson = mapper.valueToTree(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        shortJson.set("inclusive", mapper.valueToTree(new byte[] {}));
+        assertThatThrownBy(() -> mapper.treeToValue(shortJson, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("Size mismatch between inclusive markers and sortedRanges block: 0 bytes, expected 1 bytes for 4 positions");
+
+        ObjectNode longJson = mapper.valueToTree(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        longJson.set("inclusive", mapper.valueToTree(new byte[] {0b1111, 0}));
+        assertThatThrownBy(() -> mapper.treeToValue(longJson, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("Size mismatch between inclusive markers and sortedRanges block: 2 bytes, expected 1 bytes for 4 positions");
+    }
+
+    @Test
+    public void testJsonRejectsInclusiveMarkersBeyondLastPosition()
+    {
+        JsonMapper mapper = createJsonMapper();
+        ObjectNode json = mapper.valueToTree(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        json.set("inclusive", mapper.valueToTree(new byte[] {0b11111}));
+        assertThatThrownBy(() -> mapper.treeToValue(json, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("Invalid inclusive marker beyond position 3");
     }
 
     @Test
@@ -1026,7 +1095,7 @@ public class TestSortedRangeSet
         BIGINT.writeLong(nullThenValue, 1);
         ObjectNode json = mapper.valueToTree(SortedRangeSet.of(BIGINT, 1L));
         json.set("sortedRanges", mapper.valueToTree(nullThenValue.build()));
-        json.set("inclusive", mapper.valueToTree(new boolean[] {false, true}));
+        json.set("inclusive", mapper.valueToTree(new byte[] {0b10}));
         assertThatThrownBy(() -> mapper.treeToValue(json, SortedRangeSet.class))
                 .hasRootCauseInstanceOf(IllegalArgumentException.class)
                 .hasRootCauseMessage("Invalid null value at position 0 of a discrete set");
@@ -1062,13 +1131,13 @@ public class TestSortedRangeSet
         BIGINT.writeLong(interiorNull, 4);
         ObjectNode interiorNullJson = mapper.valueToTree(SortedRangeSet.of(Range.range(BIGINT, 1L, true, 2L, true), Range.range(BIGINT, 3L, true, 4L, true)));
         interiorNullJson.set("sortedRanges", mapper.valueToTree(interiorNull.build()));
-        interiorNullJson.set("inclusive", mapper.valueToTree(new boolean[] {true, false, true, true}));
+        interiorNullJson.set("inclusive", mapper.valueToTree(new byte[] {0b1101}));
         assertThatThrownBy(() -> mapper.treeToValue(interiorNullJson, SortedRangeSet.class))
                 .hasRootCauseInstanceOf(IllegalArgumentException.class)
                 .hasRootCauseMessage("Invalid null value at position 1 of 4");
 
         ObjectNode inclusiveNullJson = mapper.valueToTree(SortedRangeSet.all(BIGINT));
-        inclusiveNullJson.set("inclusive", mapper.valueToTree(new boolean[] {true, false}));
+        inclusiveNullJson.set("inclusive", mapper.valueToTree(new byte[] {0b01}));
         assertThatThrownBy(() -> mapper.treeToValue(inclusiveNullJson, SortedRangeSet.class))
                 .hasRootCauseInstanceOf(IllegalArgumentException.class)
                 .hasRootCauseMessage("Invalid inclusive marker for null value at position 0");

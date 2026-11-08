@@ -160,12 +160,39 @@ public final class SortedRangeSet
     @Deprecated // Discourage usages in SPI consumers
     public static SortedRangeSet fromJson(
             @JsonProperty("type") Type type,
-            @JsonProperty("inclusive") boolean[] inclusive,
+            @JsonProperty("inclusive") byte[] packedInclusive,
             @JsonProperty("sortedRanges") Block sortedRanges,
             @JsonProperty("discreteSetMarker") DiscreteSetMarker discreteSetMarker)
     {
+        requireNonNull(sortedRanges, "sortedRanges is null");
         checkArgument(!(sortedRanges instanceof BlockBuilder), "sortedRanges must be a block: %s", sortedRanges);
-        return new SortedRangeSet(type, inclusive.clone(), sortedRanges, discreteSetMarker);
+        return new SortedRangeSet(type, unpackInclusive(packedInclusive, sortedRanges.getPositionCount()), sortedRanges, discreteSetMarker);
+    }
+
+    // Inclusive markers travel as a bit set, one bit per bound, least significant bit first.
+    private static byte[] packInclusive(boolean[] inclusive)
+    {
+        byte[] packed = new byte[(inclusive.length + 7) / 8];
+        for (int index = 0; index < inclusive.length; index++) {
+            if (inclusive[index]) {
+                packed[index >>> 3] |= (byte) (1 << (index & 7));
+            }
+        }
+        return packed;
+    }
+
+    private static boolean[] unpackInclusive(byte[] packed, int count)
+    {
+        checkArgument(packed != null, "inclusive is null");
+        int expectedLength = (count + 7) / 8;
+        checkArgument(packed.length == expectedLength, "Size mismatch between inclusive markers and sortedRanges block: %s bytes, expected %s bytes for %s positions", packed.length, expectedLength, count);
+        int usedBitsInLastByte = count & 7;
+        checkArgument(usedBitsInLastByte == 0 || (packed[packed.length - 1] & 0xFF) >>> usedBitsInLastByte == 0, "Invalid inclusive marker beyond position %s", count - 1);
+        boolean[] inclusive = new boolean[count];
+        for (int index = 0; index < count; index++) {
+            inclusive[index] = (packed[index >>> 3] & (1 << (index & 7))) != 0;
+        }
+        return inclusive;
     }
 
     /**
@@ -406,10 +433,17 @@ public final class SortedRangeSet
         return type;
     }
 
-    @JsonProperty
     public boolean[] getInclusive()
     {
         return inclusive;
+    }
+
+    @JsonProperty("inclusive")
+    @DoNotCall // For JSON serialization only
+    @Deprecated // Discourage usages in SPI consumers
+    public byte[] getPackedInclusive()
+    {
+        return packInclusive(inclusive);
     }
 
     @JsonProperty

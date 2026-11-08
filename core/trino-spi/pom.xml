@@ -236,6 +236,19 @@
                                     <new>method io.trino.spi.predicate.ValueSet io.trino.spi.predicate.SortedRangeSet::union(io.trino.spi.predicate.ValueSet)</new>
                                     <justification>Mixed operations return ValueSet; range-only overloads retain SortedRangeSet results. Revapi pairs overloads by their return types.</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::fromJson(io.trino.spi.type.Type, ===boolean[]===, io.trino.spi.block.Block, io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker)</old>
+                                    <new>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::fromJson(io.trino.spi.type.Type, ===byte[]===, io.trino.spi.block.Block, io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker)</new>
+                                    <justification>JSON-only creator marked @DoNotCall; inclusive markers are serialized as a bit set.</justification>
+                                </item>
+                                <item>
+                                    <code>java.annotation.removed</code>
+                                    <old>method boolean[] io.trino.spi.predicate.SortedRangeSet::getInclusive()</old>
+                                    <new>method boolean[] io.trino.spi.predicate.SortedRangeSet::getInclusive()</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
+                                    <justification>Inclusive markers are serialized as a bit set through getPackedInclusive.</justification>
+                                </item>
                                 <!-- Allow adding new annotations (such as @Nullable) -->
                                 <item>
                                     <code>java.annotation.added</code>
