@@ -37,8 +37,8 @@ public class TrinoResultSet
     private final StatementClient client;
     private final String queryId;
 
-    @GuardedBy("this")
-    private boolean closed;
+    // written while holding the lock, but read without it, because every column access checks it
+    private volatile boolean closed;
     @GuardedBy("this")
     private boolean closeStatementOnClose;
 
@@ -110,7 +110,7 @@ public class TrinoResultSet
     }
 
     @Override
-    public synchronized boolean isClosed()
+    public boolean isClosed()
             throws SQLException
     {
         return closed;
