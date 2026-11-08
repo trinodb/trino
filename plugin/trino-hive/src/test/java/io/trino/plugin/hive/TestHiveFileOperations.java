@@ -28,6 +28,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -40,6 +41,7 @@ import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toCollection;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Execution(ExecutionMode.SAME_THREAD)
 public class TestHiveFileOperations
@@ -176,6 +178,31 @@ public class TestHiveFileOperations
 
         assertUpdate("DROP TABLE test_directory_listing_partitioned_a");
         assertUpdate("DROP TABLE test_directory_listing_unpartitioned");
+    }
+
+    @Test
+    public void testSplitLoaderSpansInQueryTrace()
+    {
+        assertUpdate("CREATE TABLE test_split_loader_tracing (a bigint)");
+        assertUpdate("INSERT INTO test_split_loader_tracing VALUES 1", 1);
+
+        getQueryRunner().execute("SELECT count(*) FROM test_split_loader_tracing");
+        List<SpanData> spans = getQueryRunner().getSpans();
+        String queryTraceId = spans.stream()
+                .filter(span -> span.getName().equals("Metadata.beginQuery"))
+                .findFirst()
+                .orElseThrow()
+                .getTraceId();
+        List<SpanData> listingSpans = spans.stream()
+                .filter(span -> span.getName().equals("FileSystem.listFiles"))
+                .toList();
+        assertThat(listingSpans).isNotEmpty();
+        assertThat(listingSpans.stream()
+                .filter(span -> !span.getTraceId().equals(queryTraceId))
+                .map(SpanData::getName))
+                .isEmpty();
+
+        assertUpdate("DROP TABLE test_split_loader_tracing");
     }
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<FileOperation> expectedAccesses)

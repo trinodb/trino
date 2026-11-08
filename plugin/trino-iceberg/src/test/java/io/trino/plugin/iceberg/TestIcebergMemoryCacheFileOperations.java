@@ -28,6 +28,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -41,6 +42,7 @@ import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.SNAPSHOT;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static java.util.stream.Collectors.toCollection;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Execution(ExecutionMode.SAME_THREAD)
 public class TestIcebergMemoryCacheFileOperations
@@ -180,6 +182,32 @@ public class TestIcebergMemoryCacheFileOperations
                         .addCopies(new CacheOperation("BlobCache.get", MANIFEST), 4)
                         .addCopies(new CacheOperation("BlobCache.get", DATA), 2)
                         .build());
+    }
+
+    @Test
+    public void testSplitGenerationSpansInQueryTrace()
+    {
+        assertUpdate("CREATE TABLE test_split_generation_tracing (a bigint)");
+        assertUpdate("INSERT INTO test_split_generation_tracing VALUES 1", 1);
+        assertUpdate("INSERT INTO test_split_generation_tracing VALUES 2", 1);
+
+        getQueryRunner().execute("SELECT count(*) FROM test_split_generation_tracing");
+        List<SpanData> spans = getQueryRunner().getSpans();
+        String queryTraceId = spans.stream()
+                .filter(span -> span.getName().equals("Metadata.beginQuery"))
+                .findFirst()
+                .orElseThrow()
+                .getTraceId();
+        List<SpanData> fileSpans = spans.stream()
+                .filter(span -> span.getName().startsWith("InputFile.") || span.getName().startsWith("BlobCache."))
+                .toList();
+        assertThat(fileSpans).isNotEmpty();
+        assertThat(fileSpans.stream()
+                .filter(span -> !span.getTraceId().equals(queryTraceId))
+                .map(SpanData::getName))
+                .isEmpty();
+
+        assertUpdate("DROP TABLE test_split_generation_tracing");
     }
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<CacheOperation> expectedCacheAccesses)
