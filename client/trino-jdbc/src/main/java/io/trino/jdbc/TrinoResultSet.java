@@ -77,6 +77,20 @@ public class TrinoResultSet
         return QueryStats.create(queryId, infoUri, client.getStats());
     }
 
+    /**
+     * Returns the column value as decoded from the Trino client protocol, without converting it to JDBC types.
+     * Temporal, decimal, number, and interval values are strings formatted by the server,
+     * arrays are {@link List}s, maps are {@link java.util.Map}s,
+     * rows are {@link Row}s, {@code varbinary} values are byte arrays, and variants are JSON strings.
+     * The same representation is used for values nested in arrays, maps, and rows.
+     */
+    @Override
+    public Object getRawObject(int columnIndex)
+            throws SQLException
+    {
+        return super.getRawObject(columnIndex);
+    }
+
     void setCloseStatementOnClose()
             throws SQLException
     {

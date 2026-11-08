@@ -30,7 +30,10 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
@@ -238,6 +241,40 @@ public class TestJdbcStatement
                             assertThat(location.getColumnNumber()).isEqualTo(6);
                         });
                     });
+        }
+    }
+
+    @Test
+    public void testRawObject()
+            throws Exception
+    {
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery("SELECT " +
+                        "TIMESTAMP '2020-01-02 03:04:05', " +
+                        "TIMESTAMP '2020-01-02 03:04:05.123456789123 UTC', " +
+                        "DECIMAL '0.0000000001', " +
+                        "ARRAY[TIME '01:02:03.456'], " +
+                        "MAP(ARRAY['b', 'a'], ARRAY[DATE '2020-01-02', NULL]), " +
+                        "CAST(ROW(1, X'0102') AS ROW(id bigint, payload varbinary)), " +
+                        "CAST(JSON '{\"b\":1.50,\"a\":[1,true,null]}' AS variant)")) {
+            TrinoResultSet trinoResultSet = resultSet.unwrap(TrinoResultSet.class);
+            assertThat(resultSet.next()).isTrue();
+
+            assertThat(trinoResultSet.getRawObject(1)).isEqualTo("2020-01-02 03:04:05");
+            assertThat(trinoResultSet.getRawObject(2)).isEqualTo("2020-01-02 03:04:05.123456789123 UTC");
+            assertThat(trinoResultSet.getRawObject(3)).isEqualTo("0.0000000001");
+            assertThat(trinoResultSet.getRawObject(4)).isEqualTo(ImmutableList.of("01:02:03.456"));
+            Map<String, String> expectedMap = new HashMap<>();
+            expectedMap.put("a", null);
+            expectedMap.put("b", "2020-01-02");
+            assertThat(trinoResultSet.getRawObject(5)).isEqualTo(expectedMap);
+            assertThat(trinoResultSet.getRawObject(6)).isInstanceOfSatisfying(Row.class, row -> {
+                assertThat(row.getFields()).extracting(RowField::getName).containsExactly(Optional.of("id"), Optional.of("payload"));
+                assertThat(row.getFields().get(0).getValue()).isEqualTo(1L);
+                assertThat(row.getFields().get(1).getValue()).isEqualTo(new byte[] {1, 2});
+            });
+            assertThat(trinoResultSet.getRawObject(7)).isEqualTo("{\"a\":[1,true,null],\"b\":1.5}");
         }
     }
 
