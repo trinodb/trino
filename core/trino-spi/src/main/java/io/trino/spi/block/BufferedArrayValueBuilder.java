@@ -16,17 +16,22 @@ package io.trino.spi.block;
 import io.trino.spi.type.ArrayType;
 
 import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 public class BufferedArrayValueBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(BufferedArrayValueBuilder.class);
+
+    private static final int INITIAL_BUFFER_SIZE = 1;
+    private static final int MAX_BUFFER_SIZE = 1024;
 
     private int bufferSize;
     private BlockBuilder valueBuilder;
 
     public static BufferedArrayValueBuilder createBuffered(ArrayType arrayType)
     {
-        return new BufferedArrayValueBuilder(arrayType, 1024);
+        return new BufferedArrayValueBuilder(arrayType, INITIAL_BUFFER_SIZE);
     }
 
     BufferedArrayValueBuilder(ArrayType arrayType, int bufferSize)
@@ -45,10 +50,7 @@ public class BufferedArrayValueBuilder
     {
         // grow or reset builders if necessary
         if (valueBuilder.getPositionCount() + entryCount > bufferSize) {
-            if (bufferSize < entryCount) {
-                bufferSize = entryCount;
-            }
-            valueBuilder = valueBuilder.newBlockBuilderLike(bufferSize, null);
+            resetBuilder(entryCount);
         }
 
         int startSize = valueBuilder.getPositionCount();
@@ -57,5 +59,11 @@ public class BufferedArrayValueBuilder
 
         int endSize = valueBuilder.getPositionCount();
         return valueBuilder.build().getRegion(startSize, endSize - startSize);
+    }
+
+    private void resetBuilder(int entryCount)
+    {
+        bufferSize = max(entryCount, min(bufferSize * 2, MAX_BUFFER_SIZE));
+        valueBuilder = valueBuilder.newBlockBuilderLike(bufferSize, null);
     }
 }
