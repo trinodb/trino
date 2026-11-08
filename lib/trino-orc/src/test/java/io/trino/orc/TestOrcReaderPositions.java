@@ -50,11 +50,15 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
@@ -66,6 +70,7 @@ import static io.trino.orc.OrcTester.READER_OPTIONS;
 import static io.trino.orc.OrcTester.createCustomOrcRecordReader;
 import static io.trino.orc.OrcTester.createOrcRecordWriter;
 import static io.trino.orc.OrcTester.createSettableStructObjectInspector;
+import static io.trino.orc.OrcTester.writeOrcPages;
 import static io.trino.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -74,6 +79,7 @@ import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Fail.fail;
 
 public class TestOrcReaderPositions
@@ -323,15 +329,133 @@ public class TestOrcReaderPositions
                 assertThat(block.getPositionCount()).isEqualTo(4);
                 assertThat(BIGINT.getLong(block, 0)).isEqualTo(1);
                 assertThat(BIGINT.getLong(block, 3)).isEqualTo(7);
+                long sizeInBytes = page.getSizeInBytes();
 
                 // select again with positions relative to the previous selection, on an already loaded block
                 page.selectPositions(new int[] {1, 2}, 0, 2);
                 block = page.getBlock(0);
                 assertThat(block.getPositionCount()).isEqualTo(2);
+                assertThat(page.getSizeInBytes()).isLessThan(sizeInBytes);
                 assertThat(BIGINT.getLong(block, 0)).isEqualTo(3);
                 assertThat(BIGINT.getLong(block, 1)).isEqualTo(5);
             }
         }
+    }
+
+    @Test
+    public void testSelectPositionsValidatesSelectedPositions()
+            throws Exception
+    {
+        try (TempFile tempFile = new TempFile()) {
+            createSequentialFile(tempFile.getFile(), 1000);
+
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE)) {
+                SourcePage page = reader.nextPage();
+                assertThatThrownBy(() -> page.selectPositions(new int[] {1000}, 0, 1))
+                        .isInstanceOf(IndexOutOfBoundsException.class);
+
+                // the offset into the positions array is independent of the page size
+                int[] positions = new int[2000];
+                positions[1500] = 10;
+                positions[1501] = 20;
+                page.selectPositions(positions, 1500, 2);
+                Block block = page.getBlock(0);
+                assertThat(block.getPositionCount()).isEqualTo(2);
+                assertThat(BIGINT.getLong(block, 0)).isEqualTo(10);
+                assertThat(BIGINT.getLong(block, 1)).isEqualTo(20);
+            }
+        }
+    }
+
+    @Test
+    public void testSelectRange()
+            throws Exception
+    {
+        assertSelection(page -> page.selectPositions(0, 4), 0, 1, 2, 3);
+        assertSelection(page -> page.selectPositions(5, 3), 5, 6, 7);
+        assertSelection(page -> page.selectPositions(0, 0));
+        assertSelection(
+                page -> {
+                    page.selectPositions(2, 5);
+                    page.selectPositions(new int[] {0, 3}, 0, 2);
+                },
+                2,
+                5);
+        assertSelection(
+                page -> {
+                    page.selectPositions(new int[] {1, 3, 5, 7}, 0, 4);
+                    page.selectPositions(1, 2);
+                },
+                3,
+                5);
+        assertSelection(
+                page -> {
+                    page.selectPositions(1, 6);
+                    page.selectPositions(2, 3);
+                },
+                3,
+                4,
+                5);
+        assertSelection(
+                page -> assertThatThrownBy(() -> page.selectPositions(page.getPositionCount() - 1, 2))
+                        .isInstanceOf(IndexOutOfBoundsException.class),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7);
+    }
+
+    // columnA has row number values and is loaded before the selection, columnB has row number * 10
+    private static void assertSelection(Consumer<SourcePage> selection, int... expectedPositions)
+            throws Exception
+    {
+        int rowCount = 8;
+        BlockBuilder columnA = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder columnB = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        for (int i = 0; i < rowCount; i++) {
+            BIGINT.writeLong(columnA, i);
+            BIGINT.writeLong(columnB, i * 10L);
+        }
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        try (TempFile tempFile = new TempFile()) {
+            writeOrcPages(tempFile.getFile(), CompressionKind.NONE, types, ImmutableList.of(new Page(rowCount, columnA.build(), columnB.build())).iterator(), new OrcWriterStats());
+            OrcReader orcReader = OrcReader.createOrcReader(new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS), READER_OPTIONS).orElseThrow();
+            try (OrcRecordReader reader = orcReader.createRecordReader(
+                    orcReader.getRootColumn().getNestedColumns(),
+                    types,
+                    true,
+                    OrcPredicate.TRUE,
+                    HIVE_STORAGE_TIME_ZONE,
+                    newSimpleAggregatedMemoryContext(),
+                    MAX_BATCH_SIZE,
+                    RuntimeException::new)) {
+                SourcePage page = reader.nextPage();
+                assertThat(page.getPositionCount()).isEqualTo(rowCount);
+                page.getBlock(0);
+                selection.accept(page);
+
+                List<Long> expectedRows = Arrays.stream(expectedPositions)
+                        .mapToObj(position -> (long) position)
+                        .collect(toImmutableList());
+                assertThat(page.getPositionCount()).isEqualTo(expectedPositions.length);
+                assertThat(blockValues(page.getBlock(0))).isEqualTo(expectedRows);
+                assertThat(blockValues(page.getBlock(1))).isEqualTo(expectedRows.stream()
+                        .map(row -> row * 10)
+                        .collect(toImmutableList()));
+                assertThat(blockValues(page.getBlock(2))).isEqualTo(expectedRows);
+            }
+        }
+    }
+
+    private static List<Long> blockValues(Block block)
+    {
+        return IntStream.range(0, block.getPositionCount())
+                .mapToObj(position -> BIGINT.getLong(block, position))
+                .collect(toImmutableList());
     }
 
     @Test

@@ -14,12 +14,14 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.TestingColumnHandle;
 import io.trino.execution.TestingPageSourceProvider;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.operator.TableScanOperator.TableScanOperatorFactory;
+import io.trino.spi.TrinoException;
 import io.trino.split.PageSourceManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -35,14 +37,17 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.SOURCE_PAGES_VALIDATION_ENABLED;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -79,7 +84,7 @@ public class TestTableScanOperator
                 ImmutableList.of(BIGINT),
                 newSimpleAggregatedMemoryContext());
 
-        SourceOperator operator = factory.createOperator(newDriverContext());
+        SourceOperator operator = factory.createOperator(newDriverContext(TEST_SESSION));
         operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
         while (!operator.isFinished()) {
@@ -94,6 +99,37 @@ public class TestTableScanOperator
         assertThat(scanMemoryContext.getBytes()).isEqualTo(0);
     }
 
+    @Test
+    public void testMaskedOutputValidatesMaterializedPages()
+            throws Exception
+    {
+        TableScanOperatorFactory factory = new TableScanOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                new PlanNodeId("0"),
+                (_, _) -> createPageSourceProvider(newSimpleAggregatedMemoryContext()),
+                TEST_TABLE_HANDLE,
+                Optional.empty(),
+                ImmutableList.of(new TestingColumnHandle("col0")),
+                ImmutableList.of(VARCHAR),
+                newSimpleAggregatedMemoryContext());
+        Session session = Session.builder(TEST_SESSION)
+                .setSystemProperty(SOURCE_PAGES_VALIDATION_ENABLED, "true")
+                .build();
+
+        SourceOperator operator = factory.createOperator(newDriverContext(session));
+        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+        operator.noMoreSplits();
+        assertThat(operator.producesMaskedOutput()).isTrue();
+        MaskedPage maskedPage = operator.getMaskedOutput();
+        assertThatThrownBy(() -> maskedPage.materialize().iterator().next())
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Bad block types found");
+
+        operator.close();
+        factory.noMoreOperators();
+    }
+
     private static PageSourceProvider createPageSourceProvider(AggregatedMemoryContext scanMemoryContext)
     {
         return new PageSourceManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, memoryContext -> {
@@ -103,9 +139,9 @@ public class TestTableScanOperator
                 .createPageSourceProvider(TEST_CATALOG_HANDLE, scanMemoryContext);
     }
 
-    private DriverContext newDriverContext()
+    private DriverContext newDriverContext(Session session)
     {
-        return createTaskContext(executor, scheduledExecutor, TEST_SESSION)
+        return createTaskContext(executor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
     }

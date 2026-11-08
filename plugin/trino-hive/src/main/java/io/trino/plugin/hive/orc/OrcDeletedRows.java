@@ -177,6 +177,13 @@ public class OrcDeletedRows
             sourcePage.selectPositions(positions, offset, size);
         }
 
+        @Override
+        public void selectPositions(int offset, int size)
+        {
+            applyDeleteMaskIfNecessary();
+            sourcePage.selectPositions(offset, size);
+        }
+
         private void applyDeleteMaskIfNecessary()
         {
             if (deleteMaskApplied) {

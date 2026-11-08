@@ -111,6 +111,51 @@ public class GroupedTopNRowNumberBuilder
                 + groupedTopNRowNumberAccumulator.sizeOf();
     }
 
+    /**
+     * Positions of a probed page that may enter the top N, in increasing order, and their group
+     * IDs. Only the first {@code positionCount} entries of both arrays are set.
+     */
+    public record ProbeResult(int[] positions, int[] groupIds, int positionCount) {}
+
+    /**
+     * Determines which positions of the page may enter the top N without adding them. Reads only
+     * the sort channels, so the page may carry placeholder blocks in the remaining channels.
+     * Requires that the group by hash group IDs work completes immediately.
+     */
+    public ProbeResult probe(Page probePage)
+    {
+        if (groupByHash == null) {
+            throw new IllegalStateException("already producing output");
+        }
+        Work<int[]> groupIdsWork = groupByHash.getGroupIds(probePage.getColumns(groupByChannels));
+        verify(groupIdsWork.process(), "group IDs work did not complete immediately");
+        int[] groupIds = groupIdsWork.getResult();
+        int[] positions = new int[probePage.getPositionCount()];
+        int positionCount = groupedTopNRowNumberAccumulator.findPositionsToAdd(probePage, groupByHash.getGroupCount(), groupIds, comparator, pageManager, positions);
+        int[] candidateGroupIds = new int[positionCount];
+        for (int index = 0; index < positionCount; index++) {
+            candidateGroupIds[index] = groupIds[positions[index]];
+        }
+        return new ProbeResult(positions, candidateGroupIds, positionCount);
+    }
+
+    /**
+     * Adds all positions of the page using the group IDs from a prior {@link #probe};
+     * {@code groupIdsOffset} is the index of the group ID of the page's first row.
+     */
+    public void addPage(Page page, int[] groupIds, int groupIdsOffset)
+    {
+        try (LoadCursor loadCursor = pageManager.add(page)) {
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                loadCursor.advance();
+                groupedTopNRowNumberAccumulator.add(groupIds[groupIdsOffset + position], loadCursor);
+            }
+            verify(!loadCursor.advance());
+        }
+
+        pageManager.compactIfNeeded();
+    }
+
     private void processPage(Page newPage, int groupCount, int[] groupIds)
     {
         int firstPositionToAdd = groupedTopNRowNumberAccumulator.findFirstPositionToAdd(newPage, groupCount, groupIds, comparator, pageManager);
