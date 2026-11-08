@@ -197,6 +197,25 @@ public class TestJdbcStatement
         }
     }
 
+    @Test
+    public void testFailureDetails()
+            throws Exception
+    {
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement()) {
+            assertThatThrownBy(() -> statement.execute("SELECT 1\nFROM blackhole.default.no_such_table"))
+                    .isInstanceOfSatisfying(TrinoSqlException.class, exception -> {
+                        assertThat(exception.getQueryId()).isNotEmpty();
+                        assertThat(exception.getMessage()).isEqualTo(format("Query failed (#%s): %s", exception.getQueryId(), exception.getErrorMessage()));
+                        assertThat(exception.getErrorMessage()).contains("no_such_table");
+                        assertThat(exception.getErrorLocation()).hasValueSatisfying(location -> {
+                            assertThat(location.getLineNumber()).isEqualTo(2);
+                            assertThat(location.getColumnNumber()).isEqualTo(6);
+                        });
+                    });
+        }
+    }
+
     private Connection createConnection()
             throws SQLException
     {

@@ -15,8 +15,9 @@ package io.trino.jdbc;
 
 import io.trino.client.QueryError;
 import io.trino.client.QueryStatusInfo;
+import io.trino.jdbc.TrinoSqlException.ErrorLocation;
 
-import java.sql.SQLException;
+import java.util.Optional;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -25,11 +26,13 @@ class ResultUtils
 {
     private ResultUtils() {}
 
-    static SQLException resultsException(QueryStatusInfo results)
+    static TrinoSqlException resultsException(QueryStatusInfo results)
     {
         QueryError error = requireNonNull(results.getError());
         String message = format("Query failed (#%s): %s", results.getId(), error.getMessage());
         Throwable cause = (error.getFailureInfo() == null) ? null : error.getFailureInfo().toException();
-        return new SQLException(message, error.getSqlState(), error.getErrorCode(), cause);
+        Optional<ErrorLocation> errorLocation = Optional.ofNullable(error.getErrorLocation())
+                .map(location -> new ErrorLocation(location.getLineNumber(), location.getColumnNumber()));
+        return new TrinoSqlException(message, error.getSqlState(), error.getErrorCode(), cause, results.getId(), error.getMessage(), errorLocation);
     }
 }
