@@ -236,6 +236,10 @@ may not be specified using both methods.
     list of key-value pairs. For example, `abc:xyz;example.foo:bar` sets the
     system property `abc` to the value `xyz` and the `foo` property for catalog
     `example` to the value `bar`.
+* - `resourceEstimates`
+  - Estimates of the resources used by the queries, specified as a list of
+    key-value pairs. The keys are `EXECUTION_TIME`, `CPU_TIME`, and
+    `PEAK_MEMORY`. For example, `EXECUTION_TIME:10m;PEAK_MEMORY:2GB`.
 * - `extraHeaders`
   - HTTP headers to add to the authenticated HTTP requests, specified as a
     list of key-value pairs. For example, `X-Trino-Foo:xyz;X-Trino-Bar:bar` 

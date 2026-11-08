@@ -509,7 +509,7 @@ public class TrinoUri
         return resolveWithDefault(VALIDATE_CONNECTION, false);
     }
 
-    private Map<String, String> getResourceEstimates()
+    public Map<String, String> getResourceEstimates()
     {
         return resolveWithDefault(RESOURCE_ESTIMATES, ImmutableMap.of());
     }
