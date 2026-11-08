@@ -412,7 +412,8 @@ public class TrinoDatabaseMetaData
     public boolean supportsMultipleResultSets()
             throws SQLException
     {
-        return false;
+        // the update count of some statements is followed by the rows they return, like EXPLAIN ANALYZE of an INSERT
+        return true;
     }
 
     @Override

@@ -16,11 +16,13 @@ package io.trino.jdbc;
 import io.trino.client.Column;
 
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.trino.client.CloseableIterator.closeable;
+import static io.trino.client.CloseableLimitingIterator.limit;
 
 public class InMemoryTrinoResultSet
         extends AbstractTrinoResultSet
@@ -30,6 +32,11 @@ public class InMemoryTrinoResultSet
     public InMemoryTrinoResultSet(List<Column> columns, List<List<Object>> results)
     {
         super(Optional.empty(), columns, closeable(results.iterator()));
+    }
+
+    InMemoryTrinoResultSet(Statement statement, List<Column> columns, List<List<Object>> results, long maxRows)
+    {
+        super(Optional.of(statement), columns, limit(closeable(results.iterator()), maxRows));
     }
 
     @Override

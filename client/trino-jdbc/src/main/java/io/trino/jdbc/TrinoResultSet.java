@@ -47,7 +47,9 @@ public class TrinoResultSet
     {
         requireNonNull(client, "client is null");
         List<Column> columns = getColumns(client, progressCallback, warningsManager);
-        return new TrinoResultSet(statement, client, columns, maxRows, progressCallback, warningsManager);
+        // rows of updates are read fully to tell them apart from the update count, and the statement limits them
+        long rowsLimit = client.currentStatusInfo().getUpdateType() == null ? maxRows : 0;
+        return new TrinoResultSet(statement, client, columns, rowsLimit, progressCallback, warningsManager);
     }
 
     private TrinoResultSet(Statement statement, StatementClient client, List<Column> columns, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
