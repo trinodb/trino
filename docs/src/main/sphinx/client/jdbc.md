@@ -307,6 +307,30 @@ may not be specified using both methods.
     when the connection is created, and when `java.sql.Connection.isValid(int)` is called.
 :::
 
+## Rows returned by updates
+
+Some statements that modify data or tables return rows in addition to the
+update count. For example, [](/sql/explain-analyze) of an `INSERT` returns the
+query plan, and table procedures like `ALTER TABLE ... EXECUTE optimize` return
+metrics. `execute()` returns `false` for these statements, and
+`getUpdateCount()` returns the update count, like for any other update. The rows
+are the next result, available after calling `getMoreResults()`. After that
+call, `getUpdateCount()` returns `-1`. Keeping the current result open with
+`getMoreResults(Statement.KEEP_CURRENT_RESULT)` is not supported.
+
+```java
+try (Statement statement = connection.createStatement()) {
+    statement.execute("EXPLAIN ANALYZE INSERT INTO orders SELECT * FROM new_orders");
+    if (statement.getMoreResults()) {
+        try (ResultSet resultSet = statement.getResultSet()) {
+            while (resultSet.next()) {
+                System.out.println(resultSet.getString(1));
+            }
+        }
+    }
+}
+```
+
 (jdbc-spooling-protocol)=
 ## Spooling protocol
 

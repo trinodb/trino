@@ -16,6 +16,7 @@ package io.trino.jdbc;
 import io.trino.client.Column;
 
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -30,6 +31,11 @@ public class InMemoryTrinoResultSet
     public InMemoryTrinoResultSet(List<Column> columns, List<List<Object>> results)
     {
         super(Optional.empty(), columns, closeable(results.iterator()));
+    }
+
+    InMemoryTrinoResultSet(Statement statement, List<Column> columns, List<List<Object>> results)
+    {
+        super(Optional.of(statement), columns, closeable(results.iterator()));
     }
 
     @Override

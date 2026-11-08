@@ -1936,6 +1936,14 @@ abstract class AbstractTrinoResultSet
         }
     }
 
+    List<Object> currentRow()
+            throws SQLException
+    {
+        checkOpen();
+        checkValidRow();
+        return row.get();
+    }
+
     private Object column(int index)
             throws SQLException
     {
