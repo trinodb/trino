@@ -91,7 +91,7 @@ public class RemoveRedundantInItems
             }
         }
 
-        if (exactMatchFound && mayFail.isEmpty()) {
+        if (exactMatchFound) {
             ResolvedFunction indeterminate = metadata.resolveOperator(charVarcharCoercion, INDETERMINATE, ImmutableList.of(value.type()));
             return Optional.of(ifExpression(new Call(indeterminate, singletonList(value)), NULL_BOOLEAN, TRUE));
         }
