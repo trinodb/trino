@@ -19,10 +19,11 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.trino.client.ClientSession;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
+import io.trino.client.uri.KnownTokenCache;
 import io.trino.client.uri.LoggingLevel;
 import io.trino.client.uri.PropertyName;
 import io.trino.client.uri.RestrictedPropertyException;
@@ -43,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -59,6 +61,7 @@ import static io.trino.client.uri.PropertyName.DISABLE_COMPRESSION;
 import static io.trino.client.uri.PropertyName.ENCODING;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
+import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
 import static io.trino.client.uri.PropertyName.EXTRA_HEADERS;
 import static io.trino.client.uri.PropertyName.HTTP_LOGGING_LEVEL;
@@ -82,6 +85,7 @@ import static io.trino.client.uri.PropertyName.SESSION_USER;
 import static io.trino.client.uri.PropertyName.SOCKS_PROXY;
 import static io.trino.client.uri.PropertyName.SOURCE;
 import static io.trino.client.uri.PropertyName.SQL_PATH;
+import static io.trino.client.uri.PropertyName.SSL;
 import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_PASSWORD;
 import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_PATH;
 import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_TYPE;
@@ -107,12 +111,15 @@ public class ClientOptions
     private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
     private static final String SERVER_DEFAULT = "localhost:8080";
     private static final String SOURCE_DEFAULT = "trino-cli";
+    private static final String JDBC_URL_PREFIX = "jdbc:";
+    private static final String TRINO_JDBC_URL_PREFIX = "jdbc:trino:";
+    private static final Set<PropertyName> GENERIC_DRIVER_PROPERTIES = ImmutableSet.of(USER, PASSWORD, CATALOG, SCHEMA);
     static final String DEBUG_OPTION_NAME = "--debug";
 
-    @Parameters(paramLabel = "URL", description = "Trino server URL", arity = "0..1")
+    @Parameters(paramLabel = "URL", description = "Trino server URL, or a JDBC URL for a driver available on the class path", arity = "0..1")
     public Optional<String> url;
 
-    @Option(names = "--server", paramLabel = "<server>", description = "Trino server location (default: " + SERVER_DEFAULT + ")")
+    @Option(names = "--server", paramLabel = "<server>", description = "Trino server location, or a JDBC URL for a driver available on the class path (default: " + SERVER_DEFAULT + ")")
     public Optional<String> server;
 
     @PropertyMapping(KERBEROS_SERVICE_PRINCIPAL_PATTERN)
@@ -376,13 +383,60 @@ public class ClientOptions
         }
     }
 
-    public ClientSession toClientSession(TrinoUri uri)
+    public ConnectionFactory createConnectionFactory(Map<PropertyName, String> restrictedProperties)
     {
-        return uri
-                .toClientSessionBuilder()
-                .source(uri.getSource().orElse(SOURCE_DEFAULT))
-                .encoding(encoding)
-                .build();
+        Optional<String> jdbcUrl = url.or(() -> server)
+                .filter(ClientOptions::isNonTrinoJdbcUrl);
+        if (jdbcUrl.isPresent()) {
+            if (url.isPresent() && server.isPresent()) {
+                throw new IllegalArgumentException("Using both the URL parameter and the --server option is not allowed");
+            }
+            return createDriverManagerConnectionFactory(jdbcUrl.get(), restrictedProperties);
+        }
+
+        TrinoUri uri = getTrinoUri(restrictedProperties);
+        return new TrinoConnectionFactory(uri.getHttpUri(), toConnectionProperties(uri), clientRequestTimeout);
+    }
+
+    public Properties toConnectionProperties(TrinoUri uri)
+    {
+        Properties properties = new Properties();
+        properties.putAll(uri.getProperties());
+        // the driver URL only has the host and port, so it must not infer TLS from the port
+        properties.setProperty(SSL.toString(), String.valueOf(uri.isUseSecureConnection()));
+        if (uri.getSource().isEmpty()) {
+            properties.setProperty(SOURCE.toString(), SOURCE_DEFAULT);
+        }
+        encoding.ifPresent(value -> properties.setProperty(ENCODING.toString(), value));
+        if (uri.isExternalAuthenticationEnabled() && !properties.containsKey(EXTERNAL_AUTHENTICATION_TOKEN_CACHE.toString())) {
+            // share the token between the query and the auto-completion connections, to authenticate only once
+            properties.setProperty(EXTERNAL_AUTHENTICATION_TOKEN_CACHE.toString(), KnownTokenCache.MEMORY.name());
+        }
+        return properties;
+    }
+
+    private ConnectionFactory createDriverManagerConnectionFactory(String jdbcUrl, Map<PropertyName, String> restrictedProperties)
+    {
+        Set<PropertyName> unsupportedProperties = Sets.difference(restrictedProperties.keySet(), GENERIC_DRIVER_PROPERTIES);
+        if (!unsupportedProperties.isEmpty()) {
+            throw new IllegalArgumentException(format(
+                    "Option '%s' is only supported when connecting to Trino",
+                    restrictedProperties.get(unsupportedProperties.iterator().next())));
+        }
+        Properties properties = new Properties();
+        if (restrictedProperties.containsKey(USER)) {
+            user.ifPresent(value -> properties.setProperty("user", value));
+        }
+        if (password) {
+            properties.setProperty("password", getPassword());
+        }
+        return new DriverManagerConnectionFactory(jdbcUrl, properties, catalog, schema);
+    }
+
+    private static boolean isNonTrinoJdbcUrl(String url)
+    {
+        String lowerUrl = url.toLowerCase(ENGLISH);
+        return lowerUrl.startsWith(JDBC_URL_PREFIX) && !lowerUrl.startsWith(TRINO_JDBC_URL_PREFIX);
     }
 
     public TrinoUri getTrinoUri()
@@ -546,6 +600,9 @@ public class ClientOptions
     public static URI parseServer(String server)
     {
         String lowerServer = server.toLowerCase(ENGLISH);
+        if (lowerServer.startsWith(TRINO_JDBC_URL_PREFIX)) {
+            return URI.create(server.substring(JDBC_URL_PREFIX.length()));
+        }
         if (lowerServer.startsWith("http://") || lowerServer.startsWith("https://") || lowerServer.startsWith("trino://")) {
             return URI.create(server);
         }

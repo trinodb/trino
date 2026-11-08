@@ -16,10 +16,8 @@ package io.trino.cli;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.client.QueryStatusInfo;
-import io.trino.client.StageStats;
-import io.trino.client.StatementClient;
-import io.trino.client.StatementStats;
+import io.trino.jdbc.QueryStats;
+import io.trino.jdbc.StageStats;
 import org.jline.terminal.Attributes;
 import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedString;
@@ -28,6 +26,7 @@ import org.jline.utils.AttributedStyle;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.padStart;
@@ -58,9 +57,11 @@ public class StatusPrinter
 {
     private static final int CTRL_C = 3;
     private static final int CTRL_P = 16;
+    private static final long POLL_INTERVAL_MILLIS = 50;
 
     private final long start = System.nanoTime();
-    private final StatementClient client;
+    private final StatementExecution execution;
+    private final Runnable cancelQuery;
     private final PrintStream out;
     private final ConsolePrinter console;
     private final boolean checkInput;
@@ -69,9 +70,10 @@ public class StatusPrinter
 
     private boolean debug;
 
-    public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean checkInput, boolean decimalDataSize, Theme theme)
+    public StatusPrinter(StatementExecution execution, Runnable cancelQuery, PrintStream out, boolean debug, boolean checkInput, boolean decimalDataSize, Theme theme)
     {
-        this.client = client;
+        this.execution = requireNonNull(execution, "execution is null");
+        this.cancelQuery = requireNonNull(cancelQuery, "cancelQuery is null");
         this.out = out;
         this.console = new ConsolePrinter(out);
         this.debug = debug;
@@ -100,19 +102,15 @@ Spilled: 20GB
  */
 
     public void printInitialStatusUpdates(Terminal terminal)
+            throws InterruptedException
     {
         Attributes originalAttributes = terminal.enterRawMode();
-        long start = System.nanoTime();
         long lastPrint = System.nanoTime();
         try {
             WarningsPrinter warningsPrinter = new ConsoleWarningsPrinter(console, theme);
-            while (client.isRunning()) {
+            // exit status loop when there is pending output or the query finished
+            while (!execution.awaitResults(POLL_INTERVAL_MILLIS, MILLISECONDS)) {
                 try {
-                    // exit status loop if there is pending output
-                    if (!client.currentRows().isNull()) {
-                        return;
-                    }
-
                     // check if time to update screen
                     boolean update = nanosSince(lastPrint).getValue(SECONDS) >= 0.5;
 
@@ -121,12 +119,12 @@ Spilled: 20GB
                         // check for keyboard input
                         int key = readKey(terminal);
                         if (key == CTRL_P) {
-                            client.cancelLeafStage();
+                            execution.partialCancel();
                         }
                         else if (key == CTRL_C) {
                             updateScreen(terminal, warningsPrinter);
                             update = false;
-                            client.close();
+                            cancelQuery.run();
                         }
                         else if (toUpperCase(key) == 'D') {
                             debug = !debug;
@@ -140,9 +138,6 @@ Spilled: 20GB
                         updateScreen(terminal, warningsPrinter);
                         lastPrint = System.nanoTime();
                     }
-
-                    // fetch next results (server will wait for a while if no data)
-                    client.advance();
                 }
                 catch (RuntimeException e) {
                     if (debug) {
@@ -178,13 +173,22 @@ Spilled: 20GB
     private void redrawScreen(WarningsPrinter warningsPrinter)
     {
         console.repositionCursor();
-        printQueryInfo(client.currentStatusInfo(), warningsPrinter);
+        Optional<QueryStats> stats = execution.getStats();
+        if (stats.isPresent()) {
+            printQueryInfo(stats.get(), warningsPrinter);
+        }
+        else {
+            printGenericQueryInfo(warningsPrinter);
+        }
     }
 
     public void printFinalInfo()
     {
-        QueryStatusInfo results = client.finalStatusInfo();
-        StatementStats stats = results.getStats();
+        Optional<QueryStats> finalStats = execution.getStats();
+        if (finalStats.isEmpty()) {
+            return;
+        }
+        QueryStats stats = finalStats.get();
 
         Duration wallTime = succinctDuration(stats.getElapsedTimeMillis(), MILLISECONDS);
 
@@ -199,14 +203,14 @@ Spilled: 20GB
         // Query 12, FINISHED, 1 node
         String querySummary = format(
                 "Query %s, %s, %,d %s",
-                results.getId(),
+                stats.getQueryId(),
                 coloredState(stats.getState()),
                 nodes,
                 pluralize("node", nodes));
         out.println(querySummary);
 
         if (debug) {
-            out.println(results.getInfoUri().toString());
+            stats.getInfoUri().ifPresent(out::println);
         }
 
         // Splits: 1000 total, 842 done (84.20%)
@@ -265,9 +269,8 @@ Spilled: 20GB
         out.println();
     }
 
-    private void printQueryInfo(QueryStatusInfo results, WarningsPrinter warningsPrinter)
+    private void printQueryInfo(QueryStats stats, WarningsPrinter warningsPrinter)
     {
-        StatementStats stats = results.getStats();
         Duration wallTime = nanosSince(start);
 
         // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
@@ -294,16 +297,16 @@ Spilled: 20GB
             // Query 10, RUNNING, 1 node, 778 splits
             String querySummary = format(
                     "Query %s, %s, %,d %s, %s splits",
-                    results.getId(),
+                    stats.getQueryId(),
                     coloredState(stats.getState()),
                     nodes,
                     pluralize("node", nodes),
                     coloredCount(stats.getTotalSplits()));
             reprintLine(querySummary);
 
-            String url = results.getInfoUri().toString();
-            if (debug && (url.length() < terminalWidth)) {
-                reprintLine(url);
+            Optional<String> url = stats.getInfoUri().map(Object::toString);
+            if (debug && url.isPresent() && (url.get().length() < terminalWidth)) {
+                reprintLine(url.get());
             }
 
             if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
@@ -406,13 +409,13 @@ Spilled: 20GB
                     "DONE");
             reprintLine(colored(stagesHeader, theme.keyword()));
 
-            printStageTree(stats.getRootStage(), "");
+            stats.getRootStage().ifPresent(stage -> printStageTree(stage, ""));
         }
         else {
             // Query 31 [S] i[2.7M 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
             String querySummary = format(
                     "Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
-                    results.getId(),
+                    stats.getQueryId(),
                     coloredState(stats.getState()),
 
                     formatCount(stats.getProcessedRows()),
@@ -428,7 +431,37 @@ Spilled: 20GB
                     stats.getCompletedSplits());
             reprintLine(querySummary);
         }
-        warningsPrinter.print(results.getWarnings(), true, false);
+        warningsPrinter.print(execution.getWarnings(), true, false);
+    }
+
+    // Used for drivers that do not report progress
+    private void printGenericQueryInfo(WarningsPrinter warningsPrinter)
+    {
+        Duration wallTime = nanosSince(start);
+        if (!isRealTerminal()) {
+            reprintLine(format("Query [%s] %s", coloredState("RUNNING"), formatTime(wallTime)));
+            return;
+        }
+
+        // blank line
+        reprintLine("");
+
+        int terminalWidth = terminalWidth();
+        if (terminalWidth < 75) {
+            reprintLine(coloredState("RUNNING"));
+            reprintLine(formatTime(wallTime));
+            return;
+        }
+
+        int progressWidth = (min(terminalWidth, 100) - 75) + 17;
+        String progressBar = formatProgressBar(progressWidth, Ints.saturatedCast(wallTime.roundTo(SECONDS)));
+
+        // RUNNING 0:17 [    <=>                                  ]
+        reprintLine(format("%s %s [%s]", coloredState("RUNNING"), formatTime(wallTime), progressBar));
+
+        // blank line
+        reprintLine("");
+        warningsPrinter.print(execution.getWarnings(), true, false);
     }
 
     private void printStageTree(StageStats stage, String indent)

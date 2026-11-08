@@ -14,8 +14,6 @@
 package io.trino.cli;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.client.ClientTypeSignature;
-import io.trino.client.Column;
 import org.jline.utils.AttributedString;
 import org.junit.jupiter.api.Test;
 
@@ -24,12 +22,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.client.ClientStandardTypes.ARRAY;
-import static io.trino.client.ClientStandardTypes.BIGINT;
-import static io.trino.client.ClientStandardTypes.MAP;
-import static io.trino.client.ClientStandardTypes.VARBINARY;
-import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.sql.Types.ARRAY;
+import static java.sql.Types.BIGINT;
+import static java.sql.Types.JAVA_OBJECT;
+import static java.sql.Types.VARBINARY;
+import static java.sql.Types.VARCHAR;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toMap;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -137,7 +135,7 @@ public class TestAlignedTablePrinter
     public void testHexPrintingInMaps()
             throws Exception
     {
-        List<Column> columns = ImmutableList.of(column("map", MAP));
+        List<Column> columns = ImmutableList.of(column("map", JAVA_OBJECT));
 
         StringWriter writer = new StringWriter();
         OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.NONE);
@@ -160,7 +158,7 @@ public class TestAlignedTablePrinter
     public void testHexPrintingInMapKeys()
             throws Exception
     {
-        List<Column> columns = ImmutableList.of(column("map", MAP));
+        List<Column> columns = ImmutableList.of(column("map", JAVA_OBJECT));
 
         StringWriter writer = new StringWriter();
         OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.NONE);
@@ -183,7 +181,7 @@ public class TestAlignedTablePrinter
     public void testHexPrintingInNestedStructures()
             throws Exception
     {
-        List<Column> columns = ImmutableList.of(column("map", MAP));
+        List<Column> columns = ImmutableList.of(column("map", JAVA_OBJECT));
 
         StringWriter writer = new StringWriter();
         OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.NONE);
@@ -312,9 +310,9 @@ public class TestAlignedTablePrinter
         assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
-    static Column column(String name, String type)
+    static Column column(String name, int type)
     {
-        return new Column(name, type, new ClientTypeSignature(type));
+        return new Column(name, type);
     }
 
     static List<?> row(Object... values)

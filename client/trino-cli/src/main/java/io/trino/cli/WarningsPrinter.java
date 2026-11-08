@@ -13,11 +13,10 @@
  */
 package io.trino.cli;
 
-import io.trino.client.Warning;
-
+import java.sql.SQLWarning;
 import java.util.List;
 
 public interface WarningsPrinter
 {
-    void print(List<Warning> warnings, boolean withInitialSeparator, boolean withTrailingSeparator);
+    void print(List<SQLWarning> warnings, boolean withInitialSeparator, boolean withTrailingSeparator);
 }

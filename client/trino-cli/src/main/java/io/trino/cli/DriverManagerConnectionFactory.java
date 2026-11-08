@@ -1,0 +1,61 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.cli;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Optional;
+import java.util.Properties;
+
+import static java.util.Objects.requireNonNull;
+
+class DriverManagerConnectionFactory
+        implements ConnectionFactory
+{
+    private final String url;
+    private final Properties properties;
+    private final Optional<String> catalog;
+    private final Optional<String> schema;
+
+    public DriverManagerConnectionFactory(String url, Properties properties, Optional<String> catalog, Optional<String> schema)
+    {
+        this.url = requireNonNull(url, "url is null");
+        this.properties = new Properties();
+        this.properties.putAll(requireNonNull(properties, "properties is null"));
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.schema = requireNonNull(schema, "schema is null");
+    }
+
+    @Override
+    public Connection openConnection()
+            throws SQLException
+    {
+        Connection connection = DriverManager.getConnection(url, properties);
+        try {
+            if (catalog.isPresent()) {
+                connection.setCatalog(catalog.get());
+            }
+            if (schema.isPresent()) {
+                connection.setSchema(schema.get());
+            }
+        }
+        catch (SQLException | RuntimeException e) {
+            try (connection) {
+                throw e;
+            }
+        }
+        return connection;
+    }
+}

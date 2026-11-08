@@ -15,8 +15,6 @@ package io.trino.cli;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import io.trino.client.Column;
 import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStyle;
 
@@ -24,18 +22,10 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cli.FormatUtils.formatValue;
-import static io.trino.client.ClientStandardTypes.BIGINT;
-import static io.trino.client.ClientStandardTypes.DECIMAL;
-import static io.trino.client.ClientStandardTypes.DOUBLE;
-import static io.trino.client.ClientStandardTypes.INTEGER;
-import static io.trino.client.ClientStandardTypes.REAL;
-import static io.trino.client.ClientStandardTypes.SMALLINT;
-import static io.trino.client.ClientStandardTypes.TINYINT;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -46,8 +36,6 @@ import static org.jline.utils.WCWidth.wcwidth;
 public class AlignedTablePrinter
         implements OutputPrinter
 {
-    private static final Set<String> NUMERIC_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, DECIMAL);
-
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
 
     private final List<String> fieldNames;
@@ -65,8 +53,7 @@ public class AlignedTablePrinter
                 .map(Column::getName)
                 .collect(toImmutableList());
         this.numericFields = columns.stream()
-                .map(Column::getTypeSignature)
-                .map(signature -> NUMERIC_TYPES.contains(signature.getRawType()))
+                .map(Column::isNumeric)
                 .collect(toImmutableList());
         this.writer = requireNonNull(writer, "writer is null");
         this.theme = requireNonNull(theme, "theme is null");
