@@ -31,6 +31,7 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -56,6 +57,7 @@ public class TrinoStatement
     private final AtomicReference<ResultSet> updateRowsResult = new AtomicReference<>();
     private final AtomicReference<WarningsManager> currentWarningsManager = new AtomicReference<>();
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
+    private final AtomicReference<OptionalLong> currentReportedUpdateCount = new AtomicReference<>(OptionalLong.empty());
     private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
     private final AtomicReference<Consumer<QueryStats>> progressCallback = new AtomicReference<>();
 
@@ -303,7 +305,9 @@ public class TrinoStatement
             if (!updateRows.isEmpty() && !isUpdateCountResult(finalStatusInfo.getColumns(), updateRows)) {
                 updateRowsResult.set(new InMemoryTrinoResultSet(this, finalStatusInfo.getColumns(), updateRows));
             }
-            currentUpdateCount.set(finalStatusInfo.getUpdateCount().orElse(0));
+            OptionalLong reportedUpdateCount = finalStatusInfo.getUpdateCount();
+            currentReportedUpdateCount.set(reportedUpdateCount);
+            currentUpdateCount.set(reportedUpdateCount.orElse(0));
             return false;
         }
         catch (ClientException e) {
@@ -342,6 +346,7 @@ public class TrinoStatement
         currentResult.set(null);
         updateRowsResult.set(null);
         currentUpdateCount.set(-1);
+        currentReportedUpdateCount.set(OptionalLong.empty());
         currentUpdateType.set(null);
         currentWarningsManager.set(null);
     }
@@ -475,6 +480,7 @@ public class TrinoStatement
         }
 
         currentUpdateCount.set(-1);
+        currentReportedUpdateCount.set(OptionalLong.empty());
         currentUpdateType.set(null);
 
         // there is at most one open result, so closing all of them closes the current one
@@ -643,6 +649,18 @@ public class TrinoStatement
     {
         checkOpen();
         return currentUpdateType.get();
+    }
+
+    /**
+     * Returns the row count reported by the server for the last update statement.
+     * Unlike {@link #getLargeUpdateCount()}, this is empty for statements that do not
+     * report a row count, like most DDL statements, instead of zero.
+     */
+    public OptionalLong getReportedUpdateCount()
+            throws SQLException
+    {
+        checkOpen();
+        return currentReportedUpdateCount.get();
     }
 
     public void partialCancel()

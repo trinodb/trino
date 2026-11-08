@@ -173,6 +173,7 @@ public class TestJdbcStatement
                 assertThat(statement.execute("EXPLAIN ANALYZE INSERT INTO blackhole.default.explain_analyze_update VALUES 1")).isFalse();
                 assertThat(trinoStatement.getUpdateType()).isEqualTo("INSERT");
                 assertThat(statement.getUpdateCount()).isEqualTo(0);
+                assertThat(trinoStatement.getReportedUpdateCount()).isEmpty();
                 assertThat(statement.getMoreResults()).isTrue();
                 try (ResultSet resultSet = statement.getResultSet()) {
                     assertThat(resultSet.getStatement()).isSameAs(statement);
@@ -194,6 +195,30 @@ public class TestJdbcStatement
                     statement.execute("DROP TABLE IF EXISTS blackhole.default.explain_analyze_update");
                 }
             }
+        }
+    }
+
+    @Test
+    public void testReportedUpdateCount()
+            throws Exception
+    {
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement()) {
+            TrinoStatement trinoStatement = statement.unwrap(TrinoStatement.class);
+
+            assertThat(statement.execute("CREATE TABLE blackhole.default.reported_update_count (x bigint)")).isFalse();
+            assertThat(trinoStatement.getUpdateType()).isEqualTo("CREATE TABLE");
+            assertThat(statement.getLargeUpdateCount()).isEqualTo(0);
+            assertThat(trinoStatement.getReportedUpdateCount()).isEmpty();
+
+            assertThat(statement.execute("INSERT INTO blackhole.default.reported_update_count VALUES 1, 2")).isFalse();
+            assertThat(trinoStatement.getUpdateType()).isEqualTo("INSERT");
+            assertThat(trinoStatement.getReportedUpdateCount()).hasValue(2);
+
+            assertThat(statement.execute("SELECT 1")).isTrue();
+            assertThat(trinoStatement.getReportedUpdateCount()).isEmpty();
+
+            statement.execute("DROP TABLE blackhole.default.reported_update_count");
         }
     }
 
