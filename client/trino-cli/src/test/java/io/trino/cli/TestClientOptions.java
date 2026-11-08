@@ -21,7 +21,6 @@ import io.trino.cli.ClientOptions.ClientResourceEstimate;
 import io.trino.cli.ClientOptions.ClientSessionProperty;
 import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.client.ClientSession;
-import io.trino.client.uri.PropertyName;
 import io.trino.client.uri.TrinoUri;
 import org.junit.jupiter.api.Test;
 
@@ -169,8 +168,7 @@ public class TestClientOptions
                 .hasMessage("Connection property 'path' has invalid syntax, should be [catalog].[schema] or [schema]");
 
         Console console = createConsole("--path=catalog.schema");
-        TrinoUri trinoUri = console.clientOptions.getTrinoUri();
-        assertThat(trinoUri.getPath()).hasValue(ImmutableList.of("catalog.schema"));
+        assertThat(toTrinoUri(console.clientOptions).getPath()).hasValue(ImmutableList.of("catalog.schema"));
         assertThat(toClientSession(console.clientOptions).getPath()).isEqualTo(ImmutableList.of("catalog.schema"));
     }
 
@@ -186,12 +184,11 @@ public class TestClientOptions
     public void testURLParams()
     {
         Console console = createConsole("trino://server.example:8080/my-catalog/my-schema?source=my-client");
-        TrinoUri uri = console.clientOptions.getTrinoUri();
         ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getServer().toString()).isEqualTo("http://server.example:8080");
         assertThat(session.getCatalog()).isEqualTo(Optional.of("my-catalog"));
         assertThat(session.getSchema()).isEqualTo(Optional.of("my-schema"));
-        assertThat(uri.getSource()).isEqualTo(Optional.of("my-client"));
+        assertThat(session.getSource()).isEqualTo("my-client");
     }
 
     @Test
@@ -210,10 +207,10 @@ public class TestClientOptions
     public void testNonTrinoJdbcUrl()
     {
         Console console = createConsole("--catalog=test", "jdbc:h2:mem:test");
-        assertThat(console.clientOptions.createConnectionFactory(ImmutableMap.of(PropertyName.CATALOG, "--catalog")))
+        assertThat(console.clientOptions.createConnectionFactory(ImmutableMap.of("catalog", "--catalog")))
                 .isInstanceOf(DriverManagerConnectionFactory.class);
 
-        assertThatThrownBy(() -> createConsole("--session=a=b", "jdbc:h2:mem:test").clientOptions.createConnectionFactory(ImmutableMap.of(PropertyName.SESSION_PROPERTIES, "--session")))
+        assertThatThrownBy(() -> createConsole("--session=a=b", "jdbc:h2:mem:test").clientOptions.createConnectionFactory(ImmutableMap.of("sessionProperties", "--session")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Option '--session' is only supported when connecting to Trino");
 
@@ -226,10 +223,24 @@ public class TestClientOptions
     public void testConnectionProperties()
     {
         ClientOptions options = createConsole("--server=http://test:443", "--external-authentication").clientOptions;
-        Properties properties = options.toConnectionProperties(options.getTrinoUri());
+        Properties properties = options.toTrinoConnectionProperties();
         assertThat(properties.getProperty("SSL")).isEqualTo("false");
         assertThat(properties.getProperty("source")).isEqualTo("trino-cli");
         assertThat(properties.getProperty("externalAuthenticationTokenCache")).isEqualTo("MEMORY");
+    }
+
+    @Test
+    public void testURLPropertiesSetByOptions()
+    {
+        ClientOptions options = createConsole("--catalog=other", "trino://server.example:8080/my-catalog").clientOptions;
+        assertThatThrownBy(() -> options.toTrinoJdbcUrl(ImmutableMap.of("catalog", "--catalog")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Connection property 'catalog' cannot be set in the URL when option '--catalog' is set");
+
+        ClientOptions sourceOptions = createConsole("--source=other", "trino://server.example:8080?source=my-client").clientOptions;
+        assertThatThrownBy(() -> sourceOptions.toTrinoJdbcUrl(ImmutableMap.of("source", "--source")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Connection property 'source' cannot be set in the URL when option '--source' is set");
     }
 
     @Test
@@ -297,9 +308,8 @@ public class TestClientOptions
                 new ClientOptions.ExtraHeader("X-Trino-Routing-Group", "foo"),
                 new ClientOptions.ExtraHeader("x-foo", "bar")));
 
-        assertThatThrownBy(() -> createConsole("--extra-header", "X-Trino-User=Forbidden"))
-                .hasCauseInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Header 'X-Trino-User' is a protocol header and cannot be set as an extra header");
+        assertThatThrownBy(() -> toClientSession(createConsole("--extra-header", "X-Trino-User=Forbidden").clientOptions))
+                .hasMessageContaining("Connection property extraHeaders cannot override any of the Trino protocol headers");
     }
 
     @Test
@@ -342,7 +352,7 @@ public class TestClientOptions
         ClientSession session = toClientSession(options);
         assertThat(session.getClientRequestTimeout()).isEqualTo(Duration.succinctDuration(17, SECONDS));
 
-        assertThatThrownBy(() -> createConsole("--client-request-timeout=17s", "trino://localhost:8080?timeout=30s").clientOptions.getTrinoUri())
+        assertThatThrownBy(() -> toClientSession(createConsole("--client-request-timeout=17s", "trino://localhost:8080?timeout=30s").clientOptions))
                 .hasMessageContaining("Connection property timeout is passed both by URL and properties");
     }
 
@@ -450,10 +460,16 @@ public class TestClientOptions
 
     private static ClientSession toClientSession(ClientOptions options)
     {
-        TrinoUri uri = options.getTrinoUri();
-        return TrinoUri.create(uri.getHttpUri(), options.toConnectionProperties(uri))
+        return toTrinoUri(options)
                 .toClientSessionBuilder()
                 .build();
+    }
+
+    // interprets the driver URL and properties the same way the Trino JDBC driver does
+    private static TrinoUri toTrinoUri(ClientOptions options)
+    {
+        String url = options.toTrinoJdbcUrl(ImmutableMap.of());
+        return TrinoUri.create(url.substring("jdbc:".length()), options.toTrinoConnectionProperties());
     }
 
     private static Console createConsole(String... args)

@@ -13,16 +13,19 @@
  */
 package io.trino.cli;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.jdbc.NonRegisteringTrinoDriver;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
 import java.sql.Connection;
+import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Properties;
 
+import static io.trino.cli.TrinoConnectionProperties.ENCODING;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -35,13 +38,30 @@ class TrinoConnectionFactory
     private final Properties properties;
     private final Duration requestTimeout;
 
-    public TrinoConnectionFactory(URI serverUri, Properties properties, Duration requestTimeout)
+    public TrinoConnectionFactory(String url, Properties properties, Duration requestTimeout)
     {
-        requireNonNull(serverUri, "serverUri is null");
-        this.url = "jdbc:trino://" + serverUri.getHost() + ":" + serverUri.getPort();
+        this.url = requireNonNull(url, "url is null");
         this.properties = new Properties();
         this.properties.putAll(requireNonNull(properties, "properties is null"));
         this.requestTimeout = requireNonNull(requestTimeout, "requestTimeout is null");
+    }
+
+    /**
+     * Returns the encodings of the spooling protocol supported by the driver, in the order of preference.
+     */
+    public static List<String> getSupportedEncodings()
+    {
+        try (NonRegisteringTrinoDriver driver = new NonRegisteringTrinoDriver() {}) {
+            for (DriverPropertyInfo property : driver.getPropertyInfo("jdbc:trino://localhost", new Properties())) {
+                if (property.name.equals(ENCODING) && property.choices != null) {
+                    return ImmutableList.copyOf(property.choices);
+                }
+            }
+            return ImmutableList.of();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override

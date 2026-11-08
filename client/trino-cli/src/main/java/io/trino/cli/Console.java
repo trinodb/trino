@@ -21,7 +21,6 @@ import io.trino.cli.ClientOptions.PropertyMapping;
 import io.trino.cli.Trino.VersionProvider;
 import io.trino.cli.lexer.StatementSplitter;
 import io.trino.cli.lexer.StatementSplitter.Statement;
-import io.trino.client.uri.PropertyName;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.History;
 import org.jline.reader.UserInterruptException;
@@ -105,7 +104,7 @@ public class Console
     {
         CommandLine.ParseResult parseResult = spec.commandLine().getParseResult();
 
-        Map<PropertyName, String> restrictedOptions = spec.options().stream()
+        Map<String, String> restrictedOptions = spec.options().stream()
                 .filter(parseResult::hasMatchedOption)
                 .map(option -> getMapping(option.userObject())
                         .map(value -> new AbstractMap.SimpleEntry<>(value, option.longestName())))
@@ -221,7 +220,7 @@ public class Console
         return value != null && !value.isEmpty();
     }
 
-    private static Optional<PropertyName> getMapping(Object userObject)
+    private static Optional<String> getMapping(Object userObject)
     {
         if (userObject instanceof Field) {
             return Optional.ofNullable(((Field) userObject).getAnnotation(PropertyMapping.class))

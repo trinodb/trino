@@ -64,17 +64,19 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-grammar</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-jdbc</artifactId>
+            <exclusions>
+                <!-- The driver is shaded with all its dependencies, but builds within the reactor still see them -->
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -108,18 +110,6 @@
             <groupId>org.jline</groupId>
             <artifactId>jline-terminal</artifactId>
             <version>${dep.jline.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jdk8</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -169,6 +159,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-client</artifactId>
             <scope>test</scope>
         </dependency>
 

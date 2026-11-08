@@ -26,7 +26,6 @@ import io.trino.client.StatementStats;
 import io.trino.client.TrinoJsonCodec;
 import io.trino.client.TypedQueryData;
 import io.trino.client.Warning;
-import io.trino.client.uri.PropertyName;
 import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.junit5.StartStop;
@@ -50,11 +49,14 @@ import static com.google.common.net.HttpHeaders.LOCATION;
 import static com.google.common.net.HttpHeaders.SET_COOKIE;
 import static io.trino.cli.ClientOptions.OutputFormat.CSV;
 import static io.trino.cli.TerminalUtils.getTerminal;
+import static io.trino.cli.TrinoConnectionProperties.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
+import static io.trino.cli.TrinoConnectionProperties.SSL;
+import static io.trino.cli.TrinoConnectionProperties.SSL_VERIFICATION;
+import static io.trino.cli.TrinoConnectionProperties.USER;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.ClientStandardTypes.BOOLEAN;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
-import static io.trino.client.auth.external.ExternalRedirectStrategy.PRINT;
 import static java.io.OutputStream.nullOutputStream;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -236,13 +238,14 @@ public class TestQueryRunner
     static ConnectionFactory createConnectionFactory(MockWebServer server, boolean insecureSsl)
     {
         Properties properties = new Properties();
-        properties.setProperty(PropertyName.USER.toString(), "user");
-        properties.setProperty(PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS.toString(), PRINT.name());
-        properties.setProperty(PropertyName.SSL.toString(), Boolean.toString(insecureSsl));
+        properties.setProperty(USER, "user");
+        properties.setProperty(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS, "PRINT");
+        properties.setProperty(SSL, Boolean.toString(insecureSsl));
         if (insecureSsl) {
-            properties.setProperty(PropertyName.SSL_VERIFICATION.toString(), "NONE");
+            properties.setProperty(SSL_VERIFICATION, "NONE");
         }
-        return new TrinoConnectionFactory(server.url("/").uri(), properties, new Duration(2, MINUTES));
+        String url = "jdbc:trino://" + server.getHostName() + ":" + server.getPort();
+        return new TrinoConnectionFactory(url, properties, new Duration(2, MINUTES));
     }
 
     static String createResults(MockWebServer server)
