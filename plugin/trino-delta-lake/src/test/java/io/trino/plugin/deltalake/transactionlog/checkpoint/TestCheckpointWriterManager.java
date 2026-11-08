@@ -211,7 +211,21 @@ public class TestCheckpointWriterManager
 
     private CheckpointWriterManager checkpointWriterManager(DeltaLakeFileSystemFactory fileSystemFactory, FileFormatDataSourceStats stats, ParquetWriterOptions parquetWriterOptions)
     {
-        TransactionLogAccess transactionLogAccess = new TransactionLogAccess(
+        return new CheckpointWriterManager(
+                TESTING_TYPE_MANAGER,
+                checkpointSchemaManager,
+                fileSystemFactory,
+                new CheckpointWriter(TESTING_TYPE_MANAGER, checkpointSchemaManager, "test", parquetWriterOptions),
+                transactionLogAccess(fileSystemFactory, stats),
+                stats,
+                jsonCodec(LastCheckpoint.class),
+                new DeltaLakeConfig(),
+                newDirectExecutorService());
+    }
+
+    private TransactionLogAccess transactionLogAccess(DeltaLakeFileSystemFactory fileSystemFactory, FileFormatDataSourceStats stats)
+    {
+        return new TransactionLogAccess(
                 TESTING_TYPE_MANAGER,
                 checkpointSchemaManager,
                 new DeltaLakeConfig(),
@@ -220,16 +234,6 @@ public class TestCheckpointWriterManager
                 new ParquetReaderConfig(),
                 newDirectExecutorService(),
                 new FileSystemTransactionLogReaderFactory(fileSystemFactory));
-        return new CheckpointWriterManager(
-                TESTING_TYPE_MANAGER,
-                checkpointSchemaManager,
-                fileSystemFactory,
-                new CheckpointWriter(TESTING_TYPE_MANAGER, checkpointSchemaManager, "test", parquetWriterOptions),
-                transactionLogAccess,
-                stats,
-                jsonCodec(LastCheckpoint.class),
-                new DeltaLakeConfig(),
-                newDirectExecutorService());
     }
 
     private static DeltaLakeFileSystemFactory interceptingOutputStreams(OutputStreamFactory outputStreamFactory)
