@@ -2135,6 +2135,12 @@ public class TestDeltaLakeBasic
         assertQueryFails(
                 "MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1",
                 "\\QUnsupported writer features: [identityColumns]");
+        assertQueryFails(
+                "CREATE OR REPLACE TABLE " + tableName + " (a int, b int)",
+                "\\QUnsupported writer features: [identityColumns]");
+        assertQueryFails(
+                "CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 a, 2 b",
+                "\\QUnsupported writer features: [identityColumns]");
     }
 
     /**
@@ -2951,6 +2957,9 @@ public class TestDeltaLakeBasic
         assertQuery("SELECT * FROM liquid_clustering FOR VERSION AS OF 3", "VALUES ('test 1', 2024, 1), ('test 2', 2024, 2)");
 
         assertQueryFails("INSERT INTO liquid_clustering VALUES ('test 3', 2024, 3)", "Unsupported writer features: .*");
+        assertQueryFails("CREATE OR REPLACE TABLE liquid_clustering (data varchar, year int, month int)", "Unsupported writer features: .*");
+        assertQueryFails("CREATE OR REPLACE TABLE liquid_clustering AS SELECT 'test 3' data, 2024 year, 3 month", "Unsupported writer features: .*");
+        assertQuery("SELECT * FROM liquid_clustering", "VALUES ('test 1', 2024, 1), ('test 2', 2024, 2)");
     }
 
     /**
@@ -3009,6 +3018,9 @@ public class TestDeltaLakeBasic
     {
         assertQuery("SELECT * FROM uniform_iceberg_v2", "VALUES (1, 'test data')");
         assertQueryFails("INSERT INTO uniform_iceberg_v2 VALUES (2, 'new data')", "\\QUnsupported universal formats: [iceberg]");
+        assertQueryFails("CREATE OR REPLACE TABLE uniform_iceberg_v2 (a int, b varchar)", "\\QUnsupported universal formats: [iceberg]");
+        assertQueryFails("CREATE OR REPLACE TABLE uniform_iceberg_v2 AS SELECT 2 a, 'new data' b", "\\QUnsupported universal formats: [iceberg]");
+        assertQuery("SELECT * FROM uniform_iceberg_v2", "VALUES (1, 'test data')");
         assertQueryFails("DROP TABLE uniform_iceberg_v2", "\\QUnsupported universal formats: [iceberg]");
     }
 
