@@ -14,20 +14,30 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.math.IntMath;
 import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.GenericStatisticsFile;
+import org.apache.iceberg.Metrics;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.puffin.Puffin;
 import org.apache.iceberg.puffin.PuffinWriter;
+import org.apache.iceberg.util.SnapshotUtil;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,14 +45,18 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
+import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.loadTable;
+import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_TABLE_PROCEDURE;
@@ -50,6 +64,7 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UP;
 import static java.util.stream.Collectors.joining;
@@ -1403,6 +1418,173 @@ public class TestIcebergStatistics
                   ('c2', null, 1.0, 0.0, null, null, null),
                   (null, null, null, null, 1.0, null, null)
                 """);
+    }
+
+    @Test
+    public void testNestedColumnDataSize()
+    {
+        String tableName = "test_nested_column_data_size_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, r row(x integer, y varchar), a array(row(k varchar, v bigint)), m map(varchar, varchar))");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, ROW(1, 'one'), ARRAY[ROW('a', 1)], MAP(ARRAY['k1'], ARRAY['v1'])), " +
+                        "(2, ROW(2, 'two'), ARRAY[ROW('b', 2), ROW('c', 3)], MAP(ARRAY['k2', 'k3'], ARRAY['v2', 'v3']))",
+                2);
+
+        // Iceberg tracks column sizes only for leaf fields, so the data size of a nested column is derived from them
+        assertThat(nestedColumnDataSize(tableName, "r")).isEqualTo(Estimate.of(152));
+        assertThat(nestedColumnDataSize(tableName, "a")).isEqualTo(Estimate.of(185));
+        assertThat(nestedColumnDataSize(tableName, "m")).isEqualTo(Estimate.of(326));
+
+        // Each INSERT adds a manifest. With enough manifests, they are decoded in parallel and the statistics are merged
+        for (int i = 0; i < TableStatisticsReader.INLINE_MANIFEST_DECODE_THRESHOLD; i++) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, ROW(3, 'three'), ARRAY[ROW('d', 4)], MAP(ARRAY['k4'], ARRAY['v4']))", 1);
+        }
+        assertThat(nestedColumnDataSize(tableName, "r")).isEqualTo(Estimate.of(656));
+        assertThat(nestedColumnDataSize(tableName, "a")).isEqualTo(Estimate.of(737));
+        assertThat(nestedColumnDataSize(tableName, "m")).isEqualTo(Estimate.of(1358));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNestedColumnDataSizeWithOrcFiles()
+    {
+        String tableName = "test_nested_column_data_size_orc_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (r row(x integer, y varchar)) WITH (format = 'ORC')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW(1, 'one')), ROW(ROW(2, 'two'))", 2);
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format = 'PARQUET'");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW(3, 'three'))", 1);
+
+        // ORC files have no column sizes, so a sum of the Parquet files only would underestimate the size
+        assertThat(nestedColumnDataSize(tableName, "r")).isEqualTo(Estimate.unknown());
+
+        // With enough manifests, they are decoded in parallel and the unknown size is kept when the statistics are merged
+        for (int i = 0; i < TableStatisticsReader.INLINE_MANIFEST_DECODE_THRESHOLD; i++) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW(4, 'four'))", 1);
+        }
+        assertThat(nestedColumnDataSize(tableName, "r")).isEqualTo(Estimate.unknown());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNestedColumnDataSizeWithMetricsModeNone()
+    {
+        String tableName = "test_nested_column_data_size_metrics_none_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (r row(x bigint, y varchar))");
+        // Writers record no value counts for a leaf with metrics mode none, as for columns beyond the default limit of a wide table
+        loadIcebergTable(tableName).updateProperties()
+                .set("write.metadata.metrics.column.r.x", "none")
+                .commit();
+        assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW(1, 'one')), ROW(ROW(2, 'two'))", 2);
+
+        // A sum over the other leaves would underestimate the size
+        assertThat(nestedColumnDataSize(tableName, "r")).isEqualTo(Estimate.unknown());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNestedColumnDataSizeWithFileWrittenWithMetricsModeNone()
+    {
+        String tableName = "test_nested_column_data_size_file_metrics_none_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (r row(x bigint, y varchar))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW(1, 'one')), ROW(ROW(2, 'two'))", 2);
+        assertThat(nestedColumnDataSize(tableName, "r")).isEqualTo(Estimate.of(160));
+
+        // A Parquet file written with metrics mode none for a leaf has its size but no value count, as ParquetUtil.footerMetrics records them.
+        // The metrics config of the table can change after the file is written, so it no longer reports the leaf as mode none.
+        BaseTable table = loadIcebergTable(tableName);
+        int leafId = table.schema().findField("r.x").fieldId();
+        DataFile dataFile = getOnlyElement(table.currentSnapshot().addedDataFiles(table.io()));
+        DataFile withoutValueCount = DataFiles.builder(table.spec())
+                .copy(dataFile)
+                .withMetrics(new Metrics(
+                        dataFile.recordCount(),
+                        dataFile.columnSizes(),
+                        Maps.filterKeys(dataFile.valueCounts(), fieldId -> fieldId != leafId),
+                        dataFile.nullValueCounts(),
+                        dataFile.nanValueCounts(),
+                        dataFile.lowerBounds(),
+                        dataFile.upperBounds()))
+                .build();
+        table.newOverwrite()
+                .deleteFile(dataFile)
+                .addFile(withoutValueCount)
+                .commit();
+
+        // The leaf is counted as 0 values otherwise, which would underestimate the size
+        assertThat(nestedColumnDataSize(tableName, "r")).isEqualTo(Estimate.unknown());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNestedColumnDataSizeAtOlderSnapshot()
+    {
+        String tableName = "test_nested_column_data_size_snapshot_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (r row(x integer, y varchar))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW(1, 'one')), ROW(ROW(2, 'two'))", 2);
+        long snapshotId = getCurrentSnapshotId(tableName);
+        Estimate dataSize = nestedColumnDataSize(tableName, "r");
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN r.y");
+
+        // With the schema of the snapshot, the leaf dropped after the snapshot is still counted
+        assertThat(nestedColumnDataSize(tableName, snapshotId, "r")).isEqualTo(dataSize);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNestedColumnDataSizeWithAddedField()
+    {
+        String tableName = "test_nested_column_data_size_added_field_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (r row(x integer, y varchar))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW(1, 'one')), ROW(ROW(2, 'two'))", 2);
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN r.z bigint");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW(3, 'three', 3))", 1);
+
+        // Older files have no statistics for the added field, which is still counted for the files that have it
+        assertThat(nestedColumnDataSize(tableName, "r")).isEqualTo(Estimate.of(287));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNestedColumnDataSizeWithVariant()
+    {
+        String tableName = "test_nested_column_data_size_variant_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (r row(v variant, i integer), a array(variant)) WITH (format_version = 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (ROW(CAST(1 AS variant), 1), ARRAY[CAST('one' AS variant)]), (ROW(CAST(2 AS variant), 2), ARRAY[CAST('two' AS variant)])", 2);
+
+        // Writers record no size for variant fields
+        assertThat(nestedColumnDataSize(tableName, "r")).isEqualTo(Estimate.unknown());
+        assertThat(nestedColumnDataSize(tableName, "a")).isEqualTo(Estimate.unknown());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private Estimate nestedColumnDataSize(String tableName, String columnName)
+    {
+        return nestedColumnDataSize(tableName, getCurrentSnapshotId(tableName), columnName);
+    }
+
+    private Estimate nestedColumnDataSize(String tableName, long snapshotId, String columnName)
+    {
+        BaseTable table = loadIcebergTable(tableName);
+        Schema schema = SnapshotUtil.schemaFor(table, snapshotId);
+        IcebergColumnHandle column = getColumnHandle(schema.findField(columnName), TESTING_TYPE_MANAGER);
+        TableStatistics statistics = TableStatisticsReader.makeTableStatistics(
+                TESTING_TYPE_MANAGER,
+                table,
+                schema,
+                OptionalLong.of(snapshotId),
+                TupleDomain.all(),
+                TupleDomain.all(),
+                ImmutableSet.of(column),
+                newDirectExecutorService());
+        return statistics.getColumnStatistics().get(column).getDataSize();
     }
 
     private long getCurrentSnapshotId(String tableName)
