@@ -4290,6 +4290,11 @@ public class DeltaLakeMetadata
         if (updatedAddFileEntries.isEmpty()) {
             return;
         }
+
+        // Backfilling statistics commits to the transaction log, so the table must be writable by Trino
+        checkWriteAllowed(session, tableHandle);
+        checkWriteSupported(tableHandle);
+
         try {
             long createdTime = Instant.now().toEpochMilli();
             long readVersion = tableHandle.getReadVersion();
