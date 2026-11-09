@@ -57,7 +57,8 @@ final class S3PresigningCredentials
     public synchronized AwsCredentials resolve(Duration ttl)
             throws IOException
     {
-        if (cached.isPresent() && covers(cached.orElseThrow(), clock.instant().plus(ttl))) {
+        // Credentials without an expiration, such as static keys, can be rotated and revoked at any time without notice, so ask the provider every time
+        if (cached.isPresent() && cached.orElseThrow().expirationTime().isPresent() && covers(cached.orElseThrow(), clock.instant().plus(ttl))) {
             return cached.orElseThrow();
         }
 

@@ -100,6 +100,19 @@ class TestS3PresigningCredentials
     }
 
     @Test
+    void testBasicCredentialsAreResolvedAgainAfterRotation()
+            throws Exception
+    {
+        AtomicInteger calls = new AtomicInteger();
+        S3PresigningCredentials credentials = new S3PresigningCredentials(
+                () -> AwsBasicCredentials.create("access" + calls.incrementAndGet(), "secret"), CLOCK);
+        assertThat(credentials.resolve(Duration.ofMinutes(30)).accessKeyId()).isEqualTo("access1");
+        // The provider rotated the keys, the old ones must not be used for signing any more
+        assertThat(credentials.resolve(Duration.ofMinutes(30)).accessKeyId()).isEqualTo("access2");
+        assertThat(calls.get()).isEqualTo(2);
+    }
+
+    @Test
     void testResolutionTimeCountsAgainstRemainingValidity()
     {
         TestingClock clock = new TestingClock();
