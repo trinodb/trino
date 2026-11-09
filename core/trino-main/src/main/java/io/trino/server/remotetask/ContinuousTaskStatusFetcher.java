@@ -32,7 +32,7 @@ import io.trino.spi.TrinoException;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -56,6 +56,7 @@ class ContinuousTaskStatusFetcher
     private final TaskId taskId;
     private final Consumer<Throwable> onFail;
     private final StateMachine<TaskStatus> taskStatus;
+    private final AtomicLong expectedTaskInstanceId = new AtomicLong();
     private final JsonCodec<TaskStatus> taskStatusCodec;
     private final DynamicFiltersFetcher dynamicFiltersFetcher;
 
@@ -90,6 +91,7 @@ class ContinuousTaskStatusFetcher
         this.taskId = initialTaskStatus.taskId();
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
+        this.expectedTaskInstanceId.set(initialTaskStatus.taskInstanceId());
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
         this.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
@@ -162,6 +164,30 @@ class ContinuousTaskStatusFetcher
         return taskStatus.get();
     }
 
+    /**
+     * Checks whether a response was produced by a different task instance than the one this
+     * task is tracking. This happens when a worker restarts at the same address: the replacement
+     * JVM creates a new task on demand ({@code SqlTaskManager#getTask}) with a different
+     * {@code taskInstanceId}.
+     *
+     * <p>Shared by the task status and task info paths. The first non-zero instance id observed
+     * on either path is latched as the expected value, so an instance seen only by the task info
+     * path is still detected when the task status path first hears from its replacement.
+     */
+    boolean isTaskInstanceMismatch(long remoteInstanceId)
+    {
+        if (remoteInstanceId == 0) {
+            return false;
+        }
+        expectedTaskInstanceId.compareAndSet(0, remoteInstanceId);
+        return expectedTaskInstanceId.get() != remoteInstanceId;
+    }
+
+    long getExpectedTaskInstanceId()
+    {
+        return expectedTaskInstanceId.get();
+    }
+
     private class TaskStatusResponseCallback
             implements SimpleHttpResponseCallback<TaskStatus>
     {
@@ -228,23 +254,26 @@ class ContinuousTaskStatusFetcher
 
     void updateTaskStatus(TaskStatus newValue)
     {
-        // change to new value if old value is not changed and new value has a newer version
-        AtomicBoolean taskMismatch = new AtomicBoolean();
         long previousInstanceId = taskStatus.get().taskInstanceId();
-        taskStatus.setIf(newValue, oldValue -> {
-            // did the task instance id change
-            if (oldValue.taskInstanceId() != 0 && oldValue.taskInstanceId() != newValue.taskInstanceId()) {
-                taskMismatch.set(true);
-                return false;
-            }
-
-            if (oldValue.state().isDone()) {
-                // never update if the task has reached a terminal state
-                return false;
-            }
-            // don't update to an older version (same version is ok)
-            return newValue.version() >= oldValue.version();
-        });
+        boolean taskMismatch = isTaskInstanceMismatch(newValue.taskInstanceId());
+        if (taskMismatch) {
+            log.info("DIAG Task %s status rejected task instance id %s (expected %s, current instance id %s)",
+                    taskId,
+                    newValue.taskInstanceId(),
+                    expectedTaskInstanceId.get(),
+                    previousInstanceId);
+        }
+        else {
+            // change to new value if old value is not changed and new value has a newer version
+            taskStatus.setIf(newValue, oldValue -> {
+                if (oldValue.state().isDone()) {
+                    // never update if the task has reached a terminal state
+                    return false;
+                }
+                // don't update to an older version (same version is ok)
+                return newValue.version() >= oldValue.version();
+            });
+        }
 
         if (previousInstanceId == 0 && newValue.taskInstanceId() != 0) {
             log.info("DIAG Task %s status learned task instance id %s (version %s, state %s, current instance id %s)",
@@ -255,7 +284,7 @@ class ContinuousTaskStatusFetcher
                     taskStatus.get().taskInstanceId());
         }
 
-        if (taskMismatch.get()) {
+        if (taskMismatch) {
             // This will also set the task status to FAILED state directly.
             // Additionally, this will issue a DELETE for the task to the worker.
             // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
