@@ -9480,6 +9480,18 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSetPartitionedColumnTypeTimeTravel()
+    {
+        try (TestTable table = newTrinoTable("test_set_partitioned_column_type_time_travel_", "WITH (partitioning = ARRAY['part']) AS SELECT 1 AS id, REAL '1.5' AS part")) {
+            long snapshotId = getCurrentSnapshotId(table.getName());
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN part SET DATA TYPE double");
+
+            assertThat(query("SELECT part FROM " + table.getName() + " FOR VERSION AS OF " + snapshotId))
+                    .matches("VALUES REAL '1.5'");
+        }
+    }
+
+    @Test
     public void testSetTransformPartitionedColumnType()
     {
         try (TestTable table = newTrinoTable("test_set_partitioned_column_type_", "WITH (partitioning = ARRAY['bucket(part, 10)']) AS SELECT CAST(123 AS integer) AS part")) {

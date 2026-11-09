@@ -820,6 +820,7 @@ public class IcebergMetadata
                 SchemaParser.toJson(tableSchema),
                 partitionSpec.map(spec -> OptionalInt.of(spec.specId())).orElseGet(OptionalInt::empty),
                 transformValues(table.specs(), PartitionSpecParser::toJson),
+                tableSchema.schemaId() == table.schema().schemaId() ? Optional.empty() : Optional.of(SchemaParser.toJson(table.schema())),
                 formatVersion(table),
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -1243,7 +1244,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
         if (isQueryPartitionFilterRequiredForTable(session, table) && table.getEnforcedPredicate().isAll() && !table.getForAnalyze().orElseThrow()) {
-            Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+            Schema schema = SchemaParser.fromJson(table.getPartitionSpecSchemaJson().orElse(table.getTableSchemaJson()));
             Optional<PartitionSpec> partitionSpec = table.getSpecId().isPresent() ?
                     Optional.of(PartitionSpecParser.fromJson(schema, table.getPartitionSpecJsons().get(table.getSpecId().orElseThrow()))) :
                     Optional.empty();
@@ -3838,6 +3839,7 @@ public class IcebergMetadata
                 table.getTableSchemaJson(),
                 table.getSpecId(),
                 table.getPartitionSpecJsons(),
+                table.getPartitionSpecSchemaJson(),
                 table.getFormatVersion(),
                 table.getUnenforcedPredicate(), // known to be ALL
                 table.getEnforcedPredicate(),
@@ -3938,6 +3940,7 @@ public class IcebergMetadata
                         table.getTableSchemaJson(),
                         table.getSpecId(),
                         table.getPartitionSpecJsons(),
+                        table.getPartitionSpecSchemaJson(),
                         table.getFormatVersion(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint,
@@ -4110,6 +4113,7 @@ public class IcebergMetadata
                 originalHandle.getTableSchemaJson(),
                 originalHandle.getSpecId(),
                 originalHandle.getPartitionSpecJsons(),
+                originalHandle.getPartitionSpecSchemaJson(),
                 originalHandle.getFormatVersion(),
                 originalHandle.getUnenforcedPredicate(),
                 // Skip $file_modified_time in cache key as the statistics do not depend on it
