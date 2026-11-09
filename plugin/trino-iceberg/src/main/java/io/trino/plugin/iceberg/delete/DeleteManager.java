@@ -66,9 +66,7 @@ public class DeleteManager
             Schema tableSchema,
             OptionalLong startRowPosition,
             OptionalLong endRowPosition,
-            DeletionVectorReader deletionVectorReader,
-            DeletePageSourceProvider deletePageSourceProvider,
-            MemoryContext memoryContext)
+            DeleteLoadContext context)
     {
         if (deleteFiles.isEmpty()) {
             return Optional.empty();
@@ -97,17 +95,17 @@ public class DeleteManager
 
         // by spec "Readers can safely ignore position delete files if there is a DV for a data file"
         Optional<DeletionVector> deletionVector = deletionVectorFile
-                .map(deletionVectorReader::read)
+                .map(context.deletionVectorReader()::read)
                 .or(() -> PositionDeleteReader.readPositionDeletes(
                         dataFilePath,
                         positionDeleteFiles,
                         startRowPosition,
                         endRowPosition,
-                        deletePageSourceProvider,
+                        context.deletePageSourceProvider(),
                         typeManager,
-                        memoryContext));
+                        context.memoryContext()));
         // the vector is retained by the page filter until the page source memory context is closed
-        deletionVector.ifPresent(vector -> memoryContext.setBytes(vector.retainedSizeInBytes()));
+        deletionVector.ifPresent(vector -> context.memoryContext().setBytes(vector.retainedSizeInBytes()));
 
         Optional<PageFilter> positionDeletes = deletionVector
                 .map(vector -> {
@@ -126,7 +124,7 @@ public class DeleteManager
         if (!equalityDeleteFiles.isEmpty()) {
             long splitDataSequenceNumber = dataSequenceNumber.orElseThrow(() ->
                     new TrinoException(ICEBERG_BAD_DATA, "Cannot apply equality deletes: Iceberg manifest is missing dataSequenceNumber for " + dataFilePath));
-            createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, deletePageSourceProvider)
+            createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, context.deletePageSourceProvider())
                     .stream()
                     .map(filter -> filter.createPageFilter(readColumns, splitDataSequenceNumber))
                     .forEach(deleteFiltersBuilder::add);
@@ -140,6 +138,19 @@ public class DeleteManager
         return equalityDeleteFiltersBySchema.values().stream()
                 .mapToLong(EqualityDeleteFilterBuilder::getEstimatedSizeInBytes)
                 .sum();
+    }
+
+    public record DeleteLoadContext(
+            DeletionVectorReader deletionVectorReader,
+            DeletePageSourceProvider deletePageSourceProvider,
+            MemoryContext memoryContext)
+    {
+        public DeleteLoadContext
+        {
+            requireNonNull(deletionVectorReader, "deletionVectorReader is null");
+            requireNonNull(deletePageSourceProvider, "deletePageSourceProvider is null");
+            requireNonNull(memoryContext, "memoryContext is null");
+        }
     }
 
     public interface DeletionVectorReader

@@ -62,6 +62,7 @@ import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
+import io.trino.plugin.iceberg.delete.DeleteManager.DeleteLoadContext;
 import io.trino.plugin.iceberg.delete.DeletionVector;
 import io.trino.plugin.iceberg.delete.PageFilter;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
@@ -462,9 +463,10 @@ public class IcebergPageSourceProvider
                                 tableSchema,
                                 readerPageSourceWithRowPositions.startRowPosition(),
                                 readerPageSourceWithRowPositions.endRowPosition(),
-                                deleteFile -> readDeletionVector(fileSystem, deleteFile, memoryContext),
-                                (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain, memoryContext.newAggregatedMemoryContext()),
-                                deletionVectorMemoryContext::setBytes);
+                                new DeleteLoadContext(
+                                        deleteFile -> readDeletionVector(fileSystem, deleteFile, memoryContext),
+                                        (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain, memoryContext.newAggregatedMemoryContext()),
+                                        deletionVectorMemoryContext::setBytes));
                 return pageFilter;
             });
             pageSource = TransformConnectorPageSource.create(pageSource, page -> {
