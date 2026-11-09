@@ -1005,6 +1005,29 @@ public class TestIcebergStatistics
     }
 
     @Test
+    public void testShowStatsAsOfBeforeDropColumn()
+    {
+        String tableName = "show_stats_as_of_before_drop_column_" + randomNameSuffix();
+        Session writeSession = withStatsOnWrite(getSession(), false);
+        assertUpdate(writeSession, "CREATE TABLE " + tableName + " (key integer, value integer)");
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " VALUES (1, 10), (2, 20)", 2);
+        long snapshotId = getCurrentSnapshotId(tableName);
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN value");
+
+        // The statistics of a dropped column are still reported for a snapshot taken before the drop
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM " + tableName + " FOR VERSION AS OF " + snapshotId + ")",
+                """
+                VALUES
+                  ('key', null, null, 0, null, '1', '2'),
+                  ('value', null, null, 0, null, '10', '20'),
+                  (null, null, null, null, 2, null, null)
+                """);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testShowStatsReplaceTable()
     {
         try (TestTable table = newTrinoTable("show_stats_after_replace_table_", "AS SELECT 1 a, 2 b")) {

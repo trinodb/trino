@@ -1481,6 +1481,7 @@ public class TestIcebergV2
             TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.all(),
@@ -1491,6 +1492,7 @@ public class TestIcebergV2
             TableStatistics withPartitionFilter = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.withColumnDomains(ImmutableMap.of(
                             IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(), Domain.singleValue(INTEGER, 10L))),
@@ -1503,6 +1505,7 @@ public class TestIcebergV2
             TableStatistics withUnenforcedFilter = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -1525,6 +1528,7 @@ public class TestIcebergV2
             TableStatistics withNoProjectedColumns = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.all(),
@@ -1537,6 +1541,7 @@ public class TestIcebergV2
             TableStatistics withProjectedColumns = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.all(),
@@ -1554,6 +1559,7 @@ public class TestIcebergV2
             TableStatistics withPartitionFilterAndProjectedColumn = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -1614,9 +1620,11 @@ public class TestIcebergV2
     private TableStatistics tableStatistics(String tableName, Set<IcebergColumnHandle> projectedColumns)
     {
         OptionalLong snapshotId = OptionalLong.of((long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
+        Table table = loadTable(tableName);
         return TableStatisticsReader.makeTableStatistics(
                 TESTING_TYPE_MANAGER,
-                loadTable(tableName),
+                table,
+                table.schema(),
                 snapshotId,
                 TupleDomain.all(),
                 TupleDomain.all(),
