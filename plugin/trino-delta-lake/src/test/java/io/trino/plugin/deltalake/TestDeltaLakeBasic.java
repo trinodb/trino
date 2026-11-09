@@ -3035,6 +3035,30 @@ public class TestDeltaLakeBasic
         assertQueryFails("INSERT INTO liquid_clustering VALUES ('test 3', 2024, 3)", "Unsupported writer features: .*");
     }
 
+    @Test
+    public void testAnalyzeWithUnsupportedWriterFeatures()
+            throws Exception
+    {
+        String tableName = "test_analyze_unsupported_writer_features_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/liquid_clustering").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // All files have statistics, so ANALYZE does not commit to the transaction log, and succeeds
+        assertUpdate("ANALYZE " + tableName, 2);
+
+        String missingStatsTableName = "test_analyze_unsupported_writer_features_missing_stats_" + randomNameSuffix();
+        Path missingStatsTableLocation = catalogDir.resolve(missingStatsTableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/liquid_clustering").toURI()).toPath(), missingStatsTableLocation);
+        Path lastCommit = missingStatsTableLocation.resolve("_delta_log/00000000000000000003.json");
+        // Strip stats of last commit so ANALYZE will fail
+        Files.writeString(lastCommit, Files.readString(lastCommit).replaceFirst("\"stats\":\"\\{.*?\\}\",", ""));
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(missingStatsTableName, missingStatsTableLocation.toUri()));
+
+        assertQueryFails("ANALYZE " + missingStatsTableName, "Unsupported writer features: .*");
+        assertThat(missingStatsTableLocation.resolve("_delta_log/00000000000000000004.json")).doesNotExist();
+    }
+
     /**
      * @see deltalake.liquid_clustering_multi_column
      */
