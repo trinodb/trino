@@ -321,14 +321,19 @@ public final class SortedRangeSet
 
     private static SortedRangeSet fromOrderedSliceValues(Type type, Slice[] values)
     {
-        BlockBuilder distinctValues = type.createBlockBuilder(null, values.length);
-        int distinctCount = 0;
+        int distinctCount = values.length > 0 ? 1 : 0;
+        for (int i = 1; i < values.length; i++) {
+            if (!values[i].equals(values[i - 1])) {
+                distinctCount++;
+            }
+        }
+
+        BlockBuilder distinctValues = type.createBlockBuilder(null, distinctCount);
         for (int i = 0; i < values.length; i++) {
             if (i > 0 && values[i].equals(values[i - 1])) {
                 continue;
             }
             type.writeSlice(distinctValues, values[i]);
-            distinctCount++;
         }
 
         // each distinct value is both the low and the high bound of a single value range
