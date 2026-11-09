@@ -31,6 +31,7 @@ import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isStatisticsPrecalculationForPushdownEnabled;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
+import static io.trino.util.MoreMath.firstNonNaN;
 import static java.lang.Double.NaN;
 import static java.util.Objects.requireNonNull;
 
@@ -84,7 +85,8 @@ public class TableScanStatsRule
         requireNonNull(type, "type is null");
 
         double nullsFraction = getNullsFraction(columnStatistics, tableStatistics.getRowCount());
-        double nonNullRowsCount = tableStatistics.getRowCount().getValue() * (1.0 - nullsFraction);
+        // Assume no nulls when the nulls fraction is unknown, as PlanNodeStatsEstimate does
+        double nonNullRowsCount = tableStatistics.getRowCount().getValue() * (1.0 - firstNonNaN(nullsFraction, 0));
         double averageRowSize;
         if (nonNullRowsCount == 0) {
             averageRowSize = 0;
