@@ -1839,6 +1839,9 @@ public class DeltaLakeMetadata
 
     private void validateTableForReplaceOperation(DeltaLakeTableHandle tableHandle, ConnectorTableMetadata existingTableMetadata, ConnectorTableMetadata newTableMetadata)
     {
+        // Replace keeps the table's existing protocol, so the existing table must be writable
+        checkWriteSupported(tableHandle);
+
         if (isAppendOnly(tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot replace a table when '" + APPEND_ONLY_CONFIGURATION_KEY + "' is set to true");
         }
