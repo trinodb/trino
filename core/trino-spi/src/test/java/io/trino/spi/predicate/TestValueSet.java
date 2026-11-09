@@ -126,9 +126,7 @@ public class TestValueSet
         RowType rowType = RowType.anonymous(List.of(BIGINT, VARCHAR));
         testRejectNullOnCreate(rowType, rowValue(rowType, 1L, "abc"), rowValue(rowType, 2L, "def"), rowValue(rowType, 3L, "ghi"));
         MapType mapType = new MapType(BIGINT, VARCHAR, new TypeOperators());
-        assertThatThrownBy(() -> testRejectNullOnCreate(mapType, mapValue(mapType, 1L, "abc"), mapValue(mapType, 2L, "def"), mapValue(mapType, 3L, "ghi")))
-                .isInstanceOf(AssertionError.class)
-                .hasMessageContaining("A never null argument is null");
+        testRejectNullOnCreate(mapType, mapValue(mapType, 1L, "abc"), mapValue(mapType, 2L, "def"), mapValue(mapType, 3L, "ghi"));
     }
 
     private static void testRejectNullOnCreate(Type type, Object exampleValueA, Object exampleValueB, Object exampleValueC)

@@ -451,6 +451,7 @@ public class EquatableValueSet
 
         public static ValueEntry create(Type type, Object value)
         {
+            requireNonNull(value, "value is null");
             return new ValueEntry(type, writeNativeValue(type, value));
         }
 
