@@ -336,10 +336,11 @@ public class IcebergPageSourceProvider
                 .collect(toImmutableList());
         IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTable;
         Schema schema = SchemaParser.fromJson(tableHandle.getTableSchemaJson());
-        String partitionSpecJson = tableHandle.getPartitionSpecJsons().get(split.specId());
-        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, partitionSpecJson);
+        // The split source typed the partition values with the specs of the table, which are bound to its current schema
+        Schema partitionSpecSchema = tableHandle.getPartitionSpecSchemaJson().map(SchemaParser::fromJson).orElse(schema);
+        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(partitionSpecSchema, tableHandle.getPartitionSpecJsons().get(split.specId()));
         org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
-                .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
+                .map(field -> field.transform().getResultType(partitionSpecSchema.findType(field.sourceId())))
                 .toArray(org.apache.iceberg.types.Type[]::new);
 
         return createPageSource(

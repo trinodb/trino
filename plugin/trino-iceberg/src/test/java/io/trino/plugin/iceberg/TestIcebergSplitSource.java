@@ -885,6 +885,7 @@ public class TestIcebergSplitSource
                 SchemaParser.toJson(nationTable.schema()),
                 nationTable.spec() == null ? OptionalInt.empty() : OptionalInt.of(nationTable.spec().specId()),
                 transformValues(nationTable.specs(), PartitionSpecParser::toJson),
+                Optional.empty(),
                 1,
                 unenforcedPredicate,
                 TupleDomain.all(),
