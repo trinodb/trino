@@ -33,7 +33,7 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 
 final class S3PresignedUriGenerator
-        implements AutoCloseable
+        implements S3GetObjectPresigner
 {
     private final S3Presigner presigner;
     private final AwsCredentialsProvider credentialsProvider;
@@ -47,6 +47,7 @@ final class S3PresignedUriGenerator
         this.credentialsProvider = requireNonNull(credentialsProvider, "credentialsProvider is null");
     }
 
+    @Override
     public PresignedGetObjectRequest presignGetObject(GetObjectPresignRequest request)
             throws IOException
     {

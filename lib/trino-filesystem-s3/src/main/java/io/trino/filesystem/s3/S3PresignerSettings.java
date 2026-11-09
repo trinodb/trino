@@ -31,7 +31,8 @@ record S3PresignerSettings(
         String roleSessionName,
         Optional<String> externalId,
         Optional<String> stsEndpoint,
-        Optional<String> stsRegion)
+        Optional<String> stsRegion,
+        boolean lifetimeValidation)
 {
     public S3PresignerSettings
     {
@@ -58,6 +59,7 @@ record S3PresignerSettings(
                 Optional.ofNullable(config.getExternalId()),
                 Optional.ofNullable(config.getStsEndpoint()),
                 Optional.ofNullable(config.getStsRegion())
-                        .or(() -> Optional.ofNullable(config.getRegion())));
+                        .or(() -> Optional.ofNullable(config.getRegion())),
+                config.isPresignedUriLifetimeValidationEnabled());
     }
 }

@@ -33,7 +33,7 @@ public final class S3FileSystemFactory
     private final S3Client client;
     private final S3Context context;
     private final Executor uploadExecutor;
-    private final S3PresignedUriGenerator preSigner;
+    private final S3GetObjectPresigner preSigner;
 
     @Inject
     public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)

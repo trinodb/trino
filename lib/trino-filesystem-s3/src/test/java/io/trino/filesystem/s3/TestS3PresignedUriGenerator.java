@@ -87,11 +87,40 @@ class TestS3PresignedUriGenerator
                 .endpointOverride(URI.create("https://mapped-storage.example"))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("mapped", "secret")))
                 .build();
-                var generator = createS3PreSigner(new S3PresignerSettings(new S3FileSystemConfig().setPathStyleAccess(true)), client)) {
+                var generator = createS3PreSigner(new S3PresignerSettings(new S3FileSystemConfig().setPathStyleAccess(true).setPresignedUriLifetimeValidationEnabled(true)), client)) {
             var signed = generator.presignGetObject(request(Duration.ofMinutes(30)));
             assertThat(signed.url().getHost()).isEqualTo("mapped-storage.example");
             assertThat(signed.url().getPath()).isEqualTo("/bucket/key");
             assertThat(signed.url().getQuery()).contains("X-Amz-Credential=mapped%2F", "%2Feu-west-1%2Fs3%2F");
+        }
+    }
+
+    @Test
+    void testDefaultPresignerIsNotValidating()
+            throws Exception
+    {
+        // A one-hour URI can never be covered by this ten-minute session, yet the default presigner keeps signing as it did before validation existed
+        AwsSessionCredentials shortSession = AwsSessionCredentials.builder()
+                .accessKeyId("short")
+                .secretAccessKey("secret")
+                .sessionToken("token")
+                .expirationTime(Instant.now().plusSeconds(600))
+                .build();
+        try (var client = S3Client.builder()
+                .region(Region.EU_WEST_1)
+                .credentialsProvider(StaticCredentialsProvider.create(shortSession))
+                .build()) {
+            S3PresignerSettings defaults = new S3PresignerSettings(new S3FileSystemConfig().setRegion("eu-west-1").setAwsAccessKey("configured").setAwsSecretKey("secret"));
+            assertThat(defaults.lifetimeValidation()).isFalse();
+            try (var presigner = createS3PreSigner(defaults, client)) {
+                assertThat(presigner).isNotInstanceOf(S3PresignedUriGenerator.class);
+                // The previous presigner builds its own credentials from the configuration, not from the client
+                assertThat(presigner.presignGetObject(request(Duration.ofHours(1))).url().getQuery()).contains("X-Amz-Credential=configured%2F", "X-Amz-Expires=3600");
+            }
+            try (var presigner = createS3PreSigner(new S3PresignerSettings(new S3FileSystemConfig().setRegion("eu-west-1").setPresignedUriLifetimeValidationEnabled(true)), client)) {
+                assertThat(presigner).isInstanceOf(S3PresignedUriGenerator.class);
+                assertThatThrownBy(() -> presigner.presignGetObject(request(Duration.ofHours(1)))).hasMessageContaining("shorter URI TTL");
+            }
         }
     }
 

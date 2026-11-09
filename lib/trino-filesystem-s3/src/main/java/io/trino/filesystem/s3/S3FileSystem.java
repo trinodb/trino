@@ -76,11 +76,11 @@ final class S3FileSystem
 
     private final Executor uploadExecutor;
     private final S3Client client;
-    private final S3PresignedUriGenerator preSigner;
+    private final S3GetObjectPresigner preSigner;
     private final S3Context context;
     private final RequestPayer requestPayer;
 
-    public S3FileSystem(Executor uploadExecutor, S3Client client, S3PresignedUriGenerator preSigner, S3Context context)
+    public S3FileSystem(Executor uploadExecutor, S3Client client, S3GetObjectPresigner preSigner, S3Context context)
     {
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.client = requireNonNull(client, "client is null");

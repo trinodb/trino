@@ -162,7 +162,12 @@ fails at startup.
     selected through security mappings. Defaults to `1h`; accepts `15m` to
     `12h`. AWS also enforces the role's maximum session duration, and role
     chaining cannot exceed `1h`. This does not configure sessions obtained
-    through the default credentials chain.
+    through the default credentials chain. Only applied when
+    `s3.presigned-uri.lifetime-validation.enabled` is set; otherwise the AWS SDK
+    default of `1h` is used.
+* - `s3.presigned-uri.lifetime-validation.enabled`
+  - Enable the presigned URI lifetime handling described in
+    [](file-system-s3-presigned-uri-lifetime). Defaults to `false`.
 * - `s3.external-id`
   - External ID for the IAM role trust policy when connecting to S3.
 * - `s3.auth-type`
@@ -178,24 +183,31 @@ fails at startup.
       (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html).
 :::
 
+(file-system-s3-presigned-uri-lifetime)=
 ## Presigned URI lifetime
 
 S3 presigned URIs signed with temporary credentials expire when those
-credentials expire, even if the URI specifies a later expiration time. Trino
-refreshes renewable signing credentials when necessary and requires them to
-cover the requested URI lifetime plus a one-minute safety margin. If a fresh
-session is too short, signing fails instead of returning a URI with a shorter
-usable lifetime. Temporary credentials without a known expiration time,
-including session tokens supplied through extra credentials, cannot be used
-for presigning.
+credentials expire, even if the URI specifies a later expiration time. By
+default, Trino signs with the credentials of the S3 client, and a URI can stop
+working before its stated expiration time.
 
-For filesystem spooling, configure `fs.segment.direct.ttl` shorter than the
+Set `s3.presigned-uri.lifetime-validation.enabled=true` to avoid this. Trino
+then refreshes renewable signing credentials when necessary, requires them to
+cover the requested URI lifetime plus a one-minute safety margin, and signs with
+exactly the credentials it checked. If a fresh session is too short, signing
+fails instead of returning a URI with a shorter usable lifetime. Temporary
+credentials without a known expiration time, including session tokens supplied
+through extra credentials, cannot be used for presigning.
+
+With validation enabled, configure `fs.segment.direct.ttl` for filesystem
+spooling so that the TTL plus the one-minute safety margin fits into the
 credential session duration. For example, a `30m` direct URI TTL can use the
-default one-hour role session. To use a one-hour URI TTL, increase
-`s3.role-session-duration` beyond one hour if the role permits it. Increasing
-the session duration cannot bypass AWS role limits. Alternatively, use
-`COORDINATOR_PROXY` or `WORKER_PROXY` retrieval mode, which does not require a
-presigned storage URI.
+default one-hour role session, but a `59m30s` TTL cannot, because it needs
+`60m30s`. To use a one-hour URI TTL, increase `s3.role-session-duration` beyond
+one hour if the role permits it.
+Increasing the session duration cannot bypass AWS role limits. Alternatively,
+use `COORDINATOR_PROXY` or `WORKER_PROXY` retrieval mode, which does not require
+a presigned storage URI.
 
 Credential refreshes are shared across concurrent signing requests. Refreshing
 credentials does not extend URIs already issued; their expiration remains

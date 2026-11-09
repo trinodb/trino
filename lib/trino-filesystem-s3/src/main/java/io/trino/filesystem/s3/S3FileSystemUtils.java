@@ -17,12 +17,16 @@ import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 
 import java.net.URI;
 import java.util.Optional;
@@ -33,7 +37,59 @@ final class S3FileSystemUtils
 {
     private S3FileSystemUtils() {}
 
-    public static S3PresignedUriGenerator createS3PreSigner(S3PresignerSettings settings, S3Client s3Client)
+    public static S3GetObjectPresigner createS3PreSigner(S3PresignerSettings settings, S3Client s3Client)
+    {
+        if (settings.lifetimeValidation()) {
+            return createValidatingS3PreSigner(settings, s3Client);
+        }
+        S3Presigner presigner = createLegacyS3PreSigner(settings, s3Client);
+        return new S3GetObjectPresigner()
+        {
+            @Override
+            public PresignedGetObjectRequest presignGetObject(GetObjectPresignRequest request)
+            {
+                return presigner.presignGetObject(request);
+            }
+
+            @Override
+            public void close()
+            {
+                presigner.close();
+            }
+        };
+    }
+
+    private static S3Presigner createLegacyS3PreSigner(S3PresignerSettings settings, S3Client s3Client)
+    {
+        S3Presigner.Builder s3 = S3Presigner.builder();
+        s3.s3Client(s3Client);
+
+        settings.region().map(Region::of).ifPresent(s3::region);
+        settings.endpoint().map(URI::create).ifPresent(s3::endpointOverride);
+        s3.serviceConfiguration(S3Configuration.builder()
+                .pathStyleAccessEnabled(settings.pathStyleAccess())
+                .build());
+
+        switch (settings.authType()) {
+            case ANONYMOUS -> s3.credentialsProvider(AnonymousCredentialsProvider.create());
+            case WEB_IDENTITY -> s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
+                    .asyncCredentialUpdateEnabled(true)
+                    .build());
+            case IAM_ROLE -> s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
+                    .refreshRequest(request -> request
+                            .roleArn(settings.iamRole().orElseThrow())
+                            .roleSessionName(settings.roleSessionName())
+                            .externalId(settings.externalId().orElse(null)))
+                    .stsClient(createStsClient(settings.stsEndpoint(), settings.stsRegion(), settings.credentialsProvider()))
+                    .asyncCredentialUpdateEnabled(true)
+                    .build());
+            case DEFAULT -> settings.credentialsProvider().ifPresent(s3::credentialsProvider);
+        }
+
+        return s3.build();
+    }
+
+    private static S3PresignedUriGenerator createValidatingS3PreSigner(S3PresignerSettings settings, S3Client s3Client)
     {
         var clientConfig = s3Client.serviceClientConfiguration();
         checkState(clientConfig.credentialsProvider() instanceof AwsCredentialsProvider, "Unsupported S3 credentials provider");
