@@ -40,6 +40,8 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
@@ -114,6 +116,7 @@ public final class TableStatisticsReader
         return makeTableStatistics(
                 typeManager,
                 icebergTable,
+                SchemaParser.fromJson(tableHandle.getTableSchemaJson()),
                 tableHandle.getSnapshotId(),
                 tableHandle.getEnforcedPredicate(),
                 tableHandle.getUnenforcedPredicate(),
@@ -125,6 +128,7 @@ public final class TableStatisticsReader
     public static TableStatistics makeTableStatistics(
             TypeManager typeManager,
             Table icebergTable,
+            Schema schema,
             OptionalLong snapshot,
             TupleDomain<IcebergColumnHandle> enforcedConstraint,
             TupleDomain<IcebergColumnHandle> unenforcedConstraint,
@@ -180,7 +184,7 @@ public final class TableStatisticsReader
 
         ImmutableList.Builder<Types.NestedField> columnsBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
-        for (Types.NestedField column : icebergTable.schema().columns()) {
+        for (Types.NestedField column : schema.columns()) {
             if (columnIds.contains(column.fieldId())) {
                 columnsBuilder.add(column);
                 columnTypesBuilder.add(toTrinoType(column.type(), typeManager));
