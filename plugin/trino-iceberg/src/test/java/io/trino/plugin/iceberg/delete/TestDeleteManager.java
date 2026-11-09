@@ -18,6 +18,7 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.NullSafeHashCompiler;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
+import io.trino.plugin.iceberg.delete.DeleteManager.DeleteLoadContext;
 import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
@@ -84,11 +85,12 @@ final class TestDeleteManager
                 SCHEMA,
                 OptionalLong.empty(),
                 OptionalLong.empty(),
-                _ -> deletionVector,
-                (_, _, _) -> {
-                    throw new UnsupportedOperationException();
-                },
-                memoryContext::setBytes);
+                new DeleteLoadContext(
+                        _ -> deletionVector,
+                        (_, _, _) -> {
+                            throw new UnsupportedOperationException();
+                        },
+                        memoryContext::setBytes));
 
         assertThat(memoryContext.getBytes()).isEqualTo(DeletionVector.builder().add(0).add(3).build().orElseThrow().retainedSizeInBytes());
         assertThat(filterRowPositions(pageFilter.orElseThrow(), 0, 1, 2, 3, 4)).isEqualTo(3);
@@ -120,11 +122,12 @@ final class TestDeleteManager
                 SCHEMA,
                 OptionalLong.empty(),
                 OptionalLong.empty(),
-                _ -> {
-                    throw new UnsupportedOperationException();
-                },
-                (_, _, _) -> positionDeletePageSource(0, 3),
-                memoryContext::setBytes);
+                new DeleteLoadContext(
+                        _ -> {
+                            throw new UnsupportedOperationException();
+                        },
+                        (_, _, _) -> positionDeletePageSource(0, 3),
+                        memoryContext::setBytes));
 
         assertThat(memoryContext.getBytes()).isEqualTo(DeletionVector.builder().add(0).add(3).build().orElseThrow().retainedSizeInBytes());
         assertThat(filterRowPositions(pageFilter.orElseThrow(), 0, 1, 2, 3, 4)).isEqualTo(3);
