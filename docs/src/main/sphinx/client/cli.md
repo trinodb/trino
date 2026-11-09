@@ -102,7 +102,7 @@ allows you to query tables directly without specifying catalog and schema.
 ```text
 ./trino http://trino.example.com:8080/tpch/tiny
 
-trino:tiny> SHOW TABLES;
+trino:tpch.tiny> SHOW TABLES;
 
   Table
 ----------
@@ -123,8 +123,10 @@ statement.
 ```text
 trino> USE tpch.tiny;
 USE
-trino:tiny>
+trino:tpch.tiny>
 ```
+
+The prompt shows the current catalog and schema.
 
 Many other options are available to further configure the CLI in interactive
 mode:
@@ -528,6 +530,22 @@ press {kbd}`Enter`.
 By default, you can locate the Trino history file in `~/.trino_history`.
 Use the `--history-file` option or the `TRINO_HISTORY_FILE` environment variable
 to change the default.
+
+### Auto completion
+
+Press {kbd}`Tab` to complete the word at the cursor. The CLI completes the
+following names:
+
+- Catalog and schema names, including in the {doc}`/sql/use` statement.
+- Table names in the current schema, or in the schema qualifying the word, for
+  example `tpch.tiny.`.
+- Column names of the tables referenced in the `FROM` and `JOIN` clauses of
+  the current statement, including columns qualified with a table name or alias,
+  for example `n.` in `SELECT n. FROM nation n`.
+- Function names.
+
+The CLI loads names from the Trino server when they are first needed, and
+refreshes them in the background every few minutes.
 
 ### Auto suggestion
 
