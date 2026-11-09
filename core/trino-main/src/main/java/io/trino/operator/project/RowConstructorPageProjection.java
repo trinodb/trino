@@ -57,17 +57,19 @@ public final class RowConstructorPageProjection
     @Override
     public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
+        // The positions are selected once over the row of the whole page, instead of once per field
+        int positionCount = page.getPositionCount();
         Block[] fields = new Block[arguments.size()];
         for (int field = 0; field < fields.length; field++) {
             Argument argument = arguments.get(field);
             if (argument.isInput()) {
-                fields[field] = selectedPositions.select(page.getBlock(argument.inputChannel()));
+                fields[field] = page.getBlock(argument.inputChannel());
             }
             else {
-                fields[field] = RunLengthEncodedBlock.create(argument.constant(), selectedPositions.size());
+                fields[field] = RunLengthEncodedBlock.create(argument.constant(), positionCount);
             }
         }
-        return RowBlock.fromFieldBlocks(selectedPositions.size(), fields);
+        return selectedPositions.select(RowBlock.fromFieldBlocks(positionCount, fields));
     }
 
     @Override
