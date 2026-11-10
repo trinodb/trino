@@ -22,7 +22,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class QueryPeriod
+public final class QueryPeriod
         extends Node
 {
     private final Optional<Expression> start;

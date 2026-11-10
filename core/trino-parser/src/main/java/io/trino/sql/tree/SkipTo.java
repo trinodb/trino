@@ -27,7 +27,7 @@ import static io.trino.sql.tree.SkipTo.Position.NEXT;
 import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
 import static java.util.Objects.requireNonNull;
 
-public class SkipTo
+public final class SkipTo
         extends Node
 {
     private final Position position;

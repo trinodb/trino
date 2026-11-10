@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class MergeDelete
+public final class MergeDelete
         extends MergeCase
 {
     @Deprecated

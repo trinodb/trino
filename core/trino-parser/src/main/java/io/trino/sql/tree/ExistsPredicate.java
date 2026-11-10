@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class ExistsPredicate
+public final class ExistsPredicate
         extends Expression
 {
     private final Expression subquery;

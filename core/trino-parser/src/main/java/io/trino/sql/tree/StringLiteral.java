@@ -18,7 +18,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class StringLiteral
+public final class StringLiteral
         extends Literal
 {
     private final String value;

@@ -23,7 +23,7 @@ import java.util.Optional;
 import static io.trino.sql.ExpressionFormatter.formatJsonPathInvocation;
 import static java.util.Objects.requireNonNull;
 
-public class JsonPathInvocation
+public final class JsonPathInvocation
         extends Node
 {
     private final Expression inputExpression;

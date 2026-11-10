@@ -81,7 +81,7 @@ public final class Row
         return sameClass(this, other);
     }
 
-    public static class Field
+    public static final class Field
             extends Node
     {
         private final Optional<Identifier> name;

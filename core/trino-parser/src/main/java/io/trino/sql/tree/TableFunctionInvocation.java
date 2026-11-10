@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-public class TableFunctionInvocation
+public final class TableFunctionInvocation
         extends Relation
 {
     private final QualifiedName name;

@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class ShowGrants
+public final class ShowGrants
         extends Statement
 {
     private final Optional<GrantObject> grantObject;

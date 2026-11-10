@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class PlanParentChild
+public final class PlanParentChild
         extends JsonTableSpecificPlan
 {
     private final ParentChildPlanType type;

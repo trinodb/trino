@@ -22,7 +22,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class AllColumns
+public final class AllColumns
         extends SelectItem
 {
     private final List<Identifier> aliases;

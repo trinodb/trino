@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class JsonPathParameter
+public final class JsonPathParameter
         extends Node
 {
     private final Identifier name;

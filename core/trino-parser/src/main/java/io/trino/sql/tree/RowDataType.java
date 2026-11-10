@@ -74,7 +74,7 @@ public final class RowDataType
         return Objects.hash(fields);
     }
 
-    public static class Field
+    public static final class Field
             extends Node
     {
         private final Optional<Identifier> name;

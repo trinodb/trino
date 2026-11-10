@@ -22,7 +22,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class JsonObject
+public final class JsonObject
         extends Expression
 {
     private final List<JsonObjectMember> members;

@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class SortItem
+public final class SortItem
         extends Node
 {
     public enum Ordering

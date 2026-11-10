@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class DropMaterializedView
+public final class DropMaterializedView
         extends Statement
 {
     private final QualifiedName name;

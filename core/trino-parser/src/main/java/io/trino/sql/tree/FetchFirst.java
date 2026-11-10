@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class FetchFirst
+public final class FetchFirst
         extends Node
 {
     private final Optional<Expression> rowCount;

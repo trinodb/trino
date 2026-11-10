@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class RangeQuantifier
+public final class RangeQuantifier
         extends PatternQuantifier
 {
     private final Optional<LongLiteral> atLeast;

@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class SessionProperty
+public final class SessionProperty
         extends Node
 {
     private final QualifiedName name;

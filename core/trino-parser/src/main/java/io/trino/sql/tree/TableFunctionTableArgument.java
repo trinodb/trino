@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 import static io.trino.sql.ExpressionFormatter.formatSortItems;
 import static java.util.Objects.requireNonNull;
 
-public class TableFunctionTableArgument
+public final class TableFunctionTableArgument
         extends Node
 {
     private final Relation table;

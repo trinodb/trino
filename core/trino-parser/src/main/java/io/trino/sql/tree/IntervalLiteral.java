@@ -18,7 +18,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IntervalLiteral
+public final class IntervalLiteral
         extends Literal
 {
     public enum Sign

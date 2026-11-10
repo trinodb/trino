@@ -22,7 +22,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class JsonSerialize
+public final class JsonSerialize
         extends Expression
 {
     /// Trino extension — SQL:2023 §6.37 JSON_SERIALIZE has no ON ERROR clause. Controls whether malformed input

@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class AtLocal
+public final class AtLocal
         extends Expression
 {
     private final Expression value;

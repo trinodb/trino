@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class CreateCatalog
+public final class CreateCatalog
         extends Statement
 {
     private final Identifier catalogName;

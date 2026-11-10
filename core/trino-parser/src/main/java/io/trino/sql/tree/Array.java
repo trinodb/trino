@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class Array
+public final class Array
         extends Expression
 {
     private final List<Expression> values;

@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class SingleColumn
+public final class SingleColumn
         extends SelectItem
 {
     private final Optional<Identifier> alias;

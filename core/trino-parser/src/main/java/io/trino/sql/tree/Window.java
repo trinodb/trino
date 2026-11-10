@@ -13,4 +13,5 @@
  */
 package io.trino.sql.tree;
 
-public interface Window {}
+public sealed interface Window
+        permits WindowReference, WindowSpecification {}

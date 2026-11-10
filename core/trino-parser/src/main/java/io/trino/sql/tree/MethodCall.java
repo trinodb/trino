@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class MethodCall
+public final class MethodCall
         extends Expression
 {
     private final Expression receiver;

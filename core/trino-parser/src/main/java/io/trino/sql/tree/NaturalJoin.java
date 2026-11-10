@@ -19,7 +19,7 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class NaturalJoin
+public final class NaturalJoin
         extends JoinCriteria
 {
     @Override

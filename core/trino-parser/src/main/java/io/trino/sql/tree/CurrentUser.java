@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class CurrentUser
+public final class CurrentUser
         extends Expression
 {
     public CurrentUser(NodeLocation location)

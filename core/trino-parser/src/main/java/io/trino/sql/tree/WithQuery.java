@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class WithQuery
+public final class WithQuery
         extends Node
 {
     private final Identifier name;

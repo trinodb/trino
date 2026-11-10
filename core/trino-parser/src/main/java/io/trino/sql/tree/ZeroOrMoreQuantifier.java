@@ -13,7 +13,7 @@
  */
 package io.trino.sql.tree;
 
-public class ZeroOrMoreQuantifier
+public final class ZeroOrMoreQuantifier
         extends PatternQuantifier
 {
     public ZeroOrMoreQuantifier(NodeLocation location, boolean greedy)

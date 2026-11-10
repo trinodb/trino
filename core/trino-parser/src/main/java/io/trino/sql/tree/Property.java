@@ -24,7 +24,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 // TODO: Model DEFAULT as a type of expression to make it easier to do analysis, planning and error reporting in a uniform way
-public class Property
+public final class Property
         extends Node
 {
     private final Identifier name;

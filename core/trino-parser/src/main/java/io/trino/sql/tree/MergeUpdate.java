@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class MergeUpdate
+public final class MergeUpdate
         extends MergeCase
 {
     private final List<Assignment> assignments;
