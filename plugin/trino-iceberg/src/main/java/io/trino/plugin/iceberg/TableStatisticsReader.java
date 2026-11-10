@@ -40,6 +40,8 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
@@ -114,6 +116,7 @@ public final class TableStatisticsReader
         return makeTableStatistics(
                 typeManager,
                 icebergTable,
+                SchemaParser.fromJson(tableHandle.getTableSchemaJson()),
                 tableHandle.getSnapshotId(),
                 tableHandle.getEnforcedPredicate(),
                 tableHandle.getUnenforcedPredicate(),
@@ -125,6 +128,7 @@ public final class TableStatisticsReader
     public static TableStatistics makeTableStatistics(
             TypeManager typeManager,
             Table icebergTable,
+            Schema tableSchema,
             OptionalLong snapshot,
             TupleDomain<IcebergColumnHandle> enforcedConstraint,
             TupleDomain<IcebergColumnHandle> unenforcedConstraint,
@@ -157,7 +161,12 @@ public final class TableStatisticsReader
 
         PartitionFieldPredicate partitionFieldPredicate = PartitionFieldPredicate.fromPredicate(effectivePredicate);
         Domain pathDomain = getPathDomain(effectivePredicate);
-        Expression filter = toIcebergExpression(effectivePredicate.filter((column, _) -> !column.isMetadataColumn()));
+        // Partition specs are bound to the table's current schema, so the filter names columns as that schema does.
+        // Columns the current schema no longer has are left out, which only widens the estimate.
+        Schema currentSchema = icebergTable.schema();
+        Expression filter = toIcebergExpression(
+                effectivePredicate.filter((column, _) -> !column.isMetadataColumn() && currentSchema.findField(column.getId()) != null),
+                column -> currentSchema.findColumnName(column.getId()));
 
         NonEvictableLoadingCache<Integer, ManifestEvaluator> manifestPartitionFilterEvaluators = buildNonEvictableCache(
                 CacheBuilder.newBuilder().maximumSize(1000),
@@ -180,7 +189,7 @@ public final class TableStatisticsReader
 
         ImmutableList.Builder<Types.NestedField> columnsBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
-        for (Types.NestedField column : icebergTable.schema().columns()) {
+        for (Types.NestedField column : tableSchema.columns()) {
             if (columnIds.contains(column.fieldId())) {
                 columnsBuilder.add(column);
                 columnTypesBuilder.add(toTrinoType(column.type(), typeManager));

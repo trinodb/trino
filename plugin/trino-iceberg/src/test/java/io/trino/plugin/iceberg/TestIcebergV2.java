@@ -1481,6 +1481,7 @@ public class TestIcebergV2
             TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.all(),
@@ -1491,6 +1492,7 @@ public class TestIcebergV2
             TableStatistics withPartitionFilter = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.withColumnDomains(ImmutableMap.of(
                             IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(), Domain.singleValue(INTEGER, 10L))),
@@ -1503,6 +1505,7 @@ public class TestIcebergV2
             TableStatistics withUnenforcedFilter = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -1525,6 +1528,7 @@ public class TestIcebergV2
             TableStatistics withNoProjectedColumns = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.all(),
@@ -1537,6 +1541,7 @@ public class TestIcebergV2
             TableStatistics withProjectedColumns = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.all(),
@@ -1554,6 +1559,7 @@ public class TestIcebergV2
             TableStatistics withPartitionFilterAndProjectedColumn = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -1614,9 +1620,11 @@ public class TestIcebergV2
     private TableStatistics tableStatistics(String tableName, Set<IcebergColumnHandle> projectedColumns)
     {
         OptionalLong snapshotId = OptionalLong.of((long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
+        Table table = loadTable(tableName);
         return TableStatisticsReader.makeTableStatistics(
                 TESTING_TYPE_MANAGER,
-                loadTable(tableName),
+                table,
+                table.schema(),
                 snapshotId,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -1864,6 +1872,71 @@ public class TestIcebergV2
                     .build();
             assertThat(query(session, "SELECT max(p2) FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE p2 = 10"))
                     .matches("VALUES 10");
+        }
+    }
+
+    @Test
+    public void testStatisticsOnSnapshotReferenceAfterColumnDrop()
+    {
+        try (TestTable table = newTrinoTable("test_snapshot_reference_stats_drop_", "(id integer, part integer, data varchar) WITH (partitioning = ARRAY['part'])", ImmutableList.of("(1, 10, 'a')", "(2, 20, 'b')"))) {
+            String tableName = table.getName();
+            createTagAndBranchAtCurrentSnapshot(tableName);
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN data");
+
+            assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-tag' WHERE data = 'a' AND part = 10)"))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "('id', NULL, 1e0, 0e0, NULL, '1', '1'), " +
+                            "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
+        }
+    }
+
+    @Test
+    public void testStatisticsOnSnapshotAfterPartitionColumnTypeChange()
+    {
+        try (TestTable table = newTrinoTable("test_snapshot_stats_type_change_", "WITH (partitioning = ARRAY['part']) AS SELECT * FROM (VALUES (1, REAL '1.5'), (2, REAL '2.5')) t(id, part)")) {
+            String tableName = table.getName();
+            long snapshotId = loadTable(tableName).currentSnapshot().snapshotId();
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN part SET DATA TYPE double");
+
+            assertThat(query("SHOW STATS FOR (SELECT * FROM " + tableName + " FOR VERSION AS OF " + snapshotId + ")"))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "('id', NULL, 2e0, 0e0, NULL, '1', '2'), " +
+                            "('part', NULL, 2e0, 0e0, NULL, '1.5', '2.5'), " +
+                            "(NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
+            String expectedFilteredStatistics = "VALUES " +
+                    "('id', NULL, 1e0, 0e0, NULL, '1', '1'), " +
+                    "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL)";
+            assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " FOR VERSION AS OF " + snapshotId + " WHERE part = 1.5)"))
+                    .skippingTypesCheck()
+                    .matches(expectedFilteredStatistics);
+            assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " FOR VERSION AS OF " + snapshotId + " WHERE \"$partition\".part = 1.5)"))
+                    .skippingTypesCheck()
+                    .matches(expectedFilteredStatistics);
+        }
+    }
+
+    @Test
+    public void testStatisticsOnSnapshotReferenceAfterColumnRename()
+    {
+        try (TestTable table = newTrinoTable("test_snapshot_reference_stats_", "(id integer, part integer) WITH (partitioning = ARRAY['part'])", ImmutableList.of("(1, 10)", "(2, 20)"))) {
+            String tableName = table.getName();
+            long refSnapshotId = createTagAndBranchAtCurrentSnapshot(tableName);
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN part TO p2");
+
+            String expectedStatistics = "VALUES " +
+                    "('id', NULL, 1e0, 0e0, NULL, '1', '1'), " +
+                    "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL)";
+            assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-tag' WHERE part = 10)"))
+                    .skippingTypesCheck()
+                    .matches(expectedStatistics);
+            assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " FOR VERSION AS OF " + refSnapshotId + " WHERE part = 10)"))
+                    .skippingTypesCheck()
+                    .matches(expectedStatistics);
+            assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE p2 = 10)"))
+                    .skippingTypesCheck()
+                    .matches(expectedStatistics);
         }
     }
 

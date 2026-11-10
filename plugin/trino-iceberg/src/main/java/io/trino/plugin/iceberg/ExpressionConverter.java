@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -116,6 +117,14 @@ public final class ExpressionConverter
 
     public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain)
     {
+        return toIcebergExpression(tupleDomain, IcebergColumnHandle::getQualifiedName);
+    }
+
+    /**
+     * Like {@link #toIcebergExpression(TupleDomain)}, but names each column with {@code columnName}.
+     */
+    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain, Function<IcebergColumnHandle, String> columnName)
+    {
         if (tupleDomain.isAll()) {
             return alwaysTrue();
         }
@@ -129,7 +138,7 @@ public final class ExpressionConverter
             checkArgument(!columnHandle.isMetadataColumn(), "Constraint on an unexpected column %s", columnHandle);
             Domain domain = entry.getValue();
             checkArgument(isConvertibleToIcebergExpression(domain), "Unexpected not convertible domain on column %s: %s", columnHandle, domain);
-            conjuncts.add(toIcebergExpression(columnHandle.getQualifiedName(), columnHandle.getType(), domain));
+            conjuncts.add(toIcebergExpression(columnName.apply(columnHandle), columnHandle.getType(), domain));
         }
         return and(conjuncts);
     }
