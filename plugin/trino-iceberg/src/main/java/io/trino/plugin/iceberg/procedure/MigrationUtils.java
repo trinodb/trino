@@ -26,6 +26,7 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Storage;
+import io.trino.orc.OrcReaderOptions;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.ParquetMetadata;
@@ -73,6 +74,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveMetadata.extractHiveStorageFormat;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
+import static io.trino.plugin.iceberg.IcebergPageSourceProvider.withSessionOrcReaderOptions;
+import static io.trino.plugin.iceberg.IcebergPageSourceProvider.withSessionParquetReaderOptions;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
@@ -101,6 +104,8 @@ public final class MigrationUtils
 
     public static List<DataFile> buildDataFiles(
             TrinoFileSystem fileSystem,
+            OrcReaderOptions orcReaderOptions,
+            ParquetReaderOptions parquetReaderOptions,
             RecursiveDirectory recursive,
             HiveStorageFormat format,
             String location,
@@ -126,7 +131,7 @@ public final class MigrationUtils
                 throw new TrinoException(NOT_SUPPORTED, "Recursive directory must not exist when recursive_directory argument is 'fail': " + file.location());
             }
 
-            Metrics metrics = loadMetrics(fileSystem.newInputFile(file.location(), file.length()), format, schema);
+            Metrics metrics = loadMetrics(fileSystem.newInputFile(file.location(), file.length()), orcReaderOptions, parquetReaderOptions, format, schema);
             DataFile dataFile = buildDataFile(fileLocation, file.length(), partition, partitionSpec, format.name(), metrics);
             dataFilesBuilder.add(dataFile);
         }
@@ -142,20 +147,19 @@ public final class MigrationUtils
         return suffix.contains("/");
     }
 
-    public static Metrics loadMetrics(TrinoInputFile file, HiveStorageFormat storageFormat, Schema schema)
+    public static Metrics loadMetrics(TrinoInputFile file, OrcReaderOptions orcReaderOptions, ParquetReaderOptions parquetReaderOptions, HiveStorageFormat storageFormat, Schema schema)
     {
         return switch (storageFormat) {
-            case ORC -> OrcMetrics.fileMetrics(file, METRICS_CONFIG, schema);
-            case PARQUET -> parquetMetrics(file, METRICS_CONFIG, MappingUtil.create(schema));
+            case ORC -> OrcMetrics.fileMetrics(file, orcReaderOptions, METRICS_CONFIG, schema);
+            case PARQUET -> parquetMetrics(file, parquetReaderOptions, METRICS_CONFIG, MappingUtil.create(schema));
             case AVRO -> new Metrics(Avro.rowCount(new ForwardingInputFile(file)), null, null, null, null);
             default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported storage format: " + storageFormat);
         };
     }
 
-    private static Metrics parquetMetrics(TrinoInputFile file, MetricsConfig metricsConfig, NameMapping nameMapping)
+    private static Metrics parquetMetrics(TrinoInputFile file, ParquetReaderOptions options, MetricsConfig metricsConfig, NameMapping nameMapping)
     {
-        ParquetReaderOptions options = ParquetReaderOptions.defaultOptions();
-        try (ParquetDataSource dataSource = new TrinoParquetDataSource(file, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
+        try (ParquetDataSource dataSource = new TrinoParquetDataSource(file, options, new FileFormatDataSourceStats())) {
             ParquetMetadata metadata = MetadataReader.readFooter(dataSource, options, Optional.empty(), Optional.empty());
             return ParquetUtil.footerMetrics(metadata, Stream.empty(), metricsConfig, nameMapping);
         }
@@ -167,6 +171,8 @@ public final class MigrationUtils
     public static long addFiles(
             ConnectorSession session,
             TrinoFileSystem fileSystem,
+            OrcReaderOptions orcReaderOptions,
+            ParquetReaderOptions parquetReaderOptions,
             TrinoCatalog catalog,
             SchemaTableName targetName,
             String location,
@@ -180,7 +186,16 @@ public final class MigrationUtils
         checkProcedureArgument(partitionSpec.isUnpartitioned(), "The procedure does not support partitioned tables");
 
         try {
-            List<DataFile> dataFiles = buildDataFilesFromLocation(fileSystem, recursiveDirectory, format, location, partitionSpec, Optional.empty(), table.schema());
+            List<DataFile> dataFiles = buildDataFilesFromLocation(
+                    fileSystem,
+                    withSessionOrcReaderOptions(orcReaderOptions, session),
+                    withSessionParquetReaderOptions(parquetReaderOptions, session),
+                    recursiveDirectory,
+                    format,
+                    location,
+                    partitionSpec,
+                    Optional.empty(),
+                    table.schema());
             return addFiles(session, table, dataFiles, icebergScanExecutor);
         }
         catch (TrinoException e) {
@@ -193,6 +208,8 @@ public final class MigrationUtils
 
     private static List<DataFile> buildDataFilesFromLocation(
             TrinoFileSystem fileSystem,
+            OrcReaderOptions orcReaderOptions,
+            ParquetReaderOptions parquetReaderOptions,
             RecursiveDirectory recursive,
             HiveStorageFormat format,
             String location,
@@ -202,12 +219,12 @@ public final class MigrationUtils
             throws IOException
     {
         if (fileSystem.directoryExists(Location.of(location)).orElse(false)) {
-            return MigrationUtils.buildDataFiles(fileSystem, recursive, format, location, partitionSpec, partition, schema);
+            return MigrationUtils.buildDataFiles(fileSystem, orcReaderOptions, parquetReaderOptions, recursive, format, location, partitionSpec, partition, schema);
         }
 
         TrinoInputFile file = fileSystem.newInputFile(Location.of(location));
         if (file.exists()) {
-            Metrics metrics = loadMetrics(file, format, schema);
+            Metrics metrics = loadMetrics(file, orcReaderOptions, parquetReaderOptions, format, schema);
             return ImmutableList.of(buildDataFile(file.location().toString(), file.length(), partition, partitionSpec, format.name(), metrics));
         }
 
@@ -217,6 +234,8 @@ public final class MigrationUtils
     public static long addFilesFromTable(
             ConnectorSession session,
             TrinoFileSystem fileSystem,
+            OrcReaderOptions orcReaderOptions,
+            ParquetReaderOptions parquetReaderOptions,
             HiveMetastoreFactory metastoreFactory,
             Table targetTable,
             io.trino.metastore.Table sourceTable,
@@ -225,6 +244,8 @@ public final class MigrationUtils
             ExecutorService icebergScanExecutor)
     {
         HiveMetastore metastore = metastoreFactory.createMetastore(Optional.of(session.getIdentity()));
+        OrcReaderOptions sessionOrcReaderOptions = withSessionOrcReaderOptions(orcReaderOptions, session);
+        ParquetReaderOptions sessionParquetReaderOptions = withSessionParquetReaderOptions(parquetReaderOptions, session);
 
         PartitionSpec partitionSpec = targetTable.spec();
         Schema schema = targetTable.schema();
@@ -237,7 +258,7 @@ public final class MigrationUtils
             ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
             if (partitionSpec.isUnpartitioned()) {
                 log.debug("Building data files from %s", location);
-                dataFilesBuilder.addAll(buildDataFiles(fileSystem, recursiveDirectory, storageFormat, location, partitionSpec, Optional.empty(), schema));
+                dataFilesBuilder.addAll(buildDataFiles(fileSystem, sessionOrcReaderOptions, sessionParquetReaderOptions, recursiveDirectory, storageFormat, location, partitionSpec, Optional.empty(), schema));
             }
             else {
                 List<String> partitionNames = partitionFilter == null ? ImmutableList.of() : ImmutableList.of(PARTITION_JOINER.join(partitionFilter));
@@ -247,7 +268,7 @@ public final class MigrationUtils
                     log.debug("Building data files from partition: %s", partition);
                     HiveStorageFormat partitionStorageFormat = extractHiveStorageFormat(storage.getStorageFormat());
                     StructLike partitionData = DataFiles.data(partitionSpec, partition.getKey());
-                    dataFilesBuilder.addAll(buildDataFiles(fileSystem, recursiveDirectory, partitionStorageFormat, storage.getLocation(), partitionSpec, Optional.of(partitionData), schema));
+                    dataFilesBuilder.addAll(buildDataFiles(fileSystem, sessionOrcReaderOptions, sessionParquetReaderOptions, recursiveDirectory, partitionStorageFormat, storage.getLocation(), partitionSpec, Optional.of(partitionData), schema));
                 }
             }
 

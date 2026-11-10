@@ -21,6 +21,8 @@ import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.metastore.TableInfo;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
@@ -240,6 +242,8 @@ public class TestTrinoSnowflakeCatalog
                 UNSUPPORTED_DELETION_VECTOR_WRITER,
                 Optional.empty(),
                 false,
+                new OrcReaderConfig().toOrcReaderOptions(),
+                new ParquetReaderConfig().toParquetReaderOptions(),
                 _ -> false,
                 newDirectExecutorService(),
                 directExecutor(),
