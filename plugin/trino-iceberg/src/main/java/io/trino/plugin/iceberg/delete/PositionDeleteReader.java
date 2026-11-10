@@ -47,7 +47,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 
@@ -144,7 +143,6 @@ public final class PositionDeleteReader
         // Use a linear search since we expect most deletion files to only contain
         // entries for a single path. The comparison cost is minimal if the
         // path values are dictionary encoded, since we only do the comparison once.
-        CachingVarcharComparator comparator = new CachingVarcharComparator(targetPath);
         while (!pageSource.isFinished()) {
             getFutureValue(pageSource.isBlocked());
             SourcePage page = pageSource.getNextSourcePage();
@@ -156,8 +154,17 @@ public final class PositionDeleteReader
             Block block = page.getBlock(1);
 
             // TODO: add specialized code for RLE and dictionary blocks
+            int lastPathPosition = -1;
+            int result = 0;
             for (int position = 0; position < page.getPositionCount(); position++) {
-                int result = comparator.compare(pathBlock, position);
+                // The expected case is a dictionary block with many entries for the
+                // same path. Only perform a comparison if the path has changed.
+                int pathPosition = pathBlock.getUnderlyingValuePosition(position);
+                if (lastPathPosition != pathPosition) {
+                    checkArgument(!pathBlock.isNull(position), "position is null");
+                    lastPathPosition = pathPosition;
+                    result = VARCHAR.getSlice(pathBlock, position).compareTo(targetPath);
+                }
                 if (result > 0) {
                     // deletion files are sorted by path, so we're done
                     return;
@@ -181,50 +188,19 @@ public final class PositionDeleteReader
             Block pathBlock = page.getBlock(0);
             Block posBlock = page.getBlock(1);
 
-            Slice lastPath = null;
+            int lastPathPosition = -1;
             String pathString = null;
             for (int position = 0; position < page.getPositionCount(); position++) {
-                Slice path = VARCHAR.getSlice(pathBlock, position);
-                // We expect that paths are dictionary or RLE encoded, and thus getSlice()
-                // will return the same object for each delete position for a data file,
+                // We expect that paths are dictionary or RLE encoded, and thus the delete
+                // positions for a data file share the same underlying value position,
                 // so this caches the conversion to string.
-                if (lastPath != path) {
-                    lastPath = path;
-                    pathString = path.toStringUtf8();
+                int pathPosition = pathBlock.getUnderlyingValuePosition(position);
+                if (lastPathPosition != pathPosition) {
+                    lastPathPosition = pathPosition;
+                    pathString = VARCHAR.getSlice(pathBlock, position).toStringUtf8();
                 }
                 filePositionConsumer.accept(pathString, BIGINT.getLong(posBlock, position));
             }
-        }
-    }
-
-    private static final class CachingVarcharComparator
-    {
-        private final Slice reference;
-        private int result;
-        private Slice value;
-
-        public CachingVarcharComparator(Slice reference)
-        {
-            this.reference = requireNonNull(reference, "reference is null");
-        }
-
-        @SuppressWarnings({"ObjectEquality", "ReferenceEquality"})
-        public int compare(Block block, int position)
-        {
-            checkArgument(!block.isNull(position), "position is null");
-            Slice next = VARCHAR.getSlice(block, position);
-            return compare(next);
-        }
-
-        public int compare(Slice next)
-        {
-            // The expected case is a dictionary block with many entries for the
-            // same path. Only perform a comparison if the object has changed.
-            if (value != next) {
-                value = next;
-                result = value.compareTo(reference);
-            }
-            return result;
         }
     }
 }

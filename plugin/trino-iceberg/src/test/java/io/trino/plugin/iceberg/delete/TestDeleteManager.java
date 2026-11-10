@@ -25,6 +25,7 @@ import io.trino.plugin.iceberg.delete.DeleteManager.SerializedDeletionVector;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.FixedPageSource;
@@ -44,6 +45,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1040,6 +1042,51 @@ class TestDeleteManager
             BIGINT.writeLong(positionBuilder, deletedPosition);
         }
         return ImmutableList.of(new Page(pathBuilder.build(), positionBuilder.build()));
+    }
+
+    @Test
+    void testReadPositionDeletesAcrossDictionaries()
+    {
+        List<Page> pages = ImmutableList.of(
+                positionDeletePage(ImmutableList.of("a", "b"), new int[] {0, 1, 1}, 10, 11, 12),
+                positionDeletePage(ImmutableList.of("b", "c"), new int[] {1, 1}, 13, 14));
+        DeletionVector deletionVector = getFutureValue(PositionDeleteReader.readPositionDeletes(
+                "b",
+                ImmutableList.of(positionDeleteFile("delete-1", 1L)),
+                OptionalLong.empty(),
+                OptionalLong.empty(),
+                (_, _, _) -> new FixedPageSource(pages, NO_LIMIT),
+                TESTING_TYPE_MANAGER,
+                directExecutor(),
+                directExecutor(),
+                NO_LIMIT)).orElseThrow();
+        List<Long> deletedRows = new ArrayList<>();
+        deletionVector.forEachDeletedRow(deletedRows::add);
+        assertThat(deletedRows).containsExactly(11L, 12L);
+    }
+
+    @Test
+    void testReadMultiFilePositionDeletesAcrossDictionaries()
+    {
+        List<Page> pages = ImmutableList.of(
+                positionDeletePage(ImmutableList.of("a", "b"), new int[] {0, 1}, 1, 2),
+                positionDeletePage(ImmutableList.of("c", "d"), new int[] {1, 1}, 3, 4));
+        List<String> deletes = new ArrayList<>();
+        PositionDeleteReader.readMultiFilePositionDeletes(
+                new FixedPageSource(pages, NO_LIMIT),
+                (path, position) -> deletes.add(path + ":" + position));
+        assertThat(deletes).containsExactly("a:1", "b:2", "d:3", "d:4");
+    }
+
+    private static Page positionDeletePage(List<String> dictionary, int[] ids, long... positions)
+    {
+        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, dictionary.size());
+        for (String path : dictionary) {
+            VARCHAR.writeSlice(dictionaryBuilder, utf8Slice(path));
+        }
+        return new Page(
+                DictionaryBlock.create(ids.length, dictionaryBuilder.build(), ids),
+                new LongArrayBlock(positions.length, Optional.empty(), positions));
     }
 
     private static int filterRowPositions(PageFilter pageFilter, long... rowPositions)
