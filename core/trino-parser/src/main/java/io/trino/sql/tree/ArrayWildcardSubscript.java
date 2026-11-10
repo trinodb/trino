@@ -46,12 +46,6 @@ public final class ArrayWildcardSubscript
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitArrayWildcardSubscript(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.of(base);

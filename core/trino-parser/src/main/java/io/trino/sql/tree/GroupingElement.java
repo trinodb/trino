@@ -28,10 +28,4 @@ public abstract sealed class GroupingElement
     }
 
     public abstract List<Expression> getExpressions();
-
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitGroupingElement(this, context);
-    }
 }

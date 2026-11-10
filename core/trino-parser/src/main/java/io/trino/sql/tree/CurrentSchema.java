@@ -32,12 +32,6 @@ public final class CurrentSchema
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCurrentSchema(this, context);
-    }
-
-    @Override
     public int hashCode()
     {
         return getClass().hashCode();

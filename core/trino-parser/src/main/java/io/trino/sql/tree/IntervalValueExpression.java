@@ -53,12 +53,6 @@ public final class IntervalValueExpression
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitIntervalValueExpression(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.of(left, right, type);

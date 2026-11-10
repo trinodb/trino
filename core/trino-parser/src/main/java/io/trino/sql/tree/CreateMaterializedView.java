@@ -103,12 +103,6 @@ public final class CreateMaterializedView
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCreateMaterializedView(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         ImmutableList.Builder<Node> children = ImmutableList.builder();

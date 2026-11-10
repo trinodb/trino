@@ -36,12 +36,6 @@ public final class SetAuthorizationStatement
         this.principal = requireNonNull(principal, "principal is null");
     }
 
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSetAuthorization(this, context);
-    }
-
     public String getOwnedEntityKind()
     {
         return ownedEntityKind;

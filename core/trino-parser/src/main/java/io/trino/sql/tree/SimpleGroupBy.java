@@ -45,12 +45,6 @@ public final class SimpleGroupBy
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSimpleGroupBy(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return columns;

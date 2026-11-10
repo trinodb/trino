@@ -87,12 +87,6 @@ public final class IntervalLiteral
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitIntervalLiteral(this, context);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         if (!(o instanceof IntervalLiteral that)) {

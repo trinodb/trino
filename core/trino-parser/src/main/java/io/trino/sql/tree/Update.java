@@ -62,12 +62,6 @@ public final class Update
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitUpdate(this, context);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

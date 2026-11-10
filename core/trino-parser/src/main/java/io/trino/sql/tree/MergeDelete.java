@@ -36,12 +36,6 @@ public final class MergeDelete
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMergeDelete(this, context);
-    }
-
-    @Override
     public List<Identifier> getSetColumns()
     {
         return ImmutableList.of();

@@ -40,12 +40,6 @@ public final class Format
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitFormat(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return arguments;

@@ -51,12 +51,6 @@ public final class TableFunctionInvocation
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTableFunctionInvocation(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return arguments;

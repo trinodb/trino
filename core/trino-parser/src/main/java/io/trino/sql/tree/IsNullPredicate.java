@@ -42,12 +42,6 @@ public final class IsNullPredicate
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitIsNullPredicate(this, context);
-    }
-
-    @Override
     public boolean shallowEquals(Node other)
     {
         return sameClass(this, other) && negated == ((IsNullPredicate) other).negated;

@@ -53,12 +53,6 @@ public final class VariableDeclaration
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitVariableDeclaration(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return defaultValue.map(ImmutableList::of).orElse(ImmutableList.of());

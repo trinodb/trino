@@ -46,12 +46,6 @@ public final class MergeInsert
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMergeInsert(this, context);
-    }
-
-    @Override
     public List<Identifier> getSetColumns()
     {
         return columns;

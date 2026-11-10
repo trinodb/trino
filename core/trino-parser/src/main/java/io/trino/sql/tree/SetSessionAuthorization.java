@@ -44,12 +44,6 @@ public final class SetSessionAuthorization
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSetSessionAuthorization(this, context);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

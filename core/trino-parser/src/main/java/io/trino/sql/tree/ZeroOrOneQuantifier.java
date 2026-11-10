@@ -20,10 +20,4 @@ public final class ZeroOrOneQuantifier
     {
         super(location, greedy);
     }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitZeroOrOneQuantifier(this, context);
-    }
 }

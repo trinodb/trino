@@ -24,10 +24,4 @@ public abstract sealed class DataTypeParameter
     {
         super(location);
     }
-
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDataTypeParameter(this, context);
-    }
 }

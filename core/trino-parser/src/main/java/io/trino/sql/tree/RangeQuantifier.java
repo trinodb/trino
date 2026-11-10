@@ -46,12 +46,6 @@ public final class RangeQuantifier
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitRangeQuantifier(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         ImmutableList.Builder<Node> children = ImmutableList.builder();

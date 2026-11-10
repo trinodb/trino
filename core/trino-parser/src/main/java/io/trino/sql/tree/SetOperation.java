@@ -44,11 +44,5 @@ public abstract sealed class SetOperation
         return corresponding;
     }
 
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSetOperation(this, context);
-    }
-
     public abstract List<Relation> getRelations();
 }

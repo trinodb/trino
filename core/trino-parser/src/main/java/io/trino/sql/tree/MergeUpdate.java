@@ -40,12 +40,6 @@ public final class MergeUpdate
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMergeUpdate(this, context);
-    }
-
-    @Override
     public List<Identifier> getSetColumns()
     {
         return assignments.stream()

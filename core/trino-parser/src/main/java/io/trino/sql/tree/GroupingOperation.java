@@ -41,12 +41,6 @@ public final class GroupingOperation
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitGroupingOperation(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return groupingColumns;

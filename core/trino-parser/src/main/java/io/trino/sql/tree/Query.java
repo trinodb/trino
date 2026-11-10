@@ -125,12 +125,6 @@ public final class Query
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitQuery(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.<Node>builder()

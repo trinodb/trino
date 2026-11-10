@@ -54,12 +54,6 @@ public final class Select
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSelect(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return selectItems;

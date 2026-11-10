@@ -63,12 +63,6 @@ public final class NumericParameter
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitNumericTypeParameter(this, context);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

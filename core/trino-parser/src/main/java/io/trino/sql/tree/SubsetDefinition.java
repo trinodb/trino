@@ -46,12 +46,6 @@ public final class SubsetDefinition
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSubsetDefinition(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return identifiers;

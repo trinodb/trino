@@ -88,10 +88,4 @@ public final class DropRole
     {
         return ImmutableList.of();
     }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDropRole(this, context);
-    }
 }

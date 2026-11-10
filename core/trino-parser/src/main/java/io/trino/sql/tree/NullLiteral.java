@@ -30,12 +30,6 @@ public final class NullLiteral
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitNullLiteral(this, context);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
