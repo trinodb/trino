@@ -34,6 +34,7 @@ import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_COLUMN_NAME;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -143,6 +144,29 @@ public class TestJdbcConnectorTest
     {
         assertThatThrownBy(super::testDeleteWithLike)
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Test
+    public void testColumnsDifferingOnlyInCase()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_columns_differing_only_in_case",
+                "(\"Foo\" bigint, \"foo\" bigint)",
+                ImmutableList.of("1, 2"))) {
+            for (String sql : ImmutableList.of(
+                    "SELECT * FROM " + table.getName(),
+                    "ALTER TABLE " + table.getName() + " DROP COLUMN \"Foo\"",
+                    "ALTER TABLE " + table.getName() + " RENAME COLUMN \"Foo\" TO bar")) {
+                assertThat(query(sql))
+                        .failure()
+                        .hasErrorCode(AMBIGUOUS_COLUMN_NAME)
+                        .hasMessage("Table %s has multiple columns with the same name after lower-case normalization: 'Foo' and 'foo'", table.getName());
+            }
+
+            onRemoteDatabase().execute("ALTER TABLE " + table.getName() + " RENAME COLUMN \"Foo\" TO bar");
+            assertQuery("SELECT bar, foo FROM " + table.getName(), "VALUES (1, 2)");
+        }
     }
 
     @Test

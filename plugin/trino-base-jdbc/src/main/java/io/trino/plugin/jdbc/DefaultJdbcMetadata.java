@@ -117,6 +117,7 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownE
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalInsert;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalMerge;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
@@ -126,6 +127,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static java.lang.Math.max;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultJdbcMetadata
@@ -1104,13 +1106,27 @@ public class DefaultJdbcMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        List<JdbcColumnHandle> columns;
         if (tableHandle instanceof JdbcProcedureHandle procedureHandle) {
-            return procedureHandle.getColumns().orElseThrow().stream()
-                    .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
+            columns = procedureHandle.getColumns().orElseThrow();
+        }
+        else {
+            columns = getColumns(session, jdbcClient, (JdbcTableHandle) tableHandle);
         }
 
-        return getColumns(session, jdbcClient, (JdbcTableHandle) tableHandle).stream()
-                .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
+        Map<String, String> originalNames = new HashMap<>();
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        for (JdbcColumnHandle column : columns) {
+            String name = column.getColumnName().toLowerCase(ENGLISH);
+            String existing = originalNames.putIfAbsent(name, column.getColumnName());
+            if (existing != null) {
+                // TODO (https://github.com/trinodb/trino/issues/17) remove once case-sensitive identifiers are supported
+                throw new TrinoException(AMBIGUOUS_COLUMN_NAME, "Table %s has multiple columns with the same name after lower-case normalization: '%s' and '%s'"
+                        .formatted(getTableName(session, tableHandle), existing, column.getColumnName()));
+            }
+            columnHandles.put(name, column);
+        }
+        return columnHandles.buildOrThrow();
     }
 
     @Override
