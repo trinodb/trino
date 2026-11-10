@@ -20,6 +20,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 
@@ -504,6 +505,20 @@ public class TestTrinoUri
         assertThat(uri.isValidateConnection()).isTrue();
         uri = createTrinoUri("trino://localhost:8080?validateConnection=false");
         assertThat(uri.isValidateConnection()).isFalse();
+    }
+
+    @Test
+    public void testHttpUriWithLocale()
+    {
+        Locale originalLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(new Locale("ar", "EG"));
+            TrinoUri uri = createTrinoUri("trino://localhost:8080");
+            assertThat(uri.getHttpUri()).isEqualTo(URI.create("http://localhost:8080"));
+        }
+        finally {
+            Locale.setDefault(originalLocale);
+        }
     }
 
     private static boolean isBuilderHelperMethod(String name)
