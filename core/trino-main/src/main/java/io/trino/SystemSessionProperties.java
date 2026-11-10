@@ -224,6 +224,7 @@ public final class SystemSessionProperties
     public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
     public static final String COLUMNAR_FILTER_EVALUATION_ENABLED = "columnar_filter_evaluation_enabled";
+    public static final String COLUMNAR_PROJECTION_ENABLED = "columnar_projection_enabled";
     public static final String ADAPTIVE_FILTER_REORDERING_ENABLED = "adaptive_filter_reordering_enabled";
     public static final String SPOOLING_ENABLED = "spooling_enabled";
     public static final String DEBUG_ADAPTIVE_PLANNER = "debug_adaptive_planner";
@@ -1143,6 +1144,11 @@ public final class SystemSessionProperties
                         COLUMNAR_FILTER_EVALUATION_ENABLED,
                         "Enables columnar evaluation of filters",
                         featuresConfig.isColumnarFilterEvaluationEnabled(),
+                        false),
+                booleanProperty(
+                        COLUMNAR_PROJECTION_ENABLED,
+                        "Enables columnar evaluation of projections",
+                        featuresConfig.isColumnarProjectionEnabled(),
                         false),
                 booleanProperty(
                         ADAPTIVE_FILTER_REORDERING_ENABLED,
@@ -2083,6 +2089,11 @@ public final class SystemSessionProperties
     public static boolean isColumnarFilterEvaluationEnabled(Session session)
     {
         return session.getSystemProperty(COLUMNAR_FILTER_EVALUATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isColumnarProjectionEnabled(Session session)
+    {
+        return session.getSystemProperty(COLUMNAR_PROJECTION_ENABLED, Boolean.class);
     }
 
     public static boolean isAdaptiveFilterReorderingEnabled(Session session)

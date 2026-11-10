@@ -171,6 +171,7 @@ public class BenchmarkInCodeGenerator
                             getCharVarcharCoercion(TEST_SESSION),
                             columnarEvaluationEnabled,
                             true,
+                            true,
                             Optional.of(filter),
                             Optional.empty(),
                             ImmutableList.of(project),

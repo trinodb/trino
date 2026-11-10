@@ -15,6 +15,7 @@ package io.trino.operator.table.json.execution;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.FullConnectorSession;
+import io.trino.Session;
 import io.trino.jsonpath.JsonPathInvocationContext;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -46,6 +47,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.isColumnarProjectionEnabled;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -134,9 +136,11 @@ public final class ExecutionPlanner
                         : IntStream.range(0, valueColumn.defaultInputLayout().size())
                           .boxed()
                           .collect(toImmutableMap(valueColumn.defaultInputLayout()::get, i -> i));
-                CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(((FullConnectorSession) session).getSession());
-                PageProjection emptyDefaultProjection = valueColumn.emptyDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.emptyDefault(), defaultInputLayout, charVarcharCoercion, Optional.empty()).get();
-                PageProjection errorDefaultProjection = valueColumn.errorDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.errorDefault(), defaultInputLayout, charVarcharCoercion, Optional.empty()).get();
+                Session fullSession = ((FullConnectorSession) session).getSession();
+                CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(fullSession);
+                boolean columnarProjectionEnabled = isColumnarProjectionEnabled(fullSession);
+                PageProjection emptyDefaultProjection = valueColumn.emptyDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.emptyDefault(), defaultInputLayout, charVarcharCoercion, Optional.empty(), columnarProjectionEnabled).get();
+                PageProjection errorDefaultProjection = valueColumn.errorDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.errorDefault(), defaultInputLayout, charVarcharCoercion, Optional.empty(), columnarProjectionEnabled).get();
                 yield new ValueColumn(
                         valueColumn.outputIndex(),
                         implementation.getMethodHandle()

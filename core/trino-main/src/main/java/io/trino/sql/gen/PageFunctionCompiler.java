@@ -210,7 +210,7 @@ public class PageFunctionCompiler
         return compileProjection(projection, layout, charVarcharCoercion, classNameSuffix, true);
     }
 
-    Supplier<PageProjection> compileProjection(Expression projection, Map<Symbol, Integer> layout, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix, boolean preferColumnar)
+    public Supplier<PageProjection> compileProjection(Expression projection, Map<Symbol, Integer> layout, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix, boolean columnarProjectionEnabled)
     {
         requireNonNull(projection, "projection is null");
 
@@ -227,14 +227,14 @@ public class PageFunctionCompiler
             return () -> projectionFunction;
         }
 
-        if (preferColumnar && projection instanceof FieldReference fieldReference) {
+        if (columnarProjectionEnabled && projection instanceof FieldReference fieldReference) {
             Optional<Supplier<PageProjection>> rowFieldProjection = compileRowFieldProjection(fieldReference, layout);
             if (rowFieldProjection.isPresent()) {
                 return rowFieldProjection.get();
             }
         }
 
-        if (preferColumnar && projection instanceof Row row) {
+        if (columnarProjectionEnabled && projection instanceof Row row) {
             Optional<ProjectionArguments> projectionArguments = createProjectionArguments(row.items(), layout);
             if (projectionArguments.isPresent()) {
                 ProjectionArguments arguments = projectionArguments.orElseThrow();
@@ -246,7 +246,7 @@ public class PageFunctionCompiler
             }
         }
 
-        if (preferColumnar && projection instanceof Call call) {
+        if (columnarProjectionEnabled && projection instanceof Call call) {
             Optional<Supplier<PageProjection>> columnarProjection = compileColumnarProjection(call, layout);
             if (columnarProjection.isPresent()) {
                 return columnarProjection.get();
