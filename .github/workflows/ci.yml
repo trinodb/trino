@@ -1013,7 +1013,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
         with:
-          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
           persist-credentials: false
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
