@@ -125,7 +125,7 @@ arguments are not constants.
 Annotated constant-specialized functions use one outer function definition
 class. A nested `@ScalarFunctionImplementationChoice` class declares the complete SQL
 signature. Each nested `@ConstantSpecialization` class declares the zero-based
-ordinals it consumes and implements the residual signature with those arguments
+positions it consumes and implements the residual signature with those arguments
 removed:
 
 ```java
@@ -144,12 +144,12 @@ public final class MatchesPatternFunction
         }
     }
 
-    @ConstantSpecialization(arguments = 1)
+    @ConstantSpecialization(constantPositions = 1)
     public static final class ConstantPattern
     {
         private final CompiledPattern pattern;
 
-        public ConstantPattern(@ConstantArgument(1) Slice pattern)
+        public ConstantPattern(@BoundArgument(position = 1) Slice pattern)
         {
             this.pattern = compilePattern(pattern);
         }
@@ -163,7 +163,7 @@ public final class MatchesPatternFunction
 }
 ```
 
-The ordinals in `@ConstantSpecialization` and `@ConstantArgument` always refer
+The positions in `@ConstantSpecialization` and `@BoundArgument` always refer
 to the canonical row signature. The constructor must inject every consumed
 argument exactly once. Constructor dependencies are supported and must precede
 the constant arguments. A nullable constant argument uses the boxed native
@@ -187,7 +187,7 @@ overriding
 `FunctionProvider.getConstantSpecializedScalarFunctionImplementation`. The
 request supplies an invocation convention and an argument-aligned list of
 optional SPI `Constant` values. A successful result supplies the implementation
-for the residual signature and a non-empty set of consumed argument ordinals.
+for the residual signature and a non-empty set of consumed argument positions.
 Its instance factory must already be bound to a zero-argument method handle.
 
 ## Parametric scalar functions

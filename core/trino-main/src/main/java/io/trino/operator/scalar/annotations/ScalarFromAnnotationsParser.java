@@ -198,7 +198,7 @@ public final class ScalarFromAnnotationsParser
     {
         ConstantSpecialization annotation = specializationClass.getAnnotation(ConstantSpecialization.class);
         Set<Integer> consumedArguments = new HashSet<>();
-        for (int argument : annotation.arguments()) {
+        for (int argument : annotation.constantPositions()) {
             checkArgument(argument >= 0 && argument < canonicalSignature.getArgumentTypes().size(), "@ConstantSpecialization argument %s is outside canonical signature %s", argument, canonicalSignature);
             checkArgument(consumedArguments.add(argument), "@ConstantSpecialization contains duplicate argument %s in class [%s]", argument, specializationClass.getName());
         }
@@ -237,7 +237,7 @@ public final class ScalarFromAnnotationsParser
         implementation.getChoices().forEach(choice -> {
             checkArgument(choice.getConstructor().isPresent(), "Constant-specialized method must be an instance method");
             checkArgument(new HashSet<>(choice.getConstructorConstantArguments()).equals(consumedArguments) && choice.getConstructorConstantArguments().size() == consumedArguments.size(),
-                    "Constant-specialized constructor must declare each consumed @ConstantArgument exactly once: %s",
+                    "Constant-specialized constructor must declare each consumed @BoundArgument exactly once: %s",
                     consumedArguments);
         });
     }

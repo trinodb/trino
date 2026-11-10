@@ -16,7 +16,7 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
-import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.BoundArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
@@ -126,12 +126,12 @@ public final class WordStemFunction
             }
         }
 
-        @ConstantSpecialization(arguments = 1)
+        @ConstantSpecialization(constantPositions = 1)
         public static final class ConstantLanguage
         {
             private final SnowballStemmer stemmer;
 
-            public ConstantLanguage(@ConstantArgument(1) Slice language)
+            public ConstantLanguage(@BoundArgument(position = 1) Slice language)
             {
                 stemmer = createStemmer(language);
             }

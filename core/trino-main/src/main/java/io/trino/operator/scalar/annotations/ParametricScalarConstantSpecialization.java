@@ -126,7 +126,7 @@ public final class ParametricScalarConstantSpecialization
                 checkCondition(
                         choice.instanceFactory().type().parameterType(index).isAssignableFrom(expectedType),
                         StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR,
-                        "@ConstantArgument(%s) constructor parameter must accept %s, but is %s",
+                        "@BoundArgument(%s) constructor parameter must accept %s, but is %s",
                         argument,
                         expectedType.getName(),
                         choice.instanceFactory().type().parameterType(index).getName());

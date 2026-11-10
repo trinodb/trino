@@ -21,7 +21,7 @@ import io.trino.operator.scalar.preimage.YearDatePreimage;
 import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.BoundArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.FunctionPreimage;
@@ -364,12 +364,12 @@ public final class DateTimeFunctions
             }
         }
 
-        @ConstantSpecialization(arguments = 0)
+        @ConstantSpecialization(constantPositions = 0)
         public static final class ConstantUnit
         {
             private final DateTimeField field;
 
-            public ConstantUnit(@ConstantArgument(0) Slice unit)
+            public ConstantUnit(@BoundArgument(position = 0) Slice unit)
             {
                 field = getDateField(UTC_CHRONOLOGY, unit);
             }
@@ -401,12 +401,12 @@ public final class DateTimeFunctions
             }
         }
 
-        @ConstantSpecialization(arguments = 0)
+        @ConstantSpecialization(constantPositions = 0)
         public static final class ConstantUnit
         {
             private final DateTimeField field;
 
-            public ConstantUnit(@ConstantArgument(0) Slice unit)
+            public ConstantUnit(@BoundArgument(position = 0) Slice unit)
             {
                 field = getDateField(UTC_CHRONOLOGY, unit);
             }
@@ -438,12 +438,12 @@ public final class DateTimeFunctions
             }
         }
 
-        @ConstantSpecialization(arguments = 0)
+        @ConstantSpecialization(constantPositions = 0)
         public static final class ConstantUnit
         {
             private final DateTimeField field;
 
-            public ConstantUnit(@ConstantArgument(0) Slice unit)
+            public ConstantUnit(@BoundArgument(position = 0) Slice unit)
             {
                 field = getDateField(UTC_CHRONOLOGY, unit);
             }
@@ -579,12 +579,12 @@ public final class DateTimeFunctions
             }
         }
 
-        @ConstantSpecialization(arguments = 1)
+        @ConstantSpecialization(constantPositions = 1)
         public static final class ConstantFormat
         {
             private final DateTimeFormatter formatter;
 
-            public ConstantFormat(@ConstantArgument(1) Slice formatString)
+            public ConstantFormat(@BoundArgument(position = 1) Slice formatString)
             {
                 formatter = createJodaDateTimeFormatter(formatString);
             }
@@ -678,12 +678,12 @@ public final class DateTimeFunctions
             }
         }
 
-        @ConstantSpecialization(arguments = 1)
+        @ConstantSpecialization(constantPositions = 1)
         public static final class ConstantFormat
         {
             private final Optional<DateTimeFormatter> formatter;
 
-            public ConstantFormat(@ConstantArgument(1) Slice formatString)
+            public ConstantFormat(@BoundArgument(position = 1) Slice formatString)
             {
                 formatter = ISO_8601_DATE_FORMAT.equals(formatString) ? Optional.empty() : Optional.of(createDateTimeFormatter(formatString));
             }

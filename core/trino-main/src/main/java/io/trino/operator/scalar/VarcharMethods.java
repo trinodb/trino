@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
-import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.BoundArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
@@ -299,12 +299,12 @@ public final class VarcharMethods
             }
         }
 
-        @ConstantSpecialization(arguments = {1, 2})
+        @ConstantSpecialization(constantPositions = {1, 2})
         public static final class ConstantTranslation
         {
             private final StringFunctions.Translate.ConstantTranslation delegate;
 
-            public ConstantTranslation(@ConstantArgument(1) Slice from, @ConstantArgument(2) Slice to)
+            public ConstantTranslation(@BoundArgument(position = 1) Slice from, @BoundArgument(position = 2) Slice to)
             {
                 delegate = new StringFunctions.Translate.ConstantTranslation(from, to);
             }
@@ -338,12 +338,12 @@ public final class VarcharMethods
             }
         }
 
-        @ConstantSpecialization(arguments = 1)
+        @ConstantSpecialization(constantPositions = 1)
         public static final class ConstantReplacement
         {
             private final StringFunctions.FromUtf8WithReplacement.ConstantReplacement delegate;
 
-            public ConstantReplacement(@ConstantArgument(1) Slice replacementCharacter)
+            public ConstantReplacement(@BoundArgument(position = 1) Slice replacementCharacter)
             {
                 delegate = new StringFunctions.FromUtf8WithReplacement.ConstantReplacement(replacementCharacter);
             }
@@ -375,12 +375,12 @@ public final class VarcharMethods
             }
         }
 
-        @ConstantSpecialization(arguments = 1)
+        @ConstantSpecialization(constantPositions = 1)
         public static final class ConstantReplacement
         {
             private final StringFunctions.FromUtf8WithCodePoint.ConstantReplacement delegate;
 
-            public ConstantReplacement(@ConstantArgument(1) long replacementCodePoint)
+            public ConstantReplacement(@BoundArgument(position = 1) long replacementCodePoint)
             {
                 delegate = new StringFunctions.FromUtf8WithCodePoint.ConstantReplacement(replacementCodePoint);
             }

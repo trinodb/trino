@@ -23,7 +23,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.BoundArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
@@ -930,12 +930,12 @@ public final class StringFunctions
             }
         }
 
-        @ConstantSpecialization(arguments = 1)
+        @ConstantSpecialization(constantPositions = 1)
         public static final class ConstantForm
         {
             private final Normalizer.Form form;
 
-            public ConstantForm(@ConstantArgument(1) Slice form)
+            public ConstantForm(@BoundArgument(position = 1) Slice form)
             {
                 this.form = normalizationForm(form);
             }
@@ -1003,12 +1003,12 @@ public final class StringFunctions
             }
         }
 
-        @ConstantSpecialization(arguments = 1)
+        @ConstantSpecialization(constantPositions = 1)
         public static final class ConstantReplacement
         {
             private final OptionalInt replacementCodePoint;
 
-            public ConstantReplacement(@ConstantArgument(1) Slice replacementCharacter)
+            public ConstantReplacement(@BoundArgument(position = 1) Slice replacementCharacter)
             {
                 replacementCodePoint = replacementCodePoint(replacementCharacter);
             }
@@ -1052,12 +1052,12 @@ public final class StringFunctions
             }
         }
 
-        @ConstantSpecialization(arguments = 1)
+        @ConstantSpecialization(constantPositions = 1)
         public static final class ConstantReplacement
         {
             private final OptionalInt replacementCodePoint;
 
-            public ConstantReplacement(@ConstantArgument(1) long replacementCodePoint)
+            public ConstantReplacement(@BoundArgument(position = 1) long replacementCodePoint)
             {
                 this.replacementCodePoint = replacementCodePoint(replacementCodePoint);
             }
@@ -1200,12 +1200,12 @@ public final class StringFunctions
             }
         }
 
-        @ConstantSpecialization(arguments = {1, 2})
+        @ConstantSpecialization(constantPositions = {1, 2})
         public static final class ConstantTranslation
         {
             private final Int2IntOpenHashMap map;
 
-            public ConstantTranslation(@ConstantArgument(1) Slice from, @ConstantArgument(2) Slice to)
+            public ConstantTranslation(@BoundArgument(position = 1) Slice from, @BoundArgument(position = 2) Slice to)
             {
                 map = translationMap(from, to);
             }

@@ -24,7 +24,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.BoundArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarFunctionImplementationChoice;
@@ -162,7 +162,7 @@ public class TestConstantSpecializedScalarFunction
 
         assertThatThrownBy(() -> ScalarFromAnnotationsParser.parseFunctionDefinition(ConstructorArgumentsMismatch.class))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("must declare each consumed @ConstantArgument exactly once");
+                .hasMessageContaining("must declare each consumed @BoundArgument exactly once");
     }
 
     @Test
@@ -235,12 +235,12 @@ public class TestConstantSpecializedScalarFunction
             }
         }
 
-        @ConstantSpecialization(arguments = 1)
+        @ConstantSpecialization(constantPositions = 1)
         public static final class IncrementSpecialization
         {
             private final long increment;
 
-            public IncrementSpecialization(@ConstantArgument(1) long increment)
+            public IncrementSpecialization(@BoundArgument(position = 1) long increment)
             {
                 constructorInvocations.incrementAndGet();
                 this.increment = increment;
@@ -284,12 +284,12 @@ public class TestConstantSpecializedScalarFunction
             }
         }
 
-        @ConstantSpecialization(arguments = 1)
+        @ConstantSpecialization(constantPositions = 1)
         public static final class IncrementSpecialization
         {
             private final Long increment;
 
-            public IncrementSpecialization(@ConstantArgument(1) Long increment)
+            public IncrementSpecialization(@BoundArgument(position = 1) Long increment)
             {
                 constructorInvocations.incrementAndGet();
                 this.increment = increment;
@@ -317,10 +317,10 @@ public class TestConstantSpecializedScalarFunction
             }
         }
 
-        @ConstantSpecialization(arguments = {})
+        @ConstantSpecialization(constantPositions = {})
         public static final class Specialized
         {
-            public Specialized(@ConstantArgument(0) long value) {}
+            public Specialized(@BoundArgument(position = 0) long value) {}
 
             @SqlType(BIGINT)
             public long apply()
@@ -343,10 +343,10 @@ public class TestConstantSpecializedScalarFunction
             }
         }
 
-        @ConstantSpecialization(arguments = 1)
+        @ConstantSpecialization(constantPositions = 1)
         public static final class Specialized
         {
-            public Specialized(@ConstantArgument(1) long increment) {}
+            public Specialized(@BoundArgument(position = 1) long increment) {}
 
             @SqlType(BIGINT)
             public long apply(@SqlType(BIGINT) long value, @SqlType(BIGINT) long increment)
@@ -369,10 +369,10 @@ public class TestConstantSpecializedScalarFunction
             }
         }
 
-        @ConstantSpecialization(arguments = 1)
+        @ConstantSpecialization(constantPositions = 1)
         public static final class Specialized
         {
-            public Specialized(@ConstantArgument(0) long value) {}
+            public Specialized(@BoundArgument(position = 0) long value) {}
 
             @SqlType(BIGINT)
             public long apply(@SqlType(BIGINT) long value)

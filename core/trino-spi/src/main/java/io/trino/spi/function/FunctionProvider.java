@@ -37,7 +37,7 @@ public interface FunctionProvider
      * results by constant value in a global function cache.
      * <p>
      * The returned method handle has the residual SQL signature formed by
-     * removing the consumed argument ordinals. Its instance factory must have
+     * removing the consumed argument positions. Its instance factory must have
      * no parameters because all dependencies and constants must already be
      * bound.
      */

@@ -20,12 +20,12 @@ import java.lang.annotation.Target;
 
 /**
  * Injects a constant SQL argument into a constant-specialized implementation
- * constructor. The value is the zero-based ordinal in the canonical row
+ * constructor. The position is the zero-based index in the canonical row
  * signature.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.PARAMETER)
-public @interface ConstantArgument
+public @interface BoundArgument
 {
-    int value();
+    int position();
 }

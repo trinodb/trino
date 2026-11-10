@@ -14,7 +14,7 @@
 package io.trino.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.BoundArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
@@ -75,12 +75,12 @@ public final class DateDiff
         }
     }
 
-    @ConstantSpecialization(arguments = 0)
+    @ConstantSpecialization(constantPositions = 0)
     public static final class ConstantUnit
     {
         private final Function<ISOChronology, DateTimeField> fieldProvider;
 
-        public ConstantUnit(@ConstantArgument(0) Slice unit)
+        public ConstantUnit(@BoundArgument(position = 0) Slice unit)
         {
             fieldProvider = getTimestampFieldProvider(unit);
         }

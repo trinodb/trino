@@ -15,7 +15,7 @@ package io.trino.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.BoundArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
@@ -71,12 +71,12 @@ public final class DateFormat
         }
     }
 
-    @ConstantSpecialization(arguments = 1)
+    @ConstantSpecialization(constantPositions = 1)
     public static final class ConstantFormat
     {
         private final DateTimeFormatter formatter;
 
-        public ConstantFormat(@ConstantArgument(1) Slice formatString)
+        public ConstantFormat(@BoundArgument(position = 1) Slice formatString)
         {
             formatter = createDateTimeFormatter(formatString);
         }

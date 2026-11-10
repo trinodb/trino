@@ -16,7 +16,7 @@ package io.trino.operator.scalar.timestamp;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.DateTimeFunctions;
 import io.trino.spi.TrinoException;
-import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.BoundArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
@@ -92,12 +92,12 @@ public final class DateAdd
         }
     }
 
-    @ConstantSpecialization(arguments = 0)
+    @ConstantSpecialization(constantPositions = 0)
     public static final class ConstantUnit
     {
         private final DateTimeField field;
 
-        public ConstantUnit(@ConstantArgument(0) Slice unit)
+        public ConstantUnit(@BoundArgument(position = 0) Slice unit)
         {
             field = DateTimeFunctions.getTimestampField(ISOChronology.getInstanceUTC(), unit);
         }

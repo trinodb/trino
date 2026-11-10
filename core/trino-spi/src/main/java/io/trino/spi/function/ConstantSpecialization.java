@@ -20,11 +20,11 @@ import java.lang.annotation.Target;
 
 /**
  * Marks a nested annotated-function implementation whose instance consumes
- * the specified zero-based SQL argument ordinals as constants.
+ * the specified zero-based SQL argument positions as constants.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface ConstantSpecialization
 {
-    int[] arguments();
+    int[] constantPositions();
 }

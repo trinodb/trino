@@ -30,8 +30,8 @@ import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.BoundArgument;
 import io.trino.spi.function.BoundSignature;
-import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InOut;
@@ -187,7 +187,7 @@ public class ParametricScalarImplementation
         }
 
         for (ParametricScalarImplementationChoice choice : choices) {
-            checkCondition(choice.getConstructorConstantArguments().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "@ConstantArgument is only valid in a constant-specialized implementation. Signature: %s", boundSignature);
+            checkCondition(choice.getConstructorConstantArguments().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "@BoundArgument is only valid in a constant-specialized implementation. Signature: %s", boundSignature);
             MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), functionBinding, functionDependencies);
             Optional<MethodHandle> boundConstructor = choice.getConstructor().map(constructor -> {
                 MethodHandle result = bindDependencies(constructor, choice.getConstructorDependencies(), functionBinding, functionDependencies);
@@ -242,7 +242,7 @@ public class ParametricScalarImplementation
         List<Integer> constructorConstantArguments = null;
         for (ParametricScalarImplementationChoice choice : choices) {
             checkCondition(choice.getConstructor().isPresent(), FUNCTION_IMPLEMENTATION_ERROR, "Constant-specialized implementation must be an instance method. Signature: %s", residualBoundSignature);
-            checkCondition(!choice.getConstructorConstantArguments().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "Constant-specialized constructor must declare @ConstantArgument parameters. Signature: %s", residualBoundSignature);
+            checkCondition(!choice.getConstructorConstantArguments().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "Constant-specialized constructor must declare @BoundArgument parameters. Signature: %s", residualBoundSignature);
             if (constructorConstantArguments == null) {
                 constructorConstantArguments = choice.getConstructorConstantArguments();
             }
@@ -255,7 +255,7 @@ public class ParametricScalarImplementation
             checkCondition(
                     boundConstructor.type().parameterCount() == constructorConstantArguments.size(),
                     FUNCTION_IMPLEMENTATION_ERROR,
-                    "Constant-specialized constructor parameters must be dependencies or @ConstantArgument values. Signature: %s",
+                    "Constant-specialized constructor parameters must be dependencies or @BoundArgument values. Signature: %s",
                     residualBoundSignature);
 
             implementationChoices.add(new ConstantImplementationChoice(
@@ -818,14 +818,14 @@ public class ParametricScalarImplementation
                 Annotation[] annotations = constructor.getParameterAnnotations()[i];
                 checkArgument(annotations.length == 1, "Constructor parameters may only have a single annotation [%s]", constructor);
                 Annotation annotation = annotations[0];
-                if (annotation instanceof ConstantArgument constantArgument) {
-                    checkArgument(constantSpecialization, "@ConstantArgument is only valid in a @ConstantSpecialization class [%s]", constructor);
-                    checkArgument(constantArgument.value() >= 0, "@ConstantArgument ordinal is negative [%s]", constructor);
-                    constructorConstantArguments.add(constantArgument.value());
+                if (annotation instanceof BoundArgument boundArgument) {
+                    checkArgument(constantSpecialization, "@BoundArgument is only valid in a @ConstantSpecialization class [%s]", constructor);
+                    checkArgument(boundArgument.position() >= 0, "@BoundArgument position is negative [%s]", constructor);
+                    constructorConstantArguments.add(boundArgument.position());
                     continue;
                 }
                 checkArgument(containsImplementationDependencyAnnotation(annotations), "Constructors may only have dependency or constant parameters [%s]", constructor);
-                checkArgument(constructorConstantArguments.isEmpty(), "Constructor dependencies must precede @ConstantArgument parameters [%s]", constructor);
+                checkArgument(constructorConstantArguments.isEmpty(), "Constructor dependencies must precede @BoundArgument parameters [%s]", constructor);
                 if (annotation instanceof TypeParameter typeParameter) {
                     checkTypeParameters(parseTypeTemplate(typeParameter.value(), constructorTypeParameterNames, literalParameters), constructorTypeParameterNames, method);
                 }
