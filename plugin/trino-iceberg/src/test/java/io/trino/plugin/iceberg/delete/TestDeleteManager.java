@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.delete;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.NullSafeHashCompiler;
@@ -25,8 +26,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.TypeOperators;
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -42,14 +41,12 @@ import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.FileFormat.PUFFIN;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
-import static org.apache.iceberg.types.Types.NestedField.optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestDeleteManager
 {
     private static final String DATA_FILE_PATH = "s3://bucket/data.parquet";
     private static final IcebergColumnHandle ROW_POSITION_HANDLE = getColumnHandle(ROW_POSITION, TESTING_TYPE_MANAGER);
-    private static final Schema SCHEMA = new Schema(optional(1, "key", Types.LongType.get()));
 
     @Test
     void testDeletionVectorMemoryTracked()
@@ -80,7 +77,7 @@ final class TestDeleteManager
                 OptionalLong.of(1),
                 ImmutableList.of(deletionVectorFile),
                 ImmutableList.of(ROW_POSITION_HANDLE),
-                SCHEMA,
+                ImmutableMap.of(),
                 OptionalLong.empty(),
                 OptionalLong.empty(),
                 _ -> deletionVector,
@@ -116,7 +113,7 @@ final class TestDeleteManager
                 OptionalLong.of(1),
                 ImmutableList.of(positionDeleteFile),
                 ImmutableList.of(ROW_POSITION_HANDLE),
-                SCHEMA,
+                ImmutableMap.of(),
                 OptionalLong.empty(),
                 OptionalLong.empty(),
                 _ -> {

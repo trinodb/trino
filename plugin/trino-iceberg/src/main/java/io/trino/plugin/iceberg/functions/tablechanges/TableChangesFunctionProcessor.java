@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergPageSourceProvider;
@@ -125,6 +126,8 @@ public class TableChangesFunctionProcessor
                 session,
                 functionHandle.columns(),
                 tableSchema,
+                // no delete files are passed, so no equality delete keys are resolved
+                ImmutableMap.of(),
                 partitionSpec,
                 PartitionData.fromJson(split.partitionDataJson(), partitionSpec),
                 ImmutableList.of(),

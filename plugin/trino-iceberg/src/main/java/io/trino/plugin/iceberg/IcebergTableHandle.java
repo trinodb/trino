@@ -48,6 +48,9 @@ public class IcebergTableHandle
     private final OptionalInt specId;
     // Map of spec id to partition spec JSON for all specs in the table
     private final Map<Integer, String> partitionSpecJsons;
+    // Map of field id to column handle for fields of historical schemas that were dropped from the table schema.
+    // A field present in several historical schemas resolves to its handle in the newest schema that contains it.
+    private final Map<Integer, IcebergColumnHandle> columnHandleIndex;
     private final int formatVersion;
     private final String tableLocation;
     private final Map<String, String> storageProperties;
@@ -87,6 +90,7 @@ public class IcebergTableHandle
             @JsonProperty("tableSchemaJson") String tableSchemaJson,
             @JsonProperty("specId") OptionalInt specId,
             @JsonProperty("partitionSpecJsons") Map<Integer, String> partitionSpecJsons,
+            @JsonProperty("columnHandleIndex") Map<Integer, IcebergColumnHandle> columnHandleIndex,
             @JsonProperty("formatVersion") int formatVersion,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate,
@@ -104,6 +108,7 @@ public class IcebergTableHandle
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
+                columnHandleIndex,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -127,6 +132,7 @@ public class IcebergTableHandle
             String tableSchemaJson,
             OptionalInt specId,
             Map<Integer, String> partitionSpecJsons,
+            Map<Integer, IcebergColumnHandle> columnHandleIndex,
             int formatVersion,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             TupleDomain<IcebergColumnHandle> enforcedPredicate,
@@ -148,6 +154,7 @@ public class IcebergTableHandle
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "schemaJson is null");
         this.specId = requireNonNull(specId, "specId is null");
         this.partitionSpecJsons = ImmutableMap.copyOf(requireNonNull(partitionSpecJsons, "partitionSpecJsons is null"));
+        this.columnHandleIndex = ImmutableMap.copyOf(requireNonNull(columnHandleIndex, "columnHandleIndex is null"));
         checkArgument(
                 specId.isEmpty() || partitionSpecJsons.containsKey(specId.orElseThrow()),
                 "specId %s is present but partitionSpecJsons does not contain this id",
@@ -208,6 +215,12 @@ public class IcebergTableHandle
     public Map<Integer, String> getPartitionSpecJsons()
     {
         return partitionSpecJsons;
+    }
+
+    @JsonProperty
+    public Map<Integer, IcebergColumnHandle> getColumnHandleIndex()
+    {
+        return columnHandleIndex;
     }
 
     @JsonProperty
@@ -311,6 +324,7 @@ public class IcebergTableHandle
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
+                columnHandleIndex,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -336,6 +350,7 @@ public class IcebergTableHandle
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
+                columnHandleIndex,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -361,6 +376,7 @@ public class IcebergTableHandle
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
+                columnHandleIndex,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -386,6 +402,7 @@ public class IcebergTableHandle
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
+                columnHandleIndex,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -420,6 +437,7 @@ public class IcebergTableHandle
                 Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
                 Objects.equals(specId, that.specId) &&
                 Objects.equals(partitionSpecJsons, that.partitionSpecJsons) &&
+                Objects.equals(columnHandleIndex, that.columnHandleIndex) &&
                 formatVersion == that.formatVersion &&
                 Objects.equals(unenforcedPredicate, that.unenforcedPredicate) &&
                 Objects.equals(enforcedPredicate, that.enforcedPredicate) &&
@@ -444,6 +462,7 @@ public class IcebergTableHandle
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
+                columnHandleIndex,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
