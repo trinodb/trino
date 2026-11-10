@@ -8,6 +8,9 @@ website](https://trino.io/development/) and in the [development documentation in
 the Trino source
 code](https://github.com/trinodb/trino/blob/master/.github/DEVELOPMENT.md).
 
+Java formatting and Checkstyle rules follow the [Airlift
+codestyle](https://github.com/airlift/codestyle) project (applied via [airstyle](https://github.com/airlift/airstyle)).
+
 ```{toctree}
 :maxdepth: 1
 
