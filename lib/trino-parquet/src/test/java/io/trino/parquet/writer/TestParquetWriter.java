@@ -34,6 +34,7 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.metadata.IndexReference;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.ChunkedInputStream;
 import io.trino.parquet.reader.MetadataReader;
@@ -68,7 +69,9 @@ import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.LogicalTypes;
+import org.apache.parquet.format.OffsetIndex;
 import org.apache.parquet.format.PageHeader;
+import org.apache.parquet.format.PageLocation;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
@@ -85,6 +88,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -964,6 +968,92 @@ public class TestParquetWriter
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         bloomFilter.writeTo(out);
         return out.toByteArray();
+    }
+
+    @Test
+    void testOffsetIndexForFlatColumn()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(BIGINT);
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxPageValueCount(100)
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 70, 10)),
+                ParquetReaderOptions.defaultOptions());
+
+        assertOffsetIndex(dataSource, 700, 1);
+    }
+
+    @Test
+    void testOffsetIndexForRepeatedColumn()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        ArrayType arrayType = new ArrayType(BIGINT);
+        List<Type> types = ImmutableList.of(arrayType);
+        // every row holds exactly three elements, so the number of rows in a page is a third of its values
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 700);
+        for (int row = 0; row < 700; row++) {
+            int base = row;
+            blockBuilder.buildEntry(elements -> {
+                for (int i = 0; i < 3; i++) {
+                    BIGINT.writeLong(elements, base + i);
+                }
+            });
+        }
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxPageValueCount(100)
+                                .setBatchSize(70)
+                                .build(),
+                        types,
+                        columnNames,
+                        ImmutableList.of(new Page(blockBuilder.build()))),
+                ParquetReaderOptions.defaultOptions());
+
+        assertOffsetIndex(dataSource, 700, 3);
+    }
+
+    private static void assertOffsetIndex(ParquetDataSource dataSource, int expectedRows, int valuesPerRow)
+            throws IOException
+    {
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        long expectedFirstRowIndex = 0;
+        for (BlockMetadata block : parquetMetadata.getBlocks()) {
+            ColumnChunkMetadata column = getOnlyElement(block.columns());
+            IndexReference reference = column.getOffsetIndexReference();
+            assertThat(reference).isNotNull();
+            OffsetIndex offsetIndex = Util.readOffsetIndex(
+                    new ByteArrayInputStream(dataSource.readFully(reference.getOffset(), reference.getLength()).getBytes()),
+                    null,
+                    null);
+            List<PageLocation> pages = offsetIndex.getPage_locations();
+            assertThat(pages.size()).isGreaterThan(1);
+            assertThat(pages.getFirst().getOffset()).isEqualTo(column.getFirstDataPageOffset());
+
+            long rowGroupFirstRowIndex = expectedFirstRowIndex;
+            for (int i = 0; i < pages.size(); i++) {
+                PageLocation page = pages.get(i);
+                Slice pageBytes = dataSource.readFully(page.getOffset(), page.getCompressed_page_size());
+                SliceInput input = pageBytes.getInput();
+                PageHeader header = Util.readPageHeader(input);
+                assertThat(header.getType()).isEqualTo(PageType.DATA_PAGE);
+                assertThat(page.getCompressed_page_size()).isEqualTo(pageBytes.length() - input.available() + header.getCompressed_page_size());
+                if (i + 1 < pages.size()) {
+                    assertThat(pages.get(i + 1).getOffset()).isEqualTo(page.getOffset() + page.getCompressed_page_size());
+                }
+                assertThat(page.getFirst_row_index()).isEqualTo(expectedFirstRowIndex - rowGroupFirstRowIndex);
+                assertThat(header.getData_page_header().getNum_values() % valuesPerRow).isEqualTo(0);
+                expectedFirstRowIndex += header.getData_page_header().getNum_values() / valuesPerRow;
+            }
+        }
+        assertThat(expectedFirstRowIndex).isEqualTo(expectedRows);
     }
 
     @Test

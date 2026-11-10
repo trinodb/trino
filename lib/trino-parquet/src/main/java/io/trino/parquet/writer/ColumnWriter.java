@@ -43,6 +43,9 @@ public interface ColumnWriter
 
     long getRetainedBytes();
 
+    // offset is relative to the first data page of the column chunk, i.e. it excludes the dictionary page
+    record DataPageLocation(long offset, int compressedPageSize, long firstRowIndex) {}
+
     record CompressionStats(
             long dataPageCompressedSize,
             long dataPageUncompressedSize,
@@ -67,12 +70,14 @@ public interface ColumnWriter
         private final List<ParquetDataOutput> data;
         private final OptionalInt dictionaryPageSize;
         private final Optional<BloomFilter> bloomFilter;
+        private final List<DataPageLocation> dataPageLocations;
 
-        public BufferData(List<ParquetDataOutput> data, OptionalInt dictionaryPageSize, Optional<BloomFilter> bloomFilter, ColumnMetaData metaData)
+        public BufferData(List<ParquetDataOutput> data, OptionalInt dictionaryPageSize, Optional<BloomFilter> bloomFilter, List<DataPageLocation> dataPageLocations, ColumnMetaData metaData)
         {
             this.data = requireNonNull(data, "data is null");
             this.dictionaryPageSize = requireNonNull(dictionaryPageSize, "dictionaryPageSize is null");
             this.bloomFilter = requireNonNull(bloomFilter, "bloomFilter is null");
+            this.dataPageLocations = requireNonNull(dataPageLocations, "dataPageLocations is null");
             this.metaData = requireNonNull(metaData, "metaData is null");
         }
 
@@ -89,6 +94,11 @@ public interface ColumnWriter
         public OptionalInt getDictionaryPageSize()
         {
             return dictionaryPageSize;
+        }
+
+        public List<DataPageLocation> getDataPageLocations()
+        {
+            return dataPageLocations;
         }
 
         public Optional<BloomFilter> getBloomFilter()
