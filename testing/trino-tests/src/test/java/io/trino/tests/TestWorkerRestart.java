@@ -14,6 +14,9 @@
 package io.trino.tests;
 
 import io.trino.execution.QueryManager;
+import io.trino.execution.StageInfo;
+import io.trino.execution.StageState;
+import io.trino.execution.TaskInfo;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.testing.DistributedQueryRunner;
@@ -23,10 +26,12 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.QueryState.RUNNING;
@@ -95,6 +100,8 @@ public class TestWorkerRestart
                 String sql = "SELECT count(*) FROM tpch.sf1000000000.lineitem -- " + randomUUID();
                 Future<MaterializedResult> future = executor.submit(() -> queryRunner.execute(sql));
                 waitForQueryStart(queryRunner, sql);
+                // TODO (https://github.com/trinodb/trino/issues/32058): cover also the case when the worker restarts before the coordinator hears from its tasks
+                waitForAllTasksStarted(queryRunner, sql);
                 restartWorker(queryRunner);
                 assertThatThrownBy(future::get)
                         .isInstanceOf(ExecutionException.class)
@@ -156,6 +163,23 @@ public class TestWorkerRestart
                     .filter(query -> query.getQuery().equals(sql))
                     .collect(onlyElement());
             assertThat(queryInfo.getState()).isEqualTo(RUNNING);
+        });
+    }
+
+    private static void waitForAllTasksStarted(DistributedQueryRunner queryRunner, String sql)
+    {
+        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        assertEventually(() -> {
+            BasicQueryInfo basicQueryInfo = queryManager.getQueries().stream()
+                    .filter(query -> query.getQuery().equals(sql))
+                    .collect(onlyElement());
+            List<StageInfo> stages = queryManager.getFullQueryInfo(basicQueryInfo.getQueryId()).getStages().orElseThrow().getStages();
+            assertThat(stages).allSatisfy(stage -> assertThat(stage.state()).isEqualTo(StageState.RUNNING));
+            List<TaskInfo> tasks = stages.stream()
+                    .flatMap(stage -> stage.tasks().stream())
+                    .collect(toImmutableList());
+            assertThat(tasks).isNotEmpty();
+            assertThat(tasks).allSatisfy(task -> assertThat(task.taskStatus().taskInstanceId()).isNotZero());
         });
     }
 
