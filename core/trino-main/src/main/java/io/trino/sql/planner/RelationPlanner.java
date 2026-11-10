@@ -105,7 +105,6 @@ import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.AliasedRelation;
-import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.DereferenceExpression;
@@ -231,8 +230,38 @@ import static io.trino.type.JsonType.JSON;
 import static java.util.Objects.requireNonNull;
 
 class RelationPlanner
-        extends AstVisitor<RelationPlan, Void>
 {
+    public RelationPlan process(Node node)
+    {
+        return process(node, null);
+    }
+
+    private RelationPlan dispatch(Node root, Void context)
+    {
+        return switch (root) {
+            case AliasedRelation node -> visitAliasedRelation(node, context);
+            case Except node -> visitExcept(node);
+            case Intersect node -> visitIntersect(node);
+            case Join node -> visitJoin(node, context);
+            case JsonTable node -> visitJsonTable(node);
+            case Lateral node -> visitLateral(node, context);
+            case Nearest node -> visitNearest(node);
+            case PatternRecognitionRelation node -> visitPatternRecognitionRelation(node, context);
+            case Pivot node -> visitPivot(node, context);
+            case Query node -> visitQuery(node);
+            case QuerySpecification node -> visitQuerySpecification(node);
+            case SampledRelation node -> visitSampledRelation(node, context);
+            case SubqueryExpression node -> process(node.getQuery(), context);
+            case Table node -> visitTable(node);
+            case TableFunctionInvocation node -> visitTableFunctionInvocation(node, context);
+            case TableSubquery node -> visitTableSubquery(node, context);
+            case Union node -> visitUnion(node);
+            case Unnest node -> visitUnnest(node);
+            case Values node -> visitValues(node);
+            default -> throw new IllegalStateException("Unsupported node type: " + root.getClass().getName());
+        };
+    }
+
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
@@ -293,10 +322,9 @@ class RelationPlanner
         };
     }
 
-    @Override
     public RelationPlan process(Node node, @Nullable Void context)
     {
-        RelationPlan plan = super.process(node, context);
+        RelationPlan plan = dispatch(node, context);
         // Checked after planning the relation to include nodes added after its nested relations
         if (idAllocator.allocatedIdCount() > maxInitialPlanNodes) {
             throw new TrinoException(QUERY_PLAN_TOO_LARGE,
@@ -309,14 +337,7 @@ class RelationPlanner
         return plan;
     }
 
-    @Override
-    protected RelationPlan visitNode(Node node, Void context)
-    {
-        throw new IllegalStateException("Unsupported node type: " + node.getClass().getName());
-    }
-
-    @Override
-    protected RelationPlan visitTable(Table node, Void context)
+    private RelationPlan visitTable(Table node)
     {
         // is this a recursive reference in expandable named query? If so, there's base relation already planned.
         RelationPlan expansion = recursiveSubqueries.get(NodeRef.of(node));
@@ -496,8 +517,7 @@ class RelationPlanner
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), fieldMappings, outerContext);
     }
 
-    @Override
-    protected RelationPlan visitTableFunctionInvocation(TableFunctionInvocation node, Void context)
+    private RelationPlan visitTableFunctionInvocation(TableFunctionInvocation node, Void context)
     {
         TableFunctionInvocationAnalysis functionAnalysis = analysis.getTableFunctionAnalysis(node);
 
@@ -611,8 +631,7 @@ class RelationPlanner
         return new RelationPlan(root, analysis.getScope(node), outputSymbols.build(), outerContext);
     }
 
-    @Override
-    protected RelationPlan visitAliasedRelation(AliasedRelation node, Void context)
+    private RelationPlan visitAliasedRelation(AliasedRelation node, Void context)
     {
         RelationPlan subPlan = process(node.getRelation(), context);
 
@@ -635,8 +654,7 @@ class RelationPlanner
         return new RelationPlan(root, analysis.getScope(node), mappings, outerContext);
     }
 
-    @Override
-    protected RelationPlan visitPatternRecognitionRelation(PatternRecognitionRelation node, Void context)
+    private RelationPlan visitPatternRecognitionRelation(PatternRecognitionRelation node, Void context)
     {
         RelationPlan subPlan = process(node.getInput(), context);
 
@@ -883,8 +901,7 @@ class RelationPlanner
         return new IrLabel(label);
     }
 
-    @Override
-    protected RelationPlan visitSampledRelation(SampledRelation node, Void context)
+    private RelationPlan visitSampledRelation(SampledRelation node, Void context)
     {
         RelationPlan subPlan = process(node.getRelation(), context);
 
@@ -897,21 +914,18 @@ class RelationPlanner
         return new RelationPlan(planNode, analysis.getScope(node), subPlan.getFieldMappings(), outerContext);
     }
 
-    @Override
-    protected RelationPlan visitLateral(Lateral node, Void context)
+    private RelationPlan visitLateral(Lateral node, Void context)
     {
         RelationPlan plan = process(node.getQuery(), context);
         return new RelationPlan(plan.getRoot(), analysis.getScope(node), plan.getFieldMappings(), outerContext);
     }
 
-    @Override
-    protected RelationPlan visitNearest(Nearest node, Void context)
+    private RelationPlan visitNearest(Nearest node)
     {
         throw semanticException(NOT_SUPPORTED, node, "NEAREST is only supported on the right side of CROSS JOIN, INNER JOIN, LEFT JOIN, or an implicit join");
     }
 
-    @Override
-    protected RelationPlan visitJoin(Join node, Void context)
+    private RelationPlan visitJoin(Join node, Void context)
     {
         // TODO: translate the RIGHT join into a mirrored LEFT join when we refactor (@martint)
         RelationPlan leftPlan = process(node.getLeft(), context);
@@ -1897,43 +1911,32 @@ class RelationPlanner
                 .collect(toImmutableList()));
     }
 
-    @Override
-    protected RelationPlan visitTableSubquery(TableSubquery node, Void context)
+    private RelationPlan visitTableSubquery(TableSubquery node, Void context)
     {
         RelationPlan plan = process(node.getQuery(), context);
         return new RelationPlan(plan.getRoot(), analysis.getScope(node), plan.getFieldMappings(), outerContext);
     }
 
-    @Override
-    protected RelationPlan visitPivot(Pivot node, Void context)
+    private RelationPlan visitPivot(Pivot node, Void context)
     {
         RelationPlan inputPlan = process(node.getInput(), context);
         return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .planPivot(node, inputPlan);
     }
 
-    @Override
-    protected RelationPlan visitQuery(Query node, Void context)
+    private RelationPlan visitQuery(Query node)
     {
         return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .plan(node);
     }
 
-    @Override
-    protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
+    private RelationPlan visitQuerySpecification(QuerySpecification node)
     {
         return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .plan(node);
     }
 
-    @Override
-    protected RelationPlan visitSubqueryExpression(SubqueryExpression node, Void context)
-    {
-        return process(node.getQuery(), context);
-    }
-
-    @Override
-    protected RelationPlan visitValues(Values node, Void context)
+    private RelationPlan visitValues(Values node)
     {
         Scope scope = analysis.getScope(node);
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
@@ -1957,8 +1960,7 @@ class RelationPlanner
         return new RelationPlan(valuesNode, scope, outputSymbols, outerContext);
     }
 
-    @Override
-    protected RelationPlan visitUnnest(Unnest node, Void context)
+    private RelationPlan visitUnnest(Unnest node)
     {
         Scope scope = analysis.getScope(node);
 
@@ -1980,8 +1982,7 @@ class RelationPlanner
         return new PlanBuilder(translations, values);
     }
 
-    @Override
-    protected RelationPlan visitJsonTable(JsonTable node, Void context)
+    private RelationPlan visitJsonTable(JsonTable node)
     {
         return planJoinJsonTable(
                 planSingleEmptyRow(analysis.getScope(node).getOuterQueryParent()),
@@ -1991,8 +1992,7 @@ class RelationPlanner
                 analysis.getScope(node));
     }
 
-    @Override
-    protected RelationPlan visitUnion(Union node, Void context)
+    private RelationPlan visitUnion(Union node)
     {
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for UNION");
 
@@ -2006,8 +2006,7 @@ class RelationPlanner
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
     }
 
-    @Override
-    protected RelationPlan visitIntersect(Intersect node, Void context)
+    private RelationPlan visitIntersect(Intersect node)
     {
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for INTERSECT");
 
@@ -2018,8 +2017,7 @@ class RelationPlanner
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
     }
 
-    @Override
-    protected RelationPlan visitExcept(Except node, Void context)
+    private RelationPlan visitExcept(Except node)
     {
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for EXCEPT");
 
