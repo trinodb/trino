@@ -15,12 +15,17 @@ package io.trino.sql.parser;
 
 import com.google.common.io.Resources;
 import io.trino.sql.SqlFormatter;
+import io.trino.sql.tree.AstTraversal;
+import io.trino.sql.tree.DefaultTraversalVisitor;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Node;
 import io.trino.sql.tree.Statement;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -406,9 +411,38 @@ public class TestStatementBuilder
         println(SqlFormatter.formatSql(statement));
         println("");
         assertFormattedSql(SQL_PARSER, statement);
+        assertTraversalMatchesVisitor(statement);
 
         println("=".repeat(60));
         println("");
+    }
+
+    private static void assertTraversalMatchesVisitor(Node root)
+    {
+        List<Node> visited = new ArrayList<>();
+        new DefaultTraversalVisitor<Void>()
+        {
+            @Override
+            public Void process(Node node, Void context)
+            {
+                visited.add(node);
+                return super.process(node, context);
+            }
+        }.process(root, null);
+
+        List<Node> traversed = new ArrayList<>();
+        collect(root, traversed);
+
+        assertThat(traversed).hasSameSizeAs(visited);
+        for (int i = 0; i < visited.size(); i++) {
+            assertThat(traversed.get(i)).isSameAs(visited.get(i));
+        }
+    }
+
+    private static void collect(Node node, List<Node> nodes)
+    {
+        nodes.add(node);
+        AstTraversal.forEachChild(node, child -> collect(child, nodes));
     }
 
     private static void assertSqlFormatter(String expression, String formatted)
