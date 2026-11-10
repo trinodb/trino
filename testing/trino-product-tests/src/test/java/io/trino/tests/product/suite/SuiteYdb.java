@@ -42,15 +42,12 @@ public final class SuiteYdb
 
         List<TestRunResult> results = new ArrayList<>();
 
-        // Run YDB tests
         results.add(SuiteRunner.forEnvironment(YdbEnvironment.class)
                 .includeTag(TestGroup.Ydb.class)
                 .run());
 
-        // Print combined summary
         SuiteRunner.printSummary(results);
 
-        // Exit with appropriate code
         System.exit(SuiteRunner.hasFailures(results) ? 1 : 0);
     }
 }

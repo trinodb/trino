@@ -14,10 +14,6 @@
     <name>${project.artifactId}</name>
     <description>Trino - YDB connector</description>
 
-    <properties>
-        <dep.ydb.sdk.version>2.4.10</dep.ydb.sdk.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -194,46 +190,5 @@
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>tech.ydb.test</groupId>
-            <artifactId>ydb-junit5-support</artifactId>
-            <version>${dep.ydb.sdk.version}</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>javax.annotation</groupId>
-                    <artifactId>javax.annotation-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>tech.ydb.test</groupId>
-            <artifactId>ydb-tests-common</artifactId>
-            <version>${dep.ydb.sdk.version}</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>javax.annotation</groupId>
-                    <artifactId>javax.annotation-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <systemPropertyVariables>
-                        <YDB_DOCKER_IMAGE>ydbplatform/local-ydb@sha256:9e46fd45875551a75bcf34d0bb9ca0baa1d8763a4ccf2070af45f4467c4b7402</YDB_DOCKER_IMAGE>
-                        <YDB_DOCKER_REUSE>false</YDB_DOCKER_REUSE>
-                    </systemPropertyVariables>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>

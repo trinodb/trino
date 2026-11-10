@@ -25,8 +25,6 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchTable;
-import tech.ydb.test.integration.YdbHelper;
-import tech.ydb.test.integration.YdbHelperFactory;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -55,15 +53,9 @@ public final class YdbQueryRunner
 
     private YdbQueryRunner() {}
 
-    public static Builder builder(YdbHelper ydb)
+    public static Builder builder(TestingYdbServer server)
     {
-        return new Builder(buildJdbcUrl(ydb));
-    }
-
-    static String buildJdbcUrl(YdbHelper ydb)
-    {
-        return "jdbc:ydb:grpc://" + ydb.endpoint() + ydb.database()
-                + "?useQueryService=true&sessionPoolMaxSize=10&useDiscovery=false";
+        return new Builder(server.getJdbcUrl());
     }
 
     public static class Builder
@@ -178,9 +170,7 @@ public final class YdbQueryRunner
     static void main()
             throws Exception
     {
-        YdbHelper ydb = YdbHelperFactory.getInstance().createHelper();
-        Runtime.getRuntime().addShutdownHook(new Thread(ydb::close));
-        QueryRunner queryRunner = builder(ydb)
+        QueryRunner queryRunner = builder(new TestingYdbServer())
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .setInitialTables(TpchTable.getTables())
                 .build();

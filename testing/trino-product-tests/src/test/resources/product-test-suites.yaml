@@ -56,6 +56,7 @@ suites:
   SuiteClickhouse: [clickhouse]
   SuiteBlackHole: [blackhole]
   SuiteIgnite: [ignite]
+  SuiteYdb: [ydb]
   SuiteKafka: [kafka]
   SuiteLdap: [password-authenticators]
   SuiteOauth2: []
@@ -90,7 +91,6 @@ suites:
   SuiteAzure: [hive, delta-lake, iceberg]
   SuiteDeltaLakeDatabricks154: [hive, delta-lake]
   SuiteDeltaLakeDatabricks18: [hive, delta-lake]
-  SuiteYdb: [ydb]
 
 # Suites that need a secret, keyed by the suite, with the secret's environment variable as the value.
 # CI does not run them when the secret is unavailable, like on pull requests from forks.

@@ -46,7 +46,7 @@ public class YdbEnvironment
 
         network = Network.newNetwork();
 
-        ydb = new GenericContainer<>("ydbplatform/local-ydb@sha256:9e46fd45875551a75bcf34d0bb9ca0baa1d8763a4ccf2070af45f4467c4b7402")
+        ydb = new GenericContainer<>("ydbplatform/local-ydb:26.3")
                 .withNetwork(network)
                 .withNetworkAliases("ydb")
                 .withCreateContainerCmdModifier(command -> command.withHostName("ydb"))
@@ -64,7 +64,7 @@ public class YdbEnvironment
                 .withNetwork(network)
                 .withCatalog("ydb", Map.of(
                         "connector.name", "ydb",
-                        "connection-url", "jdbc:ydb:grpc://ydb:2136/local?useQueryService=true"))
+                        "connection-url", "jdbc:ydb:grpc://ydb:2136/local"))
                 .build();
         TrinoProductTestContainer.startAndWait(trino);
     }
@@ -73,7 +73,7 @@ public class YdbEnvironment
             throws SQLException
     {
         return new YdbDriver().connect("jdbc:ydb:grpc://" + ydb.getHost() + ":" + ydb.getMappedPort(2136) +
-                "/local?useQueryService=true&useDiscovery=false", new Properties());
+                "/local?useDiscovery=false", new Properties());
     }
 
     @Override
