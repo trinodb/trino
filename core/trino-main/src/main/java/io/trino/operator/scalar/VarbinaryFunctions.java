@@ -404,10 +404,7 @@ public final class VarbinaryFunctions
             if (indexStart >= slice.length()) {
                 return EMPTY_SLICE;
             }
-            int indexEnd = indexStart + byteLength;
-            if (indexEnd > slice.length()) {
-                indexEnd = slice.length();
-            }
+            int indexEnd = (int) Math.min((long) indexStart + byteLength, slice.length());
             return slice.slice(indexStart, indexEnd - indexStart);
         }
 
@@ -420,10 +417,7 @@ public final class VarbinaryFunctions
         }
 
         int indexStart = startByte;
-        int indexEnd = indexStart + byteLength;
-        if (indexEnd > slice.length()) {
-            indexEnd = slice.length();
-        }
+        int indexEnd = (int) Math.min((long) indexStart + byteLength, slice.length());
 
         return slice.slice(indexStart, indexEnd - indexStart);
     }
