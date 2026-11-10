@@ -1023,6 +1023,7 @@ jobs:
         timeout-minutes: 15
         with:
           cache: 'false'
+          maven: 'false'
       - name: Product tests artifact
         uses: actions/download-artifact@v8
         with:
@@ -1034,9 +1035,8 @@ jobs:
           path: testing/trino-product-tests/target
       - name: Load Trino Docker image for product tests
         run: |
-          gzip -dc product-tests-trino-image.tar.gz | docker load
-          version=$($MAVEN -f pom.xml --quiet help:evaluate -Dexpression=project.version -DforceStdout --raw-streams)
-          docker tag "product-tests-trino:${version}-amd64" trino:for-product-tests
+          image=$(gzip -dc product-tests-trino-image.tar.gz | docker load | sed -n 's/^Loaded image: //p')
+          docker tag "${image}" trino:for-product-tests
       - name: Product Tests (JUnit suites)
         id: tests
         shell: bash
