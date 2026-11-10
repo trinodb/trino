@@ -604,15 +604,23 @@ public final class ExpressionTreeRewriter<C>
 
         private Window rewriteWindow(Window window, Context<C> context)
         {
-            if (window instanceof WindowReference windowReference) {
-                Identifier rewrittenName = rewrite(windowReference.getName(), context.get());
-                if (windowReference.getName() != rewrittenName) {
-                    return new WindowReference(rewrittenName);
-                }
-                return window;
-            }
+            return switch (window) {
+                case WindowReference windowReference -> rewriteWindowReference(windowReference, context);
+                case WindowSpecification windowSpecification -> rewriteWindowSpecification(windowSpecification, context);
+            };
+        }
 
-            WindowSpecification windowSpecification = (WindowSpecification) window;
+        private Window rewriteWindowReference(WindowReference windowReference, Context<C> context)
+        {
+            Identifier rewrittenName = rewrite(windowReference.getName(), context.get());
+            if (windowReference.getName() != rewrittenName) {
+                return new WindowReference(rewrittenName);
+            }
+            return windowReference;
+        }
+
+        private Window rewriteWindowSpecification(WindowSpecification windowSpecification, Context<C> context)
+        {
             Optional<Identifier> existingWindowName = windowSpecification.getExistingWindowName().map(name -> rewrite(name, context.get()));
 
             List<Expression> partitionBy = rewrite(windowSpecification.getPartitionBy(), context);
@@ -679,7 +687,7 @@ public final class ExpressionTreeRewriter<C>
                     !sameElements(windowSpecification.getFrame(), rewrittenFrame)) {
                 return new WindowSpecification(existingWindowName, partitionBy, orderBy, rewrittenFrame);
             }
-            return window;
+            return windowSpecification;
         }
 
         @Override

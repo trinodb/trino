@@ -515,7 +515,10 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitWindowOperation(WindowOperation node, Void context)
         {
-            return node.getWindow() instanceof WindowReference || process((WindowSpecification) node.getWindow(), context);
+            return switch (node.getWindow()) {
+                case WindowReference _ -> true;
+                case WindowSpecification windowSpecification -> process(windowSpecification, context);
+            };
         }
 
         @Override

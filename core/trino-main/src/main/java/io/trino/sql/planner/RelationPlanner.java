@@ -114,6 +114,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Intersect;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinCriteria;
+import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JoinUsing;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
@@ -1421,8 +1422,9 @@ class RelationPlanner
         }
         else {
             JoinCriteria criteria = join.getCriteria().get();
-            if (criteria instanceof JoinUsing || criteria instanceof NaturalJoin) {
-                throw semanticException(NOT_SUPPORTED, join, "Correlated join with criteria other than ON is not supported");
+            switch (criteria) {
+                case JoinUsing _, NaturalJoin _ -> throw semanticException(NOT_SUPPORTED, join, "Correlated join with criteria other than ON is not supported");
+                case JoinOn _ -> {}
             }
 
             io.trino.sql.tree.Expression filterExpression = (io.trino.sql.tree.Expression) getOnlyElement(criteria.getNodes());
@@ -1451,11 +1453,10 @@ class RelationPlanner
     {
         if (joinNode.getCriteria().isPresent()) {
             JoinCriteria criteria = joinNode.getCriteria().get();
-            if (criteria instanceof NaturalJoin) {
-                throw semanticException(NOT_SUPPORTED, joinNode, "Natural join involving UNNEST is not supported");
-            }
-            if (criteria instanceof JoinUsing) {
-                throw semanticException(NOT_SUPPORTED, joinNode, "USING for join involving UNNEST is not supported");
+            switch (criteria) {
+                case NaturalJoin _ -> throw semanticException(NOT_SUPPORTED, joinNode, "Natural join involving UNNEST is not supported");
+                case JoinUsing _ -> throw semanticException(NOT_SUPPORTED, joinNode, "USING for join involving UNNEST is not supported");
+                case JoinOn _ -> {}
             }
             io.trino.sql.tree.Expression filter = (io.trino.sql.tree.Expression) getOnlyElement(criteria.getNodes());
             if (!filter.equals(BooleanLiteral.TRUE_LITERAL)) {
