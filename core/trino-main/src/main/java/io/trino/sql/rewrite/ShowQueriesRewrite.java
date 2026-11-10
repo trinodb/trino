@@ -58,7 +58,6 @@ import io.trino.sql.analyzer.TypeDescriptorTranslator;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AllColumns;
-import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ColumnDefinition;
@@ -224,12 +223,31 @@ public final class ShowQueriesRewrite
             PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         Visitor visitor = new Visitor(session);
-        return (Statement) visitor.process(node, null);
+        return (Statement) visitor.process(node);
     }
 
     private class Visitor
-            extends AstVisitor<Node, Void>
     {
+        public Node process(Node root)
+        {
+            return switch (root) {
+                case Explain node -> visitExplain(node);
+                case ExplainAnalyze node -> visitExplainAnalyze(node);
+                case ShowBranches node -> visitShowBranches(node);
+                case ShowCatalogs node -> visitShowCatalogs(node);
+                case ShowColumns node -> visitShowColumns(node);
+                case ShowCreate node -> visitShowCreate(node);
+                case ShowFunctions node -> visitShowFunctions(node);
+                case ShowGrants node -> visitShowGrants(node);
+                case ShowRoleGrants node -> visitShowRoleGrants(node);
+                case ShowRoles node -> visitShowRoles(node);
+                case ShowSchemas node -> visitShowSchemas(node);
+                case ShowSession node -> visitShowSession(node);
+                case ShowTables node -> visitShowTables(node);
+                default -> root;
+            };
+        }
+
         private final Session session;
 
         public Visitor(Session session)
@@ -237,22 +255,19 @@ public final class ShowQueriesRewrite
             this.session = requireNonNull(session, "session is null");
         }
 
-        @Override
-        protected Node visitExplain(Explain node, Void context)
+        private Node visitExplain(Explain node)
         {
-            Statement statement = (Statement) process(node.getStatement(), null);
+            Statement statement = (Statement) process(node.getStatement());
             return new Explain(node.getLocation().orElseThrow(), statement, node.getOptions());
         }
 
-        @Override
-        protected Node visitExplainAnalyze(ExplainAnalyze node, Void context)
+        private Node visitExplainAnalyze(ExplainAnalyze node)
         {
-            Statement statement = (Statement) process(node.getStatement(), null);
+            Statement statement = (Statement) process(node.getStatement());
             return new ExplainAnalyze(node.getLocation().orElseThrow(), statement, node.isVerbose());
         }
 
-        @Override
-        protected Node visitShowTables(ShowTables showTables, Void context)
+        private Node visitShowTables(ShowTables showTables)
         {
             CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
 
@@ -281,8 +296,7 @@ public final class ShowQueriesRewrite
                     ordering(ascending("table_name")));
         }
 
-        @Override
-        protected Node visitShowGrants(ShowGrants showGrants, Void context)
+        private Node visitShowGrants(ShowGrants showGrants)
         {
             String catalogName = session.getCatalog().orElse(null);
             Optional<Expression> predicate = Optional.empty();
@@ -340,8 +354,7 @@ public final class ShowQueriesRewrite
                     Optional.empty());
         }
 
-        @Override
-        protected Node visitShowRoles(ShowRoles node, Void context)
+        private Node visitShowRoles(ShowRoles node)
         {
             Optional<String> catalog = processRoleCommandCatalog(
                     metadata,
@@ -366,8 +379,7 @@ public final class ShowQueriesRewrite
             return singleColumnValues(rows, "Role", VARCHAR);
         }
 
-        @Override
-        protected Node visitShowRoleGrants(ShowRoleGrants node, Void context)
+        private Node visitShowRoleGrants(ShowRoleGrants node)
         {
             Optional<String> catalog = processRoleCommandCatalog(
                     metadata,
@@ -397,8 +409,7 @@ public final class ShowQueriesRewrite
                     ordering(ascending(columnName)));
         }
 
-        @Override
-        protected Node visitShowSchemas(ShowSchemas node, Void context)
+        private Node visitShowSchemas(ShowSchemas node)
         {
             if (node.getCatalog().isEmpty() && session.getCatalog().isEmpty()) {
                 throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
@@ -420,8 +431,7 @@ public final class ShowQueriesRewrite
                     Optional.of(ordering(ascending("schema_name"))));
         }
 
-        @Override
-        protected Node visitShowCatalogs(ShowCatalogs node, Void context)
+        private Node visitShowCatalogs(ShowCatalogs node)
         {
             List<Expression> rows = listAllCatalogNames(session, metadata, accessControl, Domain.all(VARCHAR)).stream()
                     .map(name -> row(new StringLiteral(name)))
@@ -443,8 +453,7 @@ public final class ShowQueriesRewrite
                     Optional.of(ordering(ascending("Catalog"))));
         }
 
-        @Override
-        protected Node visitShowColumns(ShowColumns showColumns, Void context)
+        private Node visitShowColumns(ShowColumns showColumns)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
             getRequiredCatalogHandle(metadata, session, showColumns, tableName.catalogName());
@@ -509,8 +518,7 @@ public final class ShowQueriesRewrite
                     ordering(ascending("ordinal_position")));
         }
 
-        @Override
-        protected Node visitShowCreate(ShowCreate node, Void context)
+        private Node visitShowCreate(ShowCreate node)
         {
             return switch (node.getType()) {
                 case MATERIALIZED_VIEW -> showCreateMaterializedView(node);
@@ -734,8 +742,7 @@ public final class ShowQueriesRewrite
                     aliased(new Values(rows), "t", ImmutableList.of("Create Function")));
         }
 
-        @Override
-        protected Node visitShowFunctions(ShowFunctions node, Void context)
+        private Node visitShowFunctions(ShowFunctions node)
         {
             Collection<FunctionMetadata> functions;
             if (node.getSchema().isPresent()) {
@@ -833,8 +840,7 @@ public final class ShowQueriesRewrite
             };
         }
 
-        @Override
-        protected Node visitShowBranches(ShowBranches showBranches, Void context)
+        private Node visitShowBranches(ShowBranches showBranches)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, showBranches, showBranches.getTableName());
             accessControl.checkCanShowBranches(session.toSecurityContext(), tableName);
@@ -872,8 +878,7 @@ public final class ShowQueriesRewrite
                             ImmutableList.of("branch_name")));
         }
 
-        @Override
-        protected Node visitShowSession(ShowSession node, Void context)
+        private Node visitShowSession(ShowSession node)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
             List<CatalogInfo> catalogInfos = listCatalogs(session, metadata, accessControl);
@@ -931,12 +936,6 @@ public final class ShowQueriesRewrite
         private static Relation from(String catalog, SchemaTableName table)
         {
             return table(QualifiedName.of(catalog, table.getSchemaName(), table.getTableName()));
-        }
-
-        @Override
-        protected Node visitNode(Node node, Void context)
-        {
-            return node;
         }
 
         public static Query emptyQuery(List<String> columns, List<Type> types)
