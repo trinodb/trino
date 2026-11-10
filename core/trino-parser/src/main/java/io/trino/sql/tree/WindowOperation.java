@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -44,7 +43,6 @@ public final class WindowOperation
         super(location);
         requireNonNull(name, "name is null");
         requireNonNull(window, "window is null");
-        checkArgument(window instanceof WindowReference || window instanceof WindowSpecification, "unexpected window: %s", window.getClass().getSimpleName());
 
         this.name = name;
         this.window = window;
