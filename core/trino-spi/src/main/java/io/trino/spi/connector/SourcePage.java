@@ -15,7 +15,9 @@ package io.trino.spi.connector;
 
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.predicate.Domain;
 
+import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
 /**
@@ -97,6 +99,21 @@ public interface SourcePage
     default boolean trySelectPositions(int[] positions, int offset, int size)
     {
         return false;
+    }
+
+    /**
+     * Returns a domain that contains the value of the channel at every position of this page, when the source
+     * knows one without reading the data, for example from the statistics of the row group the page comes from.
+     * <p>
+     * The engine may skip a filter on the channel when the bounds prove that every position passes, and may drop
+     * the whole page when they prove that none does. The domain must therefore hold for every position, and it
+     * must allow null unless the channel is known to hold no null. Bounds that are wider than the data are
+     * always valid. A source should return the same instance for consecutive pages sharing the same bounds,
+     * as consumers cache their decision by identity.
+     */
+    default Optional<Domain> getValueBounds(int channel)
+    {
+        return Optional.empty();
     }
 
     /**
