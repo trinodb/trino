@@ -16,7 +16,6 @@ package io.trino.sql.analyzer;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.cache.CacheUtils;
@@ -30,7 +29,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.CompositeIntervalQualifier;
@@ -86,63 +84,34 @@ public final class LiteralInterpreter
 
     public Object evaluate(Literal node, Type type)
     {
-        return new LiteralVisitor(type).process(node, null);
+        return new LiteralEvaluator(type).process(node);
     }
 
-    private class LiteralVisitor
-            extends AstVisitor<Object, Void>
+    private class LiteralEvaluator
     {
         private final Type type;
 
-        private LiteralVisitor(Type type)
+        private LiteralEvaluator(Type type)
         {
             this.type = requireNonNull(type, "type is null");
         }
 
-        @Override
-        protected Object visitLiteral(Literal node, Void context)
+        private Object process(Literal node)
         {
-            throw new UnsupportedOperationException("Unhandled literal type: " + node);
+            return switch (node) {
+                case BooleanLiteral literal -> literal.getValue();
+                case LongLiteral literal -> literal.getParsedValue();
+                case DoubleLiteral literal -> literal.getValue();
+                case DecimalLiteral literal -> Decimals.parse(literal.getValue()).getObject();
+                case StringLiteral literal -> utf8Slice(literal.getValue());
+                case BinaryLiteral literal -> Slices.wrappedBuffer(literal.getValue());
+                case GenericLiteral literal -> evaluateGenericLiteral(literal);
+                case IntervalLiteral literal -> evaluateIntervalLiteral(literal);
+                case NullLiteral _ -> null;
+            };
         }
 
-        @Override
-        protected Object visitBooleanLiteral(BooleanLiteral node, Void context)
-        {
-            return node.getValue();
-        }
-
-        @Override
-        protected Long visitLongLiteral(LongLiteral node, Void context)
-        {
-            return node.getParsedValue();
-        }
-
-        @Override
-        protected Double visitDoubleLiteral(DoubleLiteral node, Void context)
-        {
-            return node.getValue();
-        }
-
-        @Override
-        protected Object visitDecimalLiteral(DecimalLiteral node, Void context)
-        {
-            return Decimals.parse(node.getValue()).getObject();
-        }
-
-        @Override
-        protected Slice visitStringLiteral(StringLiteral node, Void context)
-        {
-            return utf8Slice(node.getValue());
-        }
-
-        @Override
-        protected Slice visitBinaryLiteral(BinaryLiteral node, Void context)
-        {
-            return Slices.wrappedBuffer(node.getValue());
-        }
-
-        @Override
-        protected Object visitGenericLiteral(GenericLiteral node, Void context)
+        private Object evaluateGenericLiteral(GenericLiteral node)
         {
             return switch (type) {
                 case TimeType _ -> parseTime(node.getValue());
@@ -166,8 +135,7 @@ public final class LiteralInterpreter
             };
         }
 
-        @Override
-        protected Object visitIntervalLiteral(IntervalLiteral node, Void context)
+        private Object evaluateIntervalLiteral(IntervalLiteral node)
         {
             IntervalField start = switch (node.qualifier()) {
                 case SimpleIntervalQualifier simple -> simple.getField();
@@ -200,12 +168,6 @@ public final class LiteralInterpreter
                 }
                 default -> throw new UnsupportedOperationException("Unhandled interval type: " + type);
             }
-        }
-
-        @Override
-        protected Object visitNullLiteral(NullLiteral node, Void context)
-        {
-            return null;
         }
     }
 }
