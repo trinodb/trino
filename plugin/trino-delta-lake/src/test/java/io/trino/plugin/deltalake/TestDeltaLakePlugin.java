@@ -224,6 +224,20 @@ public class TestDeltaLakePlugin
                 .shutdown();
     }
 
+    @Test
+    public void testParquetBloomFilter()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "bootstrap.quiet", "true",
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "parquet.use-bloom-filter", "true"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("IllegalArgumentException: Delta Lake connector does not support Parquet bloom filter");
+    }
+
     private static ConnectorFactory getConnectorFactory()
     {
         return getOnlyElement(new DeltaLakePlugin().getConnectorFactories());
