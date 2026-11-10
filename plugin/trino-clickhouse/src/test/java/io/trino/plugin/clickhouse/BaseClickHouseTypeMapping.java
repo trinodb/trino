@@ -15,8 +15,11 @@ package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.UuidType;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -60,6 +63,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -1286,6 +1290,53 @@ public abstract class BaseClickHouseTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("Point", "(10, 10)", VARCHAR, "varchar '(10.0,10.0)'")
                 .execute(getQueryRunner(), convertToVarchar, clickhouseCreateAndInsert("tpch.point"));
+    }
+
+    @Test
+    public void testMap()
+    {
+        MapType stringMap = new MapType(VARCHAR, VARCHAR, new TypeOperators());
+        SqlDataTypeTest.create()
+                .addRoundTrip("Map(String, String)", "map('service.name', 'checkout', 'host', 'node-1')", stringMap, "MAP(ARRAY[VARCHAR 'service.name', VARCHAR 'host'], ARRAY[VARCHAR 'checkout', VARCHAR 'node-1'])")
+                .addRoundTrip("Map(String, String)", "map()", stringMap, "CAST(MAP() AS map(varchar, varchar))")
+                .addRoundTrip("Map(String, String)", "map('Piękna łąka', '東京都 💰')", stringMap, "MAP(ARRAY[VARCHAR 'Piękna łąka'], ARRAY[VARCHAR '東京都 💰'])")
+                // the JDBC driver keeps the last value of a duplicate key
+                .addRoundTrip("Map(String, String)", "map('k', '1', 'k', '2')", stringMap, "MAP(ARRAY[VARCHAR 'k'], ARRAY[VARCHAR '2'])")
+                .addRoundTrip("Map(String, Nullable(String))", "map('k', NULL)", stringMap, "MAP(ARRAY[VARCHAR 'k'], ARRAY[CAST(NULL AS varchar)])")
+                .addRoundTrip("Map(LowCardinality(String), String)", "map('k', 'v')", stringMap, "MAP(ARRAY[VARCHAR 'k'], ARRAY[VARCHAR 'v'])")
+                .addRoundTrip("Map(LowCardinality(String), LowCardinality(Nullable(String)))", "map('k', 'v')", stringMap, "MAP(ARRAY[VARCHAR 'k'], ARRAY[VARCHAR 'v'])")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_map"))
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_map"));
+    }
+
+    @Test
+    public void testMapIsReadOnly()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_map_read_only", "(id Int32, attributes Map(String, String)) ENGINE=Log")) {
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (1, MAP(ARRAY['k'], ARRAY['v']))",
+                    "Writing ClickHouse Map columns is not supported");
+        }
+    }
+
+    @Test
+    public void testMapAggregationNotPushedDown()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_map_aggregation", "(id Int32, attributes Map(String, String)) ENGINE=Log")) {
+            onRemoteDatabase().execute("INSERT INTO " + table.getName() + " VALUES (1, map('a', '1', 'b', '2')), (2, map('b', '2', 'a', '1')), (3, map('a', '1'))");
+
+            // ClickHouse compares maps in their stored order, Trino maps are unordered
+            assertThat(query("SELECT count(*) FROM " + table.getName() + " GROUP BY attributes"))
+                    .skippingTypesCheck()
+                    .matches("VALUES BIGINT '2', BIGINT '1'")
+                    .isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT count(DISTINCT attributes) FROM " + table.getName()))
+                    .matches("VALUES BIGINT '2'")
+                    .isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT max(id) FROM " + table.getName()))
+                    .matches("VALUES 3")
+                    .isFullyPushedDown();
+        }
     }
 
     protected static Session mapStringAsVarcharSession()

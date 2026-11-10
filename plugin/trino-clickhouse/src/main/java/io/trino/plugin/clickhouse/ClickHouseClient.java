@@ -74,6 +74,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
@@ -188,8 +189,10 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_SECONDS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeDescriptor.mapType;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.floorDiv;
@@ -228,6 +231,7 @@ public class ClickHouseClient
     private final Optional<String> clusterName;
     private final Type uuidType;
     private final Type ipAddressType;
+    private final MapType stringMapType;
     private final AtomicReference<ClickHouseVersionUtils> clickHouseVersion = new AtomicReference<>();
 
     @Inject
@@ -244,6 +248,7 @@ public class ClickHouseClient
         clusterName = clickHouseConfig.getClusterName();
         this.uuidType = typeManager.getType(new TypeDescriptor(StandardTypes.UUID));
         this.ipAddressType = typeManager.getType(new TypeDescriptor(StandardTypes.IPADDRESS));
+        this.stringMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeDescriptor(), VARCHAR.getTypeDescriptor()));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -270,11 +275,39 @@ public class ClickHouseClient
                         .build());
     }
 
+    /**
+     * Grouping by a map column, or aggregating one, stays in Trino. ClickHouse compares maps entry by entry in their
+     * stored order and keeps duplicate keys, while Trino's maps are unordered and the JDBC driver keeps only the last
+     * value of a duplicate key: {@code GROUP BY} would split groups that are equal in Trino.
+     */
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        boolean groupingSetsContainMapColumn = groupingSets.stream().flatMap(List::stream).anyMatch(ClickHouseMaps::isStringMapColumn);
+        if (groupingSetsContainMapColumn) {
+            return false;
+        }
+        boolean aggregatesContainMapColumn = aggregates.stream().anyMatch(aggregate -> referencesStringMap(aggregate, assignments));
+        if (aggregatesContainMapColumn) {
+            return false;
+        }
+        return super.supportsAggregationPushdown(session, table, aggregates, assignments, groupingSets);
+    }
+
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
+        if (referencesStringMap(aggregate, assignments)) {
+            return Optional.empty();
+        }
         // TODO support complex ConnectorExpressions
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+    private static boolean referencesStringMap(AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return aggregate.getArguments().stream().anyMatch(argument -> ClickHouseMaps.referencesStringMap(argument, assignments))
+                || aggregate.getFilter().filter(filter -> ClickHouseMaps.referencesStringMap(filter, assignments)).isPresent();
     }
 
     @Override
@@ -688,6 +721,10 @@ public class ClickHouseClient
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
         if (mapping.isPresent()) {
             return mapping;
+        }
+
+        if (ClickHouseMaps.isStringMap(jdbcTypeName)) {
+            return Optional.of(ClickHouseMaps.mapColumnMapping(stringMapType));
         }
 
         ClickHouseVersionUtils version = getClickHouseServerVersion(session);
