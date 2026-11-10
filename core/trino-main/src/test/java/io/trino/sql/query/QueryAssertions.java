@@ -512,9 +512,9 @@ public class QueryAssertions
             PlanMatchPattern expectedPlan = PlanMatchPattern.anyTree(retainedSubplan);
 
             return hasPlan(expectedPlan, plan -> {
-                if (PlanNodeSearcher.searchFrom(plan.getRoot())
+                if (!PlanNodeSearcher.searchFrom(plan.getRoot())
                         .whereIsInstanceOfAny(TableScanNode.class)
-                        .findFirst().isEmpty()) {
+                        .matches()) {
                     throw new IllegalArgumentException("Incorrect use of isNotFullyPushedDown: the actual plan matched the expected despite not having a TableScanNode left " +
                             "in the plan. Use hasPlan() instead");
                 }

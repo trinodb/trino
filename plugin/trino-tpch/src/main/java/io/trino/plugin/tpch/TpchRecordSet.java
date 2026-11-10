@@ -14,13 +14,14 @@
 package io.trino.plugin.tpch;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
-import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.tpch.TpchColumn;
@@ -31,10 +32,10 @@ import io.trino.tpch.TpchTable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.tpch.TpchMetadata.getTrinoType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.tpch.TpchColumnTypes.IDENTIFIER;
@@ -133,20 +134,28 @@ public class TpchRecordSet<E extends TpchEntity>
             implements RecordCursor
     {
         private final Iterator<E> rows;
-        private final TpchTable<E> table;
-        private final List<TpchColumn<E>> columns;
         private final List<Type> columnTypes;
-        private final TupleDomain<ColumnHandle> predicate;
+        private final List<ColumnMatcher<E>> predicateMatchers;
+        private final TpchColumn<E>[] columnArray;
+        private final LongColumnKind[] longColumnKinds;
         private E row;
         private boolean closed;
 
+        @SuppressWarnings("unchecked")
         public TpchRecordCursor(Iterator<E> rows, TpchTable<E> table, List<TpchColumn<E>> columns, List<Type> columnTypes, TupleDomain<ColumnHandle> predicate)
         {
             this.rows = requireNonNull(rows, "rows is null");
-            this.table = requireNonNull(table, "table is null");
-            this.columns = requireNonNull(columns, "columns is null");
+            requireNonNull(table, "table is null");
+            requireNonNull(columns, "columns is null");
             this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
-            this.predicate = requireNonNull(predicate, "predicate is null");
+            requireNonNull(predicate, "predicate is null");
+            this.predicateMatchers = createMatchers(table, predicate);
+            this.closed = predicate.isNone();
+            this.columnArray = columns.toArray(new TpchColumn[0]);
+            this.longColumnKinds = new LongColumnKind[columnArray.length];
+            for (int field = 0; field < columnArray.length; field++) {
+                longColumnKinds[field] = LongColumnKind.of(columnArray[field].getType().getBase());
+            }
         }
 
         @Override
@@ -192,28 +201,21 @@ public class TpchRecordSet<E extends TpchEntity>
         public long getLong(int field)
         {
             checkState(row != null, "No current row");
-            TpchColumn<E> tpchColumn = getTpchColumn(field);
-            if (tpchColumn.getType().getBase() == TpchColumnType.Base.DATE) {
-                return tpchColumn.getDate(row);
-            }
-            if (tpchColumn.getType().getBase() == TpchColumnType.Base.INTEGER) {
-                return tpchColumn.getInteger(row);
-            }
-            return tpchColumn.getIdentifier(row);
+            return longColumnKinds[field].read(columnArray[field], row);
         }
 
         @Override
         public double getDouble(int field)
         {
             checkState(row != null, "No current row");
-            return getTpchColumn(field).getDouble(row);
+            return columnArray[field].getDouble(row);
         }
 
         @Override
         public Slice getSlice(int field)
         {
             checkState(row != null, "No current row");
-            return Slices.utf8Slice(getTpchColumn(field).getString(row));
+            return Slices.utf8Slice(columnArray[field].getString(row));
         }
 
         @Override
@@ -237,32 +239,120 @@ public class TpchRecordSet<E extends TpchEntity>
 
         private boolean rowMatchesPredicate()
         {
-            if (predicate.isAll()) {
-                return true;
+            for (ColumnMatcher<E> matcher : predicateMatchers) {
+                if (!matcher.matches(row)) {
+                    return false;
+                }
             }
-            if (predicate.isNone()) {
-                return false;
-            }
+            return true;
+        }
+    }
 
-            Map<ColumnHandle, NullableValue> rowMap = predicate.getDomains().get().keySet().stream()
-                    .collect(toImmutableMap(
-                            column -> column,
-                            column -> {
-                                TpchColumnHandle tpchColumnHandle = (TpchColumnHandle) column;
-                                Type type = tpchColumnHandle.type();
-                                TpchColumn<E> tpchColumn = table.getColumn(tpchColumnHandle.columnName());
-                                return NullableValue.of(type, getTrinoObject(tpchColumn, type));
-                            }));
-
-            TupleDomain<ColumnHandle> rowTupleDomain = TupleDomain.fromFixedValues(rowMap);
-
-            return predicate.contains(rowTupleDomain);
+    private static <E extends TpchEntity> List<ColumnMatcher<E>> createMatchers(TpchTable<E> table, TupleDomain<ColumnHandle> predicate)
+    {
+        if (predicate.isAll() || predicate.isNone()) {
+            return ImmutableList.of();
         }
 
-        private Object getTrinoObject(TpchColumn<E> column, Type type)
+        ImmutableList.Builder<ColumnMatcher<E>> matchers = ImmutableList.builder();
+        for (Map.Entry<ColumnHandle, Domain> entry : predicate.getDomains().orElseThrow().entrySet()) {
+            TpchColumnHandle columnHandle = (TpchColumnHandle) entry.getKey();
+            TpchColumn<E> column = table.getColumn(columnHandle.columnName());
+            if (!TpchMetadata.includesAllValues(column, entry.getValue())) {
+                matchers.add(createMatcher(column, columnHandle.type(), entry.getValue()));
+            }
+        }
+        return matchers.build();
+    }
+
+    private static <E extends TpchEntity> ColumnMatcher<E> createMatcher(TpchColumn<E> column, Type type, Domain domain)
+    {
+        // Rows never contain nulls, so only the values of the domain matter
+        if (type.getJavaType() == Slice.class && domain.getValues().isDiscreteSet()) {
+            ImmutableSet.Builder<String> allowedValues = ImmutableSet.builder();
+            for (Object value : domain.getValues().getDiscreteSet()) {
+                allowedValues.add(((Slice) value).toStringUtf8());
+            }
+            return new AllowedStringsMatcher<>(column, allowedValues.build());
+        }
+        return new DomainMatcher<>(column, type, domain);
+    }
+
+    private enum LongColumnKind
+    {
+        DATE,
+        INTEGER,
+        IDENTIFIER;
+
+        static LongColumnKind of(TpchColumnType.Base base)
+        {
+            return switch (base) {
+                case DATE -> DATE;
+                case INTEGER -> INTEGER;
+                case IDENTIFIER, DOUBLE, VARCHAR -> IDENTIFIER;
+            };
+        }
+
+        <E extends TpchEntity> long read(TpchColumn<E> column, E row)
+        {
+            return switch (this) {
+                case DATE -> column.getDate(row);
+                case INTEGER -> column.getInteger(row);
+                case IDENTIFIER -> column.getIdentifier(row);
+            };
+        }
+    }
+
+    private interface ColumnMatcher<E extends TpchEntity>
+    {
+        boolean matches(E row);
+    }
+
+    private static class AllowedStringsMatcher<E extends TpchEntity>
+            implements ColumnMatcher<E>
+    {
+        private final TpchColumn<E> column;
+        private final Set<String> allowedValues;
+
+        private AllowedStringsMatcher(TpchColumn<E> column, Set<String> allowedValues)
+        {
+            this.column = requireNonNull(column, "column is null");
+            this.allowedValues = requireNonNull(allowedValues, "allowedValues is null");
+        }
+
+        @Override
+        public boolean matches(E row)
+        {
+            return allowedValues.contains(column.getString(row));
+        }
+    }
+
+    private static class DomainMatcher<E extends TpchEntity>
+            implements ColumnMatcher<E>
+    {
+        private final TpchColumn<E> column;
+        private final Type type;
+        private final Domain domain;
+        private final LongColumnKind longColumnKind;
+
+        private DomainMatcher(TpchColumn<E> column, Type type, Domain domain)
+        {
+            this.column = requireNonNull(column, "column is null");
+            this.type = requireNonNull(type, "type is null");
+            this.domain = requireNonNull(domain, "domain is null");
+            this.longColumnKind = LongColumnKind.of(column.getType().getBase());
+        }
+
+        @Override
+        public boolean matches(E row)
+        {
+            return domain.includesNullableValue(trinoObject(row));
+        }
+
+        private Object trinoObject(E row)
         {
             if (type.getJavaType() == long.class) {
-                return column.getInteger(row);
+                return longColumnKind.read(column, row);
             }
             if (type.getJavaType() == double.class) {
                 return column.getDouble(row);
@@ -271,11 +361,6 @@ public class TpchRecordSet<E extends TpchEntity>
                 return Slices.utf8Slice(column.getString(row));
             }
             throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s", type.getDisplayName()));
-        }
-
-        private TpchColumn<E> getTpchColumn(int field)
-        {
-            return columns.get(field);
         }
     }
 

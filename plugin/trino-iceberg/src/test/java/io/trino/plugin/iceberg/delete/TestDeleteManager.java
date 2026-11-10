@@ -35,6 +35,7 @@ import java.util.OptionalLong;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -143,7 +144,7 @@ final class TestDeleteManager
             VARCHAR.writeSlice(pathBuilder, utf8Slice(DATA_FILE_PATH));
             BIGINT.writeLong(positionBuilder, deletedPosition);
         }
-        return new FixedPageSource(ImmutableList.of(new Page(pathBuilder.build(), positionBuilder.build())));
+        return new FixedPageSource(ImmutableList.of(new Page(pathBuilder.build(), positionBuilder.build())), NO_LIMIT);
     }
 
     private static int filterRowPositions(PageFilter pageFilter, long... rowPositions)

@@ -766,6 +766,19 @@ The following procedures are available:
   file system paths to use lowercase (e.g. `col_x=SomeValue`). Partitions on the file system
   not conforming to this convention are ignored, unless the argument is set to `false`.
 
+  Example:
+
+  ```sql
+  CALL system.sync_partition_metadata('web', 'page_views', 'FULL');
+  ```
+
+  ```text
+            metric           | value
+  ---------------------------+-------
+   added_partitions_count    |     2
+   dropped_partitions_count  |     1
+  ```
+
 - `system.drop_stats(schema_name, table_name, partition_values)`
 
   Drops statistics for a subset of partitions or the entire table. The partitions are specified as an

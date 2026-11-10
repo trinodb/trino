@@ -130,7 +130,6 @@ import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
@@ -1015,7 +1014,7 @@ public class Analysis
     public List<GroupingOperation> getGroupingOperations(QuerySpecification querySpecification)
     {
         return Optional.ofNullable(groupingOperations.get(NodeRef.of(querySpecification)))
-                .orElse(emptyList());
+                .orElse(ImmutableList.of());
     }
 
     public Map<NodeRef<Parameter>, Expression> getParameters()

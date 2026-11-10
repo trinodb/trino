@@ -46,9 +46,7 @@ public class TestMemoryConnectorTest
         extends BaseConnectorTest
 {
     private static final int LINEITEM_COUNT = 60175;
-    private static final int ORDERS_COUNT = 15000;
     private static final int PART_COUNT = 2000;
-    private static final int CUSTOMER_COUNT = 1500;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -202,7 +200,8 @@ public class TestMemoryConnectorTest
 
         OperatorStats probeStats = getScanOperatorStats(getDistributedQueryRunner(), result.queryId()).stream()
                 .findFirst().orElseThrow(); // there should be two: one for lineitem and one for supplier
-        assertThat(probeStats.getInputPositions()).isEqualTo(615);
+        assertThat(probeStats.getOutputPositions()).isEqualTo(615);
+        assertThat(probeStats.getInputPositions()).isEqualTo(LINEITEM_COUNT);
         assertThat(probeStats.getPhysicalInputPositions()).isEqualTo(LINEITEM_COUNT);
     }
 
@@ -217,7 +216,7 @@ public class TestMemoryConnectorTest
                     noJoinReordering(joinDistributionType),
                     0,
                     0,
-                    ORDERS_COUNT);
+                    0);
         }
     }
 
@@ -228,13 +227,13 @@ public class TestMemoryConnectorTest
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             @Language("SQL") String sql = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey and orders.custkey BETWEEN 300 AND 700";
             int expectedRowCount = 15793;
-            // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
+            // Probe-side is filtered by the min/max range extracted from the large build-side for dynamic filtering
             assertDynamicFiltering(
                     sql,
                     noJoinReordering(joinDistributionType),
                     expectedRowCount,
                     60139,
-                    ORDERS_COUNT);
+                    3977);
         }
     }
 
@@ -255,7 +254,7 @@ public class TestMemoryConnectorTest
                     noJoinReordering(joinDistributionType),
                     6,
                     6,
-                    ORDERS_COUNT);
+                    1);
 
             // Join lineitem with a single row of part
             assertDynamicFiltering(
@@ -263,7 +262,7 @@ public class TestMemoryConnectorTest
                     noJoinReordering(joinDistributionType),
                     39,
                     39,
-                    PART_COUNT);
+                    1);
         }
     }
 
@@ -277,7 +276,7 @@ public class TestMemoryConnectorTest
                 noJoinReordering(BROADCAST),
                 6,
                 6,
-                ORDERS_COUNT);
+                1);
     }
 
     @Test
@@ -293,7 +292,7 @@ public class TestMemoryConnectorTest
                     noJoinReordering(joinDistributionType),
                     6,
                     6,
-                    ORDERS_COUNT);
+                    1);
         }
     }
 
@@ -308,7 +307,7 @@ public class TestMemoryConnectorTest
                     noJoinReordering(joinDistributionType),
                     0,
                     0,
-                    ORDERS_COUNT);
+                    0);
         }
     }
 
@@ -317,17 +316,16 @@ public class TestMemoryConnectorTest
     public void testSemiJoinLargeBuildSideDynamicFiltering()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
-            // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
             @Language("SQL") String sql = "SELECT * FROM lineitem WHERE lineitem.orderkey IN " +
                     "(SELECT orders.orderkey FROM orders WHERE orders.custkey BETWEEN 300 AND 700)";
             int expectedRowCount = 15793;
-            // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
+            // Probe-side is filtered by the min/max range extracted from the large build-side for dynamic filtering
             assertDynamicFiltering(
                     sql,
                     noJoinReordering(joinDistributionType),
                     expectedRowCount,
                     60139,
-                    ORDERS_COUNT);
+                    3977);
         }
     }
 
@@ -342,7 +340,7 @@ public class TestMemoryConnectorTest
                     noJoinReordering(joinDistributionType),
                     6,
                     6,
-                    ORDERS_COUNT);
+                    1);
 
             // Join lineitem with a single row of part
             assertDynamicFiltering(
@@ -350,7 +348,7 @@ public class TestMemoryConnectorTest
                     noJoinReordering(joinDistributionType),
                     39,
                     39,
-                    PART_COUNT);
+                    1);
         }
     }
 
@@ -367,8 +365,8 @@ public class TestMemoryConnectorTest
                     noJoinReordering(joinDistributionType),
                     1,
                     1,
-                    ORDERS_COUNT,
-                    PART_COUNT);
+                    1,
+                    1);
         }
     }
 
@@ -392,7 +390,7 @@ public class TestMemoryConnectorTest
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v < vmax", session, 1, 1, 2);
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND v <= vmax", session, 1, 1, 2);
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND v < vmax", session, 0, 0, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND vmax < 0", session, 0, 0, 2);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND vmax < 0", session, 0, 0, 0);
 
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax", session, 2, 2, 2);
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v <= vmax", session, 2, 2, 2);
@@ -441,13 +439,13 @@ public class TestMemoryConnectorTest
     @Test
     public void testCrossJoinLargeBuildSideDynamicFiltering()
     {
-        // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
+        // Every probe-side row is filtered out by the min/max range extracted from the large build-side combined with the o.custkey > 1000 filter
         assertDynamicFiltering(
                 "SELECT * FROM orders o, customer c WHERE o.custkey < c.custkey AND c.name < 'Customer#000001000' AND o.custkey > 1000",
                 noJoinReordering(BROADCAST),
                 0,
-                9894,
-                CUSTOMER_COUNT);
+                0,
+                999);
     }
 
     @Test
@@ -472,18 +470,18 @@ public class TestMemoryConnectorTest
         }
     }
 
-    private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
+    private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedScanOutputPositions)
     {
         MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(session, selectQuery);
 
         assertThat(result.result().getRowCount()).isEqualTo(expectedRowCount);
-        assertThat(getOperatorRowsRead(getDistributedQueryRunner(), result.queryId())).isEqualTo(Ints.asList(expectedOperatorRowsRead));
+        assertThat(getScanOutputPositions(getDistributedQueryRunner(), result.queryId())).isEqualTo(Ints.asList(expectedScanOutputPositions));
     }
 
-    private static List<Integer> getOperatorRowsRead(QueryRunner runner, QueryId queryId)
+    private static List<Integer> getScanOutputPositions(QueryRunner runner, QueryId queryId)
     {
         return getScanOperatorStats(runner, queryId).stream()
-                .map(OperatorStats::getInputPositions)
+                .map(OperatorStats::getOutputPositions)
                 .map(Math::toIntExact)
                 .collect(toImmutableList());
     }

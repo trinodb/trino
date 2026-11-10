@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.trino.memory.context.CoarseGrainLocalMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.aggregation.Aggregator;
 import io.trino.operator.aggregation.AggregatorFactory;
@@ -40,6 +41,7 @@ import java.util.OptionalLong;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.memory.context.CoarseGrainLocalMemoryContext.DEFAULT_GRANULARITY;
 import static io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
@@ -70,6 +72,7 @@ public class HashAggregationOperator
         private final SpillerFactory spillerFactory;
         private final FlatHashStrategyCompiler hashStrategyCompiler;
         private final Optional<PartialAggregationController> partialAggregationController;
+        private final long memorySyncThreshold;
 
         private boolean closed;
 
@@ -106,7 +109,8 @@ public class HashAggregationOperator
                         throw new UnsupportedOperationException();
                     },
                     hashStrategyCompiler,
-                    partialAggregationController);
+                    partialAggregationController,
+                    DEFAULT_GRANULARITY);
         }
 
         public HashAggregationOperatorFactory(
@@ -143,7 +147,8 @@ public class HashAggregationOperator
                     DataSize.succinctBytes((long) (unspillMemoryLimit.toBytes() * MERGE_WITH_MEMORY_RATIO)),
                     spillerFactory,
                     hashStrategyCompiler,
-                    partialAggregationController);
+                    partialAggregationController,
+                    DEFAULT_GRANULARITY);
         }
 
         @VisibleForTesting
@@ -164,7 +169,8 @@ public class HashAggregationOperator
                 DataSize memoryLimitForMergeWithMemory,
                 SpillerFactory spillerFactory,
                 FlatHashStrategyCompiler hashStrategyCompiler,
-                Optional<PartialAggregationController> partialAggregationController)
+                Optional<PartialAggregationController> partialAggregationController,
+                long memorySyncThreshold)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -183,6 +189,7 @@ public class HashAggregationOperator
             this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
             this.hashStrategyCompiler = requireNonNull(hashStrategyCompiler, "hashStrategyCompiler is null");
             this.partialAggregationController = requireNonNull(partialAggregationController, "partialAggregationController is null");
+            this.memorySyncThreshold = memorySyncThreshold;
         }
 
         @Override
@@ -207,7 +214,8 @@ public class HashAggregationOperator
                     memoryLimitForMergeWithMemory,
                     spillerFactory,
                     hashStrategyCompiler,
-                    partialAggregationController);
+                    partialAggregationController,
+                    memorySyncThreshold);
         }
 
         @Override
@@ -236,7 +244,8 @@ public class HashAggregationOperator
                     memoryLimitForMergeWithMemory,
                     spillerFactory,
                     hashStrategyCompiler,
-                    partialAggregationController.map(PartialAggregationController::duplicate));
+                    partialAggregationController.map(PartialAggregationController::duplicate),
+                    memorySyncThreshold);
         }
     }
 
@@ -256,6 +265,7 @@ public class HashAggregationOperator
     private final DataSize memoryLimitForMergeWithMemory;
     private final SpillerFactory spillerFactory;
     private final FlatHashStrategyCompiler flatHashStrategyCompiler;
+    private final long memorySyncThreshold;
     private final AggregationMetrics aggregationMetrics = new AggregationMetrics();
 
     private HashAggregationBuilder aggregationBuilder;
@@ -287,7 +297,8 @@ public class HashAggregationOperator
             DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory,
             FlatHashStrategyCompiler flatHashStrategyCompiler,
-            Optional<PartialAggregationController> partialAggregationController)
+            Optional<PartialAggregationController> partialAggregationController,
+            long memorySyncThreshold)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.partialAggregationController = requireNonNull(partialAggregationController, "partialAggregationControl is null");
@@ -310,8 +321,9 @@ public class HashAggregationOperator
         this.memoryLimitForMergeWithMemory = requireNonNull(memoryLimitForMergeWithMemory, "memoryLimitForMergeWithMemory is null");
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
         this.flatHashStrategyCompiler = requireNonNull(flatHashStrategyCompiler, "hashStrategyCompiler is null");
+        this.memorySyncThreshold = memorySyncThreshold;
 
-        this.memoryContext = operatorContext.localUserMemoryContext();
+        this.memoryContext = new CoarseGrainLocalMemoryContext(operatorContext.localUserMemoryContext(), memorySyncThreshold);
     }
 
     @Override
@@ -404,7 +416,8 @@ public class HashAggregationOperator
                         memoryLimitForMergeWithMemory,
                         spillerFactory,
                         flatHashStrategyCompiler,
-                        aggregationMetrics);
+                        aggregationMetrics,
+                        memorySyncThreshold);
             }
 
             // assume initial aggregationBuilder is not full

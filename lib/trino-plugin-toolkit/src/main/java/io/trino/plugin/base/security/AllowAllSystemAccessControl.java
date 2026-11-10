@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.base.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.QueryId;
@@ -42,7 +43,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Collections.emptyList;
 
 public class AllowAllSystemAccessControl
         implements SystemAccessControl
@@ -394,7 +394,7 @@ public class AllowAllSystemAccessControl
     @Override
     public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
-        return emptyList();
+        return ImmutableList.of();
     }
 
     @Override

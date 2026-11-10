@@ -10,6 +10,10 @@ as constraints, default values, automatic identifier creation, or indexes.
 Queries can also invoke statements that insert, update, or delete data, and do
 not return any data as a result.
 
+The procedure returns `row_count`, the number of rows affected by the
+statement as reported by the underlying data source. For statements that do not
+affect rows, such as DDL, the value is typically `0`.
+
 The query text is not parsed by Trino, only passed through, and therefore only
 subject to any security or access control of the underlying data source.
 

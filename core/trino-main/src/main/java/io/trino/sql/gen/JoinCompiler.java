@@ -77,6 +77,7 @@ import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.STATIC;
 import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.BytecodeUtils.estimateMaxCodeSize;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.add;
@@ -98,6 +99,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.sql.gen.BytecodeUtils.fitsJitCompilableMethod;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.isClassDumpEnabled;
@@ -107,6 +109,9 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
 {
+    // The default HugeMethodLimit, so each helper is JIT compilable
+    private static final int MAX_HELPER_CODE_SIZE = 8000;
+
     private final TypeOperators typeOperators;
     private final boolean enableSingleChannelBigintLookupSource;
 
@@ -344,33 +349,101 @@ public class JoinCompiler
         Parameter blockPosition = arg("blockPosition", int.class);
         Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
         Parameter outputChannelOffset = arg("outputChannelOffset", int.class);
-        MethodDefinition appendToMethod = classDefinition.declareMethod(a(PUBLIC), "appendTo", type(void.class), blockIndex, blockPosition, pageBuilder, outputChannelOffset);
 
-        Variable thisVariable = appendToMethod.getThis();
-        BytecodeBlock appendToBody = appendToMethod.getBody();
+        generateOutputChannelsMethod(
+                classDefinition,
+                "appendTo",
+                ImmutableList.of(blockIndex, blockPosition, pageBuilder, outputChannelOffset),
+                outputChannels.size(),
+                (thisVariable, block, pageBuilderOutputChannel) -> {
+                    BytecodeBlock appendToBody = new BytecodeBlock();
+                    appendToBody.append(block.set(
+                            thisVariable.getField(channelFields.get(outputChannels.get(pageBuilderOutputChannel)))
+                                    .invoke("get", Object.class, blockIndex)
+                                    .cast(Block.class)));
 
-        int pageBuilderOutputChannel = 0;
-        Variable block = appendToMethod.getScope().declareVariable(Block.class, "block");
-        for (int outputChannel : outputChannels) {
-            appendToBody.append(block.set(
-                    thisVariable.getField(channelFields.get(outputChannel))
-                            .invoke("get", Object.class, blockIndex)
-                            .cast(Block.class)));
+                    BytecodeExpression blockBuilderExpression = pageBuilder
+                            .invoke("getBlockBuilder", BlockBuilder.class, add(outputChannelOffset, constantInt(pageBuilderOutputChannel)));
+                    if (isClassDumpEnabled()) {
+                        appendToBody.comment("pageBuilder.getBlockBuilder(outputChannelOffset + %s).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));", pageBuilderOutputChannel);
+                    }
+                    appendToBody
+                            .append(blockBuilderExpression.invoke(
+                                    "append",
+                                    void.class,
+                                    block.invoke("getUnderlyingValueBlock", ValueBlock.class),
+                                    block.invoke("getUnderlyingValuePosition", int.class, blockPosition)));
+                    return appendToBody;
+                });
+    }
 
-            BytecodeExpression blockBuilderExpression = pageBuilder
-                    .invoke("getBlockBuilder", BlockBuilder.class, add(outputChannelOffset, constantInt(pageBuilderOutputChannel)));
-            if (isClassDumpEnabled()) {
-                appendToBody.comment("pageBuilder.getBlockBuilder(outputChannelOffset + %s).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));", pageBuilderOutputChannel);
-            }
-            appendToBody
-                    .append(blockBuilderExpression.invoke(
-                            "append",
-                            void.class,
-                            block.invoke("getUnderlyingValueBlock", ValueBlock.class),
-                            block.invoke("getUnderlyingValuePosition", int.class, blockPosition)));
-            pageBuilderOutputChannel++;
+    /**
+     * Generates a public method running the code of every output channel, split into private helpers when it does not fit one JIT compilable method.
+     * A wide build side gets helpers named after their first output channel:
+     * <pre>
+     *     public void appendTo(int blockIndex, int blockPosition, PageBuilder pageBuilder, int outputChannelOffset) {
+     *         this.appendTo_0(blockIndex, blockPosition, pageBuilder, outputChannelOffset);
+     *         this.appendTo_180(blockIndex, blockPosition, pageBuilder, outputChannelOffset);
+     *         ...
+     *     }
+     * </pre>
+     */
+    private static void generateOutputChannelsMethod(
+            ClassDefinition classDefinition,
+            String methodName,
+            List<Parameter> parameters,
+            int outputChannelCount,
+            OutputChannelCodeGenerator outputChannelCode)
+    {
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(void.class), parameters);
+        Variable thisVariable = method.getThis();
+        BytecodeBlock body = method.getBody();
+
+        BytecodeBlock allOutputChannels = new BytecodeBlock();
+        Variable block = method.getScope().declareVariable(Block.class, "block");
+        for (int outputChannel = 0; outputChannel < outputChannelCount; outputChannel++) {
+            allOutputChannels.append(outputChannelCode.generate(thisVariable, block, outputChannel));
         }
-        appendToBody.ret();
+        if (fitsJitCompilableMethod(allOutputChannels, method.getScope())) {
+            body.append(allOutputChannels).ret();
+            return;
+        }
+
+        int outputChannel = 0;
+        while (outputChannel < outputChannelCount) {
+            MethodDefinition helper = classDefinition.declareMethod(a(PRIVATE), methodName + "_" + outputChannel, type(void.class), parameters);
+            int nextOutputChannel = generateOutputChannelsHelper(helper, outputChannel, outputChannelCount, outputChannelCode);
+            body.append(thisVariable.invoke(helper, parameters));
+            outputChannel = nextOutputChannel;
+        }
+        body.ret();
+    }
+
+    private static int generateOutputChannelsHelper(MethodDefinition helper, int start, int outputChannelCount, OutputChannelCodeGenerator outputChannelCode)
+    {
+        Variable thisVariable = helper.getThis();
+        Variable block = helper.getScope().declareVariable(Block.class, "block");
+        BytecodeBlock body = new BytecodeBlock();
+        int outputChannel = start;
+        int size = 0;
+        while (outputChannel < outputChannelCount) {
+            BytecodeNode code = outputChannelCode.generate(thisVariable, block, outputChannel);
+            int codeSize = estimateMaxCodeSize(code, helper.getScope());
+            // always emit at least one output channel, so an oversized one still makes progress
+            if (outputChannel > start && size + codeSize > MAX_HELPER_CODE_SIZE) {
+                break;
+            }
+            size += codeSize;
+            body.append(code);
+            outputChannel++;
+        }
+        helper.getBody().append(body).ret();
+        return outputChannel;
+    }
+
+    private interface OutputChannelCodeGenerator
+    {
+        BytecodeNode generate(Variable thisVariable, Variable block, int outputIndex);
     }
 
     private static void generateIsPositionNull(ClassDefinition classDefinition, List<FieldDefinition> joinChannelFields)

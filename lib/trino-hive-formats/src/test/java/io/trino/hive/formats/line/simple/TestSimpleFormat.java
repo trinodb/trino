@@ -1303,7 +1303,7 @@ public class TestSimpleFormat
             internalAssertValueTrino(
                     new MapType(type, BIGINT, TYPE_OPERATORS),
                     increaseDepth(value, 2, textEncodingOptions.getEscapeByte()) + "\3" + "1234",
-                    singletonMap(expectedValue, 1234L),
+                    Map.of(expectedValue, 1234L),
                     textEncodingOptions,
                     verifyByteForByte);
         }

@@ -149,6 +149,27 @@ public class TestHiveParquetEncryption
     }
 
     @Test
+    public void testFooterPlaintextMixedEncryptedAndPlaintextColumns()
+            throws Exception
+    {
+        java.nio.file.Path dataDir = Files.createDirectories(warehouseDir.resolve("pme_footer_plaintext"));
+        writeFooterPlaintextThreeColumnFile(dataDir.resolve("data.parquet"));
+
+        String location = Location.of(String.valueOf(dataDir.toUri())).toString();
+        assertUpdate(
+                """
+                CREATE TABLE enc_footer_plaintext(id INT, age INT, value INT)
+                WITH (external_location = '%s', format = 'PARQUET')
+                """.formatted(location));
+
+        assertQuery("SELECT count(*), min(value), max(value), sum(value) FROM enc_footer_plaintext", "VALUES (100, 1000, 1099, 104950)");
+        assertQuery("SELECT count(*), min(age), max(age), sum(age), sum(value) FROM enc_footer_plaintext", "VALUES (100, 0, 99, 4950, 104950)");
+        assertQueryFails("SELECT sum(id) FROM enc_footer_plaintext", "(?s).*User does not have access to column.*");
+
+        assertQuerySucceeds("DROP TABLE enc_footer_plaintext");
+    }
+
+    @Test
     public void testEncryptedDictionaryPruningTwoColumns()
             throws Exception
     {
@@ -236,6 +257,36 @@ public class TestHiveParquetEncryption
             SimpleGroupFactory factory = new SimpleGroupFactory(schema);
             for (int i = 0; i < 100; i++) {
                 writer.write(factory.newGroup().append("id", 100 - i).append("age", i));
+            }
+        }
+    }
+
+    /**
+     * Plaintext footer; age encrypted with a key known to the reader, id encrypted with a key unknown to the reader, value plaintext.
+     */
+    private static void writeFooterPlaintextThreeColumnFile(java.nio.file.Path path)
+            throws Exception
+    {
+        var schema = MessageTypeParser.parseMessageType("message doc { required int32 age; required int32 id; required int32 value; }");
+
+        ColumnEncryptionProperties idProperties = ColumnEncryptionProperties.builder(ID_PATH).withKey(COLUMN_KEY_ID).build();
+        ColumnEncryptionProperties ageProperties = ColumnEncryptionProperties.builder(AGE_PATH).withKey(COLUMN_KEY_AGE).build();
+
+        FileEncryptionProperties encodingProperties = FileEncryptionProperties.builder(FOOTER_KEY)
+                .withAlgorithm(ParquetCipher.AES_GCM_CTR_V1)
+                .withEncryptedColumns(Map.of(AGE_PATH, ageProperties, ID_PATH, idProperties))
+                .withPlaintextFooter()
+                .build();
+
+        try (ParquetWriter<Group> writer = ExampleParquetWriter.builder(new org.apache.hadoop.fs.Path(path.toString()))
+                .withType(schema)
+                .withConf(new Configuration())
+                .withEncryption(encodingProperties)
+                .withWriteMode(OVERWRITE)
+                .build()) {
+            SimpleGroupFactory factory = new SimpleGroupFactory(schema);
+            for (int i = 0; i < 100; i++) {
+                writer.write(factory.newGroup().append("id", 100 - i).append("age", i).append("value", 1000 + i));
             }
         }
     }

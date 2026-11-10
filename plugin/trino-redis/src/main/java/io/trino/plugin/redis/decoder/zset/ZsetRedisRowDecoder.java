@@ -13,14 +13,13 @@
  */
 package io.trino.plugin.redis.decoder.zset;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.plugin.redis.decoder.RedisRowDecoder;
 
 import java.util.Map;
 import java.util.Optional;
-
-import static java.util.Collections.emptyMap;
 
 /**
  * The row decoder for the 'zset' format. Zset's can contain redis keys for tables
@@ -39,6 +38,6 @@ public class ZsetRedisRowDecoder
     @Override
     public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data)
     {
-        return Optional.of(emptyMap());
+        return Optional.of(ImmutableMap.of());
     }
 }

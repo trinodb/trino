@@ -88,9 +88,6 @@ import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
-import static java.util.Collections.emptySet;
 
 public interface ConnectorAccessControl
 {
@@ -153,7 +150,7 @@ public interface ConnectorAccessControl
      */
     default Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
     {
-        return emptySet();
+        return Set.of();
     }
 
     /**
@@ -265,7 +262,7 @@ public interface ConnectorAccessControl
      */
     default Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
-        return emptySet();
+        return Set.of();
     }
 
     /**
@@ -287,7 +284,7 @@ public interface ConnectorAccessControl
      */
     default Map<SchemaTableName, Set<String>> filterColumns(ConnectorSecurityContext context, Map<SchemaTableName, Set<String>> tableColumns)
     {
-        return emptyMap();
+        return Map.of();
     }
 
     /**
@@ -715,7 +712,7 @@ public interface ConnectorAccessControl
      */
     default Set<SchemaFunctionName> filterFunctions(ConnectorSecurityContext context, Set<SchemaFunctionName> functionNames)
     {
-        return emptySet();
+        return Set.of();
     }
 
     /**
@@ -797,7 +794,7 @@ public interface ConnectorAccessControl
      */
     default List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        return emptyList();
+        return List.of();
     }
 
     /**
@@ -810,6 +807,6 @@ public interface ConnectorAccessControl
      */
     default Map<ColumnSchema, ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
     {
-        return emptyMap();
+        return Map.of();
     }
 }

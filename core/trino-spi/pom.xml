@@ -285,6 +285,18 @@
                                     <justification>Require a MemoryContext to replace polling through ConnectorPageSource.getMemoryUsage</justification>
                                 </item>
                                 <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.FixedPageSource::&lt;init&gt;(java.util.List&lt;io.trino.spi.Page&gt;)</old>
+                                    <new>method void io.trino.spi.connector.FixedPageSource::&lt;init&gt;(java.util.List&lt;io.trino.spi.Page&gt;, io.trino.spi.connector.MemoryContext)</new>
+                                    <justification>Require a MemoryContext to replace polling through ConnectorPageSource.getMemoryUsage</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.FixedPageSource::&lt;init&gt;(java.util.Iterator&lt;io.trino.spi.Page&gt;, long)</old>
+                                    <new>method void io.trino.spi.connector.FixedPageSource::&lt;init&gt;(java.util.Iterator&lt;io.trino.spi.Page&gt;, long, io.trino.spi.connector.MemoryContext)</new>
+                                    <justification>Require a MemoryContext to replace polling through ConnectorPageSource.getMemoryUsage</justification>
+                                </item>
+                                <item>
                                     <ignore>true</ignore>
                                     <code>java.method.removed</code>
                                     <old>method boolean io.trino.spi.connector.ConnectorMetadata::delegateMaterializedViewRefreshToConnector(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName)</old>

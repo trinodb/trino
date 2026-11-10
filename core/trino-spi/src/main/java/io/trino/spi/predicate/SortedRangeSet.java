@@ -16,12 +16,16 @@ package io.trino.spi.predicate;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
+import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -50,6 +54,7 @@ import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.NON_DISCRE
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.UNKNOWN;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
+import static io.trino.spi.type.TypeUtils.isDirectLongComparisonValidType;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
@@ -208,6 +213,13 @@ public final class SortedRangeSet
 
     private static SortedRangeSet fromUnorderedValuesBlock(Type type, Block block)
     {
+        if (isDirectLongComparisonValidType(type)) {
+            return fromUnorderedLongValuesBlock(type, block);
+        }
+        if (isSliceOrderedType(type)) {
+            return fromUnorderedSliceValuesBlock(type, block);
+        }
+
         // choice of placing unordered values first or last does not matter for this code
         MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
 
@@ -245,6 +257,87 @@ public final class SortedRangeSet
                 inclusive,
                 DictionaryBlock.create(dictionaryIndex, block, dictionary),
                 DISCRETE);
+    }
+
+    private static SortedRangeSet fromUnorderedLongValuesBlock(Type type, Block block)
+    {
+        long[] values = new long[block.getPositionCount()];
+        for (int position = 0; position < values.length; position++) {
+            values[position] = type.getLong(block, position);
+        }
+        Arrays.sort(values);
+
+        int distinctCount = values.length > 0 ? 1 : 0;
+        for (int i = 1; i < values.length; i++) {
+            if (values[i] != values[i - 1]) {
+                distinctCount++;
+            }
+        }
+
+        BlockBuilder builder = type.createBlockBuilder(null, distinctCount * 2);
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0 && values[i] == values[i - 1]) {
+                continue;
+            }
+            // each distinct value is both the low and the high bound of a single value range
+            type.writeLong(builder, values[i]);
+            type.writeLong(builder, values[i]);
+        }
+        Block ranges = builder.build();
+
+        boolean[] inclusive = new boolean[ranges.getPositionCount()];
+        Arrays.fill(inclusive, true);
+
+        return new SortedRangeSet(
+                type,
+                inclusive,
+                ranges,
+                DISCRETE);
+    }
+
+    private static SortedRangeSet fromSortedDistinctValues(Type type, Block distinctValues)
+    {
+        // each distinct value is both the low and the high bound of a single value range
+        int[] dictionary = new int[distinctValues.getPositionCount() * 2];
+        for (int i = 0; i < distinctValues.getPositionCount(); i++) {
+            dictionary[2 * i] = i;
+            dictionary[2 * i + 1] = i;
+        }
+        boolean[] inclusive = new boolean[dictionary.length];
+        Arrays.fill(inclusive, true);
+
+        return new SortedRangeSet(
+                type,
+                inclusive,
+                DictionaryBlock.create(dictionary.length, distinctValues, dictionary),
+                DISCRETE);
+    }
+
+    /**
+     * Types whose values order and compare equal exactly like their {@link Slice} values, unlike char.
+     */
+    private static boolean isSliceOrderedType(Type type)
+    {
+        return type instanceof VarcharType || type instanceof VarbinaryType || type instanceof UuidType;
+    }
+
+    private static SortedRangeSet fromUnorderedSliceValuesBlock(Type type, Block block)
+    {
+        Slice[] values = new Slice[block.getPositionCount()];
+        for (int position = 0; position < values.length; position++) {
+            values[position] = type.getSlice(block, position);
+        }
+        Arrays.sort(values);
+
+        BlockBuilder distinctValues = type.createBlockBuilder(null, values.length);
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0 && values[i].equals(values[i - 1])) {
+                continue;
+            }
+            type.writeSlice(distinctValues, values[i]);
+        }
+
+        return fromSortedDistinctValues(type, distinctValues.build());
     }
 
     /**

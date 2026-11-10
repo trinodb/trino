@@ -65,7 +65,6 @@ import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.TaskTestUtils.updateTask;
 import static io.trino.execution.TestSqlTask.OUT;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
-import static java.util.Collections.singletonList;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -244,7 +243,7 @@ public class TestMemoryRevokingScheduler
             throws Exception
     {
         // Make sure asynchronous callback got called (executor is single-threaded).
-        executor.invokeAll(singletonList((Callable<?>) () -> null));
+        executor.invokeAll(List.of((Callable<?>) () -> null));
     }
 
     private void assertMemoryRevokingRequestedFor(OperatorContext... operatorContexts)

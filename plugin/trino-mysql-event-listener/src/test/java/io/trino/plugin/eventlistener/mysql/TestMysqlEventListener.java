@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.eventlistener.mysql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodecFactory;
@@ -49,7 +50,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -124,23 +124,23 @@ final class TestMysqlEventListener
             128.0,
             129.0,
             // not stored
-            Collections.emptyList(),
+            ImmutableList.of(),
             130,
             true,
             // not stored
-            Collections.emptyList(),
+            ImmutableList.of(),
             // not stored
-            Collections.emptyList(),
+            ImmutableList.of(),
             // not stored
-            Collections.emptyList(),
+            ImmutableList.of(),
             // not stored
-            Collections.emptyList(),
+            ImmutableList.of(),
             // not stored
-            Collections.emptyList(),
+            ImmutableList.of(),
             // not stored
             List.of("{operator: \"operator1\"}", "{operator: \"operator2\"}"),
             // not stored
-            Collections.emptyList(),
+            ImmutableList.of(),
             // not stored
             ImmutableMap.of(),
             // not stored
@@ -296,21 +296,21 @@ final class TestMysqlEventListener
             128.0,
             129.0,
             // not stored
-            Collections.emptyList(),
+            ImmutableList.of(),
             130,
             false,
             // not stored
-            Collections.emptyList(),
+            ImmutableList.of(),
             // not stored
-            Collections.emptyList(),
+            ImmutableList.of(),
             // not stored
-            Collections.emptyList(),
+            ImmutableList.of(),
             // not stored
-            Collections.emptyList(),
+            ImmutableList.of(),
             // not stored
-            Collections.emptyList(),
-            Collections.emptyList(),
-            Collections.emptyList(),
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
             ImmutableMap.of(),
             ImmutableMap.of(),
             // not stored

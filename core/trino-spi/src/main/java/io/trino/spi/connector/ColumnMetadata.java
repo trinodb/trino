@@ -23,7 +23,6 @@ import java.util.Optional;
 
 import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
 import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -42,7 +41,7 @@ public class ColumnMetadata
 
     public ColumnMetadata(String name, Type type)
     {
-        this(name, type, Optional.empty(), Optional.empty(), true, Optional.empty(), Optional.empty(), false, emptyMap());
+        this(name, type, Optional.empty(), Optional.empty(), true, Optional.empty(), Optional.empty(), false, Map.of());
     }
 
     // VisibleForTesting
@@ -75,7 +74,7 @@ public class ColumnMetadata
         this.comment = comment;
         this.extraInfo = extraInfo;
         this.hidden = hidden;
-        this.properties = properties.isEmpty() ? emptyMap() : unmodifiableMap(new LinkedHashMap<>(properties));
+        this.properties = properties.isEmpty() ? Map.of() : unmodifiableMap(new LinkedHashMap<>(properties));
         this.nullable = nullable;
     }
 
@@ -200,7 +199,7 @@ public class ColumnMetadata
         private Optional<String> comment = Optional.empty();
         private Optional<String> extraInfo = Optional.empty();
         private boolean hidden;
-        private Map<String, Object> properties = emptyMap();
+        private Map<String, Object> properties = Map.of();
 
         private Builder() {}
 

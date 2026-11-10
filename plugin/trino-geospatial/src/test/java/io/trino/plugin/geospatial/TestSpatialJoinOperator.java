@@ -471,6 +471,59 @@ public class TestSpatialJoinOperator
     }
 
     @Test
+    public void testProbeBlockedUntilIndexIsBuilt()
+            throws Exception
+    {
+        TaskContext taskContext = createTaskContext();
+        PipelineContext pipelineContext = taskContext.addPipelineContext(0, true, true, false);
+        DriverContext buildDriverContext = pipelineContext.addDriverContext();
+
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(POLYGON_A, "A");
+        ValuesOperator.ValuesOperatorFactory valuesOperatorFactory = new ValuesOperator.ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.build());
+        SpatialIndexBuilderOperatorFactory buildOperatorFactory = new SpatialIndexBuilderOperatorFactory(
+                1,
+                new PlanNodeId("test"),
+                buildPages.getTypes(),
+                Ints.asList(1),
+                0,
+                OptionalInt.empty(),
+                OptionalDouble.empty(),
+                OptionalInt.empty(),
+                (build, probe, _) -> build.contains(probe),
+                Optional.empty(),
+                Optional.empty(),
+                10_000,
+                new TestingFactory(false));
+        Driver buildDriver = Driver.createDriver(
+                buildDriverContext,
+                valuesOperatorFactory.createOperator(buildDriverContext),
+                buildOperatorFactory.createOperator(buildDriverContext));
+
+        RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR));
+        OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), buildOperatorFactory.getPagesSpatialIndexFactory());
+        try (Operator probeOperator = joinOperatorFactory.createOperator(pipelineContext.addDriverContext());
+                Operator finishingProbeOperator = joinOperatorFactory.createOperator(pipelineContext.addDriverContext())) {
+            ListenableFuture<Void> probeBlocked = probeOperator.isBlocked();
+            assertThat(probeBlocked.isDone()).isFalse();
+            assertThat(probeOperator.needsInput()).isFalse();
+
+            finishingProbeOperator.finish();
+            assertThat(finishingProbeOperator.isBlocked().isDone()).isTrue();
+            assertThat(finishingProbeOperator.getOutput()).isNull();
+            assertThat(finishingProbeOperator.isFinished()).isTrue();
+
+            while (!probeOperator.isBlocked().isDone()) {
+                buildDriver.processUntilBlocked();
+            }
+            assertThat(probeBlocked.isDone()).isTrue();
+            assertThat(probeOperator.needsInput()).isTrue();
+        }
+        joinOperatorFactory.noMoreOperators();
+        runDriverInThread(executor, buildDriver);
+    }
+
+    @Test
     public void testDistanceQuery()
     {
         TaskContext taskContext = createTaskContext();

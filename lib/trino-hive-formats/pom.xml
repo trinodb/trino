@@ -298,6 +298,16 @@
         </pluginManagement>
         <plugins>
             <plugin>
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-plugin</artifactId>
+                <configuration>
+                    <ignoreClassNamePatterns>
+                        <!-- generated protobuf code -->
+                        <ignoreClassNamePattern>io/trino/hive/formats/line/protobuf/examples/DataRecordProtos.*</ignoreClassNamePattern>
+                    </ignoreClassNamePatterns>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>com.github.os72</groupId>
                 <artifactId>protoc-jar-maven-plugin</artifactId>
                 <executions>

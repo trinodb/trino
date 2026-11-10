@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.hdfs;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import io.trino.filesystem.Location;
@@ -60,7 +61,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.base.authentication.KerberosTicketUtils.getRefreshTime;
 import static io.trino.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.emptySet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Isolated
@@ -137,7 +137,7 @@ public class TestHdfsFileSystemKerberos
                 .setResourceConfigFiles(List.of(hdfsSite.toString()))
                 .setDfsReplication(1);
         HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(hdfsConfig);
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, emptySet());
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
 
         KerberosConfiguration kerberosConfiguration = new KerberosConfiguration.Builder()
                 .withKerberosPrincipal(PRINCIPAL)

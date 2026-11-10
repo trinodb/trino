@@ -44,15 +44,6 @@ public final class MaterializedViewFreshness
         return lastKnownFreshTime;
     }
 
-    /**
-     * @deprecated Use {@link #getLastKnownFreshTime()} instead.
-     */
-    @Deprecated
-    public Optional<Instant> getLastFreshTime()
-    {
-        return getLastKnownFreshTime();
-    }
-
     @Override
     public boolean equals(Object obj)
     {

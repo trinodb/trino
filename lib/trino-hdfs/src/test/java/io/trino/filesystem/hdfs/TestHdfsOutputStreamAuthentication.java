@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.hdfs;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
@@ -28,7 +29,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static java.util.Collections.emptySet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHdfsOutputStreamAuthentication
@@ -39,7 +39,7 @@ public class TestHdfsOutputStreamAuthentication
     {
         CountingHdfsAuthentication authentication = new CountingHdfsAuthentication();
         HdfsEnvironment environment = new HdfsEnvironment(
-                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), emptySet()),
+                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of()),
                 new HdfsConfig(),
                 authentication);
 

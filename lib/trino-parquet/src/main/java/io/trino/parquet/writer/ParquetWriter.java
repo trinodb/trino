@@ -106,6 +106,7 @@ public class ParquetWriter
     private final int chunkMaxBytes;
     private final Map<List<String>, Type> primitiveTypes;
     private final CompressionCodec compressionCodec;
+    private final CompressionBuffers compressionBuffers = new CompressionBuffers();
     private final Optional<DateTimeZone> parquetTimeZone;
     private final FileFooter fileFooter;
     private final ImmutableList.Builder<List<Optional<BloomFilter>>> bloomFilterGroups = ImmutableList.builder();
@@ -159,6 +160,7 @@ public class ParquetWriter
     {
         return INSTANCE_SIZE +
                 outputStream.getRetainedSize() +
+                compressionBuffers.getRetainedSize() +
                 columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum() +
                 validationBuilder.map(ParquetWriteValidationBuilder::getRetainedSize).orElse(0L);
     }
@@ -222,6 +224,7 @@ public class ParquetWriter
             columnWriters.forEach(ColumnWriter::close);
             flush();
             columnWriters = ImmutableList.of();
+            compressionBuffers.clear();
             fileMetaData = fileFooter.createFileMetadata();
             writeBloomFilters(fileMetaData.getRow_groups(), bloomFilterGroups.build());
             writeFooter();
@@ -463,6 +466,7 @@ public class ParquetWriter
                 messageType,
                 primitiveTypes,
                 compressionCodec,
+                compressionBuffers,
                 writerOption,
                 parquetTimeZone);
     }

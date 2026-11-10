@@ -39,10 +39,10 @@ import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class TestFloatingPointValueSet
+public class TestFloatingPointValueSet
 {
     @Test
-    void testMixedFactoryOperations()
+    public void testMixedFactoryOperations()
     {
         for (Type type : List.of(DOUBLE, REAL, NUMBER)) {
             IntFunction<Object> value = finiteValue(type);
@@ -67,7 +67,7 @@ class TestFloatingPointValueSet
     }
 
     @Test
-    void testMixedRepresentationMembership()
+    public void testMixedRepresentationMembership()
     {
         for (Type type : List.of(DOUBLE, REAL, NUMBER)) {
             IntFunction<Object> value = finiteValue(type);
@@ -133,7 +133,7 @@ class TestFloatingPointValueSet
     }
 
     @Test
-    void testDistributivityAcrossRepresentations()
+    public void testDistributivityAcrossRepresentations()
     {
         for (Type type : List.of(DOUBLE, REAL, NUMBER)) {
             IntFunction<Object> value = finiteValue(type);
@@ -149,7 +149,7 @@ class TestFloatingPointValueSet
     }
 
     @Test
-    void testSetAlgebra()
+    public void testSetAlgebra()
     {
         for (Type type : List.of(DOUBLE, REAL, NUMBER)) {
             Object zero = type.equals(DOUBLE) ? 0.0 : type.equals(REAL) ? (long) floatToRawIntBits(0.0f) : TrinoNumber.from(BigDecimal.ZERO);
@@ -184,7 +184,7 @@ class TestFloatingPointValueSet
     }
 
     @Test
-    void testNaNSingletonAndRanges()
+    public void testNaNSingletonAndRanges()
     {
         ValueSet nan = ValueSet.of(DOUBLE, Double.NaN);
         assertThat(nan.isSingleValue()).isTrue();
@@ -203,7 +203,7 @@ class TestFloatingPointValueSet
     }
 
     @Test
-    void testInfinityRanges()
+    public void testInfinityRanges()
     {
         for (Type type : List.of(REAL, DOUBLE, NUMBER)) {
             Range universe = FloatingPointValueSet.allOrderedValues(type).getSpan();
@@ -221,7 +221,7 @@ class TestFloatingPointValueSet
     }
 
     @Test
-    void testConnectorRangeViews()
+    public void testConnectorRangeViews()
     {
         ValueSet bigint = ValueSet.ofRanges(Range.greaterThan(BIGINT, 5L));
         assertThat(FloatingPointValueSet.orderedRanges(bigint)).containsExactly(Range.greaterThan(BIGINT, 5L));
@@ -250,7 +250,7 @@ class TestFloatingPointValueSet
     }
 
     @Test
-    void testSimplificationPreservesNaN()
+    public void testSimplificationPreservesNaN()
     {
         Domain withNaN = Domain.multipleValues(DOUBLE, List.of(1.0, 3.0, Double.NaN));
         Domain withoutNaN = Domain.multipleValues(DOUBLE, List.of(1.0, 3.0));
@@ -261,7 +261,7 @@ class TestFloatingPointValueSet
     }
 
     @Test
-    void testSerialization()
+    public void testSerialization()
             throws Exception
     {
         JsonMapper mapper = new JsonMapperProvider()

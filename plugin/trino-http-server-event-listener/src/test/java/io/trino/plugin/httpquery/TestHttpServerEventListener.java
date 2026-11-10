@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.httpquery;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -36,7 +37,6 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -67,7 +67,7 @@ final class TestHttpServerEventListener
     private static final String queryCompleteEventJson2;
 
     static {
-        QueryIOMetadata queryIOMetadata = new QueryIOMetadata(Collections.emptyList(), Optional.empty());
+        QueryIOMetadata queryIOMetadata = new QueryIOMetadata(ImmutableList.of(), Optional.empty());
 
         QueryContext queryContext = new QueryContext(
                 "user",
@@ -160,16 +160,16 @@ final class TestHttpServerEventListener
                 0L,
                 0L,
                 0.0f,
-                Collections.emptyList(),
+                ImmutableList.of(),
                 0,
                 true,
-                Collections.emptyList(),
+                ImmutableList.of(),
                 List.of(new StageOutputBufferUtilization(0, 10, 0.1, 0.5, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.0, 1.0, ofSeconds(1234))),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 Optional.empty());
@@ -181,7 +181,7 @@ final class TestHttpServerEventListener
                 queryIOMetadata,
                 Optional.empty(),
                 Optional.empty(),
-                Collections.emptyList(),
+                ImmutableList.of(),
                 Instant.now(),
                 Instant.now(),
                 Instant.now());
@@ -193,7 +193,7 @@ final class TestHttpServerEventListener
                 queryIOMetadata,
                 Optional.empty(),
                 Optional.empty(),
-                Collections.emptyList(),
+                ImmutableList.of(),
                 Instant.now(),
                 Instant.now(),
                 Instant.now());

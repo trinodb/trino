@@ -394,8 +394,7 @@ public class PinotMetadata
         // Pinot treats each element of array as a grouping key
         // See https://github.com/apache/pinot/issues/8353 for more details.
         if (getOnlyElement(groupingSets).stream()
-                .filter(columnHandle -> ((PinotColumnHandle) columnHandle).getDataType() instanceof ArrayType)
-                .findFirst().isPresent()) {
+                .anyMatch(columnHandle -> ((PinotColumnHandle) columnHandle).getDataType() instanceof ArrayType)) {
             return Optional.empty();
         }
         // If aggregates are present than no further aggregations

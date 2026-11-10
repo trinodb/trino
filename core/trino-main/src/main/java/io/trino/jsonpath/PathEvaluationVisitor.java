@@ -53,7 +53,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.Chars;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
@@ -645,18 +644,6 @@ class PathEvaluationVisitor
             return new TypedValue(createTimeType(precision), parseTime(value));
         }
         return new TypedValue(DATE, parseDate(slice));
-    }
-
-    private static String getText(TypedValue typedValue)
-    {
-        Type type = typedValue.type();
-        if (type instanceof CharType charType) {
-            return Chars.padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8();
-        }
-        if (type instanceof VarcharType) {
-            return ((Slice) typedValue.getObjectValue()).toStringUtf8();
-        }
-        throw itemTypeError("TEXT", type.getDisplayName());
     }
 
     @Override

@@ -124,7 +124,7 @@ Spilled: 20GB
                             client.cancelLeafStage();
                         }
                         else if (key == CTRL_C) {
-                            updateScreen(warningsPrinter);
+                            updateScreen(terminal, warningsPrinter);
                             update = false;
                             client.close();
                         }
@@ -137,7 +137,7 @@ Spilled: 20GB
 
                     // update screen
                     if (update) {
-                        updateScreen(warningsPrinter);
+                        updateScreen(terminal, warningsPrinter);
                         lastPrint = System.nanoTime();
                     }
 
@@ -160,7 +160,22 @@ Spilled: 20GB
         }
     }
 
-    private void updateScreen(WarningsPrinter warningsPrinter)
+    private void updateScreen(Terminal terminal, WarningsPrinter warningsPrinter)
+    {
+        // The redraw goes to out and the sequences to the terminal writer, so flush both in order.
+        terminal.beginSynchronizedUpdate();
+        terminal.flush();
+        try {
+            redrawScreen(warningsPrinter);
+        }
+        finally {
+            out.flush();
+            terminal.endSynchronizedUpdate();
+            terminal.flush();
+        }
+    }
+
+    private void redrawScreen(WarningsPrinter warningsPrinter)
     {
         console.repositionCursor();
         printQueryInfo(client.currentStatusInfo(), warningsPrinter);

@@ -78,6 +78,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.memory.context.CoarseGrainLocalMemoryContext.DEFAULT_GRANULARITY;
 import static io.trino.operator.AggregationMetrics.INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME;
 import static io.trino.operator.GroupByHashYieldAssertion.createPages;
 import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
@@ -184,7 +185,8 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 hashStrategyCompiler,
-                Optional.empty());
+                Optional.empty(),
+                DEFAULT_GRANULARITY);
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
 
@@ -251,7 +253,8 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 hashStrategyCompiler,
-                Optional.empty());
+                Optional.empty(),
+                DEFAULT_GRANULARITY);
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
         MaterializedResult expected = resultBuilder(VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
@@ -311,7 +314,8 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 hashStrategyCompiler,
-                Optional.empty());
+                Optional.empty(),
+                DEFAULT_GRANULARITY);
 
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
             toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
@@ -377,7 +381,8 @@ public class TestHashAggregationOperator
                 succinctBytes(0),
                 new DummySpillerFactory(),
                 hashStrategyCompiler,
-                Optional.empty());
+                Optional.empty(),
+                DEFAULT_GRANULARITY);
 
         // while the buffered rows are replayed into the distinct hash, the buffered values,
         // the pages index addresses and the hash entries must all be reserved at the same time
@@ -449,7 +454,8 @@ public class TestHashAggregationOperator
                 succinctBytes(0),
                 spillerFactory,
                 hashStrategyCompiler,
-                Optional.empty());
+                Optional.empty(),
+                DEFAULT_GRANULARITY);
 
         DriverContext driverContext = createDriverContext();
         List<Page> pages = toPages(operatorFactory, driverContext, input, true);
@@ -546,7 +552,8 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 hashStrategyCompiler,
-                Optional.empty());
+                Optional.empty(),
+                DEFAULT_GRANULARITY);
 
         toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
     }
@@ -570,12 +577,20 @@ public class TestHashAggregationOperator
                 ImmutableList.of(0),
                 ImmutableList.of(),
                 SINGLE,
+                false,
                 ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())),
                 OptionalInt.of(1),
                 1,
                 Optional.of(DataSize.of(16, MEGABYTE)),
+                false,
+                DataSize.of(0, MEGABYTE),
+                DataSize.of(0, MEGABYTE),
+                (_, _, _) -> {
+                    throw new UnsupportedOperationException();
+                },
                 hashStrategyCompiler,
-                Optional.empty());
+                Optional.empty(),
+                1);
 
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
         GroupByHashYieldResult result;
@@ -774,7 +789,8 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
                 hashStrategyCompiler,
-                Optional.empty());
+                Optional.empty(),
+                DEFAULT_GRANULARITY);
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
 
@@ -820,7 +836,8 @@ public class TestHashAggregationOperator
                 /* memoryLimitForMergeWithMemory */ succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
                 hashStrategyCompiler,
-                Optional.empty());
+                Optional.empty(),
+                DEFAULT_GRANULARITY);
 
         DriverContext context = createDriverContext(8);
 
@@ -888,7 +905,8 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 new FailingSpillerFactory(),
                 hashStrategyCompiler,
-                Optional.empty());
+                Optional.empty(),
+                DEFAULT_GRANULARITY);
 
         assertThatThrownBy(() -> toPages(operatorFactory, driverContext, input))
                 .isInstanceOf(RuntimeException.class)
@@ -1105,7 +1123,8 @@ public class TestHashAggregationOperator
                         succinctBytes(memoryLimitForMergeWithMemory),
                         spillerFactory,
                         hashStrategyCompiler,
-                        Optional.empty());
+                        Optional.empty(),
+                        DEFAULT_GRANULARITY);
 
         DriverContext context = createDriverContext(memoryLimitForMerge);
 
@@ -1170,7 +1189,8 @@ public class TestHashAggregationOperator
                 DataSize.ofBytes(memoryLimitForMergeWithMemory),
                 slowSpillerFactory,
                 hashStrategyCompiler,
-                Optional.empty());
+                Optional.empty(),
+                DEFAULT_GRANULARITY);
 
         DriverContext context = createDriverContext(memoryLimitForMerge);
 

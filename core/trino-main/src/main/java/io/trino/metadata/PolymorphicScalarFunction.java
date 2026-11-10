@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 class PolymorphicScalarFunction
@@ -154,7 +153,7 @@ class PolymorphicScalarFunction
 
     private static List<Object> computeExtraParameters(MethodsGroup methodsGroup, SpecializeContext context)
     {
-        return methodsGroup.getExtraParametersFunction().map(function -> function.apply(context)).orElse(emptyList());
+        return methodsGroup.getExtraParametersFunction().map(function -> function.apply(context)).orElse(ImmutableList.of());
     }
 
     private MethodHandle applyExtraParameters(Method matchingMethod, List<Object> extraParameters, List<InvocationArgumentConvention> argumentConventions)

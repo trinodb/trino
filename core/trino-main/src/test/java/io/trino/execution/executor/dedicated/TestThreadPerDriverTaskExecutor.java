@@ -990,6 +990,7 @@ public class TestThreadPerDriverTaskExecutor
                     new AdmissionSplit(BlockedReason.OUTPUT, true),
                     new AdmissionSplit(BlockedReason.OUTPUT, true));
             executor.enqueueSplits(firstTask, true, busySplits);
+            assertEventually(new Duration(10, SECONDS), () -> assertThat(busySplits).allMatch(AdmissionSplit::isStarted));
             List<AdmissionSplit> firstTaskSplits = ImmutableList.of(
                     new AdmissionSplit(BlockedReason.SOURCE, true),
                     new AdmissionSplit(BlockedReason.SOURCE, true),

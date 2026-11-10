@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.trino.memory.context.CoarseGrainLocalMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.AggregationMetrics;
 import io.trino.operator.FlatHashStrategyCompiler;
@@ -91,7 +92,8 @@ public class SpillableHashAggregationBuilder
             DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory,
             FlatHashStrategyCompiler hashStrategyCompiler,
-            AggregationMetrics aggregationMetrics)
+            AggregationMetrics aggregationMetrics,
+            long memorySyncThreshold)
     {
         this.aggregatorFactories = aggregatorFactories;
         this.step = step;
@@ -99,8 +101,8 @@ public class SpillableHashAggregationBuilder
         this.groupByTypes = groupByTypes;
         this.groupByChannels = groupByChannels;
         this.operatorContext = operatorContext;
-        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
-        this.localRevocableMemoryContext = operatorContext.localRevocableMemoryContext();
+        this.localUserMemoryContext = new CoarseGrainLocalMemoryContext(operatorContext.localUserMemoryContext(), memorySyncThreshold);
+        this.localRevocableMemoryContext = new CoarseGrainLocalMemoryContext(operatorContext.localRevocableMemoryContext(), memorySyncThreshold);
         this.memoryLimitForMerge = memoryLimitForMerge.toBytes();
         this.memoryLimitForMergeWithMemory = memoryLimitForMergeWithMemory.toBytes();
         this.spillerFactory = spillerFactory;

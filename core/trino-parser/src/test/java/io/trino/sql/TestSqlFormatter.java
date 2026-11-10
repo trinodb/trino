@@ -78,7 +78,6 @@ import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
-import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlFormatter
@@ -591,7 +590,7 @@ public class TestSqlFormatter
                                 QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
-                                emptyList(),
+                                ImmutableList.of(),
                                 Optional.empty()),
                         Optional.empty(),
                         false,
@@ -605,7 +604,7 @@ public class TestSqlFormatter
                                 QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
-                                emptyList(),
+                                ImmutableList.of(),
                                 Optional.of("攻殻機動隊")),
                         Optional.empty(),
                         false,
@@ -619,7 +618,7 @@ public class TestSqlFormatter
                                 QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
-                                emptyList(),
+                                ImmutableList.of(),
                                 Optional.empty()),
                         Optional.of(new ColumnPosition.First()),
                         false,
@@ -633,7 +632,7 @@ public class TestSqlFormatter
                                 QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
-                                emptyList(),
+                                ImmutableList.of(),
                                 Optional.empty()),
                         Optional.of(new ColumnPosition.Last()),
                         false,
@@ -647,7 +646,7 @@ public class TestSqlFormatter
                                 QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
-                                emptyList(),
+                                ImmutableList.of(),
                                 Optional.empty()),
                         Optional.of(new ColumnPosition.After(identifier("b"))),
                         false,

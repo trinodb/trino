@@ -448,7 +448,6 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -1645,7 +1644,7 @@ class StatementAnalyzer
             Scope withScope = analyzeWith(node, scope);
             Scope queryBodyScope = process(node.getQueryBody(), withScope);
 
-            List<Expression> orderByExpressions = emptyList();
+            List<Expression> orderByExpressions = ImmutableList.of();
             if (node.getOrderBy().isPresent()) {
                 orderByExpressions = analyzeOrderBy(node, getSortItemsFromOrderBy(node.getOrderBy()), queryBodyScope);
 
@@ -2272,7 +2271,7 @@ class StatementAnalyzer
 
                 // resolve copartition tables as references to table arguments
                 for (QualifiedName name : nameList) {
-                    Collection<TableArgumentAnalysis> candidates = emptyList();
+                    Collection<TableArgumentAnalysis> candidates = ImmutableList.of();
                     if (name.getParts().size() == 1) {
                         // try to match unqualified name. it might be a reference to a CTE or an aliased relation
                         candidates = unqualifiedInputs.get(name);
@@ -2400,13 +2399,21 @@ class StatementAnalyzer
             if (optionalMaterializedView.isPresent()) {
                 MaterializedViewDefinition materializedViewDefinition = optionalMaterializedView.get();
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name, getBranchName(table));
-                if (isMaterializedViewSufficientlyFresh(session, name, materializedViewDefinition)) {
+                boolean versioned = table.getQueryPeriod().isPresent();
+                // Versioned reads always use the storage table, as freshness relates only to its current snapshot
+                if (versioned || isMaterializedViewSufficientlyFresh(session, name, materializedViewDefinition)) {
                     // If materialized view is sufficiently fresh with respect to its grace period, answer the query using the storage table
                     QualifiedName storageName = getMaterializedViewStorageTableName(materializedViewDefinition)
-                            .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' is fresh but does not have storage table name", name));
+                            .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' does not have storage table name", name));
                     QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName);
                     checkStorageTableNotRedirected(storageTableName);
-                    TableHandle tableHandle = metadata.getTableHandle(session, storageTableName)
+                    Optional<TableVersion> startVersion = Optional.empty();
+                    Optional<TableVersion> endVersion = Optional.empty();
+                    if (versioned) {
+                        startVersion = extractTableVersion(table, table.getQueryPeriod().get().getStart(), scope);
+                        endVersion = extractTableVersion(table, table.getQueryPeriod().get().getEnd(), scope);
+                    }
+                    TableHandle tableHandle = metadata.getTableHandle(session, storageTableName, startVersion, endVersion)
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName));
                     return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.of(tableHandle));
                 }
@@ -3556,7 +3563,7 @@ class StatementAnalyzer
 
             Scope outputScope = computeAndAssignOutputScope(node, scope, sourceScope);
 
-            List<Expression> orderByExpressions = emptyList();
+            List<Expression> orderByExpressions = ImmutableList.of();
             Optional<Scope> orderByScope = Optional.empty();
             if (node.getOrderBy().isPresent()) {
                 OrderBy orderBy = node.getOrderBy().get();
@@ -6556,7 +6563,7 @@ class StatementAnalyzer
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope)
         {
-            return createAndAssignScope(node, parentScope, emptyList());
+            return createAndAssignScope(node, parentScope, ImmutableList.of());
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, Field... fields)

@@ -2135,6 +2135,12 @@ public class TestDeltaLakeBasic
         assertQueryFails(
                 "MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1",
                 "\\QUnsupported writer features: [identityColumns]");
+        assertQueryFails(
+                "CREATE OR REPLACE TABLE " + tableName + " (a int, b int)",
+                "\\QUnsupported writer features: [identityColumns]");
+        assertQueryFails(
+                "CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 a, 2 b",
+                "\\QUnsupported writer features: [identityColumns]");
     }
 
     /**
@@ -2951,6 +2957,9 @@ public class TestDeltaLakeBasic
         assertQuery("SELECT * FROM liquid_clustering FOR VERSION AS OF 3", "VALUES ('test 1', 2024, 1), ('test 2', 2024, 2)");
 
         assertQueryFails("INSERT INTO liquid_clustering VALUES ('test 3', 2024, 3)", "Unsupported writer features: .*");
+        assertQueryFails("CREATE OR REPLACE TABLE liquid_clustering (data varchar, year int, month int)", "Unsupported writer features: .*");
+        assertQueryFails("CREATE OR REPLACE TABLE liquid_clustering AS SELECT 'test 3' data, 2024 year, 3 month", "Unsupported writer features: .*");
+        assertQuery("SELECT * FROM liquid_clustering", "VALUES ('test 1', 2024, 1), ('test 2', 2024, 2)");
     }
 
     /**
@@ -3009,6 +3018,9 @@ public class TestDeltaLakeBasic
     {
         assertQuery("SELECT * FROM uniform_iceberg_v2", "VALUES (1, 'test data')");
         assertQueryFails("INSERT INTO uniform_iceberg_v2 VALUES (2, 'new data')", "\\QUnsupported universal formats: [iceberg]");
+        assertQueryFails("CREATE OR REPLACE TABLE uniform_iceberg_v2 (a int, b varchar)", "\\QUnsupported universal formats: [iceberg]");
+        assertQueryFails("CREATE OR REPLACE TABLE uniform_iceberg_v2 AS SELECT 2 a, 'new data' b", "\\QUnsupported universal formats: [iceberg]");
+        assertQuery("SELECT * FROM uniform_iceberg_v2", "VALUES (1, 'test data')");
         assertQueryFails("DROP TABLE uniform_iceberg_v2", "\\QUnsupported universal formats: [iceberg]");
     }
 
@@ -3994,6 +4006,9 @@ public class TestDeltaLakeBasic
         assertQueryFails("SELECT col FROM " + tableName, "(.*)Column 'col' cannot be resolved");
     }
 
+    /**
+     * @see deltalake.no_columns
+     */
     @Test
     public void testTableWithoutColumns()
             throws Exception
@@ -4008,29 +4023,15 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_table_without_columns_" + randomNameSuffix();
-        Path transactionLogDirectory = catalogDir.resolve(tableName).resolve("_delta_log");
-        Files.createDirectories(transactionLogDirectory);
-        String metadata =
-                """
-                {"id":"3b653ec1-f12b-40c9-9e27-f05fa9941db3","format":{"provider":"parquet","options":{}},"schemaString":"{\\"type\\":\\"struct\\",\\"fields\\":[]}","partitionColumns":[],"configuration":{},"createdTime":1716683235880}""";
-        String protocol =
-                """
-                {"minReaderVersion":1,"minWriterVersion":2}""";
-        Files.writeString(
-                transactionLogDirectory.resolve("00000000000000000000.json"),
-                """
-                {"commitInfo":{"timestamp":1716683236025,"operation":"CREATE TABLE"}}
-                {"metaData":%s}
-                {"protocol":%s}
-                """.formatted(metadata, protocol));
-        if (withChecksum) {
-            Files.writeString(
-                    transactionLogDirectory.resolve("00000000000000000000.crc"),
-                    """
-                    {"metadata":%s,"protocol":%s}
-                    """.formatted(metadata, protocol));
+        assertUpdate("CREATE TABLE " + tableName + " (a integer)");
+        Path tableLocation = Path.of(URI.create(getTableLocation(tableName)));
+        // Replace the transaction log with one whose schema has no fields, as register_table rejects such a table
+        deleteRecursively(tableLocation.resolve("_delta_log"), ALLOW_INSECURE);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/no_columns").toURI()).toPath(), tableLocation);
+        if (!withChecksum) {
+            Files.delete(tableLocation.resolve("_delta_log/00000000000000000000.crc"));
         }
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, transactionLogDirectory.getParent().toUri()));
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '%s')".formatted(tableName));
 
         String expectedMessage = "Delta table tpch.%s has no columns".formatted(tableName);
         assertThat(query("SHOW COLUMNS FROM " + tableName)).failure()
@@ -4051,6 +4052,24 @@ public class TestDeltaLakeBasic
         assertQueryReturnsEmptyResult("SELECT column_name FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '" + tableName + "'");
 
         assertUpdate("DROP TABLE " + tableName);
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+    }
+
+    /**
+     * @see deltalake.no_columns
+     */
+    @Test
+    public void testRegisterTableWithoutColumns()
+            throws Exception
+    {
+        String tableName = "test_register_table_without_columns_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/no_columns").toURI()).toPath(), tableLocation);
+
+        assertThat(query("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri())))
+                .failure()
+                .hasErrorCode(DELTA_LAKE_INVALID_SCHEMA)
+                .hasMessage("Cannot register table tpch.%s: the schema at %s has no columns".formatted(tableName, tableLocation.toUri()));
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 

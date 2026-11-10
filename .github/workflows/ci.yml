@@ -193,6 +193,11 @@ jobs:
           cleanup-node: false
       - name: Install Maven Daemon
         run: .github/bin/retry brew install mvndaemon/mvnd/mvnd
+      - name: Install Bun
+        # This job does not restore the Bun cache, so Bun is downloaded on every run, and
+        # frontend-maven-plugin does not retry failed downloads. The build then finds it installed.
+        run: |
+          .github/bin/retry mvnd ${MAVEN_ARGS} -B -pl :trino-web-ui frontend:install-bun@"install bun"
       - name: Build with Maven Daemon
         # Start from an empty local repository, as artifacts already present there bypass repository filtering.
         # trino-docs is excluded because its build runs Sphinx in Docker, which macOS runners do not provide.

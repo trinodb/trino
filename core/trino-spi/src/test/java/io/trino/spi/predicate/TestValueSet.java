@@ -29,7 +29,7 @@ import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class TestValueSet
+public class TestValueSet
 {
     @Test
     public void testRejectNullOnCreate()
