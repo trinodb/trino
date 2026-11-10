@@ -4482,10 +4482,10 @@ class StatementAnalyzer
 
         private static Node getJoinErrorLocation(Join join, JoinCriteria criteria)
         {
-            if (criteria instanceof JoinOn joinOn) {
-                return joinOn.getExpression();
-            }
-            return join;
+            return switch (criteria) {
+                case JoinOn joinOn -> joinOn.getExpression();
+                case JoinUsing _, NaturalJoin _ -> join;
+            };
         }
 
         private void verifyNoCorrelatedSubqueries(Expression expression, Scope leftScope, Scope sourceScope, String description)
@@ -4855,7 +4855,7 @@ class StatementAnalyzer
                     throw semanticException(DUPLICATE_WINDOW_NAME, windowDefinition, "WINDOW name '%s' specified more than once", windowDefinition.getName());
                 }
 
-                ResolvedWindow resolvedWindow = resolveWindowSpecification(node, windowDefinition.getWindow());
+                ResolvedWindow resolvedWindow = resolveWindow(node, windowDefinition.getWindow());
 
                 // Analyze window after it is resolved, because resolving might provide necessary information, e.g. ORDER BY necessary for frame analysis.
                 // Analyze only newly introduced window properties. Properties of the referenced window have been already analyzed.
@@ -4865,26 +4865,33 @@ class StatementAnalyzer
             }
         }
 
-        private ResolvedWindow resolveWindowSpecification(QuerySpecification querySpecification, Window window)
+        private ResolvedWindow resolveWindow(QuerySpecification querySpecification, Window window)
         {
-            if (window instanceof WindowReference windowReference) {
-                CanonicalizationAware<Identifier> canonicalName = canonicalizationAwareKey(windowReference.getName());
-                ResolvedWindow referencedWindow = analysis.getWindowDefinition(querySpecification, canonicalName);
-                if (referencedWindow == null) {
-                    throw semanticException(INVALID_WINDOW_REFERENCE, windowReference.getName(), "Cannot resolve WINDOW name %s", windowReference.getName());
-                }
+            return switch (window) {
+                case WindowReference windowReference -> resolveWindowReference(querySpecification, windowReference);
+                case WindowSpecification windowSpecification -> resolveWindowSpecification(querySpecification, windowSpecification);
+            };
+        }
 
-                return new ResolvedWindow(
-                        referencedWindow.getPartitionBy(),
-                        referencedWindow.getOrderBy(),
-                        referencedWindow.getFrame(),
-                        !referencedWindow.getPartitionBy().isEmpty(),
-                        referencedWindow.getOrderBy().isPresent(),
-                        referencedWindow.getFrame().isPresent());
+        private ResolvedWindow resolveWindowReference(QuerySpecification querySpecification, WindowReference windowReference)
+        {
+            CanonicalizationAware<Identifier> canonicalName = canonicalizationAwareKey(windowReference.getName());
+            ResolvedWindow referencedWindow = analysis.getWindowDefinition(querySpecification, canonicalName);
+            if (referencedWindow == null) {
+                throw semanticException(INVALID_WINDOW_REFERENCE, windowReference.getName(), "Cannot resolve WINDOW name %s", windowReference.getName());
             }
 
-            WindowSpecification windowSpecification = (WindowSpecification) window;
+            return new ResolvedWindow(
+                    referencedWindow.getPartitionBy(),
+                    referencedWindow.getOrderBy(),
+                    referencedWindow.getFrame(),
+                    !referencedWindow.getPartitionBy().isEmpty(),
+                    referencedWindow.getOrderBy().isPresent(),
+                    referencedWindow.getFrame().isPresent());
+        }
 
+        private ResolvedWindow resolveWindowSpecification(QuerySpecification querySpecification, WindowSpecification windowSpecification)
+        {
             if (windowSpecification.getExistingWindowName().isPresent()) {
                 Identifier referencedName = windowSpecification.getExistingWindowName().get();
                 CanonicalizationAware<Identifier> canonicalName = canonicalizationAwareKey(referencedName);
@@ -4966,12 +4973,12 @@ class StatementAnalyzer
             }
 
             for (FunctionCall windowFunction : extractWindowFunctions(expressions.build())) {
-                ResolvedWindow resolvedWindow = resolveWindowSpecification(querySpecification, windowFunction.getWindow().orElseThrow());
+                ResolvedWindow resolvedWindow = resolveWindow(querySpecification, windowFunction.getWindow().orElseThrow());
                 analysis.setWindow(windowFunction, resolvedWindow);
             }
 
             for (WindowOperation measure : extractWindowMeasures(expressions.build())) {
-                ResolvedWindow resolvedWindow = resolveWindowSpecification(querySpecification, measure.getWindow());
+                ResolvedWindow resolvedWindow = resolveWindow(querySpecification, measure.getWindow());
                 analysis.setWindow(measure, resolvedWindow);
             }
         }
