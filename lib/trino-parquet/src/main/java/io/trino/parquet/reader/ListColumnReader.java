@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.parquet.Field;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
@@ -34,6 +35,16 @@ public final class ListColumnReader
      * 4) Collection is defined and not empty. In this case offset value is increased by the number of elements in that collection
      */
     public static BlockPositions calculateCollectionOffsets(Field field, int[] definitionLevels, int[] repetitionLevels)
+    {
+        BlockPositions fixedSizePositions = calculateFixedSizeCollectionOffsets(field.getDefinitionLevel(), field.getRepetitionLevel() + 1, definitionLevels, repetitionLevels);
+        if (fixedSizePositions != null) {
+            return fixedSizePositions;
+        }
+        return calculateAnyCollectionOffsets(field, definitionLevels, repetitionLevels);
+    }
+
+    @VisibleForTesting
+    static BlockPositions calculateAnyCollectionOffsets(Field field, int[] definitionLevels, int[] repetitionLevels)
     {
         int maxDefinitionLevel = field.getDefinitionLevel();
         int maxElementRepetitionLevel = field.getRepetitionLevel() + 1;
@@ -80,6 +91,47 @@ public final class ListColumnReader
             return new BlockPositions(Optional.empty(), offsets.toIntArray());
         }
         return new BlockPositions(Optional.of(collectionIsValid), offsets.toIntArray());
+    }
+
+    /**
+     * Fast path for batches in which every collection is non-null, non-empty and has the same size,
+     * as in vector or embedding columns. The offsets are then a multiple of the collection size.
+     * The collection size is taken from the first collection and verified for every other one,
+     * so the result is the same as the general algorithm produces.
+     * Returns null when the batch does not have that shape.
+     */
+    private static BlockPositions calculateFixedSizeCollectionOffsets(int maxDefinitionLevel, int maxElementRepetitionLevel, int[] definitionLevels, int[] repetitionLevels)
+    {
+        int length = definitionLevels.length;
+        if (length == 0 || repetitionLevels[0] >= maxElementRepetitionLevel) {
+            return null;
+        }
+        int size = 1;
+        while (size < length && repetitionLevels[size] == maxElementRepetitionLevel) {
+            size++;
+        }
+        if (length % size != 0) {
+            return null;
+        }
+        int collectionCount = length / size;
+        int[] offsets = new int[collectionCount + 1];
+        for (int collection = 0; collection < collectionCount; collection++) {
+            int start = collection * size;
+            // The collection has to start here, be non-empty and not null. Whether its elements are null is irrelevant for offsets
+            if (repetitionLevels[start] >= maxElementRepetitionLevel || definitionLevels[start] <= maxDefinitionLevel) {
+                return null;
+            }
+            // Elements of nested collections have a higher repetition level and are not counted as elements of this one
+            int mismatch = 0;
+            for (int element = start + 1; element < start + size; element++) {
+                mismatch |= repetitionLevels[element] ^ maxElementRepetitionLevel;
+            }
+            if (mismatch != 0) {
+                return null;
+            }
+            offsets[collection + 1] = start + size;
+        }
+        return new BlockPositions(Optional.empty(), offsets);
     }
 
     public record BlockPositions(Optional<long[]> valueIsValid, int[] offsets) {}
