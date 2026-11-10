@@ -26,7 +26,6 @@ import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DescribeOutput;
@@ -85,11 +84,10 @@ public final class DescribeOutputRewrite
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        return (Statement) new Visitor(session, parser, analyzerFactory, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector).process(node, null);
+        return new Rewriter(session, parser, analyzerFactory, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector).process(node);
     }
 
-    private static final class Visitor
-            extends AstVisitor<Node, Void>
+    private static final class Rewriter
     {
         private static final Query EMPTY_OUTPUT = createDescribeOutputQuery(
                 new Row[] {
@@ -111,7 +109,7 @@ public final class DescribeOutputRewrite
         private final WarningCollector warningCollector;
         private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
-        public Visitor(
+        public Rewriter(
                 Session session,
                 SqlParser parser,
                 AnalyzerFactory analyzerFactory,
@@ -129,8 +127,15 @@ public final class DescribeOutputRewrite
             this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         }
 
-        @Override
-        protected Node visitDescribeOutput(DescribeOutput node, Void context)
+        public Statement process(Statement node)
+        {
+            return switch (node) {
+                case DescribeOutput describe -> rewriteDescribeOutput(describe);
+                default -> node;
+            };
+        }
+
+        private Query rewriteDescribeOutput(DescribeOutput node)
         {
             Statement statement = getStatement(node);
 
@@ -207,12 +212,6 @@ public final class DescribeOutputRewrite
                     new StringLiteral(typeName),
                     typeSize,
                     new BooleanLiteral(String.valueOf(field.isAliased())));
-        }
-
-        @Override
-        protected Node visitNode(Node node, Void context)
-        {
-            return node;
         }
     }
 }
