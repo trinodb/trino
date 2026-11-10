@@ -23,14 +23,12 @@ import io.trino.sql.SessionPropertyResolver;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.analyzer.QueryExplainerFactory;
-import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.ExplainFormat;
 import io.trino.sql.tree.ExplainOption;
 import io.trino.sql.tree.ExplainType;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Statement;
@@ -71,11 +69,10 @@ public final class ExplainRewrite
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        return (Statement) new Visitor(session, sessionPropertyResolver, queryPreparer, queryExplainerFactory.createQueryExplainer(analyzerFactory), warningCollector, planOptimizersStatsCollector).process(node, null);
+        return new Rewriter(session, sessionPropertyResolver, queryPreparer, queryExplainerFactory.createQueryExplainer(analyzerFactory), warningCollector, planOptimizersStatsCollector).process(node);
     }
 
-    private static final class Visitor
-            extends AstVisitor<Node, Void>
+    private static final class Rewriter
     {
         private final Session session;
         private final SessionPropertyResolver sessionPropertyResolver;
@@ -84,7 +81,7 @@ public final class ExplainRewrite
         private final WarningCollector warningCollector;
         private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
-        public Visitor(
+        public Rewriter(
                 Session session,
                 SessionPropertyResolver sessionPropertyResolver,
                 QueryPreparer queryPreparer,
@@ -100,15 +97,22 @@ public final class ExplainRewrite
             this.planOptimizersStatsCollector = planOptimizersStatsCollector;
         }
 
-        @Override
-        protected Node visitExplainAnalyze(ExplainAnalyze node, Void context)
+        public Statement process(Statement node)
         {
-            Statement statement = (Statement) process(node.getStatement(), context);
+            return switch (node) {
+                case ExplainAnalyze explainAnalyze -> rewriteExplainAnalyze(explainAnalyze);
+                case Explain explain -> rewriteExplain(explain);
+                default -> node;
+            };
+        }
+
+        private Statement rewriteExplainAnalyze(ExplainAnalyze node)
+        {
+            Statement statement = process(node.getStatement());
             return new ExplainAnalyze(node.getLocation().orElseThrow(), statement, node.isVerbose());
         }
 
-        @Override
-        protected Node visitExplain(Explain node, Void context)
+        private Statement rewriteExplain(Explain node)
         {
             ExplainType.Type planType = DISTRIBUTED;
             ExplainFormat.Type planFormat = TEXT;
@@ -135,7 +139,7 @@ public final class ExplainRewrite
             return getQueryPlan(node, planType, planFormat);
         }
 
-        private Node getQueryPlan(Explain node, ExplainType.Type planType, ExplainFormat.Type planFormat)
+        private Statement getQueryPlan(Explain node, ExplainType.Type planType, ExplainFormat.Type planFormat)
                 throws IllegalArgumentException
         {
             PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, node.getStatement());
@@ -154,12 +158,6 @@ public final class ExplainRewrite
                 case TEXT -> queryExplainer.getPlan(resolvedSession, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
             };
             return singleValueQuery("Query Plan", plan);
-        }
-
-        @Override
-        protected Node visitNode(Node node, Void context)
-        {
-            return node;
         }
     }
 }
