@@ -184,10 +184,10 @@ public class FileBasedAccessControl
     public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, TrinoPrincipal principal)
     {
         if (!isSchemaOwner(context, schemaName)) {
-            denySetEntityAuthorization(new EntityKindAndName("SCHEMA", List.of(schemaName)), principal);
+            denySetEntityAuthorization(new EntityKindAndName("SCHEMA", ImmutableList.of(schemaName)), principal);
         }
         if (!checkCanSetAuthorization(context, principal)) {
-            denySetEntityAuthorization(new EntityKindAndName("SCHEMA", List.of(schemaName)), principal);
+            denySetEntityAuthorization(new EntityKindAndName("SCHEMA", ImmutableList.of(schemaName)), principal);
         }
     }
 
@@ -371,10 +371,10 @@ public class FileBasedAccessControl
     public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
     {
         if (!checkTablePermission(context, tableName, OWNERSHIP)) {
-            denySetEntityAuthorization(new EntityKindAndName("TABLE", List.of(tableName.getSchemaName(), tableName.getTableName())), principal);
+            denySetEntityAuthorization(new EntityKindAndName("TABLE", ImmutableList.of(tableName.getSchemaName(), tableName.getTableName())), principal);
         }
         if (!checkCanSetAuthorization(context, principal)) {
-            denySetEntityAuthorization(new EntityKindAndName("TABLE", List.of(tableName.getSchemaName(), tableName.getTableName())), principal);
+            denySetEntityAuthorization(new EntityKindAndName("TABLE", ImmutableList.of(tableName.getSchemaName(), tableName.getTableName())), principal);
         }
     }
 
@@ -473,10 +473,10 @@ public class FileBasedAccessControl
     public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
     {
         if (!checkTablePermission(context, viewName, OWNERSHIP)) {
-            denySetEntityAuthorization(new EntityKindAndName("VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
+            denySetEntityAuthorization(new EntityKindAndName("VIEW", ImmutableList.of(viewName.getSchemaName(), viewName.getTableName())), principal);
         }
         if (!checkCanSetAuthorization(context, principal)) {
-            denySetEntityAuthorization(new EntityKindAndName("VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
+            denySetEntityAuthorization(new EntityKindAndName("VIEW", ImmutableList.of(viewName.getSchemaName(), viewName.getTableName())), principal);
         }
     }
 
@@ -552,10 +552,10 @@ public class FileBasedAccessControl
     public void checkCanSetMaterializedViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
     {
         if (!checkTablePermission(context, viewName, OWNERSHIP)) {
-            denySetEntityAuthorization(new EntityKindAndName("MATERIALIZED VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
+            denySetEntityAuthorization(new EntityKindAndName("MATERIALIZED VIEW", ImmutableList.of(viewName.getSchemaName(), viewName.getTableName())), principal);
         }
         if (!checkCanSetAuthorization(context, principal)) {
-            denySetEntityAuthorization(new EntityKindAndName("MATERIALIZED VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
+            denySetEntityAuthorization(new EntityKindAndName("MATERIALIZED VIEW", ImmutableList.of(viewName.getSchemaName(), viewName.getTableName())), principal);
         }
     }
 
