@@ -15,6 +15,7 @@ package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.parquet.ParquetEncoding;
+import io.trino.parquet.reader.TestingColumnReader.DataPageVersion;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -67,6 +68,24 @@ public class TestColumnReaderBenchmark
                 benchmark.encoding = encoding;
                 benchmark.setup();
                 benchmark.read();
+            }
+        }
+    }
+
+    @Test
+    public void testNestedColumnReaderBenchmark()
+            throws IOException
+    {
+        for (BenchmarkNestedColumnReader.Shape shape : BenchmarkNestedColumnReader.Shape.values()) {
+            for (double nullFraction : new double[] {0.0, 0.1}) {
+                for (DataPageVersion pageVersion : DataPageVersion.values()) {
+                    BenchmarkNestedColumnReader benchmark = new BenchmarkNestedColumnReader();
+                    benchmark.shape = shape;
+                    benchmark.nullFraction = nullFraction;
+                    benchmark.pageVersion = pageVersion;
+                    benchmark.setup();
+                    benchmark.read();
+                }
             }
         }
     }
