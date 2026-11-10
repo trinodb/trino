@@ -33,6 +33,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestIcebergTrinoRestCatalogGeneratingTableLocation
@@ -83,6 +84,17 @@ final class TestIcebergTrinoRestCatalogGeneratingTableLocation
                     .isEqualTo(warehouseLocation.resolve(SCHEMA, table.getName()).toString());
             assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
         }
+    }
+
+    @Test
+    void testExplainCreateTableAsSelectDoesNotCreateTable()
+    {
+        String tableName = "test_explain_ctas_" + randomNameSuffix();
+        assertQuerySucceeds("EXPLAIN CREATE TABLE " + tableName + " AS SELECT 1 col");
+        assertQuerySucceeds("EXPLAIN (TYPE IO) CREATE TABLE " + tableName + " AS SELECT 1 col");
+        assertThat(backend.tableExists(TableIdentifier.of(SCHEMA, tableName))).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(warehouseLocation.resolve(SCHEMA, tableName)).doesNotExist();
     }
 
     /**
