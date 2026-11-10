@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -22,6 +23,7 @@ import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.decoders.RleBitPackingHybridDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoder.LevelsDecoderProvider;
 import io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
@@ -39,6 +41,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
+import static io.trino.spi.block.Bitmap.allocateWords;
 import static io.trino.spi.block.Bitmap.isSet;
 import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.Bitmap.wordsForBits;
@@ -108,6 +111,8 @@ public class NestedColumnReader<BufferType>
 
     private int remainingPageValueCount;
     private int pageValueCount;
+    // True if every definition level of the current page is the max definition level
+    private boolean pageAllValuesDefined;
 
     public NestedColumnReader(
             PrimitiveField field,
@@ -327,9 +332,17 @@ public class NestedColumnReader<BufferType>
             int[] definitionLevels,
             int existingValueCount)
     {
-        long[] valueIsValidChunk = new long[wordsForBits(existingValueCount)];
+        long[] valueIsValidChunk;
+        int nonNullCount;
+        if (pageAllValuesDefined) {
+            valueIsValidChunk = allocateWords(existingValueCount, true);
+            nonNullCount = existingValueCount;
+        }
+        else {
+            valueIsValidChunk = new long[wordsForBits(existingValueCount)];
+            nonNullCount = getValidities(definitionLevels, field.getDefinitionLevel(), valueIsValidChunk);
+        }
         valueIsValid.add(valueIsValidChunk, existingValueCount);
-        int nonNullCount = getValidities(definitionLevels, field.getDefinitionLevel(), valueIsValidChunk);
         checkState(
                 nonNullCount <= existingValueCount,
                 "nonNullCount %s cannot be greater than existingValueCount %s, field %s",
@@ -413,6 +426,9 @@ public class NestedColumnReader<BufferType>
 
     private int countExistingValues(int minDefinitionLevel, int[] definitionLevels)
     {
+        if (pageAllValuesDefined) {
+            return definitionLevels.length;
+        }
         int valueCount = 0;
         for (int definitionLevel : definitionLevels) {
             valueCount += castToByte(definitionLevel >= minDefinitionLevel);
@@ -478,8 +494,13 @@ public class NestedColumnReader<BufferType>
         definitionLevelDecoder.read(definitionLevels, 0, definitionLevels.length);
         int maxDefinitionLevel = field.getDefinitionLevel();
         int valuesToSkip = 0;
-        for (int definitionLevel : definitionLevels) {
-            valuesToSkip += castToByte(definitionLevel == maxDefinitionLevel);
+        if (pageAllValuesDefined) {
+            valuesToSkip = definitionLevels.length;
+        }
+        else {
+            for (int definitionLevel : definitionLevels) {
+                valuesToSkip += castToByte(definitionLevel == maxDefinitionLevel);
+            }
         }
 
         valueDecoder.skip(valuesToSkip);
@@ -521,6 +542,12 @@ public class NestedColumnReader<BufferType>
         return true;
     }
 
+    @VisibleForTesting
+    static boolean isSingleRleRun(Slice levels, int level, int valueCount)
+    {
+        return RleBitPackingHybridDecoder.isSingleRleRun(levels, level, valueCount);
+    }
+
     private void readFlatPageV1(DataPageV1 page)
     {
         Slice buffer = page.getSlice();
@@ -528,6 +555,7 @@ public class NestedColumnReader<BufferType>
         ParquetEncoding repetitionEncoding = page.getRepetitionLevelEncoding();
         int maxDefinitionLevel = field.getDefinitionLevel();
         int maxRepetitionLevel = field.getRepetitionLevel();
+        pageAllValuesDefined = false;
 
         checkArgument(maxDefinitionLevel == 0 || definitionEncoding == RLE, "Invalid definition level encoding: %s", definitionEncoding);
         checkArgument(maxRepetitionLevel == 0 || repetitionEncoding == RLE, "Invalid repetition level encoding: %s", repetitionEncoding);
@@ -542,7 +570,9 @@ public class NestedColumnReader<BufferType>
         definitionLevelDecoder = levelsDecoderProvider.create(maxDefinitionLevel);
         if (maxDefinitionLevel > 0) {
             int bufferSize = buffer.getInt(0); // We need to read the size even if there is no definition
-            definitionLevelDecoder.init(new SimpleSliceInputStream(buffer.slice(Integer.BYTES, bufferSize)));
+            Slice definitionLevels = buffer.slice(Integer.BYTES, bufferSize);
+            definitionLevelDecoder.init(new SimpleSliceInputStream(definitionLevels));
+            pageAllValuesDefined = isSingleRleRun(definitionLevels, maxDefinitionLevel, page.getValueCount());
             buffer = buffer.slice(bufferSize + Integer.BYTES, buffer.length() - bufferSize - Integer.BYTES);
         }
 
@@ -556,6 +586,7 @@ public class NestedColumnReader<BufferType>
 
         definitionLevelDecoder = levelsDecoderProvider.create(maxDefinitionLevel);
         definitionLevelDecoder.init(new SimpleSliceInputStream(page.getDefinitionLevels()));
+        pageAllValuesDefined = maxDefinitionLevel > 0 && isSingleRleRun(page.getDefinitionLevels(), maxDefinitionLevel, page.getValueCount());
 
         repetitionLevelDecoder = levelsDecoderProvider.create(maxRepetitionLevel);
         repetitionLevelDecoder.init(new SimpleSliceInputStream(page.getRepetitionLevels()));
