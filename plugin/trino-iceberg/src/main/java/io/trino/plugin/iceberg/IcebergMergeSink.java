@@ -67,6 +67,7 @@ public class IcebergMergeSink
 
     private final int formatVersion;
     private final LocationProvider locationProvider;
+    private final IcebergFileNameProvider fileNameProvider;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final TrinoFileSystem fileSystem;
     private final JsonCodec<CommitTaskData> jsonCodec;
@@ -84,6 +85,7 @@ public class IcebergMergeSink
     public IcebergMergeSink(
             int formatVersion,
             LocationProvider locationProvider,
+            IcebergFileNameProvider fileNameProvider,
             IcebergFileWriterFactory fileWriterFactory,
             TrinoFileSystem fileSystem,
             JsonCodec<CommitTaskData> jsonCodec,
@@ -97,6 +99,7 @@ public class IcebergMergeSink
     {
         this.formatVersion = formatVersion;
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
+        this.fileNameProvider = requireNonNull(fileNameProvider, "fileNameProvider is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
@@ -244,6 +247,7 @@ public class IcebergMergeSink
                 partitionSpec,
                 partitionData,
                 locationProvider,
+                fileNameProvider,
                 fileWriterFactory,
                 fileSystem,
                 session,
