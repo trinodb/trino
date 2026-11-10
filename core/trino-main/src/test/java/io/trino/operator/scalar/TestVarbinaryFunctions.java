@@ -920,6 +920,14 @@ public class TestVarbinaryFunctions
                 .binding("value", "X'4FE15FF5'")
                 .binding("start", "-2"))
                 .isEqualTo(sqlVarbinary(0x5F, 0xF5));
+
+        // Integer overflow: large length with positive start
+        assertThat(assertions.function("SUBSTR", "X'010203'", "2", "2147483647"))
+                .isEqualTo(sqlVarbinary(0x02, 0x03));
+
+        // Integer overflow: large length with negative start
+        assertThat(assertions.function("SUBSTR", "X'010203'", "-1", "2147483647"))
+                .isEqualTo(sqlVarbinary(0x03));
     }
 
     @Test
