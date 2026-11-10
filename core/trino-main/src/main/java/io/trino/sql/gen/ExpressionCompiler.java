@@ -56,6 +56,7 @@ public class ExpressionCompiler
             CharVarcharCoercion charVarcharCoercion,
             boolean columnarFilterEvaluationEnabled,
             boolean filterReorderingEnabled,
+            boolean columnarProjectionEnabled,
             Optional<Expression> filter,
             Optional<DynamicPageFilter> dynamicPageFilter,
             List<? extends Expression> projections,
@@ -70,7 +71,7 @@ public class ExpressionCompiler
         }
 
         List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
-                .map(projection -> pageFunctionCompiler.compileProjection(projection, layout, charVarcharCoercion, classNameSuffix))
+                .map(projection -> pageFunctionCompiler.compileProjection(projection, layout, charVarcharCoercion, classNameSuffix, columnarProjectionEnabled))
                 .collect(toImmutableList());
 
         Optional<Supplier<PageFilter>> finalFilterFunctionSupplier = filterFunctionSupplier;
@@ -93,7 +94,7 @@ public class ExpressionCompiler
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(Session session, Optional<Expression> filter, List<? extends Expression> projections, Map<Symbol, Integer> layout)
     {
-        return () -> compilePageProcessor(getCharVarcharCoercion(session), true, true, filter, Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty())
+        return () -> compilePageProcessor(getCharVarcharCoercion(session), true, true, true, filter, Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty())
                 .apply(DynamicFilter.EMPTY);
     }
 }

@@ -109,6 +109,7 @@ public class BenchmarkAndColumnarFilterTpchData
                         getCharVarcharCoercion(TEST_SESSION),
                         columnarEvaluationEnabled,
                         true,
+                        true,
                         Optional.of(filterExpression),
                         Optional.empty(),
                         projections,

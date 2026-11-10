@@ -162,7 +162,7 @@ public class BenchmarkScanFilterAndProjectOperator
 
             PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), 0);
             ColumnarFilterCompiler compiler = new ColumnarFilterCompiler(PLANNER_CONTEXT, 0);
-            PageProcessor pageProcessor = new ExpressionCompiler(pageFunctionCompiler, compiler).compilePageProcessor(getCharVarcharCoercion(TEST_SESSION), true, true, Optional.of(getFilter(type)), Optional.empty(), projections, sourceLayout, Optional.empty(), OptionalInt.empty()).apply(DynamicFilter.EMPTY);
+            PageProcessor pageProcessor = new ExpressionCompiler(pageFunctionCompiler, compiler).compilePageProcessor(getCharVarcharCoercion(TEST_SESSION), true, true, true, Optional.of(getFilter(type)), Optional.empty(), projections, sourceLayout, Optional.empty(), OptionalInt.empty()).apply(DynamicFilter.EMPTY);
 
             createTaskContext();
             createScanFilterAndProjectOperatorFactories(createInputPages(types), pageProcessor, columnHandles, types);

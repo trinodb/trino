@@ -126,6 +126,7 @@ public class FeaturesConfig
     private boolean forceSpillingJoin;
 
     private boolean columnarFilterEvaluationEnabled = true;
+    private boolean columnarProjectionEnabled = true;
     private boolean adaptiveFilterReorderingEnabled = true;
 
     private boolean externalExchangeEncryptionEnabled = true;
@@ -519,6 +520,19 @@ public class FeaturesConfig
     public FeaturesConfig setColumnarFilterEvaluationEnabled(boolean columnarFilterEvaluationEnabled)
     {
         this.columnarFilterEvaluationEnabled = columnarFilterEvaluationEnabled;
+        return this;
+    }
+
+    public boolean isColumnarProjectionEnabled()
+    {
+        return columnarProjectionEnabled;
+    }
+
+    @Config("experimental.columnar-projection.enabled")
+    @ConfigDescription("Enables columnar evaluation of projections")
+    public FeaturesConfig setColumnarProjectionEnabled(boolean columnarProjectionEnabled)
+    {
+        this.columnarProjectionEnabled = columnarProjectionEnabled;
         return this;
     }
 

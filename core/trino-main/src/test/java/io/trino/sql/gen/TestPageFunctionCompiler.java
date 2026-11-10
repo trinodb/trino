@@ -256,6 +256,32 @@ public class TestPageFunctionCompiler
     }
 
     @Test
+    public void testColumnarProjectionDisabled()
+    {
+        ArrayType arrayType = new ArrayType(BIGINT);
+        RowType rowType = RowType.anonymous(ImmutableList.of(BIGINT));
+
+        assertGeneratedProjectionWhenColumnarProjectionDisabled(
+                call(FUNCTION_RESOLUTION.resolveFunction("reverse", fromTypes(arrayType)), new Reference(arrayType, "array")),
+                new Symbol(arrayType, "array"));
+        assertGeneratedProjectionWhenColumnarProjectionDisabled(
+                new FieldReference(new Reference(rowType, "row"), 0),
+                new Symbol(rowType, "row"));
+        assertGeneratedProjectionWhenColumnarProjectionDisabled(
+                new Row(ImmutableList.of(new Reference(BIGINT, "value"), new Constant(BIGINT, 7L))),
+                new Symbol(BIGINT, "value"));
+    }
+
+    private static void assertGeneratedProjectionWhenColumnarProjectionDisabled(Expression expression, Symbol input)
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
+        assertThat(compiler.compileProjection(expression, ImmutableMap.of(input, 0), SQL_STANDARD, Optional.empty(), true).get())
+                .isNotInstanceOf(GeneratedPageProjection.class);
+        assertThat(compiler.compileProjection(expression, ImmutableMap.of(input, 0), SQL_STANDARD, Optional.empty(), false).get())
+                .isInstanceOf(GeneratedPageProjection.class);
+    }
+
+    @Test
     public void testColumnarArrayElementProjectionIsLimitedToNestedTypes()
     {
         ArrayType primitiveArrayType = new ArrayType(BIGINT);
