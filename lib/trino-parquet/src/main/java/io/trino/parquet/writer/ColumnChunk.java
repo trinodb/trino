@@ -25,19 +25,27 @@ import static java.util.Objects.requireNonNull;
 public class ColumnChunk
 {
     private final Block block;
+    private final int rowCount;
     private final List<DefLevelWriterProvider> defLevelWriterProviders;
     private final List<RepLevelWriterProvider> repLevelWriterProviders;
 
     ColumnChunk(Block block)
     {
-        this(block, ImmutableList.of(), ImmutableList.of());
+        this(block, block.getPositionCount(), ImmutableList.of(), ImmutableList.of());
     }
 
-    ColumnChunk(Block block, List<DefLevelWriterProvider> defLevelWriterProviders, List<RepLevelWriterProvider> repLevelWriterProviders)
+    // rowCount is the number of top-level rows, which differs from the block position count for nested columns
+    ColumnChunk(Block block, int rowCount, List<DefLevelWriterProvider> defLevelWriterProviders, List<RepLevelWriterProvider> repLevelWriterProviders)
     {
         this.block = requireNonNull(block, "block is null");
+        this.rowCount = rowCount;
         this.defLevelWriterProviders = ImmutableList.copyOf(defLevelWriterProviders);
         this.repLevelWriterProviders = ImmutableList.copyOf(repLevelWriterProviders);
+    }
+
+    int getRowCount()
+    {
+        return rowCount;
     }
 
     List<DefLevelWriterProvider> getDefLevelWriterProviders()

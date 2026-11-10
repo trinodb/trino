@@ -52,6 +52,7 @@ public class ArrayColumnWriter
         elementWriter.writeBlock(
                 new ColumnChunk(
                         columnarArray.getElementsBlock(),
+                        columnChunk.getRowCount(),
                         ImmutableList.<DefLevelWriterProvider>builder()
                                 .addAll(columnChunk.getDefLevelWriterProviders())
                                 .add(DefLevelWriterProviders.of(columnarArray, block, maxDefinitionLevel))
