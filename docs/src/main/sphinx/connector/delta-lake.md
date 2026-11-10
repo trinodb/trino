@@ -461,7 +461,7 @@ statements, the connector supports the following features:
     and table management <delta-lake-schema-table-management>`
   - {ref}`sql-view-management`
 
-#### `NOT NULL` column constraint
+### `NOT NULL` column constraint
 
 The Delta Lake connector supports setting `NOT NULL` constraints on table
 columns when creating tables with {doc}`CREATE TABLE </sql/create-table>`:

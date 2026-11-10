@@ -86,7 +86,7 @@ Upon execution of a `TRUNCATE` and a `DROP TABLE` operation, memory is not relea
 immediately. It is instead released after the next write operation to the
 catalog.
 
-#### `NOT NULL` column constraint
+### `NOT NULL` column constraint
 
 The Memory connector supports setting `NOT NULL` constraints on table columns
 when creating tables with {doc}`CREATE TABLE </sql/create-table>`:
