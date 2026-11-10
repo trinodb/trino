@@ -1175,11 +1175,10 @@ public final class ExpressionFormatter
 
     private static String formatWindow(Window window)
     {
-        if (window instanceof WindowReference windowReference) {
-            return formatExpression(windowReference.getName());
-        }
-
-        return formatWindowSpecification((WindowSpecification) window);
+        return switch (window) {
+            case WindowReference windowReference -> formatExpression(windowReference.getName());
+            case WindowSpecification windowSpecification -> formatWindowSpecification(windowSpecification);
+        };
     }
 
     static String formatWindowSpecification(WindowSpecification windowSpecification)

@@ -898,17 +898,13 @@ public final class SqlFormatter
             process(node.getRight(), indent);
 
             if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
-                if (criteria instanceof JoinUsing using) {
-                    builder.append(" USING (")
+                switch (criteria) {
+                    case JoinUsing using -> builder.append(" USING (")
                             .append(Joiner.on(", ").join(using.getColumns()))
                             .append(")");
-                }
-                else if (criteria instanceof JoinOn on) {
-                    builder.append(" ON ")
+                    case JoinOn on -> builder.append(" ON ")
                             .append(formatExpression(on.getExpression()));
-                }
-                else if (!(criteria instanceof NaturalJoin)) {
-                    throw new UnsupportedOperationException("unknown join criteria: " + criteria);
+                    case NaturalJoin _ -> {}
                 }
             }
 
