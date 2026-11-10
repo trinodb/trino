@@ -91,6 +91,14 @@ suites:
   SuiteDeltaLakeDatabricks154: [hive, delta-lake]
   SuiteDeltaLakeDatabricks18: [hive, delta-lake]
 
+# Suites that need a secret, keyed by the suite, with the secret's environment variable as the value.
+# CI does not run them when the secret is unavailable, like on pull requests from forks.
+secret-suites:
+  SuiteAzure: ABFS_ACCESS_KEY
+  SuiteSnowflake: SNOWFLAKE_PASSWORD
+  SuiteDeltaLakeDatabricks154: DATABRICKS_TOKEN
+  SuiteDeltaLakeDatabricks18: DATABRICKS_TOKEN
+
 # Suites CI does not run
 disabled-suites:
   # TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
