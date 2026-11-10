@@ -27,6 +27,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
@@ -53,6 +54,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -262,6 +264,26 @@ public class TestColumnarFilterCompiler
     }
 
     @Test
+    public void testSameColumnRangeFilter()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+
+        // values 0..4: 1 < value < 4 keeps 2 and 3
+        assertThat(filterRange(compiler, layout, 1L, 4L)).isEqualTo(2);
+        // same structure with different constants shares the compiled template
+        assertThat(filterRange(compiler, layout, 0L, 4L)).isEqualTo(3);
+        assertThat(compiler.getFilterTemplateCache().size()).isEqualTo(1);
+
+        // the compiler only fuses a lower and an upper bound on the same column
+        Expression differentColumns = new Logical(Logical.Operator.AND, ImmutableList.of(
+                comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 1L)),
+                comparison(LESS_THAN, new Reference(BIGINT, "$col_1"), new Constant(BIGINT, 4L))));
+        Map<Symbol, Integer> twoColumns = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0, new Symbol(BIGINT, "$col_1"), 1);
+        assertThat(compiler.generateFilter(CHAR_VARCHAR_COERCION, differentColumns, twoColumns)).isEmpty();
+    }
+
+    @Test
     public void testInFilterNotTemplated()
     {
         ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
@@ -312,6 +334,14 @@ public class TestColumnarFilterCompiler
     private static int filterGreaterThan(ColumnarFilterCompiler compiler, Map<Symbol, Integer> layout, long value)
     {
         Expression expression = comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, value));
+        return filterPositions(compiler, layout, expression);
+    }
+
+    private static int filterRange(ColumnarFilterCompiler compiler, Map<Symbol, Integer> layout, long lowExclusive, long highExclusive)
+    {
+        Expression expression = new Logical(Logical.Operator.AND, ImmutableList.of(
+                comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, lowExclusive)),
+                comparison(LESS_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, highExclusive))));
         return filterPositions(compiler, layout, expression);
     }
 

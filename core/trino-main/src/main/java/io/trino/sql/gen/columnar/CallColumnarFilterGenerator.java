@@ -19,6 +19,7 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.OpCode;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
@@ -30,13 +31,13 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.project.InputChannels;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.type.FunctionType;
 import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.ClassTemplateCache;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
@@ -44,11 +45,13 @@ import io.trino.sql.planner.Symbol;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
@@ -77,33 +80,54 @@ import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class CallColumnarFilterGenerator
 {
-    private final ResolvedFunction function;
+    private final List<Call> calls;
+    // arguments of all calls in order, the shape the block declarations and null checks work on
     private final List<Expression> arguments;
+    private final List<Boolean> argumentNullability;
     private final Map<Symbol, Integer> layout;
     private final FunctionManager functionManager;
 
     public CallColumnarFilterGenerator(ResolvedFunction function, List<Expression> arguments, Map<Symbol, Integer> layout, FunctionManager functionManager)
     {
-        arguments.forEach(expression -> {
-            if (!(expression instanceof Reference) && !(expression instanceof Constant)) {
-                throw new UnsupportedOperationException("Call expression with unsupported argument: " + expression);
-            }
-            if (expression instanceof Constant constant) {
-                if (constant.value() == null) {
-                    throw new UnsupportedOperationException("Call expressions with null constant are not supported");
+        this(ImmutableList.of(new Call(function, arguments)), layout, functionManager);
+    }
+
+    /**
+     * Generates a filter that is the conjunction of the calls, evaluated in one loop over the positions. Every call runs
+     * for every position and the results are combined with a bitwise AND, which keeps the loop free of data dependent
+     * branches. The calls must therefore be cheap, and must not fail on rows another call rejects.
+     */
+    public CallColumnarFilterGenerator(List<Call> calls, Map<Symbol, Integer> layout, FunctionManager functionManager)
+    {
+        checkArgument(!calls.isEmpty(), "calls is empty");
+        ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+        ImmutableList.Builder<Boolean> argumentNullability = ImmutableList.builder();
+        for (Call call : calls) {
+            call.arguments().forEach(expression -> {
+                if (!(expression instanceof Reference) && !(expression instanceof Constant)) {
+                    throw new UnsupportedOperationException("Call expression with unsupported argument: " + expression);
                 }
-            }
-        });
-        function.signature().getArgumentTypes().forEach(argumentType -> {
-            if (argumentType instanceof FunctionType) {
-                throw new UnsupportedOperationException("Functions with lambda arguments are not supported");
-            }
-        });
-        this.function = requireNonNull(function, "function is null");
-        this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
+                if (expression instanceof Constant constant) {
+                    if (constant.value() == null) {
+                        throw new UnsupportedOperationException("Call expressions with null constant are not supported");
+                    }
+                }
+            });
+            call.function().signature().getArgumentTypes().forEach(argumentType -> {
+                if (argumentType instanceof FunctionType) {
+                    throw new UnsupportedOperationException("Functions with lambda arguments are not supported");
+                }
+            });
+            arguments.addAll(call.arguments());
+            argumentNullability.addAll(call.function().functionNullability().getArgumentNullable());
+        }
+        this.calls = ImmutableList.copyOf(calls);
+        this.arguments = arguments.build();
+        this.argumentNullability = argumentNullability.build();
         this.layout = requireNonNull(layout, "layout is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
@@ -117,7 +141,7 @@ public class CallColumnarFilterGenerator
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(ColumnarFilter.class.getSimpleName() + function.signature().getName(), Optional.empty()),
+                makeClassName(ColumnarFilter.class.getSimpleName() + calls.stream().map(call -> call.function().signature().getName().toString()).collect(joining("_")), Optional.empty()),
                 type(Object.class),
                 type(ColumnarFilter.class));
 
@@ -154,16 +178,15 @@ public class CallColumnarFilterGenerator
         Variable position = scope.declareVariable(int.class, "position");
         Variable result = scope.declareVariable(boolean.class, "result");
 
-        FunctionNullability functionNullability = function.functionNullability();
         IfStatement ifStatement = new IfStatement()
-                .condition(generateBlockMayHaveNull(arguments, layout, functionNullability.getArgumentNullable(), scope));
+                .condition(generateBlockMayHaveNull(arguments, layout, argumentNullability, scope));
         body.append(ifStatement);
         Function<MethodHandle, BytecodeNode> instance = instanceFactory -> scope.getThis().getField(cachedInstanceBinder.getCachedInstance(instanceFactory));
 
         /* if (block_0.mayHaveNull() || block_1.mayHaveNull()...) {
          *     for (position = offset; position < offset + size; position++) {
          *         if (!block_0.isNull(position) && !block_1.isNull(position)...) {
-         *             boolean result = call_function(position, block_0, block_1, ...);
+         *             boolean result = call_function_0(position, block_0, ...) & call_function_1(position, block_0, ...) ...;
          *             outputPositions[outputPositionsCount] = position;
          *             outputPositionsCount += result ? 1 : 0;
          *         }
@@ -175,14 +198,13 @@ public class CallColumnarFilterGenerator
                 .condition(lessThan(position, add(offset, size)))
                 .update(position.increment())
                 .body(new IfStatement()
-                        .condition(generateBlockPositionNotNull(arguments, layout, functionNullability.getArgumentNullable(), scope, position))
+                        .condition(generateBlockPositionNotNull(arguments, layout, argumentNullability, scope, position))
                         .ifTrue(new BytecodeBlock()
-                                .append(generateFullInvocation(functionManager, instance, callSiteBinder, function, arguments, layout, scope, position)
-                                        .putVariable(result))
+                                .append(generateConjunction(instance, callSiteBinder, scope, position, result))
                                 .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount)))));
 
         /* for (position = offset; position < offset + size; position++) {
-         *     boolean result = call_function(position, block_0, block_1, ...);
+         *     boolean result = call_function_0(position, block_0, ...) & call_function_1(position, block_0, ...) ...;
          *     outputPositions[outputPositionsCount] = position;
          *     outputPositionsCount += result ? 1 : 0;
          * }
@@ -192,8 +214,7 @@ public class CallColumnarFilterGenerator
                 .condition(lessThan(position, add(offset, size)))
                 .update(position.increment())
                 .body(new BytecodeBlock()
-                        .append(generateFullInvocation(functionManager, instance, callSiteBinder, function, arguments, layout, scope, position)
-                                .putVariable(result))
+                        .append(generateConjunction(instance, callSiteBinder, scope, position, result))
                         .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount))));
 
         body.append(outputPositionsCount.ret());
@@ -223,9 +244,8 @@ public class CallColumnarFilterGenerator
         Variable position = scope.declareVariable(int.class, "position");
         Variable result = scope.declareVariable(boolean.class, "result");
 
-        FunctionNullability functionNullability = function.functionNullability();
         IfStatement ifStatement = new IfStatement()
-                .condition(generateBlockMayHaveNull(arguments, layout, functionNullability.getArgumentNullable(), scope));
+                .condition(generateBlockMayHaveNull(arguments, layout, argumentNullability, scope));
         body.append(ifStatement);
         Function<MethodHandle, BytecodeNode> instance = instanceFactory -> scope.getThis().getField(cachedInstanceBinder.getCachedInstance(instanceFactory));
 
@@ -233,7 +253,7 @@ public class CallColumnarFilterGenerator
          *     for (int index = offset; index < offset + size; index++) {
          *         int position = activePositions[index];
          *         if (!block_0.isNull(position) && !block_1.isNull(position)...) {
-         *             boolean result = call_function(position, block_0, block_1, ...);
+         *             boolean result = call_function_0(position, block_0, ...) & call_function_1(position, block_0, ...) ...;
          *             outputPositions[outputPositionsCount] = position;
          *             outputPositionsCount += result ? 1 : 0;
          *         }
@@ -247,15 +267,14 @@ public class CallColumnarFilterGenerator
                 .body(new BytecodeBlock()
                         .append(position.set(activePositions.getElement(index)))
                         .append(new IfStatement()
-                                .condition(generateBlockPositionNotNull(arguments, layout, functionNullability.getArgumentNullable(), scope, position))
+                                .condition(generateBlockPositionNotNull(arguments, layout, argumentNullability, scope, position))
                                 .ifTrue(new BytecodeBlock()
-                                        .append(generateFullInvocation(functionManager, instance, callSiteBinder, function, arguments, layout, scope, position)
-                                                .putVariable(result))
+                                        .append(generateConjunction(instance, callSiteBinder, scope, position, result))
                                         .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount))))));
 
         /* for (int index = offset; index < offset + size; index++) {
          *     int position = activePositions[index];
-         *     boolean result = call_function(position, block_0, block_1, ...);
+         *     boolean result = call_function_0(position, block_0, ...) & call_function_1(position, block_0, ...) ...;
          *     outputPositions[outputPositionsCount] = position;
          *     outputPositionsCount += result ? 1 : 0;
          * }
@@ -266,11 +285,30 @@ public class CallColumnarFilterGenerator
                 .update(index.increment())
                 .body(new BytecodeBlock()
                         .append(position.set(activePositions.getElement(index)))
-                        .append(generateFullInvocation(functionManager, instance, callSiteBinder, function, arguments, layout, scope, position)
-                                .putVariable(result))
+                        .append(generateConjunction(instance, callSiteBinder, scope, position, result))
                         .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount))));
 
         body.append(outputPositionsCount.ret());
+    }
+
+    /* result = call_0(position, ...);
+     * result = result & call_1(position, ...);
+     * ...
+     */
+    private BytecodeBlock generateConjunction(Function<MethodHandle, BytecodeNode> instance, CallSiteBinder binder, Scope scope, Variable position, Variable result)
+    {
+        BytecodeBlock block = new BytecodeBlock();
+        for (int i = 0; i < calls.size(); i++) {
+            Call call = calls.get(i);
+            BytecodeBlock invocation = generateFullInvocation(functionManager, instance, binder, call.function(), call.arguments(), layout, scope, position);
+            if (i == 0) {
+                block.append(invocation).putVariable(result);
+            }
+            else {
+                block.append(result).append(invocation).append(OpCode.IAND).putVariable(result);
+            }
+        }
+        return block;
     }
 
     private static BytecodeBlock generateFullInvocation(
@@ -414,8 +452,8 @@ public class CallColumnarFilterGenerator
     {
         private final ClassDefinition classDefinition;
         private final CallSiteBinder callSiteBinder;
-        private Optional<FieldDefinition> field = Optional.empty();
-        private Optional<MethodHandle> method = Optional.empty();
+        private final List<MethodHandle> methods = new ArrayList<>();
+        private final List<FieldDefinition> fields = new ArrayList<>();
 
         public CachedInstanceBinder(ClassDefinition classDefinition, CallSiteBinder callSiteBinder)
         {
@@ -425,20 +463,22 @@ public class CallColumnarFilterGenerator
 
         public FieldDefinition getCachedInstance(MethodHandle methodHandle)
         {
-            if (field.isEmpty()) {
-                field = Optional.of(classDefinition.declareField(a(PRIVATE, FINAL), "__cachedInstance", callSiteBinder.getAccessibleType(methodHandle.type().returnType())));
-                method = Optional.of(methodHandle);
+            int index = methods.indexOf(methodHandle);
+            if (index >= 0) {
+                return fields.get(index);
             }
-            return field.get();
+            FieldDefinition field = classDefinition.declareField(a(PRIVATE, FINAL), "__cachedInstance" + methods.size(), callSiteBinder.getAccessibleType(methodHandle.type().returnType()));
+            methods.add(methodHandle);
+            fields.add(field);
+            return field;
         }
 
         public void generateInitializations(Variable thisVariable, BytecodeBlock block)
         {
-            if (field.isEmpty()) {
-                return;
+            for (int i = 0; i < fields.size(); i++) {
+                Binding binding = callSiteBinder.bind(methods.get(i));
+                block.append(thisVariable.setField(fields.get(i), invoke(binding, "instance")));
             }
-            Binding binding = callSiteBinder.bind(method.orElseThrow());
-            block.append(thisVariable.setField(field.get(), invoke(binding, "instance")));
         }
     }
 }

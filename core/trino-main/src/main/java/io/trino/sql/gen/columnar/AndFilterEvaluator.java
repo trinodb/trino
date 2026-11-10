@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.gen.columnar.FilterEvaluator.createDictionaryAwareEvaluator;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isReorderingSafe;
 import static java.util.Objects.requireNonNull;
 
@@ -38,19 +39,29 @@ public final class AndFilterEvaluator
     {
         checkArgument(logical.operator() == Logical.Operator.AND, "logical %s should be AND", logical);
 
-        List<Expression> terms = logical.terms();
-        checkArgument(terms.size() >= 2, "AND expression %s should have at least 2 arguments", logical);
+        checkArgument(logical.terms().size() >= 2, "AND expression %s should have at least 2 arguments", logical);
 
+        // both bounds of a range on one column become a single kernel, see SameColumnRange
+        List<Expression> terms = SameColumnRange.fuseTerms(logical.terms());
         ImmutableList.Builder<Supplier<FilterEvaluator>> builder = ImmutableList.builderWithExpectedSize(terms.size());
         for (Expression expression : terms) {
-            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(charVarcharCoercion, expression, layout, compiler, filterReorderingEnabled, dynamicFilter);
+            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator;
+            if (SameColumnRange.isFusedRange(expression)) {
+                subExpressionEvaluator = createSameColumnRangeEvaluator(charVarcharCoercion, compiler, expression, layout, dynamicFilter);
+            }
+            else {
+                subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(charVarcharCoercion, expression, layout, compiler, filterReorderingEnabled, dynamicFilter);
+            }
             if (subExpressionEvaluator.isEmpty()) {
                 return Optional.empty();
             }
             builder.add(subExpressionEvaluator.get());
         }
         List<Supplier<FilterEvaluator>> subExpressionEvaluators = builder.build();
-        boolean reorderingSafe = filterReorderingEnabled && isReorderingSafe(compiler.getPlannerContext(), charVarcharCoercion, terms);
+        if (subExpressionEvaluators.size() == 1) {
+            return Optional.of(subExpressionEvaluators.get(0));
+        }
+        boolean reorderingSafe = filterReorderingEnabled && isReorderingSafe(compiler.getPlannerContext(), charVarcharCoercion, logical.terms());
         return Optional.of(() -> {
             FilterEvaluator[] filterEvaluators = new FilterEvaluator[subExpressionEvaluators.size()];
             for (int i = 0; i < filterEvaluators.length; i++) {
@@ -58,6 +69,13 @@ public final class AndFilterEvaluator
             }
             return new AndFilterEvaluator(filterEvaluators, reorderingSafe);
         });
+    }
+
+    // the fused range reads one channel, so it gets the same dictionary aware evaluation as a single comparison
+    private static Optional<Supplier<FilterEvaluator>> createSameColumnRangeEvaluator(CharVarcharCoercion charVarcharCoercion, ColumnarFilterCompiler compiler, Expression range, Map<Symbol, Integer> layout, boolean dynamicFilter)
+    {
+        Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(charVarcharCoercion, range, layout, dynamicFilter);
+        return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
     }
 
     private final FilterEvaluator[] subFilterEvaluators;

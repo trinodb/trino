@@ -160,7 +160,7 @@ public sealed interface FilterEvaluator
         return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
     }
 
-    private static FilterEvaluator createDictionaryAwareEvaluator(ColumnarFilter filter)
+    static FilterEvaluator createDictionaryAwareEvaluator(ColumnarFilter filter)
     {
         checkArgument(filter.getInputChannels().size() == 1, "filter should have 1 input channel");
         return new ColumnarFilterEvaluator(new DictionaryAwareColumnarFilter(filter));
