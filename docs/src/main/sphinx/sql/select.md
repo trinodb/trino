@@ -1349,6 +1349,27 @@ FROM (
 CROSS JOIN UNNEST(scores) AS t(score);
 ```
 
+`UNNEST` arguments are resolved like other expressions in that join
+input: they may reference columns from relations already in scope on the
+left of the join, but not from sibling relations that are not part of
+that left input. For example, the following fails because `t2.y` is not
+visible to the `UNNEST` of the `CROSS JOIN` that builds `t3`:
+
+```
+WITH
+  t (x, y) AS (VALUES (1, ARRAY['a', 'b', 'c'])),
+  t2 (x, y) AS (VALUES (1, ARRAY['a', 'b', 'c'])),
+  t3 (x, y) AS (
+    SELECT x, y_unnested
+    FROM t
+    CROSS JOIN UNNEST(t2.y) AS t4 (y_unnested)
+  )
+SELECT * FROM t3;
+```
+
+Use `UNNEST(y)` (the left relation's column) or join `t` and `t2` first
+so the array column is in scope before `UNNEST`.
+
 ```text
  student | score
 ---------+-------
