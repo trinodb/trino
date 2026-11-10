@@ -142,7 +142,8 @@ public class DeltaLakePageSourceProvider
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
-        this.parquetReaderOptions = ParquetReaderOptions.builder(parquetReaderConfig.toParquetReaderOptions()).withBloomFilter(false).build();
+        checkArgument(!parquetReaderConfig.isUseBloomFilter(), "Delta Lake connector does not support Parquet bloom filter");
+        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
