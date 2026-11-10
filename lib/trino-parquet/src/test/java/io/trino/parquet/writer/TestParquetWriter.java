@@ -45,6 +45,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -109,8 +110,11 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.BloomFilterStore.hasBloomFilter;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
+import static io.trino.parquet.ParquetTestUtils.createArrayBlock;
+import static io.trino.parquet.ParquetTestUtils.createMapBlock;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
+import static io.trino.parquet.ParquetTestUtils.createRowBlock;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.parquet.metadata.HiddenColumnChunkMetadata.isHiddenColumn;
@@ -1125,6 +1129,66 @@ public class TestParquetWriter
             }
             assertThat(readBackBuilder.build()).describedAs("precision %s", precision).isEqualTo(values);
         }
+    }
+
+    @Test
+    public void testRunLengthEncodedNullNestedColumnsRoundTrip()
+            throws Exception
+    {
+        int nullPositions = 1000;
+        int otherPositions = 100;
+        RowType rowType = rowType(field("a", BIGINT), field("b", BIGINT), field("c", BIGINT), field("d", BIGINT));
+        ArrayType arrayType = new ArrayType(BIGINT);
+        MapType mapType = new MapType(BIGINT, BIGINT, new TypeOperators());
+        List<Type> types = ImmutableList.of(rowType, arrayType, mapType);
+        List<String> columnNames = ImmutableList.of("row", "array", "map");
+
+        // The first page has only nulls, which the writer sees as run length encoded blocks
+        Page nullsPage = new Page(
+                RunLengthEncodedBlock.create(rowType, null, nullPositions),
+                RunLengthEncodedBlock.create(arrayType, null, nullPositions),
+                RunLengthEncodedBlock.create(mapType, null, nullPositions));
+        Page otherPage = new Page(
+                createRowBlock(Optional.empty(), otherPositions),
+                createArrayBlock(Optional.empty(), otherPositions),
+                createMapBlock(Optional.empty(), otherPositions));
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(ParquetWriterOptions.builder().build(), types, columnNames, ImmutableList.of(nullsPage, otherPage)),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+
+        int position = 0;
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, types, columnNames)) {
+            SourcePage page;
+            while ((page = reader.nextPage()) != null) {
+                for (int column = 0; column < types.size(); column++) {
+                    Block block = page.getBlock(column);
+                    for (int i = 0; i < page.getPositionCount(); i++) {
+                        if (position + i < nullPositions) {
+                            assertThat(block.isNull(i)).describedAs("column %s position %s", column, position + i).isTrue();
+                        }
+                        else {
+                            Block expected = otherPage.getBlock(column);
+                            assertThat(types.get(column).getObjectValue(block, i))
+                                    .describedAs("column %s position %s", column, position + i)
+                                    .isEqualTo(types.get(column).getObjectValue(expected, position + i - nullPositions));
+                        }
+                    }
+                }
+                position += page.getPositionCount();
+            }
+        }
+        assertThat(position).isEqualTo(nullPositions + otherPositions);
+    }
+
+    @Test
+    public void testRunLengthEncodedNullVariantRoundTrip()
+            throws IOException
+    {
+        assertThat(writeAndReadColumn(VARIANT_SCHEMA, ImmutableMap.of(), VARIANT, RunLengthEncodedBlock.create(VARIANT, null, 1000)))
+                .hasSize(1000)
+                .containsOnlyNulls();
     }
 
     @Test

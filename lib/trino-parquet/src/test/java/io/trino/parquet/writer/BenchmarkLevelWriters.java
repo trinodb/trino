@@ -145,21 +145,23 @@ public class BenchmarkLevelWriters
                     // The leaves of a null variant have no positions
                     DefLevelWriterProviders.of(intBlock(random, 0, 0), maxDefinitionLevel));
             case RLE_NULL_ARRAY -> {
-                ColumnarArray columnarArray = ColumnarArray.toColumnarArray(RunLengthEncodedBlock.create(new ArrayType(INTEGER), null, POSITION_COUNT));
+                Block arrayBlock = RunLengthEncodedBlock.create(new ArrayType(INTEGER), null, POSITION_COUNT);
+                ColumnarArray columnarArray = ColumnarArray.toColumnarArray(arrayBlock);
                 definitionProviders = ImmutableList.of(
-                        DefLevelWriterProviders.of(columnarArray, 2),
+                        DefLevelWriterProviders.of(columnarArray, arrayBlock, 2),
                         DefLevelWriterProviders.of(columnarArray.getElementsBlock(), maxDefinitionLevel));
                 repetitionProviders = ImmutableList.of(
-                        RepLevelWriterProviders.of(columnarArray, maxRepetitionLevel),
+                        RepLevelWriterProviders.of(columnarArray, arrayBlock, maxRepetitionLevel),
                         RepLevelWriterProviders.of(columnarArray.getElementsBlock()));
             }
             case RLE_NULL_MAP -> {
-                ColumnarMap columnarMap = ColumnarMap.toColumnarMap(RunLengthEncodedBlock.create(new MapType(INTEGER, INTEGER, new TypeOperators()), null, POSITION_COUNT));
+                Block mapBlock = RunLengthEncodedBlock.create(new MapType(INTEGER, INTEGER, new TypeOperators()), null, POSITION_COUNT);
+                ColumnarMap columnarMap = ColumnarMap.toColumnarMap(mapBlock);
                 definitionProviders = ImmutableList.of(
-                        DefLevelWriterProviders.of(columnarMap, 2),
+                        DefLevelWriterProviders.of(columnarMap, mapBlock, 2),
                         DefLevelWriterProviders.of(columnarMap.getKeysBlock(), maxDefinitionLevel));
                 repetitionProviders = ImmutableList.of(
-                        RepLevelWriterProviders.of(columnarMap, maxRepetitionLevel),
+                        RepLevelWriterProviders.of(columnarMap, mapBlock, maxRepetitionLevel),
                         RepLevelWriterProviders.of(columnarMap.getKeysBlock()));
             }
             case ARRAY, ARRAY_NULL_ELEMENTS, ARRAY_NULL_ARRAYS -> {
@@ -187,10 +189,10 @@ public class BenchmarkLevelWriters
                 Block arrayBlock = ArrayBlock.fromElementBlock(arrays, Optional.ofNullable(nullArrays).map(BenchmarkLevelWriters::validity), offsets, elements);
                 ColumnarArray columnarArray = ColumnarArray.toColumnarArray(arrayBlock);
                 definitionProviders = ImmutableList.of(
-                        DefLevelWriterProviders.of(columnarArray, 2),
+                        DefLevelWriterProviders.of(columnarArray, arrayBlock, 2),
                         DefLevelWriterProviders.of(columnarArray.getElementsBlock(), maxDefinitionLevel));
                 repetitionProviders = ImmutableList.of(
-                        RepLevelWriterProviders.of(columnarArray, maxRepetitionLevel),
+                        RepLevelWriterProviders.of(columnarArray, arrayBlock, maxRepetitionLevel),
                         RepLevelWriterProviders.of(columnarArray.getElementsBlock()));
             }
         }
