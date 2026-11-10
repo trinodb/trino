@@ -17,14 +17,13 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.tree.DefaultTraversalVisitor;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.Statement;
-import jakarta.annotation.Nullable;
 
 import java.util.List;
 
 import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.tree.AstTraversal.forEachChild;
 
 public final class TreeAssertions
 {
@@ -60,17 +59,14 @@ public final class TreeAssertions
     private static List<Node> linearizeTree(Node tree)
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        new DefaultTraversalVisitor<Void>()
-        {
-            @Override
-            public Void process(Node node, @Nullable Void context)
-            {
-                super.process(node, context);
-                nodes.add(node);
-                return null;
-            }
-        }.process(tree, null);
+        linearizeTree(tree, nodes);
         return nodes.build();
+    }
+
+    private static void linearizeTree(Node node, ImmutableList.Builder<Node> nodes)
+    {
+        forEachChild(node, child -> linearizeTree(child, nodes));
+        nodes.add(node);
     }
 
     private static <T> void assertListEquals(List<T> actual, List<T> expected)
