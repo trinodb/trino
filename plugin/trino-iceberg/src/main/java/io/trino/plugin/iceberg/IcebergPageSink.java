@@ -128,6 +128,7 @@ public class IcebergPageSink
     private final Schema outputSchema;
     private final PartitionSpec partitionSpec;
     private final LocationProvider locationProvider;
+    private final IcebergFileNameProvider fileNameProvider;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final TrinoFileSystem fileSystem;
     private final JsonCodec<CommitTaskData> jsonCodec;
@@ -166,6 +167,7 @@ public class IcebergPageSink
             Schema outputSchema,
             PartitionSpec partitionSpec,
             LocationProvider locationProvider,
+            IcebergFileNameProvider fileNameProvider,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
             TrinoFileSystem fileSystem,
@@ -188,6 +190,7 @@ public class IcebergPageSink
         this.outputSchema = requireNonNull(outputSchema, "outputSchema is null");
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
+        this.fileNameProvider = requireNonNull(fileNameProvider, "fileNameProvider is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
@@ -517,9 +520,7 @@ public class IcebergPageSink
             }
 
             Optional<PartitionData> partitionData = getPartitionData(pagePartitioner.getColumns(), page, position);
-            // prepend query id to a file name so we can determine which files were written by which query. This is needed for opportunistic cleanup of extra files
-            // which may be present for successfully completing query in presence of failure recovery mechanisms.
-            String fileName = fileFormat.toIceberg().addExtension(session.getQueryId() + "-" + randomUUID());
+            String fileName = fileNameProvider.newFileName(session, DATA, fileFormat.toIceberg());
             String outputPath = partitionData
                     .map(partition -> locationProvider.newDataLocation(partitionSpec, partition, fileName))
                     .orElseGet(() -> locationProvider.newDataLocation(fileName));

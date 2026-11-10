@@ -57,6 +57,7 @@ public class IcebergPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final IcebergFileSystemFactory fileSystemFactory;
+    private final IcebergFileNameProvider fileNameProvider;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final PageIndexerFactory pageIndexerFactory;
@@ -70,6 +71,7 @@ public class IcebergPageSinkProvider
     @Inject
     public IcebergPageSinkProvider(
             IcebergFileSystemFactory fileSystemFactory,
+            IcebergFileNameProvider fileNameProvider,
             JsonCodec<CommitTaskData> jsonCodec,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
@@ -79,6 +81,7 @@ public class IcebergPageSinkProvider
             PageSorter pageSorter)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileNameProvider = requireNonNull(fileNameProvider, "fileNameProvider is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
@@ -121,6 +124,7 @@ public class IcebergPageSinkProvider
                 schema,
                 partitionSpec,
                 locationProvider,
+                fileNameProvider,
                 fileWriterFactory,
                 pageIndexerFactory,
                 fileSystemFactory.create(session.getIdentity(), tableCredentials),
@@ -158,6 +162,7 @@ public class IcebergPageSinkProvider
                         schema,
                         partitionSpec,
                         locationProvider,
+                        fileNameProvider,
                         fileWriterFactory,
                         pageIndexerFactory,
                         fileSystemFactory.create(session.getIdentity(), tableCredentials.map(IcebergTableCredentials.class::cast).get()),
@@ -211,6 +216,7 @@ public class IcebergPageSinkProvider
         return new IcebergMergeSink(
                 formatVersion,
                 locationProvider,
+                fileNameProvider,
                 fileWriterFactory,
                 fileSystemFactory.create(session.getIdentity(), icebergTableCredentials),
                 jsonCodec,
