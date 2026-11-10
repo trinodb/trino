@@ -59,12 +59,6 @@ public record Constant(Type type, @JsonIgnore Object value)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitConstant(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         return ImmutableList.of();

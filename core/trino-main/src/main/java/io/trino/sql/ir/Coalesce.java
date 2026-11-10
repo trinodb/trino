@@ -52,12 +52,6 @@ public record Coalesce(List<Expression> operands)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCoalesce(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         return operands;

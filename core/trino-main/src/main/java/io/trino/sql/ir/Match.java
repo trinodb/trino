@@ -61,12 +61,6 @@ public record Match(Expression operand, List<MatchClause> clauses, Expression de
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMatch(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         ImmutableList.Builder<Expression> builder = ImmutableList.<Expression>builder()
