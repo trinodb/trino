@@ -1435,6 +1435,9 @@ public class IcebergMetadata
         try {
             catalog.updateTableComment(session, handle.getSchemaTableName(), comment);
         }
+        catch (TrinoException e) {
+            throw e;
+        }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set table comment: " + requireNonNullElse(e.getMessage(), e), e);
         }
@@ -1446,6 +1449,9 @@ public class IcebergMetadata
         try {
             catalog.updateViewComment(session, viewName, comment);
         }
+        catch (TrinoException e) {
+            throw e;
+        }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set view comment: " + requireNonNullElse(e.getMessage(), e), e);
         }
@@ -1456,6 +1462,9 @@ public class IcebergMetadata
     {
         try {
             catalog.updateViewColumnComment(session, viewName, columnName, comment);
+        }
+        catch (TrinoException e) {
+            throw e;
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set view column comment: " + requireNonNullElse(e.getMessage(), e), e);
@@ -2394,6 +2403,9 @@ public class IcebergMetadata
         }
         catch (CommitFailedException e) {
             throw new TrinoException(TRANSACTION_CONFLICT, format("Failed to commit the transaction during %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
+        }
+        catch (UnsupportedOperationException e) {
+            throw new TrinoException(NOT_SUPPORTED, format("Failed to commit the transaction during %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
         }
         catch (UncheckedIOException | ValidationException | CommitStateUnknownException | RESTException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit the transaction during %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
@@ -4574,6 +4586,9 @@ public class IcebergMetadata
     {
         try {
             catalog.updateColumnComment(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), ((IcebergColumnHandle) column).getColumnIdentity(), comment);
+        }
+        catch (TrinoException e) {
+            throw e;
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set column comment: " + requireNonNullElse(e.getMessage(), e), e);
