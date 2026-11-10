@@ -38,6 +38,8 @@ import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.TableInfo;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.base.filter.UtcConstraintExtractor;
 import io.trino.plugin.base.metrics.ApiCallStats;
@@ -544,6 +546,8 @@ public class IcebergMetadata
     private final TableStatisticsWriter tableStatisticsWriter;
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
+    private final OrcReaderOptions orcReaderOptions;
+    private final ParquetReaderOptions parquetReaderOptions;
     private final Predicate<String> allowedExtraProperties;
     private final ExecutorService icebergScanExecutor;
     private final Executor metadataFetchingExecutor;
@@ -575,6 +579,8 @@ public class IcebergMetadata
             DeletionVectorWriter deletionVectorWriter,
             Optional<HiveMetastoreFactory> metastoreFactory,
             boolean addFilesProcedureEnabled,
+            OrcReaderOptions orcReaderOptions,
+            ParquetReaderOptions parquetReaderOptions,
             Predicate<String> allowedExtraProperties,
             ExecutorService icebergScanExecutor,
             Executor metadataFetchingExecutor,
@@ -593,6 +599,8 @@ public class IcebergMetadata
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.addFilesProcedureEnabled = addFilesProcedureEnabled;
+        this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
+        this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.allowedExtraProperties = requireNonNull(allowedExtraProperties, "allowedExtraProperties is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
@@ -2590,6 +2598,8 @@ public class IcebergMetadata
         long addedDataFiles = addFiles(
                 session,
                 fileSystem,
+                orcReaderOptions,
+                parquetReaderOptions,
                 catalog,
                 executeHandle.schemaTableName(),
                 addFilesHandle.location(),
@@ -2609,6 +2619,8 @@ public class IcebergMetadata
         long addedDataFiles = addFilesFromTable(
                 session,
                 fileSystem,
+                orcReaderOptions,
+                parquetReaderOptions,
                 metastoreFactory.orElseThrow(),
                 table,
                 addFilesHandle.table(),

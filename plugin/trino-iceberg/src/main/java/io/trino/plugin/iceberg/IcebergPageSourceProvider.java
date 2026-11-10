@@ -679,15 +679,7 @@ public class IcebergPageSourceProvider
                     dataColumns,
                     predicate,
                     domainCompactionThreshold,
-                    orcReaderOptions
-                            .withMaxMergeDistance(getOrcMaxMergeDistance(session))
-                            .withMaxBufferSize(getOrcMaxBufferSize(session))
-                            .withStreamBufferSize(getOrcStreamBufferSize(session))
-                            .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))
-                            .withMaxReadBlockSize(getOrcMaxReadBlockSize(session))
-                            .withLazyReadSmallRanges(getOrcLazyReadSmallRanges(session))
-                            .withNestedLazy(isOrcNestedLazy(session))
-                            .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session)),
+                    withSessionOrcReaderOptions(orcReaderOptions, session),
                     fileFormatDataSourceStats,
                     typeManager,
                     nameMapping,
@@ -706,15 +698,7 @@ public class IcebergPageSourceProvider
                     partitionData,
                     fileSchema,
                     dataColumns,
-                    ParquetReaderOptions.builder(parquetReaderOptions)
-                            .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                            .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
-                            .withSmallFileThreshold(getParquetSmallFileThreshold(session))
-                            .withIgnoreStatistics(isParquetIgnoreStatistics(session))
-                            .withBloomFilter(useParquetBloomFilter(session))
-                            .withUseColumnIndex(isParquetUseColumnIndex(session))
-                            .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
-                            .build(),
+                    withSessionParquetReaderOptions(parquetReaderOptions, session),
                     predicate,
                     domainCompactionThreshold,
                     fileFormatDataSourceStats,
@@ -2300,5 +2284,31 @@ public class IcebergPageSourceProvider
         {
             sourcePage.selectPositions(positions, offset, size);
         }
+    }
+
+    public static OrcReaderOptions withSessionOrcReaderOptions(OrcReaderOptions configuredOptions, ConnectorSession session)
+    {
+        return configuredOptions
+                .withMaxMergeDistance(getOrcMaxMergeDistance(session))
+                .withMaxBufferSize(getOrcMaxBufferSize(session))
+                .withStreamBufferSize(getOrcStreamBufferSize(session))
+                .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))
+                .withMaxReadBlockSize(getOrcMaxReadBlockSize(session))
+                .withLazyReadSmallRanges(getOrcLazyReadSmallRanges(session))
+                .withNestedLazy(isOrcNestedLazy(session))
+                .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session));
+    }
+
+    public static ParquetReaderOptions withSessionParquetReaderOptions(ParquetReaderOptions configuredOptions, ConnectorSession session)
+    {
+        return ParquetReaderOptions.builder(configuredOptions)
+                .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
+                .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
+                .withSmallFileThreshold(getParquetSmallFileThreshold(session))
+                .withIgnoreStatistics(isParquetIgnoreStatistics(session))
+                .withBloomFilter(useParquetBloomFilter(session))
+                .withUseColumnIndex(isParquetUseColumnIndex(session))
+                .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
+                .build();
     }
 }
