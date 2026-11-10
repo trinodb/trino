@@ -55,6 +55,7 @@ import io.trino.spi.block.VariantBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
@@ -144,6 +145,7 @@ public class ParquetReader
 
     private int currentRowGroup = -1;
     private PrunedBlockMetadata currentBlockMetadata;
+    private RowGroupValueBounds currentGroupValueBounds;
     private long currentGroupRowCount;
     /**
      * Index in the Parquet file of the first row of the current group
@@ -354,6 +356,7 @@ public class ParquetReader
         private final int rowNumberColumnIndex = appendRowNumberColumn ? columnFields.size() : -1;
         private final long batchStartRow = lastBatchStartRow();
         private final long[] batchRowNumbers = currentBatchRowNumbers;
+        private final RowGroupValueBounds valueBounds = currentGroupValueBounds;
         private SelectedPositions selectedPositions;
         @Nullable
         private SelectedPositionsReadMode[] selectedPositionsReadModes;
@@ -419,6 +422,12 @@ public class ParquetReader
         public int getChannelCount()
         {
             return blocks.length;
+        }
+
+        @Override
+        public Optional<Domain> getValueBounds(int channel)
+        {
+            return valueBounds.valueBounds(channel);
         }
 
         @Override
@@ -1068,6 +1077,7 @@ public class ParquetReader
         }
         RowGroupInfo rowGroupInfo = rowGroups.get(currentRowGroup);
         currentBlockMetadata = rowGroupInfo.prunedBlockMetadata();
+        currentGroupValueBounds = new RowGroupValueBounds(columnFields, currentBlockMetadata, dataSource.getId());
         firstRowIndexInGroup = rowGroupInfo.fileRowOffset();
         currentGroupRowCount = currentBlockMetadata.getRowCount();
         FilteredRowRanges currentGroupRowRanges = blockRowRanges[currentRowGroup];
