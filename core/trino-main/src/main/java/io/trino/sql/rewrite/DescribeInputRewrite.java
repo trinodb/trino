@@ -24,7 +24,6 @@ import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.Expression;
@@ -81,11 +80,10 @@ public final class DescribeInputRewrite
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        return (Statement) new Visitor(session, parser, analyzerFactory, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector).process(node, null);
+        return new Rewriter(session, parser, analyzerFactory, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector).process(node);
     }
 
-    private static final class Visitor
-            extends AstVisitor<Node, Void>
+    private static final class Rewriter
     {
         private static final Query EMPTY_INPUT = createDescribeInputQuery(
                 new Row[] {
@@ -102,7 +100,7 @@ public final class DescribeInputRewrite
         private final WarningCollector warningCollector;
         private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
-        public Visitor(
+        public Rewriter(
                 Session session,
                 SqlParser parser,
                 AnalyzerFactory analyzerFactory,
@@ -120,8 +118,15 @@ public final class DescribeInputRewrite
             this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         }
 
-        @Override
-        protected Node visitDescribeInput(DescribeInput node, Void context)
+        public Statement process(Statement node)
+        {
+            return switch (node) {
+                case DescribeInput describe -> rewriteDescribeInput(describe);
+                default -> node;
+            };
+        }
+
+        private Query rewriteDescribeInput(DescribeInput node)
         {
             String sqlString = session.getPreparedStatement(node.getName().getValue());
             Statement statement = parser.createStatement(sqlString);
@@ -174,12 +179,6 @@ public final class DescribeInputRewrite
             return row(
                     new LongLiteral(Integer.toString(position)),
                     new StringLiteral(formatType(type, session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_INTERVAL.toString()))));
-        }
-
-        @Override
-        protected Node visitNode(Node node, Void context)
-        {
-            return node;
         }
     }
 }
