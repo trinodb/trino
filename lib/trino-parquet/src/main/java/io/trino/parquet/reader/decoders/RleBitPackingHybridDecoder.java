@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader.decoders;
 
+import io.airlift.slice.Slice;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 
 import java.util.Arrays;
@@ -24,6 +25,7 @@ import static io.trino.parquet.reader.decoders.IntBitUnpackers.getIntBitUnpacker
 import static io.trino.parquet.reader.decoders.VectorIntBitUnpackers.getVectorIntBitUnpacker;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
 
 /**
  * <a href="https://github.com/apache/parquet-format/blob/master/Encodings.md#run-length-encoding--bit-packing-hybrid-rle--3">
@@ -161,6 +163,31 @@ public final class RleBitPackingHybridDecoder
             // Only full bytes are encoded
             valuesLeftInGroup *= 8;
         }
+    }
+
+    /**
+     * Checks if the RLE/bit-packed hybrid encoded {@code levels} start with a single RLE run
+     * covering at least {@code valueCount} values, all equal to {@code value}.
+     * Header and value are parsed exactly as {@link #readGroupHeader()} does, falling back to
+     * {@code false} when the encoded bytes are too short to be parsed safely.
+     */
+    public static boolean isSingleRleRun(Slice levels, int value, int valueCount)
+    {
+        int headerLength = 0;
+        while (headerLength < min(5, levels.length()) && (levels.getByte(headerLength) & 0x80) != 0) {
+            headerLength++;
+        }
+        headerLength++;
+        if (headerLength > 5 || headerLength > levels.length()) {
+            return false;
+        }
+        int byteWidth = byteWidth(getWidthFromMaxInt(value));
+        if (headerLength + byteWidth > levels.length()) {
+            return false;
+        }
+        SimpleSliceInputStream input = new SimpleSliceInputStream(levels);
+        int header = readUleb128Int(input);
+        return (header & 1) == 0 && (header >>> 1) >= valueCount && readFixedWidthInt(input, byteWidth) == value;
     }
 
     private static int byteWidth(int bitWidth)
