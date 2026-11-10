@@ -16,12 +16,12 @@ package io.trino.operator.scalar.timestamptz;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.function.BoundArgument;
+import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.NonConstantImplementation;
 import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
@@ -65,7 +65,7 @@ public final class FormatDateTime
         }
     }
 
-    @ScalarFunctionImplementationChoice
+    @NonConstantImplementation
     public static final class Row
     {
         private Row() {}
@@ -85,12 +85,12 @@ public final class FormatDateTime
         }
     }
 
-    @ConstantSpecialization(constantPositions = 1)
+    @ConstantSpecialization
     public static final class ConstantFormat
     {
         private final DateTimeFormatter formatter;
 
-        public ConstantFormat(@BoundArgument(position = 1) Slice formatString)
+        public ConstantFormat(@ConstantArgument(position = 1) Slice formatString)
         {
             formatter = createFormatter(formatString);
         }

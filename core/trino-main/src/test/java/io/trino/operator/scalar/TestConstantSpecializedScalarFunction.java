@@ -24,10 +24,10 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.function.BoundArgument;
+import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.ConstantSpecialization;
+import io.trino.spi.function.NonConstantImplementation;
 import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.BigintType;
@@ -75,6 +75,7 @@ public class TestConstantSpecializedScalarFunction
         InternalFunctionBundle functions = InternalFunctionBundle.builder()
                 .scalar(ConstantAdd.class)
                 .scalar(NullableConstantAdd.class)
+                .scalar(FailingConstantAdd.class)
                 .build();
         assertions = new QueryAssertions();
         assertions.addFunctions(functions);
@@ -93,6 +94,7 @@ public class TestConstantSpecializedScalarFunction
     {
         ConstantAdd.reset();
         NullableConstantAdd.reset();
+        FailingConstantAdd.reset();
     }
 
     @AfterAll
@@ -109,7 +111,8 @@ public class TestConstantSpecializedScalarFunction
         assertThat(BigintType.BIGINT.getLong(result, 0)).isEqualTo(17);
         assertThat(BigintType.BIGINT.getLong(result, 1)).isEqualTo(27);
 
-        assertThat(ConstantAdd.constructorInvocations).hasValue(1);
+        // one probe instance when selecting the specialization, one instance for the evaluator
+        assertThat(ConstantAdd.constructorInvocations).hasValue(2);
         assertThat(ConstantAdd.specializedInvocations).hasValue(2);
         assertThat(ConstantAdd.rowInvocations).hasValue(0);
     }
@@ -132,7 +135,7 @@ public class TestConstantSpecializedScalarFunction
         assertThat(BigintType.BIGINT.getLong(result, 0)).isEqualTo(110);
         assertThat(BigintType.BIGINT.getLong(result, 1)).isEqualTo(120);
 
-        assertThat(NullableConstantAdd.constructorInvocations).hasValue(1);
+        assertThat(NullableConstantAdd.constructorInvocations).hasValue(2);
         assertThat(NullableConstantAdd.specializedInvocations).hasValue(2);
         assertThat(NullableConstantAdd.rowInvocations).hasValue(0);
     }
@@ -150,19 +153,55 @@ public class TestConstantSpecializedScalarFunction
     }
 
     @Test
+    public void testDifferentConstantsDoNotShareCompiledClass()
+    {
+        Block first = project("constant_specialized_add", new Constant(BigintType.BIGINT, 7L));
+        Block second = project("constant_specialized_add", new Constant(BigintType.BIGINT, 8L));
+
+        assertThat(BigintType.BIGINT.getLong(first, 0)).isEqualTo(17);
+        assertThat(BigintType.BIGINT.getLong(second, 0)).isEqualTo(18);
+        assertThat(BigintType.BIGINT.getLong(second, 1)).isEqualTo(28);
+    }
+
+    @Test
+    public void testFailingConstructorFallsBackToNonConstantImplementation()
+    {
+        Block result = project("failing_constant_specialized_add", new Constant(BigintType.BIGINT, -1L));
+        assertThat(BigintType.BIGINT.getLong(result, 0)).isEqualTo(9);
+        assertThat(BigintType.BIGINT.getLong(result, 1)).isEqualTo(19);
+
+        assertThat(FailingConstantAdd.specializedInvocations).hasValue(0);
+        assertThat(FailingConstantAdd.rowInvocations).hasValue(2);
+
+        FailingConstantAdd.reset();
+        result = project("failing_constant_specialized_add", new Constant(BigintType.BIGINT, 1L));
+        assertThat(BigintType.BIGINT.getLong(result, 0)).isEqualTo(11);
+        assertThat(FailingConstantAdd.specializedInvocations).hasValue(2);
+        assertThat(FailingConstantAdd.rowInvocations).hasValue(0);
+    }
+
+    @Test
     public void testAnnotationValidation()
     {
         assertThatThrownBy(() -> ScalarFromAnnotationsParser.parseFunctionDefinition(EmptyArguments.class))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("@ConstantSpecialization arguments are empty");
+                .hasMessageContaining("must declare at least one @ConstantArgument");
 
-        assertThatThrownBy(() -> ScalarFromAnnotationsParser.parseFunctionDefinition(ResidualSignatureMismatch.class))
+        assertThatThrownBy(() -> ScalarFromAnnotationsParser.parseFunctionDefinition(RemainingSignatureMismatch.class))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("must equal canonical signature");
 
-        assertThatThrownBy(() -> ScalarFromAnnotationsParser.parseFunctionDefinition(ConstructorArgumentsMismatch.class))
+        assertThatThrownBy(() -> ScalarFromAnnotationsParser.parseFunctionDefinition(DuplicateSpecializations.class))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("must declare each consumed @BoundArgument exactly once");
+                .hasMessageContaining("multiple @ConstantSpecialization classes");
+
+        assertThatThrownBy(() -> ScalarFromAnnotationsParser.parseFunctionDefinition(OutOfRangePosition.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("is outside canonical signature");
+
+        assertThatThrownBy(() -> ScalarFromAnnotationsParser.parseFunctionDefinition(DuplicatePosition.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("is declared more than once");
     }
 
     @Test
@@ -222,7 +261,7 @@ public class TestConstantSpecializedScalarFunction
             rowInvocations.set(0);
         }
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -235,12 +274,12 @@ public class TestConstantSpecializedScalarFunction
             }
         }
 
-        @ConstantSpecialization(constantPositions = 1)
+        @ConstantSpecialization
         public static final class IncrementSpecialization
         {
             private final long increment;
 
-            public IncrementSpecialization(@BoundArgument(position = 1) long increment)
+            public IncrementSpecialization(@ConstantArgument(position = 1) long increment)
             {
                 constructorInvocations.incrementAndGet();
                 this.increment = increment;
@@ -271,7 +310,7 @@ public class TestConstantSpecializedScalarFunction
             rowInvocations.set(0);
         }
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -284,12 +323,12 @@ public class TestConstantSpecializedScalarFunction
             }
         }
 
-        @ConstantSpecialization(constantPositions = 1)
+        @ConstantSpecialization
         public static final class IncrementSpecialization
         {
             private final Long increment;
 
-            public IncrementSpecialization(@BoundArgument(position = 1) Long increment)
+            public IncrementSpecialization(@ConstantArgument(position = 1) Long increment)
             {
                 constructorInvocations.incrementAndGet();
                 this.increment = increment;
@@ -307,7 +346,7 @@ public class TestConstantSpecializedScalarFunction
     @ScalarFunction("invalid_empty_arguments")
     public static final class EmptyArguments
     {
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             @SqlType(BIGINT)
@@ -317,23 +356,23 @@ public class TestConstantSpecializedScalarFunction
             }
         }
 
-        @ConstantSpecialization(constantPositions = {})
+        @ConstantSpecialization
         public static final class Specialized
         {
-            public Specialized(@BoundArgument(position = 0) long value) {}
+            public Specialized() {}
 
             @SqlType(BIGINT)
-            public long apply()
+            public long apply(@SqlType(BIGINT) long value)
             {
                 return 0;
             }
         }
     }
 
-    @ScalarFunction("invalid_residual_signature")
-    public static final class ResidualSignatureMismatch
+    @ScalarFunction("invalid_remaining_signature")
+    public static final class RemainingSignatureMismatch
     {
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             @SqlType(BIGINT)
@@ -343,10 +382,10 @@ public class TestConstantSpecializedScalarFunction
             }
         }
 
-        @ConstantSpecialization(constantPositions = 1)
+        @ConstantSpecialization
         public static final class Specialized
         {
-            public Specialized(@BoundArgument(position = 1) long increment) {}
+            public Specialized(@ConstantArgument(position = 1) long increment) {}
 
             @SqlType(BIGINT)
             public long apply(@SqlType(BIGINT) long value, @SqlType(BIGINT) long increment)
@@ -356,10 +395,59 @@ public class TestConstantSpecializedScalarFunction
         }
     }
 
-    @ScalarFunction("invalid_constructor_arguments")
-    public static final class ConstructorArgumentsMismatch
+    @ScalarFunction("failing_constant_specialized_add")
+    public static final class FailingConstantAdd
     {
-        @ScalarFunctionImplementationChoice
+        private static final AtomicInteger specializedInvocations = new AtomicInteger();
+        private static final AtomicInteger rowInvocations = new AtomicInteger();
+
+        private FailingConstantAdd() {}
+
+        private static void reset()
+        {
+            specializedInvocations.set(0);
+            rowInvocations.set(0);
+        }
+
+        @NonConstantImplementation
+        public static final class Row
+        {
+            private Row() {}
+
+            @SqlType(BIGINT)
+            public static long add(@SqlType(BIGINT) long value, @SqlType(BIGINT) long increment)
+            {
+                rowInvocations.incrementAndGet();
+                return value + increment;
+            }
+        }
+
+        @ConstantSpecialization
+        public static final class IncrementSpecialization
+        {
+            private final long increment;
+
+            public IncrementSpecialization(@ConstantArgument(position = 1) long increment)
+            {
+                if (increment < 0) {
+                    throw new IllegalArgumentException("negative increment");
+                }
+                this.increment = increment;
+            }
+
+            @SqlType(BIGINT)
+            public long add(@SqlType(BIGINT) long value)
+            {
+                specializedInvocations.incrementAndGet();
+                return value + increment;
+            }
+        }
+    }
+
+    @ScalarFunction("invalid_duplicate_specializations")
+    public static final class DuplicateSpecializations
+    {
+        @NonConstantImplementation
         public static final class Row
         {
             @SqlType(BIGINT)
@@ -369,10 +457,74 @@ public class TestConstantSpecializedScalarFunction
             }
         }
 
-        @ConstantSpecialization(constantPositions = 1)
+        @ConstantSpecialization
+        public static final class First
+        {
+            public First(@ConstantArgument(position = 1) long increment) {}
+
+            @SqlType(BIGINT)
+            public long apply(@SqlType(BIGINT) long value)
+            {
+                return value;
+            }
+        }
+
+        @ConstantSpecialization
+        public static final class Second
+        {
+            public Second(@ConstantArgument(position = 1) long increment) {}
+
+            @SqlType(BIGINT)
+            public long apply(@SqlType(BIGINT) long value)
+            {
+                return value;
+            }
+        }
+    }
+
+    @ScalarFunction("invalid_out_of_range_position")
+    public static final class OutOfRangePosition
+    {
+        @NonConstantImplementation
+        public static final class Row
+        {
+            @SqlType(BIGINT)
+            public static long apply(@SqlType(BIGINT) long value)
+            {
+                return value;
+            }
+        }
+
+        @ConstantSpecialization
         public static final class Specialized
         {
-            public Specialized(@BoundArgument(position = 0) long value) {}
+            public Specialized(@ConstantArgument(position = 5) long value) {}
+
+            @SqlType(BIGINT)
+            public long apply(@SqlType(BIGINT) long value)
+            {
+                return value;
+            }
+        }
+    }
+
+    @ScalarFunction("invalid_duplicate_position")
+    public static final class DuplicatePosition
+    {
+        @NonConstantImplementation
+        public static final class Row
+        {
+            @SqlType(BIGINT)
+            public static long apply(@SqlType(BIGINT) long value, @SqlType(BIGINT) long increment)
+            {
+                return value + increment;
+            }
+        }
+
+        @ConstantSpecialization
+        public static final class Specialized
+        {
+            public Specialized(@ConstantArgument(position = 1) long first, @ConstantArgument(position = 1) long second) {}
 
             @SqlType(BIGINT)
             public long apply(@SqlType(BIGINT) long value)

@@ -15,13 +15,13 @@ package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.preimage.DateTruncPreimage;
-import io.trino.spi.function.BoundArgument;
+import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.NonConstantImplementation;
 import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import org.joda.time.DateTimeField;
@@ -53,7 +53,7 @@ public final class DateTrunc
         return new LongTimestamp(scaleEpochMillisToMicros(result), 0);
     }
 
-    @ScalarFunctionImplementationChoice
+    @NonConstantImplementation
     public static final class Row
     {
         private Row() {}
@@ -73,12 +73,12 @@ public final class DateTrunc
         }
     }
 
-    @ConstantSpecialization(constantPositions = 0)
+    @ConstantSpecialization
     public static final class ConstantUnit
     {
         private final DateTimeField field;
 
-        public ConstantUnit(@BoundArgument(position = 0) Slice unit)
+        public ConstantUnit(@ConstantArgument(position = 0) Slice unit)
         {
             field = getTimestampField(ISOChronology.getInstanceUTC(), unit);
         }

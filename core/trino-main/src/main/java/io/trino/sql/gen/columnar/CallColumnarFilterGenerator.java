@@ -34,7 +34,6 @@ import io.trino.spi.function.ConstantSpecializedImplementation;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
-import io.trino.spi.function.ScalarFunctionSpecializationContext;
 import io.trino.spi.type.FunctionType;
 import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
@@ -70,6 +69,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadBindingHandle;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
+import static io.trino.sql.gen.BytecodeUtils.selectConstantSpecialization;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.createClassInstance;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.declareBlockVariables;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateBlockMayHaveNull;
@@ -126,6 +126,10 @@ public class CallColumnarFilterGenerator
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
         SelectedImplementation selectedImplementation = getScalarFunctionImplementation(functionManager, function, arguments);
+        if (!selectedImplementation.constantPositions().isEmpty()) {
+            // constants are bound into the instance factory, so the generated class can not be shared across different constant values
+            callSiteBinder.markValueDependent();
+        }
 
         FieldDefinition inputChannelsField = generateGetInputChannels(classDefinition);
 
@@ -277,28 +281,6 @@ public class CallColumnarFilterGenerator
         body.append(outputPositionsCount.ret());
     }
 
-    static BytecodeBlock generateInvocation(
-            FunctionManager functionManager,
-            CallSiteBinder binder,
-            ResolvedFunction function,
-            List<Expression> arguments,
-            Map<Symbol, Integer> layout,
-            Scope scope,
-            BytecodeExpression position)
-    {
-        return generateFullInvocation(
-                _ -> {
-                    throw new IllegalArgumentException("Simple method invocation can not be used with functions that require an instance factory");
-                },
-                binder,
-                function,
-                arguments,
-                layout,
-                scope,
-                position,
-                getScalarFunctionImplementation(functionManager, function, arguments));
-    }
-
     private static BytecodeBlock generateFullInvocation(
             Function<MethodHandle, BytecodeNode> instanceFactory,
             CallSiteBinder binder,
@@ -342,7 +324,7 @@ public class CallColumnarFilterGenerator
             currentParameterIndex++;
         }
         for (int index = 0; index < arguments.size(); index++) {
-            if (selectedImplementation.consumedArguments().contains(index)) {
+            if (selectedImplementation.constantPositions().contains(index)) {
                 continue;
             }
             Expression argumentExpression = arguments.get(index);
@@ -388,27 +370,15 @@ public class CallColumnarFilterGenerator
                 true,
                 true);
 
-        List<Optional<io.trino.spi.expression.Constant>> constantArguments = arguments.stream()
-                .map(argument -> {
-                    if (argument instanceof Constant constant) {
-                        return Optional.of(new io.trino.spi.expression.Constant(constant.value(), constant.type()));
-                    }
-                    return Optional.<io.trino.spi.expression.Constant>empty();
-                })
-                .toList();
-        Optional<ConstantSpecializedImplementation> constantSpecialization = constantArguments.stream().anyMatch(Optional::isPresent)
-                ? functionManager.getConstantSpecializedScalarFunctionImplementation(
-                resolvedFunction,
-                new ScalarFunctionSpecializationContext(invocationConvention, constantArguments))
-                : Optional.empty();
+        Optional<ConstantSpecializedImplementation> constantSpecialization = selectConstantSpecialization(resolvedFunction, functionManager, arguments, invocationConvention);
         if (constantSpecialization.isPresent()) {
             ConstantSpecializedImplementation specialization = constantSpecialization.orElseThrow();
-            return new SelectedImplementation(specialization.implementation(), specialization.consumedArguments());
+            return new SelectedImplementation(specialization.implementation(), specialization.constantPositions());
         }
         return new SelectedImplementation(functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention), Set.of());
     }
 
-    private record SelectedImplementation(ScalarFunctionImplementation implementation, Set<Integer> consumedArguments) {}
+    private record SelectedImplementation(ScalarFunctionImplementation implementation, Set<Integer> constantPositions) {}
 
     private static BytecodeNode generateInputReference(BytecodeExpression block, BytecodeExpression position)
     {

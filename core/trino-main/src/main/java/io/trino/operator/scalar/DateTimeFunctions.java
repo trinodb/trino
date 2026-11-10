@@ -21,14 +21,14 @@ import io.trino.operator.scalar.preimage.YearDatePreimage;
 import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.function.BoundArgument;
+import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.NonConstantImplementation;
 import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -351,7 +351,7 @@ public final class DateTimeFunctions
     {
         private DateTrunc() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -364,12 +364,12 @@ public final class DateTimeFunctions
             }
         }
 
-        @ConstantSpecialization(constantPositions = 0)
+        @ConstantSpecialization
         public static final class ConstantUnit
         {
             private final DateTimeField field;
 
-            public ConstantUnit(@BoundArgument(position = 0) Slice unit)
+            public ConstantUnit(@ConstantArgument(position = 0) Slice unit)
             {
                 field = getDateField(UTC_CHRONOLOGY, unit);
             }
@@ -388,7 +388,7 @@ public final class DateTimeFunctions
     {
         private DateAdd() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -401,12 +401,12 @@ public final class DateTimeFunctions
             }
         }
 
-        @ConstantSpecialization(constantPositions = 0)
+        @ConstantSpecialization
         public static final class ConstantUnit
         {
             private final DateTimeField field;
 
-            public ConstantUnit(@BoundArgument(position = 0) Slice unit)
+            public ConstantUnit(@ConstantArgument(position = 0) Slice unit)
             {
                 field = getDateField(UTC_CHRONOLOGY, unit);
             }
@@ -425,7 +425,7 @@ public final class DateTimeFunctions
     {
         private DateDiff() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -438,12 +438,12 @@ public final class DateTimeFunctions
             }
         }
 
-        @ConstantSpecialization(constantPositions = 0)
+        @ConstantSpecialization
         public static final class ConstantUnit
         {
             private final DateTimeField field;
 
-            public ConstantUnit(@BoundArgument(position = 0) Slice unit)
+            public ConstantUnit(@ConstantArgument(position = 0) Slice unit)
             {
                 field = getDateField(UTC_CHRONOLOGY, unit);
             }
@@ -566,7 +566,7 @@ public final class DateTimeFunctions
     {
         private ParseDateTime() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -579,12 +579,12 @@ public final class DateTimeFunctions
             }
         }
 
-        @ConstantSpecialization(constantPositions = 1)
+        @ConstantSpecialization
         public static final class ConstantFormat
         {
             private final DateTimeFormatter formatter;
 
-            public ConstantFormat(@BoundArgument(position = 1) Slice formatString)
+            public ConstantFormat(@ConstantArgument(position = 1) Slice formatString)
             {
                 formatter = createJodaDateTimeFormatter(formatString);
             }
@@ -665,7 +665,7 @@ public final class DateTimeFunctions
     {
         private DateParse() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -678,12 +678,12 @@ public final class DateTimeFunctions
             }
         }
 
-        @ConstantSpecialization(constantPositions = 1)
+        @ConstantSpecialization
         public static final class ConstantFormat
         {
             private final Optional<DateTimeFormatter> formatter;
 
-            public ConstantFormat(@BoundArgument(position = 1) Slice formatString)
+            public ConstantFormat(@ConstantArgument(position = 1) Slice formatString)
             {
                 formatter = ISO_8601_DATE_FORMAT.equals(formatString) ? Optional.empty() : Optional.of(createDateTimeFormatter(formatString));
             }

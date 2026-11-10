@@ -38,18 +38,23 @@ import static java.util.Objects.requireNonNull;
 
 public final class ParametricScalarConstantSpecialization
 {
-    private final Set<Integer> consumedArguments;
+    private final Set<Integer> constantPositions;
     private final ParametricImplementationsGroup<ParametricScalarImplementation> implementations;
     private final FunctionNullability canonicalNullability;
 
     public ParametricScalarConstantSpecialization(
-            Set<Integer> consumedArguments,
+            Set<Integer> constantPositions,
             ParametricImplementationsGroup<ParametricScalarImplementation> implementations,
             FunctionNullability canonicalNullability)
     {
-        this.consumedArguments = Set.copyOf(requireNonNull(consumedArguments, "consumedArguments is null"));
+        this.constantPositions = Set.copyOf(requireNonNull(constantPositions, "constantPositions is null"));
         this.implementations = requireNonNull(implementations, "implementations is null");
         this.canonicalNullability = requireNonNull(canonicalNullability, "canonicalNullability is null");
+    }
+
+    public Set<Integer> getConstantPositions()
+    {
+        return constantPositions;
     }
 
     public void declareDependencies(FunctionDependencyDeclarationBuilder builder)
@@ -76,49 +81,49 @@ public final class ParametricScalarConstantSpecialization
     public Optional<Specialization> specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         BoundSignature boundSignature = functionBinding.getBoundSignature();
-        List<io.trino.spi.type.Type> residualArgumentTypes = new ArrayList<>();
+        List<io.trino.spi.type.Type> remainingArgumentTypes = new ArrayList<>();
         for (int index = 0; index < boundSignature.getArgumentTypes().size(); index++) {
-            if (!consumedArguments.contains(index)) {
-                residualArgumentTypes.add(boundSignature.getArgumentTypes().get(index));
+            if (!constantPositions.contains(index)) {
+                remainingArgumentTypes.add(boundSignature.getArgumentTypes().get(index));
             }
         }
-        BoundSignature residualBoundSignature = new BoundSignature(boundSignature.getName(), boundSignature.getReturnType(), residualArgumentTypes);
+        BoundSignature remainingBoundSignature = new BoundSignature(boundSignature.getName(), boundSignature.getReturnType(), remainingArgumentTypes);
 
-        ParametricScalarImplementation exactImplementation = implementations.getExactImplementations().get(residualBoundSignature.toSignature());
+        ParametricScalarImplementation exactImplementation = implementations.getExactImplementations().get(remainingBoundSignature.toSignature());
         if (exactImplementation != null) {
-            Optional<ConstantSpecializedFunction> implementation = exactImplementation.specializeConstant(functionBinding, functionDependencies, residualBoundSignature);
+            Optional<ConstantSpecializedFunction> implementation = exactImplementation.specializeConstant(functionBinding, functionDependencies, remainingBoundSignature);
             if (implementation.isEmpty()) {
                 return Optional.empty();
             }
             ConstantSpecializedFunction specializedFunction = implementation.orElseThrow();
             validateConstructorTypes(boundSignature, specializedFunction);
-            return Optional.of(new Specialization(consumedArguments, specializedFunction.boundSignature(), specializedFunction.choices(), specializedFunction.constructorConstantArguments()));
+            return Optional.of(new Specialization(constantPositions, specializedFunction.boundSignature(), specializedFunction.choices(), specializedFunction.constructorConstantPositions()));
         }
 
         ConstantSpecializedFunction selectedImplementation = selectImplementation(
                 implementations.getSpecializedImplementations(),
                 functionBinding,
                 functionDependencies,
-                residualBoundSignature);
+                remainingBoundSignature);
         if (selectedImplementation == null) {
             selectedImplementation = selectImplementation(
                     implementations.getGenericImplementations(),
                     functionBinding,
                     functionDependencies,
-                    residualBoundSignature);
+                    remainingBoundSignature);
         }
         if (selectedImplementation == null) {
             return Optional.empty();
         }
         validateConstructorTypes(boundSignature, selectedImplementation);
-        return Optional.of(new Specialization(consumedArguments, selectedImplementation.boundSignature(), selectedImplementation.choices(), selectedImplementation.constructorConstantArguments()));
+        return Optional.of(new Specialization(constantPositions, selectedImplementation.boundSignature(), selectedImplementation.choices(), selectedImplementation.constructorConstantPositions()));
     }
 
     private void validateConstructorTypes(BoundSignature boundSignature, ConstantSpecializedFunction implementation)
     {
         implementation.choices().forEach(choice -> {
-            for (int index = 0; index < implementation.constructorConstantArguments().size(); index++) {
-                int argument = implementation.constructorConstantArguments().get(index);
+            for (int index = 0; index < implementation.constructorConstantPositions().size(); index++) {
+                int argument = implementation.constructorConstantPositions().get(index);
                 Class<?> expectedType = boundSignature.getArgumentTypes().get(argument).getJavaType();
                 if (canonicalNullability.isArgumentNullable(argument)) {
                     expectedType = wrap(expectedType);
@@ -126,7 +131,7 @@ public final class ParametricScalarConstantSpecialization
                 checkCondition(
                         choice.instanceFactory().type().parameterType(index).isAssignableFrom(expectedType),
                         StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR,
-                        "@BoundArgument(%s) constructor parameter must accept %s, but is %s",
+                        "@ConstantArgument(%s) constructor parameter must accept %s, but is %s",
                         argument,
                         expectedType.getName(),
                         choice.instanceFactory().type().parameterType(index).getName());
@@ -138,13 +143,13 @@ public final class ParametricScalarConstantSpecialization
             List<ParametricScalarImplementation> implementations,
             FunctionBinding functionBinding,
             FunctionDependencies functionDependencies,
-            BoundSignature residualBoundSignature)
+            BoundSignature remainingBoundSignature)
     {
         ConstantSpecializedFunction selectedImplementation = null;
         for (ParametricScalarImplementation implementation : implementations) {
-            Optional<ConstantSpecializedFunction> candidate = implementation.specializeConstant(functionBinding, functionDependencies, residualBoundSignature);
+            Optional<ConstantSpecializedFunction> candidate = implementation.specializeConstant(functionBinding, functionDependencies, remainingBoundSignature);
             if (candidate.isPresent()) {
-                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous constant specialization for %s", residualBoundSignature);
+                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous constant specialization for %s", remainingBoundSignature);
                 selectedImplementation = candidate.orElseThrow();
             }
         }

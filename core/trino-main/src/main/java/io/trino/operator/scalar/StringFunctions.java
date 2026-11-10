@@ -23,15 +23,15 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import io.trino.spi.function.BoundArgument;
+import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.NonConstantImplementation;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
@@ -917,7 +917,7 @@ public final class StringFunctions
     {
         private Normalize() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -930,12 +930,12 @@ public final class StringFunctions
             }
         }
 
-        @ConstantSpecialization(constantPositions = 1)
+        @ConstantSpecialization
         public static final class ConstantForm
         {
             private final Normalizer.Form form;
 
-            public ConstantForm(@BoundArgument(position = 1) Slice form)
+            public ConstantForm(@ConstantArgument(position = 1) Slice form)
             {
                 this.form = normalizationForm(form);
             }
@@ -990,7 +990,7 @@ public final class StringFunctions
     {
         private FromUtf8WithReplacement() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -1003,12 +1003,12 @@ public final class StringFunctions
             }
         }
 
-        @ConstantSpecialization(constantPositions = 1)
+        @ConstantSpecialization
         public static final class ConstantReplacement
         {
             private final OptionalInt replacementCodePoint;
 
-            public ConstantReplacement(@BoundArgument(position = 1) Slice replacementCharacter)
+            public ConstantReplacement(@ConstantArgument(position = 1) Slice replacementCharacter)
             {
                 replacementCodePoint = replacementCodePoint(replacementCharacter);
             }
@@ -1040,7 +1040,7 @@ public final class StringFunctions
     {
         private FromUtf8WithCodePoint() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -1052,12 +1052,12 @@ public final class StringFunctions
             }
         }
 
-        @ConstantSpecialization(constantPositions = 1)
+        @ConstantSpecialization
         public static final class ConstantReplacement
         {
             private final OptionalInt replacementCodePoint;
 
-            public ConstantReplacement(@BoundArgument(position = 1) long replacementCodePoint)
+            public ConstantReplacement(@ConstantArgument(position = 1) long replacementCodePoint)
             {
                 this.replacementCodePoint = replacementCodePoint(replacementCodePoint);
             }
@@ -1187,7 +1187,7 @@ public final class StringFunctions
     {
         private Translate() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -1200,12 +1200,12 @@ public final class StringFunctions
             }
         }
 
-        @ConstantSpecialization(constantPositions = {1, 2})
+        @ConstantSpecialization
         public static final class ConstantTranslation
         {
             private final Int2IntOpenHashMap map;
 
-            public ConstantTranslation(@BoundArgument(position = 1) Slice from, @BoundArgument(position = 2) Slice to)
+            public ConstantTranslation(@ConstantArgument(position = 1) Slice from, @ConstantArgument(position = 2) Slice to)
             {
                 map = translationMap(from, to);
             }

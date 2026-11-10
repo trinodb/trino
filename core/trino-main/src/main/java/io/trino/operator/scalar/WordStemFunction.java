@@ -16,12 +16,12 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
-import io.trino.spi.function.BoundArgument;
+import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.NonConstantImplementation;
 import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlType;
 import org.tartarus.snowball.SnowballStemmer;
 import org.tartarus.snowball.ext.ArmenianStemmer;
@@ -113,7 +113,7 @@ public final class WordStemFunction
     {
         private WithLanguage() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -126,12 +126,12 @@ public final class WordStemFunction
             }
         }
 
-        @ConstantSpecialization(constantPositions = 1)
+        @ConstantSpecialization
         public static final class ConstantLanguage
         {
             private final SnowballStemmer stemmer;
 
-            public ConstantLanguage(@BoundArgument(position = 1) Slice language)
+            public ConstantLanguage(@ConstantArgument(position = 1) Slice language)
             {
                 stemmer = createStemmer(language);
             }

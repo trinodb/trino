@@ -1,4 +1,5 @@
 /*
+
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,25 +14,28 @@
  */
 package io.trino.spi.function;
 
+import io.trino.spi.Unstable;
+
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
 /**
- * A scalar implementation that consumes constant SQL arguments while creating
- * its per-expression instance. Consumed arguments are omitted when invoking the
+ * A scalar implementation that receives constant SQL arguments while creating
+ * its per-expression instance. Constant arguments are omitted when invoking the
  * implementation method handle.
  */
+@Unstable
 public record ConstantSpecializedImplementation(
         ScalarFunctionImplementation implementation,
-        Set<Integer> consumedArguments)
+        Set<Integer> constantPositions)
 {
     public ConstantSpecializedImplementation
     {
         requireNonNull(implementation, "implementation is null");
-        consumedArguments = Set.copyOf(requireNonNull(consumedArguments, "consumedArguments is null"));
-        if (consumedArguments.isEmpty()) {
-            throw new IllegalArgumentException("consumedArguments is empty");
+        constantPositions = Set.copyOf(requireNonNull(constantPositions, "constantPositions is null"));
+        if (constantPositions.isEmpty()) {
+            throw new IllegalArgumentException("constantPositions is empty");
         }
         if (implementation.getInstanceFactory().isEmpty()) {
             throw new IllegalArgumentException("constant specialized implementation does not have an instance factory");

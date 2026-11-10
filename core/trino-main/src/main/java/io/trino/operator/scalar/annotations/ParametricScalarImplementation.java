@@ -30,8 +30,8 @@ import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.BoundArgument;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InOut;
@@ -187,7 +187,7 @@ public class ParametricScalarImplementation
         }
 
         for (ParametricScalarImplementationChoice choice : choices) {
-            checkCondition(choice.getConstructorConstantArguments().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "@BoundArgument is only valid in a constant-specialized implementation. Signature: %s", boundSignature);
+            checkCondition(choice.getConstructorConstantPositions().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "@ConstantArgument is only valid in a constant-specialized implementation. Signature: %s", boundSignature);
             MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), functionBinding, functionDependencies);
             Optional<MethodHandle> boundConstructor = choice.getConstructor().map(constructor -> {
                 MethodHandle result = bindDependencies(constructor, choice.getConstructorDependencies(), functionBinding, functionDependencies);
@@ -212,21 +212,21 @@ public class ParametricScalarImplementation
     public Optional<ConstantSpecializedFunction> specializeConstant(
             FunctionBinding functionBinding,
             FunctionDependencies functionDependencies,
-            BoundSignature residualBoundSignature)
+            BoundSignature remainingBoundSignature)
     {
         for (Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
             if (!entry.getValue().isAssignableFrom(functionBinding.variables().getTypeVariable(entry.getKey()).getJavaType())) {
                 return Optional.empty();
             }
         }
-        if (returnNativeContainerType != Object.class && returnNativeContainerType != residualBoundSignature.getReturnType().getJavaType()) {
+        if (returnNativeContainerType != Object.class && returnNativeContainerType != remainingBoundSignature.getReturnType().getJavaType()) {
             return Optional.empty();
         }
-        if (argumentNativeContainerTypes.size() != residualBoundSignature.getArgumentTypes().size()) {
+        if (argumentNativeContainerTypes.size() != remainingBoundSignature.getArgumentTypes().size()) {
             return Optional.empty();
         }
-        for (int index = 0; index < residualBoundSignature.getArgumentTypes().size(); index++) {
-            Type argumentType = residualBoundSignature.getArgumentTypes().get(index);
+        for (int index = 0; index < remainingBoundSignature.getArgumentTypes().size(); index++) {
+            Type argumentType = remainingBoundSignature.getArgumentTypes().get(index);
             Optional<Class<?>> nativeContainerType = argumentNativeContainerTypes.get(index);
             if (argumentType instanceof FunctionType) {
                 if (nativeContainerType.isPresent()) {
@@ -239,48 +239,48 @@ public class ParametricScalarImplementation
         }
 
         List<ConstantImplementationChoice> implementationChoices = new ArrayList<>();
-        List<Integer> constructorConstantArguments = null;
+        List<Integer> constructorConstantPositions = null;
         for (ParametricScalarImplementationChoice choice : choices) {
-            checkCondition(choice.getConstructor().isPresent(), FUNCTION_IMPLEMENTATION_ERROR, "Constant-specialized implementation must be an instance method. Signature: %s", residualBoundSignature);
-            checkCondition(!choice.getConstructorConstantArguments().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "Constant-specialized constructor must declare @BoundArgument parameters. Signature: %s", residualBoundSignature);
-            if (constructorConstantArguments == null) {
-                constructorConstantArguments = choice.getConstructorConstantArguments();
+            checkCondition(choice.getConstructor().isPresent(), FUNCTION_IMPLEMENTATION_ERROR, "Constant-specialized implementation must be an instance method. Signature: %s", remainingBoundSignature);
+            checkCondition(!choice.getConstructorConstantPositions().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "Constant-specialized constructor must declare @ConstantArgument parameters. Signature: %s", remainingBoundSignature);
+            if (constructorConstantPositions == null) {
+                constructorConstantPositions = choice.getConstructorConstantPositions();
             }
             else {
-                checkCondition(constructorConstantArguments.equals(choice.getConstructorConstantArguments()), FUNCTION_IMPLEMENTATION_ERROR, "All implementation choices must inject the same constant arguments. Signature: %s", residualBoundSignature);
+                checkCondition(constructorConstantPositions.equals(choice.getConstructorConstantPositions()), FUNCTION_IMPLEMENTATION_ERROR, "All implementation choices must inject the same constant arguments. Signature: %s", remainingBoundSignature);
             }
 
             MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), functionBinding, functionDependencies);
             MethodHandle boundConstructor = bindDependencies(choice.getConstructor().orElseThrow(), choice.getConstructorDependencies(), functionBinding, functionDependencies);
             checkCondition(
-                    boundConstructor.type().parameterCount() == constructorConstantArguments.size(),
+                    boundConstructor.type().parameterCount() == constructorConstantPositions.size(),
                     FUNCTION_IMPLEMENTATION_ERROR,
-                    "Constant-specialized constructor parameters must be dependencies or @BoundArgument values. Signature: %s",
-                    residualBoundSignature);
+                    "Constant-specialized constructor parameters must be dependencies or @ConstantArgument values. Signature: %s",
+                    remainingBoundSignature);
 
             implementationChoices.add(new ConstantImplementationChoice(
                     choice.getReturnConvention(),
                     choice.getArgumentConventions(),
                     choice.getLambdaInterfaces(),
-                    boundMethodHandle.asType(javaMethodType(choice, residualBoundSignature)),
+                    boundMethodHandle.asType(javaMethodType(choice, remainingBoundSignature)),
                     boundConstructor));
         }
         return Optional.of(new ConstantSpecializedFunction(
-                residualBoundSignature,
+                remainingBoundSignature,
                 implementationChoices,
-                requireNonNull(constructorConstantArguments, "constructorConstantArguments is null")));
+                requireNonNull(constructorConstantPositions, "constructorConstantPositions is null")));
     }
 
     public record ConstantSpecializedFunction(
             BoundSignature boundSignature,
             List<ConstantImplementationChoice> choices,
-            List<Integer> constructorConstantArguments)
+            List<Integer> constructorConstantPositions)
     {
         public ConstantSpecializedFunction
         {
             requireNonNull(boundSignature, "boundSignature is null");
             choices = List.copyOf(requireNonNull(choices, "choices is null"));
-            constructorConstantArguments = List.copyOf(requireNonNull(constructorConstantArguments, "constructorConstantArguments is null"));
+            constructorConstantPositions = List.copyOf(requireNonNull(constructorConstantPositions, "constructorConstantPositions is null"));
         }
     }
 
@@ -434,7 +434,7 @@ public class ParametricScalarImplementation
         private final Optional<MethodHandle> constructor;
         private final List<ImplementationDependency> dependencies;
         private final List<ImplementationDependency> constructorDependencies;
-        private final List<Integer> constructorConstantArguments;
+        private final List<Integer> constructorConstantPositions;
         private final int numberOfBlockPositionArguments;
         private final boolean hasConnectorSession;
 
@@ -447,7 +447,7 @@ public class ParametricScalarImplementation
                 Optional<MethodHandle> constructor,
                 List<ImplementationDependency> dependencies,
                 List<ImplementationDependency> constructorDependencies,
-                List<Integer> constructorConstantArguments)
+                List<Integer> constructorConstantPositions)
         {
             this.returnConvention = requireNonNull(returnConvention, "returnConvention is null");
             this.hasConnectorSession = hasConnectorSession;
@@ -457,7 +457,7 @@ public class ParametricScalarImplementation
             this.constructor = requireNonNull(constructor, "constructor is null");
             this.dependencies = ImmutableList.copyOf(requireNonNull(dependencies, "dependencies is null"));
             this.constructorDependencies = ImmutableList.copyOf(requireNonNull(constructorDependencies, "constructorDependencies is null"));
-            this.constructorConstantArguments = ImmutableList.copyOf(requireNonNull(constructorConstantArguments, "constructorConstantArguments is null"));
+            this.constructorConstantPositions = ImmutableList.copyOf(requireNonNull(constructorConstantPositions, "constructorConstantPositions is null"));
 
             this.numberOfBlockPositionArguments = (int) argumentConventions.stream()
                     .filter(argumentConvention -> BLOCK_POSITION == argumentConvention || BLOCK_POSITION_NOT_NULL == argumentConvention)
@@ -506,9 +506,9 @@ public class ParametricScalarImplementation
             return constructor;
         }
 
-        public List<Integer> getConstructorConstantArguments()
+        public List<Integer> getConstructorConstantPositions()
         {
-            return constructorConstantArguments;
+            return constructorConstantPositions;
         }
 
         @Override
@@ -629,8 +629,8 @@ public class ParametricScalarImplementation
             parseArguments(method, signatureBuilder, dependencies);
 
             List<ImplementationDependency> constructorDependencies = new ArrayList<>();
-            List<Integer> constructorConstantArguments = new ArrayList<>();
-            Optional<MethodHandle> constructorMethodHandle = getConstructor(method, constructor, constructorDependencies, constructorConstantArguments, constantSpecialization);
+            List<Integer> constructorConstantPositions = new ArrayList<>();
+            Optional<MethodHandle> constructorMethodHandle = getConstructor(method, constructor, constructorDependencies, constructorConstantPositions, constantSpecialization);
 
             this.methodHandle = getMethodHandle(method, dependencies);
 
@@ -643,7 +643,7 @@ public class ParametricScalarImplementation
                     constructorMethodHandle,
                     dependencies,
                     constructorDependencies,
-                    constructorConstantArguments);
+                    constructorConstantPositions);
 
             createTypeVariableConstraints(typeParameters, dependencies)
                     .forEach(signatureBuilder::typeVariableConstraint);
@@ -795,7 +795,7 @@ public class ParametricScalarImplementation
                 Method method,
                 Optional<Constructor<?>> optionalConstructor,
                 List<ImplementationDependency> constructorDependencies,
-                List<Integer> constructorConstantArguments,
+                List<Integer> constructorConstantPositions,
                 boolean constantSpecialization)
         {
             if (isStatic(method.getModifiers())) {
@@ -818,14 +818,14 @@ public class ParametricScalarImplementation
                 Annotation[] annotations = constructor.getParameterAnnotations()[i];
                 checkArgument(annotations.length == 1, "Constructor parameters may only have a single annotation [%s]", constructor);
                 Annotation annotation = annotations[0];
-                if (annotation instanceof BoundArgument boundArgument) {
-                    checkArgument(constantSpecialization, "@BoundArgument is only valid in a @ConstantSpecialization class [%s]", constructor);
-                    checkArgument(boundArgument.position() >= 0, "@BoundArgument position is negative [%s]", constructor);
-                    constructorConstantArguments.add(boundArgument.position());
+                if (annotation instanceof ConstantArgument boundArgument) {
+                    checkArgument(constantSpecialization, "@ConstantArgument is only valid in a @ConstantSpecialization class [%s]", constructor);
+                    checkArgument(boundArgument.position() >= 0, "@ConstantArgument position is negative [%s]", constructor);
+                    constructorConstantPositions.add(boundArgument.position());
                     continue;
                 }
                 checkArgument(containsImplementationDependencyAnnotation(annotations), "Constructors may only have dependency or constant parameters [%s]", constructor);
-                checkArgument(constructorConstantArguments.isEmpty(), "Constructor dependencies must precede @BoundArgument parameters [%s]", constructor);
+                checkArgument(constructorConstantPositions.isEmpty(), "Constructor dependencies must precede @ConstantArgument parameters [%s]", constructor);
                 if (annotation instanceof TypeParameter typeParameter) {
                     checkTypeParameters(parseTypeTemplate(typeParameter.value(), constructorTypeParameterNames, literalParameters), constructorTypeParameterNames, method);
                 }

@@ -36,7 +36,7 @@ public interface FunctionBundle
     /**
      * Selects an optional per-expression implementation that consumes a
      * non-empty subset of the constants in {@code specializationContext}.
-     * Returned implementations use the residual SQL signature and supply a
+     * Returned implementations use the remaining SQL signature and supply a
      * zero-argument instance factory.
      */
     default Optional<ConstantSpecializedImplementation> getConstantSpecializedScalarFunctionImplementation(

@@ -15,14 +15,14 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
-import io.trino.spi.function.BoundArgument;
+import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.NonConstantImplementation;
 import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.StaticMethod;
 import io.trino.spi.type.StandardTypes;
@@ -286,7 +286,7 @@ public final class VarcharMethods
     {
         private Translate() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -299,12 +299,12 @@ public final class VarcharMethods
             }
         }
 
-        @ConstantSpecialization(constantPositions = {1, 2})
+        @ConstantSpecialization
         public static final class ConstantTranslation
         {
             private final StringFunctions.Translate.ConstantTranslation delegate;
 
-            public ConstantTranslation(@BoundArgument(position = 1) Slice from, @BoundArgument(position = 2) Slice to)
+            public ConstantTranslation(@ConstantArgument(position = 1) Slice from, @ConstantArgument(position = 2) Slice to)
             {
                 delegate = new StringFunctions.Translate.ConstantTranslation(from, to);
             }
@@ -325,7 +325,7 @@ public final class VarcharMethods
     {
         private FromUtf8WithReplacement() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -338,12 +338,12 @@ public final class VarcharMethods
             }
         }
 
-        @ConstantSpecialization(constantPositions = 1)
+        @ConstantSpecialization
         public static final class ConstantReplacement
         {
             private final StringFunctions.FromUtf8WithReplacement.ConstantReplacement delegate;
 
-            public ConstantReplacement(@BoundArgument(position = 1) Slice replacementCharacter)
+            public ConstantReplacement(@ConstantArgument(position = 1) Slice replacementCharacter)
             {
                 delegate = new StringFunctions.FromUtf8WithReplacement.ConstantReplacement(replacementCharacter);
             }
@@ -363,7 +363,7 @@ public final class VarcharMethods
     {
         private FromUtf8WithCodePoint() {}
 
-        @ScalarFunctionImplementationChoice
+        @NonConstantImplementation
         public static final class Row
         {
             private Row() {}
@@ -375,12 +375,12 @@ public final class VarcharMethods
             }
         }
 
-        @ConstantSpecialization(constantPositions = 1)
+        @ConstantSpecialization
         public static final class ConstantReplacement
         {
             private final StringFunctions.FromUtf8WithCodePoint.ConstantReplacement delegate;
 
-            public ConstantReplacement(@BoundArgument(position = 1) long replacementCodePoint)
+            public ConstantReplacement(@ConstantArgument(position = 1) long replacementCodePoint)
             {
                 delegate = new StringFunctions.FromUtf8WithCodePoint.ConstantReplacement(replacementCodePoint);
             }

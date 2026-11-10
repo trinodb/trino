@@ -36,7 +36,7 @@ public class TestConstantSpecializedImplementation
 
         assertThatThrownBy(() -> new ConstantSpecializedImplementation(implementation, Set.of()))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("consumedArguments is empty");
+                .hasMessage("constantPositions is empty");
     }
 
     @Test

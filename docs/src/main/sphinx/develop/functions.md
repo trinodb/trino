@@ -119,20 +119,20 @@ to avoid unexpected results.
 
 A scalar function can optionally precompute state when one or more call
 arguments are compile-time constants. This is an optimization only. The
-canonical row implementation is always required and remains valid when the
+`@NonConstantImplementation` is always required and remains valid when the
 arguments are not constants.
 
 Annotated constant-specialized functions use one outer function definition
-class. A nested `@ScalarFunctionImplementationChoice` class declares the complete SQL
-signature. Each nested `@ConstantSpecialization` class declares the zero-based
-positions it consumes and implements the residual signature with those arguments
-removed:
+class. A nested `@NonConstantImplementation` class declares the complete SQL
+signature. Each nested `@ConstantSpecialization` class receives some arguments
+as constants and implements the remaining signature with those arguments
+removed. Both kinds of nested class must be `public static`:
 
 ```java
 @ScalarFunction("matches_pattern")
 public final class MatchesPatternFunction
 {
-    @ScalarFunctionImplementationChoice
+    @NonConstantImplementation
     public static final class Row
     {
         @SqlType(StandardTypes.BOOLEAN)
@@ -144,12 +144,12 @@ public final class MatchesPatternFunction
         }
     }
 
-    @ConstantSpecialization(constantPositions = 1)
+    @ConstantSpecialization
     public static final class ConstantPattern
     {
         private final CompiledPattern pattern;
 
-        public ConstantPattern(@BoundArgument(position = 1) Slice pattern)
+        public ConstantPattern(@ConstantArgument(position = 1) Slice pattern)
         {
             this.pattern = compilePattern(pattern);
         }
@@ -163,9 +163,10 @@ public final class MatchesPatternFunction
 }
 ```
 
-The positions in `@ConstantSpecialization` and `@BoundArgument` always refer
-to the canonical row signature. The constructor must inject every consumed
-argument exactly once. Constructor dependencies are supported and must precede
+The `position` of each `@ConstantArgument` is the zero-based index of the argument
+in the complete SQL signature, and each position may be declared only once. The
+constructor parameters annotated with `@ConstantArgument` determine which
+arguments the specialization receives as constants. Constructor dependencies are supported and must precede
 the constant arguments. A nullable constant argument uses the boxed native
 container type in the constructor, just as it does in a row implementation.
 
@@ -173,21 +174,27 @@ Trino selects a constant specialization only for literal constants present in
 the compiled IR expression. A successful specialization binds the constants
 into a zero-argument instance factory. The generated expression evaluator calls
 that factory once, stores the instance using the existing scalar-function
-instance lifecycle, and omits the consumed arguments from each row invocation.
+instance lifecycle, and omits the constant arguments from each row invocation.
 The instance is local to the evaluator and is not shared across tasks.
 
-The constant values are not added to the scalar implementation cache key.
 Selection is performed while compiling the expression, and the bound factory is
-retained by the generated expression class. Failures from specialization or
-instance construction are propagated and do not cause a retry with the row
-implementation.
+retained by the generated expression class. Because the constants are part of the
+generated class, expressions that use a specialization are not shared between
+different constant values.
+
+If a constant is null for an argument that does not accept nulls, or if the
+specialization constructor throws for the given constants, Trino uses the
+`@NonConstantImplementation` instead. Errors for invalid constants are therefore
+raised only when a row is evaluated, as without a specialization. When several
+specializations apply, the one with the most constant arguments is used. Two
+specializations of one function cannot declare the same constant arguments.
 
 Direct function implementations can provide the same optimization by
 overriding
 `FunctionProvider.getConstantSpecializedScalarFunctionImplementation`. The
 request supplies an invocation convention and an argument-aligned list of
 optional SPI `Constant` values. A successful result supplies the implementation
-for the residual signature and a non-empty set of consumed argument positions.
+for the remaining signature and a non-empty set of constant argument positions.
 Its instance factory must already be bound to a zero-argument method handle.
 
 ## Parametric scalar functions

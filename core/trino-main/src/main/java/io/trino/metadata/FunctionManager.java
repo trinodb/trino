@@ -42,14 +42,12 @@ import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.type.BlockTypeOperators;
-import org.weakref.jmx.Managed;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -88,8 +86,6 @@ public class FunctionManager
     private final CatalogServiceProvider<FunctionProvider> functionProviders;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final LanguageFunctionProvider languageFunctionProvider;
-    private final AtomicLong constantSpecializationAttempts = new AtomicLong();
-    private final AtomicLong constantSpecializationSuccesses = new AtomicLong();
 
     @Inject
     public FunctionManager(CatalogServiceProvider<FunctionProvider> functionProviders, GlobalFunctionCatalog globalFunctionCatalog, LanguageFunctionProvider languageFunctionProvider)
@@ -126,7 +122,6 @@ public class FunctionManager
             ResolvedFunction resolvedFunction,
             ScalarFunctionSpecializationContext specializationContext)
     {
-        constantSpecializationAttempts.incrementAndGet();
         if (isTrinoSqlLanguageFunction(resolvedFunction.functionId())) {
             return Optional.empty();
         }
@@ -140,26 +135,13 @@ public class FunctionManager
 
         return specializedImplementation.map(implementation -> {
             verifyConstantSpecializedImplementation(resolvedFunction.signature(), specializationContext, implementation);
-            constantSpecializationSuccesses.incrementAndGet();
             if (ASSERTIONS_ENABLED && resolvedFunction.neverFails()) {
                 return new ConstantSpecializedImplementation(
                         reportIfNeverFailsViolated(resolvedFunction, implementation.implementation()),
-                        implementation.consumedArguments());
+                        implementation.constantPositions());
             }
             return implementation;
         });
-    }
-
-    @Managed
-    public long getConstantSpecializationAttempts()
-    {
-        return constantSpecializationAttempts.get();
-    }
-
-    @Managed
-    public long getConstantSpecializationSuccesses()
-    {
-        return constantSpecializationSuccesses.get();
     }
 
     private ScalarFunctionImplementation getScalarFunctionImplementationInternal(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
@@ -431,7 +413,7 @@ public class FunctionManager
                             constant.getType()));
         }
 
-        for (int argumentIndex : specializedImplementation.consumedArguments()) {
+        for (int argumentIndex : specializedImplementation.constantPositions()) {
             checkArgument(argumentIndex >= 0 && argumentIndex < boundSignature.getArgumentTypes().size(), "Invalid consumed argument index: %s", argumentIndex);
             checkArgument(specializationContext.constantArguments().get(argumentIndex).isPresent(), "Consumed argument %s is not constant", argumentIndex);
         }
@@ -439,22 +421,22 @@ public class FunctionManager
         MethodHandle instanceFactory = specializedImplementation.implementation().getInstanceFactory().orElseThrow();
         checkArgument(instanceFactory.type().parameterCount() == 0, "Constant specialized instance factory must not have parameters: %s", instanceFactory.type());
 
-        List<Type> residualArgumentTypes = IntStream.range(0, boundSignature.getArgumentTypes().size())
-                .filter(index -> !specializedImplementation.consumedArguments().contains(index))
+        List<Type> remainingArgumentTypes = IntStream.range(0, boundSignature.getArgumentTypes().size())
+                .filter(index -> !specializedImplementation.constantPositions().contains(index))
                 .mapToObj(boundSignature::getArgumentType)
                 .toList();
-        List<InvocationArgumentConvention> residualArgumentConventions = IntStream.range(0, specializationContext.invocationConvention().getArgumentConventions().size())
-                .filter(index -> !specializedImplementation.consumedArguments().contains(index))
+        List<InvocationArgumentConvention> remainingArgumentConventions = IntStream.range(0, specializationContext.invocationConvention().getArgumentConventions().size())
+                .filter(index -> !specializedImplementation.constantPositions().contains(index))
                 .mapToObj(specializationContext.invocationConvention()::getArgumentConvention)
                 .toList();
 
-        BoundSignature residualSignature = new BoundSignature(boundSignature.getName(), boundSignature.getReturnType(), residualArgumentTypes);
-        InvocationConvention residualConvention = new InvocationConvention(
-                residualArgumentConventions,
+        BoundSignature remainingSignature = new BoundSignature(boundSignature.getName(), boundSignature.getReturnType(), remainingArgumentTypes);
+        InvocationConvention remainingConvention = new InvocationConvention(
+                remainingArgumentConventions,
                 specializationContext.invocationConvention().getReturnConvention(),
                 specializationContext.invocationConvention().supportsSession(),
                 specializationContext.invocationConvention().supportsInstanceFactory());
-        verifyMethodHandleSignature(residualSignature, specializedImplementation.implementation(), residualConvention);
+        verifyMethodHandleSignature(remainingSignature, specializedImplementation.implementation(), remainingConvention);
     }
 
     @FormatMethod

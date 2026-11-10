@@ -26,6 +26,7 @@ import io.trino.spi.function.ScalarFunctionSpecializationContext;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -36,45 +37,45 @@ import static java.util.Objects.requireNonNull;
 public final class ConstantSpecializedSqlScalarFunction
         implements SpecializedSqlScalarFunction
 {
-    private final SpecializedSqlScalarFunction rowImplementation;
+    private final SpecializedSqlScalarFunction nonConstantImplementation;
     private final List<Specialization> specializations;
 
-    public ConstantSpecializedSqlScalarFunction(SpecializedSqlScalarFunction rowImplementation, List<Specialization> specializations)
+    public ConstantSpecializedSqlScalarFunction(SpecializedSqlScalarFunction nonConstantImplementation, List<Specialization> specializations)
     {
-        this.rowImplementation = requireNonNull(rowImplementation, "rowImplementation is null");
+        this.nonConstantImplementation = requireNonNull(nonConstantImplementation, "nonConstantImplementation is null");
         this.specializations = specializations.stream()
-                .sorted(Comparator.comparingInt((Specialization specialization) -> specialization.consumedArguments().size()).reversed()
-                        .thenComparing(specialization -> specialization.consumedArguments().stream().sorted().toList().toString()))
+                .sorted(Comparator.comparingInt((Specialization specialization) -> specialization.constantPositions().size()).reversed()
+                        .thenComparing(specialization -> specialization.constantPositions().stream().mapToInt(Integer::intValue).sorted().toArray(), Arrays::compare))
                 .toList();
     }
 
     @Override
     public ScalarFunctionImplementation getScalarFunctionImplementation(InvocationConvention invocationConvention)
     {
-        return rowImplementation.getScalarFunctionImplementation(invocationConvention);
+        return nonConstantImplementation.getScalarFunctionImplementation(invocationConvention);
     }
 
     @Override
     public Optional<ConstantSpecializedImplementation> getConstantSpecializedScalarFunctionImplementation(ScalarFunctionSpecializationContext context)
     {
         for (Specialization specialization : specializations) {
-            if (!specialization.consumedArguments().stream().allMatch(argument -> context.constantArguments().get(argument).isPresent())) {
+            if (!specialization.constantPositions().stream().allMatch(argument -> context.constantArguments().get(argument).isPresent())) {
                 continue;
             }
 
-            List<InvocationArgumentConvention> residualArgumentConventions = new ArrayList<>();
+            List<InvocationArgumentConvention> remainingArgumentConventions = new ArrayList<>();
             for (int index = 0; index < context.invocationConvention().getArgumentConventions().size(); index++) {
-                if (!specialization.consumedArguments().contains(index)) {
-                    residualArgumentConventions.add(context.invocationConvention().getArgumentConvention(index));
+                if (!specialization.constantPositions().contains(index)) {
+                    remainingArgumentConventions.add(context.invocationConvention().getArgumentConvention(index));
                 }
             }
-            InvocationConvention residualConvention = new InvocationConvention(
-                    residualArgumentConventions,
+            InvocationConvention remainingConvention = new InvocationConvention(
+                    remainingArgumentConventions,
                     context.invocationConvention().getReturnConvention(),
                     context.invocationConvention().supportsSession(),
                     context.invocationConvention().supportsInstanceFactory());
 
-            Object[] constantValues = specialization.constructorConstantArguments().stream()
+            Object[] constantValues = specialization.constructorConstantPositions().stream()
                     .map(argument -> context.constantArguments().get(argument).orElseThrow())
                     .map(Constant::getValue)
                     .toArray();
@@ -82,14 +83,31 @@ public final class ConstantSpecializedSqlScalarFunction
             List<ScalarImplementationChoice> choices = specialization.choices().stream()
                     .map(choice -> bindConstants(choice, constantValues))
                     .toList();
+            if (!canCreateInstances(choices)) {
+                // Constants that make the constructor fail (e.g. an invalid format literal) must only fail when a row is evaluated
+                continue;
+            }
             ScalarFunctionImplementation implementation = new ChoicesSpecializedSqlScalarFunction(specialization.boundSignature(), choices)
-                    .getScalarFunctionImplementation(residualConvention);
+                    .getScalarFunctionImplementation(remainingConvention);
 
             return Optional.of(new ConstantSpecializedImplementation(
                     implementation,
-                    specialization.consumedArguments()));
+                    specialization.constantPositions()));
         }
         return Optional.empty();
+    }
+
+    private static boolean canCreateInstances(List<ScalarImplementationChoice> choices)
+    {
+        for (ScalarImplementationChoice choice : choices) {
+            try {
+                choice.getInstanceFactory().orElseThrow().invoke();
+            }
+            catch (Throwable _) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static ScalarImplementationChoice bindConstants(ConstantImplementationChoice choice, Object[] constantValues)
@@ -104,17 +122,17 @@ public final class ConstantSpecializedSqlScalarFunction
     }
 
     public record Specialization(
-            Set<Integer> consumedArguments,
+            Set<Integer> constantPositions,
             BoundSignature boundSignature,
             List<ConstantImplementationChoice> choices,
-            List<Integer> constructorConstantArguments)
+            List<Integer> constructorConstantPositions)
     {
         public Specialization
         {
-            consumedArguments = Set.copyOf(requireNonNull(consumedArguments, "consumedArguments is null"));
+            constantPositions = Set.copyOf(requireNonNull(constantPositions, "constantPositions is null"));
             requireNonNull(boundSignature, "boundSignature is null");
             choices = List.copyOf(requireNonNull(choices, "choices is null"));
-            constructorConstantArguments = List.copyOf(requireNonNull(constructorConstantArguments, "constructorConstantArguments is null"));
+            constructorConstantPositions = List.copyOf(requireNonNull(constructorConstantPositions, "constructorConstantPositions is null"));
         }
     }
 }

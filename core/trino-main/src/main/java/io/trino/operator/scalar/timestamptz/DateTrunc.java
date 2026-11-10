@@ -14,12 +14,12 @@
 package io.trino.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.function.BoundArgument;
+import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.NonConstantImplementation;
 import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import org.joda.time.DateTimeField;
@@ -61,7 +61,7 @@ public final class DateTrunc
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, 0, timestamp.getTimeZoneKey());
     }
 
-    @ScalarFunctionImplementationChoice
+    @NonConstantImplementation
     public static final class Row
     {
         private Row() {}
@@ -81,12 +81,12 @@ public final class DateTrunc
         }
     }
 
-    @ConstantSpecialization(constantPositions = 0)
+    @ConstantSpecialization
     public static final class ConstantUnit
     {
         private final Function<ISOChronology, DateTimeField> fieldProvider;
 
-        public ConstantUnit(@BoundArgument(position = 0) Slice unit)
+        public ConstantUnit(@ConstantArgument(position = 0) Slice unit)
         {
             fieldProvider = getTimestampFieldProvider(unit);
         }

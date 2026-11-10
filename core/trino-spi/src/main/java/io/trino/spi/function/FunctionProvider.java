@@ -13,6 +13,7 @@
  */
 package io.trino.spi.function;
 
+import io.trino.spi.Unstable;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorProviderFactory;
@@ -36,11 +37,12 @@ public interface FunctionProvider
      * invoked during expression compilation and implementations must not cache
      * results by constant value in a global function cache.
      * <p>
-     * The returned method handle has the residual SQL signature formed by
-     * removing the consumed argument positions. Its instance factory must have
+     * The returned method handle has the remaining SQL signature formed by
+     * removing the constant argument positions. Its instance factory must have
      * no parameters because all dependencies and constants must already be
      * bound.
      */
+    @Unstable
     default Optional<ConstantSpecializedImplementation> getConstantSpecializedScalarFunctionImplementation(
             FunctionId functionId,
             BoundSignature boundSignature,

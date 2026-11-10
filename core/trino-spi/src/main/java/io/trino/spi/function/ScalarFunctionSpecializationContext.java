@@ -1,4 +1,5 @@
 /*
+
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,6 +14,7 @@
  */
 package io.trino.spi.function;
 
+import io.trino.spi.Unstable;
 import io.trino.spi.expression.Constant;
 
 import java.util.List;
@@ -26,6 +28,7 @@ import static java.util.Objects.requireNonNull;
  * empty entry denotes a runtime argument, while a present {@link Constant}
  * denotes a compile-time constant, including a constant whose value is null.
  */
+@Unstable
 public record ScalarFunctionSpecializationContext(
         InvocationConvention invocationConvention,
         List<Optional<Constant>> constantArguments)

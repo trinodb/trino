@@ -1,4 +1,5 @@
 /*
+
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,15 +14,21 @@
  */
 package io.trino.spi.function;
 
+import io.trino.spi.Unstable;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks the nested class containing the canonical row implementation of an
- * annotated scalar function that also declares constant specializations.
+ * Injects a constant SQL argument into a constant-specialized implementation
+ * constructor. The position is the zero-based index in the function signature.
  */
+@Unstable
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-public @interface ScalarFunctionImplementationChoice {}
+@Target(ElementType.PARAMETER)
+public @interface ConstantArgument
+{
+    int position();
+}

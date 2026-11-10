@@ -20,10 +20,11 @@ import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.scalar.ParametricScalar;
 import io.trino.operator.scalar.ScalarHeader;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
+import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.NonConstantImplementation;
 import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlType;
@@ -32,11 +33,13 @@ import io.trino.spi.type.TypeTemplate;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -62,9 +65,9 @@ public final class ScalarFromAnnotationsParser
                 .toList();
         if (!constantSpecializations.isEmpty()) {
             List<Class<?>> rowImplementations = Arrays.stream(clazz.getDeclaredClasses())
-                    .filter(nestedClass -> nestedClass.isAnnotationPresent(ScalarFunctionImplementationChoice.class))
+                    .filter(nestedClass -> nestedClass.isAnnotationPresent(NonConstantImplementation.class))
                     .toList();
-            checkArgument(rowImplementations.size() == 1, "Class [%s] with constant specializations must declare exactly one nested @ScalarFunctionImplementationChoice class", clazz.getName());
+            checkArgument(rowImplementations.size() == 1, "Class [%s] with constant specializations must declare exactly one nested @NonConstantImplementation class", clazz.getName());
             Class<?> rowImplementation = rowImplementations.getFirst();
             validateNestedImplementationClass(rowImplementation);
             constantSpecializations.forEach(ScalarFromAnnotationsParser::validateNestedImplementationClass);
@@ -151,6 +154,10 @@ public final class ScalarFromAnnotationsParser
         List<ParametricScalarConstantSpecialization> constantSpecializations = constantSpecializationClasses.stream()
                 .map(specializationClass -> parseConstantSpecialization(specializationClass, scalarSignature, implementations.getFunctionNullability()))
                 .toList();
+        Set<Set<Integer>> distinctConstantPositions = new HashSet<>();
+        for (ParametricScalarConstantSpecialization specialization : constantSpecializations) {
+            checkArgument(distinctConstantPositions.add(specialization.getConstantPositions()), "Function [%s] has multiple @ConstantSpecialization classes for constant arguments %s", scalar.header().getName(), specialization.getConstantPositions());
+        }
 
         scalar.header().getOperatorType().ifPresent(operatorType ->
                 validateOperator(
@@ -196,50 +203,43 @@ public final class ScalarFromAnnotationsParser
             Signature canonicalSignature,
             FunctionNullability canonicalNullability)
     {
-        ConstantSpecialization annotation = specializationClass.getAnnotation(ConstantSpecialization.class);
-        Set<Integer> consumedArguments = new HashSet<>();
-        for (int argument : annotation.constantPositions()) {
-            checkArgument(argument >= 0 && argument < canonicalSignature.getArgumentTypes().size(), "@ConstantSpecialization argument %s is outside canonical signature %s", argument, canonicalSignature);
-            checkArgument(consumedArguments.add(argument), "@ConstantSpecialization contains duplicate argument %s in class [%s]", argument, specializationClass.getName());
+        Set<Integer> constantPositions = new LinkedHashSet<>();
+        Constructor<?> constructor = FunctionsParserHelper.findConstructor(specializationClass)
+                .orElseThrow(() -> new IllegalArgumentException("@ConstantSpecialization class [%s] must have a public constructor".formatted(specializationClass.getName())));
+        for (Parameter parameter : constructor.getParameters()) {
+            ConstantArgument constantArgument = parameter.getAnnotation(ConstantArgument.class);
+            if (constantArgument == null) {
+                continue;
+            }
+            int position = constantArgument.position();
+            checkArgument(position >= 0 && position < canonicalSignature.getArgumentTypes().size(), "@ConstantArgument position %s is outside canonical signature %s", position, canonicalSignature);
+            checkArgument(constantPositions.add(position), "@ConstantArgument position %s is declared more than once in class [%s]", position, specializationClass.getName());
         }
-        checkArgument(!consumedArguments.isEmpty(), "@ConstantSpecialization arguments are empty in class [%s]", specializationClass.getName());
+        checkArgument(!constantPositions.isEmpty(), "@ConstantSpecialization class [%s] must declare at least one @ConstantArgument constructor parameter", specializationClass.getName());
 
         ParametricImplementationsGroup<ParametricScalarImplementation> implementations = parseImplementations(
                 findImplementationMethods(specializationClass),
-                FunctionsParserHelper.findConstructor(specializationClass),
+                Optional.of(constructor),
                 true);
-        Signature residualSignature = implementations.getSignature();
+        Signature remainingSignature = implementations.getSignature();
         List<TypeTemplate> expectedArguments = new ArrayList<>();
         List<Boolean> expectedNullability = new ArrayList<>();
         for (int index = 0; index < canonicalSignature.getArgumentTypes().size(); index++) {
-            if (!consumedArguments.contains(index)) {
+            if (!constantPositions.contains(index)) {
                 expectedArguments.add(canonicalSignature.getArgumentTypes().get(index));
                 expectedNullability.add(canonicalNullability.isArgumentNullable(index));
             }
         }
-        checkArgument(residualSignature.getReturnType().equals(canonicalSignature.getReturnType()) && residualSignature.getArgumentTypes().equals(expectedArguments),
+        checkArgument(remainingSignature.getReturnType().equals(canonicalSignature.getReturnType()) && remainingSignature.getArgumentTypes().equals(expectedArguments),
                 "Constant-specialized signature %s must equal canonical signature %s with arguments %s removed",
-                residualSignature,
+                remainingSignature,
                 canonicalSignature,
-                consumedArguments);
+                constantPositions);
         checkArgument(implementations.getFunctionNullability().isReturnNullable() == canonicalNullability.isReturnNullable() && implementations.getFunctionNullability().getArgumentNullable().equals(expectedNullability),
                 "Constant-specialized nullability must equal canonical nullability with arguments %s removed",
-                consumedArguments);
+                constantPositions);
 
-        implementations.getExactImplementations().values().forEach(implementation -> validateConstantConstructor(implementation, consumedArguments));
-        implementations.getSpecializedImplementations().forEach(implementation -> validateConstantConstructor(implementation, consumedArguments));
-        implementations.getGenericImplementations().forEach(implementation -> validateConstantConstructor(implementation, consumedArguments));
-        return new ParametricScalarConstantSpecialization(consumedArguments, implementations, canonicalNullability);
-    }
-
-    private static void validateConstantConstructor(ParametricScalarImplementation implementation, Set<Integer> consumedArguments)
-    {
-        implementation.getChoices().forEach(choice -> {
-            checkArgument(choice.getConstructor().isPresent(), "Constant-specialized method must be an instance method");
-            checkArgument(new HashSet<>(choice.getConstructorConstantArguments()).equals(consumedArguments) && choice.getConstructorConstantArguments().size() == consumedArguments.size(),
-                    "Constant-specialized constructor must declare each consumed @BoundArgument exactly once: %s",
-                    consumedArguments);
-        });
+        return new ParametricScalarConstantSpecialization(constantPositions, implementations, canonicalNullability);
     }
 
     private static List<Method> findImplementationMethods(Class<?> implementationClass)

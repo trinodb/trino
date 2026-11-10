@@ -264,7 +264,7 @@ public final class BytecodeUtils
                 true,
                 true);
 
-        Optional<ConstantSpecializedImplementation> constantSpecialization = getConstantSpecialization(
+        Optional<ConstantSpecializedImplementation> constantSpecialization = selectConstantSpecialization(
                 resolvedFunction,
                 functionManager,
                 expressions,
@@ -282,38 +282,40 @@ public final class BytecodeUtils
                     binder);
         }
 
+        // constants are bound into the instance factory, so the generated class can not be shared across different constant values
+        binder.markValueDependent();
         ConstantSpecializedImplementation specialization = constantSpecialization.orElseThrow();
-        Set<Integer> consumedArguments = specialization.consumedArguments();
-        List<Boolean> residualArgumentNullability = new ArrayList<>();
-        List<InvocationArgumentConvention> residualArgumentConventions = new ArrayList<>();
-        List<Function<Optional<Class<?>>, BytecodeNode>> residualArgumentCompilers = new ArrayList<>();
-        List<BytecodeNode> residualArguments = new ArrayList<>();
+        Set<Integer> constantPositions = specialization.constantPositions();
+        List<Boolean> remainingArgumentNullability = new ArrayList<>();
+        List<InvocationArgumentConvention> remainingArgumentConventions = new ArrayList<>();
+        List<Function<Optional<Class<?>>, BytecodeNode>> remainingArgumentCompilers = new ArrayList<>();
+        List<BytecodeNode> remainingArguments = new ArrayList<>();
         for (int index = 0; index < expressions.size(); index++) {
-            if (!consumedArguments.contains(index)) {
-                residualArgumentNullability.add(functionNullability.isArgumentNullable(index));
-                residualArgumentConventions.add(invocationConvention.getArgumentConvention(index));
-                residualArgumentCompilers.add(argumentCompilers.get(index));
-                residualArguments.add(invocationArguments.arguments().get(index));
+            if (!constantPositions.contains(index)) {
+                remainingArgumentNullability.add(functionNullability.isArgumentNullable(index));
+                remainingArgumentConventions.add(invocationConvention.getArgumentConvention(index));
+                remainingArgumentCompilers.add(argumentCompilers.get(index));
+                remainingArguments.add(invocationArguments.arguments().get(index));
             }
         }
 
         return generateFullInvocation(
                 scope,
                 resolvedFunction.signature().getName().functionName(),
-                new FunctionNullability(functionNullability.isReturnNullable(), residualArgumentNullability),
+                new FunctionNullability(functionNullability.isReturnNullable(), remainingArgumentNullability),
                 new InvocationConvention(
-                        residualArgumentConventions,
+                        remainingArgumentConventions,
                         invocationConvention.getReturnConvention(),
                         invocationConvention.supportsSession(),
                         invocationConvention.supportsInstanceFactory()),
                 specialization.implementation(),
                 instanceFactory,
-                residualArgumentCompilers,
-                residualArguments,
+                remainingArgumentCompilers,
+                remainingArguments,
                 binder);
     }
 
-    private static Optional<ConstantSpecializedImplementation> getConstantSpecialization(
+    public static Optional<ConstantSpecializedImplementation> selectConstantSpecialization(
             ResolvedFunction resolvedFunction,
             FunctionManager functionManager,
             List<Expression> expressions,

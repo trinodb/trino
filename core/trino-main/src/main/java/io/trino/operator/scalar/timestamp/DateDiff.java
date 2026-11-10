@@ -14,12 +14,12 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.function.BoundArgument;
+import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.NonConstantImplementation;
 import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
@@ -59,7 +59,7 @@ public final class DateDiff
         return diff(getTimestampField(ISOChronology.getInstanceUTC(), unit), timestamp1, timestamp2);
     }
 
-    @ScalarFunctionImplementationChoice
+    @NonConstantImplementation
     public static final class Row
     {
         private Row() {}
@@ -79,12 +79,12 @@ public final class DateDiff
         }
     }
 
-    @ConstantSpecialization(constantPositions = 0)
+    @ConstantSpecialization
     public static final class ConstantUnit
     {
         private final DateTimeField field;
 
-        public ConstantUnit(@BoundArgument(position = 0) Slice unit)
+        public ConstantUnit(@ConstantArgument(position = 0) Slice unit)
         {
             field = getTimestampField(ISOChronology.getInstanceUTC(), unit);
         }
