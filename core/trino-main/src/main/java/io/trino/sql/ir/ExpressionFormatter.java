@@ -78,7 +78,7 @@ public final class ExpressionFormatter
                 if (i > 0) {
                     builder.append(", ");
                 }
-                builder.append(node.items().get(i).accept(this, context));
+                builder.append(process(node.items().get(i), context));
                 fieldTypes.get(i).getName().ifPresent(name -> builder.append(" AS ").append(name));
             }
             builder.append(")");
