@@ -15,12 +15,17 @@ package io.trino.type;
 
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.operator.scalar.Re2JRegexpFunctions;
+import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
+import io.trino.operator.scalar.Regexp;
 import io.trino.re2j.Matcher;
 import io.trino.re2j.Options;
 import io.trino.re2j.Pattern;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedArrayValueBuilder;
+import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.re2j.Options.Algorithm.DFA_FALLBACK_TO_NFA;
@@ -30,6 +35,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class Re2JRegexp
+        implements Regexp
 {
     private static final Logger log = Logger.get(Re2JRegexp.class);
 
@@ -87,11 +93,36 @@ public final class Re2JRegexp
         return re2jPatternWithoutDotStartPrefix.find(source);
     }
 
+    @Override
+    public boolean like(Slice source)
+    {
+        return matches(source);
+    }
+
+    @Override
+    public Slice replace(Slice source, UnaryFunctionInterface replacer, BufferedArrayValueBuilder arrayValueBuilder)
+    {
+        return Re2JRegexpReplaceLambdaFunction.regexpReplace(source, this, replacer, arrayValueBuilder);
+    }
+
+    @Override
+    public long position(Slice source, long start, long occurrence)
+    {
+        return Re2JRegexpFunctions.regexpPosition(source, this, start, occurrence);
+    }
+
+    @Override
+    public long count(Slice source)
+    {
+        return Re2JRegexpFunctions.regexpCount(source, this);
+    }
+
     public Matcher matcher(Slice source)
     {
         return re2jPattern.matcher(source);
     }
 
+    @Override
     public Slice replace(Slice source, Slice replacement)
     {
         Matcher matcher = re2jPattern.matcher(source);
@@ -103,6 +134,7 @@ public final class Re2JRegexp
         }
     }
 
+    @Override
     public Block extractAll(Slice source, long groupIndex)
     {
         Matcher matcher = re2jPattern.matcher(source);
@@ -125,6 +157,7 @@ public final class Re2JRegexp
         return blockBuilder.build();
     }
 
+    @Override
     public Slice extract(Slice source, long groupIndex)
     {
         Matcher matcher = re2jPattern.matcher(source);
@@ -138,6 +171,7 @@ public final class Re2JRegexp
         return matcher.group(group);
     }
 
+    @Override
     public Block split(Slice source)
     {
         Matcher matcher = re2jPattern.matcher(source);

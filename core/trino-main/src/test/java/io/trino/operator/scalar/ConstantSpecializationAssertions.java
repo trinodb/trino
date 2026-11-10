@@ -24,23 +24,13 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionSpecializationContext;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarbinaryType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -50,90 +40,31 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 /**
- * Verifies that each built-in function with a constant specialization returns the same
- * result when the constant arguments are literals as when they are runtime values.
+ * Verifies that a function with a constant specialization returns the same result when the
+ * constant arguments are literals as when they are runtime values, and that a specialization is selected.
  */
-@TestInstance(PER_CLASS)
-public class TestConstantSpecializationParity
+public final class ConstantSpecializationAssertions
 {
-    private static final TimeZoneKey ZONE = TimeZoneKey.getTimeZoneKey("America/Los_Angeles");
-    private static final long MILLIS = LocalDateTime.of(2022, 5, 10, 12, 34, 56, 789_000_000).toInstant(ZoneOffset.UTC).toEpochMilli();
-    private static final long DATE = LocalDate.of(2022, 5, 10).toEpochDay();
+    private final TestingFunctionResolution functionResolution;
 
-    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-
-    @Test
-    public void testDateFunctions()
+    public ConstantSpecializationAssertions(TestingFunctionResolution functionResolution)
     {
-        List<Typed> temporalValues = List.of(
-                new Typed(DateType.DATE, DATE),
-                new Typed(TIMESTAMP_MILLIS, MILLIS * 1000),
-                new Typed(TIMESTAMP_NANOS, new LongTimestamp(MILLIS * 1000, 123_000)),
-                new Typed(TIMESTAMP_TZ_MILLIS, packDateTimeWithZone(MILLIS, ZONE)),
-                new Typed(TIMESTAMP_TZ_NANOS, LongTimestampWithTimeZone.fromEpochMillisAndFraction(MILLIS, 123_000_000, ZONE)));
-
-        for (String unit : List.of("day", "month", "year")) {
-            for (Typed value : temporalValues) {
-                assertParity("date_trunc", Set.of(0), varchar(unit), value);
-                assertParity("date_add", Set.of(0), varchar(unit), new Typed(BIGINT, 3L), value);
-                assertParity("date_add", Set.of(0, 1), varchar(unit), new Typed(BIGINT, -2L), value);
-                assertParity("date_diff", Set.of(0), varchar(unit), value, value);
-            }
-        }
+        this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
     }
 
-    @Test
-    public void testTimestampFormatFunctions()
-    {
-        List<Typed> timestamps = List.of(
-                new Typed(TIMESTAMP_MILLIS, MILLIS * 1000),
-                new Typed(TIMESTAMP_NANOS, new LongTimestamp(MILLIS * 1000, 123_000)),
-                new Typed(TIMESTAMP_TZ_MILLIS, packDateTimeWithZone(MILLIS, ZONE)),
-                new Typed(TIMESTAMP_TZ_NANOS, LongTimestampWithTimeZone.fromEpochMillisAndFraction(MILLIS, 123_000_000, ZONE)));
-
-        for (Typed timestamp : timestamps) {
-            assertParity("date_format", Set.of(1), timestamp, varchar("%Y-%m-%d %H:%i:%s"));
-            assertParity("format_datetime", Set.of(1), timestamp, varchar("yyyy-MM-dd HH:mm:ss"));
-        }
-    }
-
-    @Test
-    public void testParseFunctions()
-    {
-        assertParity("date_parse", Set.of(1), varchar("2020-05-10"), varchar("%Y-%m-%d"));
-        assertParity("date_parse", Set.of(1), varchar("12:34:56"), varchar("%H:%i:%s"));
-        assertParity("parse_datetime", Set.of(1), varchar("2020-05-10 12:34 +0000"), varchar("yyyy-MM-dd HH:mm Z"));
-    }
-
-    @Test
-    public void testStringFunctions()
-    {
-        assertParity("word_stem", Set.of(1), varchar("authorized"), varchar("en"));
-        assertParity("translate", Set.of(1, 2), varchar("abcda"), varchar("a"), varchar("z"));
-        assertParity("normalize", Set.of(1), varchar("café"), varchar("NFC"));
-        assertParity("from_utf8", Set.of(1), new Typed(VarbinaryType.VARBINARY, wrappedBuffer((byte) 0x58, (byte) 0xBF)), varchar("#"));
-        assertParity("from_utf8", Set.of(1), new Typed(VarbinaryType.VARBINARY, wrappedBuffer((byte) 0x58, (byte) 0xBF)), new Typed(BIGINT, 35L));
-    }
-
-    private void assertParity(String functionName, Set<Integer> constantPositions, Typed... arguments)
+    public void assertParity(String functionName, Set<Integer> constantPositions, Typed... arguments)
     {
         List<Type> types = List.of(arguments).stream().map(Typed::type).toList();
         ResolvedFunction function = functionResolution.resolveFunction(functionName, fromTypes(types));
@@ -184,7 +115,7 @@ public class TestConstantSpecializationParity
                 .toList();
         InvocationConvention convention = new InvocationConvention(
                 nCopies(arguments.length, NEVER_NULL),
-                FAIL_ON_NULL,
+                function.functionNullability().isReturnNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
                 true,
                 true);
         return functionResolution.getPlannerContext().getFunctionManager()
@@ -209,10 +140,10 @@ public class TestConstantSpecializationParity
         return builder.build();
     }
 
-    private static Typed varchar(String value)
+    public static Typed varchar(String value)
     {
         return new Typed(createVarcharType(value.length()), utf8Slice(value));
     }
 
-    private record Typed(Type type, Object value) {}
+    public record Typed(Type type, Object value) {}
 }

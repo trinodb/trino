@@ -61,7 +61,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
-import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 
 public class TestDecorrelateUnnest
         extends BaseRuleTest
@@ -511,7 +510,7 @@ public class TestDecorrelateUnnest
                     Symbol corr = p.symbol("corr", VARCHAR);
                     Call regexpExtractAll = new Call(
                             tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "regexp_extract_all", ImmutableList.of(VARCHAR, VARCHAR)),
-                            ImmutableList.of(corr.toSymbolReference(), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), JONI_REGEXP)));
+                            ImmutableList.of(corr.toSymbolReference(), new Constant(VARCHAR, Slices.utf8Slice("."))));
 
                     return p.correlatedJoin(
                             ImmutableList.of(corr),
@@ -535,7 +534,7 @@ public class TestDecorrelateUnnest
                                         Optional.of("ordinality"),
                                         LEFT,
                                         project(
-                                                ImmutableMap.of("char_array", expression(new Call(tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "regexp_extract_all", ImmutableList.of(VARCHAR, VARCHAR)), ImmutableList.of(new Reference(VARCHAR, "corr"), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), JONI_REGEXP))))),
+                                                ImmutableMap.of("char_array", expression(new Call(tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "regexp_extract_all", ImmutableList.of(VARCHAR, VARCHAR)), ImmutableList.of(new Reference(VARCHAR, "corr"), new Constant(VARCHAR, Slices.utf8Slice(".")))))),
                                                 assignUniqueId("unique", values("corr"))))));
     }
 }

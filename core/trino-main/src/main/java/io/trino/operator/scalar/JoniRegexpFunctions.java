@@ -22,19 +22,10 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
-import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.Constraint;
-import io.trino.spi.function.Description;
-import io.trino.spi.function.LiteralParameters;
-import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.SqlNullable;
-import io.trino.spi.function.SqlType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.type.JoniRegexp;
-import io.trino.type.JoniRegexpType;
 
 import java.nio.charset.StandardCharsets;
 
@@ -49,11 +40,7 @@ public final class JoniRegexpFunctions
 {
     private JoniRegexpFunctions() {}
 
-    @Description("Returns whether the pattern is contained within the string")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean regexpLike(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
+    public static boolean regexpLike(Slice source, JoniRegexp pattern)
     {
         Matcher matcher = matcher(source, pattern);
         return search(matcher, source, 0) != -1;
@@ -90,26 +77,7 @@ public final class JoniRegexpFunctions
         return matcher.getEnd();
     }
 
-    @Description("Removes substrings matching a regular expression")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice regexpReplace(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
-    {
-        return regexpReplace(source, pattern, Slices.EMPTY_SLICE);
-    }
-
-    @Description("Replaces substrings matching a regular expression by given string")
-    @ScalarFunction
-    @LiteralParameters({"x", "y", "z"})
-    // Longest possible output is when the pattern is empty, then the replacement will be placed in between
-    // any two letters of source (x + 1) times. As the replacement may be wildcard and the wildcard input that takes two letters
-    // can produce (x) length output it max length is (x * y / 2) however for (x < 2), (y) itself (without wildcards)
-    // may be longer, so we choose max of (x * y / 2) and (y). We then add the length we've added to basic length of source (x)
-    // to get the formula: x + max(x * y / 2, y) * (x + 1)
-    @Constraint(variable = "z", expression = "min(2147483647, x + max(x * y / 2, y) * (x + 1))")
-    @SqlType("varchar(z)")
-    public static Slice regexpReplace(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern, @SqlType("varchar(y)") Slice replacement)
+    public static Slice regexpReplace(Slice source, JoniRegexp pattern, Slice replacement)
     {
         Matcher matcher = matcher(source, pattern);
         SliceOutput sliceOutput = new DynamicSliceOutput(source.length() + replacement.length() * 5);
@@ -211,20 +179,7 @@ public final class JoniRegexpFunctions
         }
     }
 
-    @Description("String(s) extracted using the given pattern")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType("array(varchar(x))")
-    public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
-    {
-        return regexpExtractAll(source, pattern, 0);
-    }
-
-    @Description("Group(s) extracted using the given pattern")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType("array(varchar(x))")
-    public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
+    public static Block regexpExtractAll(Slice source, JoniRegexp pattern, long groupIndex)
     {
         Matcher matcher = matcher(source, pattern);
         validateGroup(groupIndex, matcher.getEagerRegion());
@@ -251,22 +206,7 @@ public final class JoniRegexpFunctions
         return blockBuilder.build();
     }
 
-    @SqlNullable
-    @Description("String extracted using the given pattern")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice regexpExtract(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
-    {
-        return regexpExtract(source, pattern, 0);
-    }
-
-    @SqlNullable
-    @Description("Returns regex group of extracted string with a pattern")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice regexpExtract(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
+    public static Slice regexpExtract(Slice source, JoniRegexp pattern, long groupIndex)
     {
         Matcher matcher = matcher(source, pattern);
         validateGroup(groupIndex, matcher.getEagerRegion());
@@ -286,11 +226,7 @@ public final class JoniRegexpFunctions
         return source.slice(beg, end - beg);
     }
 
-    @ScalarFunction
-    @LiteralParameters("x")
-    @Description("Returns array of strings split by pattern")
-    @SqlType("array(varchar(x))")
-    public static Block regexpSplit(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
+    public static Block regexpSplit(Slice source, JoniRegexp pattern)
     {
         Matcher matcher = matcher(source, pattern);
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
@@ -321,36 +257,7 @@ public final class JoniRegexpFunctions
         }
     }
 
-    @ScalarFunction
-    @Description("Returns the index of the matched substring")
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.INTEGER)
-    public static long regexpPosition(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
-    {
-        return regexpPosition(source, pattern, 1);
-    }
-
-    @ScalarFunction
-    @Description("Returns the index of the matched substring starting from the specified position")
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.INTEGER)
-    public static long regexpPosition(
-            @SqlType("varchar(x)") Slice source,
-            @SqlType(JoniRegexpType.NAME) JoniRegexp pattern,
-            @SqlType(StandardTypes.INTEGER) long start)
-    {
-        return regexpPosition(source, pattern, start, 1);
-    }
-
-    @ScalarFunction
-    @Description("Returns the index of the n-th matched substring starting from the specified position")
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.INTEGER)
-    public static long regexpPosition(
-            @SqlType("varchar(x)") Slice source,
-            @SqlType(JoniRegexpType.NAME) JoniRegexp pattern,
-            @SqlType(StandardTypes.INTEGER) long start,
-            @SqlType(StandardTypes.INTEGER) long occurrence)
+    public static long regexpPosition(Slice source, JoniRegexp pattern, long start, long occurrence)
     {
         // start position cannot be smaller than 1
         if (start < 1) {
@@ -385,11 +292,7 @@ public final class JoniRegexpFunctions
         }
     }
 
-    @ScalarFunction
-    @Description("Returns the number of times that a pattern occurs in a string")
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.BIGINT)
-    public static long regexpCount(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
+    public static long regexpCount(Slice source, JoniRegexp pattern)
     {
         Matcher matcher = matcher(source, pattern);
 

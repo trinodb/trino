@@ -34,7 +34,6 @@ import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.type.CharParametricType;
 import io.trino.type.DecimalParametricType;
-import io.trino.type.Re2JRegexpType;
 import io.trino.type.VarcharParametricType;
 
 import java.util.ArrayList;
@@ -94,7 +93,6 @@ import static io.trino.type.FunctionParametricType.FUNCTION;
 import static io.trino.type.IntervalDayTimeParametricType.INTERVAL_DAY_TIME_PARAMETRIC;
 import static io.trino.type.IntervalYearMonthParametricType.INTERVAL_YEAR_MONTH_PARAMETRIC;
 import static io.trino.type.IpAddressType.IPADDRESS;
-import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
@@ -144,8 +142,6 @@ public final class TypeRegistry
         addType(HYPER_LOG_LOG);
         addType(SET_DIGEST);
         addType(P4_HYPER_LOG_LOG);
-        addType(JONI_REGEXP);
-        addType(new Re2JRegexpType(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()));
         addType(LIKE_PATTERN);
         addType(JSON_PATH);
         addType(COLOR);

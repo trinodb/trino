@@ -21,7 +21,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -49,7 +48,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
-import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 
 public class TestDecorrelateLeftUnnestWithGlobalAggregation
         extends BaseRuleTest
@@ -302,7 +300,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                     Symbol corr = p.symbol("corr", VARCHAR);
                     Call regexpExtractAll = new Call(
                             REGEXP_EXTRACT_ALL,
-                            ImmutableList.of(corr.toSymbolReference(), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), JONI_REGEXP)));
+                            ImmutableList.of(corr.toSymbolReference(), new Constant(VARCHAR, Slices.utf8Slice("."))));
 
                     return p.correlatedJoin(
                             ImmutableList.of(corr),
@@ -333,7 +331,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                                 Optional.empty(),
                                                 LEFT,
                                                 project(
-                                                        ImmutableMap.of("char_array", expression(new Call(REGEXP_EXTRACT_ALL, ImmutableList.of(new Reference(VARCHAR, "corr"), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), JONI_REGEXP))))),
+                                                        ImmutableMap.of("char_array", expression(new Call(REGEXP_EXTRACT_ALL, ImmutableList.of(new Reference(VARCHAR, "corr"), new Constant(VARCHAR, Slices.utf8Slice(".")))))),
                                                         assignUniqueId("unique", values("corr")))))));
     }
 
