@@ -17,6 +17,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.DataPage;
+import io.trino.parquet.DataPageV1;
+import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
@@ -26,6 +28,8 @@ import io.trino.spi.block.Block;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter;
+import org.apache.parquet.internal.column.columnindex.OffsetIndexBuilder;
+import org.apache.parquet.io.ParquetDecodingException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -40,6 +44,7 @@ import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.NestedColumnReader.isSingleRleRun;
 import static io.trino.parquet.reader.TestingColumnReader.getDictionaryPage;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class TestNestedColumnReader
@@ -293,6 +298,67 @@ public class TestNestedColumnReader
         Block actual = readBlock(reader, 10, 10);
 
         format.assertBlock(values, actual);
+    }
+
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#readersWithPageVersions")
+    public <T> void testPageAfterSkippedPageNotStartingRow(DataPageVersion version, ColumnReaderFormat<T> format)
+            throws IOException
+    {
+        // Create reader
+        PrimitiveField field = createField(format, false, 1, 2);
+        ColumnReader reader = createColumnReader(field);
+        // Write data, the second page continues the last row of the first page
+        ValuesWriter writer = format.getValuesWriter(version);
+        format.write(writer, new Integer[] {1, 2});
+        DataPage page1 = withPageIndex(createDataPage(version, writer, field, new int[] {0, 0}, allDefined(2)), 0);
+        format.resetAndWrite(writer, new Integer[] {3, 4});
+        DataPage page2 = withPageIndex(createDataPage(version, writer, field, new int[] {1, 0}, allDefined(2)), 1);
+        format.resetAndWrite(writer, new Integer[] {5});
+        DataPage page3 = withPageIndex(createDataPage(version, writer, field, new int[] {0}, allDefined(1)), 2);
+        // The offset index claims that the second page starts on a row boundary
+        OffsetIndexBuilder offsetIndex = OffsetIndexBuilder.getBuilder();
+        offsetIndex.add(0, 10, 0);
+        offsetIndex.add(10, 10, 2);
+        offsetIndex.add(20, 10, 3);
+        PageReader pageReader = getPageReaderMock(List.of(page1, page2, page3), null);
+        pageReader.setOffsetIndexLoader(offsetIndex::build, 4);
+        reader.setPageReader(pageReader, Optional.empty());
+        // Skipping two rows skips the first page based on the offset index
+        reader.prepareNextRead(2);
+
+        assertThatThrownBy(() -> readBlock(reader, 1, 1))
+                .isInstanceOf(ParquetDecodingException.class)
+                .hasMessageContaining("does not start on a row boundary");
+    }
+
+    private static DataPage withPageIndex(DataPage page, int pageIndex)
+    {
+        if (page instanceof DataPageV1 pageV1) {
+            return new DataPageV1(
+                    pageV1.getSlice(),
+                    pageV1.getValueCount(),
+                    pageV1.getUncompressedSize(),
+                    pageV1.getFirstRowIndex(),
+                    pageV1.getRepetitionLevelEncoding(),
+                    pageV1.getDefinitionLevelEncoding(),
+                    pageV1.getValueEncoding(),
+                    pageIndex);
+        }
+        DataPageV2 pageV2 = (DataPageV2) page;
+        return new DataPageV2(
+                pageV2.getRowCount(),
+                pageV2.getNullCount(),
+                pageV2.getValueCount(),
+                pageV2.getRepetitionLevels(),
+                pageV2.getDefinitionLevels(),
+                pageV2.getDataEncoding(),
+                pageV2.getSlice(),
+                pageV2.getUncompressedSize(),
+                pageV2.getFirstRowIndex(),
+                pageV2.getStatistics(),
+                pageV2.isCompressed(),
+                pageIndex);
     }
 
     private static int[] allDefined(int count)
