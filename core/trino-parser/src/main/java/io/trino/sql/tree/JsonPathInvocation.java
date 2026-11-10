@@ -80,12 +80,6 @@ public final class JsonPathInvocation
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitJsonPathInvocation(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         ImmutableList.Builder<Node> children = ImmutableList.builder();

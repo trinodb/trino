@@ -32,12 +32,6 @@ public final class CurrentPath
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCurrentPath(this, context);
-    }
-
-    @Override
     public int hashCode()
     {
         return getClass().hashCode();

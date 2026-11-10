@@ -59,12 +59,6 @@ public final class JsonObjectMember
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitJsonObjectMember(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return ImmutableList.of(key, value);

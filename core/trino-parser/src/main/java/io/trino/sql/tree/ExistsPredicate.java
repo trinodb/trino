@@ -37,12 +37,6 @@ public final class ExistsPredicate
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitExists(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.of(subquery);

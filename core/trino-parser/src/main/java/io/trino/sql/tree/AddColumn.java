@@ -67,12 +67,6 @@ public final class AddColumn
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAddColumn(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();

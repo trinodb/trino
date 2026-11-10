@@ -54,12 +54,6 @@ public final class StringLiteral
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitStringLiteral(this, context);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

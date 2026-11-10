@@ -49,12 +49,6 @@ public final class SimpleIntervalQualifier
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSimpleIntervalQualifier(this, context);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         if (!(o instanceof SimpleIntervalQualifier that)) {

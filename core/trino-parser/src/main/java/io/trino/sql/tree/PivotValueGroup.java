@@ -49,12 +49,6 @@ public final class PivotValueGroup
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPivotValueGroup(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         // alias is a scalar attribute, not a child: it is compared in shallowEquals instead.

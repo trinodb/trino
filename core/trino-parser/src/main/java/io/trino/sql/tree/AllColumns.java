@@ -65,12 +65,6 @@ public final class AllColumns
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAllColumns(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return target.map(ImmutableList::<Node>of)

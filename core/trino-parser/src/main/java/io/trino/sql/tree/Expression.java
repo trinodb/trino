@@ -91,15 +91,6 @@ public abstract sealed class Expression
         super(location);
     }
 
-    /**
-     * Accessible for {@link AstVisitor}, use {@link AstVisitor#process(Node, Object)} instead.
-     */
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitExpression(this, context);
-    }
-
     @Override
     public final String toString()
     {

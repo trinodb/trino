@@ -60,12 +60,6 @@ public final class CreateSchema
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCreateSchema(this, context);
-    }
-
-    @Override
     public List<Property> getChildren()
     {
         return properties;

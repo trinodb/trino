@@ -32,12 +32,6 @@ public final class CurrentCatalog
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCurrentCatalog(this, context);
-    }
-
-    @Override
     public int hashCode()
     {
         return getClass().hashCode();

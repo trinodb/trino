@@ -63,12 +63,6 @@ public final class ArithmeticUnaryExpression
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitArithmeticUnary(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.of(value);

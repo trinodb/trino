@@ -49,12 +49,6 @@ public final class Intersect
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitIntersect(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return relations;

@@ -45,12 +45,6 @@ public final class DescriptorField
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDescriptorField(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return type.map(ImmutableList::of)

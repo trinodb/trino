@@ -50,12 +50,6 @@ public final class WindowReference
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitWindowReference(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.of(name);

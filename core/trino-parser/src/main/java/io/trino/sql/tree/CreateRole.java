@@ -88,10 +88,4 @@ public final class CreateRole
     {
         return ImmutableList.of();
     }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCreateRole(this, context);
-    }
 }

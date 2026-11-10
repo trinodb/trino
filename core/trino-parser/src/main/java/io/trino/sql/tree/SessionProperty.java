@@ -51,12 +51,6 @@ public final class SessionProperty
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSessionProperty(this, context);
-    }
-
-    @Override
     public int hashCode()
     {
         return Objects.hash(name, value);

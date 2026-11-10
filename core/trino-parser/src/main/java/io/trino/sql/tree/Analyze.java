@@ -45,12 +45,6 @@ public final class Analyze
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAnalyze(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return properties;

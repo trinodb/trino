@@ -47,12 +47,6 @@ public final class PlanSiblings
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPlanSiblings(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return siblings;

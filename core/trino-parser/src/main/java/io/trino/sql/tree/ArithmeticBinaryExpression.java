@@ -80,12 +80,6 @@ public final class ArithmeticBinaryExpression
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitArithmeticBinary(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.of(left, right);

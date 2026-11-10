@@ -101,12 +101,6 @@ public final class QueryColumn
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitQueryColumn(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return jsonPath.map(ImmutableList::of).orElse(ImmutableList.of());

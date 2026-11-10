@@ -87,12 +87,6 @@ public final class Property
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitProperty(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return isSetToDefault() ? ImmutableList.of(name) : ImmutableList.of(name, getNonDefaultValue());

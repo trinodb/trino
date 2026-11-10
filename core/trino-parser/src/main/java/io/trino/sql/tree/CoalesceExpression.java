@@ -56,12 +56,6 @@ public final class CoalesceExpression
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCoalesceExpression(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return operands;

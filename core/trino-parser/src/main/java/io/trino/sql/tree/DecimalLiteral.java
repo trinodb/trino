@@ -48,12 +48,6 @@ public final class DecimalLiteral
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDecimalLiteral(this, context);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

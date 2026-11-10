@@ -71,12 +71,6 @@ public final class LogicalExpression
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLogicalExpression(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return terms;

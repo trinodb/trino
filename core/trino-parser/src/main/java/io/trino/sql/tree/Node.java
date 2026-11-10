@@ -100,14 +100,6 @@ public abstract sealed class Node
         this.location = Optional.ofNullable(location);
     }
 
-    /**
-     * Accessible for {@link AstVisitor}, use {@link AstVisitor#process(Node, Object)} instead.
-     */
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitNode(this, context);
-    }
-
     public Optional<NodeLocation> getLocation()
     {
         return location;

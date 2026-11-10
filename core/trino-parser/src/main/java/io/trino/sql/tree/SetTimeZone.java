@@ -40,12 +40,6 @@ public final class SetTimeZone
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSetTimeZone(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return timeZone.isPresent() ? ImmutableList.of(timeZone.get()) : ImmutableList.of();

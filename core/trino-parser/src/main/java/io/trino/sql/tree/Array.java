@@ -43,12 +43,6 @@ public final class Array
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitArray(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return values;

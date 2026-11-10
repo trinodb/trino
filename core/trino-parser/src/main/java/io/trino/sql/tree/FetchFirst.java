@@ -68,12 +68,6 @@ public final class FetchFirst
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitFetchFirst(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return rowCount.map(ImmutableList::of).orElse(ImmutableList.of());

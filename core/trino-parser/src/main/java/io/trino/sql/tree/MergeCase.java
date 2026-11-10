@@ -44,12 +44,6 @@ public abstract sealed class MergeCase
         return expression;
     }
 
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMergeCase(this, context);
-    }
-
     public abstract List<Identifier> getSetColumns();
 
     public abstract List<Expression> getSetExpressions();

@@ -49,12 +49,6 @@ public final class TableFunctionDescriptorArgument
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDescriptorArgument(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return descriptor.map(ImmutableList::of).orElse(ImmutableList.of());

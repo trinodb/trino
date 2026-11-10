@@ -20,10 +20,4 @@ public final class OneOrMoreQuantifier
     {
         super(location, greedy);
     }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitOneOrMoreQuantifier(this, context);
-    }
 }

@@ -49,12 +49,6 @@ public final class Union
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitUnion(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         ImmutableList.Builder<Node> builder = ImmutableList.builder();

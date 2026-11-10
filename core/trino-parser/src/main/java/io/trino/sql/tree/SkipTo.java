@@ -84,12 +84,6 @@ public final class SkipTo
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSkipTo(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return identifier.map(ImmutableList::of).orElse(ImmutableList.of());

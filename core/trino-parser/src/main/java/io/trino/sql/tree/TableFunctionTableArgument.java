@@ -66,12 +66,6 @@ public final class TableFunctionTableArgument
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTableArgument(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         ImmutableList.Builder<Node> builder = ImmutableList.builder();

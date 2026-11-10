@@ -52,12 +52,6 @@ public final class SimpleCaseExpression
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSimpleCaseExpression(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
