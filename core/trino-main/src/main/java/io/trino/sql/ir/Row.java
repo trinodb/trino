@@ -39,12 +39,6 @@ public record Row(List<Expression> items, Type type)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitRow(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         return items;

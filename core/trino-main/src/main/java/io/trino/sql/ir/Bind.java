@@ -72,12 +72,6 @@ public record Bind(List<Expression> values, Lambda function)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitBind(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         return ImmutableList.<Expression>builder()

@@ -61,12 +61,6 @@ public record Logical(Operator operator, List<Expression> terms)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLogical(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         return terms;

@@ -37,12 +37,6 @@ public record Reference(Type type, String name)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitReference(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         return ImmutableList.of();
