@@ -455,7 +455,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetSchemaAuthorization(SystemSecurityContext context, CatalogSchemaName schema, TrinoPrincipal principal)
     {
-        List<String> names = List.of(schema.getCatalogName(), schema.getSchemaName());
+        List<String> names = ImmutableList.of(schema.getCatalogName(), schema.getSchemaName());
         checkCanSetEntityAuthorization(context, new EntityKindAndName("SCHEMA", names), principal);
     }
 
@@ -639,7 +639,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
-        List<String> names = List.of(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), table.getSchemaTableName().getTableName());
+        List<String> names = ImmutableList.of(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), table.getSchemaTableName().getTableName());
         checkCanSetEntityAuthorization(context, new EntityKindAndName("TABLE", names), principal);
     }
 
@@ -762,7 +762,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
     {
-        List<String> names = List.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName());
+        List<String> names = ImmutableList.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName());
         checkCanSetEntityAuthorization(context, new EntityKindAndName("VIEW", names), principal);
     }
 
@@ -850,7 +850,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetMaterializedViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
     {
-        List<String> names = List.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName());
+        List<String> names = ImmutableList.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName());
         checkCanSetEntityAuthorization(context, new EntityKindAndName("MATERIALIZED VIEW", names), principal);
     }
 
@@ -1169,7 +1169,7 @@ public class FileBasedSystemAccessControl
                 .findFirst()
                 .stream()
                 .flatMap(Optional::stream)
-                .toList();
+                .collect(toImmutableList());
 
         if (masks.size() > 1) {
             throw new TrinoException(INVALID_COLUMN_MASK, format("Multiple masks defined for %s.%s", table, columnName));
