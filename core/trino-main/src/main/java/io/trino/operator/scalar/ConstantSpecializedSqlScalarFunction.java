@@ -19,19 +19,18 @@ import io.trino.spi.expression.Constant;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.ConstantSpecializedImplementation;
 import io.trino.spi.function.InvocationConvention;
-import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.ScalarFunctionSpecializationContext;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.operator.scalar.ConstantPositions.remainingConvention;
 import static java.util.Objects.requireNonNull;
 
 public final class ConstantSpecializedSqlScalarFunction
@@ -63,17 +62,7 @@ public final class ConstantSpecializedSqlScalarFunction
                 continue;
             }
 
-            List<InvocationArgumentConvention> remainingArgumentConventions = new ArrayList<>();
-            for (int index = 0; index < context.invocationConvention().getArgumentConventions().size(); index++) {
-                if (!specialization.constantPositions().contains(index)) {
-                    remainingArgumentConventions.add(context.invocationConvention().getArgumentConvention(index));
-                }
-            }
-            InvocationConvention remainingConvention = new InvocationConvention(
-                    remainingArgumentConventions,
-                    context.invocationConvention().getReturnConvention(),
-                    context.invocationConvention().supportsSession(),
-                    context.invocationConvention().supportsInstanceFactory());
+            InvocationConvention remainingConvention = remainingConvention(context.invocationConvention(), specialization.constantPositions());
 
             Object[] constantValues = specialization.constructorConstantPositions().stream()
                     .map(argument -> context.constantArguments().get(argument).orElseThrow())

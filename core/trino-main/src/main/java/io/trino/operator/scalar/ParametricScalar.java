@@ -18,10 +18,8 @@ import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.ParametricImplementationsGroup;
-import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.operator.scalar.annotations.ParametricScalarConstantSpecialization;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation;
-import io.trino.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -31,7 +29,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -110,27 +107,9 @@ public class ParametricScalar
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
-        declareDependencies(builder, implementations.getExactImplementations().values());
-        declareDependencies(builder, implementations.getSpecializedImplementations());
-        declareDependencies(builder, implementations.getGenericImplementations());
+        ParametricScalarImplementation.declareDependencies(builder, implementations);
         constantSpecializations.forEach(specialization -> specialization.declareDependencies(builder));
         return builder.build();
-    }
-
-    private static void declareDependencies(
-            FunctionDependencyDeclarationBuilder builder,
-            Collection<ParametricScalarImplementation> implementations)
-    {
-        for (ParametricScalarImplementation implementation : implementations) {
-            for (ParametricScalarImplementationChoice choice : implementation.getChoices()) {
-                for (ImplementationDependency dependency : choice.getDependencies()) {
-                    dependency.declareDependencies(builder);
-                }
-                for (ImplementationDependency dependency : choice.getConstructorDependencies()) {
-                    dependency.declareDependencies(builder);
-                }
-            }
-        }
     }
 
     @Override

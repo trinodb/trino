@@ -48,7 +48,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -56,6 +55,8 @@ import static com.google.common.primitives.Primitives.wrap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.LanguageFunctionManager.isTrinoSqlLanguageFunction;
+import static io.trino.operator.scalar.ConstantPositions.remainingConvention;
+import static io.trino.operator.scalar.ConstantPositions.remainingSignature;
 import static io.trino.spi.NodeVersion.UNKNOWN;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static java.lang.String.format;
@@ -421,21 +422,8 @@ public class FunctionManager
         MethodHandle instanceFactory = specializedImplementation.implementation().getInstanceFactory().orElseThrow();
         checkArgument(instanceFactory.type().parameterCount() == 0, "Constant specialized instance factory must not have parameters: %s", instanceFactory.type());
 
-        List<Type> remainingArgumentTypes = IntStream.range(0, boundSignature.getArgumentTypes().size())
-                .filter(index -> !specializedImplementation.constantPositions().contains(index))
-                .mapToObj(boundSignature::getArgumentType)
-                .toList();
-        List<InvocationArgumentConvention> remainingArgumentConventions = IntStream.range(0, specializationContext.invocationConvention().getArgumentConventions().size())
-                .filter(index -> !specializedImplementation.constantPositions().contains(index))
-                .mapToObj(specializationContext.invocationConvention()::getArgumentConvention)
-                .toList();
-
-        BoundSignature remainingSignature = new BoundSignature(boundSignature.getName(), boundSignature.getReturnType(), remainingArgumentTypes);
-        InvocationConvention remainingConvention = new InvocationConvention(
-                remainingArgumentConventions,
-                specializationContext.invocationConvention().getReturnConvention(),
-                specializationContext.invocationConvention().supportsSession(),
-                specializationContext.invocationConvention().supportsInstanceFactory());
+        BoundSignature remainingSignature = remainingSignature(boundSignature, specializedImplementation.constantPositions());
+        InvocationConvention remainingConvention = remainingConvention(specializationContext.invocationConvention(), specializedImplementation.constantPositions());
         verifyMethodHandleSignature(remainingSignature, specializedImplementation.implementation(), remainingConvention);
     }
 

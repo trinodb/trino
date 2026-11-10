@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.trino.metadata.FunctionBinding;
 import io.trino.operator.ParametricImplementation;
+import io.trino.operator.ParametricImplementationsGroup;
 import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
@@ -33,6 +34,7 @@ import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.ConstantArgument;
 import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
@@ -54,6 +56,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -153,39 +156,53 @@ public class ParametricScalarImplementation
         return functionNullability;
     }
 
-    public Optional<SpecializedSqlScalarFunction> specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public static void declareDependencies(FunctionDependencyDeclarationBuilder builder, ParametricImplementationsGroup<ParametricScalarImplementation> implementations)
     {
-        List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
+        Stream.of(implementations.getExactImplementations().values(), implementations.getSpecializedImplementations(), implementations.getGenericImplementations())
+                .flatMap(Collection::stream)
+                .flatMap(implementation -> implementation.getChoices().stream())
+                .forEach(choice -> {
+                    choice.getDependencies().forEach(dependency -> dependency.declareDependencies(builder));
+                    choice.getConstructorDependencies().forEach(dependency -> dependency.declareDependencies(builder));
+                });
+    }
+
+    private boolean matches(FunctionBinding functionBinding, BoundSignature boundSignature)
+    {
         for (Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
             if (!entry.getValue().isAssignableFrom(functionBinding.variables().getTypeVariable(entry.getKey()).getJavaType())) {
-                return Optional.empty();
+                return false;
             }
         }
-
-        BoundSignature boundSignature = functionBinding.getBoundSignature();
         if (returnNativeContainerType != Object.class && returnNativeContainerType != boundSignature.getReturnType().getJavaType()) {
+            return false;
+        }
+        if (argumentNativeContainerTypes.size() != boundSignature.getArgumentTypes().size()) {
+            return false;
+        }
+        for (int index = 0; index < boundSignature.getArgumentTypes().size(); index++) {
+            Type argumentType = boundSignature.getArgumentTypes().get(index);
+            Optional<Class<?>> nativeContainerType = argumentNativeContainerTypes.get(index);
+            if (argumentType instanceof FunctionType) {
+                if (nativeContainerType.isPresent()) {
+                    return false;
+                }
+            }
+            else if (nativeContainerType.isEmpty() || (nativeContainerType.get() != Object.class && nativeContainerType.get() != argumentType.getJavaType())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public Optional<SpecializedSqlScalarFunction> specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        BoundSignature boundSignature = functionBinding.getBoundSignature();
+        if (!matches(functionBinding, boundSignature)) {
             return Optional.empty();
         }
 
-        for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
-            if (boundSignature.getArgumentTypes().get(i) instanceof FunctionType) {
-                if (argumentNativeContainerTypes.get(i).isPresent()) {
-                    return Optional.empty();
-                }
-            }
-            else {
-                if (argumentNativeContainerTypes.get(i).isEmpty()) {
-                    return Optional.empty();
-                }
-
-                Class<?> argumentType = boundSignature.getArgumentTypes().get(i).getJavaType();
-                Class<?> argumentNativeContainerType = argumentNativeContainerTypes.get(i).get();
-                if (argumentNativeContainerType != Object.class && argumentNativeContainerType != argumentType) {
-                    return Optional.empty();
-                }
-            }
-        }
-
+        List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
         for (ParametricScalarImplementationChoice choice : choices) {
             checkCondition(choice.getConstructorConstantPositions().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "@ConstantArgument is only valid in a constant-specialized implementation. Signature: %s", boundSignature);
             MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), functionBinding, functionDependencies);
@@ -214,28 +231,8 @@ public class ParametricScalarImplementation
             FunctionDependencies functionDependencies,
             BoundSignature remainingBoundSignature)
     {
-        for (Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
-            if (!entry.getValue().isAssignableFrom(functionBinding.variables().getTypeVariable(entry.getKey()).getJavaType())) {
-                return Optional.empty();
-            }
-        }
-        if (returnNativeContainerType != Object.class && returnNativeContainerType != remainingBoundSignature.getReturnType().getJavaType()) {
+        if (!matches(functionBinding, remainingBoundSignature)) {
             return Optional.empty();
-        }
-        if (argumentNativeContainerTypes.size() != remainingBoundSignature.getArgumentTypes().size()) {
-            return Optional.empty();
-        }
-        for (int index = 0; index < remainingBoundSignature.getArgumentTypes().size(); index++) {
-            Type argumentType = remainingBoundSignature.getArgumentTypes().get(index);
-            Optional<Class<?>> nativeContainerType = argumentNativeContainerTypes.get(index);
-            if (argumentType instanceof FunctionType) {
-                if (nativeContainerType.isPresent()) {
-                    return Optional.empty();
-                }
-            }
-            else if (nativeContainerType.isEmpty() || (nativeContainerType.orElseThrow() != Object.class && nativeContainerType.orElseThrow() != argumentType.getJavaType())) {
-                return Optional.empty();
-            }
         }
 
         List<ConstantImplementationChoice> implementationChoices = new ArrayList<>();

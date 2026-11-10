@@ -68,6 +68,8 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantClassDataAt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.trino.operator.scalar.ConstantPositions.remainingConvention;
+import static io.trino.operator.scalar.ConstantPositions.removeConstants;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -286,28 +288,15 @@ public final class BytecodeUtils
         binder.markValueDependent();
         ConstantSpecializedImplementation specialization = constantSpecialization.orElseThrow();
         Set<Integer> constantPositions = specialization.constantPositions();
-        List<Boolean> remainingArgumentNullability = new ArrayList<>();
-        List<InvocationArgumentConvention> remainingArgumentConventions = new ArrayList<>();
-        List<Function<Optional<Class<?>>, BytecodeNode>> remainingArgumentCompilers = new ArrayList<>();
-        List<BytecodeNode> remainingArguments = new ArrayList<>();
-        for (int index = 0; index < expressions.size(); index++) {
-            if (!constantPositions.contains(index)) {
-                remainingArgumentNullability.add(functionNullability.isArgumentNullable(index));
-                remainingArgumentConventions.add(invocationConvention.getArgumentConvention(index));
-                remainingArgumentCompilers.add(argumentCompilers.get(index));
-                remainingArguments.add(invocationArguments.arguments().get(index));
-            }
-        }
+        List<Boolean> remainingArgumentNullability = removeConstants(functionNullability.getArgumentNullable(), constantPositions);
+        List<Function<Optional<Class<?>>, BytecodeNode>> remainingArgumentCompilers = removeConstants(argumentCompilers, constantPositions);
+        List<BytecodeNode> remainingArguments = removeConstants(invocationArguments.arguments(), constantPositions);
 
         return generateFullInvocation(
                 scope,
                 resolvedFunction.signature().getName().functionName(),
                 new FunctionNullability(functionNullability.isReturnNullable(), remainingArgumentNullability),
-                new InvocationConvention(
-                        remainingArgumentConventions,
-                        invocationConvention.getReturnConvention(),
-                        invocationConvention.supportsSession(),
-                        invocationConvention.supportsInstanceFactory()),
+                remainingConvention(invocationConvention, constantPositions),
                 specialization.implementation(),
                 instanceFactory,
                 remainingArgumentCompilers,

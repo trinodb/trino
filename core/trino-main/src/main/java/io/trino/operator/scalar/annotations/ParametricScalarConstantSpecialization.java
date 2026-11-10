@@ -15,23 +15,20 @@ package io.trino.operator.scalar.annotations;
 
 import io.trino.metadata.FunctionBinding;
 import io.trino.operator.ParametricImplementationsGroup;
-import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.operator.scalar.ConstantSpecializedSqlScalarFunction.Specialization;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation.ConstantSpecializedFunction;
-import io.trino.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.spi.function.FunctionNullability;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.primitives.Primitives.wrap;
+import static io.trino.operator.scalar.ConstantPositions.remainingSignature;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLEMENTATION;
 import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
@@ -59,59 +56,15 @@ public final class ParametricScalarConstantSpecialization
 
     public void declareDependencies(FunctionDependencyDeclarationBuilder builder)
     {
-        declareDependencies(builder, implementations.getExactImplementations().values());
-        declareDependencies(builder, implementations.getSpecializedImplementations());
-        declareDependencies(builder, implementations.getGenericImplementations());
-    }
-
-    private static void declareDependencies(FunctionDependencyDeclarationBuilder builder, Collection<ParametricScalarImplementation> implementations)
-    {
-        for (ParametricScalarImplementation implementation : implementations) {
-            for (ParametricScalarImplementationChoice choice : implementation.getChoices()) {
-                for (ImplementationDependency dependency : choice.getDependencies()) {
-                    dependency.declareDependencies(builder);
-                }
-                for (ImplementationDependency dependency : choice.getConstructorDependencies()) {
-                    dependency.declareDependencies(builder);
-                }
-            }
-        }
+        ParametricScalarImplementation.declareDependencies(builder, implementations);
     }
 
     public Optional<Specialization> specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         BoundSignature boundSignature = functionBinding.getBoundSignature();
-        List<io.trino.spi.type.Type> remainingArgumentTypes = new ArrayList<>();
-        for (int index = 0; index < boundSignature.getArgumentTypes().size(); index++) {
-            if (!constantPositions.contains(index)) {
-                remainingArgumentTypes.add(boundSignature.getArgumentTypes().get(index));
-            }
-        }
-        BoundSignature remainingBoundSignature = new BoundSignature(boundSignature.getName(), boundSignature.getReturnType(), remainingArgumentTypes);
+        BoundSignature remainingBoundSignature = remainingSignature(boundSignature, constantPositions);
 
-        ParametricScalarImplementation exactImplementation = implementations.getExactImplementations().get(remainingBoundSignature.toSignature());
-        if (exactImplementation != null) {
-            Optional<ConstantSpecializedFunction> implementation = exactImplementation.specializeConstant(functionBinding, functionDependencies, remainingBoundSignature);
-            if (implementation.isEmpty()) {
-                return Optional.empty();
-            }
-            ConstantSpecializedFunction specializedFunction = implementation.orElseThrow();
-            validateConstructorTypes(boundSignature, specializedFunction);
-            return Optional.of(new Specialization(constantPositions, specializedFunction.boundSignature(), specializedFunction.choices(), specializedFunction.constructorConstantPositions()));
-        }
-
-        ConstantSpecializedFunction selectedImplementation = selectImplementation(
-                implementations.getSpecializedImplementations(),
-                functionBinding,
-                functionDependencies,
-                remainingBoundSignature);
-        if (selectedImplementation == null) {
-            selectedImplementation = selectImplementation(
-                    implementations.getGenericImplementations(),
-                    functionBinding,
-                    functionDependencies,
-                    remainingBoundSignature);
-        }
+        ConstantSpecializedFunction selectedImplementation = selectImplementation(functionBinding, functionDependencies, remainingBoundSignature);
         if (selectedImplementation == null) {
             return Optional.empty();
         }
@@ -137,6 +90,19 @@ public final class ParametricScalarConstantSpecialization
                         choice.instanceFactory().type().parameterType(index).getName());
             }
         });
+    }
+
+    private ConstantSpecializedFunction selectImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies, BoundSignature remainingBoundSignature)
+    {
+        ParametricScalarImplementation exactImplementation = implementations.getExactImplementations().get(remainingBoundSignature.toSignature());
+        if (exactImplementation != null) {
+            return exactImplementation.specializeConstant(functionBinding, functionDependencies, remainingBoundSignature).orElse(null);
+        }
+        ConstantSpecializedFunction selectedImplementation = selectImplementation(implementations.getSpecializedImplementations(), functionBinding, functionDependencies, remainingBoundSignature);
+        if (selectedImplementation == null) {
+            selectedImplementation = selectImplementation(implementations.getGenericImplementations(), functionBinding, functionDependencies, remainingBoundSignature);
+        }
+        return selectedImplementation;
     }
 
     private static ConstantSpecializedFunction selectImplementation(
