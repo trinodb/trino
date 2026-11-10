@@ -17,19 +17,23 @@ import com.google.common.collect.ImmutableList;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
+import io.trino.sql.gen.columnar.PageBoundsFilterEvaluator.Decision;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createDictionaryAwareEvaluator;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isReorderingSafe;
+import static io.trino.sql.gen.columnar.PageBoundsFilterEvaluator.boundsAware;
 import static java.util.Objects.requireNonNull;
 
 public final class AndFilterEvaluator
@@ -75,22 +79,34 @@ public final class AndFilterEvaluator
     private static Optional<Supplier<FilterEvaluator>> createSameColumnRangeEvaluator(CharVarcharCoercion charVarcharCoercion, ColumnarFilterCompiler compiler, Expression range, Map<Symbol, Integer> layout, boolean dynamicFilter)
     {
         Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(charVarcharCoercion, range, layout, dynamicFilter);
-        return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
+        return compiledFilter.map(filterSupplier -> boundsAware(range, layout, () -> createDictionaryAwareEvaluator(filterSupplier.get())));
     }
 
     private final FilterEvaluator[] subFilterEvaluators;
+    private final PageBoundsFilterEvaluator[] boundsAwareEvaluators;
     private final FilterReorderingProfiler profiler;
 
     private AndFilterEvaluator(FilterEvaluator[] subFilterEvaluators, boolean filterReorderingEnabled)
     {
         checkArgument(subFilterEvaluators.length >= 2, "must have at least 2 subexpressions to AND");
         this.subFilterEvaluators = subFilterEvaluators;
+        this.boundsAwareEvaluators = Arrays.stream(subFilterEvaluators)
+                .filter(PageBoundsFilterEvaluator.class::isInstance)
+                .map(PageBoundsFilterEvaluator.class::cast)
+                .toArray(PageBoundsFilterEvaluator[]::new);
         this.profiler = new FilterReorderingProfiler(subFilterEvaluators.length, filterReorderingEnabled);
     }
 
     @Override
     public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, SourcePage page)
     {
+        // A term that the page bounds prove to reject every position decides the conjunction before any term reads data
+        long start = System.nanoTime();
+        for (PageBoundsFilterEvaluator evaluator : boundsAwareEvaluators) {
+            if (evaluator.decide(page) == Decision.SELECT_NONE) {
+                return new SelectionResult(positionsRange(0, 0), System.nanoTime() - start);
+            }
+        }
         int inputPositions = activePositions.size();
         long filterTimeNanos = 0;
         for (int filterIndex : profiler.getFilterOrder()) {

@@ -55,6 +55,7 @@ import io.trino.sql.gen.columnar.AndFilterEvaluator;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterEvaluator;
 import io.trino.sql.gen.columnar.FilterEvaluator;
+import io.trino.sql.gen.columnar.PageBoundsFilterEvaluator;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -406,8 +407,8 @@ public class TestColumnarFilters
                 comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, CONSTANT - 5), new Reference(INTEGER, COL_INT_A)),
                 comparison(LESS_THAN, new Reference(INTEGER, COL_INT_A), new Constant(INTEGER, CONSTANT + 5)));
         assertThatColumnarFilterEvaluationIsSupported(rangeFilter);
-        // a single evaluator, not a conjunction
-        assertThat(createFilterEvaluator(rangeFilter)).isInstanceOf(ColumnarFilterEvaluator.class);
+        // a single evaluator, not a conjunction; it is also decided by page bounds, which do not apply to floating point
+        assertThat(createFilterEvaluator(rangeFilter)).isInstanceOf(PageBoundsFilterEvaluator.class);
         verifyFilter(inputPages, rangeFilter);
 
         // greater-than forms are canonicalized to the same shape
@@ -423,7 +424,7 @@ public class TestColumnarFilters
                 comparison(LESS_THAN, new Reference(INTEGER, COL_INT_A), new Constant(INTEGER, CONSTANT + 5)),
                 comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, COL_INT_A), new Constant(INTEGER, CONSTANT - 5)));
         assertThatColumnarFilterEvaluationIsSupported(rangeFilter);
-        assertThat(createFilterEvaluator(rangeFilter)).isInstanceOf(ColumnarFilterEvaluator.class);
+        assertThat(createFilterEvaluator(rangeFilter)).isInstanceOf(PageBoundsFilterEvaluator.class);
         verifyFilter(inputPages, rangeFilter);
 
         // slice comparisons are not fused: the second comparison costs more than the pass it would save
