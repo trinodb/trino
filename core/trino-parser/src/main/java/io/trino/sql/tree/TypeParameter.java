@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class TypeParameter
+public final class TypeParameter
         extends DataTypeParameter
 {
     private final DataType type;

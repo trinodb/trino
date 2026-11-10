@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class Deallocate
+public final class Deallocate
         extends Statement
 {
     private final Identifier name;

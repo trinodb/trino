@@ -15,8 +15,19 @@ package io.trino.sql.tree;
 
 import java.util.Optional;
 
-public abstract class Relation
+public abstract sealed class Relation
         extends Node
+        permits AliasedRelation,
+                Join,
+                JsonTable,
+                Lateral,
+                Nearest,
+                PatternRecognitionRelation,
+                Pivot,
+                QueryBody,
+                SampledRelation,
+                TableFunctionInvocation,
+                Unnest
 {
     protected Relation(NodeLocation location)
     {

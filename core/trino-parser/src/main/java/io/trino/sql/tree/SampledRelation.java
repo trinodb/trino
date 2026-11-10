@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class SampledRelation
+public final class SampledRelation
         extends Relation
 {
     public enum Type

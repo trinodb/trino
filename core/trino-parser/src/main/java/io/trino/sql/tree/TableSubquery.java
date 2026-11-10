@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class TableSubquery
+public final class TableSubquery
         extends QueryBody
 {
     private final Query query;

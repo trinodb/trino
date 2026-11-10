@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class TryExpression
+public final class TryExpression
         extends Expression
 {
     private final Expression innerExpression;

@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class StaticMethodCall
+public final class StaticMethodCall
         extends Expression
 {
     private final QualifiedName type;

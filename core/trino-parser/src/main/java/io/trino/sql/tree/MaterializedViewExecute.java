@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class MaterializedViewExecute
+public final class MaterializedViewExecute
         extends Statement
 {
     private final Table table;

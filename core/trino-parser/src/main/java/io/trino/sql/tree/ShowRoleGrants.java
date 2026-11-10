@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ShowRoleGrants
+public final class ShowRoleGrants
         extends Statement
 {
     private final Optional<Identifier> catalog;

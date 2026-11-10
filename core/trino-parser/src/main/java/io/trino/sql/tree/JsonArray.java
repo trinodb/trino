@@ -22,7 +22,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class JsonArray
+public final class JsonArray
         extends Expression
 {
     private final List<JsonArrayElement> elements;

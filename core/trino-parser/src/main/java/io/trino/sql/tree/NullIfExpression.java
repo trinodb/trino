@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * NULLIF(V1,V2): CASE WHEN V1=V2 THEN NULL ELSE V1 END
  */
-public class NullIfExpression
+public final class NullIfExpression
         extends Expression
 {
     private final Expression first;

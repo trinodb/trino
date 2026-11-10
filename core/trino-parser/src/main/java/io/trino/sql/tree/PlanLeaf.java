@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class PlanLeaf
+public final class PlanLeaf
         extends JsonTableSpecificPlan
 {
     private final Identifier name;

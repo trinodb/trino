@@ -18,8 +18,11 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public abstract class SetOperation
+public abstract sealed class SetOperation
         extends QueryBody
+        permits Except,
+                Intersect,
+                Union
 {
     private final boolean distinct;
     private final Optional<Corresponding> corresponding;

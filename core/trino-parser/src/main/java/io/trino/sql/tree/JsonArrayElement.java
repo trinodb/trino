@@ -23,7 +23,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class JsonArrayElement
+public final class JsonArrayElement
         extends Node
 {
     private final Expression value;

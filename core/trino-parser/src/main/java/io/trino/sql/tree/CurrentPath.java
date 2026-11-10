@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class CurrentPath
+public final class CurrentPath
         extends Expression
 {
     public CurrentPath(NodeLocation location)

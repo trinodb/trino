@@ -24,7 +24,7 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class RevokeRoles
+public final class RevokeRoles
         extends Statement
 {
     private final Set<Identifier> roles;

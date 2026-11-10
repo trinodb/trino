@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class ShowStats
+public final class ShowStats
         extends Statement
 {
     private final Relation relation;

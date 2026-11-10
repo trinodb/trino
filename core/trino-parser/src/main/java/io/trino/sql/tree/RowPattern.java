@@ -13,8 +13,16 @@
  */
 package io.trino.sql.tree;
 
-public abstract class RowPattern
+public abstract sealed class RowPattern
         extends Node
+        permits AnchorPattern,
+                EmptyPattern,
+                ExcludedPattern,
+                PatternAlternation,
+                PatternConcatenation,
+                PatternPermutation,
+                PatternVariable,
+                QuantifiedPattern
 {
     protected RowPattern(NodeLocation location)
     {

@@ -26,7 +26,7 @@ import static com.google.common.base.Verify.verify;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class Identifier
+public final class Identifier
         extends Expression
 {
     private static final CharMatcher FIRST_CHAR_DISALLOWED_MATCHER = CharMatcher.inRange('0', '9')

@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class RenameColumn
+public final class RenameColumn
         extends Statement
 {
     private final QualifiedName table;

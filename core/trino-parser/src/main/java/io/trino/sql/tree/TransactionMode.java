@@ -13,8 +13,10 @@
  */
 package io.trino.sql.tree;
 
-public abstract class TransactionMode
+public abstract sealed class TransactionMode
         extends Node
+        permits Isolation,
+                TransactionAccessMode
 {
     public TransactionMode(NodeLocation location)
     {

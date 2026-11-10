@@ -18,8 +18,11 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public abstract class MergeCase
+public abstract sealed class MergeCase
         extends Node
+        permits MergeDelete,
+                MergeInsert,
+                MergeUpdate
 {
     protected final Optional<Expression> expression;
 

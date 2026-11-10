@@ -26,7 +26,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class QueryColumn
+public final class QueryColumn
         extends JsonTableColumnDefinition
 {
     private final Identifier name;

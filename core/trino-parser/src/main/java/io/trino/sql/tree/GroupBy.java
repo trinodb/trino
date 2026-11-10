@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class GroupBy
+public final class GroupBy
         extends Node
 {
     private final boolean isDistinct;

@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class NestedColumns
+public final class NestedColumns
         extends JsonTableColumnDefinition
 {
     private final StringLiteral jsonPath;

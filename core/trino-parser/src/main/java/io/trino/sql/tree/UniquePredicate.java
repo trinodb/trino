@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class UniquePredicate
+public final class UniquePredicate
         extends Expression
 {
     private final Expression subquery;

@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class DropTable
+public final class DropTable
         extends Statement
 {
     private final QualifiedName tableName;

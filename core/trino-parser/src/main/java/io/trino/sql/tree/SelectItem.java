@@ -15,8 +15,10 @@ package io.trino.sql.tree;
 
 import java.util.Optional;
 
-public abstract class SelectItem
+public abstract sealed class SelectItem
         extends Node
+        permits AllColumns,
+                SingleColumn
 {
     protected SelectItem(NodeLocation location)
     {

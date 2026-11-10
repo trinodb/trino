@@ -16,8 +16,11 @@ package io.trino.sql.tree;
 import java.util.List;
 import java.util.Optional;
 
-public abstract class GroupingElement
+public abstract sealed class GroupingElement
         extends Node
+        permits AutoGroupBy,
+                GroupingSets,
+                SimpleGroupBy
 {
     protected GroupingElement(Optional<NodeLocation> location)
     {

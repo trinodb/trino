@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class DescribeInput
+public final class DescribeInput
         extends Statement
 {
     private final Identifier name;

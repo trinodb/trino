@@ -21,7 +21,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class JsonConstructor
+public final class JsonConstructor
         extends Expression
 {
     private final Expression expression;

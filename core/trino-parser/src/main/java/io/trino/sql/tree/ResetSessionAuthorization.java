@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class ResetSessionAuthorization
+public final class ResetSessionAuthorization
         extends Statement
 {
     public ResetSessionAuthorization(NodeLocation location)

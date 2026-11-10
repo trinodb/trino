@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class AddColumn
+public final class AddColumn
         extends Statement
 {
     private final QualifiedName name;

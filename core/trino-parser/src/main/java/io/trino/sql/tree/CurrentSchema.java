@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class CurrentSchema
+public final class CurrentSchema
         extends Expression
 {
     public CurrentSchema(NodeLocation location)

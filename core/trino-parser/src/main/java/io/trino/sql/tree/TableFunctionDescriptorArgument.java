@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class TableFunctionDescriptorArgument
+public final class TableFunctionDescriptorArgument
         extends Node
 {
     private final Optional<Descriptor> descriptor;

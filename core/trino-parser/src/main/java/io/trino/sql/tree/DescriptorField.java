@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class DescriptorField
+public final class DescriptorField
         extends Node
 {
     private final Identifier name;

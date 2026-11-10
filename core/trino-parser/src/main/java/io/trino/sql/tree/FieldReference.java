@@ -20,7 +20,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class FieldReference
+public final class FieldReference
         extends Expression
 {
     private final int fieldIndex;

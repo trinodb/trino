@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class PatternRecognitionRelation
+public final class PatternRecognitionRelation
         extends Relation
 {
     private final Relation input;

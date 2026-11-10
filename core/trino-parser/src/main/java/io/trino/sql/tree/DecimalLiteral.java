@@ -18,7 +18,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class DecimalLiteral
+public final class DecimalLiteral
         extends Literal
 {
     private final String value;

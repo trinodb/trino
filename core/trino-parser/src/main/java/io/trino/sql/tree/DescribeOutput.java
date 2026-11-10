@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class DescribeOutput
+public final class DescribeOutput
         extends Statement
 {
     private final Target target;

@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class SimpleCaseExpression
+public final class SimpleCaseExpression
         extends Expression
 {
     private final Expression operand;

@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class QuerySpecification
+public final class QuerySpecification
         extends QueryBody
 {
     private final Select select;

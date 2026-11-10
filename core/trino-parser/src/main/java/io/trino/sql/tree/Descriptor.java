@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class Descriptor
+public final class Descriptor
         extends Node
 {
     private final List<DescriptorField> fields;

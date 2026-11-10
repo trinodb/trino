@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class SetAuthorizationStatement
+public final class SetAuthorizationStatement
         extends Statement
 {
     private final String ownedEntityKind;

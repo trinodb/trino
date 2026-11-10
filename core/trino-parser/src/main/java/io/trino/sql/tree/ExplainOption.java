@@ -13,8 +13,10 @@
  */
 package io.trino.sql.tree;
 
-public abstract class ExplainOption
+public abstract sealed class ExplainOption
         extends Node
+        permits ExplainFormat,
+                ExplainType
 {
     protected ExplainOption(NodeLocation location)
     {

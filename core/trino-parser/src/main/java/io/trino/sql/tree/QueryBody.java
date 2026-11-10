@@ -15,8 +15,13 @@ package io.trino.sql.tree;
 
 import java.util.Optional;
 
-public abstract class QueryBody
+public abstract sealed class QueryBody
         extends Relation
+        permits QuerySpecification,
+                SetOperation,
+                Table,
+                TableSubquery,
+                Values
 {
     protected QueryBody(Optional<NodeLocation> location)
     {
