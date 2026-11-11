@@ -45,6 +45,7 @@ final class TestOpenLineageListenerConfig
                 .setTrinoURI(null)
                 .setNamespace(null)
                 .setJobNameFormat("$QUERY_ID")
+                .setDatasetExcludePattern(null)
                 .setDisabledFacets(ImmutableSet.of())
                 .setIncludeQueryTypes(ImmutableSet.of(
                         ALTER_TABLE_EXECUTE,
@@ -65,6 +66,7 @@ final class TestOpenLineageListenerConfig
                 .put("openlineage-event-listener.disabled-facets", "trino_metadata,trino_query_statistics")
                 .put("openlineage-event-listener.namespace", "testnamespace")
                 .put("openlineage-event-listener.job.name-format", "$QUERY_ID-$USER-$SOURCE-$CLIENT_IP-abc123")
+                .put("openlineage-event-listener.dataset.exclude-pattern", "iceberg\\.test_.*\\..*")
                 .buildOrThrow();
 
         OpenLineageListenerConfig expected = new OpenLineageListenerConfig()
@@ -72,7 +74,8 @@ final class TestOpenLineageListenerConfig
                 .setIncludeQueryTypes(ImmutableSet.of(SELECT, DELETE))
                 .setDisabledFacets(ImmutableSet.of(TRINO_METADATA, TRINO_QUERY_STATISTICS))
                 .setNamespace("testnamespace")
-                .setJobNameFormat("$QUERY_ID-$USER-$SOURCE-$CLIENT_IP-abc123");
+                .setJobNameFormat("$QUERY_ID-$USER-$SOURCE-$CLIENT_IP-abc123")
+                .setDatasetExcludePattern("iceberg\\.test_.*\\..*");
 
         assertFullMapping(properties, expected);
     }
@@ -120,6 +123,26 @@ final class TestOpenLineageListenerConfig
                 failedValidation,
                 errorMessage,
                 AssertTrue.class);
+    }
+
+    @Test
+    void testIsDatasetExcludePatternValid()
+    {
+        assertValidates(configWithDatasetExcludePattern(null));
+        assertValidates(configWithDatasetExcludePattern("iceberg\\.test_.*\\..*"));
+
+        assertFailsValidation(
+                configWithDatasetExcludePattern("iceberg.(test"),
+                "datasetExcludePatternValid",
+                "Dataset exclude pattern must be a valid regular expression",
+                AssertTrue.class);
+    }
+
+    private static OpenLineageListenerConfig configWithDatasetExcludePattern(String pattern)
+    {
+        return new OpenLineageListenerConfig()
+                .setTrinoURI(URI.create("http://testtrino"))
+                .setDatasetExcludePattern(pattern);
     }
 
     private static OpenLineageListenerConfig configWithFormat(String format)
