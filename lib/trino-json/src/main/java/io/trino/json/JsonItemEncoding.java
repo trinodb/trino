@@ -13,7 +13,6 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.DynamicSliceOutput;
@@ -36,6 +35,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.TrinoNumber.AsBigDecimal;
+import tools.jackson.core.JsonGenerator;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -906,7 +906,7 @@ public final class JsonItemEncoding
                 int cursor = objectEntriesStart(slice, itemOffset);
                 generator.writeStartObject();
                 for (int i = 0; i < count; i++) {
-                    generator.writeFieldName(readString(slice, cursor));
+                    generator.writeName(readString(slice, cursor));
                     cursor = stringEndOffset(slice, cursor);
                     writeJson(slice, cursor, generator);
                     cursor = itemEndOffset(slice, cursor);

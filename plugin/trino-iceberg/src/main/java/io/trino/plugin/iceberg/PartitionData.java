@@ -13,21 +13,19 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
 import java.io.StringWriter;
-import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
@@ -45,8 +43,7 @@ public class PartitionData
         implements StructLike
 {
     private static final String PARTITION_VALUES_FIELD = "partitionValues";
-    private static final JsonFactory FACTORY = jsonFactory();
-    private static final JsonMapper MAPPER = new JsonMapper(FACTORY)
+    private static final JsonMapper MAPPER = new JsonMapper(jsonFactory())
             .rebuild()
             .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true)
             .build();
@@ -90,19 +87,19 @@ public class PartitionData
     {
         try {
             StringWriter writer = new StringWriter();
-            JsonGenerator generator = FACTORY.createGenerator(writer);
+            JsonGenerator generator = MAPPER.createGenerator(writer);
             generator.writeStartObject();
-            generator.writeArrayFieldStart(PARTITION_VALUES_FIELD);
+            generator.writeArrayPropertyStart(PARTITION_VALUES_FIELD);
             for (int i = 0; i < structLike.size(); i++) {
-                generator.writeObject(structLike.get(i, Object.class));
+                generator.writePOJO(structLike.get(i, Object.class));
             }
             generator.writeEndArray();
             generator.writeEndObject();
             generator.flush();
             return writer.toString();
         }
-        catch (IOException e) {
-            throw new UncheckedIOException("JSON conversion failed for: " + structLike, e);
+        catch (JacksonException e) {
+            throw new IllegalArgumentException("JSON conversion failed for: " + structLike, e);
         }
     }
 
@@ -144,8 +141,8 @@ public class PartitionData
         try {
             jsonNode = MAPPER.readTree(partitionDataAsJson);
         }
-        catch (IOException e) {
-            throw new UncheckedIOException("Conversion from JSON failed for PartitionData: " + partitionDataAsJson, e);
+        catch (JacksonException e) {
+            throw new IllegalArgumentException("Conversion from JSON failed for PartitionData: " + partitionDataAsJson, e);
         }
         if (jsonNode.isNull()) {
             return null;
@@ -171,25 +168,26 @@ public class PartitionData
             case INTEGER, DATE -> partitionValue.asInt();
             case LONG, TIME, TIMESTAMP, TIMESTAMP_NANO -> partitionValue.asLong();
             case FLOAT -> {
-                if (partitionValue.asText().equalsIgnoreCase("NaN")) {
-                    yield Float.NaN;
+                // NaN and infinities are written as strings
+                if (partitionValue.isString()) {
+                    yield parseSpecialFloat(partitionValue.stringValue());
                 }
                 yield partitionValue.floatValue();
             }
             case DOUBLE -> {
-                if (partitionValue.asText().equalsIgnoreCase("NaN")) {
-                    yield Double.NaN;
+                if (partitionValue.isString()) {
+                    yield parseSpecialDouble(partitionValue.stringValue());
                 }
                 yield partitionValue.doubleValue();
             }
-            case STRING -> partitionValue.asText();
-            case UUID -> UUID.fromString(partitionValue.asText());
+            case STRING -> partitionValue.asString();
+            case UUID -> UUID.fromString(partitionValue.asString());
             case FIXED, BINARY -> {
                 try {
                     yield partitionValue.binaryValue();
                 }
-                catch (IOException e) {
-                    throw new UncheckedIOException("Failed during JSON conversion of " + partitionValue, e);
+                catch (JacksonException e) {
+                    throw new IllegalArgumentException("Failed during JSON conversion of " + partitionValue, e);
                 }
             }
             case DECIMAL -> {
@@ -201,5 +199,18 @@ public class PartitionData
             // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
             case VARIANT, GEOMETRY, GEOGRAPHY, UNKNOWN, LIST, MAP, STRUCT -> throw new UnsupportedOperationException("Type not supported as partition column: " + type);
         };
+    }
+
+    private static float parseSpecialFloat(String value)
+    {
+        return (float) parseSpecialDouble(value);
+    }
+
+    private static double parseSpecialDouble(String value)
+    {
+        if (value.equalsIgnoreCase("NaN")) {
+            return Double.NaN;
+        }
+        return Double.parseDouble(value);
     }
 }

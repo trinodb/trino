@@ -16,6 +16,7 @@ package io.trino.sql.ir;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
 
+@JsonSerialize
 public record Array(Type elementType, List<Expression> elements)
         implements Expression
 {

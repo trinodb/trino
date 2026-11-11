@@ -13,19 +13,17 @@
  */
 package io.trino.spi.block;
 
-import com.fasterxml.jackson.core.Base64Variants;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-
-import java.io.IOException;
+import tools.jackson.core.Base64Variants;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.ValueSerializer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -34,7 +32,7 @@ public final class TestingBlockJsonSerde
     private TestingBlockJsonSerde() {}
 
     public static class Serializer
-            extends JsonSerializer<Block>
+            extends ValueSerializer<Block>
     {
         private final BlockEncodingSerde blockEncodingSerde;
 
@@ -44,8 +42,7 @@ public final class TestingBlockJsonSerde
         }
 
         @Override
-        public void serialize(Block block, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
-                throws IOException
+        public void serialize(Block block, JsonGenerator jsonGenerator, SerializationContext context)
         {
             SliceOutput output = new DynamicSliceOutput(64);
             blockEncodingSerde.writeBlock(output, block);
@@ -55,7 +52,7 @@ public final class TestingBlockJsonSerde
     }
 
     public static class Deserializer
-            extends JsonDeserializer<Block>
+            extends ValueDeserializer<Block>
     {
         private final BlockEncodingSerde blockEncodingSerde;
 
@@ -66,7 +63,6 @@ public final class TestingBlockJsonSerde
 
         @Override
         public Block deserialize(JsonParser parser, DeserializationContext context)
-                throws IOException
         {
             byte[] decoded = Base64Variants.MIME_NO_LINEFEEDS.decode(context.readValue(parser, String.class));
             BasicSliceInput input = Slices.wrappedBuffer(decoded).getInput();

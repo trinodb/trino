@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.Session;
 import io.trino.client.Column;
@@ -29,9 +27,11 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestClient;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -132,8 +132,8 @@ public class ElasticsearchLoader
                     }
                     bulkBody.append(JSON_MAPPER.writeValueAsString(doc)).append('\n');
                 }
-                catch (IOException e) {
-                    throw new UncheckedIOException("Error loading data into Elasticsearch index: " + tableName, e);
+                catch (JacksonException e) {
+                    throw new IllegalStateException("Error loading data into Elasticsearch index: " + tableName, e);
                 }
             }
 

@@ -13,7 +13,6 @@
  */
 package io.trino.server.protocol;
 
-import com.fasterxml.jackson.core.JsonGenerator;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
@@ -53,6 +52,7 @@ import io.trino.type.JsonType;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import io.trino.util.variant.VariantUtil;
+import tools.jackson.core.JsonGenerator;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -358,8 +358,8 @@ public final class JsonEncodingUtils
             Variant variant = VARIANT.getObject(block, position);
             if (supportsVariantBinary) {
                 generator.writeStartObject();
-                generator.writeStringField("metadata", Base64.getEncoder().encodeToString(variant.metadata().toSlice().getBytes()));
-                generator.writeStringField("value", Base64.getEncoder().encodeToString(variant.data().getBytes()));
+                generator.writeStringProperty("metadata", Base64.getEncoder().encodeToString(variant.metadata().toSlice().getBytes()));
+                generator.writeStringProperty("value", Base64.getEncoder().encodeToString(variant.data().getBytes()));
                 generator.writeEndObject();
             }
             else {
@@ -465,7 +465,7 @@ public final class JsonEncodingUtils
                 if (roundIntervalKeys && !legacyIntervalKeys.add(encodedKey)) {
                     throw new TrinoException(NOT_SUPPORTED, "Interval map keys collide at millisecond precision; use a client supporting PARAMETRIC_INTERVAL");
                 }
-                generator.writeFieldName(encodedKey);
+                generator.writeName(encodedKey);
                 valueEncoder.encode(generator, valueBlock, offset + i);
             }
             generator.writeEndObject();

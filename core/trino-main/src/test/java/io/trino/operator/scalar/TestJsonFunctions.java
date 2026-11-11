@@ -983,6 +983,16 @@ public class TestJsonFunctions
     }
 
     @Test
+    public void testJsonArrayGetNestingLimit()
+    {
+        // input nested deeper than the parser limit is invalid and yields NULL instead of overflowing the stack
+        assertThat(assertions.expression("json_array_get('[' || rpad('', 2000, '[') || rpad('', 2000, ']') || ']', 0)"))
+                .isNull(JSON);
+        assertThat(assertions.expression("json_array_get('[' || rpad('', 500, '[') || rpad('', 500, ']') || ']', 0)"))
+                .isEqualTo("[".repeat(500) + "]".repeat(500));
+    }
+
+    @Test
     public void testBigintContainsTypedDecimal()
     {
         for (String value : new String[] {"DECIMAL '1'", "CAST(1 AS DECIMAL(38, 0))"}) {

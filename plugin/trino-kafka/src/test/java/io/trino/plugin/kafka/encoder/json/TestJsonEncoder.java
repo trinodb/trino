@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.kafka.encoder.json;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.kafka.KafkaColumnHandle;
 import io.trino.plugin.kafka.encoder.RowEncoderSpec;
@@ -24,6 +23,7 @@ import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
 import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Optional;
 

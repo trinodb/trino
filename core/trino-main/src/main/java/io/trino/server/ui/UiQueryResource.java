@@ -14,8 +14,6 @@
 package io.trino.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.databind.cfg.ContextAttributes;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
@@ -57,6 +55,8 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
+import tools.jackson.databind.cfg.ContextAttributes;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 import java.util.Locale;
@@ -232,15 +232,14 @@ public class UiQueryResource
         JsonMapper mapper = jsonMapper
                 .rebuild()
                 .defaultAttributes(attrs)
+                // Don't serialize TDigestHistogram.digest which isn't useful and human readable
+                .withConfigOverride(TDigestHistogram.class, override -> override.setIgnorals(forIgnoredProperties(DIGEST_PROPERTY)))
+                // Do not output @class property for metric types
+                .addMixIn(Metric.class, DropTypeInfo.class)
+                // Do not output @type property for OperatorInfo
+                .addMixIn(OperatorInfo.class, DropTypeInfo.class)
                 .build();
 
-        // Don't serialize TDigestHistogram.digest which isn't useful and human readable
-        mapper.configOverride(TDigestHistogram.class).setIgnorals(forIgnoredProperties(DIGEST_PROPERTY));
-
-        // Do not output @class property for metric types
-        mapper.addMixIn(Metric.class, DropTypeInfo.class);
-        // Do not output @type property for OperatorInfo
-        mapper.addMixIn(OperatorInfo.class, DropTypeInfo.class);
         JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(mapper);
 
         if (pretty) {

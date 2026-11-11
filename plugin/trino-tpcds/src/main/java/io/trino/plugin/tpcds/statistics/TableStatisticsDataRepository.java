@@ -14,10 +14,10 @@
 
 package io.trino.plugin.tpcds.statistics;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.tpcds.Table;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.File;
 import java.io.IOException;

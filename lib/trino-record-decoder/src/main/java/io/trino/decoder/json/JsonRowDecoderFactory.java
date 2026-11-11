@@ -13,7 +13,6 @@
  */
 package io.trino.decoder.json;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.inject.Inject;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
@@ -21,6 +20,7 @@ import io.trino.decoder.RowDecoderFactory;
 import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Map;
 import java.util.Optional;
@@ -69,7 +69,7 @@ public class JsonRowDecoderFactory
                 case "seconds-since-epoch" -> new SecondsSinceEpochJsonFieldDecoder(column);
                 case "milliseconds-since-epoch" -> new MillisecondsSinceEpochJsonFieldDecoder(column);
                 case "rfc2822" -> new RFC2822JsonFieldDecoder(column);
-                case "" -> new DefaultJsonFieldDecoder(column);
+                case "" -> new DefaultJsonFieldDecoder(jsonMapper, column);
                 default -> throw new IllegalArgumentException(format("unknown data format '%s' used for column '%s'", column.getDataFormat(), column.getName()));
             };
         }

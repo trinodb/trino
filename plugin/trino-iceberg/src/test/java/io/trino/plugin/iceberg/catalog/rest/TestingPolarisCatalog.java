@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -27,9 +26,8 @@ import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -108,12 +106,7 @@ public final class TestingPolarisCatalog
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
         StringResponse response = HTTP_CLIENT.execute(request, createStringResponseHandler());
-        try {
-            return JSON_MAPPER.readTree(response.getBody()).get("access_token").asText();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return JSON_MAPPER.readTree(response.getBody()).get("access_token").asString();
     }
 
     private void createCatalog()
