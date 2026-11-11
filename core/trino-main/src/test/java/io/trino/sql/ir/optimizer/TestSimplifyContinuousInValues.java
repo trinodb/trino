@@ -58,6 +58,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimplifyContinuousInValues
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     @Test
     void test()
     {
@@ -81,6 +83,10 @@ public class TestSimplifyContinuousInValues
                 .describedAs("null value, single value list")
                 .isEqualTo(Optional.empty());
 
+        // TODO https://github.com/trinodb/trino/issues/31068 -- the rewrite is wrong: a null in the
+        //  list makes a non-matching value evaluate to unknown, not false, and a null value evaluate
+        //  to unknown, not true. `SELECT x IN (NULL, 1, 2)` over x in (null, 1, 3) returns
+        //  (true, true, false) instead of (null, true, null).
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"), ImmutableList.of(new Constant(BIGINT, null), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))))
                 .describedAs("continuous values with null")
@@ -164,6 +170,10 @@ public class TestSimplifyContinuousInValues
                     .collect(toImmutableList());
             In in = new In(new Reference(type, "x"), valuesList);
             if (areRepresentationValuesContinuous) {
+                // TODO https://github.com/trinodb/trino/issues/31066 -- TimeType.getRange() boxes its
+                //  minimum as an Integer where the type's java type is long, breaking the Type.Range
+                //  contract that its values must match getJavaType(); feeding that bound back to the
+                //  type throws
                 assertThat(optimize(in))
                         .isEqualTo(Optional.of(between(
                                 new Reference(type, "x"),
@@ -197,6 +207,11 @@ public class TestSimplifyContinuousInValues
     }
 
     private static Optional<Expression> optimize(Expression expression)
+    {
+        return VERIFIER.verify(expression, apply(expression));
+    }
+
+    private static Optional<Expression> apply(Expression expression)
     {
         return new SimplifyContinuousInValues(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
