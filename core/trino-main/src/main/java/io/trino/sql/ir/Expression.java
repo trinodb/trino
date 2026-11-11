@@ -40,6 +40,7 @@ import java.util.List;
         @JsonSubTypes.Type(value = Reference.class, name = "reference"),
         @JsonSubTypes.Type(value = Row.class, name = "row"),
         @JsonSubTypes.Type(value = Match.class, name = "match"),
+        @JsonSubTypes.Type(value = SensitiveExpression.class, name = "sensitive"),
 })
 public sealed interface Expression
         permits Array,
@@ -57,7 +58,8 @@ public sealed interface Expression
                 Logical,
                 Match,
                 Reference,
-                Row
+                Row,
+                SensitiveExpression
 {
     Type type();
 

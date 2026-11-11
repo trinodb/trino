@@ -28,6 +28,7 @@ import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
+import io.trino.sql.planner.SensitiveSymbols;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
@@ -138,7 +139,8 @@ public class RemoveRedundantPredicateAboveTableScan
                 session,
                 context.getSymbolAllocator(),
                 Booleans.TRUE, // Dynamic filters are included in decomposedPredicate.remainingExpression()
-                domainTranslator.toPredicate(getCharVarcharCoercion(session), unenforcedDomain.transformKeys(assignments::get)),
+                // The enforced constraint may derive from a sensitive predicate
+                domainTranslator.toPredicate(getCharVarcharCoercion(session), unenforcedDomain.transformKeys(assignments::get), SensitiveSymbols.referencedIn(predicate)),
                 nonDeterministicPredicate,
                 decomposedPredicate.remainingExpression());
 

@@ -150,7 +150,7 @@ public class LocalDispatchQuery
             try {
                 querySubmitter.accept(queryExecution);
                 if (notificationSentOrGuaranteed.compareAndSet(false, true)) {
-                    queryExecution.addFinalQueryInfoListener(queryMonitor::queryCompletedEvent);
+                    queryExecution.addFinalQueryInfoListener(queryInfo -> queryMonitor.queryCompletedEvent(queryInfo, stateMachine.getReferencedTables(), stateMachine.getRoutines(), stateMachine.getInputs()));
                 }
             }
             catch (Throwable t) {

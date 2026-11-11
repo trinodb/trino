@@ -43,6 +43,7 @@ import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SensitiveExpression;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 
@@ -59,6 +60,7 @@ import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.sql.ir.SensitiveExpressions.redactFailure;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
@@ -105,7 +107,18 @@ public class IrExpressionEvaluator
             case Reference reference -> bindings.get(reference.name());
             case Row e -> evaluateInternal(e, session, bindings);
             case Match e -> evaluateInternal(e, session, bindings);
+            case SensitiveExpression e -> evaluateSensitiveExpression(e, session, bindings);
         };
+    }
+
+    private Object evaluateSensitiveExpression(SensitiveExpression expression, Session session, Map<String, Object> bindings)
+    {
+        try {
+            return evaluate(expression.expression(), session, bindings);
+        }
+        catch (Throwable t) {
+            throw redactFailure(t);
+        }
     }
 
     private Object evaluateInternal(Let let, Session session, Map<String, Object> assignments)

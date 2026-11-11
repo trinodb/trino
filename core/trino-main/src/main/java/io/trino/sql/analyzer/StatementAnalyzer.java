@@ -26,6 +26,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.common.math.IntMath;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
@@ -61,6 +62,8 @@ import io.trino.security.InjectedConnectorAccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.security.ViewAccessControl;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.Location;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -124,6 +127,7 @@ import io.trino.sql.analyzer.ExpressionAnalyzer.ParametersTypeAndAnalysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer.TypeAndAnalysis;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
 import io.trino.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
+import io.trino.sql.ir.SensitiveExpression;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PartitioningHandle;
@@ -433,6 +437,7 @@ import static io.trino.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
+import static io.trino.sql.ir.SensitiveExpressions.describeFailure;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
 import static io.trino.sql.tree.Join.Type.FULL;
@@ -453,6 +458,8 @@ import static java.util.Objects.requireNonNull;
 
 class StatementAnalyzer
 {
+    private static final Logger log = Logger.get(StatementAnalyzer.class);
+
     private static final Set<String> WINDOW_VALUE_FUNCTIONS = ImmutableSet.of("lead", "lag", "first_value", "last_value", "nth_value");
     private static final Set<String> DISALLOWED_WINDOW_FRAME_FUNCTIONS = ImmutableSet.of("lead", "lag", "ntile", "rank", "dense_rank", "percent_rank", "cume_dist", "row_number");
 
@@ -5863,23 +5870,101 @@ class StatementAnalyzer
                     correlationSupport);
         }
 
+        private static boolean hasSubquery(ExpressionAnalysis expressionAnalysis)
+        {
+            return !expressionAnalysis.getSubqueries().isEmpty()
+                    || !expressionAnalysis.getSubqueryInPredicates().isEmpty()
+                    || !expressionAnalysis.getExistsSubqueries().isEmpty()
+                    || !expressionAnalysis.getQuantifiedComparisons().isEmpty()
+                    || !expressionAnalysis.getMatchPredicates().isEmpty()
+                    || !expressionAnalysis.getUniquePredicates().isEmpty();
+        }
+
+        private boolean shouldRedactSensitiveExpression(ViewExpression source)
+        {
+            return source.isSensitive() && analysis.isSensitiveExpressionRedactionEnabled();
+        }
+
+        private void markSensitiveExpression(ViewExpression source, Expression expression)
+        {
+            if (shouldRedactSensitiveExpression(source)) {
+                analysis.markSensitiveExpression(expression);
+            }
+        }
+
+        // Warnings would describe the expression, e.g. a deprecated function it calls
+        private WarningCollector warningCollectorFor(ViewExpression source)
+        {
+            return shouldRedactSensitiveExpression(source) ? WarningCollector.NOOP : warningCollector;
+        }
+
+        private FunctionResolver functionResolverFor(ViewExpression source)
+        {
+            return shouldRedactSensitiveExpression(source) ? plannerContext.getFunctionResolver(WarningCollector.NOOP) : functionResolver;
+        }
+
+        private TrinoException invalidAccessControlExpression(
+                ViewExpression source,
+                ErrorCodeSupplier errorCode,
+                Optional<Location> location,
+                String description,
+                String details,
+                Throwable cause)
+        {
+            if (shouldRedactSensitiveExpression(source)) {
+                // The details and the cause describe the policy
+                TrinoException redacted = new TrinoException(errorCode, location, format("%s: %s", description, SensitiveExpression.REDACTED), null);
+                log.debug("Query %s: %s: %s", session.getQueryId(), description, describeFailure(cause == null ? redacted : cause));
+                return redacted;
+            }
+            return new TrinoException(errorCode, location, format("%s: %s", description, details), cause);
+        }
+
+        // The type of a sensitive expression is part of the policy
+        private String typeForError(ViewExpression source, Type type)
+        {
+            if (shouldRedactSensitiveExpression(source)) {
+                return SensitiveExpression.REDACTED;
+            }
+            return type.toString();
+        }
+
+        private Expression parseAccessControlExpression(ViewExpression source, Table table, ErrorCodeSupplier errorCode, String description)
+        {
+            try {
+                return sqlParser.createExpression(source.getExpression());
+            }
+            catch (ParsingException e) {
+                throw invalidAccessControlExpression(source, errorCode, extractLocation(table), description, e.getErrorMessage(), e);
+            }
+        }
+
+        private void verifyAccessControlExpressionIsScalar(ViewExpression source, Table table, Expression expression, String context, String errorDescription)
+        {
+            try {
+                verifyNoAggregateWindowOrGroupingFunctions(session, functionResolverFor(source), accessControl, expression, context);
+            }
+            catch (TrinoException e) {
+                if (!shouldRedactSensitiveExpression(source)) {
+                    throw e;
+                }
+                // The message names the offending functions of the policy
+                throw invalidAccessControlExpression(source, e::getErrorCode, extractLocation(table), errorDescription, e.getRawMessage(), e);
+            }
+        }
+
         private void analyzeRowFilter(String currentIdentity, Table table, QualifiedObjectName name, Scope scope, ViewExpression filter)
         {
             if (analysis.hasRowFilter(name, currentIdentity)) {
                 throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Row filter for '%s' is recursive", name), null);
             }
 
-            Expression expression;
-            try {
-                expression = sqlParser.createExpression(filter.getExpression());
-            }
-            catch (ParsingException e) {
-                throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getErrorMessage()), e);
-            }
+            Expression expression = parseAccessControlExpression(filter, table, INVALID_ROW_FILTER, format("Invalid row filter for '%s'", name));
+            markSensitiveExpression(filter, expression);
 
-            analysis.registerTableForRowFiltering(name, currentIdentity, expression.toString());
+            analysis.registerTableForRowFiltering(name, currentIdentity, analysis.redactSensitiveExpression(expression));
 
-            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, format("Row filter for '%s'", name));
+            verifyAccessControlExpressionIsScalar(filter, table, expression, format("Row filter for '%s'", name), format("Invalid row filter for '%s'", name));
 
             ExpressionAnalysis expressionAnalysis;
             try {
@@ -5896,24 +5981,34 @@ class StatementAnalyzer
                         scope,
                         analysis,
                         expression,
-                        warningCollector,
+                        warningCollectorFor(filter),
                         correlationSupport);
             }
             catch (TrinoException e) {
-                throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getRawMessage()), e);
+                throw invalidAccessControlExpression(
+                        filter,
+                        e::getErrorCode,
+                        extractLocation(table),
+                        format("Invalid row filter for '%s'", name),
+                        e.getRawMessage(),
+                        e);
             }
             finally {
                 analysis.unregisterTableForRowFiltering(name, currentIdentity);
             }
 
             analysis.recordSubqueries(expression, expressionAnalysis);
+            // Subqueries are planned outside the sensitive expression and would appear in the clear
+            if (shouldRedactSensitiveExpression(filter) && hasSubquery(expressionAnalysis)) {
+                throw invalidAccessControlExpression(filter, INVALID_ROW_FILTER, extractLocation(table), format("Invalid row filter for '%s'", name), "row filter must not contain a subquery", null);
+            }
 
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(BOOLEAN)) {
                 TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
 
                 if (!coercion.canCoerce(actualType, BOOLEAN)) {
-                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected row filter for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
+                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected row filter for '%s' to be of type BOOLEAN, but was %s", name, typeForError(filter, actualType)), null);
                 }
 
                 analysis.addCoercion(expression, BOOLEAN);
@@ -5992,18 +6087,13 @@ class StatementAnalyzer
                 throw new TrinoException(INVALID_COLUMN_MASK, extractLocation(table), format("Column mask for '%s.%s' is recursive", tableName, column), null);
             }
 
-            Expression expression;
-            try {
-                expression = sqlParser.createExpression(mask.getExpression());
-            }
-            catch (ParsingException e) {
-                throw new TrinoException(INVALID_COLUMN_MASK, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getErrorMessage()), e);
-            }
+            Expression expression = parseAccessControlExpression(mask, table, INVALID_COLUMN_MASK, format("Invalid column mask for '%s.%s'", tableName, column));
+            markSensitiveExpression(mask, expression);
 
             ExpressionAnalysis expressionAnalysis;
-            analysis.registerTableForColumnMasking(tableName, column, currentIdentity, expression.toString());
+            analysis.registerTableForColumnMasking(tableName, column, currentIdentity, analysis.redactSensitiveExpression(expression));
 
-            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, format("Column mask for '%s.%s'", table.getName(), column));
+            verifyAccessControlExpressionIsScalar(mask, table, expression, format("Column mask for '%s.%s'", table.getName(), column), format("Invalid column mask for '%s.%s'", tableName, column));
 
             try {
                 Identity maskIdentity = mask.getSecurityIdentity()
@@ -6019,17 +6109,26 @@ class StatementAnalyzer
                         scope,
                         analysis,
                         expression,
-                        warningCollector,
+                        warningCollectorFor(mask),
                         correlationSupport);
             }
             catch (TrinoException e) {
-                throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getRawMessage()), e);
+                throw invalidAccessControlExpression(
+                        mask,
+                        e::getErrorCode,
+                        extractLocation(table),
+                        format("Invalid column mask for '%s.%s'", tableName, column),
+                        e.getRawMessage(),
+                        e);
             }
             finally {
                 analysis.unregisterTableForColumnMasking(tableName, column, currentIdentity);
             }
 
             analysis.recordSubqueries(expression, expressionAnalysis);
+            if (shouldRedactSensitiveExpression(mask) && hasSubquery(expressionAnalysis)) {
+                throw invalidAccessControlExpression(mask, INVALID_COLUMN_MASK, extractLocation(table), format("Invalid column mask for '%s.%s'", tableName, column), "column mask must not contain a subquery", null);
+            }
 
             Type expectedType = field.getType();
             Type actualType = expressionAnalysis.getType(expression);
@@ -6037,7 +6136,7 @@ class StatementAnalyzer
                 TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
 
                 if (!coercion.canCoerce(actualType, field.getType())) {
-                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), actualType), null);
+                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), typeForError(mask, actualType)), null);
                 }
 
                 // TODO: this could use "coercion.isTypeOnlyCoercion(actualType, expectedType)" to skip

@@ -40,6 +40,7 @@ import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.SensitiveSymbols;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.tree.AllColumns;
@@ -63,6 +64,7 @@ import io.trino.sql.tree.Values;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -171,19 +173,24 @@ public class ShowStatsRewrite
             ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
             verify(plan.getRoot() instanceof OutputNode, "Expected plan root be OutputNode, but was: %s", plan.getRoot().getClass().getName());
             OutputNode root = (OutputNode) plan.getRoot();
+            Set<Symbol> sensitiveSymbols = SensitiveSymbols.inPlan(root);
             for (int columnIndex = 0; columnIndex < root.getOutputSymbols().size(); columnIndex++) {
                 Symbol outputSymbol = root.getOutputSymbols().get(columnIndex);
                 String columnName = root.getColumnNames().get(columnIndex);
                 Type columnType = outputSymbol.type();
-                SymbolStatsEstimate symbolStatistics = planNodeStatsEstimate.getSymbolStatistics(outputSymbol);
+                // Statistics reflect pruning by sensitive expressions and could expose their values
+                SymbolStatsEstimate symbolStatistics = sensitiveSymbols.contains(outputSymbol)
+                        ? SymbolStatsEstimate.unknown()
+                        : planNodeStatsEstimate.getSymbolStatistics(outputSymbol);
                 rowsBuilder.add(row(
                         new StringLiteral(columnName),
                         toDoubleLiteral(symbolStatistics.getAverageRowSize() * planNodeStatsEstimate.getOutputRowCount() * (1 - symbolStatistics.getNullsFraction())),
                         toDoubleLiteral(symbolStatistics.getDistinctValuesCount()),
                         toDoubleLiteral(symbolStatistics.getNullsFraction()),
                         NULL_DOUBLE,
-                        toStringLiteral(columnType, symbolStatistics.getLowValue()),
-                        toStringLiteral(columnType, symbolStatistics.getHighValue())));
+                        // The range of any column can derive from a sensitive expression, for example through a join
+                        sensitiveSymbols.isEmpty() ? toStringLiteral(columnType, symbolStatistics.getLowValue()) : NULL_VARCHAR,
+                        sensitiveSymbols.isEmpty() ? toStringLiteral(columnType, symbolStatistics.getHighValue()) : NULL_VARCHAR));
             }
             // Stats for whole table
             rowsBuilder.add(row(

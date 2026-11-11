@@ -40,6 +40,7 @@ import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.EngineExpressions;
+import io.trino.sql.planner.SensitiveSymbols;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.Rule;
@@ -159,7 +160,7 @@ public class PushPredicateIntoTableScan
 
         SplitExpression splitExpression = splitExpression(filterNode.getPredicate());
 
-        DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
+        DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResultForPushdown(
                 plannerContext,
                 session,
                 splitExpression.deterministicPredicate());
@@ -187,7 +188,8 @@ public class PushPredicateIntoTableScan
                     splitExpression.deterministicPredicate(),
                     // Simplify the tuple domain to avoid creating an expression with too many nodes,
                     // which would be expensive to evaluate in the call to isCandidate below.
-                    new DomainTranslator(plannerContext.getMetadata()).toPredicate(getCharVarcharCoercion(session), newDomain.simplify().transformKeys(assignments::get)));
+                    // Keep sensitive domains marked if the connector returns the engine expression as a residual.
+                    new DomainTranslator(plannerContext.getMetadata()).toPredicate(getCharVarcharCoercion(session), newDomain.simplify().transformKeys(assignments::get), SensitiveSymbols.referencedIn(splitExpression.deterministicPredicate())));
             ConnectorExpression expression = ConnectorExpressions.and(
                     connectorExpression,
                     EngineExpressions.buildEngineExpression(predicate, plannerContext.getExpressionCodec()));
@@ -278,7 +280,8 @@ public class PushPredicateIntoTableScan
                 session,
                 symbolAllocator,
                 splitExpression.dynamicFilter(),
-                new DomainTranslator(plannerContext.getMetadata()).toPredicate(getCharVarcharCoercion(session), remainingFilter.transformKeys(assignments::get)),
+                // Domains derived from sensitive expressions must not be rebuilt in clear text
+                new DomainTranslator(plannerContext.getMetadata()).toPredicate(getCharVarcharCoercion(session), remainingFilter.transformKeys(assignments::get), SensitiveSymbols.referencedIn(splitExpression.deterministicPredicate())),
                 splitExpression.nonDeterministicPredicate(),
                 remainingDecomposedPredicate);
 
