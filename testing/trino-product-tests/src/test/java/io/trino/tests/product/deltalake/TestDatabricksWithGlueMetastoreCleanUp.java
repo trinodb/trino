@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.deltalake;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.testing.containers.environment.ProductTest;
@@ -24,21 +25,23 @@ import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.Database;
 import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
 import software.amazon.awssdk.services.glue.model.Table;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.dropDeltaTableWithRetry;
 import static java.lang.String.format;
-import static java.lang.System.currentTimeMillis;
 import static java.util.Locale.ENGLISH;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 @ProductTest
@@ -50,26 +53,34 @@ class TestDatabricksWithGlueMetastoreCleanUp
 {
     private static final Logger log = Logger.get(TestDatabricksWithGlueMetastoreCleanUp.class);
     private static final Instant SCHEMA_CLEANUP_THRESHOLD = Instant.now().minus(7, ChronoUnit.DAYS);
-    private static final long MAX_JOB_TIME_MILLIS = MINUTES.toMillis(5);
+    // Stop starting cleanup work after this budget; in-flight operations may finish later.
+    private static final Duration MAX_JOB_TIME = Duration.ofMinutes(5);
 
     @Test
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     void testCleanUpOldTablesUsingDelta(DeltaLakeDatabricksEnvironment env)
     {
         GlueClient glueClient = env.createGlueClient();
-        long startTime = currentTimeMillis();
-        List<String> schemas = env.executeTrinoSql("SELECT DISTINCT(table_schema) FROM hive.information_schema.tables")
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        List<String> schemas = env.executeTrinoSql("SELECT schema_name FROM hive.information_schema.schemata")
                 .rows().stream()
                 .map(row -> (String) row.get(0))
                 .filter(schema -> schema.toLowerCase(ENGLISH).startsWith("test") || schema.equals("default"))
                 .collect(toUnmodifiableList());
 
+        if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+            return;
+        }
         env.executeTrinoSql("SET SESSION hive.hive_views_legacy_translation = true");
-        schemas.forEach(schema -> cleanSchema(env, schema, startTime, glueClient));
+        schemas.forEach(schema -> cleanSchema(env, schema, stopwatch, glueClient));
     }
 
-    private void cleanSchema(DeltaLakeDatabricksEnvironment env, String schema, long startTime, GlueClient glueClient)
+    private void cleanSchema(DeltaLakeDatabricksEnvironment env, String schema, Stopwatch stopwatch, GlueClient glueClient)
     {
+        if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+            return;
+        }
+
         Database database;
         try {
             database = glueClient.getDatabase(builder -> builder.name(schema)).database();
@@ -83,14 +94,23 @@ class TestDatabricksWithGlueMetastoreCleanUp
             return;
         }
 
-        Set<String> allTestTableNames = findAllTablesInSchema(env, schema).stream()
+        if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+            return;
+        }
+        Set<String> allTestTableNames = findAllTablesInSchema(env, schema).orElse(ImmutableSet.of()).stream()
                 .filter(name -> name.toLowerCase(ENGLISH).startsWith("test"))
                 .collect(toImmutableSet());
         log.info("Found %d tables to drop in schema %s", allTestTableNames.size(), schema);
         int droppedTablesCount = 0;
         for (String tableName : allTestTableNames) {
+            if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+                break;
+            }
             try {
                 Table table = glueClient.getTable(builder -> builder.databaseName(schema).name(tableName)).table();
+                if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+                    break;
+                }
                 Instant createTime = table.createTime();
                 if (createTime.isBefore(SCHEMA_CLEANUP_THRESHOLD)) {
                     if (getTableType(table).contains("VIEW")) {
@@ -98,13 +118,15 @@ class TestDatabricksWithGlueMetastoreCleanUp
                         log.info("Dropped view %s.%s", schema, tableName);
                     }
                     else {
-                        env.executeTrinoSql(format("DROP TABLE IF EXISTS hive.%s.%s", schema, tableName));
+                        if (isDbfsDeltaTable(table)) {
+                            dropDeltaTableWithRetry(env, schema + "." + tableName);
+                        }
+                        else {
+                            env.executeTrinoSql(format("DROP TABLE IF EXISTS hive.%s.%s", schema, tableName));
+                        }
                         log.info("Dropped table %s.%s", schema, tableName);
                     }
                     droppedTablesCount++;
-                }
-                if (currentTimeMillis() - startTime > MAX_JOB_TIME_MILLIS) {
-                    break;
                 }
             }
             catch (Exception e) {
@@ -112,7 +134,13 @@ class TestDatabricksWithGlueMetastoreCleanUp
             }
         }
         log.info("Dropped %d tables in schema %s", droppedTablesCount, schema);
-        if (!schema.equals("default") && findAllTablesInSchema(env, schema).isEmpty()) {
+        if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+            return;
+        }
+        if (!schema.equals("default") && findAllTablesInSchema(env, schema).map(Set::isEmpty).orElse(false)) {
+            if (stopwatch.elapsed().compareTo(MAX_JOB_TIME) >= 0) {
+                return;
+            }
             try {
                 env.executeTrinoSql("DROP SCHEMA IF EXISTS hive." + schema);
                 log.info("Dropped schema %s", schema);
@@ -123,18 +151,28 @@ class TestDatabricksWithGlueMetastoreCleanUp
         }
     }
 
-    private Set<String> findAllTablesInSchema(DeltaLakeDatabricksEnvironment env, String schema)
+    private Optional<Set<String>> findAllTablesInSchema(DeltaLakeDatabricksEnvironment env, String schema)
     {
         try {
             QueryResult allTables = env.executeTrinoSql(format("SELECT table_name FROM hive.information_schema.tables WHERE table_schema = '%s'", schema));
-            return allTables.rows().stream()
+            return Optional.of(allTables.rows().stream()
                     .map(row -> (String) row.get(0))
-                    .collect(Collectors.toUnmodifiableSet());
+                    .collect(Collectors.toUnmodifiableSet()));
         }
         catch (Exception e) {
             log.warn(e, "Exception while fetching tables for schema %s", schema);
-            return ImmutableSet.of();
+            return Optional.empty();
         }
+    }
+
+    private static boolean isDbfsDeltaTable(Table table)
+    {
+        return "delta".equalsIgnoreCase(table.parameters().get("spark.sql.sources.provider")) &&
+                Optional.ofNullable(table.storageDescriptor())
+                        .map(StorageDescriptor::serdeInfo)
+                        .map(serde -> serde.parameters().get("path"))
+                        .filter(path -> path.startsWith("dbfs:"))
+                        .isPresent();
     }
 
     public static String getTableType(Table glueTable)
