@@ -74,6 +74,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -163,10 +164,16 @@ public class LakehouseMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    public boolean managesViewSecurity()
+    {
+        return icebergMetadata.managesViewSecurity();
+    }
+
+    @Override
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion, List<ReferencingView> referencingViews)
     {
         if (isIcebergTableName(tableName.getTableName()) && isMaterializedViewStorage(tableName.getTableName())) {
-            return icebergMetadata.getTableHandle(session, tableName, startVersion, endVersion);
+            return icebergMetadata.getTableHandle(session, tableName, startVersion, endVersion, referencingViews);
         }
 
         Table table = hiveMetadata.getMetastore()
@@ -176,7 +183,7 @@ public class LakehouseMetadata
             return null;
         }
         if (isIcebergTable(table)) {
-            return icebergMetadata.getTableHandle(session, tableName, startVersion, endVersion);
+            return icebergMetadata.getTableHandle(session, tableName, startVersion, endVersion, referencingViews);
         }
         if (isDeltaLakeTable(table)) {
             return deltaMetadata.getTableHandle(session, tableName, startVersion, endVersion);

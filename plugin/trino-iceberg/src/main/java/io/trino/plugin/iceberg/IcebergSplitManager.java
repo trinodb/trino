@@ -100,7 +100,7 @@ public class IcebergSplitManager
         }
 
         IcebergMetadata icebergMetadata = transactionManager.get(transaction, session.getIdentity());
-        Table icebergTable = icebergMetadata.getIcebergTable(session, table.getSchemaTableName());
+        Table icebergTable = icebergMetadata.getIcebergTable(session, table);
         InMemoryMetricsReporter metricsReporter = new InMemoryMetricsReporter();
         Scan scan = getScan(icebergMetadata, icebergTable, table, metricsReporter, icebergPlanningExecutor);
 
