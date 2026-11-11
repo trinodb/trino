@@ -463,6 +463,7 @@ public class BenchmarkParquetSelectedPositions
                     try (input) {
                         PageReader pageReader = PageReader.createPageReader(
                                 dataSource.getId(),
+                                new ParquetDecompressor(),
                                 input,
                                 columnMetadata,
                                 parquetMetadata.getFileMetaData().getSchema().getColumns().get(channel),

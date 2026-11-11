@@ -30,6 +30,7 @@ import io.trino.parquet.Field;
 import io.trino.parquet.GroupField;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetDecompressor;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.ParquetWriteValidation.StatisticsValidation;
@@ -140,6 +141,7 @@ public class ParquetReader
     private final ParquetDataSource dataSource;
     private final ZoneId zoneId;
     private final ColumnReaderFactory columnReaderFactory;
+    private final ParquetDecompressor decompressor = new ParquetDecompressor();
     private final AggregatedMemoryContext memoryContext;
 
     private int currentRowGroup = -1;
@@ -1346,6 +1348,7 @@ public class ParquetReader
             columnReader.setPageReader(
                     createPageReader(
                             dataSource.getId(),
+                            decompressor,
                             columnChunkInputStream,
                             metadata,
                             columnDescriptor,

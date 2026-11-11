@@ -19,6 +19,7 @@ import io.airlift.compress.v3.lzo.LzoDecompressor;
 import io.airlift.compress.v3.snappy.SnappyDecompressor;
 import io.airlift.compress.v3.zstd.ZstdDecompressor;
 import io.airlift.slice.Slice;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.format.CompressionCodec;
 
 import java.io.IOException;
@@ -33,13 +34,27 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public final class ParquetCompressionUtils
+/**
+ * Decompresses Parquet pages. The decompressors are created once and reused for all pages,
+ * as creating them can be costly, e.g. a native ZSTD decompressor allocates a native context
+ * which is released only after the decompressor gets garbage collected.
+ * <p>
+ * This class is not thread-safe.
+ */
+public final class ParquetDecompressor
 {
     private static final int GZIP_BUFFER_SIZE = 8 * 1024;
 
-    private ParquetCompressionUtils() {}
+    @Nullable
+    private SnappyDecompressor snappyDecompressor;
+    @Nullable
+    private ZstdDecompressor zstdDecompressor;
+    @Nullable
+    private Lz4Decompressor lz4Decompressor;
+    @Nullable
+    private LzoDecompressor lzoDecompressor;
 
-    public static Slice decompress(ParquetDataSourceId dataSourceId, CompressionCodec codec, Slice input, int uncompressedSize)
+    public Slice decompress(ParquetDataSourceId dataSourceId, CompressionCodec codec, Slice input, int uncompressedSize)
             throws IOException
     {
         requireNonNull(input, "input is null");
@@ -59,22 +74,28 @@ public final class ParquetCompressionUtils
         };
     }
 
-    private static Slice decompressSnappy(Slice input, int uncompressedSize)
+    private Slice decompressSnappy(Slice input, int uncompressedSize)
     {
+        if (snappyDecompressor == null) {
+            snappyDecompressor = SnappyDecompressor.create();
+        }
         // Snappy decompressor is more efficient if there's at least a long's worth of extra space
         // in the output buffer
         byte[] buffer = new byte[uncompressedSize + SIZE_OF_LONG];
-        int actualUncompressedSize = decompress(SnappyDecompressor.create(), input, 0, input.length(), buffer, 0);
+        int actualUncompressedSize = decompress(snappyDecompressor, input, 0, input.length(), buffer, 0);
         if (actualUncompressedSize != uncompressedSize) {
             throw new IllegalArgumentException(format("Invalid uncompressedSize for SNAPPY input. Expected %s, actual: %s", uncompressedSize, actualUncompressedSize));
         }
         return wrappedBuffer(buffer, 0, uncompressedSize);
     }
 
-    private static Slice decompressZstd(Slice input, int uncompressedSize)
+    private Slice decompressZstd(Slice input, int uncompressedSize)
     {
+        if (zstdDecompressor == null) {
+            zstdDecompressor = ZstdDecompressor.create();
+        }
         byte[] buffer = new byte[uncompressedSize];
-        decompress(ZstdDecompressor.create(), input, 0, input.length(), buffer, 0);
+        decompress(zstdDecompressor, input, 0, input.length(), buffer, 0);
         return wrappedBuffer(buffer);
     }
 
@@ -97,14 +118,20 @@ public final class ParquetCompressionUtils
         }
     }
 
-    private static Slice decompressLz4(Slice input, int uncompressedSize)
+    private Slice decompressLz4(Slice input, int uncompressedSize)
     {
-        return decompressFramed(Lz4Decompressor.create(), input, uncompressedSize);
+        if (lz4Decompressor == null) {
+            lz4Decompressor = Lz4Decompressor.create();
+        }
+        return decompressFramed(lz4Decompressor, input, uncompressedSize);
     }
 
-    private static Slice decompressLZO(Slice input, int uncompressedSize)
+    private Slice decompressLZO(Slice input, int uncompressedSize)
     {
-        return decompressFramed(new LzoDecompressor(), input, uncompressedSize);
+        if (lzoDecompressor == null) {
+            lzoDecompressor = new LzoDecompressor();
+        }
+        return decompressFramed(lzoDecompressor, input, uncompressedSize);
     }
 
     private static Slice decompressFramed(Decompressor decompressor, Slice input, int uncompressedSize)

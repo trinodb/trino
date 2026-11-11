@@ -22,6 +22,7 @@ import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetDecompressor;
 import io.trino.parquet.crypto.AesCipherUtils;
 import io.trino.parquet.crypto.ColumnDecryptionContext;
 import io.trino.parquet.crypto.FileDecryptionContext;
@@ -45,7 +46,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 import static java.util.Objects.requireNonNull;
 
@@ -53,6 +53,7 @@ public final class PageReader
 {
     private final ParquetDataSourceId dataSourceId;
     private final CompressionCodec codec;
+    private final ParquetDecompressor decompressor;
     private final boolean hasOnlyDictionaryEncodedPages;
     private final boolean hasNoNulls;
     private final Iterator<? extends Page> compressedPages;
@@ -74,6 +75,7 @@ public final class PageReader
 
     public static PageReader createPageReader(
             ParquetDataSourceId dataSourceId,
+            ParquetDecompressor decompressor,
             ChunkedInputStream columnChunk,
             ColumnChunkMetadata metadata,
             ColumnDescriptor columnDescriptor,
@@ -102,6 +104,7 @@ public final class PageReader
         return new PageReader(
                 dataSourceId,
                 metadata.getCodec().getParquetCompressionCodec(),
+                decompressor,
                 compressedPages,
                 hasOnlyDictionaryEncodedPages,
                 hasNoNulls,
@@ -114,6 +117,7 @@ public final class PageReader
     public PageReader(
             ParquetDataSourceId dataSourceId,
             CompressionCodec codec,
+            ParquetDecompressor decompressor,
             Iterator<? extends Page> compressedPages,
             boolean hasOnlyDictionaryEncodedPages,
             boolean hasNoNulls,
@@ -123,6 +127,7 @@ public final class PageReader
     {
         this.dataSourceId = requireNonNull(dataSourceId, "dataSourceId is null");
         this.codec = codec;
+        this.decompressor = requireNonNull(decompressor, "decompressor is null");
         this.compressedPages = requireNonNull(compressedPages, "compressedPages is null");
         this.hasOnlyDictionaryEncodedPages = hasOnlyDictionaryEncodedPages;
         this.hasNoNulls = hasNoNulls;
@@ -401,7 +406,7 @@ public final class PageReader
     {
         if (compressed) {
             Slice uncompressed = arePagesCompressed()
-                    ? decompress(dataSourceId, codec, data, uncompressedSize)
+                    ? decompressor.decompress(dataSourceId, codec, data, uncompressedSize)
                     : copySlice(data);
             return new PageData(uncompressed, uncompressed.length(), true);
         }

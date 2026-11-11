@@ -30,6 +30,7 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetDecompressor;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
@@ -108,7 +109,6 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.BloomFilterStore.hasBloomFilter;
-import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
@@ -201,6 +201,7 @@ public class TestParquetWriter
 
         PageReader pageReader = PageReader.createPageReader(
                 new ParquetDataSourceId("test"),
+                new ParquetDecompressor(),
                 chunkReader.get(0),
                 chunkMetaData,
                 new ColumnDescriptor(new String[] {"columna"}, new PrimitiveType(REQUIRED, INT32, "columna"), 0, 0),
@@ -256,6 +257,7 @@ public class TestParquetWriter
 
         PageReader pageReader = PageReader.createPageReader(
                 new ParquetDataSourceId("test"),
+                new ParquetDecompressor(),
                 chunkReader.get(0),
                 columnAMetaData,
                 new ColumnDescriptor(new String[] {"columna"}, new PrimitiveType(REQUIRED, INT32, "columna"), 0, 0),
@@ -277,6 +279,7 @@ public class TestParquetWriter
 
         pageReader = PageReader.createPageReader(
                 new ParquetDataSourceId("test"),
+                new ParquetDecompressor(),
                 chunkReader.get(1),
                 columnAMetaData,
                 new ColumnDescriptor(new String[] {"columnb"}, new PrimitiveType(REQUIRED, INT64, "columnb"), 0, 0),
@@ -754,7 +757,7 @@ public class TestParquetWriter
             assertThat(pageHeader.getType()).isEqualTo(PageType.DICTIONARY_PAGE);
             assertThat(pageHeader.getDictionary_page_header().getNum_values()).isEqualTo(100);
             Slice compressedData = inputStream.readSlice(pageHeader.getCompressed_page_size());
-            Slice uncompressedData = decompress(
+            Slice uncompressedData = new ParquetDecompressor().decompress(
                     new ParquetDataSourceId("test"),
                     chunkMetaData.getCodec().getParquetCompressionCodec(),
                     compressedData,
@@ -1059,7 +1062,7 @@ public class TestParquetWriter
             int size = Lz4Decompressor.create().decompress(compressed.byteArray(), compressed.byteArrayOffset(), compressed.length(), output, 0, output.length);
             return Slices.wrappedBuffer(output, 0, size);
         }
-        return decompress(new ParquetDataSourceId("test"), codec, compressed, uncompressedSize);
+        return new ParquetDecompressor().decompress(new ParquetDataSourceId("test"), codec, compressed, uncompressedSize);
     }
 
     private static Slice compress(CompressionCodec codec, Slice uncompressed)

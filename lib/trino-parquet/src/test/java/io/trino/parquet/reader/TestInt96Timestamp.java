@@ -21,6 +21,7 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetDecompressor;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.metadata.ParquetMetadata;
@@ -172,7 +173,7 @@ public class TestInt96Timestamp
         // Read and assert
         ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(DateTimeZone.UTC, ParquetReaderOptions.defaultOptions());
         ColumnReader reader = columnReaderFactory.create(field, newSimpleAggregatedMemoryContext());
-        PageReader pageReader = new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, List.of(dataPage).iterator(), false, false, Optional.empty(), -1, -1);
+        PageReader pageReader = new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, new ParquetDecompressor(), List.of(dataPage).iterator(), false, false, Optional.empty(), -1, -1);
         reader.setPageReader(pageReader, Optional.empty());
         reader.prepareNextRead(valueCount);
         Block block = reader.readPrimitive().getBlock();

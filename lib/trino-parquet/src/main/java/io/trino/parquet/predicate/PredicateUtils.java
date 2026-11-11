@@ -24,6 +24,7 @@ import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetDecompressor;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.crypto.AesCipherUtils;
@@ -61,7 +62,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.parquet.BloomFilterStore.getBloomFilterStore;
-import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.parquet.metadata.PrunedBlockMetadata.createPrunedColumnsMetadata;
@@ -381,7 +381,7 @@ public final class PredicateUtils
             maybeDecrypted = Slices.wrappedBuffer(plain);
         }
         try {
-            return new DictionaryPage(decompress(dataSourceId, chunkMetaData.getCodec().getParquetCompressionCodec(), maybeDecrypted, pageHeader.getUncompressed_page_size()), dictionarySize, encoding);
+            return new DictionaryPage(new ParquetDecompressor().decompress(dataSourceId, chunkMetaData.getCodec().getParquetCompressionCodec(), maybeDecrypted, pageHeader.getUncompressed_page_size()), dictionarySize, encoding);
         }
         catch (IOException e) {
             throw new ParquetDecodingException("Could not decode the dictionary for " + chunkMetaData.getPath(), e);

@@ -24,6 +24,7 @@ import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetDecompressor;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetTypeUtils;
 import io.trino.parquet.crypto.ColumnDecryptionContext;
@@ -237,6 +238,7 @@ public class TestPageReader
         PageReader pageReader = new PageReader(
                 new ParquetDataSourceId("test"),
                 UNCOMPRESSED,
+                new ParquetDecompressor(),
                 encryptedPages.iterator(),
                 false,
                 false,
@@ -613,6 +615,7 @@ public class TestPageReader
                 0);
         return PageReader.createPageReader(
                 new ParquetDataSourceId("test"),
+                new ParquetDecompressor(),
                 new ChunkedInputStream(slices.stream().map(TestingChunkReader::new).collect(toImmutableList())),
                 columnChunkMetaData,
                 new ColumnDescriptor(new String[] {}, new PrimitiveType(REQUIRED, INT32, ""), 0, 0),

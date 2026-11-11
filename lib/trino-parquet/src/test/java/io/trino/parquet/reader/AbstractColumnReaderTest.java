@@ -24,6 +24,7 @@ import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetDecompressor;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
@@ -729,6 +730,7 @@ public abstract class AbstractColumnReaderTest
         return new PageReader(
                 new ParquetDataSourceId("test"),
                 UNCOMPRESSED,
+                new ParquetDecompressor(),
                 pagesBuilder.addAll(dataPages).build().iterator(),
                 dataPages.stream()
                         .map(page -> {

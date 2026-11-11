@@ -19,6 +19,7 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.Page;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetDecompressor;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.FilteredRowRanges.RowRange;
 import io.trino.parquet.reader.decoders.ValueDecoder;
@@ -564,6 +565,7 @@ public abstract class AbstractColumnReaderRowRangesTest
         return new PageReader(
                 new ParquetDataSourceId("test"),
                 UNCOMPRESSED,
+                new ParquetDecompressor(),
                 inputPages.iterator(),
                 dictionaryEncoding == DictionaryEncoding.ALL || (dictionaryEncoding == DictionaryEncoding.MIXED && testingPages.size() == 1),
                 false,

@@ -19,6 +19,7 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetDecompressor;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
@@ -464,7 +465,7 @@ public class TestFlatColumnReader
                 encoding,
                 PLAIN,
                 0));
-        return new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, pages.iterator(), false, false, Optional.empty(), -1, -1);
+        return new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, new ParquetDecompressor(), pages.iterator(), false, false, Optional.empty(), -1, -1);
     }
 
     private static DataPage createPlainDataPage(int... values)
@@ -504,7 +505,7 @@ public class TestFlatColumnReader
 
     private static PageReader getPlainPageReaderMock(DataPage... pages)
     {
-        return new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, ImmutableList.copyOf(pages).iterator(), false, false, Optional.empty(), -1, -1);
+        return new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, new ParquetDecompressor(), ImmutableList.copyOf(pages).iterator(), false, false, Optional.empty(), -1, -1);
     }
 
     private static List<Integer> intValues(Block block)
@@ -540,6 +541,6 @@ public class TestFlatColumnReader
                 RLE,
                 PLAIN,
                 0));
-        return new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, pages.iterator(), false, false, Optional.empty(), -1, -1);
+        return new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, new ParquetDecompressor(), pages.iterator(), false, false, Optional.empty(), -1, -1);
     }
 }
