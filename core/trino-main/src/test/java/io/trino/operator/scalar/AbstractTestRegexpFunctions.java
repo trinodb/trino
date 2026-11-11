@@ -91,6 +91,17 @@ public abstract class AbstractTestRegexpFunctions
     }
 
     @Test
+    public void testLambdaReplaceWithConstantPattern()
+    {
+        assertThat(assertions.expression("regexp_replace(a, '(.*)', x -> x[1])")
+                .binding("a", "'value'"))
+                .hasType(createUnboundedVarcharType())
+                .isEqualTo("value");
+        assertThat(assertions.query("SELECT a FROM (VALUES CAST('value' AS varchar(5))) t(a) WHERE regexp_replace(a, '(.*)', x -> x[1]) IS NOT NULL"))
+                .matches("VALUES CAST('value' AS varchar(5))");
+    }
+
+    @Test
     public void testRegexpLike()
     {
         // Tests that REGEXP_LIKE doesn't loop infinitely on invalid UTF-8 input. Return value is irrelevant.

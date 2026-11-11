@@ -20,8 +20,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.IntStream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 /**
  * Derives the signature and invocation convention that remain after the
  * arguments at the given positions are supplied as constants.
@@ -35,7 +33,7 @@ public final class ConstantPositions
         return IntStream.range(0, arguments.size())
                 .filter(position -> !constantPositions.contains(position))
                 .mapToObj(arguments::get)
-                .collect(toImmutableList());
+                .toList(); // arguments may contain nulls, e.g. lambda arguments that are compiled separately
     }
 
     public static BoundSignature remainingSignature(BoundSignature signature, Set<Integer> constantPositions)
