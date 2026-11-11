@@ -142,7 +142,7 @@ public class TrinoIcebergRestCatalogFactory
         // for authorization and config route
         if (icebergCatalog == null) {
             RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog(
-                    config -> HTTPClient.builder(config)
+                    config -> HTTPClient.builder(RESTUtil.merge(config, catalogPropertiesProvider.proxyProperties()))
                             .uri(config.get(CatalogProperties.URI))
                             .withHeaders(RESTUtil.configHeaders(config))
                             .build(),
