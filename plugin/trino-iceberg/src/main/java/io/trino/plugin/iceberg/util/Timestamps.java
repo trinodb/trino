@@ -49,8 +49,13 @@ public final class Timestamps
 
     public static long timestampTzToMicros(LongTimestampWithTimeZone timestamp)
     {
-        return (timestamp.getEpochMillis() * MICROSECONDS_PER_MILLISECOND) +
-                LongMath.divide(timestamp.getPicosOfMilli(), PICOSECONDS_PER_MICROSECOND, UNNECESSARY);
+        return timestampTzToMicros(timestamp.getEpochMillis(), timestamp.getPicosOfMilli());
+    }
+
+    public static long timestampTzToMicros(long epochMillis, int picosOfMilli)
+    {
+        return (epochMillis * MICROSECONDS_PER_MILLISECOND) +
+                LongMath.divide(picosOfMilli, PICOSECONDS_PER_MICROSECOND, UNNECESSARY);
     }
 
     public static LongTimestampWithTimeZone timestampTzFromMicros(long epochMicros)
@@ -100,8 +105,12 @@ public final class Timestamps
 
     public static long timestampToNanos(LongTimestamp timestamp)
     {
-        long epochMicros = timestamp.getEpochMicros();
-        int nanosOfMicro = getNanosOfMicro(timestamp);
+        return timestampToNanos(timestamp.getEpochMicros(), timestamp.getPicosOfMicro());
+    }
+
+    public static long timestampToNanos(long epochMicros, int picosOfMicro)
+    {
+        int nanosOfMicro = toIntExact(LongMath.divide(picosOfMicro, PICOSECONDS_PER_NANOSECOND, UNNECESSARY));
         if (isOutOfRange(epochMicros, nanosOfMicro, MIN_NANO_EPOCH_MICROS, MIN_NANO_OF_MICRO, MAX_NANO_EPOCH_MICROS, MAX_NANO_OF_MICRO)) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp value is outside the range supported by Iceberg nano timestamps");
         }
@@ -121,8 +130,12 @@ public final class Timestamps
 
     public static long timestampTzToNanos(LongTimestampWithTimeZone timestamp)
     {
-        long epochMillis = timestamp.getEpochMillis();
-        int nanosOfMilli = getNanosOfMilli(timestamp);
+        return timestampTzToNanos(timestamp.getEpochMillis(), timestamp.getPicosOfMilli());
+    }
+
+    public static long timestampTzToNanos(long epochMillis, int picosOfMilli)
+    {
+        int nanosOfMilli = toIntExact(LongMath.divide(picosOfMilli, PICOSECONDS_PER_NANOSECOND, UNNECESSARY));
         if (isOutOfRange(epochMillis, nanosOfMilli, MIN_NANO_EPOCH_MILLIS, MIN_NANO_OF_MILLI, MAX_NANO_EPOCH_MILLIS, MAX_NANO_OF_MILLI)) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp value is outside the range supported by Iceberg nano timestamps");
         }
