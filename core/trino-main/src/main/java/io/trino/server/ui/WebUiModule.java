@@ -37,6 +37,9 @@ public class WebUiModule
             jaxrsBinder(binder).bind(ClusterResource.class);
             jaxrsBinder(binder).bind(ClusterStatsResource.class);
             jaxrsBinder(binder).bind(UiQueryResource.class);
+            if (buildConfigObject(WebUiConfig.class).isQueryEditorEnabled()) {
+                jaxrsBinder(binder).bind(UiStatementResource.class);
+            }
         }
         else {
             binder.bind(WebUiAuthenticationFilter.class).to(DisabledWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);
