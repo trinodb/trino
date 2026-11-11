@@ -28,10 +28,10 @@ import io.trino.spi.type.Type;
 import java.math.BigInteger;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.hive.formats.HiveFormatUtils.rescaleShortDecimal;
 import static io.trino.hive.formats.ReadWriteUtils.decodeVIntSize;
 import static io.trino.hive.formats.ReadWriteUtils.readVInt;
 import static io.trino.hive.formats.ReadWriteUtils.writeVInt;
-import static io.trino.spi.type.Decimals.rescale;
 import static java.lang.Math.toIntExact;
 
 public class DecimalEncoding
@@ -148,7 +148,7 @@ public class DecimalEncoding
 
         long value = Long.reverseBytes(resultSlice.getLong(0));
         if (scale != type.getScale()) {
-            return rescale(value, scale, type.getScale());
+            return rescaleShortDecimal(value, scale, type.getScale());
         }
 
         return value;
