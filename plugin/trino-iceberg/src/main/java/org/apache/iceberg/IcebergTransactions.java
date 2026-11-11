@@ -24,7 +24,14 @@ public final class IcebergTransactions
      */
     public static Transaction newTransaction(BaseTable table)
     {
-        TableOperations operations = table.operations();
+        return newTransaction(table, table.operations());
+    }
+
+    /**
+     * Like {@link #newTransaction(BaseTable)}, but commits through {@code operations}, which decorate the operations of the table.
+     */
+    public static Transaction newTransaction(BaseTable table, TableOperations operations)
+    {
         return new BaseTransaction(table.name(), operations, SIMPLE, operations.current(), table.reporter());
     }
 }

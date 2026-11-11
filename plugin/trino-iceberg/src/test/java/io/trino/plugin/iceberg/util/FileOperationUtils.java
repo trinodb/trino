@@ -73,6 +73,7 @@ public final class FileOperationUtils
         SNAPSHOT,
         MANIFEST,
         STATS,
+        PARTITION_STATS,
         DATA,
         DELETE,
         METASTORE,
@@ -88,6 +89,9 @@ public final class FileOperationUtils
             }
             if (path.endsWith("-m0.avro")) {
                 return MANIFEST;
+            }
+            if (path.contains("/partition-stats-")) {
+                return PARTITION_STATS;
             }
             if (path.endsWith(".stats")) {
                 return STATS;
