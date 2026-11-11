@@ -26,6 +26,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSource;
@@ -64,12 +65,14 @@ import io.trino.spi.variant.Variant;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.LogicalTypes;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -96,6 +99,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -848,6 +852,8 @@ public class TestParquetWriter
                 assertThat(chunkMetaData.getEncodingStats().hasNonDictionaryEncodedPages()).isTrue();
 
                 bloomFilterOffsetsBuilder.add(chunkMetaData.getBloomFilterOffset());
+                // The recorded length covers the Bloom filter header and the bitset
+                assertThat(chunkMetaData.getBloomFilterLength()).isBetween(65536 + 1, 65536 + 17);
             }
         }
         // Check that bloom filters are right after each other
@@ -883,6 +889,81 @@ public class TestParquetWriter
             }
             assertThat(rowsRead).isEqualTo(data.size());
         }
+    }
+
+    @Test
+    void testReadBloomFilterWithRecordedLength()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(BIGINT);
+        AtomicInteger reads = new AtomicInteger();
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setBloomFilterColumns(ImmutableSet.copyOf(columnNames))
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, shuffle(new Random(42), 2000))),
+                ParquetReaderOptions.defaultOptions())
+        {
+            @Override
+            protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
+                    throws IOException
+            {
+                reads.incrementAndGet();
+                super.readInternal(position, buffer, bufferOffset, bufferLength);
+            }
+        };
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        BlockMetadata block = getOnlyElement(parquetMetadata.getBlocks());
+        ColumnChunkMetadata chunkMetadata = getOnlyElement(block.columns());
+        assertThat(hasBloomFilter(chunkMetadata)).isTrue();
+        int recordedLength = chunkMetadata.getBloomFilterLength();
+        assertThat(recordedLength).isGreaterThan(0);
+
+        // The header and the bitset are fetched together when the length is recorded
+        reads.set(0);
+        byte[] bitset = readBloomFilterBitset(dataSource, block);
+        assertThat(reads.get()).isEqualTo(1);
+
+        // Files without the length need a read for the header and a read for the bitset
+        chunkMetadata.setBloomFilterLength(-1);
+        reads.set(0);
+        assertThat(readBloomFilterBitset(dataSource, block)).isEqualTo(bitset);
+        assertThat(reads.get()).isEqualTo(2);
+
+        // A length that does not cover the bitset is not trusted
+        chunkMetadata.setBloomFilterLength(recordedLength - 1);
+        reads.set(0);
+        assertThat(readBloomFilterBitset(dataSource, block)).isEqualTo(bitset);
+        assertThat(reads.get()).isEqualTo(2);
+
+        // A length shorter than the header is ignored
+        chunkMetadata.setBloomFilterLength(1);
+        reads.set(0);
+        assertThat(readBloomFilterBitset(dataSource, block)).isEqualTo(bitset);
+        assertThat(reads.get()).isEqualTo(2);
+
+        // Neither is a length beyond the maximum size of a Bloom filter
+        chunkMetadata.setBloomFilterLength(Integer.MAX_VALUE);
+        reads.set(0);
+        assertThat(readBloomFilterBitset(dataSource, block)).isEqualTo(bitset);
+        assertThat(reads.get()).isEqualTo(2);
+    }
+
+    private static byte[] readBloomFilterBitset(ParquetDataSource dataSource, BlockMetadata block)
+            throws IOException
+    {
+        ColumnPath path = getOnlyElement(block.columns()).getPath();
+        BloomFilter bloomFilter = new BloomFilterStore(dataSource, block, ImmutableSet.of(path), Optional.empty())
+                .getBloomFilter(path)
+                .orElseThrow();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        bloomFilter.writeTo(out);
+        return out.toByteArray();
     }
 
     @Test

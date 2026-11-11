@@ -91,6 +91,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 
@@ -406,6 +407,7 @@ public class ParquetWriter
                             null);
                     bloomFilter.writeTo(outputStream);
                     columns.get(i).getMeta_data().setBloom_filter_offset(bloomFilterOffset);
+                    columns.get(i).getMeta_data().setBloom_filter_length(toIntExact(outputStream.longSize() - bloomFilterOffset));
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
