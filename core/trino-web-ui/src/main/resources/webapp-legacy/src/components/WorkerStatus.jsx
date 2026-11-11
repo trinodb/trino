@@ -55,7 +55,7 @@ export class WorkerStatus extends React.Component {
         clearTimeout(this.timeoutId) // to stop multiple series of refreshLoop from going on simultaneously
         const nodeId = getFirstParameter(window.location.search)
         $.get(
-            '/ui/api/worker/' + nodeId + '/status',
+            '../api/worker/' + nodeId + '/status',
             function (serverInfo) {
                 this.setState({
                     serverInfo: serverInfo,

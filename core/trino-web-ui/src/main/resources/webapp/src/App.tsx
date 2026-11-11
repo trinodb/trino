@@ -11,18 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import {
-    Box,
-    Button,
-    Container,
-    CssBaseline,
-    Grid,
-    Link,
-    ThemeProvider,
-    Typography,
-    useMediaQuery,
-} from '@mui/material'
+import { HashRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom'
+import { Box, Button, Container, CssBaseline, Grid, ThemeProvider, Typography, useMediaQuery } from '@mui/material'
 import { Auth } from './components/Auth'
 import { useAuth } from './components/AuthContext'
 import { AuthProvider } from './components/AuthProvider'
@@ -98,7 +88,7 @@ const NotFound = () => {
                 <Grid size={12} spacing={{ md: 10 }}>
                     <Typography variant="h3">404</Typography>
                     <Typography sx={{ mb: 2 }}>The page you’re looking for doesn’t exist.</Typography>
-                    <Button variant="contained" component={Link} href="/">
+                    <Button variant="contained" component={Link} to="/">
                         Back home
                     </Button>
                 </Grid>
