@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.FlociS3AndGlue;
+import io.trino.plugin.hive.metastore.glue.GlueCache;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -122,11 +123,12 @@ public class TestTrinoGlueCatalog
                         FILE_IO_FACTORY,
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
+                        GlueCache.NOOP,
                         new GlueMetastoreStats(),
                         glueClient,
                         ENCRYPTION_MANAGER_FACTORY),
                 "test",
-                new StatsRecordingGlueClient(glueClient, new GlueMetastoreStats()),
+                new StatsRecordingGlueClient(glueClient, GlueCache.NOOP, new GlueMetastoreStats()),
                 useSystemSecurity,
                 Optional.empty(),
                 useUniqueTableLocations,
@@ -272,11 +274,12 @@ public class TestTrinoGlueCatalog
                         FILE_IO_FACTORY,
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
+                        GlueCache.NOOP,
                         new GlueMetastoreStats(),
                         glueClient,
                         ENCRYPTION_MANAGER_FACTORY),
                 "test",
-                new StatsRecordingGlueClient(glueClient, new GlueMetastoreStats()),
+                new StatsRecordingGlueClient(glueClient, GlueCache.NOOP, new GlueMetastoreStats()),
                 false,
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),
                 false,
