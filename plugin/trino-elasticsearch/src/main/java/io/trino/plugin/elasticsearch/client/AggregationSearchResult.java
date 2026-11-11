@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.elasticsearch.client;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 import static java.util.Objects.requireNonNull;
 

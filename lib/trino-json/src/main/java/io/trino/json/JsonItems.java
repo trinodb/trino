@@ -13,27 +13,6 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonFactoryBuilder;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.core.StreamWriteConstraints;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.cfg.JsonNodeFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.BigIntegerNode;
-import com.fasterxml.jackson.databind.node.DecimalNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.FloatNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.ShortNode;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.json.JsonItemBuilder.JsonItemWriter;
@@ -62,6 +41,28 @@ import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.ObjectReadContext;
+import tools.jackson.core.ObjectWriteContext;
+import tools.jackson.core.StreamReadConstraints;
+import tools.jackson.core.StreamReadFeature;
+import tools.jackson.core.StreamWriteConstraints;
+import tools.jackson.core.TokenStreamLocation;
+import tools.jackson.core.exc.StreamReadException;
+import tools.jackson.core.json.JsonFactory;
+import tools.jackson.core.json.JsonFactoryBuilder;
+import tools.jackson.core.json.JsonWriteFeature;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.BigIntegerNode;
+import tools.jackson.databind.node.DecimalNode;
+import tools.jackson.databind.node.DoubleNode;
+import tools.jackson.databind.node.FloatNode;
+import tools.jackson.databind.node.IntNode;
+import tools.jackson.databind.node.LongNode;
+import tools.jackson.databind.node.ShortNode;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -124,8 +125,8 @@ public final class JsonItems
     {
         return new JsonFactoryBuilder()
                 // Avoid shared symbol-table and String.intern contention during concurrent parsing.
-                .disable(JsonFactory.Feature.INTERN_FIELD_NAMES)
-                .disable(JsonFactory.Feature.CANONICALIZE_FIELD_NAMES)
+                .disable(JsonFactory.Feature.INTERN_PROPERTY_NAMES)
+                .disable(JsonFactory.Feature.CANONICALIZE_PROPERTY_NAMES)
                 .streamWriteConstraints(StreamWriteConstraints.builder()
                         .maxNestingDepth(MAX_NESTING_DEPTH)
                         .build())
@@ -134,15 +135,11 @@ public final class JsonItems
                         .maxNestingDepth(MAX_NESTING_DEPTH)
                         .maxNumberLength(Integer.MAX_VALUE)
                         .build())
+                .disable(JsonWriteFeature.COMBINE_UNICODE_SURROGATES_IN_UTF8)
                 .enable(StreamReadFeature.USE_FAST_DOUBLE_PARSER)
                 .enable(StreamReadFeature.USE_FAST_BIG_NUMBER_PARSER)
                 .build();
     }
-
-    private static final JsonMapper MAPPER = JsonMapper.builder(JSON_FACTORY)
-            .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true)
-            .configure(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES, false)
-            .build();
 
     private JsonItems() {}
 
@@ -164,20 +161,17 @@ public final class JsonItems
         try (JsonParser parser = createStreamingParser(text)) {
             return parseStream(parser);
         }
-        catch (JsonProcessingException e) {
-            throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "invalid JSON: " + e.getMessage(), e);
-        }
-        catch (IOException e) {
-            throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "invalid JSON: " + e.getMessage(), e);
+        catch (IOException | JacksonException e) {
+            throw invalidJson(e);
         }
     }
 
     /// Parses UTF-8 text from an [InputStream]. Callers with another explicitly
     /// specified encoding must decode it first and use [#fromText(Reader)].
     public static Json fromText(InputStream input)
-            throws JsonProcessingException, IOException
+            throws JacksonException, IOException
     {
-        try (JsonParser parser = MAPPER.getFactory().createParser(new InputStreamReader(input, UTF_8))) {
+        try (JsonParser parser = JSON_FACTORY.createParser(ObjectReadContext.empty(), new InputStreamReader(input, UTF_8))) {
             return parseStream(parser);
         }
     }
@@ -186,9 +180,9 @@ public final class JsonItems
     /// avoids buffering the input as a single `String` for callers that already have an
     /// encoding-specific [Reader] (e.g. JSON_VALUE / JSON_QUERY / JSON_OBJECT).
     public static Json fromText(Reader reader)
-            throws JsonProcessingException, IOException
+            throws JacksonException, IOException
     {
-        try (JsonParser parser = MAPPER.getFactory().createParser(reader)) {
+        try (JsonParser parser = JSON_FACTORY.createParser(ObjectReadContext.empty(), reader)) {
             return parseStream(parser);
         }
     }
@@ -200,9 +194,9 @@ public final class JsonItems
     {
         // Explicit readers prevent encoding detection. Small inputs avoid InputStreamReader's buffers.
         if (text.length() < STRING_READER_LENGTH_LIMIT) {
-            return JSON_FACTORY.createParser(Reader.of(text.toStringUtf8()));
+            return JSON_FACTORY.createParser(ObjectReadContext.empty(), Reader.of(text.toStringUtf8()));
         }
-        return JSON_FACTORY.createParser(new InputStreamReader(text.getInput(), UTF_8));
+        return JSON_FACTORY.createParser(ObjectReadContext.empty(), new InputStreamReader(text.getInput(), UTF_8));
     }
 
     /// Materializes the current JSON item without collapsing duplicate object members.
@@ -222,11 +216,8 @@ public final class JsonItems
         try (JsonParser parser = createStreamingParser(text)) {
             return parseTreeStream(parser);
         }
-        catch (JsonProcessingException e) {
-            throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "invalid JSON: " + e.getMessage(), e);
-        }
-        catch (IOException e) {
-            throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "invalid JSON: " + e.getMessage(), e);
+        catch (IOException | JacksonException e) {
+            throw invalidJson(e);
         }
     }
 
@@ -234,11 +225,24 @@ public final class JsonItems
     /// tree. Used by JSON_VALUE / JSON_QUERY / JSON_OBJECT callers whose
     /// input arrives as text with an explicit charset.
     public static Json parseToTree(Reader reader)
-            throws JsonProcessingException, IOException
+            throws JacksonException, IOException
     {
-        try (JsonParser parser = MAPPER.getFactory().createParser(reader)) {
+        try (JsonParser parser = JSON_FACTORY.createParser(ObjectReadContext.empty(), reader)) {
             return parseTreeStream(parser);
         }
+    }
+
+    // Jackson 3 reports the source location as a byte offset, so report the line and column explicitly
+    private static TrinoException invalidJson(Exception e)
+    {
+        if (e instanceof JacksonException jacksonException && jacksonException.getLocation() != null) {
+            TokenStreamLocation location = jacksonException.getLocation();
+            return new TrinoException(
+                    StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
+                    "invalid JSON: %s (line: %s, column: %s)".formatted(jacksonException.getOriginalMessage(), location.getLineNr(), location.getColumnNr()),
+                    e);
+        }
+        return new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "invalid JSON: " + e.getMessage(), e);
     }
 
     private static Json parseStream(JsonParser parser)
@@ -253,7 +257,7 @@ public final class JsonItems
                 streamItem(parser, parser.currentToken(), writer);
             }
             catch (IOException e) {
-                throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "invalid JSON: " + e.getMessage(), e);
+                throw invalidJson(e);
             }
         });
         if (parser.nextToken() != null) {
@@ -299,7 +303,7 @@ public final class JsonItems
             case START_OBJECT -> {
                 List<JsonObjectMember> members = new ArrayList<>();
                 for (JsonToken next = parser.nextToken(); next != JsonToken.END_OBJECT; next = parser.nextToken()) {
-                    if (next != JsonToken.FIELD_NAME) {
+                    if (next != JsonToken.PROPERTY_NAME) {
                         throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "invalid JSON: expected field name");
                     }
                     Slice key = utf8Slice(parseString(parser));
@@ -610,7 +614,7 @@ public final class JsonItems
     }
 
     private static TypedValue parseBigInteger(JsonParser parser, BigInteger value)
-            throws JsonParseException
+            throws StreamReadException
     {
         if (value.bitLength() < Integer.SIZE) {
             return new TypedValue(IntegerType.INTEGER, value.longValue());
@@ -636,11 +640,11 @@ public final class JsonItems
     private static TypedValue parseDecimal(JsonParser parser)
             throws IOException
     {
-        String text = parser.getText();
+        String text = parser.getString();
         if (text.indexOf('e') >= 0 || text.indexOf('E') >= 0) {
             double value = parser.getDoubleValue();
             if (!Double.isFinite(value)) {
-                throw new JsonParseException(parser, "JSON number is outside the DOUBLE range");
+                throw new StreamReadException(parser, "JSON number is outside the DOUBLE range");
             }
             return new TypedValue(DoubleType.DOUBLE, value);
         }
@@ -659,13 +663,13 @@ public final class JsonItems
     }
 
     private static TypedValue parseNumber(JsonParser parser, BigDecimal value)
-            throws JsonParseException
+            throws StreamReadException
     {
         try {
             return new TypedValue(NumberType.NUMBER, TrinoNumber.from(value));
         }
         catch (IllegalArgumentException e) {
-            throw new JsonParseException(parser, "JSON number is outside the supported range: " + e.getMessage(), e);
+            throw new StreamReadException(parser, "JSON number is outside the supported range: " + e.getMessage(), e);
         }
     }
 
@@ -673,7 +677,7 @@ public final class JsonItems
     public static String parseString(JsonParser parser)
             throws IOException
     {
-        String text = parser.getText();
+        String text = parser.getString();
         for (int index = 0; index < text.length(); index++) {
             char character = text.charAt(index);
             if (Character.isHighSurrogate(character)) {
@@ -684,7 +688,7 @@ public final class JsonItems
             else if (!Character.isLowSurrogate(character)) {
                 continue;
             }
-            throw new JsonParseException(parser, "JSON string contains an unpaired surrogate");
+            throw new StreamReadException(parser, "JSON string contains an unpaired surrogate");
         }
         return text;
     }
@@ -714,7 +718,7 @@ public final class JsonItems
             case START_OBJECT -> {
                 writer.startObject();
                 for (JsonToken next = parser.nextToken(); next != JsonToken.END_OBJECT; next = parser.nextToken()) {
-                    if (next != JsonToken.FIELD_NAME) {
+                    if (next != JsonToken.PROPERTY_NAME) {
                         throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "invalid JSON: expected field name");
                     }
                     writer.fieldName(parseString(parser));
@@ -742,7 +746,7 @@ public final class JsonItems
             return json.rawText();
         }
         try (StringWriter writer = new StringWriter();
-                JsonGenerator generator = MAPPER.getFactory().createGenerator(writer)) {
+                JsonGenerator generator = JSON_FACTORY.createGenerator(ObjectWriteContext.empty(), writer)) {
             JsonItemEncoding.writeJson(json.backingSlice(), json.viewOffset(), generator);
             generator.flush();
             return utf8Slice(writer.toString());
@@ -757,7 +761,7 @@ public final class JsonItems
         switch (node.getNodeType()) {
             case NULL, MISSING -> writer.nullValue();
             case BOOLEAN -> writer.booleanValue(node.booleanValue());
-            case STRING -> writer.varchar(utf8Slice(node.textValue()));
+            case STRING -> writer.varchar(utf8Slice(node.stringValue()));
             case NUMBER -> writeNumber(writer, node);
             case ARRAY -> {
                 int count = node.size();

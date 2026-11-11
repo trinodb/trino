@@ -18,6 +18,7 @@ import io.airlift.testing.TempFile;
 import io.trino.plugin.session.AbstractTestSessionPropertyManager;
 import io.trino.plugin.session.SessionMatchSpec;
 import io.trino.spi.session.SessionPropertyConfigurationManager;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,6 +28,7 @@ import java.util.Map;
 
 import static io.trino.plugin.session.file.FileSessionPropertyManager.CODEC;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestFileSessionPropertyManager
         extends AbstractTestSessionPropertyManager
@@ -41,6 +43,27 @@ public class TestFileSessionPropertyManager
             SessionPropertyConfigurationManager manager = new FileSessionPropertyManager(new FileSessionPropertyManagerConfig().setConfigFile(configurationFile.toFile()));
             assertThat(manager.getSystemSessionProperties(CONTEXT)).isEqualTo(systemProperties);
             assertThat(manager.getCatalogSessionProperties(CONTEXT)).isEqualTo(catalogProperties);
+        }
+    }
+
+    @Test
+    public void testUnknownProperty()
+            throws IOException
+    {
+        try (TempFile tempFile = new TempFile()) {
+            Path configurationFile = tempFile.path();
+            Files.writeString(configurationFile,
+                    """
+                    [
+                      {
+                        "user": "bob",
+                        "unknown": "value",
+                        "sessionProperties": {}
+                      }
+                    ]
+                    """);
+            assertThatThrownBy(() -> new FileSessionPropertyManager(new FileSessionPropertyManagerConfig().setConfigFile(configurationFile.toFile())))
+                    .hasMessage("Unknown property at line 6:4: unknown");
         }
     }
 }

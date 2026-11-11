@@ -13,14 +13,13 @@
  */
 package io.trino.plugin.prometheus;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,6 +29,7 @@ import java.util.Map;
 
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_PARSE_ERROR;
+import static tools.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS;
 
 public class PrometheusQueryResponseParse
 {
@@ -41,26 +41,27 @@ public class PrometheusQueryResponseParse
     public PrometheusQueryResponseParse(InputStream response)
             throws IOException
     {
-        JsonMapper mapper = new JsonMapper();
-        mapper.registerModule(new JavaTimeModule());
-        JsonParser parser = jsonFactory().createParser(response);
+        JsonMapper mapper = JsonMapper.builder(jsonFactory())
+                .disable(FAIL_ON_TRAILING_TOKENS)
+                .build();
+        JsonParser parser = mapper.createParser(response);
         while (!parser.isClosed()) {
             JsonToken jsonToken = parser.nextToken();
-            if (JsonToken.FIELD_NAME.equals(jsonToken)) {
+            if (JsonToken.PROPERTY_NAME.equals(jsonToken)) {
                 if (parser.currentName().equals("status")) {
                     parser.nextToken();
                     if (parser.getValueAsString().equals("success")) {
                         this.status = true;
                         while (!parser.isClosed()) {
                             parser.nextToken();
-                            if (JsonToken.FIELD_NAME.equals(jsonToken)) {
+                            if (JsonToken.PROPERTY_NAME.equals(jsonToken)) {
                                 if (parser.currentName().equals("resultType")) {
                                     parser.nextToken();
                                     resultType = parser.getValueAsString();
                                 }
                                 if (parser.currentName().equals("result")) {
                                     parser.nextToken();
-                                    ArrayNode node = mapper.readTree(parser);
+                                    ArrayNode node = (ArrayNode) mapper.readTree(parser);
                                     result = node.toString();
                                     break;
                                 }
@@ -92,7 +93,7 @@ public class PrometheusQueryResponseParse
                     Map<String, String> madeUpMetricHeader = new HashMap<>();
                     madeUpMetricHeader.put("__name__", resultType);
                     PrometheusTimeSeriesValueArray timeSeriesValues = new PrometheusTimeSeriesValueArray(ImmutableList.of(stringOrScalarResult));
-                    results = ImmutableList.of(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues));
+                    results = ImmutableList.of(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues, null));
                 }
             }
         }

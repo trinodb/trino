@@ -13,13 +13,6 @@
  */
 package io.trino.block;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.json.UTF8JsonGenerator;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
 import com.google.inject.Inject;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
@@ -28,14 +21,21 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.json.UTF8JsonGenerator;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.ValueSerializer;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.util.Arrays;
 import java.util.Base64;
 
-import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.block.BlockSerdeUtil.readBlock;
@@ -44,6 +44,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
+import static tools.jackson.core.JsonToken.VALUE_STRING;
 
 public final class BlockJsonSerde
 {
@@ -54,7 +55,7 @@ public final class BlockJsonSerde
     private BlockJsonSerde() {}
 
     public static class Serializer
-            extends JsonSerializer<Block>
+            extends ValueSerializer<Block>
     {
         private final BlockEncodingSerde blockEncodingSerde;
 
@@ -65,12 +66,14 @@ public final class BlockJsonSerde
         }
 
         @Override
-        public void serialize(Block block, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
-                throws IOException
+        public void serialize(Block block, JsonGenerator jsonGenerator, SerializationContext serializerProvider)
         {
             DynamicSliceOutput base64 = new DynamicSliceOutput(toIntExact((blockEncodingSerde.estimatedWriteSize(block) + 2) / 3 * 4));
             try (SliceOutput output = new OutputStreamSliceOutput(new Base64EncodingOutputStream(base64))) {
                 writeBlock(blockEncodingSerde, output, block);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
             }
             Slice text = base64.slice();
             // base64 text needs no JSON escaping, so a UTF-8 generator copies it as is
@@ -84,7 +87,7 @@ public final class BlockJsonSerde
     }
 
     public static class Deserializer
-            extends JsonDeserializer<Block>
+            extends ValueDeserializer<Block>
     {
         private final BlockEncodingSerde blockEncodingSerde;
 
@@ -96,13 +99,12 @@ public final class BlockJsonSerde
 
         @Override
         public Block deserialize(JsonParser parser, DeserializationContext context)
-                throws IOException
         {
             if (parser.currentToken() != VALUE_STRING) {
                 return (Block) context.handleUnexpectedToken(Block.class, parser);
             }
-            Base64DecodingWriter text = new Base64DecodingWriter(parser.getTextLength());
-            parser.getText(text);
+            Base64DecodingWriter text = new Base64DecodingWriter(parser.getStringLength());
+            parser.getString(text);
             return readBlock(blockEncodingSerde, text.decoded());
         }
     }

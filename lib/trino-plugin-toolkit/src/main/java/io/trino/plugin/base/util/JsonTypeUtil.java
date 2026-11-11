@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.base.util;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -28,6 +26,8 @@ import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -35,19 +35,19 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.StringJoiner;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS;
-import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static tools.jackson.core.TokenStreamFactory.Feature.CANONICALIZE_PROPERTY_NAMES;
+import static tools.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS;
+import static tools.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 
 public final class JsonTypeUtil
 {
     private static final JsonMapper JSON_MAPPER = new JsonMapper(jsonFactoryBuilder()
-            .disable(CANONICALIZE_FIELD_NAMES)
+            .disable(CANONICALIZE_PROPERTY_NAMES)
             .build());
 
     private static final JsonMapper SORTED_MAPPER = new JsonMapperProvider().get()
@@ -73,7 +73,7 @@ public final class JsonTypeUtil
             checkState(parser.nextToken() == null, "Found characters after the expected end of input");
             return output.slice();
         }
-        catch (IOException | RuntimeException e) {
+        catch (RuntimeException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert value to JSON: '%s'", slice.toStringUtf8()), e);
         }
     }
@@ -103,7 +103,6 @@ public final class JsonTypeUtil
     }
 
     private static JsonParser createJsonParser(JsonMapper mapper, Slice json)
-            throws IOException
     {
         // Jackson tries to detect the character encoding automatically when
         // using InputStream, so we pass an InputStreamReader instead.

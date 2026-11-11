@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -31,6 +30,7 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import tools.jackson.databind.JsonNode;
 
 import java.util.Arrays;
 import java.util.HashMap;

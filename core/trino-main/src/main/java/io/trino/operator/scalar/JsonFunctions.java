@@ -13,11 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonParser.NumberType;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.MappingJsonFactory;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.Slice;
 import io.trino.json.Json;
 import io.trino.json.JsonItemEncoding.TypeTag;
@@ -36,19 +31,15 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.type.JsonPathType;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonParser.NumberType;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_FALSE;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_FLOAT;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -57,16 +48,22 @@ import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static tools.jackson.core.JsonToken.END_ARRAY;
+import static tools.jackson.core.JsonToken.START_ARRAY;
+import static tools.jackson.core.JsonToken.START_OBJECT;
+import static tools.jackson.core.JsonToken.VALUE_FALSE;
+import static tools.jackson.core.JsonToken.VALUE_NUMBER_FLOAT;
+import static tools.jackson.core.JsonToken.VALUE_NUMBER_INT;
+import static tools.jackson.core.JsonToken.VALUE_STRING;
+import static tools.jackson.core.JsonToken.VALUE_TRUE;
+import static tools.jackson.core.TokenStreamFactory.Feature.CANONICALIZE_PROPERTY_NAMES;
 
 public final class JsonFunctions
 {
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(jsonFactoryBuilder()
-            .disable(CANONICALIZE_FIELD_NAMES)
-            .build());
-
-    private static final JsonMapper MAPPING_JSON_MAPPER = new JsonMapper(MappingJsonFactory.builder()
-            .disable(CANONICALIZE_FIELD_NAMES)
-            .build());
+    private static final JsonMapper JSON_MAPPER = JsonMapper.builder(jsonFactoryBuilder()
+                    .disable(CANONICALIZE_PROPERTY_NAMES)
+                    .build())
+            .build();
 
     private JsonFunctions() {}
 
@@ -125,7 +122,7 @@ public final class JsonFunctions
             }
             return true;
         }
-        catch (IOException e) {
+        catch (IOException | JacksonException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
         }
     }
@@ -193,7 +190,7 @@ public final class JsonFunctions
                 length++;
             }
         }
-        catch (IOException e) {
+        catch (IOException | JacksonException e) {
             return null;
         }
     }
@@ -248,7 +245,7 @@ public final class JsonFunctions
                 }
             }
         }
-        catch (IOException e) {
+        catch (IOException | JacksonException e) {
             return null;
         }
     }
@@ -321,7 +318,7 @@ public final class JsonFunctions
                 }
             }
         }
-        catch (IOException e) {
+        catch (IOException | JacksonException e) {
             return null;
         }
     }
@@ -361,7 +358,7 @@ public final class JsonFunctions
                     try (JsonParser parser = createJsonParser(JSON_MAPPER, JsonItems.toText(element))) {
                         yield parser.nextToken() == VALUE_NUMBER_FLOAT && parser.getDoubleValue() == value;
                     }
-                    catch (IOException e) {
+                    catch (IOException | JacksonException e) {
                         throw new IllegalStateException("failed to read encoded JSON scalar", e);
                     }
                 }
@@ -398,7 +395,7 @@ public final class JsonFunctions
                 }
             }
         }
-        catch (IOException e) {
+        catch (IOException | JacksonException e) {
             return null;
         }
     }
@@ -460,7 +457,7 @@ public final class JsonFunctions
                 }
             }
         }
-        catch (IOException e) {
+        catch (IOException | JacksonException e) {
             return null;
         }
     }
@@ -518,7 +515,7 @@ public final class JsonFunctions
             return null;
         }
 
-        try (JsonParser parser = createJsonParser(MAPPING_JSON_MAPPER, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -550,7 +547,7 @@ public final class JsonFunctions
                 count++;
             }
         }
-        catch (IOException | TrinoException e) {
+        catch (IOException | JacksonException | TrinoException e) {
             return null;
         }
     }

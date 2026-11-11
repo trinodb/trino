@@ -13,23 +13,28 @@
  */
 package io.trino.server.protocol.spooling;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.Version;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.trino.client.QueryData;
-import io.trino.client.QueryDataJacksonModule;
-import io.trino.client.QueryDataJacksonModule.Deserializer;
-import io.trino.client.QueryDataJacksonModule.SegmentSerializer;
+import io.trino.client.TypedQueryData;
+import io.trino.client.spooling.EncodedQueryData;
 import io.trino.client.spooling.Segment;
 import io.trino.server.protocol.JsonBytesQueryData;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.Version;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueSerializer;
+import tools.jackson.databind.jsontype.TypeSerializer;
+import tools.jackson.databind.module.SimpleModule;
+import tools.jackson.databind.ser.BeanSerializerFactory;
 
-import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Encodes/decodes the QueryData for existing raw and encoded protocols.
+ * Serializes the QueryData for existing raw and encoded protocols.
+ * The client module for QueryData is built on Jackson 2 ({@code QueryDataJacksonModule}), so the server provides
+ * its own serializers. They have to produce the same JSON as the client ones.
  * <p>
- *
  * If the passed QueryData is raw - serialize its' data as a materialized array of array of objects.
  * If the passed QueryData is bytes - just write them directly
  * Otherwise, this is a protocol extension and serialize it directly as an object.
@@ -40,24 +45,63 @@ public class ServerQueryDataJacksonModule
     public ServerQueryDataJacksonModule()
     {
         super(ServerQueryDataJacksonModule.class.getSimpleName(), Version.unknownVersion());
-        addDeserializer(QueryData.class, new Deserializer());
         addSerializer(QueryData.class, new ServerQueryDataSerializer());
         addSerializer(Segment.class, new SegmentSerializer());
     }
 
     public static class ServerQueryDataSerializer
-            extends QueryDataJacksonModule.QueryDataSerializer
+            extends ValueSerializer<QueryData>
     {
+        private final Map<Class<?>, ValueSerializer<Object>> beanSerializers = new ConcurrentHashMap<>();
+
         @Override
-        public void serialize(QueryData value, JsonGenerator generator, SerializerProvider provider)
-                throws IOException
+        public void serialize(QueryData value, JsonGenerator generator, SerializationContext context)
         {
-            if (value instanceof JsonBytesQueryData jsonBytesQueryData) {
-                jsonBytesQueryData.writeTo(generator);
-            }
-            else {
-                super.serialize(value, generator, provider);
+            switch (value) {
+                case JsonBytesQueryData jsonBytesQueryData -> jsonBytesQueryData.writeTo(generator);
+                case TypedQueryData typedQueryData -> {
+                    // serialize as list of lists of objects
+                    Iterable<?> iterable = typedQueryData.getIterable();
+                    context.writeValue(generator, iterable);
+                }
+                case EncodedQueryData encodedQueryData -> beanSerializers
+                        .computeIfAbsent(EncodedQueryData.class, type -> createBeanSerializer(context, context.constructType(type)))
+                        .serialize(encodedQueryData, generator, context);
+                default -> throw new IllegalArgumentException("Unsupported QueryData implementation: " + value.getClass().getSimpleName());
             }
         }
+
+        @Override
+        public boolean isEmpty(SerializationContext context, QueryData value)
+        {
+            // Omit the data field when there is no data, some clients assume it is absent then
+            return value == null || value.isNull();
+        }
+    }
+
+    public static class SegmentSerializer
+            extends ValueSerializer<Segment>
+    {
+        private final Map<Class<?>, ValueSerializer<Object>> beanSerializers = new ConcurrentHashMap<>();
+
+        @Override
+        public void serialize(Segment value, JsonGenerator generator, SerializationContext context)
+        {
+            serializeWithType(value, generator, context, context.findTypeSerializer(context.constructType(Segment.class)));
+        }
+
+        @Override
+        public void serializeWithType(Segment value, JsonGenerator generator, SerializationContext context, TypeSerializer typeSerializer)
+        {
+            beanSerializers
+                    .computeIfAbsent(value.getClass(), type -> createBeanSerializer(context, context.constructSpecializedType(context.constructType(Segment.class), type)))
+                    .serializeWithType(value, generator, context, typeSerializer);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ValueSerializer<Object> createBeanSerializer(SerializationContext context, JavaType javaType)
+    {
+        return (ValueSerializer<Object>) BeanSerializerFactory.instance.createSerializer(context, javaType, context.lazyIntrospectBeanDescription(javaType), null);
     }
 }

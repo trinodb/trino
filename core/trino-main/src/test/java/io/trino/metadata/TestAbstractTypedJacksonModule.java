@@ -15,17 +15,17 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.BeanDescription;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationConfig;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
-import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.airlift.json.JsonMapperProvider;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.BeanDescription;
+import tools.jackson.databind.SerializationConfig;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.module.SimpleModule;
+import tools.jackson.databind.ser.BeanPropertyWriter;
+import tools.jackson.databind.ser.ValueSerializerModifier;
 
 import java.util.List;
 
@@ -36,10 +36,9 @@ public class TestAbstractTypedJacksonModule
 {
     @Test
     public void testSerializerModifiersApplyToSubtypes()
-            throws Exception
     {
         ListMultimap<Class<?>, String> modifiers = ArrayListMultimap.create();
-        ObjectMapper mapper = new JsonMapperProvider()
+        JsonMapper mapper = new JsonMapperProvider()
                 .withModules(ImmutableSet.of(recordingModule("recording", modifiers), new TestHandleModule()))
                 .get();
 
@@ -52,11 +51,21 @@ public class TestAbstractTypedJacksonModule
     }
 
     @Test
+    public void testTypeIdOnlyWrittenForSubtypes()
+    {
+        JsonMapper mapper = new JsonMapperProvider()
+                .withModules(ImmutableSet.of(new TestHandleModule()))
+                .get();
+
+        assertThat(mapper.writeValueAsString(new TestHandle("table"))).isEqualTo("{\"@type\":\"test\",\"name\":\"table\"}");
+        assertThat(mapper.writeValueAsString(new TestBean("bean"))).isEqualTo("{\"name\":\"bean\"}");
+    }
+
+    @Test
     public void testSerializerModifiersKeepMapperOrder()
-            throws Exception
     {
         ListMultimap<Class<?>, String> modifiers = ArrayListMultimap.create();
-        ObjectMapper mapper = new JsonMapperProvider()
+        JsonMapper mapper = new JsonMapperProvider()
                 .withModules(ImmutableSet.of(recordingModule("first", modifiers), recordingModule("second", modifiers), new TestHandleModule()))
                 .get();
 
@@ -69,14 +78,13 @@ public class TestAbstractTypedJacksonModule
 
     @Test
     public void testSerializerModifiersPerMapper()
-            throws Exception
     {
         ListMultimap<Class<?>, String> modifiers = ArrayListMultimap.create();
         TestHandleModule handleModule = new TestHandleModule();
-        ObjectMapper left = new JsonMapperProvider()
+        JsonMapper left = new JsonMapperProvider()
                 .withModules(ImmutableSet.of(recordingModule("left", modifiers), handleModule))
                 .get();
-        ObjectMapper right = new JsonMapperProvider()
+        JsonMapper right = new JsonMapperProvider()
                 .withModules(ImmutableSet.of(recordingModule("right", modifiers), handleModule))
                 .get();
 
@@ -88,10 +96,10 @@ public class TestAbstractTypedJacksonModule
 
     private static SimpleModule recordingModule(String name, ListMultimap<Class<?>, String> modifiers)
     {
-        return new SimpleModule(name).setSerializerModifier(new BeanSerializerModifier()
+        return new SimpleModule(name).setSerializerModifier(new ValueSerializerModifier()
         {
             @Override
-            public List<BeanPropertyWriter> changeProperties(SerializationConfig config, BeanDescription beanDescription, List<BeanPropertyWriter> beanProperties)
+            public List<BeanPropertyWriter> changeProperties(SerializationConfig config, BeanDescription.Supplier beanDescription, List<BeanPropertyWriter> beanProperties)
             {
                 modifiers.put(beanDescription.getBeanClass(), name);
                 return beanProperties;

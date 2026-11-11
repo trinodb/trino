@@ -30,7 +30,6 @@ import java.util.List;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static io.trino.hive.formats.esri.EsriDeserializer.Format.GEO_JSON;
 import static io.trino.hive.formats.esri.TestGeoJsonReader.assertGeometry;
-import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -46,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGeoJsonDeserializer
 {
-    private static final JsonFactory JSON_FACTORY = jsonFactory();
+    private static final JsonFactory JSON_FACTORY = EsriReader.createJsonFactory();
     private static final List<Column> COLUMNS = ImmutableList.of(
             new Column("id", BIGINT, 0),
             new Column("name", VARCHAR, 1),

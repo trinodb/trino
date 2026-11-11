@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.airlift.slice.Slice;
 import io.trino.json.Json;
 import io.trino.json.JsonItemBuilder;
@@ -22,6 +21,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import tools.jackson.core.JacksonException;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -139,7 +139,7 @@ public final class JsonInputFunctions
         try {
             return JsonItems.parseToTree(reader);
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             if (failOnError) {
                 throw new JsonInputConversionException(e);
             }

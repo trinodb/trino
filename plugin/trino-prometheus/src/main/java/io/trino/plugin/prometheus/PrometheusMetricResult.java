@@ -15,9 +15,8 @@ package io.trino.plugin.prometheus;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSetter;
+import com.google.common.collect.ImmutableList;
 
-import java.util.Arrays;
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
@@ -25,22 +24,25 @@ import static java.util.Objects.requireNonNull;
 public class PrometheusMetricResult
 {
     private final Map<String, String> metricHeader;
-    private PrometheusTimeSeriesValueArray timeSeriesValues;
+    private final PrometheusTimeSeriesValueArray timeSeriesValues;
 
     @JsonCreator
     public PrometheusMetricResult(
             @JsonProperty("metric") Map<String, String> metricHeader,
-            @JsonProperty("values") PrometheusTimeSeriesValueArray timeSeriesValues)
+            @JsonProperty("values") PrometheusTimeSeriesValueArray timeSeriesValues,
+            @JsonProperty("value") PrometheusTimeSeriesValue timeSeriesValue)
     {
         requireNonNull(metricHeader, "metricHeader is null");
         this.metricHeader = metricHeader;
-        this.timeSeriesValues = timeSeriesValues;
-    }
-
-    @JsonSetter("value")
-    private void setTimeSeriesValues(PrometheusTimeSeriesValue timeSeriesValue)
-    {
-        this.timeSeriesValues = new PrometheusTimeSeriesValueArray(Arrays.asList(timeSeriesValue));
+        if (timeSeriesValues != null) {
+            this.timeSeriesValues = timeSeriesValues;
+        }
+        else if (timeSeriesValue != null) {
+            this.timeSeriesValues = new PrometheusTimeSeriesValueArray(ImmutableList.of(timeSeriesValue));
+        }
+        else {
+            this.timeSeriesValues = null;
+        }
     }
 
     public Map<String, String> getMetricHeader()
@@ -48,6 +50,7 @@ public class PrometheusMetricResult
         return metricHeader;
     }
 
+    @JsonProperty("values")
     public PrometheusTimeSeriesValueArray getTimeSeriesValues()
     {
         return timeSeriesValues;

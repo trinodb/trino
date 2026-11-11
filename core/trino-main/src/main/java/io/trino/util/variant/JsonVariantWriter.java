@@ -13,9 +13,6 @@
  */
 package io.trino.util.variant;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 import io.airlift.slice.Slice;
 import io.trino.json.Json;
 import io.trino.json.JsonItems;
@@ -25,6 +22,10 @@ import io.trino.spi.variant.Metadata;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.json.JsonFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,14 +35,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntUnaryOperator;
 
-import static com.fasterxml.jackson.core.JsonTokenId.ID_FALSE;
-import static com.fasterxml.jackson.core.JsonTokenId.ID_NULL;
-import static com.fasterxml.jackson.core.JsonTokenId.ID_NUMBER_FLOAT;
-import static com.fasterxml.jackson.core.JsonTokenId.ID_NUMBER_INT;
-import static com.fasterxml.jackson.core.JsonTokenId.ID_START_ARRAY;
-import static com.fasterxml.jackson.core.JsonTokenId.ID_START_OBJECT;
-import static com.fasterxml.jackson.core.JsonTokenId.ID_STRING;
-import static com.fasterxml.jackson.core.JsonTokenId.ID_TRUE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.variant.VariantEncoder.ENCODED_BOOLEAN_SIZE;
@@ -60,6 +53,14 @@ import static io.trino.spi.variant.VariantEncoder.encodeString;
 import static io.trino.spi.variant.VariantEncoder.encodedStringSize;
 import static io.trino.util.variant.NullPlannedValue.NULL_PLANNED_VALUE;
 import static java.util.Objects.requireNonNull;
+import static tools.jackson.core.JsonTokenId.ID_FALSE;
+import static tools.jackson.core.JsonTokenId.ID_NULL;
+import static tools.jackson.core.JsonTokenId.ID_NUMBER_FLOAT;
+import static tools.jackson.core.JsonTokenId.ID_NUMBER_INT;
+import static tools.jackson.core.JsonTokenId.ID_START_ARRAY;
+import static tools.jackson.core.JsonTokenId.ID_START_OBJECT;
+import static tools.jackson.core.JsonTokenId.ID_STRING;
+import static tools.jackson.core.JsonTokenId.ID_TRUE;
 
 final class JsonVariantWriter
         implements VariantWriter
@@ -96,7 +97,7 @@ final class JsonVariantWriter
 
             return planned;
         }
-        catch (IOException e) {
+        catch (IOException | JacksonException e) {
             throw new IllegalArgumentException("Invalid JSON input for VARIANT", e);
         }
     }
@@ -108,7 +109,7 @@ final class JsonVariantWriter
             case ID_NULL -> NULL_PLANNED_VALUE;
             case ID_TRUE -> new PlannedBooleanValue(true);
             case ID_FALSE -> new PlannedBooleanValue(false);
-            case ID_STRING -> new PlannedStringValue(utf8Slice(parser.getText()));
+            case ID_STRING -> new PlannedStringValue(utf8Slice(parser.getString()));
             case ID_NUMBER_INT, ID_NUMBER_FLOAT -> switch (parser.getNumberType()) {
                 case INT -> new PlannedIntValue(parser.getIntValue());
                 case LONG -> new PlannedLongValue(parser.getLongValue());
@@ -143,8 +144,8 @@ final class JsonVariantWriter
             if (token == null) {
                 throw new IllegalArgumentException("Invalid JSON input for VARIANT: unexpected EOF in object");
             }
-            if (token != JsonToken.FIELD_NAME) {
-                throw new IllegalArgumentException("Invalid JSON input for VARIANT: expected FIELD_NAME but got " + token);
+            if (token != JsonToken.PROPERTY_NAME) {
+                throw new IllegalArgumentException("Invalid JSON input for VARIANT: expected PROPERTY_NAME but got " + token);
             }
 
             String fieldName = parser.currentName();

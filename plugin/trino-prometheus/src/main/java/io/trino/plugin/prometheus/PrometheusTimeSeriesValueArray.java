@@ -21,7 +21,7 @@ public class PrometheusTimeSeriesValueArray
 {
     private final List<PrometheusTimeSeriesValue> values;
 
-    @JsonCreator
+    @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
     public PrometheusTimeSeriesValueArray(List<PrometheusTimeSeriesValue> values)
     {
         this.values = values;

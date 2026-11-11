@@ -20,14 +20,14 @@ import io.trino.spi.security.RoleGrant;
 
 import static java.util.Objects.requireNonNull;
 
-class HiveRoleGrant
+public class HiveRoleGrant
 {
     private final HivePrincipal grantee;
     private final String roleName;
     private final boolean grantable;
 
     @JsonCreator
-    HiveRoleGrant(
+    public HiveRoleGrant(
             @JsonProperty("grantee") HivePrincipal grantee,
             @JsonProperty("roleName") String roleName,
             @JsonProperty("grantable") boolean grantable)

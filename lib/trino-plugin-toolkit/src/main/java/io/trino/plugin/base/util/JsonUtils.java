@@ -13,39 +13,64 @@
  */
 package io.trino.plugin.base.util;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonFactoryBuilder;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.core.StreamWriteFeature;
-import com.fasterxml.jackson.core.util.JsonRecyclerPools;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.json.JsonMapperProvider;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.StreamReadConstraints;
+import tools.jackson.core.StreamReadFeature;
+import tools.jackson.core.StreamWriteConstraints;
+import tools.jackson.core.StreamWriteFeature;
+import tools.jackson.core.json.JsonFactory;
+import tools.jackson.core.json.JsonFactoryBuilder;
+import tools.jackson.core.json.JsonWriteFeature;
+import tools.jackson.core.util.JsonRecyclerPools;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.deser.DeserializationProblemHandler;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
 
-import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
-import static com.fasterxml.jackson.databind.MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isReadable;
 import static java.util.Objects.requireNonNull;
+import static tools.jackson.databind.DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES;
+import static tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
+import static tools.jackson.databind.MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS;
 
 public final class JsonUtils
 {
+    /**
+     * Reports unknown properties from the main parser so the exception carries the line and column.
+     * Jackson 3 would otherwise build it from a replayed token buffer (e.g. for {@code @JsonCreator} classes), which has no location.
+     */
+    public static final DeserializationProblemHandler UNKNOWN_PROPERTY_LOCATION_HANDLER = new DeserializationProblemHandler()
+    {
+        @Override
+        public boolean handleUnknownProperty(DeserializationContext context, JsonParser parser, ValueDeserializer<?> deserializer, Object beanOrClass, String propertyName)
+        {
+            if (!context.isEnabled(FAIL_ON_UNKNOWN_PROPERTIES)) {
+                return false;
+            }
+            Collection<Object> knownProperties = deserializer == null ? null : deserializer.getKnownPropertyNames();
+            throw UnrecognizedPropertyException.from(context.getParser(), beanOrClass, propertyName, knownProperties);
+        }
+    };
+
     private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get()
             .rebuild()
             .enable(FAIL_ON_UNKNOWN_PROPERTIES)
+            .disable(FAIL_ON_NULL_FOR_PRIMITIVES)
             .enable(ACCEPT_CASE_INSENSITIVE_ENUMS)
+            .addHandler(UNKNOWN_PROPERTY_LOCATION_HANDLER)
             .build();
 
     private JsonUtils() {}
@@ -102,19 +127,11 @@ public final class JsonUtils
         try (JsonParser parser = parserConstructor.createParser(mapper, input)) {
             return mapper.readValue(parser, javaType);
         }
-        catch (IOException e) {
-            throw new UncheckedIOException("Could not parse JSON", e);
-        }
     }
 
     public static <T> T jsonTreeToValue(JsonNode treeNode, Class<T> javaType)
     {
-        try {
-            return JSON_MAPPER.treeToValue(treeNode, javaType);
-        }
-        catch (JsonProcessingException e) {
-            throw new UncheckedIOException("Failed to convert JSON tree node", e);
-        }
+        return JSON_MAPPER.treeToValue(treeNode, javaType);
     }
 
     public static <T> T parseJson(String json, String jsonPointer, Class<T> javaType)
@@ -152,15 +169,19 @@ public final class JsonUtils
                         .maxNestingDepth(Integer.MAX_VALUE)
                         .maxNumberLength(Integer.MAX_VALUE)
                         .build())
+                .streamWriteConstraints(StreamWriteConstraints.builder()
+                        .maxNestingDepth(1000)
+                        .build())
                 .enable(StreamReadFeature.USE_FAST_BIG_NUMBER_PARSER)
                 .enable(StreamReadFeature.USE_FAST_DOUBLE_PARSER)
                 .enable(StreamWriteFeature.USE_FAST_DOUBLE_WRITER)
+                // Keep escaping surrogate pairs in UTF-8 output as Jackson 2 did
+                .disable(JsonWriteFeature.COMBINE_UNICODE_SURROGATES_IN_UTF8)
                 .recyclerPool(JsonRecyclerPools.threadLocalPool());
     }
 
     private interface ParserConstructor<I>
     {
-        JsonParser createParser(JsonMapper mapper, I input)
-                throws IOException;
+        JsonParser createParser(JsonMapper mapper, I input);
     }
 }

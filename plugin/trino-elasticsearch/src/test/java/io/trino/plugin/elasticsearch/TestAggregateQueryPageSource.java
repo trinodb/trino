@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.node.DoubleNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.NullNode;
+import tools.jackson.databind.node.StringNode;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,8 +36,8 @@ public class TestAggregateQueryPageSource
     {
         assertThat(AggregateQueryPageSource.extractSingleValue(DoubleNode.valueOf(Double.POSITIVE_INFINITY))).isEqualTo(Double.POSITIVE_INFINITY);
         assertThat(AggregateQueryPageSource.extractSingleValue(DoubleNode.valueOf(Double.NEGATIVE_INFINITY))).isEqualTo(Double.NEGATIVE_INFINITY);
-        assertThat(AggregateQueryPageSource.extractSingleValue(TextNode.valueOf("Infinity"))).isEqualTo(Double.POSITIVE_INFINITY);
-        assertThat(AggregateQueryPageSource.extractSingleValue(TextNode.valueOf("-Infinity"))).isEqualTo(Double.NEGATIVE_INFINITY);
+        assertThat(AggregateQueryPageSource.extractSingleValue(StringNode.valueOf("Infinity"))).isEqualTo(Double.POSITIVE_INFINITY);
+        assertThat(AggregateQueryPageSource.extractSingleValue(StringNode.valueOf("-Infinity"))).isEqualTo(Double.NEGATIVE_INFINITY);
     }
 
     @Test
@@ -50,14 +50,14 @@ public class TestAggregateQueryPageSource
     public void testExtractSingleValueReturnsFiniteValue()
     {
         assertThat(AggregateQueryPageSource.extractSingleValue(DoubleNode.valueOf(42.5))).isEqualTo(42.5);
-        assertThat(AggregateQueryPageSource.extractSingleValue(TextNode.valueOf("42.5"))).isEqualTo(42.5);
+        assertThat(AggregateQueryPageSource.extractSingleValue(StringNode.valueOf("42.5"))).isEqualTo(42.5);
     }
 
     @Test
     public void testExtractSingleValueReturnsNaN()
     {
         assertThat(AggregateQueryPageSource.extractSingleValue(DoubleNode.valueOf(Double.NaN))).isNaN();
-        assertThat(AggregateQueryPageSource.extractSingleValue(TextNode.valueOf("NaN"))).isNaN();
+        assertThat(AggregateQueryPageSource.extractSingleValue(StringNode.valueOf("NaN"))).isNaN();
     }
 
     @Test

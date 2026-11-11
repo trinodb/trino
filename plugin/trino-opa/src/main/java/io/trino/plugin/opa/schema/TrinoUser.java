@@ -13,17 +13,15 @@
  */
 package io.trino.plugin.opa.schema;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonUnwrapped;
+import com.fasterxml.jackson.annotation.JsonValue;
 import io.trino.spi.security.Identity;
 
+import java.util.Map;
 import java.util.Set;
 
-import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static java.util.Objects.requireNonNull;
 
-@JsonInclude(NON_NULL)
-public record TrinoUser(String user, @JsonUnwrapped TrinoIdentity identity)
+public record TrinoUser(String user, TrinoIdentity identity)
 {
     public static TrinoUser createUser(String user)
     {
@@ -43,5 +41,18 @@ public record TrinoUser(String user, @JsonUnwrapped TrinoIdentity identity)
         if (user != null && identity != null) {
             throw new IllegalArgumentException("user and identity may not both be set");
         }
+    }
+
+    /**
+     * Serialized either as {@code {"user": ...}} or as the flattened identity. Jackson 3 rejects {@code @JsonUnwrapped}
+     * here because the identity has a "user" property that collides with the "user" component.
+     */
+    @JsonValue
+    public Object toJson()
+    {
+        if (identity != null) {
+            return identity;
+        }
+        return Map.of("user", user);
     }
 }

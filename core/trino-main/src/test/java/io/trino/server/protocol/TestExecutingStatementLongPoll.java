@@ -13,15 +13,11 @@
  */
 package io.trino.server.protocol;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.jetty.JettyHttpClient;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.JsonMapperProvider;
-import io.trino.client.QueryDataJacksonModule;
 import io.trino.client.QueryResults;
+import io.trino.client.TrinoJsonCodec;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import org.junit.jupiter.api.AfterAll;
@@ -30,15 +26,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
-import java.util.Set;
 
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static io.trino.server.TrinoJsonResponseHandler.createTrinoJsonResponseHandler;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -54,12 +49,7 @@ public class TestExecutingStatementLongPoll
 {
     private static final HeaderName REQUEST_USER_HEADER = HeaderName.of(TRINO_HEADERS.requestUser());
 
-    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider()
-            .withModules(Set.of(new QueryDataJacksonModule()))
-            .get();
-
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(JSON_MAPPER)
-            .jsonCodec(QueryResults.class);
+    private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = TrinoJsonCodec.jsonCodec(QueryResults.class);
 
     // MAX_WAIT_TIME is one second. Allow a poll every 500ms to absorb scheduling jitter on a loaded machine, plus one
     // trailing poll for the response that ends the query.
@@ -110,7 +100,7 @@ public class TestExecutingStatementLongPoll
                         .setUri(uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build())
                         .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                         .build(),
-                createJsonResponseHandler(QUERY_RESULTS_CODEC));
+                createTrinoJsonResponseHandler(QUERY_RESULTS_CODEC));
 
         int pollsAfterTerminalState = 0;
         long terminalStateReachedAt = 0;
@@ -124,7 +114,7 @@ public class TestExecutingStatementLongPoll
                             .setHeader(REQUEST_USER_HEADER, "user")
                             .setUri(nextUri)
                             .build(),
-                    createJsonResponseHandler(QUERY_RESULTS_CODEC));
+                    createTrinoJsonResponseHandler(QUERY_RESULTS_CODEC));
             if (terminalStateReachedAt != 0) {
                 pollsAfterTerminalState++;
             }

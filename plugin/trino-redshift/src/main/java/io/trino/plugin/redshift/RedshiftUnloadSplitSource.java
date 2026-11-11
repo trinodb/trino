@@ -15,8 +15,6 @@ package io.trino.plugin.redshift;
 
 import com.amazon.redshift.jdbc.RedshiftPreparedStatement;
 import com.amazon.redshift.util.RedshiftException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
@@ -39,6 +37,9 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -198,12 +199,12 @@ public class RedshiftUnloadSplitSource
         catch (FileNotFoundException e) {
             return ImmutableList.of();
         }
-        catch (IOException e) {
+        catch (IOException | JacksonException e) {
             throw new TrinoException(REDSHIFT_FILESYSTEM_ERROR, e);
         }
         ImmutableList.Builder<FileInfo> unloadedFilePaths = ImmutableList.builder();
-        outputFileEntries.elements()
-                .forEachRemaining(fileInfo -> unloadedFilePaths.add(new FileInfo(fileInfo.get("url").asText(), fileInfo.get("meta").get("content_length").longValue())));
+        outputFileEntries.iterator()
+                .forEachRemaining(fileInfo -> unloadedFilePaths.add(new FileInfo(fileInfo.get("url").asString(), fileInfo.get("meta").get("content_length").longValue())));
         return unloadedFilePaths.build();
     }
 

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -27,6 +26,8 @@ import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -109,10 +110,10 @@ public final class TestingPolarisCatalog
                 .build();
         StringResponse response = HTTP_CLIENT.execute(request, createStringResponseHandler());
         try {
-            return JSON_MAPPER.readTree(response.getBody()).get("access_token").asText();
+            return JSON_MAPPER.readTree(response.getBody()).get("access_token").asString();
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+        catch (JacksonException e) {
+            throw new UncheckedIOException(new IOException(e.getMessage(), new IOException(e.getMessage(), e)));
         }
     }
 

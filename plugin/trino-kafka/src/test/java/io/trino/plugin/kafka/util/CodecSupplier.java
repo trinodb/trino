@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.kafka.util;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -21,6 +20,7 @@ import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.type.TypeDeserializer;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.function.Supplier;
 

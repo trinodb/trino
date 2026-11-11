@@ -13,10 +13,11 @@
  */
 package io.trino.testing.containers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -88,7 +89,7 @@ public final class FlociGcp
                     "client_id", "123456789",
                     "token_uri", endpoint.resolve("/token").toString()));
         }
-        catch (GeneralSecurityException | IOException e) {
+        catch (GeneralSecurityException | JacksonException e) {
             throw new RuntimeException("Failed to create service account credentials", e);
         }
     }

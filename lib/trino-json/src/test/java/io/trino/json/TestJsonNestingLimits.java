@@ -13,9 +13,9 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.core.exc.StreamConstraintsException;
 import io.trino.spi.TrinoException;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.exc.StreamConstraintsException;
 
 import java.util.List;
 
@@ -58,8 +58,6 @@ class TestJsonNestingLimits
         }
         Json json = tree;
         assertThatThrownBy(() -> JsonItems.toText(json))
-                .isInstanceOf(IllegalStateException.class)
-                .rootCause()
                 .isInstanceOf(StreamConstraintsException.class)
                 .hasMessageContaining("1024");
     }

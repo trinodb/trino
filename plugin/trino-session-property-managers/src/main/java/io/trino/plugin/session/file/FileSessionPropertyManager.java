@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.session.file;
 
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
@@ -22,6 +20,8 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.session.AbstractSessionPropertyManager;
 import io.trino.plugin.session.SessionMatchSpec;
+import tools.jackson.databind.DatabindException;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -29,8 +29,9 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
 
-import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
+import static io.trino.plugin.base.util.JsonUtils.UNKNOWN_PROPERTY_LOCATION_HANDLER;
 import static java.lang.String.format;
+import static tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 
 public class FileSessionPropertyManager
         extends AbstractSessionPropertyManager
@@ -38,6 +39,7 @@ public class FileSessionPropertyManager
     public static final JsonCodec<List<SessionMatchSpec>> CODEC = new JsonCodecFactory(new JsonMapperProvider().get()
             .rebuild()
             .enable(FAIL_ON_UNKNOWN_PROPERTIES)
+            .addHandler(UNKNOWN_PROPERTY_LOCATION_HANDLER)
             .build())
             .listJsonCodec(SessionMatchSpec.class);
 
@@ -55,14 +57,9 @@ public class FileSessionPropertyManager
         catch (IllegalArgumentException e) {
             Throwable cause = e.getCause();
             if (cause instanceof UnrecognizedPropertyException ex) {
-                String message = format(
-                        "Unknown property at line %s:%s: %s",
-                        ex.getLocation().getLineNr(),
-                        ex.getLocation().getColumnNr(),
-                        ex.getPropertyName());
-                throw new IllegalArgumentException(message, e);
+                throw new IllegalArgumentException(format("Unknown property at line %s:%s: %s", ex.getLocation().getLineNr(), ex.getLocation().getColumnNr(), ex.getPropertyName()), e);
             }
-            if (cause instanceof JsonMappingException) {
+            if (cause instanceof DatabindException) {
                 // remove the extra "through reference chain" message
                 if (cause.getCause() != null) {
                     cause = cause.getCause();

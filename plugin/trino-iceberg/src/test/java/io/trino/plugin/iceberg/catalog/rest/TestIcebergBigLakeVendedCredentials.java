@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.Location;
@@ -33,6 +31,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Base64;
 
@@ -59,7 +59,7 @@ final class TestIcebergBigLakeVendedCredentials
             throws Exception
     {
         JsonNode gcsJson = JSON_MAPPER.readTree(GCS_JSON_KEY_BYTES);
-        String projectId = gcsJson.get("project_id").asText();
+        String projectId = gcsJson.get("project_id").asString();
 
         return IcebergQueryRunner.builder(SCHEMA)
                 .addIcebergProperty("iceberg.catalog.type", "rest")

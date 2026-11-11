@@ -13,15 +13,6 @@
  */
 package io.trino.jsonpath.ir;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.DecimalNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.FloatNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.ShortNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.primitives.Shorts;
 import io.airlift.slice.Slice;
 import io.trino.json.Json;
@@ -47,6 +38,15 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.VarcharType;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.BooleanNode;
+import tools.jackson.databind.node.DecimalNode;
+import tools.jackson.databind.node.DoubleNode;
+import tools.jackson.databind.node.FloatNode;
+import tools.jackson.databind.node.IntNode;
+import tools.jackson.databind.node.LongNode;
+import tools.jackson.databind.node.ShortNode;
+import tools.jackson.databind.node.StringNode;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -126,8 +126,8 @@ public final class SqlJsonLiteralConverter
     {
         return Optional.ofNullable(switch (typedValue.type()) {
             case BooleanType _ -> BooleanNode.valueOf(typedValue.getBooleanValue());
-            case CharType charType -> TextNode.valueOf(padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8());
-            case VarcharType _ -> TextNode.valueOf(((Slice) typedValue.getObjectValue()).toStringUtf8());
+            case CharType charType -> StringNode.valueOf(padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8());
+            case VarcharType _ -> StringNode.valueOf(((Slice) typedValue.getObjectValue()).toStringUtf8());
             case BigintType _ -> LongNode.valueOf(typedValue.getLongValue());
             case IntegerType _ -> IntNode.valueOf(toIntExact(typedValue.getLongValue()));
             case SmallintType _, TinyintType _ -> ShortNode.valueOf(Shorts.checkedCast(typedValue.getLongValue()));
@@ -141,8 +141,8 @@ public final class SqlJsonLiteralConverter
             case RealType _ -> FloatNode.valueOf(intBitsToFloat(toIntExact(typedValue.getLongValue())));
             case NumberType _ -> switch (((TrinoNumber) typedValue.getObjectValue()).toBigDecimal()) {
                 case TrinoNumber.BigDecimalValue(BigDecimal decimal) -> DecimalNode.valueOf(decimal);
-                case TrinoNumber.NotANumber _ -> TextNode.valueOf("NaN");
-                case TrinoNumber.Infinity(boolean negative) -> TextNode.valueOf(negative ? "-Infinity" : "+Infinity");
+                case TrinoNumber.NotANumber _ -> StringNode.valueOf("NaN");
+                case TrinoNumber.Infinity(boolean negative) -> StringNode.valueOf(negative ? "-Infinity" : "+Infinity");
             };
             default -> null;
         });

@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.elasticsearch.expression;
 
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.trino.spi.connector.SortOrder;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.util.List;
 

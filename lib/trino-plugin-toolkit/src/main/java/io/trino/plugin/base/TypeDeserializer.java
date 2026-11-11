@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.base;
 
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Inject;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.deser.std.FromStringDeserializer;
 
 import java.util.function.Function;
 
