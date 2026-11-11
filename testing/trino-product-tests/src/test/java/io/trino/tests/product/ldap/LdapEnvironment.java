@@ -53,6 +53,7 @@ import java.util.Properties;
 import java.util.stream.Stream;
 
 import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
+import static io.trino.testing.containers.TrinoTestImages.getDefaultTrinoImage;
 import static java.lang.String.format;
 
 /**
@@ -75,9 +76,6 @@ public abstract class LdapEnvironment
     protected static final int LDAP_PORT = 389;
     protected static final int LDAPS_PORT = 636;
     protected static final int HTTPS_PORT = 8443;
-    private static final String DEFAULT_TRINO_IMAGE = "trinodb/trino:latest";
-    private static final String TRINO_IMAGE_PROPERTY = "trino.product-tests.image";
-
     protected static final String LDAP_PASSWORD = "LDAPPass123";
     protected static final String BASE_DN = "dc=trino,dc=testldap,dc=com";
     protected static final String AMERICA_ORG_DN = "ou=America," + BASE_DN;
@@ -180,11 +178,6 @@ public abstract class LdapEnvironment
      * Subclasses override this to provide specific Trino configuration.
      */
     protected abstract void configureTrino(GenericContainer<?> container);
-
-    private static String getDefaultTrinoImage()
-    {
-        return System.getProperty(TRINO_IMAGE_PROPERTY, DEFAULT_TRINO_IMAGE);
-    }
 
     protected String getOpenLdapImage()
     {

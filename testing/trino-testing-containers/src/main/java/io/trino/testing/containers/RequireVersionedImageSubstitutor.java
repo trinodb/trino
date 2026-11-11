@@ -17,6 +17,7 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.ImageNameSubstitutor;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.testing.containers.TrinoTestImages.TRINO_IMAGE_PROPERTY;
 
 /**
  * Fails fast when a container would run an unpinned image. Testcontainers invokes the
@@ -39,7 +40,7 @@ public class RequireVersionedImageSubstitutor
                 "Container image must be pinned to an explicit version or digest, not latest or untagged: %s. " +
                         "For the Trino image, set the '%s' system property to the locally built image.",
                 original.asCanonicalNameString(),
-                TrinoTestImages.TRINO_IMAGE_PROPERTY);
+                TRINO_IMAGE_PROPERTY);
         return original;
     }
 
