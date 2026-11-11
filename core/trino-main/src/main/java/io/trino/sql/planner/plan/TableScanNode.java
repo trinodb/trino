@@ -253,14 +253,19 @@ public class TableScanNode
 
     public TableScanNode withTableHandle(TableHandle table)
     {
-        return new TableScanNode(
-                getId(),
-                table,
-                outputSymbols,
-                assignments,
-                enforcedConstraint,
-                statistics,
-                updateTarget,
-                useConnectorNodePartitioning);
+        return new TableScanNode(this, table);
+    }
+
+    // Copies a node with another table handle, keeping the fields a worker does not have absent
+    private TableScanNode(TableScanNode node, TableHandle table)
+    {
+        super(node.getId());
+        this.table = requireNonNull(table, "table is null");
+        this.outputSymbols = node.outputSymbols;
+        this.assignments = node.assignments;
+        this.enforcedConstraint = node.enforcedConstraint;
+        this.statistics = node.statistics;
+        this.updateTarget = node.updateTarget;
+        this.useConnectorNodePartitioning = node.useConnectorNodePartitioning;
     }
 }

@@ -223,6 +223,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                         Span.getInvalid(),
                         Optional.of(fragmentWithCatalog(catalogHandle)),
                         ImmutableMap.of(),
+                        ImmutableMap.of(),
                         ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
                         PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                         ImmutableMap.of(),

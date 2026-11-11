@@ -53,6 +53,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -148,7 +149,8 @@ public class TestThriftProjectionPushdown
                                     new TableHandle(
                                             tester().getCurrentCatalogHandle(),
                                             tableWithColumns,
-                                            ThriftTransactionHandle.INSTANCE),
+                                            ThriftTransactionHandle.INSTANCE,
+                                            TEST_RESOLVING_IDENTITY),
                                     ImmutableList.of(orderStatusSymbol),
                                     ImmutableMap.of(orderStatusSymbol, columnHandle)));
                 })

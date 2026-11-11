@@ -166,6 +166,7 @@ public class TaskResource
                 taskUpdateRequest.stageSpan(),
                 taskUpdateRequest.fragment(),
                 taskUpdateRequest.tableCredentials(),
+                taskUpdateRequest.tableIdentities(),
                 taskUpdateRequest.splitAssignments(),
                 taskUpdateRequest.outputIds(),
                 taskUpdateRequest.dynamicFilterDomains(),

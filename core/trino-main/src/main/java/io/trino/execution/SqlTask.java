@@ -38,6 +38,7 @@ import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.memory.QueryContext;
+import io.trino.metadata.ResolvingIdentity;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
@@ -513,6 +514,7 @@ public class SqlTask
             Span stageSpan,
             Optional<PlanFragment> fragment,
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            Map<PlanNodeId, ResolvingIdentity> tableIdentities,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
             Map<DynamicFilterId, Domain> dynamicFilterDomains,
@@ -536,7 +538,7 @@ public class SqlTask
             SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
             if (taskExecution == null) {
                 checkState(fragment.isPresent(), "fragment must be present");
-                taskExecution = tryCreateSqlTaskExecution(session, stageSpan, fragment.get(), tableCredentials);
+                taskExecution = tryCreateSqlTaskExecution(session, stageSpan, fragment.get(), tableCredentials, tableIdentities);
             }
             // taskExecution can still be null if the creation was skipped
             if (taskExecution != null) {
@@ -559,7 +561,7 @@ public class SqlTask
     }
 
     @Nullable
-    private SqlTaskExecution tryCreateSqlTaskExecution(Session session, Span stageSpan, PlanFragment fragment, Map<PlanNodeId, ConnectorTableCredentials> tableCredentials)
+    private SqlTaskExecution tryCreateSqlTaskExecution(Session session, Span stageSpan, PlanFragment fragment, Map<PlanNodeId, ConnectorTableCredentials> tableCredentials, Map<PlanNodeId, ResolvingIdentity> tableIdentities)
     {
         SqlTaskExecution execution;
         synchronized (taskHolderLock) {
@@ -593,6 +595,7 @@ public class SqlTask
                     outputBuffer,
                     fragment,
                     tableCredentials,
+                    tableIdentities,
                     this::notifyStatusChanged);
             needsPlan.set(false);
             execution.start();
