@@ -41,6 +41,8 @@ import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter.UPPER_BOUND_BYTES;
@@ -52,7 +54,6 @@ public class BloomFilterStore
     private static final int MAX_HEADER_LENGTH = BlockSplitBloomFilter.HEADER_SIZE * 4;
 
     private final ParquetDataSource dataSource;
-    private final Map<ColumnPath, Long> bloomFilterOffsets;
     private final Map<ColumnPath, ColumnChunkMetadata> columnChunks;
     private final Optional<FileDecryptionContext> decryptionContext;
 
@@ -63,16 +64,13 @@ public class BloomFilterStore
         requireNonNull(columnsFiltered, "columnsFiltered is null");
         this.decryptionContext = requireNonNull(decryptionContext, "decryptionContext is null");
 
-        ImmutableMap.Builder<ColumnPath, Long> bloomFilterOffsetBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<ColumnPath, ColumnChunkMetadata> chunkBuilder = ImmutableMap.builder();
         for (ColumnChunkMetadata column : block.columns()) {
             ColumnPath path = column.getPath();
             if (hasBloomFilter(column) && columnsFiltered.contains(path)) {
-                bloomFilterOffsetBuilder.put(path, column.getBloomFilterOffset());
                 chunkBuilder.put(path, column);
             }
         }
-        this.bloomFilterOffsets = bloomFilterOffsetBuilder.buildOrThrow();
         this.columnChunks = chunkBuilder.buildOrThrow();
     }
 
@@ -80,11 +78,14 @@ public class BloomFilterStore
     {
         BloomFilterHeader bloomFilterHeader;
         long bloomFilterDataOffset;
+        // Bytes following the header which were fetched together with it
+        Slice fetchedBitset = EMPTY_SLICE;
+        ColumnChunkMetadata chunk = columnChunks.get(columnPath);
+        if (chunk == null) {
+            return Optional.empty();
+        }
+        long columnBloomFilterOffset = chunk.getBloomFilterOffset();
         try {
-            Long columnBloomFilterOffset = bloomFilterOffsets.get(columnPath);
-            if (columnBloomFilterOffset == null) {
-                return Optional.empty();
-            }
             // If the column is encrypted, decrypt the header using the metadata decryptor
             Optional<ColumnDecryptionContext> columnContext = decryptionContext.flatMap(context -> context.getColumnDecryptionContext(columnPath));
             if (columnContext.isPresent()) {
@@ -92,16 +93,24 @@ public class BloomFilterStore
                 int encryptedSize = BytesUtils.readIntLittleEndian(dataSource.readFully(columnBloomFilterOffset, AesCipherUtils.SIZE_LENGTH).getBytes(), 0);
                 Slice module = dataSource.readFully(columnBloomFilterOffset, AesCipherUtils.SIZE_LENGTH + encryptedSize);
                 BasicSliceInput in = module.getInput();
-                ColumnChunkMetadata chunk = requireNonNull(columnChunks.get(columnPath), "missing chunk metadata");
                 byte[] aad = AesCipherUtils.createModuleAAD(columnContext.get().fileAad(), ModuleType.BloomFilterHeader, chunk.getRowGroupOrdinal(), chunk.getColumnOrdinal(), -1);
                 bloomFilterHeader = Util.readBloomFilterHeader(in, columnContext.get().metadataDecryptor(), aad);
                 // after read, position() == 4 + encrypted data length
                 bloomFilterDataOffset = columnBloomFilterOffset + in.position();
             }
             else {
-                BasicSliceInput headerSliceInput = dataSource.readFully(columnBloomFilterOffset, MAX_HEADER_LENGTH).getInput();
+                // The header and the bitset are fetched with a single read when the writer recorded their total size
+                int recordedLength = chunk.getBloomFilterLength();
+                int readLength = MAX_HEADER_LENGTH;
+                if (recordedLength > MAX_HEADER_LENGTH && recordedLength <= MAX_HEADER_LENGTH + UPPER_BOUND_BYTES) {
+                    readLength = recordedLength;
+                }
+                Slice bloomFilter = dataSource.readFully(columnBloomFilterOffset, readLength);
+                BasicSliceInput headerSliceInput = bloomFilter.getInput();
                 bloomFilterHeader = Util.readBloomFilterHeader(headerSliceInput);
-                bloomFilterDataOffset = columnBloomFilterOffset + headerSliceInput.position();
+                int headerLength = toIntExact(headerSliceInput.position());
+                bloomFilterDataOffset = columnBloomFilterOffset + headerLength;
+                fetchedBitset = bloomFilter.slice(headerLength, readLength - headerLength);
             }
         }
         catch (IOException exception) {
@@ -118,7 +127,6 @@ public class BloomFilterStore
                 // Read the whole bitset module: SIZE + NONCE + CIPHERTEXT + TAG
                 int encryptedSize = BytesUtils.readIntLittleEndian(dataSource.readFully(bloomFilterDataOffset, AesCipherUtils.SIZE_LENGTH).getBytes(), 0);
                 Slice module = dataSource.readFully(bloomFilterDataOffset, AesCipherUtils.SIZE_LENGTH + encryptedSize);
-                ColumnChunkMetadata chunk = requireNonNull(columnChunks.get(columnPath), "missing chunk metadata");
                 byte[] aad = AesCipherUtils.createModuleAAD(columnContext.get().fileAad(), ModuleType.BloomFilterBitset, chunk.getRowGroupOrdinal(), chunk.getColumnOrdinal(), -1);
                 byte[] plain = columnContext.get().metadataDecryptor().decrypt(module.getBytes(), aad);
                 verify(plain.length == bloomFilterHeader.getNumBytes(), "Decrypted bloom filter length mismatch: expected %s, got %s", bloomFilterHeader.getNumBytes(), plain.length);
@@ -126,6 +134,9 @@ public class BloomFilterStore
             }
             else {
                 // Plaintext bitset
+                if (bloomFilterHeader.getNumBytes() <= fetchedBitset.length()) {
+                    return Optional.of(new BlockSplitBloomFilter(fetchedBitset.getBytes(0, bloomFilterHeader.getNumBytes())));
+                }
                 Slice bloomFilterData = dataSource.readFully(bloomFilterDataOffset, bloomFilterHeader.getNumBytes());
                 verify(bloomFilterData.length() > 0, "Read empty bloom filter %s", bloomFilterHeader);
                 return Optional.of(new BlockSplitBloomFilter(bloomFilterData.getBytes()));
