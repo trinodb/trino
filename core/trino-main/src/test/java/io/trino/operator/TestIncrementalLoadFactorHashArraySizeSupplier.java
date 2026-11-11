@@ -15,12 +15,27 @@ package io.trino.operator;
 
 import org.junit.jupiter.api.Test;
 
+import static io.trino.operator.HashArraySizeSupplier.defaultHashArraySizeSupplier;
 import static io.trino.operator.IncrementalLoadFactorHashArraySizeSupplier.THRESHOLD_25;
 import static io.trino.operator.IncrementalLoadFactorHashArraySizeSupplier.THRESHOLD_50;
+import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static it.unimi.dsi.fastutil.HashCommon.maxFill;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIncrementalLoadFactorHashArraySizeSupplier
 {
+    @Test
+    public void testMaximumHashArraySize()
+    {
+        int maxCount = maxFill(1 << 30, 0.75f);
+
+        assertHashArraySize(defaultHashArraySizeSupplier(), maxCount);
+        assertHashArraySize(new IncrementalLoadFactorHashArraySizeSupplier(1), maxCount);
+        assertHashArraySize(new IncrementalLoadFactorHashArraySizeSupplier(8192), maxFill(1 << 30, 0.25f));
+        assertHashArraySize(new IncrementalLoadFactorHashArraySizeSupplier(1024), maxFill(1 << 30, 0.50f));
+    }
+
     @Test
     public void testSizeIncreasesMonotonically()
     {
@@ -44,5 +59,13 @@ public class TestIncrementalLoadFactorHashArraySizeSupplier
         assertThat(size).isGreaterThanOrEqualTo(previousSize);
         assertThat(sizeSupplier.getHashArraySize(expectedCount) * 4).isEqualTo(sizeSupplierWithMultiplier.getHashArraySize(expectedCount * 4));
         return size;
+    }
+
+    private static void assertHashArraySize(HashArraySizeSupplier sizeSupplier, int maxExpectedCount)
+    {
+        assertThat(sizeSupplier.getHashArraySize(maxExpectedCount)).isEqualTo(1 << 30);
+        assertTrinoExceptionThrownBy(() -> sizeSupplier.getHashArraySize(maxExpectedCount + 1))
+                .hasErrorCode(GENERIC_INSUFFICIENT_RESOURCES)
+                .hasMessage("Size of join hash table can not exceed %s entries".formatted(maxExpectedCount));
     }
 }
