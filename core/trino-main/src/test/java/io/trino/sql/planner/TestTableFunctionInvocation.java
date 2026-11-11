@@ -22,9 +22,12 @@ import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.TestingTableFunctions.DescriptorArgumentFunction;
 import io.trino.connector.TestingTableFunctions.DifferentArgumentTypesFunction;
 import io.trino.connector.TestingTableFunctions.PassThroughFunction;
+import io.trino.connector.TestingTableFunctions.TableMetadataArgumentFunction;
+import io.trino.connector.TestingTableFunctions.TestingTableFunctionHandle;
 import io.trino.connector.TestingTableFunctions.TestingTableFunctionPushdownHandle;
 import io.trino.connector.TestingTableFunctions.TwoScalarArgumentsFunction;
 import io.trino.connector.TestingTableFunctions.TwoTableArgumentsFunction;
+import io.trino.cost.StatsAndCosts;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.function.table.Descriptor;
 import io.trino.spi.function.table.Descriptor.Field;
@@ -34,11 +37,15 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
+import io.trino.sql.planner.planprinter.PlanPrinter;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -62,6 +69,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.TableFunctionMatcher.DescriptorArgumentValue.descriptorArgument;
 import static io.trino.sql.planner.assertions.TableFunctionMatcher.DescriptorArgumentValue.nullDescriptor;
 import static io.trino.sql.planner.assertions.TableFunctionMatcher.TableArgumentValue.Builder.tableArgument;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTableFunctionInvocation
         extends BasePlanTest
@@ -77,10 +85,17 @@ public class TestTableFunctionInvocation
                         new TwoScalarArgumentsFunction(),
                         new DescriptorArgumentFunction(),
                         new TwoTableArgumentsFunction(),
-                        new PassThroughFunction()))
+                        new PassThroughFunction(),
+                        new TableMetadataArgumentFunction()))
                 .withApplyTableFunction((_, handle) -> {
                     if (handle instanceof TestingTableFunctionPushdownHandle functionHandle) {
                         return Optional.of(new TableFunctionApplicationResult<>(functionHandle.getTableHandle(), functionHandle.getTableHandle().getColumns().orElseThrow()));
+                    }
+                    // a table function with no table arguments (e.g. TableMetadataArgumentFunction) has no
+                    // sources to plan, and is visited by RewriteTableFunctionToTableScan regardless of
+                    // pushdown support; report it as not pushdown-eligible instead of failing
+                    if (handle instanceof TestingTableFunctionHandle) {
+                        return Optional.empty();
                     }
                     throw new IllegalStateException("Unsupported table function handle: " + handle.getClass().getSimpleName());
                 })
@@ -294,5 +309,41 @@ public class TestTableFunctionInvocation
                                                         builder -> builder.partitionBy(ImmutableList.of()),
                                                         values(ImmutableList.of("c"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 2L)))))
                                                         .withAlias("input_2_row_number", new RowNumberSymbolMatcher()))))));
+    }
+
+    @Test
+    public void testTableMetadataArgumentPlanPrinting()
+    {
+        // a TableMetadataArgument has no TableArgumentProperties: formatArgument() must not treat it
+        // as a regular table argument, or plan printing throws a NullPointerException (see PlanPrinter)
+        String sql = "SELECT * FROM TABLE(mock.system.table_metadata_argument_function(input => TABLE(test_catalog.tiny.orders)))";
+        getPlanTester().inTransaction(transactionSession -> {
+            Plan plan = getPlanTester().createPlan(transactionSession, sql, getPlanTester().getPlanOptimizers(true), CREATED, NOOP, createPlanOptimizersStatsCollector());
+            String formattedPlan = PlanPrinter.textLogicalPlan(
+                    plan.getRoot(),
+                    getPlanTester().getPlannerContext().getMetadata(),
+                    getPlanTester().getPlannerContext().getFunctionManager(),
+                    StatsAndCosts.empty(),
+                    transactionSession,
+                    0,
+                    false);
+            assertThat(formattedPlan).contains("TableMetadataArgument");
+            return null;
+        });
+    }
+
+    @Test
+    public void testTableMetadataArgumentUsesReferencedTableColumns()
+    {
+        // TableMetadataArgumentFunction derives its returned columns from the referenced table's
+        // real ConnectorTableMetadata, without planning a source or reading any rows for INPUT
+        List<String> columns = ImmutableList.of("orderkey", "custkey", "orderstatus", "totalprice", "orderdate", "orderpriority", "clerk", "shippriority", "comment");
+        assertPlan(
+                "SELECT * FROM TABLE(mock.system.table_metadata_argument_function(input => TABLE(test_catalog.tiny.orders)))",
+                output(
+                        columns,
+                        tableFunctionProcessor(builder -> builder
+                                .name("table_metadata_argument_function")
+                                .properOutputs(columns))));
     }
 }
