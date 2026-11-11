@@ -55,7 +55,7 @@ runs:
         if: runner.os == 'Linux'
         shell: bash
         run: ./.github/bin/configure-docker-hub-mirror.sh
-      - uses: actions/setup-java@v6.1.0
+      - uses: actions/setup-java@v6.2.0
         if: ${{ inputs.java-version != '' }}
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
