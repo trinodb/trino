@@ -67,7 +67,15 @@ include them in the plugin assembly.
 There are a few other dependencies that are provided by Trino,
 including Slice and Jackson annotations. In particular, Jackson is
 used for serializing connector handles and thus plugins must use the
-annotations version provided by Trino.
+annotations version provided by Trino. The annotations remain in the
+`com.fasterxml.jackson.annotation` package.
+
+Trino itself uses Jackson 3 (`tools.jackson` packages) for the databind and
+core modules, which are not provided to plugins. Connector handles are
+serialized by the engine, using only the `com.fasterxml.jackson.annotation`
+annotations. Custom Jackson databind serializers, deserializers and modules for
+handles are not supported, because the engine does not see a plugin's own copy of
+the databind classes.
 
 All other dependencies are based on what the plugin needs for its
 own implementation. Plugins are loaded in a separate class loader

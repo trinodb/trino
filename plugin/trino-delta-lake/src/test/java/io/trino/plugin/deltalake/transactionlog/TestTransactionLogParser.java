@@ -14,20 +14,32 @@
 
 package io.trino.plugin.deltalake.transactionlog;
 
+import io.trino.filesystem.ForwardingTrinoFileSystem;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoInputStream;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Optional;
 
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.findLatestCommitVersion;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readPartitionTimestampWithZone;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readVersionChecksumFile;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTransactionLogParser
 {
@@ -157,5 +169,90 @@ public class TestTransactionLogParser
         String tableLocation = getClass().getClassLoader().getResource("deltalake/checksum_trailing_json_content").toURI().toString();
 
         assertThat(readVersionChecksumFile(fileSystem, tableLocation, 1)).isEmpty();
+    }
+
+    @Test
+    public void testReadMalformedLastCheckpoint(@TempDir Path tempDir)
+            throws Exception
+    {
+        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
+        Path transactionLogDir = Files.createDirectories(tempDir.resolve("_delta_log"));
+        Files.writeString(transactionLogDir.resolve("_last_checkpoint"), "{\"version\": 10, \"size\":");
+
+        assertThat(readLastCheckpoint(fileSystem, tempDir.toUri().toString())).isEmpty();
+    }
+
+    @Test
+    public void testReadVersionChecksumStreamFailure()
+    {
+        TrinoFileSystem fileSystem = new ForwardingTrinoFileSystem(HDFS_FILE_SYSTEM_FACTORY.create(SESSION))
+        {
+            @Override
+            public TrinoInputFile newInputFile(Location location)
+            {
+                return new TrinoInputFile()
+                {
+                    @Override
+                    public TrinoInput newInput()
+                    {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public TrinoInputStream newStream()
+                    {
+                        return new FailingInputStream();
+                    }
+
+                    @Override
+                    public long length()
+                    {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public Instant lastModified()
+                    {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public boolean exists()
+                    {
+                        return true;
+                    }
+
+                    @Override
+                    public Location location()
+                    {
+                        return location;
+                    }
+                };
+            }
+        };
+
+        assertThatThrownBy(() -> readVersionChecksumFile(fileSystem, "memory:///table", 1))
+                .isInstanceOf(IOException.class)
+                .hasMessage("Read failed");
+    }
+
+    private static class FailingInputStream
+            extends TrinoInputStream
+    {
+        @Override
+        public long getPosition()
+        {
+            return 0;
+        }
+
+        @Override
+        public void seek(long position) {}
+
+        @Override
+        public int read()
+                throws IOException
+        {
+            throw new IOException("Read failed");
+        }
     }
 }

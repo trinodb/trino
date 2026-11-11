@@ -14,9 +14,9 @@
 package io.trino.plugin.base.metrics;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.metrics.Metric;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 import java.util.List;
 

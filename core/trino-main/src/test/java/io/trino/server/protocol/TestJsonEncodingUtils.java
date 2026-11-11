@@ -14,7 +14,6 @@
 package io.trino.server.protocol;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
@@ -45,6 +44,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.variant.Variant;
 import io.trino.type.LongInterval;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -1142,7 +1142,7 @@ public class TestJsonEncodingUtils
                 .hasMessage("Interval map keys collide at millisecond precision; use a client supporting PARAMETRIC_INTERVAL");
 
         AtomicReference<TrinoException> failure = new AtomicReference<>();
-        try (var generator = new JsonMapper().getFactory().createGenerator(new ByteArrayOutputStream())) {
+        try (var generator = new JsonMapper().createGenerator(new ByteArrayOutputStream())) {
             JsonEncodingUtils.writePagesToJsonGenerator(
                     failure::set,
                     generator,

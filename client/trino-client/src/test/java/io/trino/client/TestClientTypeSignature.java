@@ -14,8 +14,6 @@
 package io.trino.client;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
 import io.trino.spi.type.StandardTypes;
 import org.junit.jupiter.api.Test;
 
@@ -26,14 +24,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestClientTypeSignature
 {
-    public static final JsonCodec<ClientTypeSignature> CLIENT_TYPE_SIGNATURE_CODEC;
+    public static final TrinoJsonCodec<ClientTypeSignature> CLIENT_TYPE_SIGNATURE_CODEC;
 
     static {
-        CLIENT_TYPE_SIGNATURE_CODEC = new JsonCodecFactory().jsonCodec(ClientTypeSignature.class);
+        CLIENT_TYPE_SIGNATURE_CODEC = TrinoJsonCodec.jsonCodec(ClientTypeSignature.class);
     }
 
     @Test
     public void testJsonRoundTrip()
+            throws Exception
     {
         ClientTypeSignature bigint = new ClientTypeSignature(StandardTypes.BIGINT);
         assertJsonRoundTrip(bigint);
@@ -117,6 +116,7 @@ public class TestClientTypeSignature
     }
 
     private static void assertJsonRoundTrip(ClientTypeSignature signature)
+            throws Exception
     {
         String json = CLIENT_TYPE_SIGNATURE_CODEC.toJson(signature);
         ClientTypeSignature copy = CLIENT_TYPE_SIGNATURE_CODEC.fromJson(json);

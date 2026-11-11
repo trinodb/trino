@@ -13,8 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
@@ -32,12 +30,12 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.type.JsonPathType;
 import io.trino.util.JsonCastException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 
-import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static io.trino.operator.scalar.JsonFunctions.jsonParse;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -49,6 +47,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
+import static tools.jackson.core.JsonToken.END_ARRAY;
+import static tools.jackson.core.JsonToken.START_ARRAY;
 
 public final class JsonStringArrayExtractScalar
         extends SqlScalarFunction
@@ -105,7 +105,7 @@ public final class JsonStringArrayExtractScalar
                 result = ARRAY_TYPE.getObject(blockBuilder.build(), 0);
             }
             if (parser.nextToken() != null) {
-                throw new JsonCastException(format("Unexpected trailing token: %s", parser.getText()));
+                throw new JsonCastException(format("Unexpected trailing token: %s", parser.getString()));
             }
             return result;
         }
@@ -127,18 +127,18 @@ public final class JsonStringArrayExtractScalar
     public static void append(JsonParser parser, JsonPath jsonPath, BlockBuilder blockBuilder)
             throws IOException
     {
-        if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+        if (parser.currentToken() == JsonToken.VALUE_NULL) {
             append(null, blockBuilder);
             return;
         }
 
-        if (parser.getCurrentToken() != START_ARRAY) {
-            throw new JsonCastException(format("Expected a json array, but got %s", parser.getText()));
+        if (parser.currentToken() != START_ARRAY) {
+            throw new JsonCastException(format("Expected a json array, but got %s", parser.getString()));
         }
 
         ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
             while (parser.nextToken() != END_ARRAY) {
-                if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+                if (parser.currentToken() == JsonToken.VALUE_NULL) {
                     append(null, elementBuilder);
                     continue;
                 }

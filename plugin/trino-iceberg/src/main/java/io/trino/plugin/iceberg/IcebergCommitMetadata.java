@@ -20,7 +20,8 @@ import io.trino.spi.connector.ConnectorOutputMetadata;
 
 import java.util.Map;
 
-final class IcebergCommitMetadata
+// public: visible for Jackson
+public final class IcebergCommitMetadata
         implements ConnectorOutputMetadata
 {
     private final Map<String, String> commitMetrics;

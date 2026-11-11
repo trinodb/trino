@@ -15,8 +15,6 @@ package io.trino.block;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.Base64Variants;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
@@ -24,6 +22,8 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.Base64Variants;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.stream.LongStream;
 

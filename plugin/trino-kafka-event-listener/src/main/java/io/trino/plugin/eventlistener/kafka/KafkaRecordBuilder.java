@@ -15,10 +15,6 @@
 package io.trino.plugin.eventlistener.kafka;
 
 import com.fasterxml.jackson.annotation.JsonFilter;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectWriter;
-import com.fasterxml.jackson.databind.ser.FilterProvider;
-import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.eventlistener.kafka.metadata.MetadataProvider;
 import io.trino.plugin.eventlistener.kafka.model.QueryCompletedEventWrapper;
@@ -26,10 +22,13 @@ import io.trino.plugin.eventlistener.kafka.model.QueryCreatedEventWrapper;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import tools.jackson.databind.ObjectWriter;
+import tools.jackson.databind.ser.FilterProvider;
+import tools.jackson.databind.ser.std.SimpleFilterProvider;
 
 import java.util.Set;
 
-import static com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter.serializeAllExcept;
+import static tools.jackson.databind.ser.std.SimpleBeanPropertyFilter.serializeAllExcept;
 
 public class KafkaRecordBuilder
 {
@@ -48,7 +47,9 @@ public class KafkaRecordBuilder
         FilterProvider filter = new SimpleFilterProvider().addFilter("property-name-filter", serializeAllExcept(excludedFields));
         this.writer = new JsonMapperProvider()
                 .get()
+                .rebuild()
                 .addMixIn(Object.class, PropertyFilterMixIn.class)
+                .build()
                 .writer(filter);
         this.metadataProvider = metadataProvider;
     }
@@ -67,11 +68,6 @@ public class KafkaRecordBuilder
 
     private String writeJson(Object payload)
     {
-        try {
-            return writer.writeValueAsString(payload);
-        }
-        catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
+        return writer.writeValueAsString(payload);
     }
 }

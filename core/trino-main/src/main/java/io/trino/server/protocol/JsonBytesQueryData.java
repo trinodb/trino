@@ -13,12 +13,12 @@
  */
 package io.trino.server.protocol;
 
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
 import io.trino.client.QueryData;
 import io.trino.server.protocol.JsonEncodingUtils.TypeEncoder;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import tools.jackson.core.JsonGenerator;
 
 import java.util.List;
 import java.util.function.Consumer;

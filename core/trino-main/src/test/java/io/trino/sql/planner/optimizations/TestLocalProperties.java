@@ -13,11 +13,6 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -30,8 +25,12 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -694,15 +693,13 @@ public class TestLocalProperties
 
     @Test
     public void testJsonSerialization()
-            throws Exception
     {
         JsonMapper mapper = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(
-                        ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
+                        ColumnHandle.class, new ValueDeserializer<ColumnHandle>()
                         {
                             @Override
                             public ColumnHandle deserialize(JsonParser parser, DeserializationContext context)
-                                    throws IOException
                             {
                                 return context.readValue(parser, TestingColumnHandle.class);
                             }

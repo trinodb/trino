@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.redis.util;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -21,6 +20,7 @@ import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.function.Supplier;
 
