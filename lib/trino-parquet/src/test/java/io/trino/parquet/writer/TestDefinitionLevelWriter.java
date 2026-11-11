@@ -163,8 +163,8 @@ public class TestDefinitionLevelWriter
         else {
             int totalValuesCount = 0;
             int maxDefinitionLevelValuesCount = 0;
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                ValuesCount valuesCount = primitiveDefLevelWriter.writeDefinitionLevels(1);
+            for (int positionsCount : writePositionCounts) {
+                ValuesCount valuesCount = primitiveDefLevelWriter.writeDefinitionLevels(positionsCount);
                 totalValuesCount += valuesCount.totalValuesCount();
                 maxDefinitionLevelValuesCount += valuesCount.maxDefinitionLevelValuesCount();
             }
