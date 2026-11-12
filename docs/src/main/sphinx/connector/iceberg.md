@@ -2247,6 +2247,15 @@ CREATE TABLE example_table (
 When trying to insert/update data in the table, the query fails if trying to set
 `NULL` value on a column having the `NOT NULL` constraint.
 
+The `NOT NULL` constraint can be removed from a top-level column by using the
+{doc}`ALTER TABLE </sql/alter-table>` syntax:
+
+```sql
+ALTER TABLE example_table ALTER COLUMN name DROP NOT NULL;
+```
+
+Dropping the constraint from nested fields is not supported.
+
 (iceberg-views)=
 ### Views
 
