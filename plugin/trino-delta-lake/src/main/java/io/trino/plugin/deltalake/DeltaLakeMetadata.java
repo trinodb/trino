@@ -827,7 +827,6 @@ public class DeltaLakeMetadata
             return null;
         }
         DeltaMetastoreTable table = convertToDeltaMetastoreTable(metastoreTable.get());
-        boolean managed = table.managed();
 
         String tableLocation = table.location();
         Optional<DeltaLakeTableCredentials> tableCredentials = getTableCredentials(table);
@@ -839,7 +838,7 @@ public class DeltaLakeMetadata
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(DELTA_LAKE_INVALID_SCHEMA.toErrorCode())) {
-                return new CorruptedDeltaLakeTableHandle(tableName, table.catalogOwned(), table.managed(), tableLocation, e);
+                return new CorruptedDeltaLakeTableHandle(tableName, table.catalogOwned(), table.tableType(), tableLocation, e);
             }
             throw e;
         }
@@ -866,7 +865,7 @@ public class DeltaLakeMetadata
         return new DeltaLakeTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
-                managed,
+                table.tableType(),
                 tableLocation,
                 metadataEntry,
                 protocolEntry,
@@ -1508,7 +1507,7 @@ public class DeltaLakeMetadata
                 throw new TrinoException(GENERIC_USER_ERROR, format("The provided location '%s' does not match the existing table location '%s'", location, currentLocation));
             }
             location = currentLocation;
-            external = !tableHandle.isManaged();
+            external = !tableHandle.tableType().isManaged();
         }
 
         if (location == null) {
@@ -1703,7 +1702,7 @@ public class DeltaLakeMetadata
                 throw new TrinoException(GENERIC_USER_ERROR, format("The provided location '%s' does not match the existing table location '%s'", location, currentLocation));
             }
             location = currentLocation;
-            external = !handle.isManaged();
+            external = !handle.tableType().isManaged();
         }
         if (location == null) {
             location = getTableLocation(schema, tableName);
@@ -3542,7 +3541,7 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle handle = checkValidTableHandle(tableHandle);
         DeltaMetastoreTable table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
-        if (table.managed() && !allowManagedTableRename) {
+        if (table.tableType().isManaged() && !allowManagedTableRename) {
             throw new TrinoException(NOT_SUPPORTED, "Renaming managed tables is not allowed with current metastore configuration");
         }
         metastore.renameTable(handle.getSchemaTableName(), newTableName);
@@ -3802,7 +3801,7 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle newHandle = new DeltaLakeTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
-                tableHandle.isManaged(),
+                tableHandle.tableType(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
@@ -4100,7 +4099,7 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle newHandle = new DeltaLakeTableHandle(
                 handle.getSchemaTableName().getSchemaName(),
                 handle.getSchemaTableName().getTableName(),
-                handle.isManaged(),
+                handle.tableType(),
                 handle.getLocation(),
                 metadata,
                 handle.getProtocolEntry(),

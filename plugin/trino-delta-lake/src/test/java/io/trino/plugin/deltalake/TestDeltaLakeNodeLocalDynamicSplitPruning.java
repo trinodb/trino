@@ -64,6 +64,7 @@ import java.util.concurrent.CompletableFuture;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.metastore.DeltaTableType.MANAGED_TABLE;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -139,7 +140,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                     new DeltaLakeTableHandle(
                             "test_schema_name",
                             "unpartitioned_table",
-                            true,
+                            MANAGED_TABLE,
                             "test_location",
                             metadataEntry,
                             new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
@@ -236,7 +237,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                     new DeltaLakeTableHandle(
                             "test_schema_name",
                             "unpartitioned_table",
-                            true,
+                            MANAGED_TABLE,
                             "test_location",
                             metadataEntry,
                             new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),

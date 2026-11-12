@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.trino.plugin.deltalake.metastore.DeltaTableType;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -35,7 +36,7 @@ public class DeltaLakeTableHandle
 {
     private final String schemaName;
     private final String tableName;
-    private final boolean managed;
+    private final DeltaTableType tableType;
     private final String location;
     private final MetadataEntry metadataEntry;
     private final ProtocolEntry protocolEntry;
@@ -61,7 +62,7 @@ public class DeltaLakeTableHandle
     public DeltaLakeTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("managed") boolean managed,
+            @JsonProperty("tableType") DeltaTableType tableType,
             @JsonProperty("location") String location,
             @JsonProperty("metadataEntry") MetadataEntry metadataEntry,
             @JsonProperty("protocolEntry") ProtocolEntry protocolEntry,
@@ -75,7 +76,7 @@ public class DeltaLakeTableHandle
     {
         this(schemaName,
                 tableName,
-                managed,
+                tableType,
                 location,
                 metadataEntry,
                 protocolEntry,
@@ -95,7 +96,7 @@ public class DeltaLakeTableHandle
     public DeltaLakeTableHandle(
             String schemaName,
             String tableName,
-            boolean managed,
+            DeltaTableType tableType,
             String location,
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
@@ -113,7 +114,7 @@ public class DeltaLakeTableHandle
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.managed = managed;
+        this.tableType = requireNonNull(tableType, "tableType is null");
         this.location = requireNonNull(location, "location is null");
         this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
         this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
@@ -135,7 +136,7 @@ public class DeltaLakeTableHandle
         return new DeltaLakeTableHandle(
                 schemaName,
                 tableName,
-                managed,
+                tableType,
                 location,
                 metadataEntry,
                 protocolEntry,
@@ -157,7 +158,7 @@ public class DeltaLakeTableHandle
         return new DeltaLakeTableHandle(
                 schemaName,
                 tableName,
-                managed,
+                tableType,
                 location,
                 metadataEntry,
                 protocolEntry,
@@ -179,7 +180,7 @@ public class DeltaLakeTableHandle
         return new DeltaLakeTableHandle(
                 schemaName,
                 tableName,
-                managed,
+                tableType,
                 location,
                 metadataEntry,
                 protocolEntry,
@@ -220,15 +221,10 @@ public class DeltaLakeTableHandle
     }
 
     @Override
-    public boolean managed()
-    {
-        return isManaged();
-    }
-
     @JsonProperty
-    public boolean isManaged()
+    public DeltaTableType tableType()
     {
-        return managed;
+        return tableType;
     }
 
     @Override
@@ -240,7 +236,7 @@ public class DeltaLakeTableHandle
     @Override
     public VendedCredentialsHandle toCredentialsHandle()
     {
-        return new VendedCredentialsHandle(false, managed, location);
+        return new VendedCredentialsHandle(false, tableType, location);
     }
 
     @JsonProperty
@@ -348,7 +344,7 @@ public class DeltaLakeTableHandle
         return recordScannedFiles == that.recordScannedFiles &&
                 Objects.equals(schemaName, that.schemaName) &&
                 Objects.equals(tableName, that.tableName) &&
-                managed == that.managed &&
+                tableType == that.tableType &&
                 Objects.equals(location, that.location) &&
                 Objects.equals(metadataEntry, that.metadataEntry) &&
                 Objects.equals(protocolEntry, that.protocolEntry) &&
@@ -369,7 +365,7 @@ public class DeltaLakeTableHandle
         return Objects.hash(
                 schemaName,
                 tableName,
-                managed,
+                tableType,
                 location,
                 metadataEntry,
                 protocolEntry,
