@@ -13,29 +13,42 @@
  */
 package io.trino.plugin.bigquery;
 
-import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
+import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.DatasetId;
+import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
-
+import static com.google.cloud.bigquery.BigQuery.DatasetDeleteOption.deleteContents;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBigQueryMetadataCaching
         extends AbstractTestQueryFramework
 {
-    protected BigQuerySqlExecutor bigQuerySqlExecutor;
+    private BigQuery bigQuery;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
-        return BigQueryQueryRunner.builder()
-                .setConnectorProperties(Map.of("bigquery.metadata.cache-ttl", "5m"))
+        FlociBigQuery flociBigQuery = closeAfterClass(new FlociBigQuery());
+        flociBigQuery.start();
+        bigQuery = flociBigQuery.bigQuery();
+
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
+                        .setCatalog("bigquery")
+                        .setSchema("tpch")
+                        .build())
                 .build();
+        queryRunner.installPlugin(new TestingBigQueryPlugin(flociBigQuery.endpoint()));
+        queryRunner.createCatalog("bigquery", "bigquery", ImmutableMap.<String, String>builder()
+                .put("bigquery.credentials-key", flociBigQuery.credentialsKey())
+                .put("bigquery.metadata.cache-ttl", "5m").buildOrThrow());
+        return queryRunner;
     }
 
     @Test
@@ -47,16 +60,16 @@ public class TestBigQueryMetadataCaching
             assertThat(getQueryRunner().execute("SHOW SCHEMAS IN bigquery LIKE '" + schema + "'").getOnlyValue()).isEqualTo(schema);
 
             String schemaTableName = schema + ".test_metadata_caching";
-            getQueryRunner().execute("CREATE TABLE " + schemaTableName + " AS SELECT * FROM tpch.tiny.region");
-            assertThat(getQueryRunner().execute("SELECT * FROM " + schemaTableName).getRowCount()).isEqualTo(5);
+            getQueryRunner().execute("CREATE TABLE " + schemaTableName + " AS SELECT 1 x");
+            assertThat(getQueryRunner().execute("SELECT * FROM " + schemaTableName).getRowCount()).isEqualTo(1);
 
-            bigQuerySqlExecutor.execute("DROP SCHEMA " + schema + " CASCADE");
+            bigQuery.delete(DatasetId.of(schema), deleteContents());
             assertThat(getQueryRunner().execute("SHOW SCHEMAS IN bigquery LIKE '" + schema + "'").getOnlyValue()).isEqualTo(schema);
 
             assertQueryFails("SELECT * FROM " + schemaTableName, ".*Schema '.+' does not exist.*");
         }
         finally {
-            bigQuerySqlExecutor.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
+            bigQuery.delete(DatasetId.of(schema), deleteContents());
         }
     }
 }
