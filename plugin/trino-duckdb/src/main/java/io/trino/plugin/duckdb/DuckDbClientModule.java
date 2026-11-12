@@ -25,6 +25,7 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
+import io.trino.plugin.jdbc.TracingDataSource;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.NodeVersion;
@@ -59,12 +60,12 @@ public final class DuckDbClientModule
     {
         Properties connectionProperties = new Properties();
         connectionProperties.setProperty(DUCKDB_USER_AGENT_PROPERTY, "trino/" + nodeVersion.toString());
-        return new DuplicatingConnectionFactory(credentialProvider, DriverConnectionFactory.builder(
+        ConnectionFactory duplicatingConnectionFactory = new DuplicatingConnectionFactory(credentialProvider, DriverConnectionFactory.builder(
                         new DuckDBDriver(),
                         config.getConnectionUrl(),
                         credentialProvider)
                 .setConnectionProperties(connectionProperties)
-                .setOpenTelemetry(openTelemetry)
                 .build());
+        return TracingDataSource.wrapConnectionFactory(openTelemetry, duplicatingConnectionFactory);
     }
 }

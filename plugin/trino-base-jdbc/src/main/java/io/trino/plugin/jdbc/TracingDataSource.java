@@ -16,6 +16,8 @@ package io.trino.plugin.jdbc;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.jdbc.datasource.JdbcTelemetry;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
+import jakarta.annotation.PreDestroy;
 
 import javax.sql.DataSource;
 
@@ -45,33 +47,61 @@ public class TracingDataSource
     public Connection getConnection(Properties properties)
             throws SQLException
     {
-        DataSource dataSource = new JdbcDataSource(driver, connectionUrl, properties);
-        return jdbcTelemetry.wrap(dataSource).getConnection();
+        requireNonNull(properties, "properties is null");
+        return jdbcTelemetry.wrap(new JdbcDataSource(() -> {
+            Connection connection = driver.connect(connectionUrl, properties);
+            if (connection == null) {
+                throw new TrinoException(JDBC_ERROR, "Driver returned null connection, make sure the connection URL '%s' and credentials are valid".formatted(connectionUrl));
+            }
+            return connection;
+        })).getConnection();
+    }
+
+    public static ConnectionFactory wrapConnectionFactory(OpenTelemetry openTelemetry, ConnectionFactory delegate)
+    {
+        requireNonNull(delegate, "delegate is null");
+        JdbcTelemetry telemetry = JdbcTelemetry.builder(requireNonNull(openTelemetry, "openTelemetry is null")).build();
+        return new ConnectionFactory()
+        {
+            @Override
+            public Connection openConnection(ConnectorSession session)
+                    throws SQLException
+            {
+                return telemetry.wrap(new JdbcDataSource(() -> delegate.openConnection(session))).getConnection();
+            }
+
+            @Override
+            @PreDestroy
+            public void close()
+                    throws SQLException
+            {
+                delegate.close();
+            }
+        };
+    }
+
+    @FunctionalInterface
+    private interface ConnectionSupplier
+    {
+        Connection get()
+                throws SQLException;
     }
 
     private static class JdbcDataSource
             implements DataSource
     {
-        private final Driver driver;
-        private final String connectionUrl;
-        private final Properties properties;
+        private final ConnectionSupplier connectionSupplier;
 
-        public JdbcDataSource(Driver driver, String connectionUrl, Properties properties)
+        public JdbcDataSource(ConnectionSupplier connectionSupplier)
         {
-            this.driver = requireNonNull(driver, "driver is null");
-            this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
-            this.properties = requireNonNull(properties, "properties is null");
+            this.connectionSupplier = requireNonNull(connectionSupplier, "connectionSupplier is null");
         }
 
         @Override
         public Connection getConnection()
                 throws SQLException
         {
-            Connection connection = driver.connect(connectionUrl, properties);
-            if (connection == null) {
-                throw new TrinoException(JDBC_ERROR, "Driver returned null connection, make sure the connection URL '%s' and credentials are valid".formatted(connectionUrl));
-            }
-            return connection;
+            return connectionSupplier.get();
         }
 
         @Override
