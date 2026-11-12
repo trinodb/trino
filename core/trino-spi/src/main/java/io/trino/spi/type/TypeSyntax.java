@@ -39,6 +39,21 @@ public final class TypeSyntax
         return render(descriptor.getBase(), parameters);
     }
 
+    private static String quoted(String identifier)
+    {
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
+    }
+
+    private static String unquoteText(String text)
+    {
+        return text.substring(1, text.length() - 1).replace("''", "'");
+    }
+
+    private static boolean isCharacterString(String base)
+    {
+        return base.equalsIgnoreCase(StandardTypes.VARCHAR) || base.equalsIgnoreCase(StandardTypes.CHAR);
+    }
+
     /// The user-visible SQL spelling of an open (variable-bearing) type, e.g. for rendering a function
     /// signature in a diagnostic.
     public static String toSql(TypeTemplate template)
@@ -99,6 +114,11 @@ public final class TypeSyntax
                 return "interval year to month";
             }
             return base;
+        }
+        // A collated character string carries its collation name as a trailing text parameter,
+        // spelled as a COLLATE clause. The name is quoted, as row field names are.
+        if (isCharacterString(base) && parameters.size() == 2 && parameters.get(1).startsWith("'")) {
+            return render(base, parameters.subList(0, 1)) + " COLLATE " + quoted(unquoteText(parameters.get(1)));
         }
         // An unbounded varchar renders without its sentinel length, as `varchar`.
         if (base.equalsIgnoreCase(StandardTypes.VARCHAR)

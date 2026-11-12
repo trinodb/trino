@@ -78,6 +78,7 @@ import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.expressionOrNullSymbols;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.IrUtils.filterDeterministicConjuncts;
+import static io.trino.type.collation.Collations.hasNonDefaultCollation;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -469,6 +470,11 @@ public class EffectivePredicateExtractor
                 if (nonDeterministic[i]) {
                     // We can't describe a predicate for this column because at least
                     // one cell is non-deterministic, so skip it.
+                    continue;
+                }
+                if (hasNonDefaultCollation(type)) {
+                    // Values that are equal under a collation need not be identical, so the
+                    // column's values are not a domain that could replace it
                     continue;
                 }
 

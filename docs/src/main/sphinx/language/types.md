@@ -200,6 +200,38 @@ you need to use `\+01F600` for a grinning face emoji.
 Single quotes in string literals can be escaped by using another single quote: 
 `'I am big, it''s the pictures that got small!'`
 
+(varchar-collations)=
+#### Collations
+
+A `VARCHAR` type can have a collation, a rule for comparing strings, written after the
+type:
+
+```sql
+SELECT CAST(name AS varchar COLLATE unicode_ci) = 'ALICE' FROM (VALUES 'alice') t(name)
+```
+
+The collation decides how values of the type compare, sort, and group. A value is
+unchanged by its collation: `'Alice'` and `'ALICE'` are different strings that a
+case-insensitive collation considers equal. Without a collation, a `VARCHAR` uses the
+default collation, `ucs_basic`, which compares strings by Unicode code point.
+
+Trino supports these collations:
+
+| Name         | Ordering                                         | Distinguishes                   |
+| ------------ | ------------------------------------------------ | ------------------------------- |
+| `ucs_basic`  | Unicode code points                              | Every code point                |
+| `unicode`    | Unicode Collation Algorithm (ISO/IEC 14651)      | Base letters, accents, and case |
+| `unicode_ci` | Unicode Collation Algorithm, case-insensitive    | Base letters and accents        |
+
+`ucs_basic` and `unicode` are the collations the SQL standard defines for Unicode text.
+A collation name is an identifier: unquoted, it is case-insensitive, and quoted, it must be
+written in lower case. A name that is not in the list is an error.
+
+Changing a collation is a cast, `CAST(x AS varchar COLLATE unicode)`. Values of different
+collations never convert implicitly.
+
+The order a collation produces can change when Trino upgrades the ICU library it uses.
+
 #### Methods
 
 The following instance methods are available on `VARCHAR` values. Each returns a

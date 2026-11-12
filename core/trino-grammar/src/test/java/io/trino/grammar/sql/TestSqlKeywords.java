@@ -56,6 +56,7 @@ public class TestSqlKeywords
                         "CAST",
                         "CATALOG",
                         "CATALOGS",
+                        "COLLATE",
                         "COLUMN",
                         "COLUMNS",
                         "COMMENT",

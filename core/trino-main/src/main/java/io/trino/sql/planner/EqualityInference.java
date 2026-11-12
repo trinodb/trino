@@ -47,6 +47,7 @@ import static io.trino.sql.ir.IrExpressions.mayReturnNullOnNonNullInput;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
+import static io.trino.type.collation.Collations.hasNonDefaultCollation;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -323,6 +324,8 @@ public class EqualityInference
     {
         return matchComparison(expression) instanceof Comparison comparison
                 && comparison.operator() == ComparisonOperator.EQUAL
+                // equal values of a collated string can differ, so neither side can replace the other
+                && !hasNonDefaultCollation(comparison.left().type())
                 && isDeterministic(expression)
                 && !mayReturnNullOnNonNullInput(plannerContext, charVarcharCoercion, expression)
                 // We should only consider equalities that have distinct left and right components

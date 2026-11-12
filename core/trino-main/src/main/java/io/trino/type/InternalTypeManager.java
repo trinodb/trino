@@ -21,10 +21,12 @@ import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
+
 public final class InternalTypeManager
         implements TypeManager
 {
-    public static final TypeManager TESTING_TYPE_MANAGER = new InternalTypeManager(new TypeRegistry(new TypeOperators(), new FeaturesConfig()));
+    public static final TypeManager TESTING_TYPE_MANAGER = new InternalTypeManager(new TypeRegistry(new TypeOperators(collationRegistry()), new FeaturesConfig()));
 
     private final TypeRegistry typeRegistry;
 

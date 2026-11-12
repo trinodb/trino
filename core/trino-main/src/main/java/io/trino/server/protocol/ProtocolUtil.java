@@ -46,6 +46,7 @@ import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
 import io.trino.sql.ExpressionFormatter;
 import io.trino.sql.analyzer.TypeDescriptorTranslator;
+import io.trino.sql.tree.CollatedDataType;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.GenericDataType;
@@ -158,6 +159,8 @@ public final class ProtocolUtil
                         })
                         .collect(Collectors.joining(", ", dataType.getName().getValue() + "(", ")"));
             }
+            // clients see a collated type as its type without the collation
+            case CollatedDataType collated -> formatType(collated.getType(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval);
             case IntervalDataType intervalType -> supportsParametricInterval
                     ? ExpressionFormatter.formatExpression(type)
                     : toClientBase(TypeDescriptorTranslator.toTypeDescriptor(intervalType).getBase());

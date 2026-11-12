@@ -132,6 +132,7 @@ import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
+import static io.trino.type.collation.Collations.hasNonDefaultCollation;
 import static java.util.Objects.requireNonNull;
 
 public final class ConnectorExpressionTranslator
@@ -672,6 +673,17 @@ public final class ConnectorExpressionTranslator
         public Optional<ConnectorExpression> process(Expression node)
         {
             return process(node, Context.empty());
+        }
+
+        @Override
+        public Optional<ConnectorExpression> process(Expression node, Context context)
+        {
+            // Connectors compare strings by their own rules, which need not be the collation's, so
+            // an expression over a collated string is evaluated by the engine
+            if (hasNonDefaultCollation(node.type())) {
+                return Optional.empty();
+            }
+            return super.process(node, context);
         }
 
         @Override

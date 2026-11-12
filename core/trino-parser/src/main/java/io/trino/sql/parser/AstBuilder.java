@@ -49,6 +49,7 @@ import io.trino.sql.tree.CaseStatement;
 import io.trino.sql.tree.CaseStatementWhenClause;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.CollatedDataType;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
@@ -3882,6 +3883,12 @@ class AstBuilder
                 .collect(toImmutableList());
 
         return new GenericDataType(getLocation(context), (Identifier) visit(context.identifier()), parameters);
+    }
+
+    @Override
+    public Node visitCollatedType(SqlBaseParser.CollatedTypeContext context)
+    {
+        return new CollatedDataType(getLocation(context), (DataType) visit(context.type()), (Identifier) visit(context.collation));
     }
 
     @Override

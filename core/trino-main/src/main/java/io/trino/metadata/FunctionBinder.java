@@ -24,9 +24,11 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSyntax;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.type.CharVarcharCoercion;
@@ -128,8 +130,25 @@ class FunctionBinder
 
     private boolean canBindSignature(CharVarcharCoercion charVarcharCoercion, Signature declaredSignature, GroundSignature actualSignature)
     {
+        // String casts are declared over default-collation types and do not depend on the collation,
+        // so a cast to, from, or between collated types binds as the cast between the default types.
+        // The bound signature keeps the actual, collated types.
         return new SignatureBinder(metadata, typeManager, declaredSignature, false, charVarcharCoercion)
-                .canBind(fromTypeDescriptors(actualSignature.argumentTypes()), actualSignature.returnType());
+                .canBind(fromTypeDescriptors(actualSignature.argumentTypes().stream()
+                                .map(FunctionBinder::withoutCollation)
+                                .collect(toImmutableList())),
+                        withoutCollation(actualSignature.returnType()));
+    }
+
+    /// The descriptor of a character string type with its collation removed, or the descriptor itself.
+    static TypeDescriptor withoutCollation(TypeDescriptor descriptor)
+    {
+        if (descriptor.getBase().equals(StandardTypes.VARCHAR)
+                && descriptor.getParameters().size() == 2
+                && descriptor.getParameters().get(1) instanceof TypeParameter.Text) {
+            return new TypeDescriptor(descriptor.getBase(), descriptor.getParameters().getFirst());
+        }
+        return descriptor;
     }
 
     private static boolean possibleExactCastMatch(GroundSignature signature, Signature declaredSignature)

@@ -284,6 +284,7 @@ import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.testing.TransactionBuilder.transaction;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -369,7 +370,7 @@ public class PlanTester
         this.finalizerService = new FinalizerService();
         finalizerService.start();
 
-        this.typeOperators = new TypeOperators();
+        this.typeOperators = new TypeOperators(collationRegistry());
         this.blockTypeOperators = new BlockTypeOperators(typeOperators);
         this.hashCompiler = new NullSafeHashCompiler(typeOperators);
         this.sqlParser = new SqlParser();

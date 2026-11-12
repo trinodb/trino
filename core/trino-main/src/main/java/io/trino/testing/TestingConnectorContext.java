@@ -38,6 +38,7 @@ import io.trino.util.EmbedVersion;
 
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static java.util.Objects.requireNonNull;
 
 public final class TestingConnectorContext
@@ -46,7 +47,7 @@ public final class TestingConnectorContext
     private final NodeManager nodeManager;
     private final VersionEmbedder versionEmbedder = new EmbedVersion(NodeVersion.UNKNOWN);
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-    private final FlatHashStrategyCompiler flatHashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators()));
+    private final FlatHashStrategyCompiler flatHashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators(collationRegistry()), new NullSafeHashCompiler(new TypeOperators(collationRegistry())));
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(flatHashStrategyCompiler);
 
     public TestingConnectorContext()

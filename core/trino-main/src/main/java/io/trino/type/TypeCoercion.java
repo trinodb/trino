@@ -218,7 +218,13 @@ public final class TypeCoercion
                 return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
             }
             if (fromTypeBaseName.equals(StandardTypes.VARCHAR)) {
-                Type commonSuperType = getCommonSuperTypeForVarchar((VarcharType) fromType, (VarcharType) toType);
+                VarcharType fromVarchar = (VarcharType) fromType;
+                VarcharType toVarchar = (VarcharType) toType;
+                // Changing collation is a cast; the analyzer decides when collations combine
+                if (!fromVarchar.getCollation().equals(toVarchar.getCollation())) {
+                    return TypeCompatibility.incompatible();
+                }
+                Type commonSuperType = getCommonSuperTypeForVarchar(fromVarchar, toVarchar);
                 return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
             }
             if (fromTypeBaseName.equals(StandardTypes.CHAR)) {
@@ -351,10 +357,10 @@ public final class TypeCoercion
     private static Type getCommonSuperTypeForVarchar(VarcharType firstType, VarcharType secondType)
     {
         if (firstType.isUnbounded() || secondType.isUnbounded()) {
-            return createUnboundedVarcharType();
+            return createUnboundedVarcharType().withCollation(firstType.getCollation());
         }
 
-        return createVarcharType(Math.max(firstType.getBoundedLength(), secondType.getBoundedLength()));
+        return createVarcharType(Math.max(firstType.getBoundedLength(), secondType.getBoundedLength()), firstType.getCollation());
     }
 
     private static Type getCommonSuperTypeForChar(CharType firstType, CharType secondType)
@@ -516,10 +522,11 @@ public final class TypeCoercion
             };
             case StandardTypes.VARCHAR -> switch (resultTypeBase) {
                 case StandardTypes.CHAR -> {
-                    if (charVarcharCoercion == SQL_STANDARD) {
+                    VarcharType varcharType = (VarcharType) sourceType;
+                    // char types have no collation, so a collated value cannot become one implicitly
+                    if (charVarcharCoercion == SQL_STANDARD || !varcharType.getCollation().isDefault()) {
                         yield Optional.empty();
                     }
-                    VarcharType varcharType = (VarcharType) sourceType;
                     if (varcharType.isUnbounded()) {
                         yield Optional.of(createCharType(CharType.MAX_LENGTH));
                     }

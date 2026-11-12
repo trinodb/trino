@@ -95,6 +95,7 @@ import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.type.collation.Collations.hasNonDefaultCollation;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -432,6 +433,12 @@ public class UnwrapCastInComparison
 
             Type sourceType = cast.expression().type();
             Type targetType = originalRight.type();
+
+            // A collation orders strings differently from the bounds the rewrite computes by
+            // truncating or widening the constant
+            if (hasNonDefaultCollation(sourceType) || hasNonDefaultCollation(targetType)) {
+                return Optional.empty();
+            }
 
             if (sourceType instanceof TimestampType timestampType && targetType == DATE) {
                 return unwrapTimestampToDateCast(timestampType, operator, cast.expression(), (long) rightValue);

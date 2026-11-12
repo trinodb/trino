@@ -92,6 +92,7 @@ public final class ExpressionTreeRewriter<C>
                 case Format node -> visitFormat(node, context);
                 case FunctionCall node -> visitFunctionCall(node, context);
                 case GenericDataType node -> visitGenericDataType(node, context);
+                case CollatedDataType node -> visitCollatedDataType(node, context);
                 case GroupingOperation node -> visitGroupingOperation(node, context);
                 case Identifier node -> visitIdentifier(node, context);
                 case IfExpression node -> visitIfExpression(node, context);
@@ -1093,6 +1094,24 @@ public final class ExpressionTreeRewriter<C>
 
             if (name != node.getName() || !sameElements(rewrittenArguments, node.getArguments())) {
                 return new GenericDataType(node.getLocation(), name, rewrittenArguments);
+            }
+
+            return node;
+        }
+
+        private Expression visitCollatedDataType(CollatedDataType node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteCollatedDataType(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            DataType type = rewrite(node.getType(), context.get());
+            Identifier collation = rewrite(node.getCollation(), context.get());
+            if (type != node.getType() || collation != node.getCollation()) {
+                return new CollatedDataType(node.getLocation(), type, collation);
             }
 
             return node;

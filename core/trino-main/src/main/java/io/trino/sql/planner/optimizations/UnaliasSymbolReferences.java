@@ -111,6 +111,7 @@ import static io.trino.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolReallocator;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
+import static io.trino.type.collation.Collations.hasNonDefaultCollation;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -1097,7 +1098,9 @@ public class UnaliasSymbolReferences
             // derive new mappings from inner join equi criteria
             Map<Symbol, Symbol> newMapping = new HashMap<>();
             if (node.getType() == INNER) {
-                newCriteria
+                newCriteria.stream()
+                        // Equal values of a collated string can differ, so each side keeps its own symbol
+                        .filter(clause -> !hasNonDefaultCollation(clause.getLeft().type()))
                         // Map right equi-condition symbol to left symbol. This helps to
                         // reuse join node partitioning better as partitioning properties are
                         // only derived from probe side symbols

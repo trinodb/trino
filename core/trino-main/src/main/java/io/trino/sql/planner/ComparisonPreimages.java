@@ -69,6 +69,7 @@ import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
+import static io.trino.type.collation.Collations.hasNonDefaultCollation;
 import static java.util.Objects.requireNonNull;
 
 /// Shared predicate lowering and bound projection lookup for exact rewrites and domain extraction.
@@ -100,12 +101,25 @@ public final class ComparisonPreimages
 
     public Optional<Expression> rewrite(Session session, FunctionPreimages functionPreimages, Expression expression, SymbolAllocator allocator)
     {
+        if (comparesCollatedStrings(expression)) {
+            return Optional.empty();
+        }
         return new Request(session, functionPreimages).rewrite(expression, allocator);
     }
 
     public Optional<ProjectedDomain> extract(Session session, FunctionPreimages functionPreimages, Expression expression, boolean complement)
     {
+        if (comparesCollatedStrings(expression)) {
+            return Optional.empty();
+        }
         return new Request(session, functionPreimages).extract(expression, complement);
+    }
+
+    // Strings equal under a non-default collation need not be identical, so a domain of their
+    // values does not describe the predicate, and the values could replace the strings
+    private static boolean comparesCollatedStrings(Expression expression)
+    {
+        return hasNonDefaultCollation(expression.type()) || expression.children().stream().anyMatch(ComparisonPreimages::comparesCollatedStrings);
     }
 
     public boolean hasProjection(Session session, FunctionPreimages functionPreimages, Expression expression)

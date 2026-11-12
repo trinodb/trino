@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.memory;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
@@ -206,6 +207,53 @@ public class TestMemoryConnectorTest
         assertThat(probeStats.getOutputPositions()).isEqualTo(615);
         assertThat(probeStats.getInputPositions()).isEqualTo(LINEITEM_COUNT);
         assertThat(probeStats.getPhysicalInputPositions()).isEqualTo(LINEITEM_COUNT);
+    }
+
+    @Test
+    public void testJoinOnCollatedKeys()
+    {
+        // Probe rows that differ from a build value only in case match it under the collation, for
+        // every join distribution and for a semi join
+        try (TestTable probe = newTrinoTable("test_collated_probe", "(name varchar)", ImmutableList.of("'Alice'", "'ALICE'", "'bob'"));
+                TestTable build = newTrinoTable("test_collated_build", "(name varchar)", ImmutableList.of("'alice'"))) {
+            for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+                assertQuery(
+                        noJoinReordering(joinDistributionType),
+                        """
+                        SELECT p.name FROM %s p JOIN %s b
+                        ON CAST(p.name AS varchar COLLATE unicode_ci) = CAST(b.name AS varchar COLLATE unicode_ci)
+                        """.formatted(probe.getName(), build.getName()),
+                        "VALUES 'Alice', 'ALICE'");
+                assertQuery(
+                        noJoinReordering(joinDistributionType),
+                        """
+                        SELECT p.name FROM %s p
+                        WHERE CAST(p.name AS varchar COLLATE unicode_ci) IN (SELECT CAST(b.name AS varchar COLLATE unicode_ci) FROM %s b)
+                        """.formatted(probe.getName(), build.getName()),
+                        "VALUES 'Alice', 'ALICE'");
+            }
+        }
+    }
+
+    @Test
+    public void testFilterOnCollatedCast()
+    {
+        // A comparison over a collated cast must not be unwrapped into a code point comparison or a
+        // domain on the stored column
+        try (TestTable table = newTrinoTable("test_collated_filter", "(name varchar)", ImmutableList.of("'Alice'", "'ALICE'", "'bob'", "'Bob'"))) {
+            assertQuery(
+                    "SELECT name FROM %s WHERE CAST(name AS varchar COLLATE unicode_ci) = CAST('alice' AS varchar COLLATE unicode_ci)".formatted(table.getName()),
+                    "VALUES 'Alice', 'ALICE'");
+            assertQuery(
+                    "SELECT name FROM %s WHERE CAST(name AS varchar COLLATE unicode_ci) IN (CAST('alice' AS varchar COLLATE unicode_ci), CAST('BOB' AS varchar COLLATE unicode_ci))".formatted(table.getName()),
+                    "VALUES 'Alice', 'ALICE', 'bob', 'Bob'");
+            assertQuery(
+                    "SELECT name FROM %s WHERE CAST(name AS varchar COLLATE unicode_ci) BETWEEN CAST('a' AS varchar COLLATE unicode_ci) AND CAST('az' AS varchar COLLATE unicode_ci)".formatted(table.getName()),
+                    "VALUES 'Alice', 'ALICE'");
+            assertQuery(
+                    "SELECT name FROM %s WHERE CAST(name AS varchar(5) COLLATE unicode_ci) = CAST('ALICE' AS varchar(5) COLLATE unicode_ci)".formatted(table.getName()),
+                    "VALUES 'Alice', 'ALICE'");
+        }
     }
 
     @Test

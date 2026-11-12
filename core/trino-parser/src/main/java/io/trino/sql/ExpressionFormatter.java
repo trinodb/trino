@@ -31,6 +31,7 @@ import io.trino.sql.tree.BooleanTestPredicate;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.CollatedDataType;
 import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
@@ -197,6 +198,7 @@ public final class ExpressionFormatter
                 case Format node -> "format(" + joinExpressions(node.getArguments()) + ")";
                 case FunctionCall node -> visitFunctionCall(node, context);
                 case GenericDataType node -> visitGenericDataType(node);
+                case CollatedDataType node -> process(node.getType(), context) + " COLLATE " + process(node.getCollation(), context);
                 case GenericLiteral node -> visitGenericLiteral(node);
                 case GroupingOperation node -> "GROUPING (" + joinExpressions(node.getGroupingColumns()) + ")";
                 case Identifier node -> visitIdentifier(node);

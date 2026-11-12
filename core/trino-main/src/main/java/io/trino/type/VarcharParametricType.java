@@ -23,6 +23,7 @@ import io.trino.spi.type.VarcharType;
 import java.util.List;
 
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static java.lang.Math.toIntExact;
 
 public class VarcharParametricType
@@ -42,8 +43,8 @@ public class VarcharParametricType
         if (parameters.isEmpty()) {
             return createUnboundedVarcharType();
         }
-        if (parameters.size() != 1) {
-            throw new IllegalArgumentException("Expected exactly one parameter for VARCHAR");
+        if (parameters.size() > 2) {
+            throw new IllegalArgumentException("Expected at most two parameters for VARCHAR");
         }
 
         TypeParameter parameter = parameters.get(0);
@@ -52,14 +53,20 @@ public class VarcharParametricType
             throw new IllegalArgumentException("VARCHAR length must be a number");
         }
 
-        if (value == VarcharType.UNBOUNDED_LENGTH) {
-            return VarcharType.createUnboundedVarcharType();
-        }
-
-        if (value < 0 || value > VarcharType.MAX_LENGTH) {
+        if (value != VarcharType.UNBOUNDED_LENGTH && (value < 0 || value > VarcharType.MAX_LENGTH)) {
             throw new IllegalArgumentException("Invalid VARCHAR length " + value);
         }
 
+        if (parameters.size() == 2) {
+            if (!(parameters.get(1) instanceof TypeParameter.Text(String collation))) {
+                throw new IllegalArgumentException("VARCHAR collation must be a name");
+            }
+            return VarcharType.createVarcharType(toIntExact(value), collationRegistry().getCollation(collation));
+        }
+
+        if (value == VarcharType.UNBOUNDED_LENGTH) {
+            return VarcharType.createUnboundedVarcharType();
+        }
         return VarcharType.createVarcharType(toIntExact(value));
     }
 }
