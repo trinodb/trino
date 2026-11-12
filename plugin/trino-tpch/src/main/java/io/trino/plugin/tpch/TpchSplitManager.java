@@ -16,7 +16,6 @@ package io.trino.plugin.tpch;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.spi.Node;
-import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -31,25 +30,23 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public class TpchSplitManager
         implements ConnectorSplitManager
 {
-    private final NodeManager nodeManager;
+    private final TpchTransactionManager transactionManager;
     private final int splitsPerNode;
 
     @Inject
-    public TpchSplitManager(NodeManager nodeManager, TpchConfig config)
+    public TpchSplitManager(TpchTransactionManager transactionManager, TpchConfig config)
     {
-        this(requireNonNull(nodeManager, "nodeManager is null"), requireNonNull(config, "config is null").getSplitsPerNode());
+        this(requireNonNull(transactionManager, "transactionManager is null"), requireNonNull(config, "config is null").getSplitsPerNode());
     }
 
-    public TpchSplitManager(NodeManager nodeManager, int splitsPerNode)
+    public TpchSplitManager(TpchTransactionManager transactionManager, int splitsPerNode)
     {
-        this.nodeManager = nodeManager;
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         checkArgument(splitsPerNode > 0, "splitsPerNode must be at least 1");
         this.splitsPerNode = splitsPerNode;
     }
@@ -62,19 +59,13 @@ public class TpchSplitManager
             Set<ColumnHandle> dynamicFilterColumns,
             Constraint constraint)
     {
-        Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
-
+        List<Node> nodes = transactionManager.getWorkerNodes(transaction);
         int totalParts = nodes.size() * splitsPerNode;
         int partNumber = 0;
 
-        // sort to ensure the assignment is consistent with TpchNodePartitioningProvider
-        List<Node> sortedNodes = nodes.stream()
-                .sorted(comparing(node -> node.getHostAndPort().toString()))
-                .collect(toImmutableList());
-
         // Split the data using split and skew by the number of nodes available.
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        for (Node node : sortedNodes) {
+        for (Node node : nodes) {
             for (int i = 0; i < splitsPerNode; i++) {
                 splits.add(new TpchSplit(partNumber, totalParts, ImmutableList.of(node.getHostAndPort())));
                 partNumber++;

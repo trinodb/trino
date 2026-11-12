@@ -18,8 +18,7 @@ import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchNodePartitioningProvider;
 import io.trino.plugin.tpch.TpchPageSourceProvider;
 import io.trino.plugin.tpch.TpchSplitManager;
-import io.trino.plugin.tpch.TpchTransactionHandle;
-import io.trino.spi.NodeManager;
+import io.trino.plugin.tpch.TpchTransactionManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -65,14 +64,26 @@ public class IndexedTpchConnectorFactory
 
         int splitsPerNode = getSplitsPerNode(properties);
         TpchIndexedData indexedData = new TpchIndexedData(indexSpec);
-        NodeManager nodeManager = context.getNodeManager();
+        TpchTransactionManager transactionManager = new TpchTransactionManager(context.getNodeManager());
 
         return new Connector()
         {
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {
-                return TpchTransactionHandle.INSTANCE;
+                return transactionManager.beginTransaction();
+            }
+
+            @Override
+            public void commit(ConnectorTransactionHandle transaction)
+            {
+                transactionManager.commit(transaction);
+            }
+
+            @Override
+            public void rollback(ConnectorTransactionHandle transaction)
+            {
+                transactionManager.rollback(transaction);
             }
 
             @Override
@@ -84,7 +95,7 @@ public class IndexedTpchConnectorFactory
             @Override
             public ConnectorSplitManager getSplitManager()
             {
-                return new TpchSplitManager(nodeManager, splitsPerNode);
+                return new TpchSplitManager(transactionManager, splitsPerNode);
             }
 
             @Override
@@ -108,7 +119,7 @@ public class IndexedTpchConnectorFactory
             @Override
             public ConnectorNodePartitioningProvider getNodePartitioningProvider()
             {
-                return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
+                return new TpchNodePartitioningProvider(transactionManager, splitsPerNode);
             }
 
             @Override

@@ -51,7 +51,7 @@ public class TestValidateStreamingAggregations
         nationTableHandle = new TableHandle(
                 catalogHandle,
                 new TpchTableHandle("sf1", "nation", 1.0),
-                TpchTransactionHandle.INSTANCE);
+                new TpchTransactionHandle());
     }
 
     @Test

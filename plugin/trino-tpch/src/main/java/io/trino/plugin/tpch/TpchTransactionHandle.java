@@ -15,8 +15,20 @@ package io.trino.plugin.tpch;
 
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
-public enum TpchTransactionHandle
+import java.util.UUID;
+
+import static java.util.Objects.requireNonNull;
+
+public record TpchTransactionHandle(UUID uuid)
         implements ConnectorTransactionHandle
 {
-    INSTANCE
+    public TpchTransactionHandle()
+    {
+        this(UUID.randomUUID());
+    }
+
+    public TpchTransactionHandle
+    {
+        requireNonNull(uuid, "uuid is null");
+    }
 }

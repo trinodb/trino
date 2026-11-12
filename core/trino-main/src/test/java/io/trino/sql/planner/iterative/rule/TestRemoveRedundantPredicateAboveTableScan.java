@@ -78,13 +78,13 @@ public class TestRemoveRedundantPredicateAboveTableScan
         nationTableHandle = new TableHandle(
                 catalogHandle,
                 nation,
-                TpchTransactionHandle.INSTANCE);
+                new TpchTransactionHandle());
 
         TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
                 catalogHandle,
                 orders,
-                TpchTransactionHandle.INSTANCE);
+                new TpchTransactionHandle());
     }
 
     @Test
