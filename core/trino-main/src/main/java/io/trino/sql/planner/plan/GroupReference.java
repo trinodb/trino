@@ -11,13 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.planner.iterative;
+package io.trino.sql.planner.plan;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.planner.plan.PlanVisitor;
 
 import java.util.List;
 
