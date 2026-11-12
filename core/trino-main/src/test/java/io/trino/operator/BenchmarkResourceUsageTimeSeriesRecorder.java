@@ -188,8 +188,7 @@ public class BenchmarkResourceUsageTimeSeriesRecorder
             ImmutableMap.Builder<String, Metric<?>> metricsBuilder = ImmutableMap.<String, Metric<?>>builder().putAll(ImmutableMap.of(
                     "Input rows distribution", new TDigestHistogram(radomTDigest(random)),
                     "CPU time distribution (s)", new TDigestHistogram(radomTDigest(random)),
-                    "Scheduled time distribution (s)", new TDigestHistogram(radomTDigest(random)),
-                    "Blocked time distribution (s)", new TDigestHistogram(radomTDigest(random))));
+                    "Scheduled time distribution (s)", new TDigestHistogram(radomTDigest(random))));
             if (resourceTimeSeries) {
                 metricsBuilder.put("CPU and scheduled time usage over time", randomSnapshot(random, true, true));
             }
