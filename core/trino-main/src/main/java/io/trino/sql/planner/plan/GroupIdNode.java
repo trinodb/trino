@@ -35,7 +35,7 @@ import static io.trino.util.MoreLists.listOfListsCopy;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class GroupIdNode
+public final class GroupIdNode
         extends PlanNode
 {
     private final PlanNode source;

@@ -26,7 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class OffsetNode
+public final class OffsetNode
         extends PlanNode
 {
     private final PlanNode source;

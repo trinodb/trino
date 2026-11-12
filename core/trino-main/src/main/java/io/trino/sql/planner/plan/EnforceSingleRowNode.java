@@ -25,7 +25,7 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class EnforceSingleRowNode
+public final class EnforceSingleRowNode
         extends PlanNode
 {
     private final PlanNode source;
