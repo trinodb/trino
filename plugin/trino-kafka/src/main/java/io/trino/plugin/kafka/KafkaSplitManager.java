@@ -91,7 +91,8 @@ public class KafkaSplitManager
 
             for (PartitionInfo partitionInfo : partitionInfos) {
                 TopicPartition topicPartition = toTopicPartition(partitionInfo);
-                HostAddress leader = HostAddress.fromParts(partitionInfo.leader().host(), partitionInfo.leader().port());
+                Optional<HostAddress> leader = Optional.ofNullable(partitionInfo.leader())
+                        .map(node -> HostAddress.fromParts(node.host(), node.port()));
                 new Range(partitionBeginOffsets.get(topicPartition), partitionEndOffsets.get(topicPartition))
                         .partition(messagesPerSplit).stream()
                         .map(range -> new KafkaSplit(
