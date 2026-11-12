@@ -41,7 +41,7 @@ public class KafkaSplit
     private final Optional<String> messageDataSchemaContents;
     private final int partitionId;
     private final Range messagesRange;
-    private final HostAddress leader;
+    private final Optional<HostAddress> leader;
 
     @JsonCreator
     public KafkaSplit(
@@ -52,7 +52,7 @@ public class KafkaSplit
             @JsonProperty("messageDataSchemaContents") Optional<String> messageDataSchemaContents,
             @JsonProperty("partitionId") int partitionId,
             @JsonProperty("messagesRange") Range messagesRange,
-            @JsonProperty("leader") HostAddress leader)
+            @JsonProperty("leader") Optional<HostAddress> leader)
     {
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
@@ -107,7 +107,7 @@ public class KafkaSplit
     }
 
     @JsonProperty
-    public HostAddress getLeader()
+    public Optional<HostAddress> getLeader()
     {
         return leader;
     }
@@ -115,7 +115,7 @@ public class KafkaSplit
     @Override
     public List<HostAddress> getAddresses()
     {
-        return ImmutableList.of(leader);
+        return leader.map(ImmutableList::of).orElse(ImmutableList.of());
     }
 
     @Override
@@ -128,7 +128,7 @@ public class KafkaSplit
                 + sizeOf(keyDataSchemaContents, SizeOf::estimatedSizeOf)
                 + sizeOf(messageDataSchemaContents, SizeOf::estimatedSizeOf)
                 + messagesRange.retainedSizeInBytes()
-                + leader.getRetainedSizeInBytes();
+                + sizeOf(leader, HostAddress::getRetainedSizeInBytes);
     }
 
     @Override
