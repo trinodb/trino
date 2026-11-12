@@ -31,7 +31,7 @@
         <dependency>
             <groupId>com.databricks</groupId>
             <artifactId>databricks-jdbc</artifactId>
-            <version>3.4.4</version>
+            <version>3.4.5</version>
             <scope>test</scope>
         </dependency>
 
