@@ -23,10 +23,13 @@ import static java.util.Objects.requireNonNull;
 /// Mirrors [TypeParameter] on the ground side, but a numeric parameter is a [NumericExpression]
 /// rather than a fixed `long`, so a calculated parameter like `char(x + y)` is representable.
 public sealed interface TemplateParameter
-        permits TemplateParameter.TypeArgument, TemplateParameter.NumericArgument
+        permits TemplateParameter.NumericArgument,
+                TemplateParameter.TextArgument,
+                TemplateParameter.TypeArgument
 {
     /// Renders this parameter in type syntax — a quoted field name plus the nested type for a named
-    /// [TypeArgument], or the rendered expression for a [NumericArgument].
+    /// [TypeArgument], the rendered expression for a [NumericArgument], or the quoted value for a
+    /// [TextArgument].
     String render();
 
     /// A nested type argument, e.g. the element of `array(E)` or a `row` field (with a name).
@@ -59,6 +62,22 @@ public sealed interface TemplateParameter
         public String render()
         {
             return NumericExpressions.render(value);
+        }
+    }
+
+    /// A literal text argument, e.g. the collation name in `varchar(x, 'unicode_ci')`.
+    record TextArgument(String value)
+            implements TemplateParameter
+    {
+        public TextArgument
+        {
+            requireNonNull(value, "value is null");
+        }
+
+        @Override
+        public String render()
+        {
+            return TypeParameter.Text.quoted(value);
         }
     }
 }

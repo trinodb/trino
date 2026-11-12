@@ -18,10 +18,12 @@ import com.google.errorprone.annotations.Immutable;
 import java.util.Optional;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public sealed interface TypeParameter
         permits TypeParameter.Numeric,
+                TypeParameter.Text,
                 TypeParameter.Type
 {
     static TypeParameter typeParameter(TypeDescriptor typeDescriptor)
@@ -37,6 +39,11 @@ public sealed interface TypeParameter
     static TypeParameter numericParameter(long longLiteral)
     {
         return new Numeric(longLiteral);
+    }
+
+    static TypeParameter textParameter(String value)
+    {
+        return new Text(value);
     }
 
     static TypeParameter namedField(String name, TypeDescriptor type)
@@ -103,6 +110,41 @@ public sealed interface TypeParameter
         public boolean isCalculated()
         {
             return false;
+        }
+    }
+
+    /// A text argument, e.g. the collation name in `varchar(10, 'unicode_ci')`. Values are compared by
+    /// string equality, so a type that carries a name must canonicalize it before building the
+    /// descriptor.
+    record Text(String value)
+            implements TypeParameter
+    {
+        public Text
+        {
+            requireNonNull(value, "value is null");
+        }
+
+        @Override
+        public String toString()
+        {
+            return quoted(value);
+        }
+
+        @Override
+        public String jsonValue()
+        {
+            return toString();
+        }
+
+        @Override
+        public boolean isCalculated()
+        {
+            return false;
+        }
+
+        static String quoted(String value)
+        {
+            return "'" + value.replace("'", "''") + "'";
         }
     }
 }

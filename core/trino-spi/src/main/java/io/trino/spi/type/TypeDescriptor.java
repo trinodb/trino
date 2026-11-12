@@ -117,8 +117,12 @@ public final class TypeDescriptor
         if (isNumericLiteral(token)) {
             return TypeParameter.numericParameter(Long.parseLong(token));
         }
+        if (token.startsWith("'")) {
+            checkArgument(token.length() >= 2 && token.endsWith("'") && closingQuote(token, '\'') == token.length() - 1, "Malformed text parameter in type: %s", token);
+            return TypeParameter.textParameter(token.substring(1, token.length() - 1).replace("''", "'"));
+        }
         if (token.startsWith("\"")) {
-            int closing = closingQuote(token);
+            int closing = closingQuote(token, '"');
             String name = token.substring(1, closing).replace("\"\"", "\"");
             return TypeParameter.namedField(name, fromString(token.substring(closing + 1).strip()));
         }
@@ -139,11 +143,11 @@ public final class TypeDescriptor
         return true;
     }
 
-    private static int closingQuote(String token)
+    private static int closingQuote(String token, char quote)
     {
         for (int i = 1; i < token.length(); i++) {
-            if (token.charAt(i) == '"') {
-                if (i + 1 < token.length() && token.charAt(i + 1) == '"') {
+            if (token.charAt(i) == quote) {
+                if (i + 1 < token.length() && token.charAt(i + 1) == quote) {
                     i++;
                     continue;
                 }
@@ -157,31 +161,38 @@ public final class TypeDescriptor
     {
         List<String> tokens = new ArrayList<>();
         int depth = 0;
-        boolean inQuote = false;
+        char quote = 0;
         int start = 0;
         for (int i = 0; i < inner.length(); i++) {
             char c = inner.charAt(i);
-            if (c == '"') {
-                if (inQuote && i + 1 < inner.length() && inner.charAt(i + 1) == '"') {
+            if (c == '"' || c == '\'') {
+                if (quote == 0) {
+                    quote = c;
+                    continue;
+                }
+                if (c != quote) {
+                    continue;
+                }
+                if (i + 1 < inner.length() && inner.charAt(i + 1) == quote) {
                     i++;
                     continue;
                 }
-                inQuote = !inQuote;
+                quote = 0;
             }
-            else if (!inQuote && c == '(') {
+            else if (quote == 0 && c == '(') {
                 depth++;
             }
-            else if (!inQuote && c == ')') {
+            else if (quote == 0 && c == ')') {
                 depth--;
                 checkArgument(depth >= 0, "Malformed type descriptor: %s", inner);
             }
-            else if (!inQuote && c == ',' && depth == 0) {
+            else if (quote == 0 && c == ',' && depth == 0) {
                 tokens.add(inner.substring(start, i));
                 start = i + 1;
             }
         }
         tokens.add(inner.substring(start));
-        checkArgument(depth == 0 && !inQuote, "Malformed type descriptor: %s", inner);
+        checkArgument(depth == 0 && quote == 0, "Malformed type descriptor: %s", inner);
         return tokens;
     }
 

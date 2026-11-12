@@ -361,6 +361,7 @@ public class SignatureBinder
                     }
                 }
                 case TemplateParameter.TypeArgument(_, TypeTemplate type) -> checkNoLiteralVariableUsageAcrossTypes(type, existingUsages);
+                case TemplateParameter.TextArgument _ -> {}
             }
         }
     }
@@ -519,6 +520,7 @@ public class SignatureBinder
             switch (parameter) {
                 case TemplateParameter.TypeArgument(_, TypeTemplate type) -> variables.addAll(longVariablesOf(type));
                 case TemplateParameter.NumericArgument(NumericExpression value) -> variables.addAll(numericVariablesOf(value));
+                case TemplateParameter.TextArgument _ -> {}
             }
         }
 

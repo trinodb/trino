@@ -190,7 +190,10 @@ public final class ProtocolUtil
             return new ClientTypeSignature(JSON);
         }
 
+        // The client signature has no text parameter kind, so a text argument (such as a collation name)
+        // is omitted and the client sees the type without it
         return new ClientTypeSignature(toClientBase(descriptor.getBase()), descriptor.getParameters().stream()
+                .filter(parameter -> !(parameter instanceof TypeParameter.Text))
                 .map(parameter -> toClientTypeSignatureParameter(descriptor.getBase(), parameter, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval))
                 .collect(toImmutableList()));
     }
@@ -227,6 +230,7 @@ public final class ProtocolUtil
                 yield ClientTypeSignatureParameter.ofType(toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
             }
             case TypeParameter.Numeric number -> ClientTypeSignatureParameter.ofLong(number.value());
+            case TypeParameter.Text _ -> throw new IllegalArgumentException("Text type parameters are not sent to clients: " + parameter);
         };
     }
 

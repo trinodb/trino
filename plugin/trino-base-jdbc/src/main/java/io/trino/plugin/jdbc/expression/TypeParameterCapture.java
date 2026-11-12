@@ -52,6 +52,7 @@ public class TypeParameterCapture
         switch (parameter) {
             case TypeParameter.Numeric numeric -> matchContext.record(name, numeric.value());
             case TypeParameter.Type type -> matchContext.record(name, type.type());
+            case TypeParameter.Text text -> matchContext.record(name, text.value());
         }
     }
 
