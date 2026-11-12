@@ -16,11 +16,14 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.CreationException;
 import io.airlift.bootstrap.ApplicationConfigurationException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -30,7 +33,9 @@ import java.util.Base64;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergPlugin
@@ -241,6 +246,18 @@ public class TestIcebergPlugin
                                 "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
+
+        factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "rest",
+                                "iceberg.rest-catalog.uri", "https://foo:1234",
+                                "iceberg.rest-catalog.remote-signing-enabled", "true",
+                                "fs.s3.enabled", "true",
+                                "s3.region", "us-east-1",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test
@@ -348,6 +365,122 @@ public class TestIcebergPlugin
                 .shutdown())
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Using the `register_table` procedure with vended credentials is currently not supported");
+
+        assertThatThrownBy(() -> factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "rest",
+                                "iceberg.register-table-procedure.enabled", "true",
+                                "iceberg.rest-catalog.uri", "https://foo:1234",
+                                "iceberg.rest-catalog.remote-signing-enabled", "true",
+                                "fs.s3.enabled", "true",
+                                "s3.region", "us-east-1",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Remote signing does not support the `register_table` procedure");
+    }
+
+    @Test
+    void testRemoteSigningRequiresS3Filesystem()
+    {
+        assertThatThrownBy(() -> getConnectorFactory().create(
+                "test",
+                Map.of(
+                        "iceberg.catalog.type", "rest",
+                        "iceberg.rest-catalog.uri", "https://foo:1234",
+                        "iceberg.rest-catalog.remote-signing-enabled", "true",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Remote signing requires fs.s3.enabled=true")
+                .cause()
+                .isInstanceOfSatisfying(TrinoException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(CONFIGURATION_INVALID.toErrorCode()));
+    }
+
+    @Test
+    void testRemoteSigningRejectsVendedCredentials()
+    {
+        assertThatThrownBy(() -> getConnectorFactory().create(
+                "test",
+                Map.of(
+                        "iceberg.catalog.type", "rest",
+                        "iceberg.rest-catalog.uri", "https://foo:1234",
+                        "iceberg.rest-catalog.remote-signing-enabled", "true",
+                        "iceberg.rest-catalog.vended-credentials-enabled", "true",
+                        "fs.s3.enabled", "true",
+                        "s3.region", "us-east-1",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Remote signing cannot be combined with iceberg.rest-catalog.vended-credentials-enabled")
+                .cause()
+                .isInstanceOfSatisfying(TrinoException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(CONFIGURATION_INVALID.toErrorCode()));
+    }
+
+    @Test
+    void testRemoteSigningRejectsCrossRegionDiscovery()
+    {
+        assertThatThrownBy(() -> getConnectorFactory().create(
+                "test",
+                Map.of(
+                        "iceberg.catalog.type", "rest",
+                        "iceberg.rest-catalog.uri", "https://foo:1234",
+                        "iceberg.rest-catalog.remote-signing-enabled", "true",
+                        "fs.s3.enabled", "true",
+                        "s3.region", "us-east-1",
+                        "s3.cross-region-access", "true",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Remote signing does not support s3.cross-region-access");
+    }
+
+    @Test
+    void testRemoteSigningRejectsUserSession()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                Map.of(
+                        "iceberg.catalog.type", "rest",
+                        "iceberg.rest-catalog.uri", "https://foo:1234",
+                        "iceberg.rest-catalog.remote-signing-enabled", "true",
+                        "iceberg.rest-catalog.session", "USER",
+                        "fs.s3.enabled", "true",
+                        "s3.region", "us-east-1",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Remote signing does not support iceberg.rest-catalog.session=USER");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"SIGV4", "GOOGLE"})
+    void testRemoteSigningRejectsUnsupportedCatalogAuthentication(String security)
+    {
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("iceberg.catalog.type", "rest")
+                .put("iceberg.rest-catalog.uri", "https://foo:1234")
+                .put("iceberg.rest-catalog.remote-signing-enabled", "true")
+                .put("iceberg.rest-catalog.security", security)
+                .put("fs.s3.enabled", "true")
+                .put("s3.region", "us-east-1")
+                .put("bootstrap.quiet", "true");
+        if (security.equals("GOOGLE")) {
+            properties.put("iceberg.rest-catalog.google-project-id", "test-project");
+        }
+
+        assertThatThrownBy(() -> getConnectorFactory().create(
+                "test",
+                properties.buildOrThrow(),
+                new TestingConnectorContext()))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Remote signing supports only NONE or OAUTH2 REST catalog authentication");
     }
 
     @Test
