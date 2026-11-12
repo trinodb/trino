@@ -67,9 +67,9 @@ public final class DeltaLakeWriteUtils
     private static final int DATA_FILE_HASH_BITS = 20;
     private static final HashFunction DATA_FILE_HASH_FUNCTION = murmur3_32_fixed();
 
-    private static final DateTimeFormatter DELTA_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter DELTA_DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
     private static final DateTimeFormatter DELTA_TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
-            .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            .append(DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss"))
             .optionalStart().appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true).optionalEnd()
             .toFormatter();
 
