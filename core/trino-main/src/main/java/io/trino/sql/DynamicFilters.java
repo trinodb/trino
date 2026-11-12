@@ -27,6 +27,7 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
@@ -57,6 +58,7 @@ import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
+import static io.trino.type.TypeUtils.isDirectLongComparisonValidForContinuousValues;
 import static java.util.Objects.requireNonNull;
 
 public final class DynamicFilters
@@ -150,6 +152,31 @@ public final class DynamicFilters
                         dynamicFilterFunctionCall.arguments().get(1),
                         new Constant(VarcharType.VARCHAR, Slices.utf8Slice(newId.toString())), // dynamic filter id is the 3rd argument
                         dynamicFilterFunctionCall.arguments().get(3)));
+    }
+
+    /**
+     * Replaces a discrete set of two or more consecutive values with a single closed range.
+     * Applies to the types {@link io.trino.sql.ir.optimizer.rule.SimplifyContinuousInValues} simplifies,
+     * where consecutive values differ by one in their long representation.
+     * Returns the domain unchanged otherwise.
+     */
+    public static Domain collapseConsecutiveValues(Domain domain)
+    {
+        if (!isDirectLongComparisonValidForContinuousValues(domain.getType()) || !(domain.getValues() instanceof SortedRangeSet values)) {
+            return domain;
+        }
+        int valueCount = values.getRangeCount();
+        if (valueCount < 2 || !values.isDiscreteSet()) {
+            return domain;
+        }
+        Range span = values.getSpan();
+        long min = (long) span.getLowBoundedValue();
+        long max = (long) span.getHighBoundedValue();
+        // Values are distinct, so an overflowing difference is negative and never matches
+        if (max - min != valueCount - 1) {
+            return domain;
+        }
+        return Domain.create(ValueSet.ofRanges(span), domain.isNullAllowed());
     }
 
     public static boolean isDynamicFilter(Expression expression)

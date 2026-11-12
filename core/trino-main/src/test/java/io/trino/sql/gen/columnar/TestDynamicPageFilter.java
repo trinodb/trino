@@ -78,6 +78,12 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_NANOS;
+import static io.trino.spi.type.TimeType.TIME_PICOS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -580,6 +586,21 @@ public class TestDynamicPageFilter
             Domain domain = Domain.create(ValueSet.copyOf(type, values), false);
             assertSelectsSamePositions(type, domain, inputPages(type, values, random));
         }
+    }
+
+    @Test
+    public void testConsecutiveValues()
+    {
+        for (Type type : ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT, DATE, TIME_PICOS, TIMESTAMP_MICROS, DecimalType.createDecimalType(10, 2))) {
+            assertGeneratedFromExpression(type, multipleValues(type, LongStream.range(0, 10).boxed().collect(toImmutableList())));
+        }
+        // consecutive values of these types differ by more than one in their long representation
+        List<Long> stepValues = LongStream.range(0, 10).map(value -> value * 1000).boxed().collect(toImmutableList());
+        assertThat(buildCounts(TIME_NANOS, multipleValues(TIME_NANOS, stepValues))).isEqualTo(new Counts(1, 0));
+        assertThat(buildCounts(TIMESTAMP_MILLIS, multipleValues(TIMESTAMP_MILLIS, stepValues))).isEqualTo(new Counts(1, 0));
+        DecimalType longDecimal = DecimalType.createDecimalType(30, 2);
+        assertThat(buildCounts(longDecimal, multipleValues(longDecimal, LongStream.range(0, 10).mapToObj(Int128::valueOf).collect(toImmutableList()))))
+                .isEqualTo(new Counts(1, 0));
     }
 
     @Test
