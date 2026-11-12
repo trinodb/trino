@@ -31,7 +31,9 @@ import io.trino.sql.tree.BooleanTestPredicate;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.CollateExpression;
 import io.trino.sql.tree.CollatedDataType;
+import io.trino.sql.tree.CollationFor;
 import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
@@ -171,6 +173,8 @@ public final class ExpressionFormatter
                 case ArrayWildcardSubscript node -> visitExpression(node);
                 case AtLocal node -> process(node.getValue(), context) + " AT LOCAL";
                 case AtTimeZone node -> visitAtTimeZone(node, context);
+                case CollateExpression node -> "(" + process(node.getValue(), context) + " COLLATE " + process(node.getCollation(), context) + ")";
+                case CollationFor node -> "COLLATION FOR (" + process(node.getValue(), context) + ")";
                 case BetweenPredicate node -> visitBetweenPredicate(node, context);
                 case BinaryLiteral node -> visitBinaryLiteral(node);
                 case BooleanLiteral node -> visitBooleanLiteral(node);

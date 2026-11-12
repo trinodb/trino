@@ -331,6 +331,7 @@ import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_RETURN_TYPE;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.COLLATION_MISMATCH;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
@@ -1940,6 +1941,7 @@ class StatementAnalyzer
                 partitionBy.forEach(partitioningColumn -> {
                     validateAndGetInputField(partitioningColumn, argumentScope);
                     Type type = analyzeExpression(partitioningColumn, argumentScope).getType(partitioningColumn);
+                    requireCollation(partitioningColumn);
                     if (!type.isComparable()) {
                         throw semanticException(TYPE_MISMATCH, partitioningColumn, "%s is not comparable, and therefore cannot be used in PARTITION BY", type);
                     }
@@ -1965,6 +1967,7 @@ class StatementAnalyzer
                         .forEach(orderingColumn -> {
                             validateAndGetInputField(orderingColumn, argumentScope);
                             Type type = analyzeExpression(orderingColumn, argumentScope).getType(orderingColumn);
+                            requireCollation(orderingColumn);
                             if (!type.isOrderable()) {
                                 throw semanticException(TYPE_MISMATCH, orderingColumn, "%s is not orderable, and therefore cannot be used in ORDER BY", type);
                             }
@@ -5044,6 +5047,7 @@ class StatementAnalyzer
                 if (!type.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
                 }
+                requireCollation(expression);
             }
 
             GroupingSetAnalysis groupingSets = new GroupingSetAnalysis(expressions, cubes.build(), rollups.build(), sets.build(), complexExpressions.build());
@@ -5449,6 +5453,9 @@ class StatementAnalyzer
             selectExpressionBuilder.add(new SelectExpression(expression, Optional.empty()));
 
             Type type = expressionAnalysis.getType(expression);
+            if (node.getSelect().isDistinct()) {
+                requireCollation(expression);
+            }
             if (node.getSelect().isDistinct() && !type.isComparable()) {
                 throw semanticException(
                         TYPE_MISMATCH,
@@ -5640,6 +5647,14 @@ class StatementAnalyzer
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(INVALID_VIEW, node, e, "Unknown type '%s' for column '%s' in view: %s", column.type(), column.name(), name);
+            }
+        }
+
+        /// Requires a sort, grouping, or partitioning key to have a collation.
+        private void requireCollation(Expression expression)
+        {
+            if (analysis.isUncollated(expression)) {
+                throw semanticException(COLLATION_MISMATCH, expression, "Collations conflict in %s; use COLLATE to choose a collation", expression);
             }
         }
 
@@ -6259,6 +6274,7 @@ class StatementAnalyzer
                 if (!type.isOrderable()) {
                     throw semanticException(TYPE_MISMATCH, node, "Type %s is not orderable, and therefore cannot be used in ORDER BY: %s", type, expression);
                 }
+                requireCollation(expression);
 
                 orderByFieldsBuilder.add(expression);
             }

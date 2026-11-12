@@ -224,6 +224,7 @@ public class Analysis
     private final Map<NodeRef<Expression>, Type> types = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
     private final Map<NodeRef<NullIfExpression>, Type> nullIfComparisonTypes = new LinkedHashMap<>();
+    private final Set<NodeRef<Expression>> uncollatedExpressions = new LinkedHashSet<>();
 
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = new LinkedHashMap<>();
@@ -806,6 +807,18 @@ public class Analysis
         this.coercions.putAll(coercions);
         this.sortKeyCoercionsForFrameBoundCalculation.putAll(sortKeyCoercionsForFrameBoundCalculation);
         this.sortKeyCoercionsForFrameBoundComparison.putAll(sortKeyCoercionsForFrameBoundComparison);
+    }
+
+    public void addUncollatedExpressions(Set<NodeRef<Expression>> expressions)
+    {
+        uncollatedExpressions.addAll(expressions);
+    }
+
+    /// Whether a character string expression has no collation because it combines different
+    /// implicit collations, so that it cannot be compared, grouped, or ordered.
+    public boolean isUncollated(Expression expression)
+    {
+        return uncollatedExpressions.contains(NodeRef.of(expression));
     }
 
     public void addNullIfComparisonTypes(Map<NodeRef<NullIfExpression>, Type> types)

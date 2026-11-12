@@ -2806,6 +2806,22 @@ public final class MetadataManager
     }
 
     @Override
+    public Signature getDeclaredSignature(Session session, ResolvedFunction resolvedFunction)
+    {
+        if (isTrinoSqlLanguageFunction(resolvedFunction.functionId())) {
+            // a SQL routine declares concrete types, so its bound signature is its declaration
+            return resolvedFunction.signature().toSignature();
+        }
+        if (resolvedFunction.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)) {
+            return functions.getFunctionMetadata(resolvedFunction.functionId()).getSignature();
+        }
+        ConnectorSession connectorSession = session.toConnectorSession(resolvedFunction.catalogHandle());
+        return getMetadata(session, resolvedFunction.catalogHandle())
+                .getFunctionMetadata(connectorSession, resolvedFunction.functionId())
+                .getSignature();
+    }
+
+    @Override
     public ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         Signature functionSignature;

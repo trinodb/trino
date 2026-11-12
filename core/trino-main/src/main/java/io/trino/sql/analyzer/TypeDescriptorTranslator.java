@@ -554,7 +554,7 @@ public final class TypeDescriptorTranslator
         return new IntervalDataType(Optional.empty(), qualifier);
     }
 
-    private static String canonicalize(Identifier identifier)
+    static String canonicalize(Identifier identifier)
     {
         if (identifier.isDelimited()) {
             return identifier.getValue();

@@ -227,7 +227,8 @@ Trino supports these collations:
 A collation name is an identifier: unquoted, it is case-insensitive, and quoted, it must be
 written in lower case. A name that is not in the list is an error.
 
-Changing a collation is a cast, `CAST(x AS varchar COLLATE unicode)`. Values of different
+Changing a collation is a cast, `CAST(x AS varchar COLLATE unicode)`, or the shorthand
+`x COLLATE unicode` described in {doc}`/functions/collation`. Values of different
 collations never convert implicitly.
 
 The order a collation produces can change when Trino upgrades the ICU library it uses.

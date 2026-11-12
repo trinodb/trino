@@ -13,8 +13,16 @@
  */
 package io.trino.type.collation;
 
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.VarcharType;
+
+import java.util.List;
+import java.util.function.Function;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class Collations
 {
@@ -37,5 +45,33 @@ public final class Collations
             }
         }
         return false;
+    }
+
+    /// The type with the default collation in every character string it contains, including the
+    /// elements, fields, and values of nested types.
+    public static Type withoutCollations(Type type, Function<TypeDescriptor, Type> lookupType)
+    {
+        if (!hasNonDefaultCollation(type)) {
+            return type;
+        }
+        return lookupType.apply(withoutCollations(type.getTypeDescriptor()));
+    }
+
+    /// The descriptor with the collation parameter removed from every character string type it
+    /// contains.
+    public static TypeDescriptor withoutCollations(TypeDescriptor descriptor)
+    {
+        List<TypeParameter> parameters = descriptor.getParameters().stream()
+                .filter(parameter -> !(isCharacterString(descriptor) && parameter instanceof TypeParameter.Text))
+                .map(parameter -> parameter instanceof TypeParameter.Type(var name, TypeDescriptor nested)
+                        ? new TypeParameter.Type(name, withoutCollations(nested))
+                        : parameter)
+                .collect(toImmutableList());
+        return new TypeDescriptor(descriptor.getBase(), parameters);
+    }
+
+    private static boolean isCharacterString(TypeDescriptor descriptor)
+    {
+        return descriptor.getBase().equals(StandardTypes.VARCHAR) || descriptor.getBase().equals(StandardTypes.CHAR);
     }
 }

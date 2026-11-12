@@ -948,6 +948,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Signature getDeclaredSignature(Session session, ResolvedFunction resolvedFunction)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         throw new UnsupportedOperationException();

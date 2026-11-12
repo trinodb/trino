@@ -27,6 +27,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogFunctionMetadata;
 import io.trino.metadata.FunctionResolver;
@@ -40,11 +41,14 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.Signature;
+import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.Collation;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
@@ -52,7 +56,10 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TemplateParameter;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
@@ -68,6 +75,14 @@ import io.trino.sql.analyzer.Analysis.OperandAndPredicate;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
 import io.trino.sql.analyzer.Analysis.Range;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
+import io.trino.sql.analyzer.CollationSemantics.Collated;
+import io.trino.sql.analyzer.CollationSemantics.CollationConflictException;
+import io.trino.sql.analyzer.CollationSemantics.CollationShape;
+import io.trino.sql.analyzer.CollationSemantics.CollationShape.ArrayShape;
+import io.trino.sql.analyzer.CollationSemantics.CollationShape.Leaf;
+import io.trino.sql.analyzer.CollationSemantics.CollationShape.MapShape;
+import io.trino.sql.analyzer.CollationSemantics.CollationShape.RowShape;
+import io.trino.sql.analyzer.CollationSemantics.Derivation;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.AggregationDescriptor;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.ClassifierDescriptor;
@@ -91,6 +106,8 @@ import io.trino.sql.tree.BooleanTestPredicate;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.CollateExpression;
+import io.trino.sql.tree.CollationFor;
 import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
@@ -193,6 +210,7 @@ import io.trino.type.UnknownType;
 import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -220,6 +238,7 @@ import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.metadata.LanguageFunctionManager.isTrinoSqlLanguageFunction;
 import static io.trino.operator.scalar.FormatFunction.FORMAT_FUNCTION_NAME;
 import static io.trino.operator.scalar.StringFunctions.OVERLAY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION_NAME;
@@ -240,6 +259,8 @@ import static io.trino.operator.scalar.json.JsonOutputFunctions.JSON_TO_VARCHAR;
 import static io.trino.operator.scalar.json.JsonQueryFunction.JSON_QUERY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonValueFunction.JSON_VALUE_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
+import static io.trino.spi.StandardErrorCode.COLLATION_MISMATCH;
+import static io.trino.spi.StandardErrorCode.COLLATION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PARAMETER_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
@@ -339,6 +360,9 @@ import static io.trino.type.DateTimes.timeHasTimeZone;
 import static io.trino.type.DateTimes.timestampHasTimeZone;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
+import static io.trino.type.collation.Collations.hasNonDefaultCollation;
+import static io.trino.type.collation.Collations.withoutCollations;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -347,6 +371,7 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class ExpressionAnalyzer
 {
@@ -387,6 +412,50 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
     private final Map<NodeRef<NullIfExpression>, Type> nullIfComparisonTypes = new LinkedHashMap<>();
+    // The collation derivation of character string expressions whose derivation is not implicit from
+    // their type: literals are coercible, COLLATE is explicit, and combinations can be either or none
+    private final Map<NodeRef<Expression>, CollationShape> collationDerivations = new LinkedHashMap<>();
+    // the shapes of the type variables of calls, from their arguments, until the result is typed
+    private final Map<NodeRef<Expression>, Map<String, CollationShape>> argumentResultShapes = new LinkedHashMap<>();
+    // the shapes of the values each lambda's parameters receive
+    private final Map<NodeRef<LambdaExpression>, List<CollationShape>> lambdaArgumentShapes = new LinkedHashMap<>();
+    private final Map<NodeRef<LambdaArgumentDeclaration>, CollationShape> lambdaParameterShapes = new LinkedHashMap<>();
+
+    private static final Set<OperatorType> COMPARISON_OPERATORS = ImmutableSet.of(
+            OperatorType.EQUAL,
+            OperatorType.IDENTICAL,
+            OperatorType.LESS_THAN,
+            OperatorType.LESS_THAN_OR_EQUAL,
+            OperatorType.COMPARISON_UNORDERED_LAST,
+            OperatorType.COMPARISON_UNORDERED_FIRST,
+            OperatorType.HASH_CODE,
+            OperatorType.XX_HASH_64);
+
+    // Built-in string functions declared over default-collation strings that search or compare
+    // their arguments' contents, which would compare code points under any collation
+    private static final Set<String> COLLATION_BLIND_COMPARISONS = ImmutableSet.of(
+            "strpos",
+            "starts_with",
+            "ends_with",
+            "replace",
+            "split",
+            "split_part",
+            "split_to_map",
+            "split_to_multimap",
+            "translate",
+            "levenshtein_distance",
+            "hamming_distance",
+            "regexp_like",
+            "regexp_count",
+            "regexp_extract",
+            "regexp_extract_all",
+            "regexp_position",
+            "regexp_replace",
+            "regexp_split",
+            "url_extract_parameter",
+            "json_array_contains",
+            "approx_set",
+            "approx_most_frequent");
     private final List<OperandAndPredicate> quantifiedComparisons = new ArrayList<>();
     private final List<OperandAndPredicate> matchPredicates = new ArrayList<>();
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
@@ -518,6 +587,16 @@ public class ExpressionAnalyzer
     public Map<NodeRef<Expression>, Type> getExpressionCoercions()
     {
         return unmodifiableMap(expressionCoercions);
+    }
+
+    /// The expressions with a string that has no collation because it combines different implicit
+    /// collations. They cannot be compared, grouped, or ordered.
+    public Set<NodeRef<Expression>> getUncollatedExpressions()
+    {
+        return collationDerivations.entrySet().stream()
+                .filter(entry -> entry.getValue().firstNone().isPresent())
+                .map(Map.Entry::getKey)
+                .collect(toImmutableSet());
     }
 
     public Map<NodeRef<NullIfExpression>, Type> getNullIfComparisonTypes()
@@ -797,6 +876,8 @@ public class ExpressionAnalyzer
                 case BinaryLiteral node -> setExpressionType(node, VARBINARY);
                 case BooleanLiteral node -> setExpressionType(node, BOOLEAN);
                 case Cast node -> visitCast(node, context);
+                case CollateExpression node -> visitCollateExpression(node, context);
+                case CollationFor node -> visitCollationFor(node, context);
                 case CoalesceExpression node -> visitCoalesceExpression(node, context);
                 case CurrentCatalog node -> setExpressionType(node, VARCHAR);
                 case CurrentDate node -> setExpressionType(node, DATE);
@@ -895,6 +976,9 @@ public class ExpressionAnalyzer
                     .collect(toImmutableList());
 
             Type type = RowType.from(fields);
+            recordShape(node, new RowShape(node.getFields().stream()
+                    .map(field -> shape(field.getExpression()))
+                    .collect(toImmutableList())), type);
             return setExpressionType(node, type);
         }
 
@@ -965,6 +1049,10 @@ public class ExpressionAnalyzer
                 if (lambdaArgumentDeclaration != null) {
                     // Lambda argument reference is not a column reference
                     lambdaArgumentReferences.put(NodeRef.of((Identifier) node), lambdaArgumentDeclaration);
+                    CollationShape parameterShape = lambdaParameterShapes.get(NodeRef.of(lambdaArgumentDeclaration));
+                    if (parameterShape != null) {
+                        collationDerivations.put(NodeRef.of(node), parameterShape);
+                    }
                     return setExpressionType(node, field.getType());
                 }
             }
@@ -1046,13 +1134,16 @@ public class ExpressionAnalyzer
 
             boolean foundFieldName = false;
             Type rowFieldType = null;
-            for (RowType.Field rowField : rowType.getFields()) {
+            int fieldIndex = -1;
+            for (int i = 0; i < rowType.getFields().size(); i++) {
+                RowType.Field rowField = rowType.getFields().get(i);
                 if (fieldName.equalsIgnoreCase(rowField.getName().orElse(null))) {
                     if (foundFieldName) {
                         throw semanticException(AMBIGUOUS_NAME, field, "Ambiguous row field reference: %s", fieldName);
                     }
                     foundFieldName = true;
                     rowFieldType = rowField.getType();
+                    fieldIndex = i;
                 }
             }
 
@@ -1061,6 +1152,7 @@ public class ExpressionAnalyzer
                         .orElseGet(() -> QualifiedName.of(fieldName)));
             }
 
+            recordFieldShape(node, node.getBase(), fieldIndex, rowFieldType);
             return setExpressionType(node, rowFieldType);
         }
 
@@ -1340,9 +1432,13 @@ public class ExpressionAnalyzer
 
         private Type analyzeBetween(Expression value, BetweenPredicate predicate, Expression anchor, Context context)
         {
-            Type valueType = process(value, context);
-            Type minType = process(predicate.getMin(), context);
-            Type maxType = process(predicate.getMax(), context);
+            process(value, context);
+            process(predicate.getMin(), context);
+            process(predicate.getMax(), context);
+            List<Type> aligned = determineCollation(anchor, ImmutableList.of(value, predicate.getMin(), predicate.getMax()));
+            Type valueType = aligned.get(0);
+            Type minType = aligned.get(1);
+            Type maxType = aligned.get(2);
 
             Optional<Type> commonType = typeCoercion.getCommonSuperType(valueType, minType)
                     .flatMap(type -> typeCoercion.getCommonSuperType(type, maxType));
@@ -1396,14 +1492,20 @@ public class ExpressionAnalyzer
 
         private Type visitNullIfExpression(NullIfExpression node, Context context)
         {
-            Type firstType = process(node.getFirst(), context);
-            Type secondType = process(node.getSecond(), context);
+            Type resultType = process(node.getFirst(), context);
+            Type secondOperandType = process(node.getSecond(), context);
+            // The comparison uses the collations determined at each string position, while the result
+            // keeps the first operand's value and type, so the operands are compared without relabeling them
+            Optional<CollationShape> determined = determinedShape(node, ImmutableList.of(node.getFirst(), node.getSecond()));
+            Type firstType = determined.map(shape -> CollationShapes.applyTo(resultType, shape, plannerContext.getTypeManager())).orElse(resultType);
+            Type secondType = determined.map(shape -> CollationShapes.applyTo(secondOperandType, shape, plannerContext.getTypeManager())).orElse(secondOperandType);
+            inheritCollation(node, node.getFirst());
 
             Type comparisonType = typeCoercion.getCommonSuperType(firstType, secondType)
                     .orElseThrow(() -> semanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType));
             nullIfComparisonTypes.put(NodeRef.of(node), comparisonType);
 
-            return setExpressionType(node, firstType);
+            return setExpressionType(node, resultType);
         }
 
         private Type visitIfExpression(IfExpression node, Context context)
@@ -1416,6 +1518,7 @@ public class ExpressionAnalyzer
             }
             else {
                 type = process(node.getTrueValue(), context);
+                inheritCollation(node, node.getTrueValue());
             }
 
             return setExpressionType(node, type);
@@ -1432,6 +1535,7 @@ public class ExpressionAnalyzer
 
             Type type = coerceToSingleType(
                     context,
+                    node,
                     "All CASE results",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             setExpressionType(node, type);
@@ -1450,6 +1554,7 @@ public class ExpressionAnalyzer
 
             Type type = coerceToSingleType(
                     context,
+                    node,
                     "All CASE results",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             setExpressionType(node, type);
@@ -1507,16 +1612,25 @@ public class ExpressionAnalyzer
                 return;
             }
 
-            List<Type> valueTypes = new ArrayList<>(comparedValues.size());
-            Type commonType = operandType;
             for (Expression value : comparedValues) {
-                Type valueType = process(value, context);
-                valueTypes.add(valueType);
+                process(value, context);
+            }
+            // the operand is compared with every value, so they are compared under one collation
+            List<Type> aligned = determineCollation(node, ImmutableList.<Expression>builder()
+                    .add(operand)
+                    .addAll(comparedValues)
+                    .build());
+            Type alignedOperandType = aligned.getFirst();
+            List<Type> valueTypes = new ArrayList<>(aligned.subList(1, aligned.size()));
+            Type commonType = alignedOperandType;
+            for (int i = 0; i < comparedValues.size(); i++) {
+                Expression value = comparedValues.get(i);
+                Type valueType = valueTypes.get(i);
                 commonType = typeCoercion.getCommonSuperType(commonType, valueType)
-                        .orElseThrow(() -> semanticException(TYPE_MISMATCH, value, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, valueType));
+                        .orElseThrow(() -> semanticException(TYPE_MISMATCH, value, "CASE operand type does not match WHEN clause operand type: %s vs %s", alignedOperandType, valueType));
             }
 
-            if (commonType != operandType) {
+            if (!commonType.equals(operandType)) {
                 addOrReplaceExpressionCoercion(operand, commonType);
             }
             for (int i = 0; i < valueTypes.size(); i++) {
@@ -1553,7 +1667,7 @@ public class ExpressionAnalyzer
 
         private Type visitCoalesceExpression(CoalesceExpression node, Context context)
         {
-            Type type = coerceToSingleType(context, "All COALESCE operands", node.getOperands());
+            Type type = coerceToSingleType(context, node, "All COALESCE operands", node.getOperands());
 
             return setExpressionType(node, type);
         }
@@ -1601,6 +1715,13 @@ public class ExpressionAnalyzer
                 }
             }
 
+            // Pattern matching compares code points; which collations LIKE supports is
+            // implementation-defined (ISO/IEC 9075-2 8.5), and only the default collation is
+            Optional<Collation> collation = determinedCollation(anchor, ImmutableList.of(value, predicate.getPattern()));
+            if (collation.isPresent() && !collation.get().isDefault()) {
+                throw semanticException(NOT_SUPPORTED, anchor, "LIKE does not support collation %s", collation.get().name());
+            }
+
             return setExpressionType(anchor, BOOLEAN);
         }
 
@@ -1631,11 +1752,25 @@ public class ExpressionAnalyzer
                 if (indexValue > rowTypes.size()) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, node.getIndex(), "Subscript index out of bounds: %s, max value is %s", indexValue, rowTypes.size());
                 }
+                recordFieldShape(node, node.getBase(), indexValue - 1, rowTypes.get(indexValue - 1));
                 return setExpressionType(node, rowTypes.get(indexValue - 1));
             }
 
             // Subscript on Array or Map uses an operator to resolve Type.
-            return getOperator(context, node, SUBSCRIPT, node.getBase(), node.getIndex());
+            if (baseType instanceof MapType) {
+                // a map subscript compares the index with the keys
+                Type indexType = process(node.getIndex(), context);
+                if (shape(node.getBase()) instanceof MapShape(CollationShape key, CollationShape _) && indexType instanceof VarcharType) {
+                    determineKeyCollation(node, key, node.getIndex());
+                }
+            }
+            Type type = getOperator(context, node, SUBSCRIPT, node.getBase(), node.getIndex());
+            switch (shape(node.getBase())) {
+                case ArrayShape(CollationShape element) -> recordShape(node, element, type);
+                case MapShape(CollationShape _, CollationShape value) -> recordShape(node, value, type);
+                default -> {}
+            }
+            return type;
         }
 
         private Type visitArrayWildcardSubscript(ArrayWildcardSubscript node, Context context)
@@ -1655,14 +1790,18 @@ public class ExpressionAnalyzer
 
         private Type visitArray(Array node, Context context)
         {
-            Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
+            Type type = coerceToSingleType(context, node, "All ARRAY elements", node.getValues());
             Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeDescriptor())));
+            // coerceToSingleType records the elements' combined shape on the array node
+            CollationShape element = Optional.ofNullable(collationDerivations.remove(NodeRef.of(node))).orElseGet(() -> CollationShapes.implicit(type));
+            recordShape(node, new ArrayShape(element), arrayType);
             return setExpressionType(node, arrayType);
         }
 
         private Type visitStringLiteral(StringLiteral node)
         {
             VarcharType type = VarcharType.createVarcharType(node.length());
+            collationDerivations.put(NodeRef.of(node), new Leaf(Collated.coercible()));
             return setExpressionType(node, type);
         }
 
@@ -1906,7 +2045,7 @@ public class ExpressionAnalyzer
             }
 
             List<Expression> argumentValues = node.argumentValues();
-            List<TypeDescriptorProvider> rawTypes = getCallArgumentTypes(argumentValues, context);
+            List<TypeDescriptorProvider> rawTypes = alignArgumentCollations(node, findCandidates(node.getName()), argumentValues, getCallArgumentTypes(argumentValues, context));
             // rawTypes may be shorter than the AST argument count when a `label.*`
             // entry is consumed by getCallArgumentTypes; bind to rawTypes.size() so
             // identity-binding of positional calls still indexes safely.
@@ -1954,10 +2093,25 @@ public class ExpressionAnalyzer
             if (node.getArguments().size() > 127) {
                 throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.signature().getName().functionName());
             }
+            checkArgumentCollations(node, function, argumentBinding.stream()
+                    .map(index -> argumentValues.get(index))
+                    .collect(toImmutableList()));
+            recordLambdaArgumentShapes(function, argumentBinding.stream()
+                    .map(index -> argumentValues.get(index))
+                    .collect(toImmutableList()));
 
+            if (isAggregation) {
+                // An aggregation can compare its arguments, for DISTINCT or for an order-dependent
+                // result such as max, so a string argument needs a collation
+                node.getArguments().stream()
+                        .map(CallArgument::getValue)
+                        .filter(argument -> !(argument instanceof LambdaExpression))
+                        .forEach(this::requireCollation);
+            }
             if (node.getOrderBy().isPresent()) {
                 for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
                     Type sortKeyType = process(sortItem.getSortKey(), context);
+                    requireCollation(sortItem.getSortKey());
                     if (!sortKeyType.isOrderable()) {
                         throw semanticException(TYPE_MISMATCH, node, "ORDER BY can only be applied to orderable types (actual: %s)", sortKeyType.getDisplayName());
                     }
@@ -1965,6 +2119,10 @@ public class ExpressionAnalyzer
             }
 
             BoundSignature signature = function.signature();
+            Optional<Collated> resultCollation = stringResultCollation(node, signature.getReturnType(), node.getArguments().stream()
+                    .map(CallArgument::getValue)
+                    .filter(argument -> !(argument instanceof LambdaExpression))
+                    .collect(toImmutableList()));
             for (int i = 0; i < argumentTypes.size(); i++) {
                 Expression expression = node.getArguments().get(argumentBinding.get(i)).getValue();
                 Type expectedType = signature.getArgumentTypes().get(i);
@@ -1991,8 +2149,54 @@ public class ExpressionAnalyzer
                 analyzePatternAggregation(node, function);
             }
 
-            Type type = signature.getReturnType();
+            Type resultType = setStringResultType(node, signature.getReturnType(), resultCollation);
+            recordResultShape(node, function, resultType);
+            return resultType;
+        }
+
+        /// Sets a call's type: its declared result type, or for a string result whose collation
+        /// derives from its arguments, the declared type in that collation.
+        private Type setStringResultType(Expression node, Type returnType, Optional<Collated> resultCollation)
+        {
+            Type type = resultCollation
+                    .map(collated -> relabelStringResult(node, returnType, collated))
+                    .orElse(returnType);
             return setExpressionType(node, type);
+        }
+
+        /// The collation of a string function's result: a function declared over default-collation
+        /// types returns its result in the combination of its string arguments' collations. Empty
+        /// when the result keeps its declared type.
+        private Optional<Collated> stringResultCollation(Expression node, Type returnType, List<Expression> arguments)
+        {
+            if (!(returnType instanceof VarcharType varcharType) || !varcharType.getCollation().isDefault()) {
+                return Optional.empty();
+            }
+            List<Expression> stringArguments = arguments.stream()
+                    .filter(argument -> getEffectiveType(argument) instanceof VarcharType)
+                    .collect(toImmutableList());
+            List<Collated> collated = stringArguments.stream()
+                    .map(this::collated)
+                    .flatMap(Optional::stream)
+                    .collect(toImmutableList());
+            if (collated.stream().allMatch(value -> value.derivation() != Derivation.NONE && value.collation().isDefault())) {
+                return Optional.empty();
+            }
+            try {
+                return Optional.of(CollationSemantics.combine(collated));
+            }
+            catch (CollationConflictException e) {
+                throw collationMismatch(node, e);
+            }
+        }
+
+        /// Records a string function result's collation and returns the result's type in it. The
+        /// call is typed in the collation, while its resolved function returns the declared type;
+        /// translation relabels the call's result to the collated type.
+        private Type relabelStringResult(Expression node, Type returnType, Collated collated)
+        {
+            collationDerivations.put(NodeRef.of(node), new Leaf(collated));
+            return ((VarcharType) returnType).withCollation(collated.collation());
         }
 
         /// Computes the binding from signature-position to AST argument index. Returns the
@@ -2343,7 +2547,19 @@ public class ExpressionAnalyzer
                 throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for method call .%s()", methodName);
             }
 
+            checkArgumentCollations(node, resolution.function(), ImmutableList.<Expression>builder()
+                    .add(receiver)
+                    .addAll(arguments)
+                    .build());
+            recordLambdaArgumentShapes(resolution.function(), ImmutableList.<Expression>builder()
+                    .add(receiver)
+                    .addAll(arguments)
+                    .build());
             BoundSignature signature = resolution.function().signature();
+            Optional<Collated> resultCollation = stringResultCollation(node, signature.getReturnType(), ImmutableList.<Expression>builder()
+                    .add(receiver)
+                    .addAll(arguments.stream().filter(argument -> !(argument instanceof LambdaExpression)).iterator())
+                    .build());
             Type expectedReceiverType = signature.getArgumentTypes().getFirst();
             coerceType(receiver, receiverType, expectedReceiverType, format("Method .%s receiver", methodName));
             // Slot 0 of the signature is the receiver (self), so user-visible argument i maps to signature slot i + 1.
@@ -2360,7 +2576,9 @@ public class ExpressionAnalyzer
                 }
             }
             resolvedFunctions.put(NodeRef.of(node), resolution.function());
-            return setExpressionType(node, signature.getReturnType());
+            Type resultType = setStringResultType(node, signature.getReturnType(), resultCollation);
+            recordResultShape(node, resolution.function(), resultType);
+            return resultType;
         }
 
         private record MethodResolution(ResolvedFunction function, List<TypeDescriptorProvider> argumentTypes) {}
@@ -2412,6 +2630,9 @@ public class ExpressionAnalyzer
             }
 
             BoundSignature signature = function.signature();
+            Optional<Collated> resultCollation = stringResultCollation(node, signature.getReturnType(), argumentValues.stream()
+                    .filter(argument -> !(argument instanceof LambdaExpression))
+                    .collect(toImmutableList()));
             for (int i = 0; i < argumentTypes.size(); i++) {
                 Expression expression = argumentValues.get(i);
                 Type expectedType = signature.getArgumentTypes().get(i);
@@ -2426,7 +2647,7 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
             argumentBindings.put(NodeRef.<Expression>of(node), binding);
-            return setExpressionType(node, signature.getReturnType());
+            return setStringResultType(node, signature.getReturnType(), resultCollation);
         }
 
         private void analyzeWindow(ResolvedWindow window, Context context, Node originalNode)
@@ -2450,6 +2671,7 @@ public class ExpressionAnalyzer
             if (!window.isPartitionByInherited()) {
                 for (Expression expression : window.getPartitionBy()) {
                     process(expression, context);
+                    requireCollation(expression);
                     Type type = getExpressionType(expression);
                     if (!type.isComparable()) {
                         throw semanticException(TYPE_MISMATCH, expression, "%s is not comparable, and therefore cannot be used in window function PARTITION BY", type);
@@ -2465,6 +2687,7 @@ public class ExpressionAnalyzer
             if (!window.isOrderByInherited()) {
                 for (SortItem sortItem : getSortItemsFromOrderBy(window.getOrderBy())) {
                     process(sortItem.getSortKey(), context);
+                    requireCollation(sortItem.getSortKey());
                     Type type = getExpressionType(sortItem.getSortKey());
                     if (!type.isOrderable()) {
                         throw semanticException(TYPE_MISMATCH, sortItem, "%s is not orderable, and therefore cannot be used in window function ORDER BY", type);
@@ -3148,6 +3371,718 @@ public class ExpressionAnalyzer
             return setExpressionType(node, resultType);
         }
 
+        private Type visitCollateExpression(CollateExpression node, Context context)
+        {
+            Type valueType = process(node.getValue(), context);
+            VarcharType varcharType;
+            if (valueType instanceof VarcharType type) {
+                varcharType = type;
+            }
+            else if (valueType.equals(UNKNOWN)) {
+                varcharType = VARCHAR;
+                addOrReplaceExpressionCoercion(node.getValue(), varcharType);
+            }
+            else {
+                throw semanticException(TYPE_MISMATCH, node.getValue(), "COLLATE requires a varchar value (actual %s)", valueType);
+            }
+            String name = TypeDescriptorTranslator.canonicalize(node.getCollation());
+            Collation collation = collationRegistry().findCollation(name)
+                    .orElseThrow(() -> semanticException(COLLATION_NOT_FOUND, node.getCollation(), "Collation not found: %s", name));
+            collationDerivations.put(NodeRef.of(node), new Leaf(Collated.explicit(collation)));
+            return setExpressionType(node, varcharType.withCollation(collation));
+        }
+
+        private Type visitCollationFor(CollationFor node, Context context)
+        {
+            Type valueType = process(node.getValue(), context);
+            if (!(valueType instanceof VarcharType)) {
+                throw semanticException(TYPE_MISMATCH, node.getValue(), "COLLATION FOR requires a varchar value (actual %s)", valueType);
+            }
+            // a value of derivation none has no collation
+            determineCollation(node, ImmutableList.of(node.getValue()));
+            return setExpressionType(node, VARCHAR);
+        }
+
+        /// The derivations of the strings an expression's value contains, seen through its
+        /// effective type.
+        private CollationShape shape(Expression expression)
+        {
+            Type type = getEffectiveType(expression);
+            CollationShape recorded = collationDerivations.get(NodeRef.of(expression));
+            if (recorded == null) {
+                return CollationShapes.implicit(type);
+            }
+            // a relabeled operand keeps its derivations and has the collations it was relabeled to
+            return CollationShapes.reconcile(recorded, type);
+        }
+
+        /// The collation and derivation of a character string expression, or empty for other types.
+        private Optional<Collated> collated(Expression expression)
+        {
+            if (shape(expression) instanceof Leaf(Collated collated)) {
+                return Optional.of(collated);
+            }
+            return Optional.empty();
+        }
+
+        private Type getEffectiveType(Expression expression)
+        {
+            Type coercion = expressionCoercions.get(NodeRef.of(expression));
+            if (coercion != null) {
+                return coercion;
+            }
+            return getExpressionType(expression);
+        }
+
+        /// Applies collation determination to the operands of a comparison, at each string
+        /// position of composite operands, failing when their collations conflict, and relabels
+        /// operands to the determined collations. Returns the operand types after relabeling.
+        private List<Type> determineCollation(Expression anchor, List<Expression> operands)
+        {
+            Optional<CollationShape> determined = determinedShape(anchor, operands);
+            if (determined.isEmpty()) {
+                return operands.stream().map(this::getEffectiveType).collect(toImmutableList());
+            }
+            return relabel(operands, determined.get());
+        }
+
+        /// The collation determined for comparing character string operands, or empty when no
+        /// operand is a collated string, so that no relabeling is needed.
+        private Optional<Collation> determinedCollation(Expression anchor, List<Expression> operands)
+        {
+            return determinedShape(anchor, operands)
+                    .filter(Leaf.class::isInstance)
+                    .map(shape -> ((Leaf) shape).collated().collation());
+        }
+
+        private Optional<CollationShape> determinedShape(Expression anchor, List<Expression> operands)
+        {
+            List<CollationShape> shapes = operands.stream()
+                    .map(this::shape)
+                    .collect(toImmutableList());
+            boolean trivial = true;
+            for (int i = 0; i < operands.size(); i++) {
+                trivial &= CollationShapes.isTrivial(shapes.get(i), getEffectiveType(operands.get(i)));
+            }
+            if (trivial) {
+                return Optional.empty();
+            }
+            CollationShape determined;
+            try {
+                determined = CollationSemantics.determineShapes(shapes);
+            }
+            catch (CollationConflictException e) {
+                throw collationMismatch(anchor, e);
+            }
+            rejectCollatedWithChar(anchor, operands.stream().map(this::getEffectiveType).collect(toImmutableList()));
+            return Optional.of(determined);
+        }
+
+        /// Fails when collated strings would be compared with a char. A char has no collation, and
+        /// comparing it with a collated string would compare code points: `'a' COLLATE unicode_ci`
+        /// would not equal `CAST('A' AS char(1))`.
+        private void rejectCollatedWithChar(Node anchor, List<Type> operandTypes)
+        {
+            boolean collated = operandTypes.stream().anyMatch(type -> hasNonDefaultCollation(type));
+            if (collated && operandTypes.stream().anyMatch(type -> containsChar(type))) {
+                throw semanticException(COLLATION_MISMATCH, anchor, "A collated string cannot be compared with a char; cast the char to varchar");
+            }
+        }
+
+        private static boolean containsChar(Type type)
+        {
+            return type instanceof CharType || type.getTypeParameters().stream().anyMatch(parameter -> containsChar(parameter));
+        }
+
+        private static Type withCollation(Type type, Collation collation)
+        {
+            if (type instanceof VarcharType varcharType) {
+                return varcharType.withCollation(collation);
+            }
+            return type;
+        }
+
+        /// Applies the result of data type combinations to operands that combine into one value,
+        /// at each string position, relabels operands to the combined collations, and returns the
+        /// operand types after relabeling together with the shape of the result.
+        private CombinedCollation combineCollations(Expression anchor, List<Expression> operands)
+        {
+            List<CollationShape> shapes = operands.stream()
+                    .map(this::shape)
+                    .collect(toImmutableList());
+            CollationShape combined;
+            try {
+                combined = CollationSemantics.combineShapes(shapes);
+            }
+            catch (CollationConflictException e) {
+                throw collationMismatch(anchor, e);
+            }
+            if (combined == CollationShape.Opaque.OPAQUE) {
+                return new CombinedCollation(operands.stream().map(this::getEffectiveType).collect(toImmutableList()), Optional.empty());
+            }
+            // Operands whose implicit collations differ combine into the default-collation type with
+            // derivation none, which prevents comparing the result
+            return new CombinedCollation(relabel(operands, combined), Optional.of(combined));
+        }
+
+        private List<Type> relabel(List<Expression> operands, CollationShape shape)
+        {
+            ImmutableList.Builder<Type> types = ImmutableList.builder();
+            for (Expression operand : operands) {
+                Type type = getEffectiveType(operand);
+                Type relabeled = CollationShapes.applyTo(type, shape, plannerContext.getTypeManager());
+                if (relabeled != type) {
+                    addOrReplaceExpressionCoercion(operand, relabeled);
+                }
+                types.add(relabeled);
+            }
+            return types.build();
+        }
+
+        private TrinoException collationMismatch(Expression anchor, CollationConflictException e)
+        {
+            if (e.derivation() == Derivation.EXPLICIT) {
+                return semanticException(COLLATION_MISMATCH, anchor, "Explicit collations %s conflict", e.collations());
+            }
+            return semanticException(COLLATION_MISMATCH, anchor, "Collations %s conflict; use COLLATE to choose a collation", e.collations());
+        }
+
+        private record CombinedCollation(List<Type> types, Optional<CollationShape> shape) {}
+
+        /// Records the shape of a node's value, when it differs from the implicit shape of its type.
+        private void recordShape(Expression node, CollationShape shape, Type type)
+        {
+            if (!shape.equals(CollationShapes.implicit(type))) {
+                collationDerivations.put(NodeRef.of(node), shape);
+            }
+        }
+
+        /// Aligns the collations of a call's arguments before the function is resolved, so that a
+        /// declaration over a type variable unifies arguments whose strings would combine into one
+        /// collation, such as a collated array and a literal element. The strings bound to each
+        /// type variable combine separately, so a map's keys and values keep their own collations.
+        /// Strings whose implicit collations differ are left as they are, and fail where they are
+        /// compared. Only positions that every candidate declaration binds to the same variable are
+        /// aligned, so an overload is never chosen by relabeling.
+        private List<TypeDescriptorProvider> alignArgumentCollations(Expression node, List<FunctionMetadata> candidates, List<Expression> arguments, List<TypeDescriptorProvider> argumentTypes)
+        {
+            if (argumentTypes.size() != arguments.size() || candidates.isEmpty()) {
+                // a label.* argument is consumed; such calls take no strings to align
+                return argumentTypes;
+            }
+            List<Expression> values = arguments.stream()
+                    .filter(argument -> !(argument instanceof LambdaExpression))
+                    .collect(toImmutableList());
+            if (values.size() < 2 || values.stream().allMatch(value -> CollationShapes.isTrivial(shape(value), getEffectiveType(value)) && !hasCoercible(shape(value)))) {
+                return argumentTypes;
+            }
+            // the shape template of each argument, shared by every candidate: the variable bound at
+            // each string position, or empty when the candidates disagree
+            // only declarations whose formal types can accept the arguments' structures take part
+            List<Type> types = arguments.stream()
+                    .map(argument -> argument instanceof LambdaExpression ? null : getEffectiveType(argument))
+                    .collect(toList());
+            List<FunctionMetadata> applicable = candidates.stream()
+                    .filter(candidate -> fits(candidate.getSignature(), types))
+                    .collect(toImmutableList());
+            List<Optional<VariableTemplate>> templates = new ArrayList<>();
+            for (int i = 0; i < arguments.size(); i++) {
+                templates.add(sharedTemplate(applicable, i, arguments.size()));
+            }
+            Map<String, List<Collated>> bound = new LinkedHashMap<>();
+            for (int i = 0; i < arguments.size(); i++) {
+                if (arguments.get(i) instanceof LambdaExpression || templates.get(i).isEmpty()) {
+                    continue;
+                }
+                bindLeaves(templates.get(i).get(), shape(arguments.get(i)), bound);
+            }
+            Map<String, Collation> targets = new LinkedHashMap<>();
+            for (Map.Entry<String, List<Collated>> entry : bound.entrySet()) {
+                if (entry.getValue().size() < 2) {
+                    continue;
+                }
+                Collated combined;
+                try {
+                    combined = CollationSemantics.combine(entry.getValue());
+                }
+                catch (CollationConflictException e) {
+                    throw collationMismatch(node, e);
+                }
+                if (combined.derivation() != Derivation.NONE) {
+                    targets.put(entry.getKey(), combined.collation());
+                }
+            }
+            if (targets.isEmpty()) {
+                return argumentTypes;
+            }
+            ImmutableList.Builder<TypeDescriptorProvider> aligned = ImmutableList.builder();
+            for (int i = 0; i < arguments.size(); i++) {
+                Expression argument = arguments.get(i);
+                if (argument instanceof LambdaExpression || templates.get(i).isEmpty()) {
+                    aligned.add(argumentTypes.get(i));
+                    continue;
+                }
+                Type type = getEffectiveType(argument);
+                Type relabeled = CollationShapes.applyTo(type, targetShape(templates.get(i).get(), shape(argument), targets), plannerContext.getTypeManager());
+                if (relabeled != type) {
+                    addOrReplaceExpressionCoercion(argument, relabeled);
+                }
+                aligned.add(new TypeDescriptorProvider(relabeled.getTypeDescriptor()));
+            }
+            return aligned.build();
+        }
+
+        // the structure of a formal argument type that binds strings: a type variable, a composite
+        // of such, or a position that binds none
+        private sealed interface VariableTemplate
+        {
+            record Variable(String name)
+                    implements VariableTemplate {}
+
+            record Composite(String base, List<VariableTemplate> parameters)
+                    implements VariableTemplate {}
+
+            record Unbound()
+                    implements VariableTemplate {}
+        }
+
+        // whether each formal can accept the argument's type structurally: a type variable accepts
+        // any type, and a type application accepts a type of the same base whose nested types fit
+        private static boolean fits(Signature signature, List<Type> types)
+        {
+            List<TypeTemplate> formals = signature.getArgumentTypes();
+            if (formals.isEmpty() || (!signature.isVariableArity() && formals.size() != types.size())) {
+                return false;
+            }
+            for (int i = 0; i < types.size(); i++) {
+                Type type = types.get(i);
+                if (type != null && !fits(formals.get(Math.min(i, formals.size() - 1)), type)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static boolean fits(TypeTemplate formal, Type type)
+        {
+            return switch (formal) {
+                case TypeTemplate.TypeVariable _ -> true;
+                case TypeTemplate.TypeApplication(String base, List<TemplateParameter> parameters) -> {
+                    if (type.equals(UNKNOWN)) {
+                        yield true;
+                    }
+                    if (!base.equalsIgnoreCase(type.getTypeDescriptor().getBase())) {
+                        yield false;
+                    }
+                    List<TypeTemplate> nested = parameters.stream()
+                            .filter(TemplateParameter.TypeArgument.class::isInstance)
+                            .map(parameter -> ((TemplateParameter.TypeArgument) parameter).type())
+                            .collect(toImmutableList());
+                    List<Type> nestedTypes = type.getTypeParameters();
+                    if (nested.isEmpty() || nested.size() != nestedTypes.size()) {
+                        yield true;
+                    }
+                    for (int i = 0; i < nested.size(); i++) {
+                        if (!fits(nested.get(i), nestedTypes.get(i))) {
+                            yield false;
+                        }
+                    }
+                    yield true;
+                }
+            };
+        }
+
+        private static Optional<VariableTemplate> sharedTemplate(List<FunctionMetadata> candidates, int argument, int arity)
+        {
+            Optional<VariableTemplate> shared = Optional.empty();
+            for (FunctionMetadata candidate : candidates) {
+                List<TypeTemplate> formals = candidate.getSignature().getArgumentTypes();
+                if (formals.isEmpty() || (!candidate.getSignature().isVariableArity() && formals.size() != arity)) {
+                    continue;
+                }
+                VariableTemplate template = variableTemplate(formals.get(Math.min(argument, formals.size() - 1)));
+                if (shared.isPresent() && !shared.get().equals(template)) {
+                    return Optional.empty();
+                }
+                shared = Optional.of(template);
+            }
+            return shared;
+        }
+
+        private static VariableTemplate variableTemplate(TypeTemplate formal)
+        {
+            return switch (formal) {
+                case TypeTemplate.TypeVariable(String name) -> new VariableTemplate.Variable(name);
+                case TypeTemplate.TypeApplication(String base, List<TemplateParameter> parameters) -> {
+                    List<VariableTemplate> nested = parameters.stream()
+                            .filter(TemplateParameter.TypeArgument.class::isInstance)
+                            .map(parameter -> variableTemplate(((TemplateParameter.TypeArgument) parameter).type()))
+                            .collect(toImmutableList());
+                    yield nested.stream().allMatch(VariableTemplate.Unbound.class::isInstance)
+                            ? new VariableTemplate.Unbound()
+                            : new VariableTemplate.Composite(base, nested);
+                }
+            };
+        }
+
+        // the leaves of an argument's shape at each variable of its template
+        private static void bindLeaves(VariableTemplate template, CollationShape shape, Map<String, List<Collated>> bound)
+        {
+            switch (template) {
+                case VariableTemplate.Variable(String name) -> bound.computeIfAbsent(name, _ -> new ArrayList<>()).addAll(leaves(shape));
+                case VariableTemplate.Composite(String _, List<VariableTemplate> parameters) -> {
+                    List<CollationShape> nested = nestedShapes(shape);
+                    if (nested.size() == parameters.size()) {
+                        for (int i = 0; i < parameters.size(); i++) {
+                            bindLeaves(parameters.get(i), nested.get(i), bound);
+                        }
+                    }
+                }
+                case VariableTemplate.Unbound _ -> {}
+            }
+        }
+
+        // the shape with the strings bound to each aligned variable set to its collation
+        private static CollationShape targetShape(VariableTemplate template, CollationShape shape, Map<String, Collation> targets)
+        {
+            return switch (template) {
+                case VariableTemplate.Variable(String name) -> {
+                    Collation target = targets.get(name);
+                    yield target == null ? shape : uniform(shape, new Leaf(Collated.implicit(target)));
+                }
+                case VariableTemplate.Composite(String _, List<VariableTemplate> parameters) -> {
+                    List<CollationShape> nested = nestedShapes(shape);
+                    if (nested.size() != parameters.size()) {
+                        yield shape;
+                    }
+                    List<CollationShape> relabeled = new ArrayList<>();
+                    for (int i = 0; i < parameters.size(); i++) {
+                        relabeled.add(targetShape(parameters.get(i), nested.get(i), targets));
+                    }
+                    yield switch (shape) {
+                        case ArrayShape _ -> new ArrayShape(relabeled.getFirst());
+                        case MapShape _ -> new MapShape(relabeled.get(0), relabeled.get(1));
+                        case RowShape _ -> new RowShape(relabeled);
+                        default -> shape;
+                    };
+                }
+                case VariableTemplate.Unbound _ -> shape;
+            };
+        }
+
+        private static List<CollationShape> nestedShapes(CollationShape shape)
+        {
+            return switch (shape) {
+                case ArrayShape(CollationShape element) -> ImmutableList.of(element);
+                case MapShape(CollationShape key, CollationShape value) -> ImmutableList.of(key, value);
+                case RowShape(List<CollationShape> fields) -> fields;
+                default -> ImmutableList.of();
+            };
+        }
+
+        // the type with every string it contains in the target leaf's collation
+        private Type relabelStrings(Type type, CollationShape target)
+        {
+            return CollationShapes.applyTo(type, uniform(CollationShapes.implicit(type), target), plannerContext.getTypeManager());
+        }
+
+        private static CollationShape uniform(CollationShape shape, CollationShape leaf)
+        {
+            return switch (shape) {
+                case Leaf _ -> leaf;
+                case ArrayShape(CollationShape element) -> new ArrayShape(uniform(element, leaf));
+                case MapShape(CollationShape key, CollationShape value) -> new MapShape(uniform(key, leaf), uniform(value, leaf));
+                case RowShape(List<CollationShape> fields) -> new RowShape(fields.stream().map(field -> uniform(field, leaf)).collect(toImmutableList()));
+                case CollationShape.Opaque opaque -> opaque;
+            };
+        }
+
+        private static boolean hasCoercible(CollationShape shape)
+        {
+            return leaves(shape).stream().anyMatch(collated -> collated.derivation() == Derivation.COERCIBLE);
+        }
+
+        private static List<Collated> leaves(CollationShape shape)
+        {
+            return switch (shape) {
+                case Leaf(Collated collated) -> ImmutableList.of(collated);
+                case ArrayShape(CollationShape element) -> leaves(element);
+                case MapShape(CollationShape key, CollationShape value) -> ImmutableList.<Collated>builder().addAll(leaves(key)).addAll(leaves(value)).build();
+                case RowShape(List<CollationShape> fields) -> fields.stream().flatMap(field -> leaves(field).stream()).collect(toImmutableList());
+                case CollationShape.Opaque _ -> ImmutableList.of();
+            };
+        }
+
+        /// Checks the collations of a resolved call's arguments. A function that compares values
+        /// of a type variable, such as `contains` or `greatest`, compares the strings they contain,
+        /// so those strings need a collation. A string function declared over default-collation
+        /// strings that searches or compares its arguments' contents cannot apply another
+        /// collation, so it does not accept a non-default one.
+        private void checkArgumentCollations(Expression node, ResolvedFunction function, List<Expression> arguments)
+        {
+            List<Expression> values = arguments.stream()
+                    .filter(argument -> !(argument instanceof LambdaExpression))
+                    .collect(toImmutableList());
+            if (values.stream().allMatch(value -> CollationShapes.isTrivial(shape(value), getEffectiveType(value)) && !hasCoercible(shape(value)))) {
+                return;
+            }
+            Signature declared = plannerContext.getMetadata().getDeclaredSignature(session, function);
+            argumentResultShapes.put(NodeRef.of(node), variableShapes(declared, arguments));
+            if (values.stream().allMatch(value -> CollationShapes.isTrivial(shape(value), getEffectiveType(value)))) {
+                // only coercible strings, whose derivation the result keeps
+                return;
+            }
+            String name = function.signature().getName().functionName();
+            if (isBuiltinFunction(function) && COLLATION_BLIND_COMPARISONS.contains(name) && values.stream().anyMatch(value -> hasNonDefaultCollation(getEffectiveType(value)) || shape(value).firstNone().isPresent())) {
+                throw semanticException(NOT_SUPPORTED, node, "%s does not support collated strings; cast them to varchar to compare code points", name);
+            }
+            Set<String> compared = ImmutableSet.<String>builder()
+                    .addAll(declared.getTypeVariableConstraints().stream()
+                            .filter(constraint -> constraint.isComparableRequired() || constraint.isOrderableRequired())
+                            .map(TypeVariableConstraint::getName)
+                            .iterator())
+                    .addAll(comparedByOperators(function))
+                    .build();
+            if (compared.isEmpty()) {
+                return;
+            }
+            ImmutableList.Builder<CollationShape> shapes = ImmutableList.builder();
+            List<TypeTemplate> formals = declared.getArgumentTypes();
+            for (int i = 0; i < arguments.size(); i++) {
+                Expression argument = arguments.get(i);
+                if (argument instanceof LambdaExpression) {
+                    continue;
+                }
+                TypeTemplate formal = formals.get(Math.min(i, formals.size() - 1));
+                collectVariableShapes(formal, shape(argument), compared, shapes);
+            }
+            try {
+                CollationSemantics.determineShapes(shapes.build());
+            }
+            catch (CollationConflictException e) {
+                throw collationMismatch(node, e);
+            }
+            rejectCollatedWithChar(node, values.stream().map(this::getEffectiveType).collect(toImmutableList()));
+        }
+
+        /// Records, for each lambda argument of a call, the shapes of the values its parameters
+        /// receive, from the type variables the declared function type binds them to. A lambda
+        /// over the elements of an array whose strings have derivation none therefore receives
+        /// strings with derivation none, which fail where the lambda compares them.
+        private void recordLambdaArgumentShapes(ResolvedFunction function, List<Expression> arguments)
+        {
+            if (arguments.stream().noneMatch(LambdaExpression.class::isInstance)) {
+                return;
+            }
+            List<Expression> values = arguments.stream()
+                    .filter(argument -> !(argument instanceof LambdaExpression))
+                    .collect(toImmutableList());
+            if (values.stream().allMatch(value -> CollationShapes.isTrivial(shape(value), getEffectiveType(value)) && !hasCoercible(shape(value)))) {
+                return;
+            }
+            Signature declared = plannerContext.getMetadata().getDeclaredSignature(session, function);
+            Map<String, CollationShape> variables = variableShapes(declared, arguments);
+            List<TypeTemplate> formals = declared.getArgumentTypes();
+            for (int i = 0; i < arguments.size() && !formals.isEmpty(); i++) {
+                if (!(arguments.get(i) instanceof LambdaExpression lambda)) {
+                    continue;
+                }
+                TypeTemplate formal = formals.get(Math.min(i, formals.size() - 1));
+                if (!(formal instanceof TypeTemplate.TypeApplication(String base, List<TemplateParameter> parameters)) || !base.equals(FunctionType.NAME)) {
+                    continue;
+                }
+                List<TypeTemplate> functionParameters = parameters.stream()
+                        .filter(TemplateParameter.TypeArgument.class::isInstance)
+                        .map(parameter -> ((TemplateParameter.TypeArgument) parameter).type())
+                        .collect(toImmutableList());
+                // the last parameter of a function type is its result
+                List<CollationShape> inputShapes = functionParameters.subList(0, Math.max(0, functionParameters.size() - 1)).stream()
+                        .map(parameter -> substitute(parameter, variables))
+                        .collect(toImmutableList());
+                lambdaArgumentShapes.put(NodeRef.of(lambda), inputShapes);
+            }
+        }
+
+        private static boolean isBuiltinFunction(ResolvedFunction function)
+        {
+            return function.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE);
+        }
+
+        // the type variables a function compares through declared comparison operator dependencies,
+        // such as the EQUAL on the keys that element_at uses to find a map entry
+        private Set<String> comparedByOperators(ResolvedFunction function)
+        {
+            if (isTrinoSqlLanguageFunction(function.functionId())) {
+                return ImmutableSet.of();
+            }
+            FunctionDependencyDeclaration dependencies = plannerContext.getMetadata().getFunctionDependencies(session, function.catalogHandle(), function.functionId(), function.signature());
+            return dependencies.getOperatorDependencies().stream()
+                    .filter(dependency -> COMPARISON_OPERATORS.contains(dependency.getOperatorType()))
+                    .flatMap(dependency -> dependency.getArgumentTypes().stream())
+                    .filter(TypeTemplate.TypeVariable.class::isInstance)
+                    .map(argument -> ((TypeTemplate.TypeVariable) argument).name())
+                    .collect(toImmutableSet());
+        }
+
+        // the combined shape of the arguments at each type variable of the declared signature
+        private Map<String, CollationShape> variableShapes(Signature declared, List<Expression> arguments)
+        {
+            Set<String> variables = declared.getTypeVariableConstraints().stream()
+                    .map(TypeVariableConstraint::getName)
+                    .collect(toImmutableSet());
+            Map<String, ImmutableList.Builder<CollationShape>> shapes = new LinkedHashMap<>();
+            List<TypeTemplate> formals = declared.getArgumentTypes();
+            for (int i = 0; i < arguments.size() && !formals.isEmpty(); i++) {
+                Expression argument = arguments.get(i);
+                if (argument instanceof LambdaExpression) {
+                    continue;
+                }
+                TypeTemplate formal = formals.get(Math.min(i, formals.size() - 1));
+                for (String variable : variables) {
+                    ImmutableList.Builder<CollationShape> found = ImmutableList.builder();
+                    collectVariableShapes(formal, shape(argument), ImmutableSet.of(variable), found);
+                    shapes.computeIfAbsent(variable, _ -> ImmutableList.builder()).addAll(found.build());
+                }
+            }
+            ImmutableMap.Builder<String, CollationShape> combined = ImmutableMap.builder();
+            shapes.forEach((variable, found) -> {
+                try {
+                    combined.put(variable, CollationSemantics.combineShapes(found.build()));
+                }
+                catch (CollationConflictException e) {
+                    // the conflict is reported where the values are compared
+                    combined.put(variable, CollationShape.Opaque.OPAQUE);
+                }
+            });
+            return combined.buildOrThrow();
+        }
+
+        // the shape of a declared result type, given the shapes of its type variables
+        private static CollationShape substitute(TypeTemplate template, Map<String, CollationShape> variables)
+        {
+            return switch (template) {
+                case TypeTemplate.TypeVariable(String name) -> variables.getOrDefault(name, CollationShape.Opaque.OPAQUE);
+                case TypeTemplate.TypeApplication(String base, List<TemplateParameter> parameters) -> {
+                    List<CollationShape> nested = parameters.stream()
+                            .filter(TemplateParameter.TypeArgument.class::isInstance)
+                            .map(parameter -> substitute(((TemplateParameter.TypeArgument) parameter).type(), variables))
+                            .collect(toImmutableList());
+                    if (nested.stream().allMatch(shape -> shape == CollationShape.Opaque.OPAQUE)) {
+                        yield CollationShape.Opaque.OPAQUE;
+                    }
+                    yield switch (base) {
+                        case StandardTypes.ARRAY -> nested.size() == 1 ? new ArrayShape(nested.getFirst()) : CollationShape.Opaque.OPAQUE;
+                        case StandardTypes.MAP -> nested.size() == 2 ? new MapShape(nested.get(0), nested.get(1)) : CollationShape.Opaque.OPAQUE;
+                        case StandardTypes.ROW -> new RowShape(nested);
+                        default -> CollationShape.Opaque.OPAQUE;
+                    };
+                }
+            };
+        }
+
+        /// Records the shape of a call's result when its declared result type is built from type
+        /// variables bound by its arguments, so that the result carries the arguments' derivations.
+        private void recordResultShape(Expression node, ResolvedFunction function, Type resultType)
+        {
+            Map<String, CollationShape> variables = argumentResultShapes.remove(NodeRef.of(node));
+            if (variables == null || variables.isEmpty() || collationDerivations.containsKey(NodeRef.of(node))) {
+                return;
+            }
+            Signature declared = plannerContext.getMetadata().getDeclaredSignature(session, function);
+            CollationShape shape = substitute(declared.getReturnType(), variables);
+            if (shape != CollationShape.Opaque.OPAQUE) {
+                recordShape(node, CollationShapes.reconcile(shape, resultType), resultType);
+            }
+        }
+
+        // the argument shapes found at the positions of the compared type variables in a formal type
+        private static void collectVariableShapes(TypeTemplate formal, CollationShape shape, Set<String> variables, ImmutableList.Builder<CollationShape> shapes)
+        {
+            switch (formal) {
+                case TypeTemplate.TypeVariable(String name) -> {
+                    if (variables.contains(name)) {
+                        shapes.add(shape);
+                    }
+                }
+                case TypeTemplate.TypeApplication(String _, List<TemplateParameter> parameters) -> {
+                    List<TypeTemplate> nested = parameters.stream()
+                            .filter(TemplateParameter.TypeArgument.class::isInstance)
+                            .map(parameter -> ((TemplateParameter.TypeArgument) parameter).type())
+                            .collect(toImmutableList());
+                    switch (shape) {
+                        case ArrayShape(CollationShape element) when nested.size() == 1 -> collectVariableShapes(nested.getFirst(), element, variables, shapes);
+                        case MapShape(CollationShape key, CollationShape value) when nested.size() == 2 -> {
+                            collectVariableShapes(nested.get(0), key, variables, shapes);
+                            collectVariableShapes(nested.get(1), value, variables, shapes);
+                        }
+                        case RowShape(List<CollationShape> fields) when nested.size() == fields.size() -> {
+                            for (int i = 0; i < fields.size(); i++) {
+                                collectVariableShapes(nested.get(i), fields.get(i), variables, shapes);
+                            }
+                        }
+                        default -> {}
+                    }
+                }
+            }
+        }
+
+        /// Records the shape of a row field selected from a row value.
+        private void recordFieldShape(Expression node, Expression row, int fieldIndex, Type fieldType)
+        {
+            if (shape(row) instanceof RowShape(List<CollationShape> fields) && fieldIndex < fields.size()) {
+                recordShape(node, fields.get(fieldIndex), fieldType);
+            }
+        }
+
+        /// Applies collation determination between a map's keys and a string compared with them,
+        /// and relabels the string to the determined collation.
+        private void determineKeyCollation(Expression anchor, CollationShape keyShape, Expression key)
+        {
+            if (!(keyShape instanceof Leaf(Collated keys))) {
+                return;
+            }
+            Collated value = collated(key).orElseThrow();
+            Collation collation;
+            try {
+                collation = CollationSemantics.determine(ImmutableList.of(keys, value));
+            }
+            catch (CollationConflictException e) {
+                throw collationMismatch(anchor, e);
+            }
+            relabel(ImmutableList.of(key), new Leaf(Collated.implicit(collation)));
+        }
+
+        /// Records that a node passes its operand's value through unchanged, so it has the operand's
+        /// collation derivation.
+        private void inheritCollation(Expression node, Expression operand)
+        {
+            CollationShape recorded = collationDerivations.get(NodeRef.of(operand));
+            if (recorded != null) {
+                collationDerivations.put(NodeRef.of(node), recorded);
+            }
+        }
+
+        /// Requires a sort, grouping, or partitioning key to have a collation for each string it
+        /// contains.
+        private void requireCollation(Expression expression)
+        {
+            CollationShape shape = collationDerivations.get(NodeRef.of(expression));
+            if (shape != null) {
+                shape.firstNone().ifPresent(none -> {
+                    throw collationMismatch(expression, new CollationConflictException(Derivation.IMPLICIT, none.conflicting()));
+                });
+            }
+        }
+
+        /// Combines the operands' collations, records the result's shape on the combining node,
+        /// and returns the operand types after relabeling.
+        private List<Type> combineCollationsInto(Expression node, List<Expression> operands)
+        {
+            CombinedCollation combined = combineCollations(node, operands);
+            combined.shape().ifPresent(shape -> collationDerivations.put(NodeRef.of(node), shape));
+            return combined.types();
+        }
+
         private Type visitAtLocal(AtLocal node, Context context)
         {
             Type valueType = process(node.getValue(), context);
@@ -3244,6 +4179,10 @@ public class ExpressionAnalyzer
 
             String functionName = node.getSpecification().getFunctionName();
             ResolvedFunction function = plannerContext.getMetadata().resolveBuiltinFunction(charVarcharCoercion, functionName, actualTypes);
+            Optional<Collated> resultCollation = stringResultCollation(node, function.signature().getReturnType(), ImmutableList.<Expression>builder()
+                    .add(node.getTrimSource())
+                    .addAll(node.getTrimCharacter().stream().iterator())
+                    .build());
 
             List<Type> expectedTypes = function.signature().getArgumentTypes();
             checkState(expectedTypes.size() == actualTypes.size(), "wrong argument number in the resolved signature");
@@ -3259,7 +4198,7 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            return setExpressionType(node, function.signature().getReturnType());
+            return setStringResultType(node, function.signature().getReturnType(), resultCollation);
         }
 
         private Type visitOverlay(Overlay node, Context context)
@@ -3272,6 +4211,7 @@ public class ExpressionAnalyzer
             List<Type> actualTypes = argumentTypes.build();
 
             ResolvedFunction function = plannerContext.getMetadata().resolveBuiltinFunction(charVarcharCoercion, OVERLAY_FUNCTION_NAME, actualTypes);
+            Optional<Collated> resultCollation = stringResultCollation(node, function.signature().getReturnType(), ImmutableList.of(node.getValue(), node.getReplacement()));
 
             List<Type> expectedTypes = function.signature().getArgumentTypes();
             checkState(expectedTypes.size() == actualTypes.size(), "wrong argument number in the resolved signature");
@@ -3285,7 +4225,7 @@ public class ExpressionAnalyzer
 
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            return setExpressionType(node, function.signature().getReturnType());
+            return setStringResultType(node, function.signature().getReturnType(), resultCollation);
         }
 
         private Type visitFormat(Format node, Context context)
@@ -3331,6 +4271,8 @@ public class ExpressionAnalyzer
                 throw semanticException(INVALID_PARAMETER_USAGE, node, "No value provided for parameter");
             }
             Type resultType = process(providedValue, context);
+            // a parameter's value is a literal, so it has the literal's derivation
+            inheritCollation(node, providedValue);
             return setExpressionType(node, resultType);
         }
 
@@ -3430,6 +4372,7 @@ public class ExpressionAnalyzer
             }
 
             Type type = process(node.getInnerExpression(), context);
+            inheritCollation(node, node.getInnerExpression());
             return setExpressionType(node, type);
         }
 
@@ -3535,10 +4478,17 @@ public class ExpressionAnalyzer
             }
 
             if (valueList instanceof InListExpression inListExpression) {
+                List<Expression> operands = ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build();
+                // IN compares its operands, so their collations must determine one collation
+                for (Expression operand : operands) {
+                    process(operand, context);
+                }
+                determineCollation(anchor, operands);
                 Type type = coerceToSingleType(
                         context,
+                        anchor,
                         "IN value and list items",
-                        ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
+                        operands);
                 setExpressionType(inListExpression, type);
             }
             else if (valueList instanceof SubqueryExpression subqueryExpression) {
@@ -3768,6 +4718,13 @@ public class ExpressionAnalyzer
                 Type type = types.get(i);
                 fields.add(Field.newUnqualified(lambdaArgument.getName().getValue(), type));
                 setExpressionType(lambdaArgument, type);
+                List<CollationShape> argumentShapes = lambdaArgumentShapes.getOrDefault(NodeRef.of(node), ImmutableList.of());
+                if (i < argumentShapes.size()) {
+                    CollationShape argumentShape = CollationShapes.reconcile(argumentShapes.get(i), type);
+                    if (!argumentShape.equals(CollationShapes.implicit(type))) {
+                        lambdaParameterShapes.put(NodeRef.of(lambdaArgument), argumentShape);
+                    }
+                }
             }
 
             Scope lambdaScope = Scope.builder()
@@ -4533,14 +5490,23 @@ public class ExpressionAnalyzer
 
         private Type getOperator(Context context, Expression node, OperatorType operatorType, Expression... arguments)
         {
-            ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
+            ImmutableList.Builder<Type> argumentTypesBuilder = ImmutableList.builder();
             for (Expression expression : arguments) {
-                argumentTypes.add(process(expression, context));
+                argumentTypesBuilder.add(process(expression, context));
+            }
+            List<Type> argumentTypes = argumentTypesBuilder.build();
+            if (isComparison(operatorType)) {
+                argumentTypes = determineCollation(node, ImmutableList.copyOf(arguments));
+            }
+            else {
+                // operands relabeled before resolution, such as a map subscript's index, are
+                // resolved with their relabeled types
+                argumentTypes = Arrays.stream(arguments).map(this::getEffectiveType).collect(toImmutableList());
             }
 
             BoundSignature operatorSignature;
             try {
-                operatorSignature = plannerContext.getMetadata().resolveOperator(charVarcharCoercion, operatorType, argumentTypes.build()).signature();
+                operatorSignature = plannerContext.getMetadata().resolveOperator(charVarcharCoercion, operatorType, argumentTypes).signature();
             }
             catch (OperatorNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, e, "%s", e.getMessage());
@@ -4556,14 +5522,34 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
+        private static boolean isComparison(OperatorType operatorType)
+        {
+            return switch (operatorType) {
+                case EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, IDENTICAL, COMPARISON_UNORDERED_FIRST, COMPARISON_UNORDERED_LAST -> true;
+                default -> false;
+            };
+        }
+
         private void coerceType(Expression expression, Type actualType, Type expectedType, String message)
         {
-            if (!actualType.equals(expectedType)) {
-                if (!typeCoercion.canCoerce(actualType, expectedType)) {
-                    throw semanticException(TYPE_MISMATCH, expression, "%s must evaluate to a %s (actual: %s)", message, expectedType, actualType);
-                }
-                addOrReplaceExpressionCoercion(expression, expectedType);
+            // an operand relabeled to a collation is used with that collation
+            Type effectiveType = expressionCoercions.getOrDefault(NodeRef.of(expression), actualType);
+            if (effectiveType.equals(expectedType)) {
+                return;
             }
+            // A string function declared over the default collation receives a collated argument's
+            // bytes as default-collation strings, including the strings nested in arrays, maps, and
+            // rows. The caller derives the result's collation from the argument before this coercion
+            if (hasNonDefaultCollation(effectiveType)
+                    && !hasNonDefaultCollation(expectedType)
+                    && typeCoercion.canCoerce(withoutCollations(effectiveType, plannerContext.getTypeManager()::getType), expectedType)) {
+                addOrReplaceExpressionCoercion(expression, expectedType);
+                return;
+            }
+            if (!typeCoercion.canCoerce(effectiveType, expectedType)) {
+                throw semanticException(TYPE_MISMATCH, expression, "%s must evaluate to a %s (actual: %s)", message, expectedType, effectiveType);
+            }
+            addOrReplaceExpressionCoercion(expression, expectedType);
         }
 
         private void coerceType(Context context, Expression expression, Type expectedType, String message)
@@ -4572,7 +5558,7 @@ public class ExpressionAnalyzer
             coerceType(expression, actualType, expectedType, message);
         }
 
-        private Type coerceToSingleType(Context context, Node node, String message, Expression first, Expression second)
+        private Type coerceToSingleType(Context context, Expression node, String message, Expression first, Expression second)
         {
             Type firstType = UNKNOWN;
             if (first != null) {
@@ -4581,6 +5567,11 @@ public class ExpressionAnalyzer
             Type secondType = UNKNOWN;
             if (second != null) {
                 secondType = process(second, context);
+            }
+            if (first != null && second != null) {
+                List<Type> aligned = combineCollationsInto(node, ImmutableList.of(first, second));
+                firstType = aligned.get(0);
+                secondType = aligned.get(1);
             }
 
             // coerce types if possible
@@ -4601,17 +5592,21 @@ public class ExpressionAnalyzer
             throw semanticException(TYPE_MISMATCH, node, "%s: %s vs %s", message, firstType, secondType);
         }
 
-        private Type coerceToSingleType(Context context, String description, List<Expression> expressions)
+        private Type coerceToSingleType(Context context, Expression node, String description, List<Expression> expressions)
         {
             // determine super type
             Type superType = UNKNOWN;
 
+            for (Expression expression : expressions) {
+                process(expression, context);
+            }
+            List<Type> aligned = combineCollationsInto(node, expressions);
+
             // Use LinkedHashMultimap to preserve order in which expressions are analyzed within IN list
             Multimap<Type, NodeRef<Expression>> typeExpressions = LinkedHashMultimap.create();
-            for (Expression expression : expressions) {
+            for (int i = 0; i < expressions.size(); i++) {
                 // We need to wrap as NodeRef since LinkedHashMultimap does not allow duplicated values
-                Type type = process(expression, context);
-                typeExpressions.put(type, NodeRef.of(expression));
+                typeExpressions.put(aligned.get(i), NodeRef.of(expressions.get(i)));
             }
 
             Set<Type> types = typeExpressions.keySet();
@@ -5071,6 +6066,7 @@ public class ExpressionAnalyzer
                 analyzer.getSortKeyCoercionsForFrameBoundCalculation(),
                 analyzer.getSortKeyCoercionsForFrameBoundComparison());
         analysis.addNullIfComparisonTypes(analyzer.getNullIfComparisonTypes());
+        analysis.addUncollatedExpressions(analyzer.getUncollatedExpressions());
         analysis.addFrameBoundCalculations(analyzer.getFrameBoundCalculations());
         analyzer.getResolvedFunctions().forEach((key, value) -> analysis.addResolvedFunction(key.getNode(), value, session.getUser()));
         analyzer.getMethodCallReceivers().forEach((key, value) -> analysis.addMethodCallReceiver(key.getNode(), value));

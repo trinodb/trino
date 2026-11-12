@@ -33,6 +33,8 @@ import io.trino.sql.tree.CaseStatement;
 import io.trino.sql.tree.CaseStatementWhenClause;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.CollateExpression;
+import io.trino.sql.tree.CollationFor;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
@@ -324,6 +326,8 @@ public final class SqlFormatter
                 case AssignmentStatement node -> visitAssignmentStatement(node, context);
                 case AtLocal node -> visitExpression(node, context);
                 case AtTimeZone node -> visitExpression(node, context);
+                case CollateExpression node -> visitExpression(node, context);
+                case CollationFor node -> visitExpression(node, context);
                 case Call node -> visitCall(node, context);
                 case CallArgument node -> visitCallArgument(node);
                 case CaseStatement node -> visitCaseStatement(node, context);

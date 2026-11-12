@@ -30,6 +30,8 @@ import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.CollateExpression;
+import io.trino.sql.tree.CollationFor;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
@@ -246,6 +248,8 @@ class AggregationAnalyzer
                 case AtTimeZone node -> process(node.getValue(), context);
                 case Cast node -> process(node.getExpression(), context);
                 case CoalesceExpression node -> node.getOperands().stream().allMatch(expression -> process(expression, context));
+                case CollateExpression node -> process(node.getValue(), context);
+                case CollationFor node -> process(node.getValue(), context);
                 case CurrentCatalog _,
                      CurrentDate _,
                      CurrentPath _,

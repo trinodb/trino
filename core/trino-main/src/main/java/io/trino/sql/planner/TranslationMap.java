@@ -35,6 +35,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -68,6 +69,8 @@ import io.trino.sql.tree.BooleanTestPredicate;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.CollateExpression;
+import io.trino.sql.tree.CollationFor;
 import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
@@ -426,6 +429,8 @@ public class TranslationMap
                 case Extract expression -> translate(expression);
                 case AtTimeZone expression -> translate(expression);
                 case AtLocal expression -> translate(expression);
+                case CollateExpression expression -> translate(expression);
+                case CollationFor expression -> translate(expression);
                 case Format expression -> translate(expression);
                 case TryExpression expression -> translate(expression);
                 case Trim expression -> translate(expression);
@@ -465,11 +470,25 @@ public class TranslationMap
                 case NullIfExpression expression -> translate(expression);
                 default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported expression (%s): %s".formatted(expr.getClass().getName(), expr));
             };
+            result = relabelCollation(expr, result);
         }
 
         // Don't add a coercion for the top-level expression. That depends on the context
         // the expression is used and it's the responsibility of the caller.
         return isRoot ? result : QueryPlanner.coerceIfNecessary(plannerContext, getCharVarcharCoercion(session), analysis, expr, result);
+    }
+
+    // A string function returns its declared, default-collation type, while the analysis types the
+    // call in the collation of its arguments; the result is the same value in that collation
+    private io.trino.sql.ir.Expression relabelCollation(Expression expression, io.trino.sql.ir.Expression result)
+    {
+        if (analysis.getType(expression) instanceof VarcharType analyzed
+                && result.type() instanceof VarcharType translated
+                && !analyzed.equals(translated)
+                && analyzed.withCollation(translated.getCollation()).equals(translated)) {
+            return cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), result, analyzed);
+        }
+        return result;
     }
 
     private io.trino.sql.ir.Expression translate(NullIfExpression expression)
@@ -1196,6 +1215,22 @@ public class TranslationMap
                 translateExpression(node.getValue()),
                 analysis.getType(node.getTimeZone()),
                 translateExpression(node.getTimeZone()));
+    }
+
+    private io.trino.sql.ir.Expression translate(CollateExpression node)
+    {
+        // a collation changes the type but not the value
+        return cast(plannerContext.getTypeManager(),
+                getCharVarcharCoercion(session),
+                translateExpression(node.getValue()),
+                analysis.getType(node));
+    }
+
+    private io.trino.sql.ir.Expression translate(CollationFor node)
+    {
+        Type valueType = Optional.ofNullable(analysis.getCoercion(node.getValue())).orElseGet(() -> analysis.getType(node.getValue()));
+        String collation = ((VarcharType) valueType).getCollation().name();
+        return new Constant(analysis.getType(node), utf8Slice(collation));
     }
 
     private io.trino.sql.ir.Expression translate(AtLocal node)

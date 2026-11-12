@@ -75,6 +75,8 @@ public final class ExpressionTreeRewriter<C>
                 case ArrayWildcardSubscript node -> visitExpression(node);
                 case AtLocal node -> visitAtLocal(node, context);
                 case AtTimeZone node -> visitAtTimeZone(node, context);
+                case CollateExpression node -> visitCollateExpression(node, context);
+                case CollationFor node -> visitCollationFor(node, context);
                 case Cast node -> visitCast(node, context);
                 case CoalesceExpression node -> visitCoalesceExpression(node, context);
                 case CurrentCatalog node -> visitCurrentCatalog(node, context);
@@ -233,6 +235,38 @@ public final class ExpressionTreeRewriter<C>
                 return new AtTimeZone(node.getLocation().orElseThrow(), value, timeZone);
             }
 
+            return node;
+        }
+
+        private Expression visitCollateExpression(CollateExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteCollateExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+            if (value != node.getValue()) {
+                return new CollateExpression(node.getLocation(), value, node.getCollation());
+            }
+            return node;
+        }
+
+        private Expression visitCollationFor(CollationFor node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteCollationFor(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+            if (value != node.getValue()) {
+                return new CollationFor(node.getLocation(), value);
+            }
             return node;
         }
 

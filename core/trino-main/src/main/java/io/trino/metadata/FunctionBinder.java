@@ -32,6 +32,7 @@ import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSyntax;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.type.CharVarcharCoercion;
+import io.trino.type.collation.Collations;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -77,6 +78,22 @@ class FunctionBinder
     }
 
     Optional<CatalogFunctionBinding> tryBindFunction(CharVarcharCoercion charVarcharCoercion, List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
+    {
+        Optional<CatalogFunctionBinding> match = tryBindFunctionWithTypes(charVarcharCoercion, parameterTypes, candidates);
+        if (match.isPresent()) {
+            return match;
+        }
+        // String functions are declared over default-collation types. When no declaration accepts
+        // the collated arguments, bind them as default-collation strings, including the strings
+        // nested in arrays, maps, and rows. A declaration that does accept them, such as one over a
+        // type variable, keeps the collation. A declaration over a type variable can also bind this
+        // way strings it cannot unify, such as a collated string and a char; the analyzer rejects a
+        // call that would then compare a collated string without its collation.
+        return withoutCollations(parameterTypes)
+                .flatMap(uncollated -> tryBindFunctionWithTypes(charVarcharCoercion, uncollated, candidates));
+    }
+
+    private Optional<CatalogFunctionBinding> tryBindFunctionWithTypes(CharVarcharCoercion charVarcharCoercion, List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
     {
         if (candidates.isEmpty()) {
             return Optional.empty();
@@ -138,6 +155,33 @@ class FunctionBinder
                                 .map(FunctionBinder::withoutCollation)
                                 .collect(toImmutableList())),
                         withoutCollation(actualSignature.returnType()));
+    }
+
+    /// The arguments with the collation removed from character string types, or empty when no argument
+    /// is collated.
+    private static Optional<List<TypeDescriptorProvider>> withoutCollations(List<TypeDescriptorProvider> parameterTypes)
+    {
+        boolean collated = false;
+        ImmutableList.Builder<TypeDescriptorProvider> uncollated = ImmutableList.builder();
+        for (TypeDescriptorProvider parameterType : parameterTypes) {
+            if (parameterType.hasDependency()) {
+                uncollated.add(parameterType);
+                continue;
+            }
+            TypeDescriptor descriptor = parameterType.getTypeDescriptor();
+            TypeDescriptor withoutCollation = Collations.withoutCollations(descriptor);
+            if (!withoutCollation.equals(descriptor)) {
+                collated = true;
+                uncollated.add(new TypeDescriptorProvider(withoutCollation));
+            }
+            else {
+                uncollated.add(parameterType);
+            }
+        }
+        if (!collated) {
+            return Optional.empty();
+        }
+        return Optional.of(uncollated.build());
     }
 
     /// The descriptor of a character string type with its collation removed, or the descriptor itself.

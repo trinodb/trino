@@ -134,6 +134,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -1501,7 +1502,7 @@ class QueryPlanner
 
         // deduplicate based on scope-aware equality
         for (FunctionCall function : scopeAwareDistinct(subPlan, aggregates)) {
-            Symbol symbol = symbolAllocator.newSymbol(function.getName().toString(), analysis.getType(function));
+            Symbol symbol = symbolAllocator.newSymbol(function.getName().toString(), resultType(function));
 
             // TODO: for ORDER BY arguments, rewrite them such that they match the actual arguments to the function. This is necessary to maintain the semantics of DISTINCT + ORDER BY,
             //   which requires that ORDER BY be a subset of arguments
@@ -1552,11 +1553,16 @@ class QueryPlanner
                 AggregationNode.Step.SINGLE,
                 groupIdSymbol);
 
+        Map<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings = new LinkedHashMap<>();
+        PlanNode root = relabelCollations(
+                aggregationNode,
+                aggregateMappings.stream()
+                        .collect(toImmutableMap(AggregationAssignment::getSymbol, AggregationAssignment::getAstExpression)),
+                (expression, symbol) -> mappings.put(scopeAwareKey(expression, analysis, subPlan.getScope()), symbol));
         return new PlanBuilder(
                 subPlan.getTranslations()
-                        .withAdditionalMappings(aggregateMappings.stream()
-                                .collect(toImmutableMap(assignment -> scopeAwareKey(assignment.getAstExpression(), analysis, subPlan.getScope()), AggregationAssignment::getSymbol))),
-                aggregationNode);
+                        .withAdditionalMappings(ImmutableMap.copyOf(mappings)),
+                root);
     }
 
     private <T extends io.trino.sql.tree.Expression> List<T> scopeAwareDistinct(PlanBuilder subPlan, List<T> expressions)
@@ -2020,9 +2026,10 @@ class QueryPlanner
 
         ImmutableMap.Builder<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, io.trino.sql.tree.Expression> calls = ImmutableMap.builder();
 
         for (FunctionCall windowFunction : windowFunctions) {
-            Symbol newSymbol = symbolAllocator.newSymbol(windowFunction.getName().toString(), analysis.getType(windowFunction));
+            Symbol newSymbol = symbolAllocator.newSymbol(windowFunction.getName().toString(), resultType(windowFunction));
 
             NullTreatment nullTreatment = windowFunction.getNullTreatment()
                     .orElse(NullTreatment.RESPECT);
@@ -2043,20 +2050,22 @@ class QueryPlanner
                     windowFunction.isDistinct());
 
             functions.put(newSymbol, function);
-            mappings.put(scopeAwareKey(windowFunction, analysis, subPlan.getScope()), newSymbol);
+            calls.put(newSymbol, windowFunction);
         }
 
         // create window node
+        WindowNode windowNode = new WindowNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                specification,
+                functions.buildOrThrow(),
+                ImmutableSet.of(),
+                0);
+        PlanNode root = relabelCollations(windowNode, calls.buildOrThrow(), (expression, symbol) -> mappings.put(scopeAwareKey(expression, analysis, subPlan.getScope()), symbol));
         return new PlanBuilder(
                 subPlan.getTranslations()
                         .withAdditionalMappings(mappings.buildOrThrow()),
-                new WindowNode(
-                        idAllocator.getNextId(),
-                        subPlan.getRoot(),
-                        specification,
-                        functions.buildOrThrow(),
-                        ImmutableSet.of(),
-                        0));
+                root);
     }
 
     private static WindowFrameType mapWindowFrameType(WindowFrame.Type type)
@@ -2114,9 +2123,10 @@ class QueryPlanner
 
         ImmutableMap.Builder<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, io.trino.sql.tree.Expression> calls = ImmutableMap.builder();
 
         for (FunctionCall windowFunction : windowFunctions) {
-            Symbol newSymbol = symbolAllocator.newSymbol(windowFunction.getName().toString(), analysis.getType(windowFunction));
+            Symbol newSymbol = symbolAllocator.newSymbol(windowFunction.getName().toString(), resultType(windowFunction));
 
             NullTreatment nullTreatment = windowFunction.getNullTreatment()
                     .orElse(NullTreatment.RESPECT);
@@ -2137,7 +2147,7 @@ class QueryPlanner
                     false);
 
             functions.put(newSymbol, function);
-            mappings.put(scopeAwareKey(windowFunction, analysis, subPlan.getScope()), newSymbol);
+            calls.put(newSymbol, windowFunction);
         }
 
         PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
@@ -2151,24 +2161,57 @@ class QueryPlanner
                         frame.getVariableDefinitions());
 
         // create pattern recognition node
+        PlanNode patternRecognition = new PatternRecognitionNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                specification,
+                ImmutableSet.of(),
+                0,
+                functions.buildOrThrow(),
+                components.getMeasures(),
+                Optional.of(baseFrame),
+                WINDOW,
+                components.getSkipToLabels(),
+                components.getSkipToPosition(),
+                components.isInitial(),
+                components.getPattern(),
+                components.getVariableDefinitions());
+        PlanNode root = relabelCollations(patternRecognition, calls.buildOrThrow(), (expression, symbol) -> mappings.put(scopeAwareKey(expression, analysis, subPlan.getScope()), symbol));
         return new PlanBuilder(
                 subPlan.getTranslations()
                         .withAdditionalMappings(mappings.buildOrThrow()),
-                new PatternRecognitionNode(
-                        idAllocator.getNextId(),
-                        subPlan.getRoot(),
-                        specification,
-                        ImmutableSet.of(),
-                        0,
-                        functions.buildOrThrow(),
-                        components.getMeasures(),
-                        Optional.of(baseFrame),
-                        WINDOW,
-                        components.getSkipToLabels(),
-                        components.getSkipToPosition(),
-                        components.isInitial(),
-                        components.getPattern(),
-                        components.getVariableDefinitions()));
+                root);
+    }
+
+    // The type an aggregation or window function returns. The analysis types a string result in
+    // the collation of its arguments, while the function returns its declared type.
+    private Type resultType(FunctionCall call)
+    {
+        return analysis.getResolvedFunction(call).orElseThrow().signature().getReturnType();
+    }
+
+    // Projects the results of aggregation or window functions whose analyzed type is in another
+    // collation than the function returns, by relabeling them, and maps each call to its result
+    private PlanNode relabelCollations(PlanNode node, Map<Symbol, io.trino.sql.tree.Expression> calls, BiConsumer<io.trino.sql.tree.Expression, Symbol> mapping)
+    {
+        Assignments.Builder assignments = Assignments.builder().putIdentities(node.getOutputSymbols());
+        boolean relabeled = false;
+        for (Map.Entry<Symbol, io.trino.sql.tree.Expression> entry : calls.entrySet()) {
+            Symbol symbol = entry.getKey();
+            Type analyzed = analysis.getType(entry.getValue());
+            if (analyzed.equals(symbol.type())) {
+                mapping.accept(entry.getValue(), symbol);
+                continue;
+            }
+            Symbol result = symbolAllocator.newSymbol(symbol.name(), analyzed);
+            assignments.put(result, cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), symbol.toSymbolReference(), analyzed));
+            mapping.accept(entry.getValue(), result);
+            relabeled = true;
+        }
+        if (!relabeled) {
+            return node;
+        }
+        return new ProjectNode(idAllocator.getNextId(), node, assignments.build());
     }
 
     public static DataOrganizationSpecification planWindowSpecification(List<io.trino.sql.tree.Expression> partitionBy, Optional<OrderBy> orderBy, Function<io.trino.sql.tree.Expression, Symbol> expressionRewrite)

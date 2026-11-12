@@ -49,7 +49,9 @@ import io.trino.sql.tree.CaseStatement;
 import io.trino.sql.tree.CaseStatementWhenClause;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.CollateExpression;
 import io.trino.sql.tree.CollatedDataType;
+import io.trino.sql.tree.CollationFor;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
@@ -2640,6 +2642,21 @@ class AstBuilder
         return new AtLocal(
                 getLocation(context.AT()),
                 (Expression) visit(context.valueExpression()));
+    }
+
+    @Override
+    public Node visitCollate(SqlBaseParser.CollateContext context)
+    {
+        return new CollateExpression(
+                getLocation(context.COLLATE()),
+                (Expression) visit(context.valueExpression()),
+                (Identifier) visit(context.collation));
+    }
+
+    @Override
+    public Node visitCollationFor(SqlBaseParser.CollationForContext context)
+    {
+        return new CollationFor(getLocation(context), (Expression) visit(context.valueExpression()));
     }
 
     @Override

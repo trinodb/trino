@@ -19,7 +19,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.COLLATION_MISMATCH;
 import static io.trino.spi.StandardErrorCode.COLLATION_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.collation.CollationRegistry.collationRegistry;
@@ -191,15 +193,12 @@ public class TestCollatedVarcharQueries
     @Test
     public void testNoImplicitCollationChange()
     {
-        // different collations never combine implicitly
+        // implicit collations never combine: comparing them needs an explicit COLLATE
         assertThat(assertions.query(
                 "SELECT CAST('a' AS varchar COLLATE unicode) = CAST('a' AS varchar COLLATE unicode_ci)"))
-                .failure().hasMessageContaining("Cannot apply operator");
-        assertThat(assertions.query(
-                "SELECT CAST('a' AS varchar COLLATE unicode) = 'a'"))
-                .failure().hasMessageContaining("Cannot apply operator");
-        // pattern matching uses code points, so it does not accept a collated value
+                .failure().hasErrorCode(COLLATION_MISMATCH).hasMessageContaining("Collations [unicode, unicode_ci] conflict");
+        // pattern matching compares code points, so it rejects other collations
         assertThat(assertions.query("SELECT CAST('ALICE' AS varchar COLLATE unicode_ci) LIKE 'al%'"))
-                .failure().hasMessageContaining("Unexpected parameters (varchar COLLATE \"unicode_ci\", LikePattern) for function $like");
+                .failure().hasErrorCode(NOT_SUPPORTED).hasMessageContaining("LIKE does not support collation unicode_ci");
     }
 }

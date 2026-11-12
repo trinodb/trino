@@ -228,6 +228,8 @@ public final class AstTraversal
             case AtLocal node -> {
                 action.accept(node.getValue());
             }
+            case CollateExpression node -> action.accept(node.getValue());
+            case CollationFor node -> action.accept(node.getValue());
             case Call node -> {
                 for (CallArgument argument : node.getArguments()) {
                     action.accept(argument.getValue());
