@@ -558,7 +558,6 @@ public class OperatorContext
                         inputPositionsCount,
                         new Duration(addInputTiming.getCpuNanos() + getOutputTiming.getCpuNanos() + finishTiming.getCpuNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
                         new Duration(addInputTiming.getWallNanos() + getOutputTiming.getWallNanos() + finishTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
-                        new Duration(blockedWallNanos.get(), NANOSECONDS).convertTo(SECONDS).getValue(),
                         cpuTimeSeriesRecorder.snapshot()),
                 connectorMetrics.get(),
                 Metrics.EMPTY, // will be filled in when aggregating at pipeline level
@@ -587,14 +586,12 @@ public class OperatorContext
             long inputPositions,
             double cpuTimeSeconds,
             double wallTimeSeconds,
-            double blockedWallSeconds,
             ResourceUsageTimeSeriesSnapshot resourceUsageTimeSeries)
     {
         return metrics.get().mergeWith(new Metrics(ImmutableMap.of(
                 "Input rows distribution", TDigestHistogram.fromValue(inputPositions),
                 "CPU time distribution (s)", TDigestHistogram.fromValue(cpuTimeSeconds),
                 "Scheduled time distribution (s)", TDigestHistogram.fromValue(wallTimeSeconds),
-                "Blocked time distribution (s)", TDigestHistogram.fromValue(blockedWallSeconds),
                 "CPU and scheduled time usage over time", resourceUsageTimeSeries)));
     }
 
