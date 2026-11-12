@@ -28,6 +28,7 @@ import io.trino.spi.transaction.IsolationLevel;
 import java.util.Set;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
+import static io.trino.spi.connector.ConnectorCapabilities.COLLATED_COLUMNS;
 import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static java.util.Objects.requireNonNull;
@@ -89,7 +90,7 @@ public class MemoryConnector
     @Override
     public Set<ConnectorCapabilities> getCapabilities()
     {
-        return immutableEnumSet(DEFAULT_COLUMN_VALUE, NOT_NULL_COLUMN_CONSTRAINT);
+        return immutableEnumSet(COLLATED_COLUMNS, DEFAULT_COLUMN_VALUE, NOT_NULL_COLUMN_CONSTRAINT);
     }
 
     @Override

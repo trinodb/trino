@@ -34,6 +34,7 @@ import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.ArrayDeque;
 import java.util.Iterator;
@@ -228,6 +229,15 @@ public class InformationSchemaPageSource
         }
     }
 
+    // The collation of a character string column, or null for the default collation and other types
+    private static String collationName(Type type)
+    {
+        if (type instanceof VarcharType varcharType && !varcharType.getCollation().isDefault()) {
+            return varcharType.getCollation().name();
+        }
+        return null;
+    }
+
     private void addColumnsRecords(QualifiedTablePrefix prefix)
     {
         for (Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
@@ -247,6 +257,7 @@ public class InformationSchemaPageSource
                         column.getDefaultValue().orElse(null),
                         column.isNullable() ? "YES" : "NO",
                         column.getType().getDisplayName(),
+                        collationName(column.getType()),
                         column.getComment().orElse(null),
                         column.getExtraInfo().orElse(null),
                         column.getComment().orElse(null));

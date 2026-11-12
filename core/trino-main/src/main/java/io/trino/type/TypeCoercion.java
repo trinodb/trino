@@ -61,6 +61,7 @@ import static io.trino.type.IntervalYearMonthType.createIntervalYearMonthType;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
+import static io.trino.type.collation.Collations.withoutCollations;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeCoercion
@@ -185,9 +186,17 @@ public final class TypeCoercion
     /// not implicitly coerce to the target. A positive result means only that the assignment is permitted,
     /// not that it always succeeds — at execution it may fail rather than silently lose data (for example,
     /// storing a longer string into a shorter character column).
+    ///
+    /// A stored string takes the target's collation (ISO/IEC 9075-2 9.2), so the collations of the
+    /// source and target do not affect assignability.
     public boolean isStoreAssignable(Type sourceType, Type targetType)
     {
-        return isCompatible(sourceType, targetType);
+        return isCompatible(withoutCollation(sourceType), withoutCollation(targetType));
+    }
+
+    private Type withoutCollation(Type type)
+    {
+        return withoutCollations(type, lookupType);
     }
 
     public boolean canCoerce(Type fromType, Type toType)

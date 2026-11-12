@@ -25,6 +25,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
@@ -40,6 +41,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -232,6 +234,164 @@ public class TestMemoryConnectorTest
                         """.formatted(probe.getName(), build.getName()),
                         "VALUES 'Alice', 'ALICE'");
             }
+        }
+    }
+
+    @Test
+    public void testCollatedColumns()
+    {
+        try (TestTable table = newTrinoTable("test_collated_column", "(name varchar(10) COLLATE unicode_ci, id bigint)", ImmutableList.of("'Alice', 1", "'ALICE', 2", "'bob', 3", "'Bob', 4"))) {
+            assertThat(query("SELECT COLLATION FOR (name) FROM %s LIMIT 1".formatted(table.getName())))
+                    .matches("VALUES varchar 'unicode_ci'");
+            // a literal compares under the column's collation, and the predicate is not a domain
+            assertQuery("SELECT id FROM %s WHERE name = 'alice'".formatted(table.getName()), "VALUES 1, 2");
+            assertQuery("SELECT id FROM %s WHERE name IN ('BOB')".formatted(table.getName()), "VALUES 3, 4");
+            assertQuery("SELECT id FROM %s WHERE name BETWEEN 'a' AND 'az'".formatted(table.getName()), "VALUES 1, 2");
+            assertQuery("SELECT count(DISTINCT name) FROM %s".formatted(table.getName()), "VALUES 2");
+            assertThat(query("SELECT name FROM %s WHERE name = 'alice'".formatted(table.getName())))
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("name varchar(10) COLLATE unicode_ci");
+            assertThat(query("SELECT data_type, collation_name FROM information_schema.columns WHERE table_name = '%s'".formatted(table.getName())))
+                    .matches("VALUES (varchar 'varchar(10) COLLATE \"unicode_ci\"', varchar 'unicode_ci'), (varchar 'bigint', NULL)");
+            assertThat(query("DESCRIBE " + table.getName()))
+                    .result()
+                    .projected("Column", "Type")
+                    .matches("VALUES (varchar 'name', varchar 'varchar(10) COLLATE \"unicode_ci\"'), (varchar 'id', varchar 'bigint')");
+        }
+    }
+
+    @Test
+    public void testJoinOnCollatedColumns()
+    {
+        // A dynamic filter collects build values and is evaluated on the probe side with code point
+        // comparisons, which would drop probe rows that differ from a build value only in case
+        try (TestTable probe = newTrinoTable("test_collated_probe_column", "(name varchar COLLATE unicode_ci)", ImmutableList.of("'Alice'", "'ALICE'", "'bob'"));
+                TestTable build = newTrinoTable("test_collated_build_column", "(name varchar COLLATE unicode_ci)", ImmutableList.of("'alice'"))) {
+            for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+                assertQuery(
+                        noJoinReordering(joinDistributionType),
+                        "SELECT CAST(p.name AS varchar) FROM %s p JOIN %s b ON p.name = b.name".formatted(probe.getName(), build.getName()),
+                        "VALUES 'Alice', 'ALICE'");
+                assertQuery(
+                        noJoinReordering(joinDistributionType),
+                        "SELECT CAST(p.name AS varchar) FROM %s p WHERE p.name IN (SELECT name FROM %s)".formatted(probe.getName(), build.getName()),
+                        "VALUES 'Alice', 'ALICE'");
+            }
+            // no dynamic filter is planned on a collated key, while one is on an uncollated key
+            assertThat((String) computeScalar("EXPLAIN SELECT p.name FROM %s p JOIN %s b ON p.name = b.name".formatted(probe.getName(), build.getName())))
+                    .doesNotContain("dynamicFilters");
+            assertThat((String) computeScalar("EXPLAIN SELECT p.name FROM %s p WHERE p.name IN (SELECT name FROM %s)".formatted(probe.getName(), build.getName())))
+                    .doesNotContain("dynamicFilters");
+        }
+        try (TestTable probe = newTrinoTable("test_uncollated_probe_column", "(name varchar)", ImmutableList.of("'Alice'"));
+                TestTable build = newTrinoTable("test_uncollated_build_column", "(name varchar)", ImmutableList.of("'alice'"))) {
+            assertThat((String) computeScalar("EXPLAIN SELECT p.name FROM %s p JOIN %s b ON p.name = b.name".formatted(probe.getName(), build.getName())))
+                    .contains("dynamicFilters");
+        }
+    }
+
+    @Test
+    public void testDescribeCollatedTypes()
+    {
+        // clients see a collated string as its type without the collation, as in result columns
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("collated", "SELECT CAST('a' AS varchar(10) COLLATE unicode_ci) x, ARRAY[CAST('a' AS varchar COLLATE unicode)] y, ? z")
+                .build();
+        assertThat(query(session, "DESCRIBE OUTPUT collated"))
+                .result()
+                .projected("Column Name", "Type")
+                .skippingTypesCheck()
+                .matches("VALUES ('x', 'varchar(10)'), ('y', 'array(varchar)'), ('z', 'unknown')");
+        Session input = Session.builder(getSession())
+                .addPreparedStatement("collated_input", "SELECT 1 FROM (VALUES CAST('a' AS varchar(10) COLLATE unicode_ci)) t(x) WHERE x = ?")
+                .build();
+        assertThat(query(input, "DESCRIBE INPUT collated_input"))
+                .skippingTypesCheck()
+                .matches("VALUES (0, 'varchar(10)')");
+    }
+
+    @Test
+    public void testNestedCollatedColumns()
+    {
+        // a value is stored in a nested collated column as in a top-level one, taking the column's collation
+        try (TestTable table = newTrinoTable("test_nested_collated", "(id bigint, names array(varchar COLLATE unicode_ci), person row(name varchar COLLATE unicode_ci), tags map(varchar, varchar COLLATE unicode_ci))")) {
+            assertUpdate("INSERT INTO %s VALUES (1, ARRAY['Alice'], ROW('Alice'), MAP(ARRAY['k'], ARRAY['Alice']))".formatted(table.getName()), 1);
+            assertUpdate("INSERT INTO %s SELECT 2, ARRAY[x], ROW(x), MAP(ARRAY['k'], ARRAY[x]) FROM (VALUES CAST('ALICE' AS varchar COLLATE unicode)) t(x)".formatted(table.getName()), 1);
+            assertQuery("SELECT count(*) FROM %s WHERE names[1] = 'alice'".formatted(table.getName()), "VALUES 2");
+            assertQuery("SELECT count(*) FROM %s WHERE person.name = 'alice'".formatted(table.getName()), "VALUES 2");
+            assertQuery("SELECT count(*) FROM %s WHERE tags['k'] = 'alice'".formatted(table.getName()), "VALUES 2");
+            assertQuery("SELECT count(DISTINCT person.name) FROM %s".formatted(table.getName()), "VALUES 1");
+        }
+    }
+
+    @Test
+    public void testCollatedColumnDdl()
+    {
+        try (TestTable table = newTrinoTable("test_collated_ddl", "(id bigint)")) {
+            assertUpdate("ALTER TABLE %s ADD COLUMN name varchar COLLATE unicode".formatted(table.getName()));
+            assertThat(query("SELECT data_type FROM information_schema.columns WHERE table_name = '%s' AND column_name = 'name'".formatted(table.getName())))
+                    .matches("VALUES varchar 'varchar COLLATE \"unicode\"'");
+        }
+        assertUpdate("CREATE TABLE test_collated_ctas AS SELECT 'Alice' COLLATE unicode_ci name", 1);
+        try {
+            assertQuery("SELECT count(*) FROM test_collated_ctas WHERE name = 'ALICE'", "VALUES 1");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_collated_ctas");
+        }
+    }
+
+    @Test
+    public void testViewsOverCollations()
+    {
+        try (TestTable table = newTrinoTable("test_collated_view_source", "(name varchar COLLATE unicode_ci, plain varchar)", ImmutableList.of("'Alice', 'Alice'", "'ALICE', 'ALICE'"))) {
+            String view = "test_collated_view_" + randomNameSuffix();
+            assertUpdate("CREATE VIEW %s AS SELECT name, plain COLLATE unicode_ci AS plain_ci FROM %s".formatted(view, table.getName()));
+            try {
+                // the view's columns keep their collations, from a column and from COLLATE
+                assertThat(query("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '%s'".formatted(view)))
+                        .matches("VALUES (varchar 'name', varchar 'varchar COLLATE \"unicode_ci\"'), (varchar 'plain_ci', varchar 'varchar COLLATE \"unicode_ci\"')");
+                assertQuery("SELECT count(*) FROM %s WHERE name = 'alice' AND plain_ci = 'alice'".formatted(view), "VALUES 2");
+                assertThat((String) computeScalar("SHOW CREATE VIEW " + view)).contains("COLLATE unicode_ci");
+            }
+            finally {
+                assertUpdate("DROP VIEW " + view);
+            }
+            // a function result keeps its collation as a view column
+            assertUpdate("CREATE VIEW %s AS SELECT upper(name) u FROM %s".formatted(view, table.getName()));
+            try {
+                assertQuery("SELECT data_type FROM information_schema.columns WHERE table_name = '%s'".formatted(view), "VALUES 'varchar COLLATE \"unicode_ci\"'");
+                assertQuery("SELECT count(*) FROM %s WHERE u = 'alice'".formatted(view), "VALUES 2");
+            }
+            finally {
+                assertUpdate("DROP VIEW " + view);
+            }
+        }
+    }
+
+    @Test
+    public void testPreimagesOnCollatedColumns()
+    {
+        try (TestTable table = newTrinoTable("test_collated_widening", "(name varchar(1) COLLATE unicode_ci)", ImmutableList.of("'\uFB01'", "'f'", "'x'"))) {
+            // comparing with a longer constant widens the column, which under the collation is
+            // not bounded by the constant's truncation: the ligature 'ﬁ' equals 'fi', though 'f' sorts first
+            assertQuery("SELECT name FROM %s WHERE name = 'fi'".formatted(table.getName()), "VALUES '\uFB01'");
+            assertQuery("SELECT count(*) FROM %s WHERE name >= 'fi'".formatted(table.getName()), "VALUES 2");
+            assertQuery("SELECT count(*) FROM %s WHERE name IN ('fi', 'y')".formatted(table.getName()), "VALUES 1");
+        }
+        try (TestTable table = newTrinoTable("test_collated_preimage", "(s varchar COLLATE unicode_ci)", ImmutableList.of("'2024-01-01'", "'2024-1-1'", "'2024-01-02'"))) {
+            assertQuery("SELECT count(*) FROM %s WHERE CAST(s AS date) = DATE '2024-01-01'".formatted(table.getName()), "VALUES 2");
+            assertQuery("SELECT count(*) FROM %s WHERE CAST(s AS date) BETWEEN DATE '2024-01-01' AND DATE '2024-01-02'".formatted(table.getName()), "VALUES 3");
+        }
+        try (TestTable table = newTrinoTable("test_collated_preimage2", "(s varchar COLLATE unicode_ci)", ImmutableList.of("'xyz'", "'XYZ'", "'abc'"))) {
+            // a cast to an uncollated type compares under the default collation
+            assertQuery("SELECT count(*) FROM %s WHERE CAST(s AS varchar(1)) = 'X'".formatted(table.getName()), "VALUES 1");
+            // a cast to the column's collation keeps it
+            assertQuery("SELECT count(*) FROM %s WHERE CAST(s AS varchar(1) COLLATE unicode_ci) = 'X'".formatted(table.getName()), "VALUES 2");
+            // a string function keeps it
+            assertQuery("SELECT count(*) FROM %s WHERE substr(s, 1, 1) = 'x'".formatted(table.getName()), "VALUES 2");
+            assertQuery("SELECT count(*) FROM %s WHERE upper(s) = 'xyz'".formatted(table.getName()), "VALUES 2");
         }
     }
 

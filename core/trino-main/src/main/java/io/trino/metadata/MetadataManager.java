@@ -179,7 +179,9 @@ import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
+import static io.trino.spi.connector.ConnectorCapabilities.COLLATED_COLUMNS;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
+import static io.trino.type.collation.Collations.hasNonDefaultCollation;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -232,6 +234,21 @@ public final class MetadataManager
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle)
     {
         return getCatalogMetadata(session, catalogHandle).getConnectorCapabilities();
+    }
+
+    /// A connector stores a collated column only if it declares that it compares the column under
+    /// its collation; otherwise its own comparisons, such as partition pruning or sorted storage,
+    /// would use code point order.
+    private static void checkCollatedColumns(CatalogMetadata catalogMetadata, List<Type> types)
+    {
+        if (catalogMetadata.getConnectorCapabilities().contains(COLLATED_COLUMNS)) {
+            return;
+        }
+        for (Type type : types) {
+            if (hasNonDefaultCollation(type)) {
+                throw new TrinoException(NOT_SUPPORTED, "Catalog '%s' does not support collated column type %s".formatted(catalogMetadata.getCatalogName(), type.getDisplayName()));
+            }
+        }
     }
 
     @Override
@@ -939,6 +956,7 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        checkCollatedColumns(catalogMetadata, tableMetadata.getColumns().stream().map(ColumnMetadata::getType).collect(toImmutableList()));
         metadata.createTable(session.toConnectorSession(catalogHandle), tableMetadata, saveMode);
         if (catalogMetadata.getSecurityManagement() == SYSTEM) {
             systemSecurityMetadata.tableCreated(session, new CatalogSchemaTableName(catalogName, tableMetadata.getTable()));
@@ -1030,6 +1048,7 @@ public final class MetadataManager
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle.getCatalogName().toString());
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        checkCollatedColumns(catalogMetadata, ImmutableList.of(column.getType()));
         metadata.addColumn(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), column, position);
         if (catalogMetadata.getSecurityManagement() == SYSTEM) {
             systemSecurityMetadata.columnCreated(session, table, column.getName());
@@ -1041,6 +1060,7 @@ public final class MetadataManager
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        checkCollatedColumns(getCatalogMetadataForWrite(session, catalogHandle.getCatalogName().toString()), ImmutableList.of(type));
         metadata.addField(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), parentPath, fieldName, type, ignoreExisting);
     }
 
@@ -1088,6 +1108,7 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle.getCatalogName().toString());
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
         ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, column);
+        checkCollatedColumns(catalogMetadata, ImmutableList.of(type));
         metadata.setColumnType(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), column, type);
         if (catalogMetadata.getSecurityManagement() == SYSTEM) {
             systemSecurityMetadata.columnTypeChanged(
@@ -1104,6 +1125,7 @@ public final class MetadataManager
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        checkCollatedColumns(getCatalogMetadataForWrite(session, catalogHandle.getCatalogName().toString()), ImmutableList.of(type));
         metadata.setFieldType(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), fieldPath, type);
     }
 
@@ -1212,6 +1234,8 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        // a connector must not store a collated column with a different type, which would drop its collation
+        checkCollatedColumns(catalogMetadata, ImmutableList.of(type));
         TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType, getCharVarcharCoercion(session));
         return metadata.getSupportedType(session.toConnectorSession(catalogHandle), tableProperties, type)
                 .map(newType -> {
@@ -1248,6 +1272,7 @@ public final class MetadataManager
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
+        checkCollatedColumns(catalogMetadata, tableMetadata.getColumns().stream().map(ColumnMetadata::getType).collect(toImmutableList()));
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogHandle);
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         ConnectorOutputTableHandle handle = metadata.beginCreateTable(connectorSession, tableMetadata, layout.map(TableLayout::getLayout), getRetryPolicy(session).getRetryMode(), replace);

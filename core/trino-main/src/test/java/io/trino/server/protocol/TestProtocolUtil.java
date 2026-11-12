@@ -24,8 +24,11 @@ import java.util.List;
 import static io.trino.server.protocol.ProtocolUtil.createColumn;
 import static io.trino.spi.type.IntervalField.DAY;
 import static io.trino.spi.type.IntervalField.SECOND;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.IntervalDayTimeType.createIntervalDayTimeType;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestProtocolUtil
@@ -41,6 +44,21 @@ class TestProtocolUtil
             assertThat(precise.getTypeSignature().getArguments()).hasSize(type.getTypeDescriptor().getParameters().size());
             assertThat(precise.getType()).isEqualToIgnoringCase(type.getDisplayName());
         }
+    }
+
+    @Test
+    void testCollatedTypes()
+    {
+        // clients receive a collated string as its base type, which every client can parse
+        Type collated = createVarcharType(10, collationRegistry().getCollation("unicode_ci"));
+        for (boolean supportsParametricInterval : new boolean[] {false, true}) {
+            Column column = createColumn("value", collated, true, true, true, true, supportsParametricInterval);
+            assertThat(column.getType()).isEqualTo("varchar(10)");
+            assertThat(column.getTypeSignature().getRawType()).isEqualTo("varchar");
+            assertThat(column.getTypeSignature().getArguments()).hasSize(1);
+        }
+        Type nested = RowType.from(List.of(RowType.field("name", new ArrayType(VARCHAR.withCollation(collationRegistry().getCollation("unicode"))))));
+        assertThat(createColumn("value", nested, true, true, true, true, true).getType()).isEqualTo("row(name array(varchar))");
     }
 
     @Test

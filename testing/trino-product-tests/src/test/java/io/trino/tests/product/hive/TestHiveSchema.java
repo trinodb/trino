@@ -235,7 +235,8 @@ class TestHiveSchema
                             row("ordinal_position"),
                             row("column_default"),
                             row("is_nullable"),
-                            row("data_type"));
+                            row("data_type"),
+                            row("collation_name"));
             // information_schema.column_privileges exists in Hive 3
             assertThat(env.executeTrino("SELECT column_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name = 'column_privileges'"))
                     .hasNoRows();

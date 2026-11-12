@@ -87,6 +87,7 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static java.util.Locale.ROOT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -403,6 +404,29 @@ class TestCreateTableTask
                     getFutureValue(createTableTask.internalExecute(statement, transactionSession, ImmutableList.of(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(NOT_SUPPORTED)
                     .hasMessage("Catalog 'other_catalog' does not support non-null column for column name 'b'");
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateWithUnsupportedConnectorThrowsWhenCollated()
+    {
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(QualifiedName.of("a"), toSqlType(VARCHAR.withCollation(collationRegistry().getCollation("unicode"))), true, ImmutableList.of(), Optional.empty()));
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table_collated"),
+                inputColumns,
+                IGNORE,
+                ImmutableList.of(),
+                Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() ->
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, ImmutableList.of(), _ -> {}, WarningCollector.NOOP)))
+                    .hasErrorCode(NOT_SUPPORTED)
+                    .hasMessage("Catalog 'other_catalog' does not support collated column type varchar COLLATE \"unicode\"");
+            assertThat(metadata.getCreateTableCallCount()).isEqualTo(0);
             return null;
         });
     }

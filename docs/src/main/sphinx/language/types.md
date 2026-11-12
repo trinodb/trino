@@ -208,6 +208,7 @@ type:
 
 ```sql
 SELECT CAST(name AS varchar COLLATE unicode_ci) = 'ALICE' FROM (VALUES 'alice') t(name)
+CREATE TABLE users (email varchar(320) COLLATE unicode_ci, name varchar COLLATE unicode)
 ```
 
 The collation decides how values of the type compare, sort, and group. A value is
@@ -232,6 +233,8 @@ Changing a collation is a cast, `CAST(x AS varchar COLLATE unicode)`, or the sho
 collations never convert implicitly.
 
 The order a collation produces can change when Trino upgrades the ICU library it uses.
+Only the memory connector stores collated columns. Clients see collated columns as
+their type without the collation.
 
 #### Methods
 

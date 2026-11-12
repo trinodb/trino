@@ -34,7 +34,7 @@ established:
 
 A comparison, sort, or grouping uses the explicit collation if there is one, else the
 implicit collation of its operands. A literal takes the collation it is compared with,
-so `ci_value = 'abc'` compares under the value's collation. Different explicit
+so `ci_column = 'abc'` compares under the column's collation. Different explicit
 collations, or different implicit collations without an explicit one, are an error:
 
 ```sql
