@@ -490,6 +490,7 @@ public class TestParquetWriter
                 CompressionCodec.SNAPPY);
         List<Page> inputPages = generateInputPages(types, 1000, 100);
 
+        assertThat(writer.getRetainedBytes()).isPositive();
         long previousRetainedBytes = 0;
         for (Page inputPage : inputPages) {
             checkArgument(types.size() == inputPage.getChannelCount());

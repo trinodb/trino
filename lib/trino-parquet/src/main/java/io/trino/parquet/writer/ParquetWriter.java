@@ -116,6 +116,8 @@ public class ParquetWriter
     private List<ColumnWriter> columnWriters;
     private int rows;
     private long estimatedBufferedBytes;
+    // the page sink asks for the retained size before and after every page, and walking all column writers each time is costly
+    private long retainedBytes;
     private CompressionStats previousCompressionStats = CompressionStats.EMPTY;
     private OptionalInt footerReadSize = OptionalInt.empty();
     private boolean closed;
@@ -150,6 +152,7 @@ public class ParquetWriter
         recordValidation(validation -> validation.setCreatedBy(createdBy));
         initColumnWriters();
         this.chunkMaxBytes = max(1, writerOption.getMaxRowGroupSize() / 2);
+        updateRetainedBytes();
     }
 
     public long getEstimatedWrittenBytes()
@@ -159,11 +162,7 @@ public class ParquetWriter
 
     public long getRetainedBytes()
     {
-        return INSTANCE_SIZE +
-                outputStream.getRetainedSize() +
-                compressionBuffers.getRetainedSize() +
-                columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum() +
-                validationBuilder.map(ParquetWriteValidationBuilder::getRetainedSize).orElse(0L);
+        return retainedBytes;
     }
 
     public void write(Page page)
@@ -191,6 +190,7 @@ public class ParquetWriter
             writeOffset += chunk.getPositionCount();
             writeChunk(chunk);
         }
+        updateRetainedBytes();
     }
 
     private void writeChunk(Page page)
@@ -231,6 +231,7 @@ public class ParquetWriter
             writeFooter();
         }
         estimatedBufferedBytes = 0;
+        updateRetainedBytes();
     }
 
     public void validate(ParquetDataSource input)
@@ -460,6 +461,19 @@ public class ParquetWriter
         // Apache Hive will skip timezone conversion if createdBy does not start with parquet-mr
         // https://github.com/apache/hive/blob/67ef629486ba38b1d3e0f400bee0073fa3c4e989/ql/src/java/org/apache/hadoop/hive/ql/io/parquet/ParquetRecordReaderBase.java#L154
         return "parquet-mr-trino version " + trinoVersion + " (build n/a)";
+    }
+
+    private void updateRetainedBytes()
+    {
+        long columnWritersRetainedBytes = 0;
+        for (ColumnWriter columnWriter : columnWriters) {
+            columnWritersRetainedBytes += columnWriter.getRetainedBytes();
+        }
+        retainedBytes = INSTANCE_SIZE +
+                outputStream.getRetainedSize() +
+                compressionBuffers.getRetainedSize() +
+                columnWritersRetainedBytes +
+                validationBuilder.map(ParquetWriteValidationBuilder::getRetainedSize).orElse(0L);
     }
 
     private void initColumnWriters()
