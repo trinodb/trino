@@ -130,7 +130,6 @@ import org.apache.iceberg.parquet.ParquetSchemaUtil;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
-import org.apache.iceberg.util.StructLikeWrapper;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.io.MessageColumnIO;
@@ -208,12 +207,10 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFrom
 import static io.trino.plugin.iceberg.IcebergSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.iceberg.IcebergSplitSource.partitionMatchesPredicate;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
-import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
+import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionFieldValues;
-import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionRow;
-import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
@@ -268,7 +265,9 @@ public class IcebergPageSourceProvider
     private final LocalMemoryContext deleteFilterCacheMemoryContext;
     private final int domainCompactionThreshold;
     private final DeleteManager unpartitionedTableDeleteManager;
-    private final Map<Integer, Function<PartitionData, PartitionKey>> partitionKeyFactories = new ConcurrentHashMap<>();
+    // A provider serves the splits of one table scan, which share the handle's schema and spec JSON
+    private final Map<String, Schema> schemasByJson = new ConcurrentHashMap<>();
+    private final Map<PartitionSpecCacheKey, PartitionSpec> partitionSpecsByJson = new ConcurrentHashMap<>();
     private final Map<PartitionKey, DeleteManager> partitionedDeleteManagers = new ConcurrentHashMap<>();
     private final Executor deleteLoadingExecutor;
 
@@ -336,20 +335,20 @@ public class IcebergPageSourceProvider
                 .map(IcebergColumnHandle.class::cast)
                 .collect(toImmutableList());
         IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTable;
-        Schema schema = SchemaParser.fromJson(tableHandle.getTableSchemaJson());
-        // The split source typed the partition values with the specs of the table, which are bound to its current schema
-        Schema partitionSpecSchema = tableHandle.getPartitionSpecSchemaJson().map(SchemaParser::fromJson).orElse(schema);
-        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(partitionSpecSchema, tableHandle.getPartitionSpecJsons().get(split.specId()));
-        org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
-                .map(field -> field.transform().getResultType(partitionSpecSchema.findType(field.sourceId())))
-                .toArray(org.apache.iceberg.types.Type[]::new);
+        String schemaJson = tableHandle.getTableSchemaJson();
+        Schema schema = schemasByJson.computeIfAbsent(schemaJson, SchemaParser::fromJson);
+        // Only the field ids and transforms of the spec are used here. The handle carries the types
+        // of the partition values
+        String partitionSpecJson = tableHandle.getPartitionSpecJsons().get(split.specId());
+        PartitionSpec partitionSpec = partitionSpecsByJson.computeIfAbsent(new PartitionSpecCacheKey(schemaJson, partitionSpecJson), _ -> PartitionSpecParser.fromJson(schema, partitionSpecJson));
 
         return createPageSource(
                 session,
                 icebergColumns,
                 schema,
                 partitionSpec,
-                PartitionData.fromBlocks(split.partitionValues(), partitionColumnTypes, typeManager),
+                tableHandle.getPartitionValueTypes().get(split.specId()),
+                split.partitionValues(),
                 split.deletes(),
                 dynamicFilter,
                 tableHandle.getUnenforcedPredicate(),
@@ -373,7 +372,8 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> icebergColumns,
             Schema tableSchema,
             PartitionSpec partitionSpec,
-            PartitionData partitionData,
+            List<Type> partitionValueTypes,
+            List<Block> partitionValues,
             List<DeleteFile> deletes,
             DynamicFilter dynamicFilter,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
@@ -391,15 +391,15 @@ public class IcebergPageSourceProvider
             AggregatedMemoryContext memoryContext,
             Optional<ParquetFileDecryptionData> parquetFileDecryptionData)
     {
-        Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
+        Map<Integer, NullableValue> identityPartitionValues = getIdentityPartitionValues(partitionSpec, partitionValueTypes, partitionValues, tableSchema, typeManager);
         // Only the $partition column and the partition fields projected out of it read the partition field values
         Map<Integer, Object> partitionFieldValues = ImmutableMap.of();
         if (icebergColumns.stream().anyMatch(column -> column.isPartitionColumn() || column.isPartitionField())) {
-            partitionFieldValues = getPartitionFieldValues(partitionSpec, partitionData);
+            partitionFieldValues = getPartitionFieldValues(partitionSpec, partitionValueTypes, partitionValues);
         }
         TupleDomain<IcebergColumnHandle> effectivePredicate = getUnenforcedPredicate(
                 tableSchema,
-                partitionKeys,
+                identityPartitionValues,
                 dynamicFilter,
                 unenforcedPredicate,
                 fileStatisticsDomain);
@@ -416,12 +416,12 @@ public class IcebergPageSourceProvider
             if (effectivePredicate.isAll() &&
                     start == 0 && length == inputFile.length() &&
                     deletes.isEmpty() &&
-                    icebergColumns.stream().allMatch(column -> column.isPartitionColumn() || column.isPartitionField() || partitionKeys.containsKey(column.getId()))) {
+                    icebergColumns.stream().allMatch(column -> column.isPartitionColumn() || column.isPartitionField() || identityPartitionValues.containsKey(column.getId()))) {
                 return generatePages(
                         fileRecordCount,
                         icebergColumns,
                         partitionFieldValues,
-                        partitionKeys,
+                        identityPartitionValues,
                         memoryContext.newLocalMemoryContext(FixedPageSource.class.getSimpleName())::setBytes);
             }
         }
@@ -442,6 +442,7 @@ public class IcebergPageSourceProvider
                 .filter(column -> !projectedIds.contains(column.getId()))
                 .forEach(requiredColumns::add);
 
+        String partitionDataJson = PartitionData.toJson(PartitionData.fromBlocks(partitionValues, partitionValueTypes));
         Optional<FileDecryptionProperties> parquetFileDecryptionProperties = createParquetFileDecryptionProperties(parquetFileDecryptionData, arePlaintextFilesAllowedForEncryptedTables(session));
         ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions = createDataPageSource(
                 session,
@@ -451,14 +452,14 @@ public class IcebergPageSourceProvider
                 fileSize,
                 fileRecordCount,
                 partitionSpec.specId(),
-                PartitionData.toJson(partitionData),
+                partitionDataJson,
                 fileFormat,
                 tableSchema,
                 requiredColumns,
                 effectivePredicate,
                 nameMapping,
                 partitionFieldValues,
-                partitionKeys,
+                identityPartitionValues,
                 dataSequenceNumber,
                 fileFirstRowId,
                 memoryContext.newAggregatedMemoryContext(),
@@ -474,7 +475,7 @@ public class IcebergPageSourceProvider
                     pageSource,
                     decodeExecutor,
                     memoryContext.newLocalMemoryContext(AsyncFilteredPageSource.class.getSimpleName()),
-                    getDeleteManager(partitionSpec, partitionData).createDeletePageFilter(
+                    getDeleteManager(partitionSpec, partitionDataJson).createDeletePageFilter(
                             path,
                             dataSequenceNumber,
                             deletes,
@@ -512,38 +513,29 @@ public class IcebergPageSourceProvider
                         .sum());
     }
 
-    private DeleteManager getDeleteManager(PartitionSpec partitionSpec, PartitionData partitionData)
+    private DeleteManager getDeleteManager(PartitionSpec partitionSpec, String partitionDataJson)
     {
         if (partitionSpec.isUnpartitioned()) {
             return unpartitionedTableDeleteManager;
         }
-
-        Types.StructType structType = partitionSpec.partitionType();
-        PartitionKey partitionKey = partitionKeyFactories.computeIfAbsent(
-                        partitionSpec.specId(),
-                        key -> {
-                            // creating the template wrapper is expensive, reuse it for all partitions of the same spec
-                            // reuse is only safe because we only use the copyFor method which is thread safe
-                            StructLikeWrapper templateWrapper = StructLikeWrapper.forType(structType);
-                            return data -> new PartitionKey(key, templateWrapper.copyFor(data));
-                        })
-                .apply(partitionData);
-
+        PartitionKey partitionKey = new PartitionKey(partitionSpec.specId(), partitionDataJson);
         return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager, blocksHashFactory, this::reportDeleteFilterMemoryUsage, deleteLoadingExecutor));
     }
 
-    private record PartitionKey(int specId, StructLikeWrapper partitionData) {}
+    private record PartitionKey(int specId, String partitionDataJson) {}
+
+    private record PartitionSpecCacheKey(String schemaJson, String partitionSpecJson) {}
 
     private TupleDomain<IcebergColumnHandle> getUnenforcedPredicate(
             Schema tableSchema,
-            Map<Integer, Optional<String>> partitionKeys,
+            Map<Integer, NullableValue> identityPartitionValues,
             DynamicFilter dynamicFilter,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             TupleDomain<IcebergColumnHandle> fileStatisticsDomain)
     {
         return prunePredicate(
                 tableSchema,
-                partitionKeys,
+                identityPartitionValues,
                 // We reach here when we could not prune the split using file level stats, table predicate
                 // and the dynamic filter in the coordinator during split generation. The file level stats
                 // in IcebergSplit#fileStatisticsDomain could help to prune this split when a more selective dynamic filter
@@ -558,7 +550,7 @@ public class IcebergPageSourceProvider
 
     private TupleDomain<IcebergColumnHandle> prunePredicate(
             Schema tableSchema,
-            Map<Integer, Optional<String>> partitionKeys,
+            Map<Integer, NullableValue> identityPartitionValues,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             TupleDomain<IcebergColumnHandle> fileStatisticsDomain)
     {
@@ -566,10 +558,11 @@ public class IcebergPageSourceProvider
             return unenforcedPredicate;
         }
 
-        Set<IcebergColumnHandle> partitionColumns = partitionKeys.keySet().stream()
+        Set<IcebergColumnHandle> partitionColumns = identityPartitionValues.keySet().stream()
                 .map(fieldId -> getColumnHandle(tableSchema.findField(fieldId), typeManager))
                 .collect(toImmutableSet());
-        Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> getPartitionValues(partitionColumns, partitionKeys));
+        Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> partitionColumns.stream()
+                .collect(toImmutableMap(identity(), column -> identityPartitionValues.get(column.getId()))));
         if (!partitionMatchesPredicate(partitionColumns, partitionValues, unenforcedPredicate)) {
             return TupleDomain.none();
         }
@@ -577,7 +570,7 @@ public class IcebergPageSourceProvider
         return unenforcedPredicate
                 // Filter out partition columns domains from the dynamic filter because they should be irrelevant at data file level.
                 // Metadata column ids may collide with data column ids, which the readers match predicates by
-                .filter((columnHandle, _) -> !columnHandle.isMetadataColumn() && !partitionKeys.containsKey(columnHandle.getId()))
+                .filter((columnHandle, _) -> !columnHandle.isMetadataColumn() && !identityPartitionValues.containsKey(columnHandle.getId()))
                 // remove domains from predicate that fully contain split data because they are irrelevant for filtering
                 .filter((handle, domain) -> !domain.contains(fileStatisticsDomain.getDomain(handle, domain.getType())));
     }
@@ -670,7 +663,7 @@ public class IcebergPageSourceProvider
             TupleDomain<IcebergColumnHandle> predicate,
             Optional<NameMapping> nameMapping,
             Map<Integer, Object> partitionFieldValues,
-            Map<Integer, Optional<String>> partitionKeys,
+            Map<Integer, NullableValue> identityPartitionValues,
             OptionalLong dataSequenceNumber,
             OptionalLong fileFirstRowId,
             AggregatedMemoryContext memoryContext,
@@ -694,7 +687,7 @@ public class IcebergPageSourceProvider
                     typeManager,
                     nameMapping,
                     partitionFieldValues,
-                    partitionKeys,
+                    identityPartitionValues,
                     dataSequenceNumber,
                     fileFirstRowId,
                     memoryContext);
@@ -715,7 +708,7 @@ public class IcebergPageSourceProvider
                     parquetFooterCache,
                     nameMapping,
                     partitionFieldValues,
-                    partitionKeys,
+                    identityPartitionValues,
                     dataSequenceNumber,
                     fileFirstRowId,
                     memoryContext,
@@ -732,7 +725,7 @@ public class IcebergPageSourceProvider
                     nameMapping,
                     partitionFieldValues,
                     dataColumns,
-                    partitionKeys,
+                    identityPartitionValues,
                     typeManager,
                     dataSequenceNumber,
                     fileFirstRowId,
@@ -744,7 +737,7 @@ public class IcebergPageSourceProvider
             long totalRowCount,
             List<IcebergColumnHandle> icebergColumns,
             Map<Integer, Object> partitionFieldValues,
-            Map<Integer, Optional<String>> partitionKeys,
+            Map<Integer, NullableValue> identityPartitionValues,
             MemoryContext memoryContext)
     {
         int maxPageSize = MAX_RLE_PAGE_SIZE;
@@ -760,7 +753,7 @@ public class IcebergPageSourceProvider
                 value = partitionFieldValues.get(column.getId());
             }
             else {
-                value = deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName());
+                value = identityPartitionValues.get(column.getId()).getValue();
             }
             pageBlocks[i] = RunLengthEncodedBlock.create(writeNativeValue(trinoType, value), maxPageSize);
         }
@@ -812,7 +805,7 @@ public class IcebergPageSourceProvider
             TypeManager typeManager,
             Optional<NameMapping> nameMapping,
             Map<Integer, Object> partitionFieldValues,
-            Map<Integer, Optional<String>> partitionKeys,
+            Map<Integer, NullableValue> identityPartitionValues,
             OptionalLong dataSequenceNumber,
             OptionalLong fileFirstRowId,
             AggregatedMemoryContext memoryContext)
@@ -858,11 +851,8 @@ public class IcebergPageSourceProvider
                 if (column.isIsDeletedColumn()) {
                     transforms.constantValue(writeNativeValue(BOOLEAN, false));
                 }
-                else if (!column.isMetadataColumn() && partitionKeys.containsKey(column.getId())) {
-                    Type trinoType = column.getType();
-                    transforms.constantValue(writeNativeValue(
-                            trinoType,
-                            deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName())));
+                else if (!column.isMetadataColumn() && identityPartitionValues.containsKey(column.getId())) {
+                    transforms.constantValue(writeNativeValue(column.getType(), identityPartitionValues.get(column.getId()).getValue()));
                 }
                 else if (column.isPartitionColumn()) {
                     transforms.constantValue(writeNativeValue(column.getType(), getPartitionRow(IcebergPartitionColumn.fromColumnHandle(column), partitionFieldValues)));
@@ -1176,7 +1166,7 @@ public class IcebergPageSourceProvider
             ParquetFooterCache parquetFooterCache,
             Optional<NameMapping> nameMapping,
             Map<Integer, Object> partitionFieldValues,
-            Map<Integer, Optional<String>> partitionKeys,
+            Map<Integer, NullableValue> identityPartitionValues,
             OptionalLong dataSequenceNumber,
             OptionalLong fileFirstRowId,
             AggregatedMemoryContext memoryContext,
@@ -1222,11 +1212,8 @@ public class IcebergPageSourceProvider
                 if (column.isIsDeletedColumn()) {
                     transforms.constantValue(writeNativeValue(BOOLEAN, false));
                 }
-                else if (!column.isMetadataColumn() && partitionKeys.containsKey(column.getId())) {
-                    Type trinoType = column.getType();
-                    transforms.constantValue(writeNativeValue(
-                            trinoType,
-                            deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName())));
+                else if (!column.isMetadataColumn() && identityPartitionValues.containsKey(column.getId())) {
+                    transforms.constantValue(writeNativeValue(column.getType(), identityPartitionValues.get(column.getId()).getValue()));
                 }
                 else if (column.isPartitionColumn()) {
                     transforms.constantValue(writeNativeValue(column.getType(), getPartitionRow(IcebergPartitionColumn.fromColumnHandle(column), partitionFieldValues)));
@@ -1485,7 +1472,7 @@ public class IcebergPageSourceProvider
             Optional<NameMapping> nameMapping,
             Map<Integer, Object> partitionFieldValues,
             List<IcebergColumnHandle> columns,
-            Map<Integer, Optional<String>> partitionKeys,
+            Map<Integer, NullableValue> identityPartitionValues,
             TypeManager typeManager,
             OptionalLong dataSequenceNumber,
             OptionalLong fileFirstRowId,
@@ -1520,11 +1507,8 @@ public class IcebergPageSourceProvider
 
             int nextOrdinal = 0;
             for (IcebergColumnHandle column : columns) {
-                if (!column.isMetadataColumn() && partitionKeys.containsKey(column.getId())) {
-                    Type trinoType = column.getType();
-                    transforms.constantValue(writeNativeValue(
-                            trinoType,
-                            deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName())));
+                if (!column.isMetadataColumn() && identityPartitionValues.containsKey(column.getId())) {
+                    transforms.constantValue(writeNativeValue(column.getType(), identityPartitionValues.get(column.getId()).getValue()));
                 }
                 else if (column.isPartitionColumn()) {
                     transforms.constantValue(writeNativeValue(column.getType(), getPartitionRow(IcebergPartitionColumn.fromColumnHandle(column), partitionFieldValues)));

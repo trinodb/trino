@@ -25,6 +25,7 @@ import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorProviderFactory;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
+import io.trino.spi.type.TypeManager;
 
 import java.util.Optional;
 
@@ -34,21 +35,23 @@ public class TableChangesFunctionProcessorProviderFactory
         implements TableFunctionProcessorProviderFactory
 {
     private final IcebergPageSourceProviderFactory icebergPageSourceProviderFactory;
+    private final TypeManager typeManager;
 
     @Inject
-    public TableChangesFunctionProcessorProviderFactory(IcebergPageSourceProviderFactory icebergPageSourceProviderFactory)
+    public TableChangesFunctionProcessorProviderFactory(IcebergPageSourceProviderFactory icebergPageSourceProviderFactory, TypeManager typeManager)
     {
         this.icebergPageSourceProviderFactory = requireNonNull(icebergPageSourceProviderFactory, "icebergPageSourceProviderFactory is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
     public TableFunctionProcessorProvider createTableFunctionProcessorProvider()
     {
         IcebergPageSourceProvider pageSourceProvider = (IcebergPageSourceProvider) icebergPageSourceProviderFactory.createPageSourceProvider(MemoryContext.NO_LIMIT);
-        return new TableChangesFunctionProcessorProvider(pageSourceProvider);
+        return new TableChangesFunctionProcessorProvider(pageSourceProvider, typeManager);
     }
 
-    private record TableChangesFunctionProcessorProvider(IcebergPageSourceProvider icebergPageSourceProvider)
+    private record TableChangesFunctionProcessorProvider(IcebergPageSourceProvider icebergPageSourceProvider, TypeManager typeManager)
             implements TableFunctionProcessorProvider
     {
         @Override
@@ -60,7 +63,8 @@ public class TableChangesFunctionProcessorProviderFactory
                             (TableChangesFunctionHandle) handle,
                             tableCredentials,
                             (TableChangesSplit) split,
-                            icebergPageSourceProvider),
+                            icebergPageSourceProvider,
+                            typeManager),
                     getClass().getClassLoader());
         }
     }
