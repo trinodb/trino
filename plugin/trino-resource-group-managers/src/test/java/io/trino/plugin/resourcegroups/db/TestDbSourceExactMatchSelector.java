@@ -23,7 +23,6 @@ import io.trino.spi.session.ResourceEstimates;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.spi.resourcegroups.QueryType.DELETE;
@@ -36,14 +35,7 @@ public class TestDbSourceExactMatchSelector
     private static final JsonCodec<ResourceGroupId> CODEC = jsonCodec(ResourceGroupId.class);
     private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
     private static final String QUERY = "select * from table";
-    private final H2ResourceGroupsDao dao;
-
-    public TestDbSourceExactMatchSelector()
-    {
-        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_db-exact-match-selector" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
-        dao = new H2DaoProvider(config).get();
-        dao.createExactMatchSelectorsTable();
-    }
+    private final TestingResourceGroupsDao dao = TestingResourceGroupsDatabase.create().getDao();
 
     @Test
     public void testMatch()
