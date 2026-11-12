@@ -246,10 +246,6 @@ public class PrimitiveColumnWriter
                 : createDataOutput(bytesInput);
         int compressedSize = pageData.size();
 
-        Statistics<?> statistics = primitiveValueWriter.getStatistics();
-        statistics.incrementNumNulls(currentPageNullCounts);
-        columnStatistics.mergeStatistics(statistics);
-
         int writtenBytesSoFar = compressedOutputStream.size();
         PageHeader header = dataPageV1Header(
                 uncompressedSize,
@@ -277,13 +273,16 @@ public class PrimitiveColumnWriter
         encodings.add(definitionLevelWriter.getEncoding());
         encodings.add(primitiveValueWriter.getEncoding());
 
+        Statistics<?> statistics = primitiveValueWriter.resetAndGetStatistics();
+        statistics.incrementNumNulls(currentPageNullCounts);
+        columnStatistics.mergeStatistics(statistics);
+
         // reset page stats
         valueCount = 0;
         currentPageNullCounts = 0;
 
         repetitionLevelWriter.reset();
         definitionLevelWriter.reset();
-        primitiveValueWriter.reset();
     }
 
     private DataStreams getDataStreams()
