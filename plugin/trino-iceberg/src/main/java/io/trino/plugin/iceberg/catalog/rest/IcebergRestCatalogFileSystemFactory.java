@@ -26,6 +26,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergStorageCredentials;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.azure.AzureProperties;
@@ -39,8 +40,11 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Suppliers.memoize;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
+import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningContext.EXTRA_CREDENTIALS_PROPERTY;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
@@ -63,16 +67,21 @@ public class IcebergRestCatalogFileSystemFactory
             .maximumSize(1_000)
             .expireAfterWrite(1, HOURS)
             .build();
+    private final boolean s3RemoteSigningEnabled;
 
     @Inject
     public IcebergRestCatalogFileSystemFactory(
             TrinoFileSystemFactory fileSystemFactory,
             IcebergRestCatalogConfig config,
+            Optional<IcebergRestCatalogS3Config> s3Config,
             IcebergRestCatalogPropertiesProvider catalogPropertiesProvider)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.vendedCredentialsEnabled = config.isVendedCredentialsEnabled();
         this.catalogProperties = ImmutableMap.copyOf(catalogPropertiesProvider.catalogProperties());
+        this.s3RemoteSigningEnabled = requireNonNull(s3Config, "s3Config is null")
+                .map(IcebergRestCatalogS3Config::isRemoteSigningEnabled)
+                .orElse(false);
     }
 
     @VisibleForTesting
@@ -85,61 +94,69 @@ public class IcebergRestCatalogFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
     {
-        if (vendedCredentialsEnabled) {
-            return new IcebergRestCatalogFileSystem(new IcebergRestCatalogFileSystemLoader()
-            {
-                @Override
-                public TrinoFileSystem create(Location location)
-                {
-                    if (location.scheme().isEmpty()) {
-                        throw new IllegalArgumentException("Location scheme is empty: " + location);
-                    }
-                    CachedVendedCredentialsProviders cached = uncheckedCacheGet(
-                            vendedCredentialsProvidersCache,
-                            createVendedCredentialsCacheKey(identity, fileIoProperties, this.storageCredentials),
-                            () -> createVendedCredentialsProviders(fileIoProperties, this.storageCredentials));
-
-                    return getTrinoFileSystem(location, identity, cached);
-                }
-            });
+        if (!vendedCredentialsEnabled && !fileIoProperties.containsKey(S3FileIOProperties.REMOTE_SIGNING_ENABLED)) {
+            return fileSystemFactory.create(withRemoteSigning(identity, Optional.empty()));
         }
-        return fileSystemFactory.create(identity);
+        Supplier<String> remoteSigningContext = memoize(() -> IcebergRestCatalogS3RemoteSigningContext.fromFileIoProperties(fileIoProperties).toJson());
+        return new IcebergRestCatalogFileSystem(new IcebergRestCatalogFileSystemLoader()
+        {
+            @Override
+            public TrinoFileSystem create(Location location)
+            {
+                String scheme = location.scheme().orElse("");
+                boolean remoteSigningRequested = switch (scheme) {
+                    case "s3", "s3a", "s3n" -> AbstractIcebergRestVendedCredentialsProvider.parseBoolean(fileIoProperties, S3FileIOProperties.REMOTE_SIGNING_ENABLED, false);
+                    default -> false;
+                };
+                if (remoteSigningRequested && s3RemoteSigningEnabled) {
+                    return fileSystemFactory.create(withRemoteSigning(identity, Optional.of(remoteSigningContext.get())));
+                }
+                if (!vendedCredentialsEnabled && !remoteSigningRequested) {
+                    return fileSystemFactory.create(withRemoteSigning(identity, Optional.empty()));
+                }
+                if (scheme.isEmpty()) {
+                    throw new IllegalArgumentException("Location scheme is empty: " + location);
+                }
+                CachedVendedCredentialsProviders cached = uncheckedCacheGet(
+                        vendedCredentialsProvidersCache,
+                        createVendedCredentialsCacheKey(identity, fileIoProperties, this.storageCredentials),
+                        () -> createVendedCredentialsProviders(fileIoProperties, this.storageCredentials));
+
+                return getTrinoFileSystem(location, identity, cached, remoteSigningRequested);
+            }
+        });
     }
 
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity, IcebergTableCredentials tableCredentials)
     {
-        if (vendedCredentialsEnabled) {
-            return new IcebergRestCatalogFileSystem(new IcebergRestCatalogFileSystemLoader()
-            {
-                @Override
-                public TrinoFileSystem create(Location location)
-                {
-                    if (location.scheme().isEmpty()) {
-                        throw new IllegalArgumentException("Location scheme is empty: " + location);
-                    }
-                    CachedVendedCredentialsProviders cached = uncheckedCacheGet(
-                            vendedCredentialsProvidersCache,
-                            createVendedCredentialsCacheKey(identity, tableCredentials.fileIoProperties(), tableCredentials.storageCredentials()),
-                            () -> createVendedCredentialsProviders(tableCredentials.fileIoProperties(), tableCredentials.storageCredentials()));
-
-                    return getTrinoFileSystem(location, identity, cached);
-                }
-            });
+        TrinoFileSystem fileSystem = create(identity, tableCredentials.fileIoProperties());
+        if (fileSystem instanceof IcebergRestCatalogFileSystem catalogFileSystem) {
+            catalogFileSystem.setCredentials(tableCredentials.storageCredentials());
         }
-        return fileSystemFactory.create(identity);
+        return fileSystem;
     }
 
-    private TrinoFileSystem getTrinoFileSystem(Location location, ConnectorIdentity identity, CachedVendedCredentialsProviders cached)
+    private TrinoFileSystem getTrinoFileSystem(Location location, ConnectorIdentity identity, CachedVendedCredentialsProviders cached, boolean remoteSigningRequested)
     {
         // Derive the vended credentials provider to use from the location scheme
-        VendedCredentialsProvider<? extends VendedCredentials> vendedCredentialsProvider = (switch (location.scheme().get()) {
+        Optional<? extends VendedCredentialsProvider<? extends VendedCredentials>> vendedCredentialsProvider = switch (location.scheme().get()) {
             case "s3", "s3a", "s3n" -> findVendedCredentialsProviderForLocation(cached.s3VendedCredentialsProviders(), location);
             case "gs" -> findVendedCredentialsProviderForLocation(cached.gcsVendedCredentialsProviders(), location);
             case "abfs", "abfss", "wasb", "wasbs" -> findVendedCredentialsProviderForLocation(cached.azureVendedCredentialsProviders(), location);
             default -> throw new IllegalArgumentException("Unsupported location scheme for vended credentials: " + location);
-        }).orElseThrow(() -> new IllegalStateException("Failed to initialize the vended credentials from the provided fileIoProperties"));
-        return fileSystemFactory.create(() -> withExtraCredentials(identity, mergeExtraCredentials(cached.extraCredentials(), vendedCredentialsProvider.getCredentials())));
+        };
+        if (vendedCredentialsProvider.isEmpty()) {
+            if (remoteSigningRequested) {
+                // Remote signing cannot be enabled together with vended credentials
+                throw new TrinoException(NOT_SUPPORTED, vendedCredentialsEnabled
+                        ? "Table requires remote signing; enable iceberg.rest-catalog.remote-signing-enabled and disable iceberg.rest-catalog.vended-credentials-enabled"
+                        : "Table requires remote signing; enable iceberg.rest-catalog.remote-signing-enabled");
+            }
+            throw new IllegalStateException("Failed to initialize the vended credentials from the provided fileIoProperties");
+        }
+        VendedCredentialsProvider<? extends VendedCredentials> provider = vendedCredentialsProvider.get();
+        return fileSystemFactory.create(() -> withExtraCredentials(identity, mergeExtraCredentials(cached.extraCredentials(), provider.getCredentials())));
     }
 
     private static Map<String, String> mergeExtraCredentials(Map<String, String> baseExtraCredentials, VendedCredentials vendedCredentials)
@@ -158,6 +175,30 @@ public class IcebergRestCatalogFileSystemFactory
                 .withEnabledSystemRoles(identity.getEnabledSystemRoles())
                 .withConnectorRole(identity.getConnectorRole())
                 .withExtraCredentials(extraCredentials)
+                .build();
+    }
+
+    private static ConnectorIdentity withRemoteSigning(ConnectorIdentity identity, Optional<String> remoteSigningContext)
+    {
+        // Only this table's remote signing settings apply
+        ImmutableMap.Builder<String, String> extraCredentials = ImmutableMap.builder();
+        identity.getExtraCredentials().forEach((key, value) -> {
+            if (!key.equals(EXTRA_CREDENTIALS_PROPERTY)) {
+                extraCredentials.put(key, value);
+            }
+        });
+        remoteSigningContext.ifPresent(context -> extraCredentials.put(EXTRA_CREDENTIALS_PROPERTY, context));
+
+        Map<String, String> updatedExtraCredentials = extraCredentials.buildOrThrow();
+        if (updatedExtraCredentials.equals(identity.getExtraCredentials())) {
+            return identity;
+        }
+        return ConnectorIdentity.forUser(identity.getUser())
+                .withGroups(identity.getGroups())
+                .withPrincipal(identity.getPrincipal())
+                .withEnabledSystemRoles(identity.getEnabledSystemRoles())
+                .withConnectorRole(identity.getConnectorRole())
+                .withExtraCredentials(updatedExtraCredentials)
                 .build();
     }
 
@@ -353,9 +394,9 @@ public class IcebergRestCatalogFileSystemFactory
         String locationString = location.toString();
         return providers.entrySet().stream()
                 // Keys match as plain string prefixes, which the root prefixes rely on, e.g. "abfs" matches abfss:// locations.
-                // Storage credential prefixes may carry a trailing slash (e.g. the table's root location); strip it so an
-                // exact match against the table location itself (not just a path underneath it) is still recognized.
-                .filter(e -> locationString.startsWith(stripTrailingSlash(e.getKey())))
+                // Storage credential prefixes may carry a trailing slash (e.g. the table's root location); also match the
+                // location without it, but only exactly, so that a sibling such as s3://bucket/table-other does not match.
+                .filter(e -> locationString.startsWith(e.getKey()) || locationString.equals(stripTrailingSlash(e.getKey())))
                 .max(Comparator.comparingInt(e -> e.getKey().length()))
                 .map(Map.Entry::getValue);
     }
