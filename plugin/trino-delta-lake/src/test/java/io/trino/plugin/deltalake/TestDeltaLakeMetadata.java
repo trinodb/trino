@@ -101,6 +101,7 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPER
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
+import static io.trino.plugin.deltalake.metastore.DeltaTableType.MANAGED_TABLE;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
@@ -603,7 +604,7 @@ public class TestDeltaLakeMetadata
         return new DeltaLakeTableHandle(
                 "test_schema_name",
                 "test_table_name",
-                true,
+                MANAGED_TABLE,
                 "test_location",
                 createMetadataEntry(),
                 new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
