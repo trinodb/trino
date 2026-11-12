@@ -15,12 +15,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.http.server.HttpConfig;
-import io.airlift.http.server.HttpServerConfig;
-import io.airlift.http.server.HttpServerInfo;
-import io.airlift.http.server.ServerFeature;
 import io.airlift.http.server.testing.TestingHttpServer;
-import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -51,12 +46,12 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
+import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.createTestingHttpServer;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.Math.toIntExact;
@@ -94,13 +89,7 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
         JdbcCatalog backend = closeAfterClass(buildBackendCatalog(warehouseLocation));
         servlet = createServlet(backend);
 
-        NodeInfo nodeInfo = new NodeInfo("test");
-        HttpServerConfig config = new HttpServerConfig()
-                .setHttpEnabled(true);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
-        TestingHttpServer testServer = new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
-                .withLegacyUriCompliance(true)
-                .build());
+        TestingHttpServer testServer = createTestingHttpServer(servlet);
         testServer.start();
         closeAfterClass(testServer::stop);
 
