@@ -250,7 +250,7 @@ public class AzureBlobFileSystemExchangeStorage
         return translateFailures(toListenableFuture(blobServiceAsyncClient
                 .getBlobContainerAsyncClient(containerName)
                 .getBlobAsyncClient(blobName)
-                .upload(BinaryData.fromString(""))
+                .upload(BinaryData.fromString(""), true)
                 .toFuture()));
     }
 
@@ -725,7 +725,7 @@ public class AzureBlobFileSystemExchangeStorage
 
             // Skip multipart upload if there would only be one part
             if (slice.length() < blockSize && multiPartUploadFutures.isEmpty()) {
-                directUploadFuture = translateFailures(toListenableFuture(blockBlobAsyncClient.upload(Flux.just(slice.toByteBuffer()), slice.length()).toFuture()));
+                directUploadFuture = translateFailures(toListenableFuture(blockBlobAsyncClient.upload(Flux.just(slice.toByteBuffer()), slice.length(), true).toFuture()));
                 return directUploadFuture;
             }
 
@@ -749,7 +749,7 @@ public class AzureBlobFileSystemExchangeStorage
 
             ListenableFuture<Void> finishFuture = translateFailures(Futures.transformAsync(
                     Futures.allAsList(multiPartUploadFutures),
-                    _ -> toListenableFuture(blockBlobAsyncClient.commitBlockList(blockIds).toFuture()),
+                    _ -> toListenableFuture(blockBlobAsyncClient.commitBlockList(blockIds, true).toFuture()),
                     directExecutor()));
             Futures.addCallback(finishFuture, new FutureCallback<>()
             {
