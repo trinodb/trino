@@ -28,6 +28,7 @@ import io.trino.sql.planner.DynamicFilterSourceConsumer;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
+import org.assertj.core.api.AbstractLongAssert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -168,6 +169,11 @@ public class TestDynamicFilterSourceOperator
     private static DynamicFilterSourceOperator.Channel channel(int index, Type type)
     {
         return new DynamicFilterSourceOperator.Channel(new DynamicFilterId(Integer.toString(index)), type, index);
+    }
+
+    private static AbstractLongAssert<?> assertMemory(Operator operator)
+    {
+        return assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory());
     }
 
     private void assertDynamicFilters(int maxFilterDistinctValues, List<Type> types, List<Page> pages, List<TupleDomain<DynamicFilterId>> expectedTupleDomains)
@@ -560,6 +566,30 @@ public class TestDynamicFilterSourceOperator
                         new DynamicFilterId("0"), Domain.create(
                                 ValueSet.ofRanges(range(VARCHAR, utf8Slice(largeText), true, utf8Slice(largeText), true)),
                                 false)))));
+    }
+
+    @Test
+    public void testCollectMinMaxAfterOverflowOnNullsOnly()
+            throws Exception
+    {
+        String largeText = "B".repeat(10_000);
+        OperatorFactory operatorFactory = createOperatorFactory(100, DataSize.ofBytes(1), 1_000_000, ImmutableList.of(channel(0, VARCHAR)));
+        try (Operator operator = createOperator(operatorFactory)) {
+            toPagesPartial(operator, ImmutableList.of(new Page(createStringsBlock(null, null))).iterator());
+            toPagesPartial(operator, ImmutableList.of(new Page(createStringsBlock(largeText))).iterator());
+            assertMemory(operator).isGreaterThan(2L * largeText.length());
+
+            toPagesPartial(operator, ImmutableList.of(new Page(createStringsBlock("A"))).iterator());
+            assertMemory(operator)
+                    .isGreaterThan(largeText.length())
+                    .isLessThan(2L * largeText.length());
+            finishOperator(operator);
+            operatorFactory.noMoreOperators();
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
+                    new DynamicFilterId("0"), Domain.create(
+                            ValueSet.ofRanges(range(VARCHAR, utf8Slice("A"), true, utf8Slice(largeText), true)),
+                            false)))));
+        }
     }
 
     @Test
