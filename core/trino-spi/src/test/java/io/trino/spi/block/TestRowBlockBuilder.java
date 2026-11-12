@@ -14,6 +14,8 @@
 package io.trino.spi.block;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
+import io.trino.spi.variant.Variant;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -22,7 +24,9 @@ import java.util.List;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.anonymous;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -40,6 +44,50 @@ final class TestRowBlockBuilder
 
         // multiple nulls
         assertIsAllNulls(blockBuilder().appendNull().appendNull().build(), 2);
+    }
+
+    @Test
+    void testNewBlockBuilderLikeExpectedEntries()
+    {
+        List<Type> fieldTypes = List.of(VARCHAR, VARIANT, anonymous(List.of(VARCHAR, BIGINT)));
+        RowBlockBuilder blockBuilder = new RowBlockBuilder(fieldTypes, null, 1024);
+        for (int position = 0; position < 1024; position++) {
+            blockBuilder.appendNull();
+        }
+
+        BlockBuilder singleRowBuilder = blockBuilder.newBlockBuilderLike(1, null).appendNull();
+        RowBlockBuilder expected = new RowBlockBuilder(fieldTypes, null, 1);
+        expected.appendNull();
+        assertThat(singleRowBuilder.getRetainedSizeInBytes()).isEqualTo(expected.getRetainedSizeInBytes());
+        assertIsAllNulls(singleRowBuilder.build(), 1);
+        assertIsAllNulls(blockBuilder.build(), 1024);
+    }
+
+    @Test
+    void testNewBlockBuilderLikePreservesFieldByteEstimates()
+    {
+        RowBlockBuilder previous = new RowBlockBuilder(List.of(VARCHAR, VARIANT), null, 100);
+        Variant variant = Variant.ofString("abcdefgh");
+        for (int position = 0; position < 100; position++) {
+            previous.buildEntry(fields -> {
+                VARCHAR.writeString(fields.get(0), "abcdefgh");
+                VARIANT.writeObject(fields.get(1), variant);
+            });
+        }
+        RowBlock previousBlock = previous.buildValueBlock();
+        VariableWidthBlock previousValues = (VariableWidthBlock) ((VariantBlock) previousBlock.getRawFieldBlocks()[1]).getRawValues();
+
+        RowBlockBuilder next = (RowBlockBuilder) previous.newBlockBuilderLike(null);
+        next.buildEntry(fields -> {
+            VARCHAR.writeString(fields.get(0), "abcdefgh");
+            VARIANT.writeObject(fields.get(1), variant);
+        });
+        RowBlock block = next.buildValueBlock();
+        assertThat(((VariableWidthBlock) block.getRawFieldBlocks()[0]).getRawSlice().byteArray()).hasSize(1000);
+        VariableWidthBlock values = (VariableWidthBlock) ((VariantBlock) block.getRawFieldBlocks()[1]).getRawValues();
+        assertThat(values.getRawSlice().byteArray()).hasSize((int) Math.ceil(previousValues.getRawSlice().length() * 1.25));
+        assertThat(VARCHAR.getSlice(block.getRawFieldBlocks()[0], 0).toStringUtf8()).isEqualTo("abcdefgh");
+        assertThat(VARIANT.getObject(block.getRawFieldBlocks()[1], 0)).isEqualTo(variant);
     }
 
     @Test

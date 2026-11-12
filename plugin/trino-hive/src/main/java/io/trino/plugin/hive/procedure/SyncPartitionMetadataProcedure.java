@@ -43,6 +43,7 @@ import io.trino.spi.procedure.Procedure.Argument;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -114,14 +115,14 @@ public class SyncPartitionMetadataProcedure
                 SYNC_PARTITION_METADATA.bindTo(this));
     }
 
-    public void syncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive)
+    public Map<String, Long> syncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doSyncPartitionMetadata(session, accessControl, schemaName, tableName, mode, caseSensitive);
+            return doSyncPartitionMetadata(session, accessControl, schemaName, tableName, mode, caseSensitive);
         }
     }
 
-    private void doSyncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive)
+    private Map<String, Long> doSyncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive)
     {
         checkProcedureArgument(schemaName != null, "schema_name cannot be null");
         checkProcedureArgument(tableName != null, "table_name cannot be null");
@@ -172,6 +173,11 @@ public class SyncPartitionMetadataProcedure
             Set<String> partitionsToDrop = difference(canonicalPartitionNamesInMetastore, partitionsInFileSystem);
 
             syncPartitions(partitionsToAdd, partitionsToDrop, syncMode, metastore, session, table);
+
+            return ImmutableMap.<String, Long>builder()
+                    .put("added_partitions_count", (long) partitionsToAdd.size())
+                    .put("dropped_partitions_count", (long) partitionsToDrop.size())
+                    .buildOrThrow();
         }
     }
 

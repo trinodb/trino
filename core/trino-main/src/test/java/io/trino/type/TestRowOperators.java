@@ -78,7 +78,6 @@ import static io.trino.util.MoreMaps.asMap;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -434,7 +433,7 @@ public class TestRowOperators
                                 RowType.from(ImmutableList.of(RowType.field("nothing", BIGINT))))))
                 .isEqualTo(asList(
                         asList(1L, 2L, null, 3L),
-                        emptyList(),
+                        ImmutableList.of(),
                         null,
                         asMap(ImmutableList.of("a", "b", "none", "three"), asList(1L, 2L, null, 3L)),
                         ImmutableMap.of(),
@@ -475,7 +474,7 @@ public class TestRowOperators
                                 RowType.field("three", BIGINT),
                                 RowType.field("none", BIGINT)))))))
                 .isEqualTo(asList(
-                        emptyList(),
+                        ImmutableList.of(),
                         asList(1L, 2L, null, 3L),
                         null,
                         ImmutableMap.of(),

@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorIdentity
@@ -105,7 +104,7 @@ public class ConnectorIdentity
     public static class Builder
     {
         private final String user;
-        private Set<String> groups = emptySet();
+        private Set<String> groups = Set.of();
         private Optional<Principal> principal = Optional.empty();
         private Set<String> enabledSystemRoles = new HashSet<>();
         private Optional<SelectedRole> connectorRole = Optional.empty();

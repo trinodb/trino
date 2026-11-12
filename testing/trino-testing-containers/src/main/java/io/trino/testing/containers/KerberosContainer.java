@@ -157,17 +157,6 @@ public class KerberosContainer
         }
     }
 
-    /**
-     * Creates a principal and keytab in the running container.
-     *
-     * @param principal the principal name
-     * @param keytabPath the path where the keytab should be written
-     */
-    public void createPrincipal(String principal, String keytabPath)
-    {
-        createPrincipal(principal, keytabPath, false);
-    }
-
     private void createPrincipal(String principal, String keytabPath, boolean otherRealm)
     {
         try {
@@ -354,17 +343,6 @@ public class KerberosContainer
     public String getRealm()
     {
         return REALM;
-    }
-
-    /**
-     * Returns a fully qualified principal name.
-     *
-     * @param principal the principal name without realm (e.g., "hdfs/hadoop-master")
-     * @return the fully qualified principal (e.g., "hdfs/hadoop-master@TESTING.TRINO.IO")
-     */
-    public String getFullPrincipal(String principal)
-    {
-        return principal + "@" + REALM;
     }
 
     private record PrincipalSpec(String principal, String keytabPath, boolean otherRealm) {}

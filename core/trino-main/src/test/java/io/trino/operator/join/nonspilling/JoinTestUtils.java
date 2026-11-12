@@ -49,7 +49,6 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -98,7 +97,6 @@ public final class JoinTestUtils
     {
         PipelineContext buildPipeline = taskContext.addPipelineContext(1, true, true, false);
         List<Driver> buildDrivers = new ArrayList<>();
-        List<HashBuilderOperator> buildOperators = new ArrayList<>();
         for (int i = 0; i < buildSideSetup.getPartitionCount(); i++) {
             DriverContext buildDriverContext = buildPipeline.addDriverContext();
             HashBuilderOperator buildOperator = buildSideSetup.getBuildOperatorFactory().createOperator(buildDriverContext);
@@ -107,10 +105,9 @@ public final class JoinTestUtils
                     buildSideSetup.getBuildSideSourceOperatorFactory().createOperator(buildDriverContext),
                     buildOperator);
             buildDrivers.add(driver);
-            buildOperators.add(buildOperator);
         }
 
-        buildSideSetup.setDriversAndOperators(buildDrivers, buildOperators);
+        buildSideSetup.setDrivers(buildDrivers);
     }
 
     public static BuildSideSetup setupBuildSide(
@@ -256,7 +253,6 @@ public final class JoinTestUtils
         private final LocalExchangeSourceOperatorFactory buildSideSourceOperatorFactory;
         private final int partitionCount;
         private List<Driver> buildDrivers;
-        private List<HashBuilderOperator> buildOperators;
 
         public BuildSideSetup(JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager, HashBuilderOperatorFactory buildOperatorFactory, LocalExchangeSourceOperatorFactory buildSideSourceOperatorFactory, int partitionCount)
         {
@@ -266,11 +262,9 @@ public final class JoinTestUtils
             this.partitionCount = partitionCount;
         }
 
-        public void setDriversAndOperators(List<Driver> buildDrivers, List<HashBuilderOperator> buildOperators)
+        public void setDrivers(List<Driver> buildDrivers)
         {
-            checkArgument(buildDrivers.size() == buildOperators.size());
             this.buildDrivers = ImmutableList.copyOf(buildDrivers);
-            this.buildOperators = ImmutableList.copyOf(buildOperators);
         }
 
         public JoinBridgeManager<PartitionedLookupSourceFactory> getLookupSourceFactoryManager()
@@ -297,12 +291,6 @@ public final class JoinTestUtils
         {
             checkState(buildDrivers != null, "buildDrivers is not initialized yet");
             return buildDrivers;
-        }
-
-        public List<HashBuilderOperator> getBuildOperators()
-        {
-            checkState(buildOperators != null, "buildDrivers is not initialized yet");
-            return buildOperators;
         }
     }
 

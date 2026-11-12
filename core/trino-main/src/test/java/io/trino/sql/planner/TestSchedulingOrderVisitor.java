@@ -29,8 +29,6 @@ import java.util.List;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSchedulingOrderVisitor
@@ -39,8 +37,8 @@ public class TestSchedulingOrderVisitor
     public void testJoinOrder()
     {
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), PLANNER_CONTEXT, TEST_SESSION);
-        TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
-        TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
+        TableScanNode a = planBuilder.tableScan(ImmutableList.of(), ImmutableMap.of());
+        TableScanNode b = planBuilder.tableScan(ImmutableList.of(), ImmutableMap.of());
         List<PlanNodeId> order = scheduleOrder(planBuilder.join(JoinType.INNER, a, b));
         assertThat(order).isEqualTo(ImmutableList.of(b.getId(), a.getId()));
     }
@@ -49,8 +47,8 @@ public class TestSchedulingOrderVisitor
     public void testIndexJoinOrder()
     {
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), PLANNER_CONTEXT, TEST_SESSION);
-        TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
-        TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
+        TableScanNode a = planBuilder.tableScan(ImmutableList.of(), ImmutableMap.of());
+        TableScanNode b = planBuilder.tableScan(ImmutableList.of(), ImmutableMap.of());
         List<PlanNodeId> order = scheduleOrder(planBuilder.indexJoin(IndexJoinNode.Type.INNER, a, b));
         assertThat(order).isEqualTo(ImmutableList.of(b.getId(), a.getId()));
     }

@@ -20,8 +20,12 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public abstract class PatternQuantifier
+public abstract sealed class PatternQuantifier
         extends Node
+        permits OneOrMoreQuantifier,
+                RangeQuantifier,
+                ZeroOrMoreQuantifier,
+                ZeroOrOneQuantifier
 {
     private final boolean greedy;
 
@@ -34,12 +38,6 @@ public abstract class PatternQuantifier
     public boolean isGreedy()
     {
         return greedy;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPatternQuantifier(this, context);
     }
 
     @Override

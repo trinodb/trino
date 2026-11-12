@@ -22,19 +22,11 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class MergeInsert
+public final class MergeInsert
         extends MergeCase
 {
     private final List<Identifier> columns;
     private final List<Expression> values;
-
-    @Deprecated
-    public MergeInsert(Optional<Expression> expression, List<Identifier> columns, List<Expression> values)
-    {
-        super(Optional.empty(), expression);
-        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
-    }
 
     public MergeInsert(NodeLocation location, Optional<Expression> expression, List<Identifier> columns, List<Expression> values)
     {
@@ -51,12 +43,6 @@ public class MergeInsert
     public List<Expression> getValues()
     {
         return values;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMergeInsert(this, context);
     }
 
     @Override

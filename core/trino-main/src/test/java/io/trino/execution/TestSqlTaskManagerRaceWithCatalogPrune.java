@@ -43,6 +43,7 @@ import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.executor.RunningSplitInfo;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
+import io.trino.execution.executor.TaskMemory;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.LanguageFunctionEngineManager;
@@ -153,7 +154,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
     private static final TaskExecutor NOOP_TASK_EXECUTOR = new TaskExecutor()
     {
         @Override
-        public TaskHandle addTask(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency, OptionalInt maxDriversPerTask)
+        public TaskHandle addTask(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency, OptionalInt maxDriversPerTask, TaskMemory taskMemory)
         {
             return new TaskHandle()
             {

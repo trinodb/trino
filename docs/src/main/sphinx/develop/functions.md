@@ -213,6 +213,89 @@ on the underlying `byte[]`, which have much better performance. This function
 has no `@SqlNullable` annotations, meaning that if the argument is `NULL`,
 the result will automatically be `NULL` (the function will not be called).
 
+## Domain preimages
+
+A scalar function can declare how a set of its results maps back to a set of its
+inputs. The optimizer uses this *preimage* to expose columns and ranges to predicate
+pushdown. For example, the preimage of `2025` through `year(date)` is the range from
+the beginning of 2025 to the beginning of 2026.
+
+Attach `@FunctionPreimage(Provider.class)` to the same
+method or class as the scalar function declaration. Cast operators use the same
+annotation. The provider implements `DomainPreimage` and has a public
+no-argument constructor. Programmatic declarations use
+`FunctionMetadata.Builder.domainProjection(new DomainProjection(provider))`.
+The registry associates this metadata with the function identity, including its
+aliases; unrelated functions with the same name do not acquire the projection.
+
+The contract requires a deterministic scalar function of fixed arity, a
+non-nullable return, and null-propagating arguments. The resolved signature must
+preserve the result of every successful original evaluation. A rewrite may
+eliminate an original failure, but must never introduce one. Projection does not
+require a `neverFails` declaration. Known failures of planning-time boundary
+conversions cause the provider to decline the rewrite. All arguments other than the projected argument must be
+non-null constants. For such a call the function result is null if and only if the
+projected argument is null. Unsupported signatures and parameters retain the
+original expression.
+
+Registration does not specify an argument position. After constant folding, the
+consumer nominates the call's sole nonconstant SQL argument. It declines calls with
+multiple nonconstant arguments or null parameters; all-constant calls use ordinary
+constant folding. The candidate can be an arbitrary expression and retains the
+usual single-evaluation guarantees.
+
+Every provider entry point must validate `context.inputArgument()` before
+reading constant parameters or computing results. For example, the date-truncation
+provider accepts argument 1 and declines a varying unit at argument 0. Unsupported
+candidates return an empty optional, or false from `isComparisonIdentity`. A provider
+may support different argument positions depending on the bound call. The inferred
+index belongs to the per-call context; no argument annotation is required.
+
+The provider receives a `DomainPreimage.Context` describing the function call and a
+`Domain` describing the requested result values. The context supplies the
+session, concrete SQL argument and result types, fixed argument values, the
+`inputArgument` index, and the required exactness. Its function helpers evaluate
+the same function on constants, supply casts and result ordering, and check implicit
+coercions. Only the selected input has no constant value. Providers are registered
+against function metadata, so they do not need a separate function identifier. The provider returns an optional `PreimageResult`:
+
+- `EXACT` means precisely the inputs whose function result belongs to the result
+  domain, among inputs on which the original function succeeds.
+- `CONSERVATIVE` means a proven superset of those inputs. Subsets are never valid.
+- An empty optional means unsupported. `Domain.none(inputType)` means a proven
+  empty preimage.
+
+The returned domain must use the projected argument type. Null allowance describes
+membership of the null value, independently of SQL's unknown Boolean result.
+The shared [value-domain model](value-domains.md) represents NaN membership explicitly
+for `REAL`, `DOUBLE`, and `NUMBER`; providers use the same `Domain` set operations
+as predicate extraction and runtime filtering. Providers processing ordered ranges
+must handle NaN separately through `FloatingPointValueSet`.
+Providers are trusted semantic implementations; incorrect results can produce
+incorrect query answers. They must not reinterpret arbitrary exceptions as
+unsupported input.
+
+Failing inputs do not constrain an exact projection. If independently projected
+true and false domains overlap, expression rewriting declines the pair; domain
+extraction can still consume a single projection. The large-`IN` shortcut also
+declines projected NaN singletons, which SQL equality cannot match.
+
+The dependency helper supplies a native comparator for non-null function results,
+with unordered values sorted last. Providers use it when comparing constants and
+calculating boundaries.
+
+Providers return domains or typed constants, never planner expressions.
+
+A provider returns `isComparisonIdentity(context) == true` only when a validated
+call preserves comparisons with arbitrary expressions of the same type, so the call
+can be removed even when neither comparison operand is constant.
+
+For comparisons that can return null for non-null operands, a provider may implement
+`comparisonConstant(context, constant)`. The mapped input constant must preserve
+every supported native comparison operator, including unknown results, for every
+successful original evaluation. This contract does not imply that domain extraction
+can represent the comparison's truth sets.
+
 ## Aggregation function implementation
 
 Aggregation functions use a similar framework to scalar functions, but are

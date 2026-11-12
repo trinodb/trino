@@ -17,14 +17,18 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+
+import java.util.List;
 
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -53,6 +57,27 @@ public class TestOracleConnectorTest
     {
         Closeables.closeAll(oracleServer);
         oracleServer = null;
+    }
+
+    @Test
+    public void testFloatingPointRangePushdownWithNaN()
+    {
+        for (String type : List.of("real", "double")) {
+            try (TestTable table = newTrinoTable(
+                    "test_nan_range_pushdown",
+                    "(id varchar(1), x " + type + ")",
+                    List.of("'1', -infinity()", "'2', -1", "'3', 0", "'4', 1", "'5', infinity()", "'6', nan()", "'7', NULL"))) {
+                assertThat(query("SELECT id FROM " + table.getName() + " WHERE x < 0"))
+                        .matches("VALUES '1', '2'")
+                        .isFullyPushedDown();
+                assertThat(query("SELECT id FROM " + table.getName() + " WHERE x > 0"))
+                        .matches("VALUES '4', '5'")
+                        .isFullyPushedDown();
+                assertThat(query("SELECT id FROM " + table.getName() + " WHERE x < 0 OR x > 0 OR x IS NULL"))
+                        .matches("VALUES '1', '2', '4', '5', '7'")
+                        .isFullyPushedDown();
+            }
+        }
     }
 
     /**

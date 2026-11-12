@@ -47,9 +47,8 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
 
-import static io.trino.testing.containers.TrinoProductTestContainer.withResourceLimits;
+import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static org.ietf.jgss.GSSCredential.DEFAULT_LIFETIME;
 import static org.ietf.jgss.GSSCredential.INITIATE_ONLY;
@@ -127,7 +126,7 @@ public class JdbcKerberosEnvironment
         }
 
         // Start Trino master with Kerberos configuration
-        trinoMaster = withResourceLimits(new GenericContainer<>(DockerImageName.parse(TrinoTestImages.getDefaultTrinoImage())))
+        trinoMaster = configureTrinoContainer(new GenericContainer<>(DockerImageName.parse(TrinoTestImages.getDefaultTrinoImage())))
                 .withNetwork(network)
                 .withNetworkAliases("trino-master", "trino-master.docker.cluster")
                 .withCreateContainerCmdModifier(cmd -> cmd.withHostName("trino-master"))
@@ -377,7 +376,7 @@ public class JdbcKerberosEnvironment
         KerberosPrincipal principal = new KerberosPrincipal(KERBEROS_PRINCIPAL);
         Configuration configuration = createKerberosConfiguration(KERBEROS_PRINCIPAL, keytabPath.toAbsolutePath().toString());
 
-        Subject subject = new Subject(false, ImmutableSet.of(principal), emptySet(), emptySet());
+        Subject subject = new Subject(false, ImmutableSet.of(principal), ImmutableSet.of(), ImmutableSet.of());
         try {
             LoginContext loginContext = new LoginContext("", subject, null, configuration);
             loginContext.login();

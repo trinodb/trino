@@ -17,21 +17,13 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class ExistsPredicate
+public final class ExistsPredicate
         extends Expression
 {
     private final Expression subquery;
-
-    @Deprecated
-    public ExistsPredicate(Expression subquery)
-    {
-        super(Optional.empty());
-        this.subquery = requireNonNull(subquery, "subquery is null");
-    }
 
     public ExistsPredicate(NodeLocation location, Expression subquery)
     {
@@ -42,12 +34,6 @@ public class ExistsPredicate
     public Expression getSubquery()
     {
         return subquery;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitExists(this, context);
     }
 
     @Override

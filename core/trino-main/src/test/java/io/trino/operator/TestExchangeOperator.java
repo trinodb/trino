@@ -102,6 +102,7 @@ public class TestExchangeOperator
                 DataIntegrityVerification.ABORT,
                 new StreamingDirectExchangeBuffer(scheduler, DataSize.of(32, MEGABYTE)),
                 DataSize.of(10, MEGABYTE),
+                DataSize.of(32, MEGABYTE),
                 3,
                 new Duration(1, TimeUnit.MINUTES),
                 true,

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>419</version>
+        <version>423</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -160,7 +160,7 @@
         <air.java.version>25.0.1</air.java.version>
         <!-- Temurin JVM release used in the docker image and for product test environments -->
         <!-- https://api.adoptium.net/q/swagger-ui/#/Release%20Info/getReleaseNames -->
-        <temurin.release>jdk-25.0.4+7</temurin.release>
+        <temurin.release>jdk-25.0.5+8</temurin.release>
         <air.javadoc.lint>syntax,reference,html,-missing</air.javadoc.lint>
         <air.modernizer.java-version>${project.build.targetJdk}</air.modernizer.java-version>
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
@@ -185,37 +185,36 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>452</dep.airlift.version>
+        <dep.airlift.version>457</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.2</dep.avro.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
-        <dep.clickhouse.version>0.10.0</dep.clickhouse.version>
-        <dep.confluent.version>8.1.1</dep.confluent.version>
+        <dep.confluent.version>8.4.0</dep.confluent.version>
         <dep.datasketches.version>9.0.0</dep.datasketches.version>
         <dep.derby.version>10.17.1.0</dep.derby.version>
         <dep.docker.images.version>132</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
         <dep.frontend-maven-plugin.version>2.0.2</dep.frontend-maven-plugin.version>
-        <dep.frontend-bun.version>v1.4.3</dep.frontend-bun.version>
+        <dep.frontend-bun.version>v1.4.4</dep.frontend-bun.version>
         <dep.geoapi.version>3.0.2</dep.geoapi.version>
         <dep.httpcore5.version>5.4.4</dep.httpcore5.version>
         <dep.iceberg.version>1.12.0</dep.iceberg.version>
         <dep.jna.version>5.19.1</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
-        <dep.netty.version>4.2.19.Final</dep.netty.version>
-        <dep.okhttp.version>5.5.0</dep.okhttp.version>
+        <dep.netty.version>4.2.20.Final</dep.netty.version>
+        <dep.okhttp.version>5.5.1</dep.okhttp.version>
         <dep.okio.version>3.18.2</dep.okio.version>
-        <dep.parquet.version>1.18.1</dep.parquet.version>
+        <dep.parquet.version>1.18.2</dep.parquet.version>
         <dep.protobuf.version>4.36.2</dep.protobuf.version>
         <dep.sis.version>1.7</dep.sis.version>
-        <dep.snowflake.version>4.4.0</dep.snowflake.version>
-        <dep.swagger.version>2.2.55</dep.swagger.version>
+        <dep.snowflake.version>4.4.1</dep.snowflake.version>
+        <dep.swagger.version>3.0.0</dep.swagger.version>
         <dep.takari.version>2.3.4</dep.takari.version>
-        <dep.tcnative.version>2.0.84.Final</dep.tcnative.version>
+        <dep.tcnative.version>2.0.85.Final</dep.tcnative.version>
         <dep.testng.version>7.8.0</dep.testng.version>
-        <dep.zookeeper.version>3.9.6</dep.zookeeper.version>
+        <dep.zookeeper.version>3.9.7</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
         <!--
         Instructs Provisio to write runtime dependencies in the format groupId_artifactId-version.jar.
@@ -248,7 +247,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.90.0</version>
+                <version>26.91.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -256,7 +255,7 @@
             <dependency>
                 <groupId>com.oracle.database.jdbc</groupId>
                 <artifactId>ojdbc17-production</artifactId>
-                <version>23.26.3.0.0</version>
+                <version>23.26.4.0.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -288,7 +287,7 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-bom</artifactId>
-                <version>2025.0.7</version>
+                <version>2025.0.8</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -297,6 +296,14 @@
                 <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-bom</artifactId>
                 <version>19.0.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.kerby</groupId>
+                <artifactId>kerby-bom</artifactId>
+                <version>2.1.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -328,7 +335,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.56.0</version>
+                <version>2.57.9</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -338,7 +345,7 @@
                 <!-- https://github.com/ClickHouse/clickhouse-docs/pull/2408/files -->
                 <groupId>at.yawk.lz4</groupId>
                 <artifactId>lz4-java</artifactId>
-                <version>1.12.0</version>
+                <version>1.12.1</version>
             </dependency>
 
             <dependency>
@@ -350,7 +357,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-core-tracing-opentelemetry</artifactId>
-                <version>1.0.0-beta.67</version>
+                <version>1.0.0-beta.68</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.azure</groupId>
@@ -363,42 +370,6 @@
                 <groupId>com.clearspring.analytics</groupId>
                 <artifactId>stream</artifactId>
                 <version>2.9.8</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.clickhouse</groupId>
-                <artifactId>clickhouse-client</artifactId>
-                <version>${dep.clickhouse.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.clickhouse</groupId>
-                <artifactId>clickhouse-data</artifactId>
-                <version>${dep.clickhouse.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.clickhouse</groupId>
-                <artifactId>client-v2</artifactId>
-                <version>${dep.clickhouse.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.google.guava</groupId>
-                        <artifactId>listenablefuture</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.clickhouse</groupId>
-                <artifactId>jdbc-v2</artifactId>
-                <version>${dep.clickhouse.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.google.guava</groupId>
-                        <artifactId>listenablefuture</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -434,7 +405,7 @@
             <dependency>
                 <groupId>com.google.api</groupId>
                 <artifactId>api-common</artifactId>
-                <version>2.70.0</version>
+                <version>2.71.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>javax.annotation</groupId>
@@ -452,7 +423,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>4.0.6</version>
+                <version>4.0.9</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -466,7 +437,7 @@
             <dependency>
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
-                <version>2.14.0</version>
+                <version>2.15.0</version>
             </dependency>
 
             <dependency>
@@ -507,6 +478,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.google.re2j</groupId>
+                <artifactId>re2j</artifactId>
+                <version>1.8</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
                 <version>2.4.240</version>
@@ -515,13 +492,13 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>13.6.1.jre11</version>
+                <version>13.6.2.jre11</version>
             </dependency>
 
             <dependency>
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
-                <version>26.7.0</version>
+                <version>26.10.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.google.protobuf</groupId>
@@ -618,7 +595,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor-v3</artifactId>
-                <version>3.13</version>
+                <version>3.14</version>
             </dependency>
 
             <dependency>
@@ -631,6 +608,27 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>guice</artifactId>
                 <version>${dep.airlift.guice.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>http-client</artifactId>
+                <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <!-- HTTP client response compression is not enabled, so leave out the codecs and their native libraries -->
+                    <exclusion>
+                        <groupId>org.eclipse.jetty.compression</groupId>
+                        <artifactId>jetty-compression-brotli</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.eclipse.jetty.compression</groupId>
+                        <artifactId>jetty-compression-gzip</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.eclipse.jetty.compression</groupId>
+                        <artifactId>jetty-compression-zstandard</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1501,7 +1499,7 @@
             <dependency>
                 <groupId>io.trino.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
-                <version>3.3.5-3</version>
+                <version>3.4.3-1</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.lz4</groupId>
@@ -1571,7 +1569,7 @@
             <dependency>
                 <groupId>net.minidev</groupId>
                 <artifactId>json-smart</artifactId>
-                <version>2.6.0</version>
+                <version>2.6.1</version>
             </dependency>
 
             <dependency>
@@ -1932,7 +1930,7 @@
             <dependency>
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
-                <version>4.3.2</version>
+                <version>4.4.0</version>
             </dependency>
 
             <dependency>
@@ -1956,6 +1954,11 @@
                     <exclusion>
                         <groupId>org.apache.parquet</groupId>
                         <artifactId>parquet-hadoop</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <!-- Only needed by VariantJsonParser, which Trino does not use -->
+                        <groupId>org.apache.parquet</groupId>
+                        <artifactId>parquet-jackson</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -2079,7 +2082,7 @@
             <dependency>
                 <groupId>org.conscrypt</groupId>
                 <artifactId>conscrypt-openjdk-uber</artifactId>
-                <version>2.7.0</version>
+                <version>2.8.0</version>
             </dependency>
 
             <dependency>
@@ -2102,6 +2105,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.junit.support</groupId>
+                <artifactId>testng-engine</artifactId>
+                <version>1.1.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-core</artifactId>
                 <version>${dep.jts.version}</version>
@@ -2116,19 +2125,13 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <version>3.5.10</version>
+                <version>3.5.11</version>
             </dependency>
 
             <dependency>
                 <groupId>org.opengis</groupId>
                 <artifactId>geoapi</artifactId>
                 <version>${dep.geoapi.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.pcollections</groupId>
-                <artifactId>pcollections</artifactId>
-                <version>5.0.0</version>
             </dependency>
 
             <dependency>
@@ -2144,15 +2147,9 @@
             </dependency>
 
             <dependency>
-                <groupId>org.rnorth.duct-tape</groupId>
-                <artifactId>duct-tape</artifactId>
-                <version>1.0.8</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.roaringbitmap</groupId>
                 <artifactId>RoaringBitmap</artifactId>
-                <version>1.6.24</version>
+                <version>1.6.29</version>
             </dependency>
 
             <dependency>
@@ -2310,34 +2307,6 @@
                                     <include>org.yaml:snakeyaml:2.+</include>
                                 </includes>
                             </bannedDependencies>
-                            <RestrictImports>
-                                <reason>Prefer org.assertj.core.api.Assertions over:</reason>
-                                <bannedImports>
-                                    <bannedImport>org.junit.jupiter.api.Assertions.*</bannedImport>
-                                    <bannedImport>org.testng.Assert.*</bannedImport>
-                                    <bannedImport>org.testng.AssertJUnit.*</bannedImport>
-                                    <bannedImport>org.testng.asserts.**</bannedImport>
-                                </bannedImports>
-                            </RestrictImports>
-                            <RestrictImports>
-                                <reason>Trino assumes non-nullness by default, otherwise it's marked as @Nullable</reason>
-                                <bannedImports>
-                                    <bannedImport>jakarta.annotation.Nonnull</bannedImport>
-                                    <bannedImport>org.jetbrains.annotations.NotNull</bannedImport>
-                                </bannedImports>
-                            </RestrictImports>
-                            <RestrictImports>
-                                <bannedImports>
-                                    <bannedImport>com.google.api.client.util.Preconditions</bannedImport>
-                                    <bannedImport>com.google.api.client.util.Preconditions.*</bannedImport>
-                                </bannedImports>
-                            </RestrictImports>
-                            <RestrictImports>
-                                <reason>Use non-shaded Guava classes</reason>
-                                <bannedImports>
-                                    <bannedImport>org.testcontainers.shaded.com.google.common.**</bannedImport>
-                                </bannedImports>
-                            </RestrictImports>
                             <requireProfileIdsExist />
                             <requirePropertyDiverges>
                                 <property>project.description</property>
@@ -2356,6 +2325,49 @@
                             </requireJavaVendor>
                         </rules>
                     </configuration>
+                    <executions>
+                        <execution>
+                            <!-- Separate execution, so these rules are not merged by position into the RestrictImports rules inherited from airbase -->
+                            <id>trino-restrict-imports</id>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                            <phase>validate</phase>
+                            <configuration>
+                                <rules combine.self="override">
+                                    <RestrictImports>
+                                        <reason>Prefer org.assertj.core.api.Assertions over:</reason>
+                                        <bannedImports>
+                                            <bannedImport>org.junit.jupiter.api.Assertions.*</bannedImport>
+                                            <bannedImport>org.testng.Assert.*</bannedImport>
+                                            <bannedImport>org.testng.AssertJUnit.*</bannedImport>
+                                            <bannedImport>org.testng.asserts.**</bannedImport>
+                                        </bannedImports>
+                                    </RestrictImports>
+                                    <RestrictImports>
+                                        <reason>Trino assumes non-nullness by default, otherwise it's marked as @Nullable</reason>
+                                        <bannedImports>
+                                            <bannedImport>jakarta.annotation.Nonnull</bannedImport>
+                                            <bannedImport>org.jetbrains.annotations.NotNull</bannedImport>
+                                        </bannedImports>
+                                    </RestrictImports>
+                                    <RestrictImports>
+                                        <reason>Use com.google.common.base.Preconditions</reason>
+                                        <bannedImports>
+                                            <bannedImport>com.google.api.client.util.Preconditions</bannedImport>
+                                            <bannedImport>com.google.api.client.util.Preconditions.*</bannedImport>
+                                        </bannedImports>
+                                    </RestrictImports>
+                                    <RestrictImports>
+                                        <reason>Use non-shaded Guava classes</reason>
+                                        <bannedImports>
+                                            <bannedImport>org.testcontainers.shaded.com.google.common.**</bannedImport>
+                                        </bannedImports>
+                                    </RestrictImports>
+                                </rules>
+                            </configuration>
+                        </execution>
+                    </executions>
                 </plugin>
 
                 <plugin>
@@ -2666,8 +2678,9 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-compiler-plugin</artifactId>
                         <configuration>
-                            <!-- forking not required due to JVM flags in .mvn/jvm.config -->
                             <!-- see https://errorprone.info/docs/installation#maven -->
+                            <!-- In-process javac does not process Markdown doc comments: https://github.com/google/error-prone/issues/6225 -->
+                            <fork>true</fork>
                             <!-- Do not fail on error-prone's warnings even for modules using air.compiler.fail-warnings -->
                             <!-- TODO silence warnings we choose to ignore and raise important warnings to error and then remove <failOnWarning> -->
                             <failOnWarning>false</failOnWarning>
@@ -2677,6 +2690,16 @@
                                 <arg>-Xplugin:ErrorProne @${air.main.basedir}/.mvn/errorprone.config \
                                     -Xep:GuardedBy:${trino.error-prone.guarded-by}
                                     -XepExcludedPaths:.*/target/generated-(|test-)sources/.*</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+                                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
                             </compilerArgs>
                             <annotationProcessorPaths>
                                 <path>

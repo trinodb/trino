@@ -28,19 +28,7 @@ public class PostScript
 
     public enum HiveWriterVersion
     {
-        ORIGINAL(0), ORC_HIVE_8732(1);
-
-        private final int orcWriterVersion;
-
-        HiveWriterVersion(int orcWriterVersion)
-        {
-            this.orcWriterVersion = orcWriterVersion;
-        }
-
-        public int getOrcWriterVersion()
-        {
-            return orcWriterVersion;
-        }
+        ORIGINAL, ORC_HIVE_8732
     }
 
     private final List<Integer> version;

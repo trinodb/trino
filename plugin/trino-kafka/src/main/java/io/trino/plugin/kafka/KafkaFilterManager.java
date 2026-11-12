@@ -15,6 +15,7 @@ package io.trino.plugin.kafka;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId;
 import io.trino.spi.TrinoException;
@@ -162,7 +163,7 @@ public class KafkaFilterManager
         try (Admin adminClient = adminFactory.create(session)) {
             ConfigResource topicResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
 
-            DescribeConfigsResult describeResult = adminClient.describeConfigs(Collections.singleton(topicResource));
+            DescribeConfigsResult describeResult = adminClient.describeConfigs(ImmutableSet.of(topicResource));
             Map<ConfigResource, Config> configMap = describeResult.all().get();
 
             if (configMap != null) {

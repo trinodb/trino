@@ -27,7 +27,6 @@ import java.util.Objects;
 
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static java.util.Collections.emptyList;
 
 public class Constant
         extends ConnectorExpression
@@ -71,7 +70,7 @@ public class Constant
     @Override
     public List<? extends ConnectorExpression> getChildren()
     {
-        return emptyList();
+        return List.of();
     }
 
     @Override

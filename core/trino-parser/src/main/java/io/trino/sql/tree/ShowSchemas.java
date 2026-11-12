@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ShowSchemas
+public final class ShowSchemas
         extends Statement
 {
     private final Optional<Identifier> catalog;
@@ -50,12 +50,6 @@ public class ShowSchemas
     public Optional<String> getEscape()
     {
         return escape;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitShowSchemas(this, context);
     }
 
     @Override

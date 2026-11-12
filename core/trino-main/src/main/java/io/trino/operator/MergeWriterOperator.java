@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -112,6 +113,7 @@ public class MergeWriterOperator
     private ListenableFuture<Void> blockedFutureView;
     private long rowCount;
     private long writtenBytes;
+    private boolean committed;
     private boolean closed;
 
     public MergeWriterOperator(OperatorContext operatorContext, ConnectorMergeSink mergeSink, Function<Page, Page> pagePreprocessor, LocalMemoryContext mergeSinkMemoryContext)
@@ -175,6 +177,7 @@ public class MergeWriterOperator
         state = State.FINISHED;
 
         Collection<Slice> fragments = getFutureValue(finishFuture);
+        committed = true;
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
@@ -231,13 +234,20 @@ public class MergeWriterOperator
 
     @Override
     public void close()
+            throws Exception
     {
+        // closer runs in reverse registration order, so the sink memory is released after the abort completes
+        AutoCloseableCloser closer = AutoCloseableCloser.create();
+        closer.register(mergeSinkMemoryContext::close);
         if (!closed) {
             closed = true;
-            if (finishFuture != null) {
-                finishFuture.cancel(true);
+            if (!committed) {
+                closer.register(mergeSink::abort);
             }
-            mergeSinkMemoryContext.close();
+            if (finishFuture != null) {
+                closer.register(() -> finishFuture.cancel(true));
+            }
         }
+        closer.close();
     }
 }

@@ -48,15 +48,6 @@ public final class EncryptedFileTestUtils
     private EncryptedFileTestUtils() {}
 
     /**
-     * Creates an EncryptionManager for a table using the given KeyManagementClient.
-     * The table properties must contain ENCRYPTION_TABLE_KEY.
-     */
-    public static EncryptionManager createEncryptionManager(Map<String, String> tableProperties, KeyManagementClient kmsClient)
-    {
-        return EncryptionUtil.createEncryptionManager(ImmutableList.of(), tableProperties, kmsClient);
-    }
-
-    /**
      * Creates an EncryptionManager using explicit properties (not from table).
      * Use when encryption key is set out-of-band (e.g. in metastore params) rather than as table property.
      */

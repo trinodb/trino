@@ -19,8 +19,66 @@ import io.trino.sql.ExpressionFormatter;
 import java.util.Optional;
 
 @Immutable
-public abstract class Expression
+public abstract sealed class Expression
         extends Node
+        permits AllRows,
+                ArithmeticBinaryExpression,
+                ArithmeticUnaryExpression,
+                Array,
+                ArrayWildcardSubscript,
+                AtLocal,
+                AtTimeZone,
+                Cast,
+                CoalesceExpression,
+                CurrentCatalog,
+                CurrentDate,
+                CurrentPath,
+                CurrentSchema,
+                CurrentTime,
+                CurrentTimestamp,
+                CurrentUser,
+                DataType,
+                DereferenceExpression,
+                ExistsPredicate,
+                Extract,
+                FieldReference,
+                Format,
+                FunctionCall,
+                GroupingOperation,
+                Identifier,
+                IfExpression,
+                InListExpression,
+                IntervalValueExpression,
+                JsonArray,
+                JsonConstructor,
+                JsonExists,
+                JsonObject,
+                JsonQuery,
+                JsonSerialize,
+                JsonValue,
+                LambdaArgumentDeclaration,
+                LambdaExpression,
+                Literal,
+                LocalTime,
+                LocalTimestamp,
+                LogicalExpression,
+                MethodCall,
+                NotExpression,
+                NullIfExpression,
+                Overlay,
+                Parameter,
+                Predicated,
+                Row,
+                SearchedCaseExpression,
+                SimpleCaseExpression,
+                StaticMethodCall,
+                SubqueryExpression,
+                SubscriptExpression,
+                Trim,
+                TryExpression,
+                UniquePredicate,
+                WhenClause,
+                WindowOperation
 {
     @Deprecated
     protected Expression(Optional<NodeLocation> location)
@@ -31,15 +89,6 @@ public abstract class Expression
     protected Expression(NodeLocation location)
     {
         super(location);
-    }
-
-    /**
-     * Accessible for {@link AstVisitor}, use {@link AstVisitor#process(Node, Object)} instead.
-     */
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitExpression(this, context);
     }
 
     @Override

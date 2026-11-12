@@ -13,7 +13,6 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import io.airlift.testing.TempFile;
 import io.airlift.testing.TestingTicker;
@@ -23,8 +22,10 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.util.concurrent.TimeUnit;
 
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -60,7 +61,7 @@ public class TestFileBasedNetworkTopology
             throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
-            Files.copy(topologyFile, tempFile.file());
+            Files.copy(topologyFile.toPath(), tempFile.path(), REPLACE_EXISTING);
 
             TestingTicker ticker = new TestingTicker();
             FileBasedNetworkTopology topology = new FileBasedNetworkTopology(tempFile.file(), new Duration(1, DAYS), ticker);
@@ -71,7 +72,7 @@ public class TestFileBasedNetworkTopology
             assertThat(topology.locate(HostAddress.fromString("192.168.0.3"))).isEqualTo(new NetworkLocation());
 
             assertThat(topology.locate(HostAddress.fromString("new"))).isEqualTo(new NetworkLocation());
-            Files.copy(topologyNewFile, tempFile.file());
+            Files.copy(topologyNewFile.toPath(), tempFile.path(), REPLACE_EXISTING);
             ticker.increment(1, TimeUnit.DAYS);
 
             assertThat(topology.locate(HostAddress.fromString("new"))).isEqualTo(new NetworkLocation("new", "rack", "machine"));

@@ -27,7 +27,7 @@ public final class SuiteAzure
     public static void main(String[] args)
             throws Exception
     {
-        System.setProperty("trino.product-test.environment-mode", "STRICT");
+        SuiteRunner.initialize(SuiteAzure.class);
 
         List<TestRunResult> results = new ArrayList<>();
 

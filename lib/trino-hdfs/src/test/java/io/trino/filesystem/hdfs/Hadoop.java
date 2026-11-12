@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.hdfs;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.hdfs.ConfigurationInitializer;
@@ -30,7 +31,6 @@ import java.util.function.Supplier;
 import static com.google.common.base.StandardSystemProperty.USER_NAME;
 import static io.trino.testing.TestingProperties.getDockerImagesVersion;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -60,7 +60,7 @@ public class Hadoop
         super(IMAGE,
                 "hadoop-master",
                 Set.of(HDFS_PORT),
-                emptyMap(),
+                ImmutableMap.of(),
                 Map.of("HADOOP_USER_NAME", requireNonNull(USER_NAME.value())),
                 Optional.empty(),
                 1);
@@ -76,6 +76,8 @@ public class Hadoop
                 rm /etc/supervisord.d/{hive*,mysql*,socks*,sshd*}.conf
                 hdfs namenode -format -nonInteractive
                 sed -i "s|hdfs://localhost|hdfs://$(hostname)|g" /opt/hadoop/etc/hadoop/core-site.xml
+                # With a single DataNode, a transient load spike makes the NameNode reject it as NODE_TOO_BUSY (HDFS-13833)
+                sed -i "s|</configuration>|<property><name>dfs.namenode.redundancy.considerLoad</name><value>false</value></property></configuration>|" /opt/hadoop/etc/hadoop/hdfs-site.xml
                 exec supervisord -c /etc/supervisord.conf
                 """));
     }
@@ -118,7 +120,8 @@ public class Hadoop
                     dfs.client.block.write.locateFollowingBlock.initial.delay.ms \\
                     dfs.client.block.write.replace-datanode-on-failure.policy \\
                     dfs.client.block.write.replace-datanode-on-failure.best-effort \\
-                    dfs.namenode.avoid.write.stale.datanode; do
+                    dfs.namenode.avoid.write.stale.datanode \\
+                    dfs.namenode.redundancy.considerLoad; do
                     echo "${key}=$(hdfs getconf -confKey "${key}" 2>&1 || true)"
                 done
                 """);

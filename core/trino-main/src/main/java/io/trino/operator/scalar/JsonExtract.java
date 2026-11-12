@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.exc.StreamConstraintsException;
 import com.fasterxml.jackson.core.io.SerializedString;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +41,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 /**
  * Extracts values from JSON
@@ -148,6 +150,9 @@ public final class JsonExtract
         catch (JsonParseException e) {
             // Return null if we failed to parse something
             return null;
+        }
+        catch (StreamConstraintsException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "JSON exceeds a stream constraint: " + requireNonNullElse(e.getMessage(), e), e);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

@@ -464,6 +464,10 @@ class Query
         queryManager.recordHeartbeat(queryId);
 
         boolean isStarted = queryInfo.state().ordinal() > QueryState.STARTING.ordinal();
+        if ("CALL".equals(queryInfo.updateType())) {
+            // CALL result is available only after the procedure completes
+            isStarted = queryInfo.state().ordinal() > QueryState.RUNNING.ordinal();
+        }
         QueryResultRows resultRows;
         if (isStarted) {
             closeExchangeIfNecessary(queryInfo);

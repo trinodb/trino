@@ -15,6 +15,7 @@
 
     <properties>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
+        <dep.lzo.version>1.0.6</dep.lzo.version>
     </properties>
 
     <dependencies>
@@ -30,7 +31,7 @@
         <dependency>
             <groupId>com.databricks</groupId>
             <artifactId>databricks-jdbc</artifactId>
-            <version>3.4.3</version>
+            <version>3.4.5</version>
             <scope>test</scope>
         </dependency>
 
@@ -378,6 +379,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>auth</artifactId>
             <scope>test</scope>
@@ -454,27 +461,39 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>copy-iceberg-spark-runtime</id>
+                        <id>copy-test-jars</id>
                         <goals>
                             <goal>copy</goal>
                         </goals>
                         <phase>process-test-resources</phase>
                         <configuration>
                             <skip>false</skip>
+                            <outputDirectory>${project.build.directory}/downloaded-jars</outputDirectory>
+                            <overWriteReleases>true</overWriteReleases>
                             <artifactItems>
                                 <artifactItem>
                                     <groupId>org.apache.iceberg</groupId>
                                     <artifactId>iceberg-spark-runtime-4.1_2.13</artifactId>
                                     <version>${dep.iceberg.version}</version>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
                                     <destFileName>iceberg-spark-runtime.jar</destFileName>
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>org.apache.iceberg</groupId>
                                     <artifactId>iceberg-aws-bundle</artifactId>
                                     <version>${dep.iceberg.version}</version>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
                                     <destFileName>iceberg-aws-bundle.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.anarres.lzo</groupId>
+                                    <artifactId>lzo-hadoop</artifactId>
+                                    <version>${dep.lzo.version}</version>
+                                    <destFileName>lzo-hadoop.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.anarres.lzo</groupId>
+                                    <artifactId>lzo-core</artifactId>
+                                    <version>${dep.lzo.version}</version>
+                                    <destFileName>lzo-core.jar</destFileName>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>

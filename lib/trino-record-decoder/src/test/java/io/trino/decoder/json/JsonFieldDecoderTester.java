@@ -13,9 +13,9 @@
  */
 package io.trino.decoder.json;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonMapperProvider;
-import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.FieldValueProvider;
@@ -31,7 +31,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.decoder.util.DecoderTestUtil.TESTING_SESSION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -84,16 +83,6 @@ public class JsonFieldDecoderTester
         assertThat(decodedValue.getDouble()).isEqualTo(expectedValue);
     }
 
-    public void assertDecodedAs(String jsonValue, Type type, Slice expectedValue)
-    {
-        checkArgument(type.getJavaType() == Slice.class, "Wrong (not Slice based) Trino type '%s'", type);
-        FieldValueProvider decodedValue = decode(Optional.of(jsonValue), type);
-        assertThat(decodedValue.isNull())
-                .describedAs(format("expected non null when decoding %s as %s", jsonValue, type))
-                .isFalse();
-        assertThat(decodedValue.getSlice()).isEqualTo(expectedValue);
-    }
-
     public void assertDecodedAs(String jsonValue, Type type, boolean expectedValue)
     {
         checkArgument(type.getJavaType() == boolean.class, "Wrong (not boolean based) Trino type '%s'", type);
@@ -142,7 +131,7 @@ public class JsonFieldDecoderTester
                 false,
                 false);
 
-        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, emptyMap(), ImmutableSet.of(columnHandle)));
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, ImmutableMap.of(), ImmutableSet.of(columnHandle)));
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json.getBytes(UTF_8))
                 .orElseThrow(AssertionError::new);
         assertThat(decodedRow).containsKey(columnHandle);

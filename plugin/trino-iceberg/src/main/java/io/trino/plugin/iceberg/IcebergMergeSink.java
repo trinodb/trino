@@ -148,7 +148,12 @@ public class IcebergMergeSink
                 if (currentDeletion == null) {
                     int partitionSpecId = INTEGER.getInt(partitionSpecIdBlock, position);
                     String partitionData = VarcharType.VARCHAR.getSlice(partitionDataBlock, position).toStringUtf8();
-                    currentDeletion = new FileDeletion(partitionSpecId, partitionData);
+                    currentDeletion = new FileDeletion(
+                            partitionSpecId,
+                            partitionData,
+                            BIGINT.getLong(fields.get(5), position),
+                            BIGINT.getLong(fields.get(6), position),
+                            IcebergFileFormat.valueOf(VarcharType.VARCHAR.getSlice(fields.get(7), position).toStringUtf8()));
                     // Copy the path so the map key does not pin the whole file path block
                     Slice filePathCopy = filePath.copy();
                     fileDeletions.put(filePathCopy, currentDeletion);
@@ -189,7 +194,7 @@ public class IcebergMergeSink
         else if (formatVersion == 2) {
             fileDeletions.forEach((dataFilePath, deletion) -> deletion.rowsToDelete().build().ifPresent(deletionVector -> {
                 PositionDeleteWriter writer = createPositionDeleteWriter(
-                        dataFilePath.toStringUtf8(),
+                        deletion.referencedDataFile(dataFilePath.toStringUtf8()),
                         partitionsSpecs.get(deletion.partitionSpecId()),
                         deletion.partitionDataJson());
                 fragments.add(writePositionDeletes(writer, deletionVector));
@@ -209,7 +214,7 @@ public class IcebergMergeSink
                         partitionSpec.specId(),
                         partitionData.map(PartitionData::toJson),
                         FileContent.POSITION_DELETES,
-                        Optional.of(dataFilePath.toStringUtf8()),
+                        Optional.of(deletion.referencedDataFile(dataFilePath.toStringUtf8())),
                         Optional.empty(), // unused for v3
                         SortOrder.unsorted().orderId(),
                         Optional.of(deletionVector.serialize().getBytes()));
@@ -229,13 +234,13 @@ public class IcebergMergeSink
         insertPageSink.abort();
     }
 
-    private PositionDeleteWriter createPositionDeleteWriter(String dataFilePath, PartitionSpec partitionSpec, String partitionDataJson)
+    private PositionDeleteWriter createPositionDeleteWriter(ReferencedDataFile referencedDataFile, PartitionSpec partitionSpec, String partitionDataJson)
     {
         Optional<PartitionData> partitionData = partitionSpec.isPartitioned()
                 ? Optional.of(PartitionData.fromJson(partitionDataJson, partitionSpec))
                 : Optional.empty();
         return new PositionDeleteWriter(
-                dataFilePath,
+                referencedDataFile,
                 partitionSpec,
                 partitionData,
                 locationProvider,
@@ -320,13 +325,19 @@ public class IcebergMergeSink
     {
         private final int partitionSpecId;
         private final String partitionDataJson;
+        private final long fileRecordCount;
+        private final long fileSizeInBytes;
+        private final IcebergFileFormat fileFormat;
         private final DeletionVector.Builder rowsToDelete = DeletionVector.builder();
         private long rowsToDeleteRetainedBytes;
 
-        public FileDeletion(int partitionSpecId, String partitionDataJson)
+        public FileDeletion(int partitionSpecId, String partitionDataJson, long fileRecordCount, long fileSizeInBytes, IcebergFileFormat fileFormat)
         {
             this.partitionSpecId = partitionSpecId;
             this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
+            this.fileRecordCount = fileRecordCount;
+            this.fileSizeInBytes = fileSizeInBytes;
+            this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         }
 
         // Returns the change in retained bytes of the deletion vector since the previous call
@@ -345,6 +356,11 @@ public class IcebergMergeSink
         public String partitionDataJson()
         {
             return partitionDataJson;
+        }
+
+        public ReferencedDataFile referencedDataFile(String path)
+        {
+            return new ReferencedDataFile(path, fileRecordCount, fileSizeInBytes, fileFormat);
         }
 
         public DeletionVector.Builder rowsToDelete()

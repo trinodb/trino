@@ -19,8 +19,46 @@ export interface ApiResponse<T> {
     data?: T
 }
 
+const UNAUTHENTICATED = 401
+const REAUTHENTICATION_TIMESTAMP_KEY = 'trino.ui.reauthentication.timestamp'
+const REAUTHENTICATION_COOLDOWN_MS = 10_000
+
+export const clearReauthenticationCooldown = () => {
+    try {
+        sessionStorage.removeItem(REAUTHENTICATION_TIMESTAMP_KEY)
+    } catch {
+        // Storage is unavailable, so there is no cooldown to clear.
+    }
+}
+
+const reauthenticate = () => {
+    const lastReauthentication = Number(sessionStorage.getItem(REAUTHENTICATION_TIMESTAMP_KEY) ?? 0)
+    const elapsed = Date.now() - lastReauthentication
+    if (elapsed >= 0 && elapsed < REAUTHENTICATION_COOLDOWN_MS) {
+        return
+    }
+    sessionStorage.setItem(REAUTHENTICATION_TIMESTAMP_KEY, Date.now().toString())
+    window.location.reload()
+}
+
 export class ClientApi {
     axiosInstance: AxiosInstance = axios.create()
+
+    constructor() {
+        this.axiosInstance.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                if (axios.isAxiosError(error) && error.response?.status === UNAUTHENTICATED) {
+                    try {
+                        reauthenticate()
+                    } catch {
+                        // Storage is unavailable. Keep the original 401 error.
+                    }
+                }
+                return Promise.reject(error)
+            }
+        )
+    }
 
     paramsToQueryString = (params: Record<string, string>): string => {
         let queryString = ''

@@ -24,7 +24,24 @@ public abstract class IrVisitor<R, C>
 
     public R process(Expression node, @Nullable C context)
     {
-        return node.accept(this, context);
+        return switch (node) {
+            case Array array -> visitArray(array, context);
+            case Bind bind -> visitBind(bind, context);
+            case Call call -> visitCall(call, context);
+            case Case caseNode -> visitCase(caseNode, context);
+            case Cast cast -> visitCast(cast, context);
+            case Coalesce coalesce -> visitCoalesce(coalesce, context);
+            case Constant constant -> visitConstant(constant, context);
+            case FieldReference fieldReference -> visitFieldReference(fieldReference, context);
+            case In in -> visitIn(in, context);
+            case IsNull isNull -> visitIsNull(isNull, context);
+            case Lambda lambda -> visitLambda(lambda, context);
+            case Let let -> visitLet(let, context);
+            case Logical logical -> visitLogical(logical, context);
+            case Match match -> visitMatch(match, context);
+            case Reference reference -> visitReference(reference, context);
+            case Row row -> visitRow(row, context);
+        };
     }
 
     protected R visitConstant(Constant node, C context)

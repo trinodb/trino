@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class Delete
+public final class Delete
         extends Statement
 {
     private final Table table;
@@ -43,12 +43,6 @@ public class Delete
     public Optional<Expression> getWhere()
     {
         return where;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDelete(this, context);
     }
 
     @Override

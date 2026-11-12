@@ -163,7 +163,7 @@ class StageManager
     private void initialize()
     {
         for (SqlStage stage : stages.values()) {
-            stage.addFinalStageInfoListener(_ -> queryStateMachine.updateQueryInfo(Optional.of(getStagesInfo())));
+            stage.addFinalStageInfoListener(_ -> queryStateMachine.updateFinalQueryInfo(() -> Optional.of(getStagesInfo())));
         }
     }
 

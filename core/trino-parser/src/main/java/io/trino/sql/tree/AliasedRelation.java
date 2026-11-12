@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class AliasedRelation
+public final class AliasedRelation
         extends Relation
 {
     private final Relation relation;
@@ -63,12 +63,6 @@ public class AliasedRelation
     public List<Identifier> getColumnNames()
     {
         return columnNames;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAliasedRelation(this, context);
     }
 
     @Override

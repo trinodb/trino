@@ -19,15 +19,20 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.metastore.HiveMetastore;
+import io.trino.operator.OperatorStats;
 import io.trino.plugin.iceberg.util.FileOperationUtils.FileOperation;
 import io.trino.plugin.iceberg.util.FileOperationUtils.Scope;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.QueryId;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.util.ThreadPools;
 import org.intellij.lang.annotations.Language;
@@ -36,17 +41,23 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.file.Path;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
+import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getOrcFooter;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getParquetFileMetadata;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
@@ -59,6 +70,7 @@ import static io.trino.plugin.iceberg.util.FileOperationUtils.Scope.ALL_FILES;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.Scope.METADATA_FILES;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.getOperations;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.min;
@@ -719,6 +731,42 @@ public class TestIcebergFileOperations
     }
 
     @Test
+    public void testExpireSnapshotsWithStatistics()
+    {
+        assertUpdate("CREATE TABLE test_expire_snapshots_stats (id VARCHAR, age INT)");
+        assertUpdate("INSERT INTO test_expire_snapshots_stats VALUES ('a', 1)", 1);
+        assertUpdate("UPDATE test_expire_snapshots_stats SET age = 2 WHERE id = 'a'", 1);
+
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+
+        // the snapshot holding the statistics file is retained, so nothing is committed
+        assertFileSystemAccesses(
+                session,
+                "ALTER TABLE test_expire_snapshots_stats EXECUTE expire_snapshots(retention_threshold => '7d')",
+                ImmutableMultiset.of(new FileOperation(METADATA_JSON, "InputFile.newStream")));
+        // the statistics file of the expired snapshot is registered on the current snapshot without being read or rewritten
+        assertFileSystemAccesses(
+                session,
+                "ALTER TABLE test_expire_snapshots_stats EXECUTE expire_snapshots(retention_threshold => '0d')",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(METADATA_JSON, "InputFile.newStream"), 3)
+                        .addCopies(new FileOperation(METADATA_JSON, "OutputFile.create"), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 3)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 3)
+                        .build());
+        // the statistics file already sits on the current snapshot, so nothing is committed
+        assertFileSystemAccesses(
+                session,
+                "ALTER TABLE test_expire_snapshots_stats EXECUTE expire_snapshots(retention_threshold => '0d')",
+                ImmutableMultiset.of(new FileOperation(METADATA_JSON, "InputFile.newStream")));
+
+        assertUpdate("DROP TABLE test_expire_snapshots_stats");
+    }
+
+    @Test
     public void testPredicateWithVarcharCastToDate()
     {
         assertUpdate("CREATE TABLE test_varchar_as_date_predicate(a varchar) WITH (partitioning=ARRAY['truncate(a, 4)'])");
@@ -733,13 +781,14 @@ public class TestIcebergFileOperations
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
                         .build());
 
-        // CAST to date and comparison
+        // CAST to date and comparison. A one-sided range cannot prune the partitions: the '2001' partition may hold
+        // a value such as '20015-01-01', which casts to a date after 2005-01-01.
         assertFileSystemAccesses("SELECT * FROM test_varchar_as_date_predicate WHERE CAST(a AS date) >= DATE '2005-01-01'",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
-                        .add(new FileOperation(MANIFEST, "InputFile.newStream")) // fewer than without filter
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
                         .build());
 
         // CAST to date and BETWEEN
@@ -751,16 +800,94 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(MANIFEST, "InputFile.newStream")) // fewer than without filter
                         .build());
 
-        // conversion to date as a date function
+        // conversion to date as a date function, which is the same one-sided range
         assertFileSystemAccesses("SELECT * FROM test_varchar_as_date_predicate WHERE date(a) >= DATE '2005-01-01'",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
-                        .add(new FileOperation(MANIFEST, "InputFile.newStream")) // fewer than without filter
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
                         .build());
 
         assertUpdate("DROP TABLE test_varchar_as_date_predicate");
+    }
+
+    @Test
+    public void testV3DeleteWithDeletionVector()
+    {
+        String tableName = "test_v3_delete_dv_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (format_version = 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2), ('three', 3)", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('four', 4)", 1);
+
+        // Partially deletes a data file, so a deletion vector is written
+        assertFileSystemAccesses(
+                "DELETE FROM " + tableName + " WHERE key = 'two'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 3)
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
+                        .add(new FileOperation(DELETE, "OutputFile.create"))
+                        .build());
+
+        // Fully deletes a data file, so the data file is removed
+        assertFileSystemAccesses(
+                "DELETE FROM " + tableName + " WHERE key = 'four'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 10)
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
+                        .build());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testV3DeleteWithDeletionVectorOnPartitionedTable()
+    {
+        String tableName = "test_v3_delete_dv_partitioned_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (format_version = 3, partitioning = ARRAY['value'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2), ('three', 2)", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('four', 4)", 1);
+
+        // Partially deletes a data file, so a deletion vector is written
+        assertFileSystemAccesses(
+                "DELETE FROM " + tableName + " WHERE key = 'two'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 3)
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
+                        .add(new FileOperation(DELETE, "OutputFile.create"))
+                        .build());
+
+        // Fully deletes a data file, so the commit skips data manifests of other partitions
+        assertFileSystemAccesses(
+                "DELETE FROM " + tableName + " WHERE key = 'four'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 8)
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
+                        .build());
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -977,6 +1104,47 @@ public class TestIcebergFileOperations
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @ParameterizedTest
+    @EnumSource(value = IcebergFileFormat.class, names = {"PARQUET", "ORC"})
+    public void testDeleteFilesNotReadForSplitWithAllRowGroupsPruned(IcebergFileFormat format)
+            throws Exception
+    {
+        String tableName = "test_delete_files_not_read_for_pruned_split" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INT) WITH (format = '" + format.name() + "', format_version = 2, sorted_by = ARRAY['id'], parquet_writer_row_group_size = '1kB')");
+        // the file is sorted and has many row groups or stripes, so only the first can contain ids up to 2 and the others are pruned
+        assertUpdate(
+                withSmallRowGroups(Session.builder(getSession())
+                        .setSystemProperty(SystemSessionProperties.WRITER_SCALING_MIN_DATA_PROCESSED, "1PB")
+                        .build()),
+                "INSERT INTO " + tableName + " SELECT CAST(x AS INT) FROM UNNEST(sequence(1, 2000)) t(x)",
+                2000);
+        assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+        String dataFile = (String) computeScalar("SELECT file_path FROM \"" + tableName + "$files\" WHERE content = " + FileContent.DATA.id());
+        String deleteFile = (String) computeScalar("SELECT file_path FROM \"" + tableName + "$files\" WHERE content = " + FileContent.POSITION_DELETES.id());
+        TrinoInputFile dataInputFile = fileSystemFactory.create(SESSION).newInputFile(Location.of(dataFile));
+        int groupCount = switch (format) {
+            case PARQUET -> getParquetFileMetadata(dataInputFile).getBlocks().size();
+            case ORC -> getOrcFooter(dataInputFile).getStripes().size();
+            case AVRO -> throw new IllegalArgumentException("Avro does not prune row groups");
+        };
+        assertThat(groupCount).isGreaterThan(1);
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), IcebergSessionProperties.SPLIT_SIZE, "1kB")
+                .build();
+        QueryRunner.MaterializedResultWithPlan queryResult = getDistributedQueryRunner().executeWithPlan(session, "SELECT * FROM " + tableName + " WHERE id <= 2");
+        // id 1 is deleted, so the split that is not pruned must load the delete file to return the right row
+        assertThat(queryResult.result().getOnlyColumnAsSet()).containsExactly(2);
+        // more than 1 split, but only the split that is not pruned reads the delete file
+        assertThat(getOperatorStats(queryResult.queryId()).getTotalDrivers()).isGreaterThan(1);
+        long deleteFileReads = getDistributedQueryRunner().getSpans().stream()
+                .filter(span -> span.getName().equals("InputFile.newInput"))
+                .filter(span -> deleteFile.equals(span.getAttributes().get(FILE_LOCATION)))
+                .count();
+        assertThat(deleteFileReads).isEqualTo(1);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test
     public void testShowTables()
     {
@@ -1019,5 +1187,17 @@ public class TestIcebergFileOperations
         return Session.builder(session)
                 .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
                 .build();
+    }
+
+    private OperatorStats getOperatorStats(QueryId queryId)
+    {
+        return getDistributedQueryRunner().getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(queryId)
+                .getQueryStats()
+                .getOperatorSummaries()
+                .stream()
+                .filter(summary -> summary.getOperatorType().startsWith("Scan"))
+                .collect(onlyElement());
     }
 }

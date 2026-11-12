@@ -43,12 +43,6 @@ public record Array(Type elementType, List<Expression> elements)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitArray(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         return elements;

@@ -48,7 +48,6 @@ import io.trino.sql.routine.ir.IrStatement;
 import io.trino.sql.routine.ir.IrVariable;
 import io.trino.sql.routine.ir.IrWhile;
 import io.trino.sql.tree.AssignmentStatement;
-import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.CaseStatement;
 import io.trino.sql.tree.CaseStatementWhenClause;
 import io.trino.sql.tree.CompoundStatement;
@@ -117,8 +116,29 @@ public final class SqlRoutinePlanner
     }
 
     private class StatementVisitor
-            extends AstVisitor<IrStatement, Context>
     {
+        public IrStatement process(Node node)
+        {
+            return process(node, null);
+        }
+
+        public IrStatement process(Node root, Context context)
+        {
+            return switch (root) {
+                case AssignmentStatement node -> visitAssignmentStatement(node, context);
+                case CaseStatement node -> visitCaseStatement(node, context);
+                case CompoundStatement node -> visitCompoundStatement(node, context);
+                case IfStatement node -> visitIfStatement(node, context);
+                case IterateStatement node -> new IrContinue(label(context, node.getLabel()));
+                case LeaveStatement node -> new IrBreak(label(context, node.getLabel()));
+                case LoopStatement node -> visitLoopStatement(node, context);
+                case RepeatStatement node -> visitRepeatStatement(node, context);
+                case ReturnStatement node -> new IrReturn(toExpression(context, node.getValue()));
+                case WhileStatement node -> visitWhileStatement(node, context);
+                default -> throw new UnsupportedOperationException("Not implemented: " + root);
+            };
+        }
+
         private final Session session;
         private final List<IrVariable> allVariables;
         private final Analysis analysis;
@@ -135,14 +155,7 @@ public final class SqlRoutinePlanner
             this.analysis = requireNonNull(analysis, "analysis is null");
         }
 
-        @Override
-        protected IrStatement visitNode(Node node, Context context)
-        {
-            throw new UnsupportedOperationException("Not implemented: " + node);
-        }
-
-        @Override
-        protected IrStatement visitCompoundStatement(CompoundStatement node, Context context)
+        private IrStatement visitCompoundStatement(CompoundStatement node, Context context)
         {
             Context newContext = context.newScope();
 
@@ -168,8 +181,7 @@ public final class SqlRoutinePlanner
             return new IrBlock(blockVariables.build(), statements);
         }
 
-        @Override
-        protected IrStatement visitIfStatement(IfStatement node, Context context)
+        private IrStatement visitIfStatement(IfStatement node, Context context)
         {
             Optional<IrStatement> ifFalse = node.getElseClause().map(clause -> block(statements(clause.getStatements(), context)));
 
@@ -186,8 +198,7 @@ public final class SqlRoutinePlanner
                     ifFalse);
         }
 
-        @Override
-        protected IrStatement visitCaseStatement(CaseStatement node, Context context)
+        private IrStatement visitCaseStatement(CaseStatement node, Context context)
         {
             if (node.getExpression().isPresent()) {
                 io.trino.sql.ir.Expression valueExpression = toExpression(context, node.getExpression().get());
@@ -228,8 +239,7 @@ public final class SqlRoutinePlanner
             return statement;
         }
 
-        @Override
-        protected IrStatement visitWhileStatement(WhileStatement node, Context context)
+        private IrStatement visitWhileStatement(WhileStatement node, Context context)
         {
             Context newContext = context.newScope();
             Optional<IrLabel> label = getSqlLabel(newContext, node.getLabel());
@@ -238,8 +248,7 @@ public final class SqlRoutinePlanner
             return new IrWhile(label, condition, block(statements));
         }
 
-        @Override
-        protected IrStatement visitRepeatStatement(RepeatStatement node, Context context)
+        private IrStatement visitRepeatStatement(RepeatStatement node, Context context)
         {
             Context newContext = context.newScope();
             Optional<IrLabel> label = getSqlLabel(newContext, node.getLabel());
@@ -248,8 +257,7 @@ public final class SqlRoutinePlanner
             return new IrRepeat(label, condition, block(statements));
         }
 
-        @Override
-        protected IrStatement visitLoopStatement(LoopStatement node, Context context)
+        private IrStatement visitLoopStatement(LoopStatement node, Context context)
         {
             Context newContext = context.newScope();
             Optional<IrLabel> label = getSqlLabel(newContext, node.getLabel());
@@ -257,31 +265,12 @@ public final class SqlRoutinePlanner
             return new IrLoop(label, block(statements));
         }
 
-        @Override
-        protected IrStatement visitReturnStatement(ReturnStatement node, Context context)
-        {
-            return new IrReturn(toExpression(context, node.getValue()));
-        }
-
-        @Override
-        protected IrStatement visitAssignmentStatement(AssignmentStatement node, Context context)
+        private IrStatement visitAssignmentStatement(AssignmentStatement node, Context context)
         {
             Identifier name = node.getTarget();
             IrVariable target = context.variables().get(identifierValue(name));
             checkArgument(target != null, "Variable not declared in scope: %s", name);
             return new IrSet(target, toExpression(context, node.getValue()));
-        }
-
-        @Override
-        protected IrStatement visitIterateStatement(IterateStatement node, Context context)
-        {
-            return new IrContinue(label(context, node.getLabel()));
-        }
-
-        @Override
-        protected IrStatement visitLeaveStatement(LeaveStatement node, Context context)
-        {
-            return new IrBreak(label(context, node.getLabel()));
         }
 
         private Optional<IrLabel> getSqlLabel(Context context, Optional<Identifier> labelName)

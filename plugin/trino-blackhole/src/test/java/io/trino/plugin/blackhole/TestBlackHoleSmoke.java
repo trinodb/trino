@@ -151,13 +151,13 @@ final class TestBlackHoleSmoke
     {
         assertUpdate("CREATE OR REPLACE TABLE test_create_or_replace(x int)");
         assertThat(query("DESCRIBE test_create_or_replace")).result().projected("Column", "Type")
-                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR)
+                .matches(resultBuilder(VARCHAR, VARCHAR)
                         .row("x", "integer")
                         .build());
 
         assertUpdate("CREATE OR REPLACE TABLE test_create_or_replace(y varchar)");
         assertThat(query("DESCRIBE test_create_or_replace")).result().projected("Column", "Type")
-                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR)
+                .matches(resultBuilder(VARCHAR, VARCHAR)
                         .row("y", "varchar")
                         .build());
 
@@ -169,13 +169,13 @@ final class TestBlackHoleSmoke
     {
         assertUpdate("CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT 1 x", 1);
         assertThat(query("DESCRIBE test_create_or_replace_as_select")).result().projected("Column", "Type")
-                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR)
+                .matches(resultBuilder(VARCHAR, VARCHAR)
                         .row("x", "integer")
                         .build());
 
         assertUpdate("CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT '2' y", 1);
         assertThat(query("DESCRIBE test_create_or_replace_as_select")).result().projected("Column", "Type")
-                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR)
+                .matches(resultBuilder(VARCHAR, VARCHAR)
                         .row("y", "varchar(1)")
                         .build());
 
@@ -429,7 +429,7 @@ final class TestBlackHoleSmoke
 
         assertQueryReturnsEmptyResult("SELECT * FROM test_add_column");
         assertThat(query("DESCRIBE test_add_column")).result()
-                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .matches(resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                         .row("col", "integer", "", "")
                         .row("new_col", "varchar", "", "")
                         .build());
@@ -446,7 +446,7 @@ final class TestBlackHoleSmoke
 
         assertQueryReturnsEmptyResult("SELECT * FROM test_drop_column");
         assertThat(query("DESCRIBE test_drop_column")).result()
-                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .matches(resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                         .row("col", "integer", "", "")
                         .build());
 
@@ -462,7 +462,7 @@ final class TestBlackHoleSmoke
 
         assertQueryReturnsEmptyResult("SELECT * FROM test_rename_column");
         assertThat(query("DESCRIBE test_rename_column")).result()
-                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .matches(resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                         .row("renamed", "integer", "", "")
                         .build());
 

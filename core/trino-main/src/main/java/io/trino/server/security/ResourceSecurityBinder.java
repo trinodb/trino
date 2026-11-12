@@ -49,24 +49,9 @@ public class ResourceSecurityBinder
         return this;
     }
 
-    public ResourceSecurityBinder publicResource(AnnotatedElement element)
-    {
-        return resourceSecurity(element, AccessType.PUBLIC);
-    }
-
-    public ResourceSecurityBinder anyUserResource(AnnotatedElement element)
-    {
-        return resourceSecurity(element, AccessType.AUTHENTICATED_USER);
-    }
-
     public ResourceSecurityBinder managementReadResource(AnnotatedElement element)
     {
         return resourceSecurity(element, AccessType.MANAGEMENT_READ);
-    }
-
-    public ResourceSecurityBinder managementWriteResource(AnnotatedElement element)
-    {
-        return resourceSecurity(element, AccessType.MANAGEMENT_WRITE);
     }
 
     public ResourceSecurityBinder internalOnlyResource(AnnotatedElement element)

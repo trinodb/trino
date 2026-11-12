@@ -42,6 +42,7 @@ import java.util.Random;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -68,7 +69,7 @@ public final class BenchmarkParquetFormatUtils
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         long dataSize = 0;
-        try (RecordPageSource pageSource = new RecordPageSource(recordSet)) {
+        try (RecordPageSource pageSource = new RecordPageSource(recordSet, NO_LIMIT)) {
             while (!pageSource.isFinished() && dataSize < MIN_DATA_SIZE) {
                 SourcePage sourcePage = pageSource.getNextSourcePage();
                 if (sourcePage != null) {
@@ -83,12 +84,6 @@ public final class BenchmarkParquetFormatUtils
                 columns.stream().map(Column::getName).collect(toImmutableList()),
                 recordSet.getColumnTypes(),
                 pages.build());
-    }
-
-    @SafeVarargs
-    public static <E extends TpchEntity> TestData createTpchDataSet(TpchTable<E> tpchTable, TpchColumn<E>... columns)
-    {
-        return createTpchDataSet(tpchTable, ImmutableList.copyOf(columns));
     }
 
     public static <E extends TpchEntity> TestData createTpchDataSet(TpchTable<E> tpchTable, List<TpchColumn<E>> columns)

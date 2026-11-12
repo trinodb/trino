@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class JsonExists
+public final class JsonExists
         extends Expression
 {
     private final JsonPathInvocation jsonPathInvocation;
@@ -55,12 +55,6 @@ public class JsonExists
     public ErrorBehavior getErrorBehavior()
     {
         return errorBehavior;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitJsonExists(this, context);
     }
 
     @Override

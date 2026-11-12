@@ -54,6 +54,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
@@ -349,6 +350,10 @@ public class PinotMetadata
     private boolean isFilterPushdownUnsupported(Domain domain)
     {
         ValueSet valueSet = domain.getValues();
+        if (valueSet instanceof FloatingPointValueSet floatingPoint && !floatingPoint.isAll() &&
+                floatingPoint.isNaNAllowed()) {
+            return true;
+        }
         boolean isNotNull = valueSet.isAll() && !domain.isNullAllowed();
         boolean isUnsupportedAlwaysFalse = domain.isNone() && !SUPPORTS_ALWAYS_FALSE.contains(domain.getType());
         boolean isInOrNull = !valueSet.getRanges().getOrderedRanges().isEmpty() && domain.isNullAllowed();
@@ -389,8 +394,7 @@ public class PinotMetadata
         // Pinot treats each element of array as a grouping key
         // See https://github.com/apache/pinot/issues/8353 for more details.
         if (getOnlyElement(groupingSets).stream()
-                .filter(columnHandle -> ((PinotColumnHandle) columnHandle).getDataType() instanceof ArrayType)
-                .findFirst().isPresent()) {
+                .anyMatch(columnHandle -> ((PinotColumnHandle) columnHandle).getDataType() instanceof ArrayType)) {
             return Optional.empty();
         }
         // If aggregates are present than no further aggregations

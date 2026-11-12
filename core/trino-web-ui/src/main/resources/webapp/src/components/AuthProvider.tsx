@@ -13,7 +13,7 @@
  */
 import React, { useEffect, useState, ReactNode } from 'react'
 import { AuthContext, LogoutParams } from './AuthContext'
-import { ApiResponse } from '../api/base.ts'
+import { ApiResponse, clearReauthenticationCooldown } from '../api/base.ts'
 import { authInfoApi, loginApi, logoutApi, AuthInfo, Empty } from '../api/webapp/auth'
 import { Texts } from '../constant'
 
@@ -76,6 +76,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             callApi({
                 apiFn: loginApi,
                 onSuccess: () => {
+                    clearReauthenticationCooldown()
                     setAuthInfo({
                         ...authInfo,
                         authenticated: true,

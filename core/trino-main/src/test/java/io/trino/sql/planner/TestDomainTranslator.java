@@ -19,11 +19,19 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -49,6 +57,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,6 +67,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.FUNCTION_PREIMAGES_ENABLED;
 import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.OperatorType.ADD;
@@ -69,6 +80,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -97,9 +109,15 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.Reals.toReal;
+import static io.trino.util.StructuralTestUtil.arrayBlockOf;
+import static io.trino.util.StructuralTestUtil.mapType;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
+import static io.trino.util.StructuralTestUtil.sqlRowOf;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ONE;
 import static java.math.BigDecimal.TWO;
+import static java.util.Collections.singletonList;
+import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -117,6 +135,7 @@ public class TestDomainTranslator
     private static final Symbol C_DOUBLE_1 = new Symbol(DOUBLE, "c_double_1");
     private static final Symbol C_VARCHAR_1 = new Symbol(VARCHAR, "c_varchar_1");
     private static final Symbol C_VARCHAR_5 = new Symbol(createVarcharType(5), "c_varchar_5");
+    private static final Symbol C_VARCHAR_10 = new Symbol(createVarcharType(10), "c_varchar_10");
     private static final Symbol C_BOOLEAN_1 = new Symbol(BOOLEAN, "c_boolean_1");
     private static final Symbol C_TIMESTAMP = new Symbol(createTimestampType(3), "c_timestamp");
     private static final Symbol C_DATE = new Symbol(DATE, "c_date");
@@ -137,13 +156,41 @@ public class TestDomainTranslator
     private static final Symbol C_REAL_1 = new Symbol(REAL, "c_real_1");
     private static final Symbol C_TIMESTAMP_TZ = new Symbol(TIMESTAMP_TZ_MILLIS, "c_timestamp_tz");
     private static final Symbol C_INTERVAL_DAY_TIME = new Symbol(INTERVAL_DAY_TIME, "c_interval_day_time");
+    private static final RowType ROW_TYPE = RowType.anonymous(List.of(INTEGER, DOUBLE));
+    private static final Symbol C_ROW = new Symbol(ROW_TYPE, "c_row");
+    private static final ArrayType ARRAY_TYPE = new ArrayType(DOUBLE);
+    private static final Symbol C_ARRAY = new Symbol(ARRAY_TYPE, "c_array");
+    private static final MapType MAP_TYPE = mapType(INTEGER, DOUBLE);
+    private static final Symbol C_MAP = new Symbol(MAP_TYPE, "c_map");
+    private static final RowType ROW_OF_ARRAY_TYPE = RowType.anonymous(List.of(ARRAY_TYPE));
+    private static final Symbol C_ROW_OF_ARRAY = new Symbol(ROW_OF_ARRAY_TYPE, "c_row_of_array");
+    private static final ArrayType ARRAY_OF_ROW_TYPE = new ArrayType(ROW_TYPE);
+    private static final Symbol C_ARRAY_OF_ROW = new Symbol(ARRAY_OF_ROW_TYPE, "c_array_of_row");
+    private static final MapType MAP_OF_ROW_TYPE = mapType(INTEGER, ROW_TYPE);
+    private static final Symbol C_MAP_OF_ROW = new Symbol(MAP_OF_ROW_TYPE, "c_map_of_row");
+    private static final ArrayType ARRAY_OF_ARRAY_TYPE = new ArrayType(ARRAY_TYPE);
+    private static final Symbol C_ARRAY_OF_ARRAY = new Symbol(ARRAY_OF_ARRAY_TYPE, "c_array_of_array");
+    private static final RowType ROW_OF_MAP_OF_ARRAY_TYPE = RowType.anonymous(List.of(INTEGER, mapType(INTEGER, ARRAY_TYPE)));
+    private static final Symbol C_ROW_OF_MAP_OF_ARRAY = new Symbol(ROW_OF_MAP_OF_ARRAY_TYPE, "c_row_of_map_of_array");
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
     private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
     private static final long COLOR_VALUE_1 = 1;
     private static final long COLOR_VALUE_2 = 2;
+    private static final SqlRow ROW_VALUE_1 = sqlRowOf(ROW_TYPE, 50L, 5.0);
+    private static final SqlRow ROW_VALUE_2 = sqlRowOf(ROW_TYPE, 40L, 4.0);
+    private static final Block ARRAY_VALUE_1 = arrayBlockOf(DOUBLE, 1.0, 3.0);
+    private static final Block ARRAY_VALUE_2 = arrayBlockOf(DOUBLE, 2.0);
+    private static final SqlMap MAP_VALUE_1 = sqlMapOf(INTEGER, DOUBLE, Map.of(1L, 3.0));
+    private static final SqlMap MAP_VALUE_2 = sqlMapOf(INTEGER, DOUBLE, Map.of(2L, 4.0));
 
     private static final Session LEGACY_CHAR_VARCHAR_COERCION_SESSION = Session.builder(TEST_SESSION)
+            .setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true")
+            .build();
+    private static final Session LEGACY_PREIMAGES_SESSION = Session.builder(TEST_SESSION)
+            .setSystemProperty(FUNCTION_PREIMAGES_ENABLED, "false")
+            .build();
+    private static final Session LEGACY_PREIMAGES_LEGACY_CHAR_VARCHAR_COERCION_SESSION = Session.builder(LEGACY_PREIMAGES_SESSION)
             .setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true")
             .build();
 
@@ -161,6 +208,25 @@ public class TestDomainTranslator
     public void tearDown()
     {
         functionResolution = null;
+    }
+
+    @Test
+    public void testFloatingPointDomainRoundTrip()
+    {
+        for (Type type : List.of(DOUBLE, REAL, NUMBER)) {
+            Symbol symbol = new Symbol(type, "floating_value");
+            Object zero = type.equals(DOUBLE) ? 0.0 : type.equals(REAL) ? toReal(0.0f) : TrinoNumber.from(BigDecimal.ZERO);
+            Domain point = Domain.singleValue(type, zero);
+            Domain nan = Domain.singleValue(type, FloatingPointValueSet.nanValue(type));
+            for (Domain domain : List.of(point, nan, point.union(nan), point.complement(), nan.complement(), Domain.all(type), Domain.none(type))) {
+                for (boolean nullAllowed : List.of(false, true)) {
+                    TupleDomain<Symbol> expected = tupleDomain(symbol, Domain.create(domain.getValues(), nullAllowed));
+                    ExtractionResult result = fromPredicate(toPredicate(expected));
+                    assertThat(result.tupleDomain()).isEqualTo(expected);
+                    assertThat(result.remainingExpression()).isEqualTo(TRUE);
+                }
+            }
+        }
     }
 
     @Test
@@ -356,6 +422,9 @@ public class TestDomainTranslator
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false));
         assertThat(toPredicate(tupleDomain)).isEqualTo(in(C_BIGINT, ImmutableList.of(1L, 2L)));
 
+        tupleDomain = tupleDomain(C_DOUBLE, Domain.multipleValues(DOUBLE, ImmutableList.of(1.0, 2.0, Double.NaN)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(in(C_DOUBLE, ImmutableList.of(1.0, 2.0)), comparison(IDENTICAL, C_DOUBLE.toSymbolReference(), doubleLiteral(Double.NaN))));
+
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L)), true));
         assertThat(toPredicate(tupleDomain)).isEqualTo(or(isNull(C_BIGINT), lessThan(C_BIGINT, bigintLiteral(1L))));
 
@@ -499,37 +568,35 @@ public class TestDomainTranslator
                 and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(equal(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_BIGINT))));
 
-        // Domain union implicitly adds NaN as an accepted value
-        // The original predicate is returned as the RemainingExpression
-        // (even if left and right unprocessableExpressions are the same)
+        // Covering all ordered values preserves the exclusion of NaN and permits an exact union.
         originalPredicate = or(
                 greaterThan(C_DOUBLE, doubleLiteral(2.0)),
                 lessThan(C_DOUBLE, doubleLiteral(5.0)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
+        assertThat(result.remainingExpression()).isEqualTo(TRUE);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.create(ValueSet.of(DOUBLE, Double.NaN).complement(), false)));
 
         originalPredicate = or(
                 greaterThan(C_REAL, realLiteral(2.0f)),
                 lessThan(C_REAL, realLiteral(5.0f)),
                 isNull(C_REAL));
         result = fromPredicate(originalPredicate);
-        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.tupleDomain()).isEqualTo(TupleDomain.all());
+        assertThat(result.remainingExpression()).isEqualTo(TRUE);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_REAL, Domain.singleValue(REAL, toReal(Float.NaN)).complement()));
 
         originalPredicate = or(
                 and(greaterThan(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_DOUBLE)),
                 and(lessThan(C_DOUBLE, doubleLiteral(5.0)), unprocessableExpression1(C_DOUBLE)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
+        assertThat(result.remainingExpression()).isEqualTo(unprocessableExpression1(C_DOUBLE));
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.create(ValueSet.of(DOUBLE, Double.NaN).complement(), false)));
 
         originalPredicate = or(
                 and(greaterThan(C_REAL, realLiteral(2.0f)), unprocessableExpression1(C_REAL)),
                 and(lessThan(C_REAL, realLiteral(5.0f)), unprocessableExpression1(C_REAL)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_REAL, Domain.notNull(REAL)));
+        assertThat(result.remainingExpression()).isEqualTo(unprocessableExpression1(C_REAL));
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_REAL, Domain.create(ValueSet.of(REAL, toReal(Float.NaN)).complement(), false)));
 
         // We can make another optimization if one side is the super set of the other side
         originalPredicate = or(
@@ -792,12 +859,14 @@ public class TestDomainTranslator
         assertUnsupportedPredicate(
                 not(comparison(IDENTICAL, and(lessThan(C_BIGINT, bigintLiteral(2L)), lessThan(C_BIGINT_1, bigintLiteral(2L))), TRUE)));
 
-        // NaN is not part of the complemented domain, but the negated predicate is true for it
-        assertUnsupportedPredicate(
-                not(comparison(IDENTICAL, lessThan(C_DOUBLE, doubleLiteral(2.0)), TRUE)));
+        // The complement includes NaN and null, as does the negated Boolean identity.
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, lessThan(C_DOUBLE, doubleLiteral(2.0)), TRUE)),
+                tupleDomain(C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.lessThan(DOUBLE, 2.0)).complement(), true)));
 
-        assertUnsupportedPredicate(
-                not(comparison(IDENTICAL, lessThan(C_REAL, realLiteral(2.0f)), TRUE)));
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, lessThan(C_REAL, realLiteral(2.0f)), TRUE)),
+                tupleDomain(C_REAL, Domain.create(ValueSet.ofRanges(Range.lessThan(REAL, toReal(2.0f))).complement(), true)));
 
         // an all or empty value set contains NaN exactly when it contains everything, so complementing it does not lose NaN
         assertPredicateTranslates(
@@ -934,7 +1003,7 @@ public class TestDomainTranslator
         assertPredicateIsAlwaysFalse(lessThan(C_DOUBLE, nanDouble));
         assertPredicateIsAlwaysFalse(lessThanOrEqual(C_DOUBLE, nanDouble));
         assertPredicateTranslates(notEqual(C_DOUBLE, nanDouble), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
-        assertUnsupportedPredicate(isDistinctFrom(C_DOUBLE, nanDouble));
+        assertPredicateTranslates(isDistinctFrom(C_DOUBLE, nanDouble), tupleDomain(C_DOUBLE, Domain.singleValue(DOUBLE, Double.NaN).complement()));
 
         assertPredicateTranslates(not(equal(C_DOUBLE, nanDouble)), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
         assertPredicateTranslates(not(greaterThan(C_DOUBLE, nanDouble)), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
@@ -942,7 +1011,7 @@ public class TestDomainTranslator
         assertPredicateTranslates(not(lessThan(C_DOUBLE, nanDouble)), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
         assertPredicateTranslates(not(lessThanOrEqual(C_DOUBLE, nanDouble)), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
         assertPredicateIsAlwaysFalse(not(notEqual(C_DOUBLE, nanDouble)));
-        assertUnsupportedPredicate(comparison(IDENTICAL, C_DOUBLE.toSymbolReference(), nanDouble));
+        assertPredicateTranslates(comparison(IDENTICAL, C_DOUBLE.toSymbolReference(), nanDouble), tupleDomain(C_DOUBLE, Domain.singleValue(DOUBLE, Double.NaN)));
 
         Expression nanReal = new Constant(REAL, toReal(Float.NaN));
 
@@ -952,7 +1021,7 @@ public class TestDomainTranslator
         assertPredicateIsAlwaysFalse(lessThan(C_REAL, nanReal));
         assertPredicateIsAlwaysFalse(lessThanOrEqual(C_REAL, nanReal));
         assertPredicateTranslates(notEqual(C_REAL, nanReal), tupleDomain(C_REAL, Domain.notNull(REAL)));
-        assertUnsupportedPredicate(isDistinctFrom(C_REAL, nanReal));
+        assertPredicateTranslates(isDistinctFrom(C_REAL, nanReal), tupleDomain(C_REAL, Domain.singleValue(REAL, toReal(Float.NaN)).complement()));
 
         assertPredicateTranslates(not(equal(C_REAL, nanReal)), tupleDomain(C_REAL, Domain.notNull(REAL)));
         assertPredicateTranslates(not(greaterThan(C_REAL, nanReal)), tupleDomain(C_REAL, Domain.notNull(REAL)));
@@ -960,7 +1029,7 @@ public class TestDomainTranslator
         assertPredicateTranslates(not(lessThan(C_REAL, nanReal)), tupleDomain(C_REAL, Domain.notNull(REAL)));
         assertPredicateTranslates(not(lessThanOrEqual(C_REAL, nanReal)), tupleDomain(C_REAL, Domain.notNull(REAL)));
         assertPredicateIsAlwaysFalse(not(notEqual(C_REAL, nanReal)));
-        assertUnsupportedPredicate(comparison(IDENTICAL, C_REAL.toSymbolReference(), nanReal));
+        assertPredicateTranslates(comparison(IDENTICAL, C_REAL.toSymbolReference(), nanReal), tupleDomain(C_REAL, Domain.singleValue(REAL, toReal(Float.NaN))));
     }
 
     @Test
@@ -998,41 +1067,85 @@ public class TestDomainTranslator
     @Test
     public void testNonImplicitCastOnSymbolSide()
     {
-        // we expect TupleDomain.all here().
-        // see comment in DomainTranslator.Visitor.visitComparisonExpression()
-        assertUnsupportedPredicate(equal(
-                cast(C_TIMESTAMP, DATE),
-                new Constant(DATE, DATE_VALUE)));
+        assertPredicateTranslates(
+                equal(cast(C_TIMESTAMP, DATE), new Constant(DATE, DATE_VALUE)),
+                tupleDomain(C_TIMESTAMP, Domain.create(ValueSet.ofRanges(Range.range(C_TIMESTAMP.type(), DATE_VALUE * 86_400_000_000L, true, (DATE_VALUE + 1) * 86_400_000_000L, false)), false)));
         assertUnsupportedPredicate(equal(
                 cast(C_DECIMAL_12_2, BIGINT),
                 bigintLiteral(135L)));
     }
 
     @Test
-    public void testNoSaturatedFloorCastFromUnsupportedApproximateDomain()
+    public void testLegacyDomainExtraction()
     {
-        assertUnsupportedPredicate(equal(
-                cast(C_DECIMAL_12_2, DOUBLE),
-                new Constant(DOUBLE, 12345.56)));
+        Session legacySession = Session.builder(TEST_SESSION)
+                .setSystemProperty(FUNCTION_PREIMAGES_ENABLED, "false")
+                .build();
+        Expression timestampCast = equal(cast(C_TIMESTAMP, DATE), new Constant(DATE, DATE_VALUE));
+        assertPredicateTranslates(legacySession, timestampCast, TupleDomain.all(), timestampCast);
+        Expression approximateCast = equal(cast(C_BIGINT, DOUBLE), new Constant(DOUBLE, 12345.56));
+        assertPredicateTranslates(legacySession, approximateCast, TupleDomain.all(), approximateCast);
+        assertPredicateTranslates(
+                legacySession,
+                equal(cast(C_SMALLINT, BIGINT), new Constant(BIGINT, 123L)),
+                tupleDomain(C_SMALLINT, Domain.singleValue(SMALLINT, 123L)),
+                TRUE);
+    }
 
-        assertUnsupportedPredicate(equal(
-                cast(C_BIGINT, DOUBLE),
-                new Constant(DOUBLE, 12345.56)));
-
-        assertUnsupportedPredicate(equal(
-                cast(C_BIGINT, REAL),
-                new Constant(REAL, toReal(12345.56f))));
-
-        assertUnsupportedPredicate(equal(
-                cast(C_INTEGER, REAL),
-                new Constant(REAL, toReal(12345.56f))));
+    @Test
+    public void testApproximateDomainsUseRegisteredPreimages()
+    {
+        assertPredicateTranslates(
+                equal(cast(C_DECIMAL_12_2, DOUBLE), new Constant(DOUBLE, 12345.56)),
+                tupleDomain(C_DECIMAL_12_2, Domain.singleValue(C_DECIMAL_12_2.type(), 1234556L)));
+        assertPredicateTranslates(equal(cast(C_BIGINT, DOUBLE), new Constant(DOUBLE, 12345.56)), TupleDomain.none());
+        assertPredicateTranslates(equal(cast(C_BIGINT, REAL), new Constant(REAL, toReal(12345.56f))), TupleDomain.none());
+        assertPredicateTranslates(equal(cast(C_INTEGER, REAL), new Constant(REAL, toReal(12345.56f))), TupleDomain.none());
     }
 
     @Test
     public void testPredicateWithVarcharCastToDate()
     {
+        long date = (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10"));
+        Domain spellings = Domain.create(ValueSet.ofRanges(
+                        Range.lessThan(VARCHAR, utf8Slice("1")),
+                        Range.range(VARCHAR, utf8Slice("2005-09-10"), true, utf8Slice("2005-09-11"), false),
+                        Range.range(VARCHAR, utf8Slice("2005-9-10"), true, utf8Slice("2005-9-11"), false),
+                        Range.greaterThanOrEqual(VARCHAR, utf8Slice(":"))),
+                false);
+        assertPredicateDerives(equal(cast(C_VARCHAR, DATE), new Constant(DATE, date)), tupleDomain(C_VARCHAR, spellings));
+        assertPredicateDerives(comparison(IDENTICAL, cast(C_VARCHAR, DATE), new Constant(DATE, date)), tupleDomain(C_VARCHAR, spellings));
+
+        // A two-digit day cannot be extended into another valid day, so its spellings can be excluded
+        assertPredicateDerives(
+                notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, date)),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("2005-09-10")),
+                                Range.range(VARCHAR, utf8Slice("2005-09-11"), true, utf8Slice("2005-9-10"), false),
+                                Range.greaterThanOrEqual(VARCHAR, utf8Slice("2005-9-11"))),
+                        false)));
+
+        // A bounded range includes the strings of every year it touches
+        assertPredicateDerives(
+                between(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), new Constant(DATE, date)),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("1")),
+                                Range.range(VARCHAR, utf8Slice("2001-"), true, utf8Slice("2005."), false),
+                                Range.greaterThanOrEqual(VARCHAR, utf8Slice(":"))),
+                        false)));
+
+        // String order does not follow year order across year lengths, so '305-01-01' sorts between '2006' and '9'.
+        // A one-sided range includes years of every length and is not translated.
+        assertUnsupportedPredicate(lessThan(cast(C_VARCHAR, DATE), new Constant(DATE, date)));
+        assertUnsupportedPredicate(greaterThan(cast(C_VARCHAR, DATE), new Constant(DATE, date)));
+    }
+
+    @Test
+    public void testLegacyPredicateWithVarcharCastToDate()
+    {
         // =
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 equal(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
@@ -1042,6 +1155,7 @@ public class TestDomainTranslator
                         false)));
         // = with day ending with 9
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 equal(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-09")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
@@ -1052,6 +1166,7 @@ public class TestDomainTranslator
                                 Range.greaterThan(VARCHAR, utf8Slice("9"))),
                         false)));
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 equal(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-19")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
@@ -1062,6 +1177,7 @@ public class TestDomainTranslator
 
         // IDENTICAL, same as = because the value is not null
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 comparison(IDENTICAL, cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
@@ -1072,6 +1188,7 @@ public class TestDomainTranslator
 
         // !=
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("2005-09-10")),
@@ -1081,11 +1198,14 @@ public class TestDomainTranslator
 
         // != with single-digit day
         assertUnsupportedPredicate(
+                LEGACY_PREIMAGES_SESSION,
                 notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-2")))));
         // != with day ending with 9
         assertUnsupportedPredicate(
+                LEGACY_PREIMAGES_SESSION,
                 notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-09")))));
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-19")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("2005-09-19")),
@@ -1095,6 +1215,7 @@ public class TestDomainTranslator
 
         // <
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 lessThan(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("2006")),
@@ -1103,6 +1224,7 @@ public class TestDomainTranslator
 
         // >
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 greaterThan(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
@@ -1111,6 +1233,7 @@ public class TestDomainTranslator
 
         // Regression test for https://github.com/trinodb/trino/issues/14954
         assertPredicateTranslates(
+                LEGACY_PREIMAGES_SESSION,
                 greaterThan(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR, DATE)),
                 tupleDomain(
                         C_VARCHAR,
@@ -1122,6 +1245,7 @@ public class TestDomainTranslator
 
         // BETWEEN
         assertPredicateTranslates(
+                LEGACY_PREIMAGES_SESSION,
                 between(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
@@ -1134,6 +1258,7 @@ public class TestDomainTranslator
 
         // Regression test for https://github.com/trinodb/trino/issues/14954
         assertPredicateTranslates(
+                LEGACY_PREIMAGES_SESSION,
                 between(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR, DATE), cast(C_VARCHAR_1, DATE)),
                 tupleDomain(
                         C_VARCHAR,
@@ -1426,13 +1551,267 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testFromStructuralTypeEquality()
+    {
+        // Equality and identity with a value without nested NULL or NaN select exactly the value
+
+        assertPredicateTranslates(equal(C_ROW, new Constant(ROW_TYPE, ROW_VALUE_1)), tupleDomain(C_ROW, Domain.singleValue(ROW_TYPE, ROW_VALUE_1)));
+        assertPredicateTranslates(equal(C_ARRAY, new Constant(ARRAY_TYPE, ARRAY_VALUE_1)), tupleDomain(C_ARRAY, Domain.singleValue(ARRAY_TYPE, ARRAY_VALUE_1)));
+        assertPredicateTranslates(equal(C_MAP, new Constant(MAP_TYPE, MAP_VALUE_1)), tupleDomain(C_MAP, Domain.singleValue(MAP_TYPE, MAP_VALUE_1)));
+
+        assertPredicateTranslates(isNotDistinctFrom(C_ROW, new Constant(ROW_TYPE, ROW_VALUE_1)), tupleDomain(C_ROW, Domain.singleValue(ROW_TYPE, ROW_VALUE_1)));
+        assertPredicateTranslates(isNotDistinctFrom(C_ARRAY, new Constant(ARRAY_TYPE, ARRAY_VALUE_1)), tupleDomain(C_ARRAY, Domain.singleValue(ARRAY_TYPE, ARRAY_VALUE_1)));
+        assertPredicateTranslates(isNotDistinctFrom(C_MAP, new Constant(MAP_TYPE, MAP_VALUE_1)), tupleDomain(C_MAP, Domain.singleValue(MAP_TYPE, MAP_VALUE_1)));
+
+        Block emptyArray = arrayBlockOf(DOUBLE);
+        assertPredicateTranslates(equal(C_ARRAY, new Constant(ARRAY_TYPE, emptyArray)), tupleDomain(C_ARRAY, Domain.singleValue(ARRAY_TYPE, emptyArray)));
+        SqlMap emptyMap = sqlMapOf(INTEGER, DOUBLE, Map.of());
+        assertPredicateTranslates(equal(C_MAP, new Constant(MAP_TYPE, emptyMap)), tupleDomain(C_MAP, Domain.singleValue(MAP_TYPE, emptyMap)));
+    }
+
+    @Test
+    public void testFromNestedStructuralTypeEquality()
+    {
+        // Equality with a value without NULL or NaN at any depth selects exactly the value
+
+        SqlRow rowOfArray = sqlRowOf(ROW_OF_ARRAY_TYPE, List.of(1.0, 3.0));
+        assertPredicateTranslates(
+                equal(C_ROW_OF_ARRAY, new Constant(ROW_OF_ARRAY_TYPE, rowOfArray)),
+                tupleDomain(C_ROW_OF_ARRAY, Domain.singleValue(ROW_OF_ARRAY_TYPE, rowOfArray)));
+        Block arrayOfRow = arrayBlockOf(ROW_TYPE, List.of(50L, 5.0), List.of(40L, 4.0));
+        assertPredicateTranslates(
+                equal(C_ARRAY_OF_ROW, new Constant(ARRAY_OF_ROW_TYPE, arrayOfRow)),
+                tupleDomain(C_ARRAY_OF_ROW, Domain.singleValue(ARRAY_OF_ROW_TYPE, arrayOfRow)));
+        SqlMap mapOfRow = sqlMapOf(INTEGER, ROW_TYPE, Map.of(1L, List.of(50L, 5.0)));
+        assertPredicateTranslates(
+                equal(C_MAP_OF_ROW, new Constant(MAP_OF_ROW_TYPE, mapOfRow)),
+                tupleDomain(C_MAP_OF_ROW, Domain.singleValue(MAP_OF_ROW_TYPE, mapOfRow)));
+        Block arrayOfArray = arrayBlockOf(ARRAY_TYPE, List.of(1.0), List.of(2.0, 3.0));
+        assertPredicateTranslates(
+                equal(C_ARRAY_OF_ARRAY, new Constant(ARRAY_OF_ARRAY_TYPE, arrayOfArray)),
+                tupleDomain(C_ARRAY_OF_ARRAY, Domain.singleValue(ARRAY_OF_ARRAY_TYPE, arrayOfArray)));
+        SqlRow rowOfMapOfArray = sqlRowOf(ROW_OF_MAP_OF_ARRAY_TYPE, 1L, Map.of(1L, List.of(1.0, 3.0)));
+        assertPredicateTranslates(
+                equal(C_ROW_OF_MAP_OF_ARRAY, new Constant(ROW_OF_MAP_OF_ARRAY_TYPE, rowOfMapOfArray)),
+                tupleDomain(C_ROW_OF_MAP_OF_ARRAY, Domain.singleValue(ROW_OF_MAP_OF_ARRAY_TYPE, rowOfMapOfArray)));
+    }
+
+    @Test
+    public void testFromStructuralTypeEqualityWithNulls()
+    {
+        // Equality with a value with a nested NULL is never true, but a domain of the value contains it. Identity
+        // with the value is exact, but its domain translates back to that equality.
+
+        assertUnsupportedPredicate(equal(C_ROW, new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, 50L, null))));
+        assertUnsupportedPredicate(equal(C_ARRAY, new Constant(ARRAY_TYPE, arrayBlockOf(DOUBLE, 1.0, null))));
+        assertUnsupportedPredicate(equal(C_MAP, new Constant(MAP_TYPE, sqlMapOf(INTEGER, DOUBLE, singletonMap(1L, null)))));
+
+        assertUnsupportedPredicate(isNotDistinctFrom(C_ROW, new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, 50L, null))));
+        assertUnsupportedPredicate(isNotDistinctFrom(C_ARRAY, new Constant(ARRAY_TYPE, arrayBlockOf(DOUBLE, 1.0, null))));
+        assertUnsupportedPredicate(isNotDistinctFrom(C_MAP, new Constant(MAP_TYPE, sqlMapOf(INTEGER, DOUBLE, singletonMap(1L, null)))));
+
+        assertUnsupportedPredicate(equal(C_ROW_OF_ARRAY, new Constant(ROW_OF_ARRAY_TYPE, sqlRowOf(ROW_OF_ARRAY_TYPE, Arrays.asList(1.0, null)))));
+        assertUnsupportedPredicate(equal(C_ARRAY_OF_ROW, new Constant(ARRAY_OF_ROW_TYPE, arrayBlockOf(ROW_TYPE, List.of(50L, 5.0), Arrays.asList(40L, null)))));
+        assertUnsupportedPredicate(equal(C_MAP_OF_ROW, new Constant(MAP_OF_ROW_TYPE, sqlMapOf(INTEGER, ROW_TYPE, Map.of(1L, Arrays.asList(50L, null))))));
+        assertUnsupportedPredicate(equal(C_ARRAY_OF_ARRAY, new Constant(ARRAY_OF_ARRAY_TYPE, arrayBlockOf(ARRAY_TYPE, List.of(1.0), Arrays.asList(2.0, null)))));
+        assertUnsupportedPredicate(equal(C_ROW_OF_MAP_OF_ARRAY, new Constant(ROW_OF_MAP_OF_ARRAY_TYPE, sqlRowOf(ROW_OF_MAP_OF_ARRAY_TYPE, 1L, Map.of(1L, Arrays.asList(1.0, null))))));
+    }
+
+    @Test
+    public void testFromStructuralTypeEqualityWithNaN()
+    {
+        // Equality with a value with a nested NaN is never true, but a domain of the value contains it. Identity
+        // with the value is exact, but its domain translates back to that equality.
+
+        assertUnsupportedPredicate(equal(C_ROW, new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, 50L, Double.NaN))));
+        assertUnsupportedPredicate(equal(C_ARRAY, new Constant(ARRAY_TYPE, arrayBlockOf(DOUBLE, 1.0, Double.NaN))));
+        assertUnsupportedPredicate(equal(C_MAP, new Constant(MAP_TYPE, sqlMapOf(INTEGER, DOUBLE, Map.of(1L, Double.NaN)))));
+
+        assertUnsupportedPredicate(isNotDistinctFrom(C_ROW, new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, 50L, Double.NaN))));
+        assertUnsupportedPredicate(isNotDistinctFrom(C_ARRAY, new Constant(ARRAY_TYPE, arrayBlockOf(DOUBLE, 1.0, Double.NaN))));
+        assertUnsupportedPredicate(isNotDistinctFrom(C_MAP, new Constant(MAP_TYPE, sqlMapOf(INTEGER, DOUBLE, Map.of(1L, Double.NaN)))));
+
+        assertUnsupportedPredicate(equal(C_ROW_OF_ARRAY, new Constant(ROW_OF_ARRAY_TYPE, sqlRowOf(ROW_OF_ARRAY_TYPE, List.of(1.0, Double.NaN)))));
+        assertUnsupportedPredicate(equal(C_ARRAY_OF_ROW, new Constant(ARRAY_OF_ROW_TYPE, arrayBlockOf(ROW_TYPE, List.of(50L, 5.0), List.of(40L, Double.NaN)))));
+        assertUnsupportedPredicate(equal(C_MAP_OF_ROW, new Constant(MAP_OF_ROW_TYPE, sqlMapOf(INTEGER, ROW_TYPE, Map.of(1L, List.of(50L, Double.NaN))))));
+        assertUnsupportedPredicate(equal(C_ARRAY_OF_ARRAY, new Constant(ARRAY_OF_ARRAY_TYPE, arrayBlockOf(ARRAY_TYPE, List.of(1.0), List.of(2.0, Double.NaN)))));
+        assertUnsupportedPredicate(equal(C_ROW_OF_MAP_OF_ARRAY, new Constant(ROW_OF_MAP_OF_ARRAY_TYPE, sqlRowOf(ROW_OF_MAP_OF_ARRAY_TYPE, 1L, Map.of(1L, List.of(1.0, Double.NaN))))));
+
+        ArrayType realArrayType = new ArrayType(REAL);
+        assertUnsupportedPredicate(equal(new Symbol(realArrayType, "c_real_array"), new Constant(realArrayType, arrayBlockOf(REAL, Float.NaN))));
+        ArrayType numberArrayType = new ArrayType(NUMBER);
+        assertUnsupportedPredicate(equal(new Symbol(numberArrayType, "c_number_array"), new Constant(numberArrayType, arrayBlockOf(NUMBER, TrinoNumber.from(new TrinoNumber.NotANumber())))));
+    }
+
+    @Test
+    public void testFromStructuralTypeEqualityWithNullsAndNaN()
+    {
+        // Equality with a value with both a nested NULL and NaN is never true, but a domain of the value contains it
+
+        assertUnsupportedPredicate(equal(C_ROW, new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, null, Double.NaN))));
+        assertUnsupportedPredicate(equal(C_ARRAY, new Constant(ARRAY_TYPE, arrayBlockOf(DOUBLE, null, Double.NaN))));
+        Map<Long, Double> nullAndNaN = new HashMap<>();
+        nullAndNaN.put(1L, null);
+        nullAndNaN.put(2L, Double.NaN);
+        assertUnsupportedPredicate(equal(C_MAP, new Constant(MAP_TYPE, sqlMapOf(INTEGER, DOUBLE, nullAndNaN))));
+
+        assertUnsupportedPredicate(equal(C_ROW_OF_ARRAY, new Constant(ROW_OF_ARRAY_TYPE, sqlRowOf(ROW_OF_ARRAY_TYPE, Arrays.asList(null, Double.NaN)))));
+        assertUnsupportedPredicate(equal(C_ARRAY_OF_ROW, new Constant(ARRAY_OF_ROW_TYPE, arrayBlockOf(ROW_TYPE, Arrays.asList(null, 5.0), List.of(40L, Double.NaN)))));
+        assertUnsupportedPredicate(equal(C_MAP_OF_ROW, new Constant(MAP_OF_ROW_TYPE, sqlMapOf(INTEGER, ROW_TYPE, Map.of(1L, Arrays.asList(50L, null), 2L, List.of(40L, Double.NaN))))));
+        assertUnsupportedPredicate(equal(C_ARRAY_OF_ARRAY, new Constant(ARRAY_OF_ARRAY_TYPE, arrayBlockOf(ARRAY_TYPE, singletonList(null), List.of(Double.NaN)))));
+        assertUnsupportedPredicate(equal(C_ROW_OF_MAP_OF_ARRAY, new Constant(ROW_OF_MAP_OF_ARRAY_TYPE, sqlRowOf(ROW_OF_MAP_OF_ARRAY_TYPE, null, Map.of(1L, List.of(Double.NaN))))));
+    }
+
+    @Test
+    public void testFromStructuralTypeInPredicate()
+    {
+        // IN with values without nested NULL or NaN selects exactly the values
+
+        assertPredicateTranslates(
+                in(C_ROW, ImmutableList.of(new Constant(ROW_TYPE, ROW_VALUE_1), new Constant(ROW_TYPE, ROW_VALUE_2))),
+                tupleDomain(C_ROW, Domain.multipleValues(ROW_TYPE, ImmutableList.of(ROW_VALUE_1, ROW_VALUE_2))));
+        assertPredicateTranslates(
+                in(C_ARRAY, ImmutableList.of(new Constant(ARRAY_TYPE, ARRAY_VALUE_1), new Constant(ARRAY_TYPE, ARRAY_VALUE_2))),
+                tupleDomain(C_ARRAY, Domain.multipleValues(ARRAY_TYPE, ImmutableList.of(ARRAY_VALUE_1, ARRAY_VALUE_2))));
+        assertPredicateTranslates(
+                in(C_MAP, ImmutableList.of(new Constant(MAP_TYPE, MAP_VALUE_1), new Constant(MAP_TYPE, MAP_VALUE_2))),
+                tupleDomain(C_MAP, Domain.multipleValues(MAP_TYPE, ImmutableList.of(MAP_VALUE_1, MAP_VALUE_2))));
+    }
+
+    @Test
+    public void testFromStructuralTypeInPredicateWithNeverTrueValues()
+    {
+        // Equality with NULL or a value with a nested NULL or NaN is never true, so it doesn't change which rows the
+        // IN selects
+
+        assertPredicateTranslates(
+                in(C_ROW, ImmutableList.of(new Constant(ROW_TYPE, ROW_VALUE_1), nullLiteral(ROW_TYPE))),
+                tupleDomain(C_ROW, Domain.singleValue(ROW_TYPE, ROW_VALUE_1)));
+        assertPredicateTranslates(
+                in(C_ROW, ImmutableList.of(new Constant(ROW_TYPE, ROW_VALUE_1), new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, 50L, null)))),
+                tupleDomain(C_ROW, Domain.singleValue(ROW_TYPE, ROW_VALUE_1)));
+        assertPredicateTranslates(
+                in(C_ARRAY, ImmutableList.of(new Constant(ARRAY_TYPE, ARRAY_VALUE_1), new Constant(ARRAY_TYPE, arrayBlockOf(DOUBLE, 1.0, Double.NaN)))),
+                tupleDomain(C_ARRAY, Domain.singleValue(ARRAY_TYPE, ARRAY_VALUE_1)));
+        assertPredicateTranslates(
+                in(C_MAP, ImmutableList.of(new Constant(MAP_TYPE, MAP_VALUE_1), new Constant(MAP_TYPE, sqlMapOf(INTEGER, DOUBLE, singletonMap(1L, null))))),
+                tupleDomain(C_MAP, Domain.singleValue(MAP_TYPE, MAP_VALUE_1)));
+        assertPredicateTranslates(
+                in(C_ROW, ImmutableList.of(new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, 50L, null)), new Constant(ROW_TYPE, sqlRowOf(ROW_TYPE, null, Double.NaN)))),
+                TupleDomain.none());
+    }
+
+    @Test
+    public void testFromStructuralTypeComparisonsWithNullResult()
+    {
+        // These comparisons are NULL for some values with a nested NULL that their domains contain, e.g. the domain
+        // of c_row <> ROW(50, 5e0) contains ROW(50, NULL), for which it is NULL
+
+        assertUnsupportedPredicate(notEqual(C_ROW, new Constant(ROW_TYPE, ROW_VALUE_1)));
+        assertUnsupportedPredicate(notEqual(C_ARRAY, new Constant(ARRAY_TYPE, ARRAY_VALUE_1)));
+        assertUnsupportedPredicate(notEqual(C_MAP, new Constant(MAP_TYPE, MAP_VALUE_1)));
+
+        assertUnsupportedPredicate(greaterThan(C_ROW, new Constant(ROW_TYPE, ROW_VALUE_1)));
+        assertUnsupportedPredicate(greaterThan(C_ARRAY, new Constant(ARRAY_TYPE, ARRAY_VALUE_1)));
+
+        assertUnsupportedPredicate(not(in(C_ROW, ImmutableList.of(new Constant(ROW_TYPE, ROW_VALUE_1)))));
+        assertUnsupportedPredicate(not(in(C_ARRAY, ImmutableList.of(new Constant(ARRAY_TYPE, ARRAY_VALUE_1)))));
+        assertUnsupportedPredicate(not(in(C_MAP, ImmutableList.of(new Constant(MAP_TYPE, MAP_VALUE_1)))));
+    }
+
+    @Test
+    public void testFromStructuralTypeIsDistinctFrom()
+    {
+        // The domain is exact, but translates back to c_row IS NULL OR c_row <> ROW(50, 5e0), which is NULL for
+        // ROW(50, NULL)
+
+        assertUnsupportedPredicate(isDistinctFrom(C_ROW, new Constant(ROW_TYPE, ROW_VALUE_1)));
+        assertUnsupportedPredicate(isDistinctFrom(C_ARRAY, new Constant(ARRAY_TYPE, ARRAY_VALUE_1)));
+        assertUnsupportedPredicate(isDistinctFrom(C_MAP, new Constant(MAP_TYPE, MAP_VALUE_1)));
+    }
+
+    @Test
+    public void testFromComplementedStructuralTypeEquality()
+    {
+        // The complement of an equality's domain contains values with a nested NULL, for which the equality is NULL
+
+        Constant row = new Constant(ROW_TYPE, ROW_VALUE_1);
+        assertUnsupportedPredicate(or(not(equal(C_ROW, row)), equal(C_ROW, row)));
+        // NOT (c_row = ...) is the IR form of <>, so this complements <>, even though it is equivalent to the equality
+        assertUnsupportedPredicate(not(not(equal(C_ROW, row))));
+    }
+
+    @Test
+    public void testFromStructuralTypeInPredicateWithNonConstant()
+    {
+        // A non-constant value can be equal to any value
+
+        assertUnsupportedPredicate(in(C_ROW, ImmutableList.of(new Constant(ROW_TYPE, ROW_VALUE_1), new Symbol(ROW_TYPE, "c_row_1").toSymbolReference())));
+    }
+
+    @Test
+    public void testFromStructuralTypeNullPredicates()
+    {
+        // Unlike a nested NULL, a NULL value is described by the domain's null flag, and = and <> with it are never
+        // true
+
+        assertPredicateTranslates(isNull(C_ROW), tupleDomain(C_ROW, Domain.onlyNull(ROW_TYPE)));
+        assertPredicateTranslates(isNotNull(C_ROW), tupleDomain(C_ROW, Domain.notNull(ROW_TYPE)));
+        assertPredicateTranslates(isNull(C_ARRAY), tupleDomain(C_ARRAY, Domain.onlyNull(ARRAY_TYPE)));
+        assertPredicateTranslates(isNotNull(C_ARRAY), tupleDomain(C_ARRAY, Domain.notNull(ARRAY_TYPE)));
+        assertPredicateTranslates(isNull(C_MAP), tupleDomain(C_MAP, Domain.onlyNull(MAP_TYPE)));
+        assertPredicateTranslates(isNotNull(C_MAP), tupleDomain(C_MAP, Domain.notNull(MAP_TYPE)));
+
+        assertPredicateTranslates(equal(C_ROW, nullLiteral(ROW_TYPE)), TupleDomain.none());
+        assertPredicateTranslates(notEqual(C_ROW, nullLiteral(ROW_TYPE)), TupleDomain.none());
+        assertPredicateTranslates(isNotDistinctFrom(C_ROW, nullLiteral(ROW_TYPE)), tupleDomain(C_ROW, Domain.onlyNull(ROW_TYPE)));
+        assertPredicateTranslates(isDistinctFrom(C_ROW, nullLiteral(ROW_TYPE)), tupleDomain(C_ROW, Domain.notNull(ROW_TYPE)));
+    }
+
+    @Test
+    public void testFromStructuralTypeLogicalPredicates()
+    {
+        Constant row1 = new Constant(ROW_TYPE, ROW_VALUE_1);
+        Constant row2 = new Constant(ROW_TYPE, ROW_VALUE_2);
+        assertPredicateTranslates(or(equal(C_ROW, row1), equal(C_ROW, row2)), tupleDomain(C_ROW, Domain.multipleValues(ROW_TYPE, ImmutableList.of(ROW_VALUE_1, ROW_VALUE_2))));
+        assertPredicateTranslates(and(equal(C_ROW, row1), equal(C_ROW, row2)), TupleDomain.none());
+        assertPredicateTranslates(
+                and(equal(C_ROW, row1), greaterThan(C_BIGINT, bigintLiteral(5L))),
+                tupleDomain(C_ROW, Domain.singleValue(ROW_TYPE, ROW_VALUE_1), C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 5L)), false)));
+
+        // NOT distributes over OR, so the equality is complemented and only the other column is extracted
+        assertPredicateTranslates(
+                not(or(equal(C_ROW, row1), greaterThan(C_BIGINT, bigintLiteral(3L)))),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 3L)), false)),
+                not(equal(C_ROW, row1)));
+    }
+
+    @Test
+    public void testStructuralTypeRoundTrip()
+    {
+        // A domain translated to a predicate translates back to the same domain
+
+        TupleDomain<Symbol> singleValues = tupleDomain(ImmutableMap.of(
+                C_ROW, Domain.singleValue(ROW_TYPE, ROW_VALUE_1),
+                C_ARRAY, Domain.singleValue(ARRAY_TYPE, ARRAY_VALUE_1),
+                C_MAP, Domain.singleValue(MAP_TYPE, MAP_VALUE_1)));
+        assertPredicateTranslates(toPredicate(singleValues), singleValues);
+
+        TupleDomain<Symbol> multipleValuesOrNull = tupleDomain(ImmutableMap.of(
+                C_ROW, Domain.create(ValueSet.of(ROW_TYPE, ROW_VALUE_1, ROW_VALUE_2), true),
+                C_ARRAY, Domain.create(ValueSet.of(ARRAY_TYPE, ARRAY_VALUE_1, ARRAY_VALUE_2), true),
+                C_MAP, Domain.create(ValueSet.of(MAP_TYPE, MAP_VALUE_1, MAP_VALUE_2), true)));
+        assertPredicateTranslates(toPredicate(multipleValuesOrNull), multipleValuesOrNull);
+    }
+
+    @Test
     public void testFromInPredicateWithCastsAndNulls()
     {
         assertPredicateIsAlwaysFalse(new In(
                 C_BIGINT.toSymbolReference(),
                 ImmutableList.of(new Constant(BIGINT, null))));
 
-        assertUnsupportedPredicate(not(new In(
+        assertPredicateIsAlwaysFalse(not(new In(
                 cast(C_SMALLINT, BIGINT),
                 ImmutableList.of(new Constant(BIGINT, null)))));
     }
@@ -1536,7 +1915,7 @@ public class TestDomainTranslator
     {
         assertPredicateTranslates(
                 comparison(GREATER_THAN, cast(cast(C_SMALLINT, REAL), DOUBLE), doubleLiteral(3.7)),
-                tupleDomain(C_SMALLINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(SMALLINT, 3L)), false)));
+                tupleDomain(C_SMALLINT, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(SMALLINT, 4L)), false)));
     }
 
     @Test
@@ -1729,11 +2108,16 @@ public class TestDomainTranslator
     @Test
     public void testCastCharToVarcharComparison()
     {
-        // The equality family is equivalent to a comparison of char values, which UnwrapCastInComparison rewrites
         Type castType = createVarcharType(10);
-        assertUnsupportedPredicate(equal(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
-        assertUnsupportedPredicate(notEqual(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
-        assertUnsupportedPredicate(comparison(IDENTICAL, cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
+        assertPredicateTranslates(
+                equal(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR, Domain.singleValue(C_CHAR.type(), utf8Slice("abc"))));
+        assertPredicateTranslates(
+                notEqual(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR, Domain.create(ValueSet.of(C_CHAR.type(), utf8Slice("abc")).complement(), false)));
+        assertPredicateTranslates(
+                comparison(IDENTICAL, cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR, Domain.singleValue(C_CHAR.type(), utf8Slice("abc"))));
     }
 
     @Test
@@ -1798,9 +2182,23 @@ public class TestDomainTranslator
     public void testCastCharToVarcharOrderingComparisonGuards()
     {
         Type castType = createVarcharType(10);
-        assertUnsupportedPredicate(not(lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))));
-        assertUnsupportedPredicate(not(greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))));
+        // Unlike the legacy extraction, a negated ordering projects the complementary range
+        assertPredicateDerives(
+                not(lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(createCharType(5), utf8Slice("abb"))), false)));
+        assertPredicateDerives(
+                not(greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(createCharType(5), utf8Slice("abc"))), false)));
         assertUnsupportedPredicate(lessThan(cast(cast(C_CHAR_5, createCharType(3)), castType), new Constant(castType, utf8Slice("abc"))));
+    }
+
+    @Test
+    public void testLegacyCastCharToVarcharOrderingComparisonGuards()
+    {
+        Type castType = createVarcharType(10);
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, not(lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, not(greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, lessThan(cast(cast(C_CHAR_5, createCharType(3)), castType), new Constant(castType, utf8Slice("abc"))));
     }
 
     @Test
@@ -1812,29 +2210,56 @@ public class TestDomainTranslator
         Type castType = createVarcharType(10);
 
         // 'abc  ' is above 'abc', so char(5) 'abc' does not satisfy the comparison
-        assertPredicateDerives(
+        assertPredicateTranslates(
                 LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
-                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)));
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(charType, utf8Slice("abb" + new String(Character.toChars(Character.MAX_CODE_POINT)).repeat(2)))), false)),
+                TRUE);
 
         // unlike with the default coercion, char(5) 'abc' does not satisfy the comparison with 'abc  ' either
-        assertPredicateDerives(
+        assertPredicateTranslates(
                 LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc  "))),
-                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)));
-        assertPredicateDerives(
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)),
+                TRUE);
+        assertPredicateTranslates(
                 LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 lessThanOrEqual(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc  "))),
-                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(charType, utf8Slice("abc"))), false)));
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(charType, utf8Slice("abc"))), false)),
+                TRUE);
 
-        assertPredicateDerives(
+        assertPredicateTranslates(
                 LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
-                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(charType, utf8Slice("abb"))), false)));
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(charType, utf8Slice("abb" + new String(Character.toChars(Character.MAX_CODE_POINT)).repeat(2)))), false)),
+                TRUE);
     }
 
     @Test
     public void testCastVarcharToCharComparison()
+    {
+        // CAST(varchar AS char) truncates and trims trailing spaces, so every value it maps to the constant starts
+        // with the constant. The domain is a superset, hence the comparison is also retained.
+        Type castType = createCharType(5);
+        Domain prefixOfAbc = Domain.create(ValueSet.ofRanges(Range.range(createVarcharType(10), utf8Slice("abc"), true, utf8Slice("abd"), false)), false);
+        assertPredicateDerives(equal(cast(C_VARCHAR_10, castType), new Constant(castType, utf8Slice("abc"))), tupleDomain(C_VARCHAR_10, prefixOfAbc));
+        assertPredicateDerives(
+                LEGACY_CHAR_VARCHAR_COERCION_SESSION,
+                equal(cast(C_VARCHAR_10, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_VARCHAR_10, prefixOfAbc));
+        // Trailing spaces are trimmed, so 'abc  ' also casts to 'abc' even when the source fits in the char
+        assertPredicateDerives(
+                equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_VARCHAR_5, Domain.create(ValueSet.ofRanges(Range.range(createVarcharType(5), utf8Slice("abc"), true, utf8Slice("abd"), false)), false)));
+        // NOT_EQUAL does not constrain a truncating source, and ordering comparisons are not order-preserving
+        assertUnsupportedPredicate(notEqual(cast(C_VARCHAR_10, castType), new Constant(castType, utf8Slice("abc"))));
+        assertUnsupportedPredicate(greaterThan(cast(C_VARCHAR_10, castType), new Constant(castType, utf8Slice("abc"))));
+        // No range can be derived for an all non-ASCII constant
+        assertUnsupportedPredicate(equal(cast(C_VARCHAR_10, castType), new Constant(castType, utf8Slice("\u00ff"))));
+    }
+
+    @Test
+    public void testLegacyCastVarcharToCharComparison()
     {
         // CAST(varchar AS char) truncates and trims trailing spaces, so it is not injective, but every value it maps
         // to the constant starts with the constant. The domain is a superset, hence the comparison is also retained.
@@ -1844,20 +2269,23 @@ public class TestDomainTranslator
                 ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc"), true, utf8Slice("abd"), false)),
                 false);
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
                 tupleDomain(C_VARCHAR_5, prefixOfAbc));
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 comparison(IDENTICAL, cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
                 tupleDomain(C_VARCHAR_5, prefixOfAbc));
 
         // The cast semantics do not depend on the char to varchar coercion
         assertPredicateDerives(
-                LEGACY_CHAR_VARCHAR_COERCION_SESSION,
+                LEGACY_PREIMAGES_LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
                 tupleDomain(C_VARCHAR_5, prefixOfAbc));
 
         // Unbounded source type
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 equal(cast(C_VARCHAR, castType), new Constant(castType, utf8Slice("abc"))),
                 tupleDomain(C_VARCHAR, Domain.create(
                         ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("abc"), true, utf8Slice("abd"), false)),
@@ -1865,16 +2293,16 @@ public class TestDomainTranslator
 
         // No varchar(5) value is long enough to cast to the constant
         Type longCastType = createCharType(10);
-        assertPredicateIsAlwaysFalse(equal(cast(C_VARCHAR_5, longCastType), new Constant(longCastType, utf8Slice("abcdefg"))));
+        assertPredicateIsAlwaysFalse(LEGACY_PREIMAGES_SESSION, equal(cast(C_VARCHAR_5, longCastType), new Constant(longCastType, utf8Slice("abcdefg"))));
 
         // NOT_EQUAL does not constrain the source: a value starting with the constant can cast to something else
-        assertUnsupportedPredicate(notEqual(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, notEqual(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
         // Ordering comparisons are not translatable because the cast is not order-preserving
-        assertUnsupportedPredicate(greaterThan(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
-        assertUnsupportedPredicate(lessThan(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, greaterThan(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, lessThan(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
 
         // No range can be derived for an all non-ASCII constant
-        assertUnsupportedPredicate(equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("\u00ff"))));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("\u00ff"))));
     }
 
     @Test
@@ -1966,6 +2394,16 @@ public class TestDomainTranslator
     private void assertUnsupportedPredicate(Expression expression)
     {
         assertPredicateTranslates(expression, TupleDomain.all(), expression);
+    }
+
+    private void assertPredicateIsAlwaysFalse(Session session, Expression expression)
+    {
+        assertPredicateTranslates(session, expression, TupleDomain.none(), TRUE);
+    }
+
+    private void assertUnsupportedPredicate(Session session, Expression expression)
+    {
+        assertPredicateTranslates(session, expression, TupleDomain.all(), expression);
     }
 
     private void assertPredicateTranslates(Expression expression, TupleDomain<Symbol> tupleDomain)
@@ -2064,6 +2502,11 @@ public class TestDomainTranslator
     private static Expression isDistinctFrom(Symbol symbol, Expression expression)
     {
         return isDistinctFrom(symbol.toSymbolReference(), expression);
+    }
+
+    private static Expression isNotDistinctFrom(Symbol symbol, Expression expression)
+    {
+        return comparison(IDENTICAL, symbol.toSymbolReference(), expression);
     }
 
     private Call like(Symbol symbol, String pattern)

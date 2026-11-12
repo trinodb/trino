@@ -16,8 +16,6 @@ package io.trino.plugin.kafka;
 import com.google.inject.Inject;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -39,10 +37,11 @@ import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.ME
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.OFFSET_TIMESTAMP_FIELD;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_ID_FIELD;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_OFFSET_FIELD;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -66,7 +65,7 @@ public class KafkaInternalFieldManager
         MESSAGE_CORRUPT_FIELD,
 
         /**
-         * Represents the full topic as a text column. Format is UTF-8 which may be wrong for some topics. TODO: make charset configurable.
+         * Represents the full topic as a varbinary column.
          */
         MESSAGE_FIELD,
 
@@ -86,7 +85,7 @@ public class KafkaInternalFieldManager
         KEY_CORRUPT_FIELD,
 
         /**
-         * Represents the key as a text column. Format is UTF-8 which may be wrong for topics. TODO: make charset configurable.
+         * Represents the key as a varbinary column.
          */
         KEY_FIELD,
 
@@ -168,22 +167,22 @@ public class KafkaInternalFieldManager
                                 PARTITION_ID_FIELD,
                                 prefix + "partition_id",
                                 "Partition Id",
-                                BigintType.BIGINT),
+                                BIGINT),
                         new InternalField(
                                 PARTITION_OFFSET_FIELD,
                                 prefix + "partition_offset",
                                 "Offset for the message within the partition",
-                                BigintType.BIGINT),
+                                BIGINT),
                         new InternalField(
                                 MESSAGE_CORRUPT_FIELD,
                                 prefix + "message_corrupt",
                                 "Message data is corrupt",
-                                BooleanType.BOOLEAN),
+                                BOOLEAN),
                         new InternalField(
                                 MESSAGE_FIELD,
                                 prefix + "message",
-                                "Message text",
-                                createUnboundedVarcharType()),
+                                "Message bytes",
+                                VARBINARY),
                         new InternalField(
                                 HEADERS_FIELD,
                                 prefix + "headers",
@@ -193,22 +192,22 @@ public class KafkaInternalFieldManager
                                 MESSAGE_LENGTH_FIELD,
                                 prefix + "message_length",
                                 "Total number of message bytes",
-                                BigintType.BIGINT),
+                                BIGINT),
                         new InternalField(
                                 KEY_CORRUPT_FIELD,
                                 prefix + "key_corrupt",
                                 "Key data is corrupt",
-                                BooleanType.BOOLEAN),
+                                BOOLEAN),
                         new InternalField(
                                 InternalFieldId.KEY_FIELD,
                                 prefix + "key",
-                                "Key text",
-                                createUnboundedVarcharType()),
+                                "Key bytes",
+                                VARBINARY),
                         new InternalField(
                                 KEY_LENGTH_FIELD,
                                 prefix + "key_length",
                                 "Total number of key bytes",
-                                BigintType.BIGINT),
+                                BIGINT),
                         new InternalField(
                                 OFFSET_TIMESTAMP_FIELD,
                                 prefix + "timestamp",

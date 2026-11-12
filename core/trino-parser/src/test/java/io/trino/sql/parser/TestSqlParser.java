@@ -318,7 +318,6 @@ import static io.trino.sql.tree.Trim.Specification.BOTH;
 import static io.trino.sql.tree.Trim.Specification.LEADING;
 import static io.trino.sql.tree.Trim.Specification.TRAILING;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -3588,7 +3587,7 @@ public class TestSqlParser
                                         type,
                                         Optional.of(defaultValue),
                                         false,
-                                        emptyList(),
+                                        ImmutableList.of(),
                                         Optional.empty())),
                         FAIL,
                         ImmutableList.of(),
@@ -5291,7 +5290,7 @@ public class TestSqlParser
                                 type,
                                 Optional.of(defaultValue),
                                 false,
-                                emptyList(),
+                                ImmutableList.of(),
                                 Optional.empty()),
                         Optional.empty(),
                         false,
@@ -7016,7 +7015,7 @@ public class TestSqlParser
     public void testExecute()
     {
         assertThat(statement("EXECUTE myquery")).isEqualTo(
-                new Execute(location(1, 1), new Identifier(location(1, 9), "myquery", false), emptyList()));
+                new Execute(location(1, 1), new Identifier(location(1, 9), "myquery", false), ImmutableList.of()));
     }
 
     @Test
@@ -7040,7 +7039,7 @@ public class TestSqlParser
                         new ExecuteImmediate(
                                 new NodeLocation(1, 1),
                                 new StringLiteral(new NodeLocation(1, 19), "SELECT * FROM foo"),
-                                emptyList()));
+                                ImmutableList.of()));
     }
 
     @Test

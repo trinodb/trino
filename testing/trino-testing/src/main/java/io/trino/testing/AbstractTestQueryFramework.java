@@ -89,7 +89,6 @@ import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -639,7 +638,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return explainer.getPlan(transactionSession, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                    return explainer.getPlan(transactionSession, SQL_PARSER.createStatement(query), planType, ImmutableList.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 
@@ -649,7 +648,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                    return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query), planType, ImmutableList.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 
@@ -659,7 +658,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getJsonPlan(session, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                    return explainer.getJsonPlan(session, SQL_PARSER.createStatement(query), planType, ImmutableList.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 

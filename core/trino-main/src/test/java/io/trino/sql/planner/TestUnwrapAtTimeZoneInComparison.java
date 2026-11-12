@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -29,6 +30,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SystemSessionProperties.FUNCTION_PREIMAGES_ENABLED;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -62,6 +64,11 @@ public class TestUnwrapAtTimeZoneInComparison
 
     private static final Reference A_MILLIS = new Reference(TIMESTAMP_TZ_MILLIS, "a");
     private static final Constant VALUE_MILLIS = new Constant(TIMESTAMP_TZ_MILLIS, packDateTimeWithZone(EPOCH_MILLIS, getTimeZoneKey("UTC")));
+
+    public TestUnwrapAtTimeZoneInComparison()
+    {
+        super(ImmutableMap.of(FUNCTION_PREIMAGES_ENABLED, "true"));
+    }
 
     @Test
     public void testUnwrapComparisons()

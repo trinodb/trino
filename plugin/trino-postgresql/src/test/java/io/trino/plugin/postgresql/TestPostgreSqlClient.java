@@ -20,7 +20,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
-import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
@@ -125,7 +124,7 @@ public class TestPostgreSqlClient
             new PostgreSqlConfig(),
             new JdbcStatisticsConfig(),
             _ -> { throw new UnsupportedOperationException(); },
-            new DefaultQueryBuilder(RemoteQueryModifier.NONE),
+            new CollationAwareQueryBuilder(RemoteQueryModifier.NONE),
             new TestingPostgreSqlConnectorContext().getTypeManager(),
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);

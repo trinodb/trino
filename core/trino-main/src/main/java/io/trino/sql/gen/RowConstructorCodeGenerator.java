@@ -36,8 +36,6 @@ import java.util.List;
 
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
-import static io.airlift.bytecode.BytecodeUtils.fitsMethodSizeLimit;
-import static io.airlift.bytecode.BytecodeUtils.isJitCompilable;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
@@ -46,6 +44,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
+import static io.trino.sql.gen.BytecodeUtils.fitsJitCompilableMethod;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static java.lang.String.format;
@@ -203,7 +202,7 @@ public class RowConstructorCodeGenerator
                     .append(block)
                     .append(fieldInitialization);
             // always emit at least one field, so an oversized single field still makes progress
-            if (field > start && !fitsPartialRowConstructor(candidate, scope)) {
+            if (field > start && !fitsJitCompilableMethod(candidate, scope)) {
                 // this field goes into the next partial method; discarding the block generated
                 // for it is safe as the measuring pass has no side effects
                 break;
@@ -214,17 +213,6 @@ public class RowConstructorCodeGenerator
 
         block.ret();
         return new PartialRowConstructor(methodDefinition, field);
-    }
-
-    /**
-     * Keeps partial row constructors below HotSpot's HugeMethodLimit, above which a method is
-     * never JIT compiled. The hard JVM method size limit is checked separately because
-     * {@code -XX:-DontCompileHugeMethods} makes the JIT limit vacuous, and a partial method
-     * exceeding 64KB fails at class generation time.
-     */
-    private static boolean fitsPartialRowConstructor(BytecodeNode node, Scope scope)
-    {
-        return isJitCompilable(node, scope) && fitsMethodSizeLimit(node, scope);
     }
 
     private record PartialRowConstructor(MethodDefinition method, int nextField) {}

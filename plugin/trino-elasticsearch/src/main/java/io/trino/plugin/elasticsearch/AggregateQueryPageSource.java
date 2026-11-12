@@ -49,7 +49,6 @@ public class AggregateQueryPageSource
     private final ElasticsearchSplit split;
     private final JsonNode queryBuilder;
 
-    private final BlockBuilder[] columnBuilders;
     private final List<ElasticsearchColumnHandle> columns;
     private final int aggregationPageSize;
     private long totalBytes;
@@ -78,10 +77,6 @@ public class AggregateQueryPageSource
 
         decoders = createDecoders(columns);
 
-        columnBuilders = columns.stream()
-                .map(ElasticsearchColumnHandle::type)
-                .map(type -> type.createBlockBuilder(null, 1))
-                .toArray(BlockBuilder[]::new);
         this.queryBuilder = buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes());
     }
 
@@ -127,6 +122,10 @@ public class AggregateQueryPageSource
         if (flatResult.size() < aggregationPageSize) {
             after = Optional.empty();
         }
+        BlockBuilder[] columnBuilders = new BlockBuilder[columns.size()];
+        for (int i = 0; i < columnBuilders.length; i++) {
+            columnBuilders[i] = columns.get(i).type().createBlockBuilder(null, flatResult.size());
+        }
         for (Map<String, Object> result : flatResult) {
             for (int i = 0; i < columns.size(); i++) {
                 String key = columns.get(i).name();
@@ -136,7 +135,6 @@ public class AggregateQueryPageSource
         Block[] blocks = new Block[columnBuilders.length];
         for (int i = 0; i < columnBuilders.length; i++) {
             blocks[i] = columnBuilders[i].build();
-            columnBuilders[i] = columnBuilders[i].newBlockBuilderLike(null);
         }
         return SourcePage.create(new Page(flatResult.size(), blocks));
     }

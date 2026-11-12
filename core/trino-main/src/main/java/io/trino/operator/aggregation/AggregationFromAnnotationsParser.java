@@ -58,7 +58,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
@@ -237,9 +236,13 @@ public final class AggregationFromAnnotationsParser
 
         // verify parameter types
         List<Class<?>> parameterTypes = getNonDependencyParameterTypes(combineFunction);
-        List<Class<?>> expectedParameterTypes = Stream.concat(stateDetails.stream(), stateDetails.stream())
+        List<Class<?>> stateClasses = stateDetails.stream()
                 .map(AccumulatorStateDetails::getStateClass)
                 .collect(toImmutableList());
+        List<Class<?>> expectedParameterTypes = ImmutableList.<Class<?>>builder()
+                .addAll(stateClasses)
+                .addAll(stateClasses)
+                .build();
         checkArgument(parameterTypes.equals(expectedParameterTypes),
                 "Expected combine function non-dependency parameters to be %s: %s",
                 expectedParameterTypes,

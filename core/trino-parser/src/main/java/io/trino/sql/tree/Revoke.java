@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class Revoke
+public final class Revoke
         extends Statement
 {
     private final boolean grantOptionFor;
@@ -58,12 +58,6 @@ public class Revoke
     public PrincipalSpecification getGrantee()
     {
         return grantee;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitRevoke(this, context);
     }
 
     @Override

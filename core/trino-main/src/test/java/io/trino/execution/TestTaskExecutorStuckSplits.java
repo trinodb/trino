@@ -54,6 +54,7 @@ import java.util.function.Predicate;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
+import static io.trino.execution.executor.TestingTaskMemory.NO_TASK_MEMORY;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -75,7 +76,8 @@ public class TestTaskExecutorStuckSplits
                 () -> 1.0,
                 1,
                 new Duration(1, SECONDS),
-                OptionalInt.of(1));
+                OptionalInt.of(1),
+                NO_TASK_MEMORY);
 
         // Here we explicitly enqueue an indefinite running split runner
         MockSplitRunner mockSplitRunner = new MockSplitRunner();

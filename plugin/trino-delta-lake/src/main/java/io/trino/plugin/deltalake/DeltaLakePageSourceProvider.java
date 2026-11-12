@@ -142,7 +142,8 @@ public class DeltaLakePageSourceProvider
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
-        this.parquetReaderOptions = ParquetReaderOptions.builder(parquetReaderConfig.toParquetReaderOptions()).withBloomFilter(false).build();
+        checkArgument(!parquetReaderConfig.isUseBloomFilter(), "Delta Lake connector does not support Parquet bloom filter");
+        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -219,7 +220,7 @@ public class DeltaLakePageSourceProvider
                     ImmutableSet.of(),
                     partitionKeys,
                     partitionValues,
-                    generatePages(split.fileRowCount().get(), onlyRowIdColumn(regularColumns)),
+                    generatePages(split.fileRowCount().get(), onlyRowIdColumn(regularColumns), memoryContext),
                     split.path(),
                     split.fileSize(),
                     split.fileModifiedTime());
@@ -228,14 +229,7 @@ public class DeltaLakePageSourceProvider
         Location location = Location.of(split.path());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials.map(DeltaLakeTableCredentials.class::cast));
         TrinoInputFile inputFile = fileSystem.newInputFile(location, split.fileSize());
-        ParquetReaderOptions options = ParquetReaderOptions.builder(parquetReaderOptions)
-                .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
-                .withSmallFileThreshold(getParquetSmallFileThreshold(session))
-                .withUseColumnIndex(isParquetUseColumnIndex(session))
-                .withIgnoreStatistics(isParquetIgnoreStatistics(session))
-                .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
-                .build();
+        ParquetReaderOptions options = withSessionParquetReaderOptions(parquetReaderOptions, session);
 
         Map<Integer, String> parquetFieldIdToName = columnMappingMode == ColumnMappingMode.ID ? loadParquetIdAndNameMapping(inputFile, options) : ImmutableMap.of();
 
@@ -434,7 +428,7 @@ public class DeltaLakePageSourceProvider
         return columns.size() == 1 && getOnlyElement(columns).baseColumnName().equals(ROW_ID_COLUMN_NAME);
     }
 
-    private static ConnectorPageSource generatePages(long totalRowCount, boolean projectRowNumber)
+    private static ConnectorPageSource generatePages(long totalRowCount, boolean projectRowNumber, MemoryContext memoryContext)
     {
         return new FixedPageSource(
                 new AbstractIterator<>()
@@ -460,7 +454,16 @@ public class DeltaLakePageSourceProvider
                         return page;
                     }
                 },
-                0);
+                0,
+                memoryContext)
+        {
+            // Pages are generated without reading the file, so no input bytes are consumed
+            @Override
+            public long getCompletedBytes()
+            {
+                return 0;
+            }
+        };
     }
 
     private static Block createRowNumberBlock(long baseIndex, int size)
@@ -480,5 +483,17 @@ public class DeltaLakePageSourceProvider
         {
             return createRowIdBlock(pathBlock, block, partitionsBlock);
         }
+    }
+
+    public static ParquetReaderOptions withSessionParquetReaderOptions(ParquetReaderOptions configuredOptions, ConnectorSession session)
+    {
+        return ParquetReaderOptions.builder(configuredOptions)
+                .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
+                .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
+                .withSmallFileThreshold(getParquetSmallFileThreshold(session))
+                .withUseColumnIndex(isParquetUseColumnIndex(session))
+                .withIgnoreStatistics(isParquetIgnoreStatistics(session))
+                .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
+                .build();
     }
 }

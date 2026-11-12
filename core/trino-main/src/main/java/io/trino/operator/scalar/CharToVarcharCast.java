@@ -15,7 +15,11 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.trino.FullConnectorSession;
+import io.trino.Session;
+import io.trino.SystemSessionProperties;
+import io.trino.operator.scalar.preimage.CharToVarcharPreimage;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
@@ -27,11 +31,12 @@ import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Varchars.truncateToLength;
 
 /// `CHAR` to `VARCHAR` cast whose behavior follows the session's char/varchar coercion
-/// direction ([io.trino.SystemSessionProperties#getCharVarcharCoercion(io.trino.Session)].
+/// direction ([SystemSessionProperties#getCharVarcharCoercion(Session)].
 public final class CharToVarcharCast
 {
     private CharToVarcharCast() {}
 
+    @FunctionPreimage(CharToVarcharPreimage.class)
     @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("varchar(y)")
     @LiteralParameters({"x", "y"})

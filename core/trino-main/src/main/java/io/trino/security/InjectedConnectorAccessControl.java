@@ -611,11 +611,6 @@ public class InjectedConnectorAccessControl
         return new QualifiedObjectName(catalogName, schemaTableName.getSchemaName(), schemaTableName.getTableName());
     }
 
-    private QualifiedObjectName getQualifiedObjectName(SchemaRoutineName schemaRoutineName)
-    {
-        return new QualifiedObjectName(catalogName, schemaRoutineName.getSchemaName(), schemaRoutineName.getRoutineName());
-    }
-
     private List<String> getQualifiedObjectNameParts(SchemaTableName schemaTableName)
     {
         return List.of(catalogName, schemaTableName.getSchemaName(), schemaTableName.getTableName());

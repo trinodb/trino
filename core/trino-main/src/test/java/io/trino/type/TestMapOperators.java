@@ -66,7 +66,6 @@ import static io.trino.util.MoreMaps.asMap;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -596,7 +595,7 @@ public class TestMapOperators
                 .hasType(mapType(BIGINT, new ArrayType(BIGINT)))
                 .isEqualTo(asMap(
                         ImmutableList.of(1L, 2L, 3L, 5L, 8L),
-                        asList(asList(1L, 2L), asList(3L, null), emptyList(), asList(null, null), null)));
+                        asList(asList(1L, 2L), asList(3L, null), ImmutableList.of(), asList(null, null), null)));
 
         assertThat(assertions.expression("CAST(JSON '{" +
                 "\"1\": {\"a\": 1, \"b\": 2}, " +

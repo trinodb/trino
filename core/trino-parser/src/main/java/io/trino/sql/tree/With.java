@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class With
+public final class With
         extends Node
 {
     private final boolean recursive;
@@ -57,12 +57,6 @@ public class With
     public List<WithQuery> getQueries()
     {
         return queries;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitWith(this, context);
     }
 
     @Override

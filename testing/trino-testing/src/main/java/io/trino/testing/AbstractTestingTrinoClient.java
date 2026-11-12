@@ -66,11 +66,6 @@ public abstract class AbstractTestingTrinoClient<T>
         this(trinoServer, DEFAULT_STATEMENT_FACTORY, defaultSession, new OkHttpClient());
     }
 
-    protected AbstractTestingTrinoClient(TestingTrinoServer trinoServer, TestingStatementClientFactory statementClientFactory, Session defaultSession)
-    {
-        this(trinoServer, statementClientFactory, defaultSession, new OkHttpClient());
-    }
-
     protected AbstractTestingTrinoClient(TestingTrinoServer trinoServer, Session defaultSession, OkHttpClient httpClient)
     {
         this(trinoServer, DEFAULT_STATEMENT_FACTORY, defaultSession, httpClient);

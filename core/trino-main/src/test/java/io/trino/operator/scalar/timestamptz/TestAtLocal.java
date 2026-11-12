@@ -21,6 +21,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+
+import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,8 +40,10 @@ public class TestAtLocal
     @BeforeAll
     public void init()
     {
+        // TIME values have no date, so their offset is resolved at the session start time. Pin it to keep the offset independent of DST on the day the test runs.
         Session session = testSessionBuilder()
                 .setTimeZoneKey(getTimeZoneKey("America/Los_Angeles"))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 12, 0, 0, 0, ZoneId.of("America/Los_Angeles")).toInstant().toString())
                 .build();
         assertions = new QueryAssertions(session);
     }
@@ -71,8 +77,8 @@ public class TestAtLocal
     @Test
     public void testTime()
     {
-        // Session zone is America/Los_Angeles (-07:00 in May; PDT). A naive TIME
-        // is interpreted in the session zone, so AT LOCAL attaches the session offset.
+        // Session zone is America/Los_Angeles and the session start is pinned to May 2020 (-07:00; PDT).
+        // A naive TIME is interpreted in the session zone, so AT LOCAL attaches the session offset.
         assertThat(assertions.expression("TIME '12:34:56' AT LOCAL"))
                 .matches("TIME '12:34:56-07:00'");
     }

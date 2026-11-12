@@ -22,6 +22,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.SampledRelation;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -46,6 +47,9 @@ import static java.util.Objects.requireNonNull;
  * named query "t". This is because we currently don't assign identity to table references. (TODO: implement this)
  *
  * <pre>SELECT (SELECT t.a FROM t), (SELECT a FROM t)</pre>
+ * <p>
+ * Non-deterministic function calls and sampled relations are equal only to themselves, unless the sample keeps all rows or none.
+ * Only those written inside the compared expression are detected: one behind a named query or view is compared as a plain table reference.
  */
 public class ScopeAware<T extends Node>
 {
@@ -155,6 +159,15 @@ public class ScopeAware<T extends Node>
             }
             if (leftExpression instanceof Identifier && rightExpression instanceof Identifier) {
                 return treeEqual(leftExpression, rightExpression, CanonicalizationAware::canonicalizationAwareComparison);
+            }
+        }
+
+        if (left instanceof SampledRelation leftSample && right instanceof SampledRelation rightSample) {
+            double leftRatio = analysis.getSampleRatio(leftSample);
+            double rightRatio = analysis.getSampleRatio(rightSample);
+            // Sampling is non-deterministic, unless it keeps all rows or none.
+            if (leftRatio != rightRatio || (leftRatio > 0 && leftRatio < 1)) {
+                return left == right;
             }
         }
 

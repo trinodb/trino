@@ -20,6 +20,7 @@ import io.airlift.log.Logger;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ReadChannel;
@@ -55,6 +56,7 @@ public class BigQueryStorageArrowPageSource
     private final BigQueryArrowBufferAllocator bufferAllocator;
     private final BigQuerySplit split;
     private final PageBuilder pageBuilder;
+    private final MemoryContext memoryContext;
     private final Iterator<ReadRowsResponse> responses;
 
     private CompletableFuture<ReadRowsResponse> nextResponse;
@@ -67,21 +69,25 @@ public class BigQueryStorageArrowPageSource
             BigQueryArrowBufferAllocator bufferAllocator,
             int maxReadRowsRetries,
             BigQuerySplit split,
-            List<BigQueryColumnHandle> columns)
+            List<BigQueryColumnHandle> columns,
+            MemoryContext memoryContext)
     {
         this.bigQueryReadClient = requireNonNull(bigQueryReadClient, "bigQueryReadClient is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.bufferAllocator = requireNonNull(bufferAllocator, "bufferAllocator is null");
         this.split = requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         Schema schema = deserializeSchema(split.schemaString());
-        log.debug("Trace id: %s, Stream: %s, Starting to read", split.traceId(), split.streamName());
-        responses = new ReadRowsHelper(bigQueryReadClient, split.streamName(), maxReadRowsRetries).readRows();
-        nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
         this.bigQueryArrowToPageConverter = new BigQueryArrowToPageConverter(typeManager, schema, columns);
         this.pageBuilder = new PageBuilder(columns.stream()
                 .map(BigQueryColumnHandle::trinoType)
                 .collect(toImmutableList()));
+        // Report before the read is started, so that exceeding the memory limit sends no read request
+        updateMemoryUsage();
+        log.debug("Trace id: %s, Stream: %s, Starting to read", split.traceId(), split.streamName());
+        responses = new ReadRowsHelper(bigQueryReadClient, split.streamName(), maxReadRowsRetries).readRows();
+        nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
     }
 
     @Override
@@ -127,16 +133,10 @@ public class BigQueryStorageArrowPageSource
             }
             page = pageBuilder.build();
             pageBuilder.reset();
+            updateMemoryUsage();
         }
         readTimeNanos.addAndGet(System.nanoTime() - start);
         return SourcePage.create(page);
-    }
-
-    @Override
-    @SuppressWarnings("deprecation") // TODO (https://github.com/trinodb/trino/issues/29959) migrate to MemoryContext
-    public long getMemoryUsage()
-    {
-        return pageBuilder.getRetainedSizeInBytes();
     }
 
     @Override
@@ -159,6 +159,11 @@ public class BigQueryStorageArrowPageSource
         ReadRowsResponse response = responses.next();
         readTimeNanos.addAndGet(System.nanoTime() - start);
         return response;
+    }
+
+    private void updateMemoryUsage()
+    {
+        memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
     }
 
     private ArrowRecordBatch deserializeResponse(BufferAllocator allocator, ReadRowsResponse response)

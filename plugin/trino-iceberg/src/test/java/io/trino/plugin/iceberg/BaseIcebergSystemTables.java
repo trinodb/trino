@@ -735,7 +735,7 @@ public abstract class BaseIcebergSystemTables
 
         long offset = format == PARQUET ? 4L : 3L;
         assertThat(computeActual("SELECT split_offsets FROM test_schema.\"test_table$files\""))
-                .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
+                .isEqualTo(resultBuilder(ImmutableList.of(new ArrayType(BIGINT)))
                         .row(ImmutableList.of(offset))
                         .row(ImmutableList.of(offset))
                         .row(ImmutableList.of(offset))
@@ -1179,7 +1179,7 @@ public abstract class BaseIcebergSystemTables
     @Test
     public void testPropertiesTable()
     {
-        try (TestTable table = newTrinoTable("test_properties", "(x BIGINT,y DOUBLE) WITH (sorted_by = ARRAY['y'])")) {
+        try (TestTable table = newTrinoTable("test_properties", "(x BIGINT,y DOUBLE) WITH (sorted_by = ARRAY['y', 'bucket(x, 3) DESC'])")) {
             Table icebergTable = loadTable(table.getName());
             Map<String, String> actualProperties = getTableProperties(table.getName());
             assertThat(actualProperties).contains(
@@ -1188,8 +1188,30 @@ public abstract class BaseIcebergSystemTables
                     entry("current-snapshot-id", Long.toString(icebergTable.currentSnapshot().snapshotId())),
                     entry("location", icebergTable.location()),
                     entry("format-version", "2"),
-                    entry("sort-order", "y ASC NULLS FIRST"),
+                    entry("sort-order", "y ASC NULLS FIRST, bucket(x, 3) DESC NULLS LAST"),
                     entry("write.format.default", format.name()));
+        }
+    }
+
+    @Test
+    public void testPropertiesTableWithSortOrderTableProperty()
+    {
+        try (TestTable table = newTrinoTable("test_properties_sort_order", "(x BIGINT, y DOUBLE) WITH (sorted_by = ARRAY['y'])")) {
+            loadTable(table.getName()).updateProperties().set("sort-order", "x ASC NULLS FIRST").commit();
+            assertThat(getTableProperties(table.getName())).containsEntry("sort-order", "y ASC NULLS FIRST");
+        }
+
+        try (TestTable table = newTrinoTable("test_properties_sort_order", "(x BIGINT, y DOUBLE)")) {
+            loadTable(table.getName()).updateProperties().set("sort-order", "x ASC NULLS FIRST").commit();
+            assertThat(getTableProperties(table.getName())).doesNotContainKey("sort-order");
+        }
+
+        try (TestTable table = newTrinoTable(
+                "test_properties_sort_order_transforms",
+                "(vc VARCHAR, ts TIMESTAMP(6)) WITH (sorted_by = ARRAY['bucket(vc, 3)', 'truncate(vc, 3) DESC', 'year(ts) ASC NULLS LAST', 'month(ts) DESC NULLS FIRST', 'day(ts)', 'hour(ts)', 'void(vc)'])")) {
+            assertThat(getTableProperties(table.getName())).containsEntry(
+                    "sort-order",
+                    "bucket(vc, 3) ASC NULLS FIRST, truncate(vc, 3) DESC NULLS LAST, year(ts) ASC NULLS LAST, month(ts) DESC NULLS FIRST, day(ts) ASC NULLS FIRST, hour(ts) ASC NULLS FIRST, void(vc) ASC NULLS FIRST");
         }
     }
 

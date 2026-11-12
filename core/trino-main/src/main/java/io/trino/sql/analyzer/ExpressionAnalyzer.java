@@ -76,11 +76,11 @@ import io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationMode;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.ScalarInputDescriptor;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.tree.AllRows;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.ArrayWildcardSubscript;
-import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
@@ -781,8 +781,85 @@ public class ExpressionAnalyzer
     }
 
     private class Visitor
-            extends AstVisitor<Type, Context>
     {
+        public Type process(Node node)
+        {
+            return process(node, null);
+        }
+
+        private Type dispatch(Node root, Context context)
+        {
+            return switch (root) {
+                case AllRows node -> visitExpression(node);
+                case ArithmeticBinaryExpression node -> visitArithmeticBinary(node, context);
+                case ArithmeticUnaryExpression node -> visitArithmeticUnary(node, context);
+                case Array node -> visitArray(node, context);
+                case ArrayWildcardSubscript node -> visitArrayWildcardSubscript(node, context);
+                case AtLocal node -> visitAtLocal(node, context);
+                case AtTimeZone node -> visitAtTimeZone(node, context);
+                case BinaryLiteral node -> setExpressionType(node, VARBINARY);
+                case BooleanLiteral node -> setExpressionType(node, BOOLEAN);
+                case Cast node -> visitCast(node, context);
+                case CoalesceExpression node -> visitCoalesceExpression(node, context);
+                case CurrentCatalog node -> setExpressionType(node, VARCHAR);
+                case CurrentDate node -> setExpressionType(node, DATE);
+                case CurrentPath node -> setExpressionType(node, VARCHAR);
+                case CurrentSchema node -> setExpressionType(node, VARCHAR);
+                case CurrentTime node -> visitCurrentTime(node);
+                case CurrentTimestamp node -> visitCurrentTimestamp(node);
+                case CurrentUser node -> setExpressionType(node, VARCHAR);
+                case DataType node -> visitExpression(node);
+                case DecimalLiteral node -> visitDecimalLiteral(node);
+                case DereferenceExpression node -> visitDereferenceExpression(node, context);
+                case DoubleLiteral node -> setExpressionType(node, DOUBLE);
+                case ExistsPredicate node -> visitExists(node, context);
+                case Extract node -> visitExtract(node, context);
+                case FieldReference node -> visitFieldReference(node, context);
+                case Format node -> visitFormat(node, context);
+                case FunctionCall node -> visitFunctionCall(node, context);
+                case GenericLiteral node -> visitGenericLiteral(node);
+                case GroupingOperation node -> visitGroupingOperation(node, context);
+                case Identifier node -> visitIdentifier(node, context);
+                case IfExpression node -> visitIfExpression(node, context);
+                case InListExpression node -> visitExpression(node);
+                case IntervalLiteral node -> visitIntervalLiteral(node);
+                case IntervalValueExpression node -> visitIntervalValueExpression(node, context);
+                case JsonArray node -> visitJsonArray(node, context);
+                case JsonConstructor node -> visitJsonConstructor(node, context);
+                case JsonExists node -> visitJsonExists(node, context);
+                case JsonObject node -> visitJsonObject(node, context);
+                case JsonQuery node -> visitJsonQuery(node, context);
+                case JsonSerialize node -> visitJsonSerialize(node, context);
+                case JsonValue node -> visitJsonValue(node, context);
+                case LambdaArgumentDeclaration node -> visitExpression(node);
+                case LambdaExpression node -> visitLambdaExpression(node, context);
+                case LocalTime node -> visitLocalTime(node);
+                case LocalTimestamp node -> visitLocalTimestamp(node);
+                case LogicalExpression node -> visitLogicalExpression(node, context);
+                case LongLiteral node -> visitLongLiteral(node);
+                case MethodCall node -> visitMethodCall(node, context);
+                case NotExpression node -> visitNotExpression(node, context);
+                case NullIfExpression node -> visitNullIfExpression(node, context);
+                case NullLiteral node -> setExpressionType(node, UNKNOWN);
+                case Overlay node -> visitOverlay(node, context);
+                case Parameter node -> visitParameter(node, context);
+                case Predicated node -> visitPredicated(node, context);
+                case Row node -> visitRow(node, context);
+                case SearchedCaseExpression node -> visitSearchedCaseExpression(node, context);
+                case SimpleCaseExpression node -> visitSimpleCaseExpression(node, context);
+                case StaticMethodCall node -> visitStaticMethodCall(node, context);
+                case StringLiteral node -> visitStringLiteral(node);
+                case SubqueryExpression node -> visitSubqueryExpression(node, context);
+                case SubscriptExpression node -> visitSubscriptExpression(node, context);
+                case Trim node -> visitTrim(node, context);
+                case TryExpression node -> visitTryExpression(node, context);
+                case UniquePredicate node -> visitUniquePredicate(node, context);
+                case WhenClause node -> visitExpression(node);
+                case WindowOperation node -> visitWindowOperation(node, context);
+                default -> throw semanticException(NOT_SUPPORTED, root, "not yet implemented: %s", root.getClass().getName());
+            };
+        }
+
         // Used to resolve FieldReferences (e.g. during local execution planning)
         private final Scope baseScope;
         private final WarningCollector warningCollector;
@@ -800,7 +877,6 @@ public class ExpressionAnalyzer
             return patternRecognitionInputs;
         }
 
-        @Override
         public Type process(Node node, @Nullable Context context)
         {
             if (node instanceof Expression expression) {
@@ -810,11 +886,10 @@ public class ExpressionAnalyzer
                     return type;
                 }
             }
-            return super.process(node, context);
+            return dispatch(node, context);
         }
 
-        @Override
-        protected Type visitRow(Row node, Context context)
+        private Type visitRow(Row node, Context context)
         {
             List<RowType.Field> fields = node.getFields().stream()
                     .map(field -> new RowType.Field(
@@ -826,14 +901,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        @Override
-        protected Type visitCurrentDate(CurrentDate node, Context context)
-        {
-            return setExpressionType(node, DATE);
-        }
-
-        @Override
-        protected Type visitCurrentTime(CurrentTime node, Context context)
+        private Type visitCurrentTime(CurrentTime node)
         {
             return setExpressionType(
                     node,
@@ -842,8 +910,7 @@ public class ExpressionAnalyzer
                             .orElse(TIME_TZ_MILLIS));
         }
 
-        @Override
-        protected Type visitCurrentTimestamp(CurrentTimestamp node, Context context)
+        private Type visitCurrentTimestamp(CurrentTimestamp node)
         {
             return setExpressionType(
                     node,
@@ -852,8 +919,7 @@ public class ExpressionAnalyzer
                             .orElse(TIMESTAMP_TZ_MILLIS));
         }
 
-        @Override
-        protected Type visitLocalTime(LocalTime node, Context context)
+        private Type visitLocalTime(LocalTime node)
         {
             return setExpressionType(
                     node,
@@ -862,8 +928,7 @@ public class ExpressionAnalyzer
                             .orElse(TIME_MILLIS));
         }
 
-        @Override
-        protected Type visitLocalTimestamp(LocalTimestamp node, Context context)
+        private Type visitLocalTimestamp(LocalTimestamp node)
         {
             return setExpressionType(
                     node,
@@ -872,8 +937,7 @@ public class ExpressionAnalyzer
                             .orElse(TIMESTAMP_MILLIS));
         }
 
-        @Override
-        protected Type visitIdentifier(Identifier node, Context context)
+        private Type visitIdentifier(Identifier node, Context context)
         {
             Scope scope = context.getScope();
 
@@ -916,8 +980,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, field.getType());
         }
 
-        @Override
-        protected Type visitDereferenceExpression(DereferenceExpression node, Context context)
+        private Type visitDereferenceExpression(DereferenceExpression node, Context context)
         {
             boolean hasWildcard = isQualifiedAllFieldsReference(node);
             QualifiedName qualifiedName = hasWildcard ? null : DereferenceExpression.getQualifiedName(node);
@@ -1246,16 +1309,14 @@ public class ExpressionAnalyzer
             };
         }
 
-        @Override
-        protected Type visitNotExpression(NotExpression node, Context context)
+        private Type visitNotExpression(NotExpression node, Context context)
         {
             coerceType(context, node.getValue(), BOOLEAN, "Value of logical NOT expression");
 
             return setExpressionType(node, BOOLEAN);
         }
 
-        @Override
-        protected Type visitLogicalExpression(LogicalExpression node, Context context)
+        private Type visitLogicalExpression(LogicalExpression node, Context context)
         {
             for (Expression term : node.getTerms()) {
                 coerceType(context, term, BOOLEAN, "Logical expression term");
@@ -1264,8 +1325,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, BOOLEAN);
         }
 
-        @Override
-        protected Type visitPredicated(Predicated node, Context context)
+        private Type visitPredicated(Predicated node, Context context)
         {
             return switch (node.getPredicate()) {
                 case BetweenPredicate predicate -> analyzeBetween(node.getValue(), predicate, node, context);
@@ -1337,8 +1397,7 @@ public class ExpressionAnalyzer
             return setExpressionType(anchor, BOOLEAN);
         }
 
-        @Override
-        protected Type visitNullIfExpression(NullIfExpression node, Context context)
+        private Type visitNullIfExpression(NullIfExpression node, Context context)
         {
             Type firstType = process(node.getFirst(), context);
             Type secondType = process(node.getSecond(), context);
@@ -1350,8 +1409,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, firstType);
         }
 
-        @Override
-        protected Type visitIfExpression(IfExpression node, Context context)
+        private Type visitIfExpression(IfExpression node, Context context)
         {
             coerceType(context, node.getCondition(), BOOLEAN, "IF condition");
 
@@ -1366,8 +1424,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        @Override
-        protected Type visitSearchedCaseExpression(SearchedCaseExpression node, Context context)
+        private Type visitSearchedCaseExpression(SearchedCaseExpression node, Context context)
         {
             for (WhenClause whenClause : node.getWhenClauses()) {
                 switch (whenClause.getMatch()) {
@@ -1390,8 +1447,7 @@ public class ExpressionAnalyzer
             return type;
         }
 
-        @Override
-        protected Type visitSimpleCaseExpression(SimpleCaseExpression node, Context context)
+        private Type visitSimpleCaseExpression(SimpleCaseExpression node, Context context)
         {
             coerceCaseOperandToSingleType(node, context);
 
@@ -1498,16 +1554,14 @@ public class ExpressionAnalyzer
             return resultExpressions;
         }
 
-        @Override
-        protected Type visitCoalesceExpression(CoalesceExpression node, Context context)
+        private Type visitCoalesceExpression(CoalesceExpression node, Context context)
         {
             Type type = coerceToSingleType(context, "All COALESCE operands", node.getOperands());
 
             return setExpressionType(node, type);
         }
 
-        @Override
-        protected Type visitArithmeticUnary(ArithmeticUnaryExpression node, Context context)
+        private Type visitArithmeticUnary(ArithmeticUnaryExpression node, Context context)
         {
             return switch (node.getSign()) {
                 case PLUS -> {
@@ -1524,8 +1578,7 @@ public class ExpressionAnalyzer
             };
         }
 
-        @Override
-        protected Type visitArithmeticBinary(ArithmeticBinaryExpression node, Context context)
+        private Type visitArithmeticBinary(ArithmeticBinaryExpression node, Context context)
         {
             return getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
         }
@@ -1554,8 +1607,7 @@ public class ExpressionAnalyzer
             return setExpressionType(anchor, BOOLEAN);
         }
 
-        @Override
-        protected Type visitSubscriptExpression(SubscriptExpression node, Context context)
+        private Type visitSubscriptExpression(SubscriptExpression node, Context context)
         {
             if (!context.isPatternRecognition()) {
                 Optional<Type> type = tryAnalyzeJsonSimplifiedAccessor(node, context);
@@ -1589,8 +1641,7 @@ public class ExpressionAnalyzer
             return getOperator(context, node, SUBSCRIPT, node.getBase(), node.getIndex());
         }
 
-        @Override
-        protected Type visitArrayWildcardSubscript(ArrayWildcardSubscript node, Context context)
+        private Type visitArrayWildcardSubscript(ArrayWildcardSubscript node, Context context)
         {
             if (!context.isPatternRecognition()) {
                 Optional<Type> type = tryAnalyzeJsonSimplifiedAccessor(node, context);
@@ -1605,29 +1656,20 @@ public class ExpressionAnalyzer
             throw semanticException(NOT_SUPPORTED, node, "[*] array wildcard accessor is only allowed over a JSON simplified accessor chain");
         }
 
-        @Override
-        protected Type visitArray(Array node, Context context)
+        private Type visitArray(Array node, Context context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
             Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeDescriptor())));
             return setExpressionType(node, arrayType);
         }
 
-        @Override
-        protected Type visitStringLiteral(StringLiteral node, Context context)
+        private Type visitStringLiteral(StringLiteral node)
         {
             VarcharType type = VarcharType.createVarcharType(node.length());
             return setExpressionType(node, type);
         }
 
-        @Override
-        protected Type visitBinaryLiteral(BinaryLiteral node, Context context)
-        {
-            return setExpressionType(node, VARBINARY);
-        }
-
-        @Override
-        protected Type visitLongLiteral(LongLiteral node, Context context)
+        private Type visitLongLiteral(LongLiteral node)
         {
             if (node.getParsedValue() >= Integer.MIN_VALUE && node.getParsedValue() <= Integer.MAX_VALUE) {
                 return setExpressionType(node, INTEGER);
@@ -1636,14 +1678,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, BIGINT);
         }
 
-        @Override
-        protected Type visitDoubleLiteral(DoubleLiteral node, Context context)
-        {
-            return setExpressionType(node, DOUBLE);
-        }
-
-        @Override
-        protected Type visitDecimalLiteral(DecimalLiteral node, Context context)
+        private Type visitDecimalLiteral(DecimalLiteral node)
         {
             DecimalParseResult parseResult;
             try {
@@ -1655,19 +1690,12 @@ public class ExpressionAnalyzer
             return setExpressionType(node, parseResult.getType());
         }
 
-        @Override
-        protected Type visitBooleanLiteral(BooleanLiteral node, Context context)
-        {
-            return setExpressionType(node, BOOLEAN);
-        }
-
-        @Override
-        protected Type visitGenericLiteral(GenericLiteral node, Context context)
+        private Type visitGenericLiteral(GenericLiteral node)
         {
             return setExpressionType(
                     node,
                     switch (node.getType()) {
-                        case String value when value.equalsIgnoreCase("CHAR") -> CharType.createCharType(node.getValue().length());
+                        case String value when value.equalsIgnoreCase("CHAR") -> CharType.createCharType(node.getValue().codePointCount(0, node.getValue().length()));
                         case String value when value.equalsIgnoreCase("TIME") -> processTimeLiteral(node);
                         case String value when value.equalsIgnoreCase("TIMESTAMP") -> processTimestampLiteral(node);
                         default -> {
@@ -1752,8 +1780,7 @@ public class ExpressionAnalyzer
             return type;
         }
 
-        @Override
-        protected Type visitIntervalLiteral(IntervalLiteral node, Context context)
+        private Type visitIntervalLiteral(IntervalLiteral node)
         {
             validateIntervalQualifier(node.qualifier());
 
@@ -1780,14 +1807,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        @Override
-        protected Type visitNullLiteral(NullLiteral node, Context context)
-        {
-            return setExpressionType(node, UNKNOWN);
-        }
-
-        @Override
-        protected Type visitFunctionCall(FunctionCall node, Context context)
+        private Type visitFunctionCall(FunctionCall node, Context context)
         {
             // A JSON item method on a JSON-typed receiver resolves as the item method
             // (SQL:2023 §6.36 case 3.a), shadowing any real method of the same name —
@@ -2251,8 +2271,7 @@ public class ExpressionAnalyzer
             return Optional.of(result);
         }
 
-        @Override
-        protected Type visitMethodCall(MethodCall node, Context context)
+        private Type visitMethodCall(MethodCall node, Context context)
         {
             Optional<Type> asJsonItemMethod = tryAnalyzeJsonItemMethodAccessor(node, context);
             if (asJsonItemMethod.isPresent()) {
@@ -2342,8 +2361,7 @@ public class ExpressionAnalyzer
 
         private record MethodResolution(ResolvedFunction function, List<TypeDescriptorProvider> argumentTypes) {}
 
-        @Override
-        protected Type visitStaticMethodCall(StaticMethodCall node, Context context)
+        private Type visitStaticMethodCall(StaticMethodCall node, Context context)
         {
             QualifiedName receiver = node.getType();
             if (receiver.getParts().size() != 1 || !plannerContext.getTypeManager().isTypeRegistered(receiver.getSuffix())) {
@@ -2678,8 +2696,7 @@ public class ExpressionAnalyzer
             frameBoundCalculations.put(NodeRef.of(offsetValue), function);
         }
 
-        @Override
-        protected Type visitWindowOperation(WindowOperation node, Context context)
+        private Type visitWindowOperation(WindowOperation node, Context context)
         {
             ResolvedWindow window = getResolvedWindow.apply(node);
             checkState(window != null, "no resolved window for: %s", node);
@@ -3113,8 +3130,7 @@ public class ExpressionAnalyzer
                     });
         }
 
-        @Override
-        protected Type visitAtTimeZone(AtTimeZone node, Context context)
+        private Type visitAtTimeZone(AtTimeZone node, Context context)
         {
             Type valueType = process(node.getValue(), context);
             process(node.getTimeZone(), context);
@@ -3128,8 +3144,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, resultType);
         }
 
-        @Override
-        protected Type visitAtLocal(AtLocal node, Context context)
+        private Type visitAtLocal(AtLocal node, Context context)
         {
             Type valueType = process(node.getValue(), context);
             Type resultType = switch (valueType) {
@@ -3215,32 +3230,7 @@ public class ExpressionAnalyzer
             return type instanceof IntervalDayTimeType || type instanceof IntervalYearMonthType;
         }
 
-        @Override
-        protected Type visitCurrentCatalog(CurrentCatalog node, Context context)
-        {
-            return setExpressionType(node, VARCHAR);
-        }
-
-        @Override
-        protected Type visitCurrentSchema(CurrentSchema node, Context context)
-        {
-            return setExpressionType(node, VARCHAR);
-        }
-
-        @Override
-        protected Type visitCurrentUser(CurrentUser node, Context context)
-        {
-            return setExpressionType(node, VARCHAR);
-        }
-
-        @Override
-        protected Type visitCurrentPath(CurrentPath node, Context context)
-        {
-            return setExpressionType(node, VARCHAR);
-        }
-
-        @Override
-        protected Type visitTrim(Trim node, Context context)
+        private Type visitTrim(Trim node, Context context)
         {
             ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
 
@@ -3268,8 +3258,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, function.signature().getReturnType());
         }
 
-        @Override
-        protected Type visitOverlay(Overlay node, Context context)
+        private Type visitOverlay(Overlay node, Context context)
         {
             ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
             argumentTypes.add(process(node.getValue(), context));
@@ -3295,8 +3284,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, function.signature().getReturnType());
         }
 
-        @Override
-        protected Type visitFormat(Format node, Context context)
+        private Type visitFormat(Format node, Context context)
         {
             List<Type> arguments = node.getArguments().stream()
                     .map(expression -> process(expression, context))
@@ -3322,8 +3310,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, VARCHAR);
         }
 
-        @Override
-        protected Type visitParameter(Parameter node, Context context)
+        private Type visitParameter(Parameter node, Context context)
         {
             if (isDescribe) {
                 return setExpressionType(node, UNKNOWN);
@@ -3343,8 +3330,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, resultType);
         }
 
-        @Override
-        protected Type visitExtract(Extract node, Context context)
+        private Type visitExtract(Extract node, Context context)
         {
             Type type = process(node.getExpression(), context);
             Extract.Field field = node.getField();
@@ -3432,8 +3418,7 @@ public class ExpressionAnalyzer
             return isDatetime(type) || isInterval(type);
         }
 
-        @Override
-        public Type visitTryExpression(TryExpression node, Context context)
+        private Type visitTryExpression(TryExpression node, Context context)
         {
             // TRY is rewritten to lambda, and lambda is not supported in pattern recognition
             if (context.isPatternRecognition()) {
@@ -3444,8 +3429,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        @Override
-        protected Type visitIntervalValueExpression(IntervalValueExpression node, Context context)
+        private Type visitIntervalValueExpression(IntervalValueExpression node, Context context)
         {
             Type left = process(node.getLeft(), context);
             Type right = process(node.getRight(), context);
@@ -3481,8 +3465,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        @Override
-        public Type visitCast(Cast node, Context context)
+        private Type visitCast(Cast node, Context context)
         {
             Type type;
             try {
@@ -3565,8 +3548,7 @@ public class ExpressionAnalyzer
             return setExpressionType(anchor, BOOLEAN);
         }
 
-        @Override
-        protected Type visitSubqueryExpression(SubqueryExpression node, Context context)
+        private Type visitSubqueryExpression(SubqueryExpression node, Context context)
         {
             Type type = analyzeSubquery(node, context);
 
@@ -3649,8 +3631,7 @@ public class ExpressionAnalyzer
             return RowType.from(fields.build());
         }
 
-        @Override
-        protected Type visitExists(ExistsPredicate node, Context context)
+        private Type visitExists(ExistsPredicate node, Context context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node, context.getCorrelationSupport());
             Scope subqueryScope = Scope.builder()
@@ -3683,8 +3664,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, BOOLEAN);
         }
 
-        @Override
-        protected Type visitUniquePredicate(UniquePredicate node, Context context)
+        private Type visitUniquePredicate(UniquePredicate node, Context context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node, context.getCorrelationSupport());
             Scope subqueryScope = Scope.builder()
@@ -3749,15 +3729,13 @@ public class ExpressionAnalyzer
             return setExpressionType(anchor, BOOLEAN);
         }
 
-        @Override
-        public Type visitFieldReference(FieldReference node, Context context)
+        private Type visitFieldReference(FieldReference node, Context context)
         {
             ResolvedField field = baseScope.getField(node.getFieldIndex());
             return handleResolvedField(node, field, context);
         }
 
-        @Override
-        protected Type visitLambdaExpression(LambdaExpression node, Context context)
+        private Type visitLambdaExpression(LambdaExpression node, Context context)
         {
             if (context.isPatternRecognition()) {
                 throw semanticException(NOT_SUPPORTED, node, "Lambda expression in pattern recognition context is not yet supported");
@@ -3807,20 +3785,12 @@ public class ExpressionAnalyzer
             return setExpressionType(node, functionType);
         }
 
-        @Override
-        protected Type visitExpression(Expression node, Context context)
+        private Type visitExpression(Expression node)
         {
             throw semanticException(NOT_SUPPORTED, node, "not yet implemented: %s", node.getClass().getName());
         }
 
-        @Override
-        protected Type visitNode(Node node, Context context)
-        {
-            throw semanticException(NOT_SUPPORTED, node, "not yet implemented: %s", node.getClass().getName());
-        }
-
-        @Override
-        public Type visitGroupingOperation(GroupingOperation node, Context context)
+        private Type visitGroupingOperation(GroupingOperation node, Context context)
         {
             if (node.getGroupingColumns().size() > MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT) {
                 throw semanticException(TOO_MANY_ARGUMENTS, node, "GROUPING supports up to %d column arguments", MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT);
@@ -3836,8 +3806,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, BIGINT);
         }
 
-        @Override
-        public Type visitJsonExists(JsonExists node, Context context)
+        private Type visitJsonExists(JsonExists node, Context context)
         {
             List<Type> pathInvocationArgumentTypes = analyzeJsonPathInvocation("JSON_EXISTS", node, node.getJsonPathInvocation(), context);
 
@@ -3864,8 +3833,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        @Override
-        public Type visitJsonValue(JsonValue node, Context context)
+        private Type visitJsonValue(JsonValue node, Context context)
         {
             List<Type> pathInvocationArgumentTypes = analyzeJsonPathInvocation("JSON_VALUE", node, node.getJsonPathInvocation(), context);
             Type returnedType = analyzeJsonValueExpression(
@@ -3997,8 +3965,7 @@ public class ExpressionAnalyzer
             }
         }
 
-        @Override
-        public Type visitJsonConstructor(JsonConstructor node, Context context)
+        private Type visitJsonConstructor(JsonConstructor node, Context context)
         {
             Expression inputExpression = node.getExpression();
             Type inputType = process(inputExpression, context);
@@ -4014,8 +3981,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, JSON);
         }
 
-        @Override
-        public Type visitJsonQuery(JsonQuery node, Context context)
+        private Type visitJsonQuery(JsonQuery node, Context context)
         {
             List<Type> pathInvocationArgumentTypes = analyzeJsonPathInvocation("JSON_QUERY", node, node.getJsonPathInvocation(), context);
             Type returnedType = analyzeJsonQueryExpression(
@@ -4029,8 +3995,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, returnedType);
         }
 
-        @Override
-        public Type visitJsonSerialize(JsonSerialize node, Context context)
+        private Type visitJsonSerialize(JsonSerialize node, Context context)
         {
             Expression inputExpression = node.getExpression();
             Type inputType = process(inputExpression, context);
@@ -4340,8 +4305,7 @@ public class ExpressionAnalyzer
             }
         }
 
-        @Override
-        protected Type visitJsonObject(JsonObject node, Context context)
+        private Type visitJsonObject(JsonObject node, Context context)
         {
             // TODO verify parameter count? Is there a limit on Row size?
 
@@ -4457,8 +4421,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, returnedType);
         }
 
-        @Override
-        protected Type visitJsonArray(JsonArray node, Context context)
+        private Type visitJsonArray(JsonArray node, Context context)
         {
             // TODO verify parameter count? Is there a limit on Row size?
 
@@ -4776,11 +4739,6 @@ public class ExpressionAnalyzer
             return new Context(scope, requireNonNull(functionInputTypes, "functionInputTypes is null"), this.fieldToLambdaArgumentDeclaration, patternRecognitionContext, correlationSupport, inWindow);
         }
 
-        public Context notExpectingLambda()
-        {
-            return new Context(scope, null, this.fieldToLambdaArgumentDeclaration, patternRecognitionContext, correlationSupport, inWindow);
-        }
-
         public static Context patternRecognition(Scope scope, Set<String> labels, boolean inWindow)
         {
             return new Context(scope, null, null, Optional.of(new PatternRecognitionContext(labels, Navigation.DEFAULT)), CorrelationSupport.DISALLOWED, inWindow);
@@ -4885,11 +4843,9 @@ public class ExpressionAnalyzer
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
-                analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
-                analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
                 analyzer.getUniquePredicates(),
@@ -4918,11 +4874,9 @@ public class ExpressionAnalyzer
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
-                analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
-                analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
                 analyzer.getUniquePredicates(),
@@ -4948,11 +4902,9 @@ public class ExpressionAnalyzer
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
-                analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
-                analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
                 analyzer.getUniquePredicates(),
@@ -4996,11 +4948,9 @@ public class ExpressionAnalyzer
                 parametersRowType,
                 new ExpressionAnalysis(
                         analyzer.getExpressionTypes(),
-                        analyzer.getExpressionCoercions(),
                         analyzer.getSubqueryInPredicates(),
                         analyzer.getSubqueries(),
                         analyzer.getExistsSubqueries(),
-                        analyzer.getColumnReferences(),
                         analyzer.getQuantifiedComparisons(),
                         analyzer.getMatchPredicates(),
                         analyzer.getUniquePredicates(),
@@ -5026,11 +4976,9 @@ public class ExpressionAnalyzer
         updateAnalysis(analysis, analyzer, session, accessControl);
         return new TypeAndAnalysis(type, new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
-                analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
-                analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
                 analyzer.getUniquePredicates(),
@@ -5102,11 +5050,9 @@ public class ExpressionAnalyzer
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
-                analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
-                analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
                 analyzer.getUniquePredicates(),

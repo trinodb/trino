@@ -27,11 +27,6 @@ public final class SimpleGroupBy
 {
     private final List<Expression> columns;
 
-    public SimpleGroupBy(List<Expression> simpleGroupByExpressions)
-    {
-        this(Optional.empty(), simpleGroupByExpressions);
-    }
-
     public SimpleGroupBy(NodeLocation location, List<Expression> simpleGroupByExpressions)
     {
         this(Optional.of(location), simpleGroupByExpressions);
@@ -47,12 +42,6 @@ public final class SimpleGroupBy
     public List<Expression> getExpressions()
     {
         return columns;
-    }
-
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSimpleGroupBy(this, context);
     }
 
     @Override

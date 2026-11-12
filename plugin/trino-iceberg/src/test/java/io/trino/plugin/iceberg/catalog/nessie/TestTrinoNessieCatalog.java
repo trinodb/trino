@@ -16,6 +16,8 @@ package io.trino.plugin.iceberg.catalog.nessie;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
@@ -223,6 +225,8 @@ public class TestTrinoNessieCatalog
                     UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
+                    new OrcReaderConfig().toOrcReaderOptions(),
+                    new ParquetReaderConfig().toParquetReaderOptions(),
                     _ -> false,
                     newDirectExecutorService(),
                     directExecutor(),

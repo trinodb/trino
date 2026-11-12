@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class CreateView
+public final class CreateView
         extends Statement
 {
     public enum Security
@@ -91,12 +91,6 @@ public class CreateView
     public List<Property> getProperties()
     {
         return properties;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCreateView(this, context);
     }
 
     @Override

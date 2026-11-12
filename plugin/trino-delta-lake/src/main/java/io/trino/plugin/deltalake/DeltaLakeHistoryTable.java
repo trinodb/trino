@@ -23,10 +23,8 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
 
 import java.util.List;
@@ -37,6 +35,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -75,7 +74,7 @@ public class DeltaLakeHistoryTable
     }
 
     @Override
-    protected List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions, TrinoFileSystem fileSystem)
+    protected List<Page> buildPages(PageListBuilder pagesBuilder, List<Transaction> transactions, TrinoFileSystem fileSystem)
     {
         List<CommitInfoEntry> commitInfoEntries;
         try (Stream<CommitInfoEntry> commitStream = transactions.stream()
@@ -85,8 +84,6 @@ public class DeltaLakeHistoryTable
             commitInfoEntries = commitStream.collect(toImmutableList());
         }
 
-        TimeZoneKey timeZoneKey = session.getTimeZoneKey();
-
         commitInfoEntries.forEach(commitInfoEntry -> {
             pagesBuilder.beginRow();
 
@@ -94,8 +91,8 @@ public class DeltaLakeHistoryTable
             commitInfoEntry.inCommitTimestamp().ifPresentOrElse(
                     // use `inCommitTimestamp` if table In-Commit timestamps enabled, otherwise read the `timestamp` field
                     // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#recommendations-for-readers-of-tables-with-in-commit-timestamps
-                    inCommitTimestamp -> pagesBuilder.appendTimestampTzMillis(inCommitTimestamp, timeZoneKey),
-                    () -> pagesBuilder.appendTimestampTzMillis(commitInfoEntry.timestamp(), timeZoneKey));
+                    inCommitTimestamp -> pagesBuilder.appendTimestampTzMillis(inCommitTimestamp, UTC_KEY),
+                    () -> pagesBuilder.appendTimestampTzMillis(commitInfoEntry.timestamp(), UTC_KEY));
             write(commitInfoEntry.userId(), pagesBuilder);
             write(commitInfoEntry.userName(), pagesBuilder);
             write(commitInfoEntry.operation(), pagesBuilder);

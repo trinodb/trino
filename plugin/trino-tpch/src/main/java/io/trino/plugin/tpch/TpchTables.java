@@ -27,6 +27,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 
 public final class TpchTables
 {
@@ -47,7 +48,8 @@ public final class TpchTables
     {
         TpchTable<?> table = TpchTable.getTable(tableName);
         ConnectorPageSource pageSource = new RecordPageSource(
-                createTpchRecordSet(table, decimalTypeMapping, scaleFactor, 1, 1, TupleDomain.all()));
+                createTpchRecordSet(table, decimalTypeMapping, scaleFactor, 1, 1, TupleDomain.all()),
+                NO_LIMIT);
         return new AbstractIterator<>()
         {
             @Override

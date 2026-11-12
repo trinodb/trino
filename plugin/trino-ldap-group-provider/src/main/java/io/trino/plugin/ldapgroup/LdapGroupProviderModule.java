@@ -30,6 +30,12 @@ public class LdapGroupProviderModule
 
         if (buildConfigObject(LdapGroupProviderConfig.class).getLdapUseGroupFilter()) {
             configBinder(binder).bindConfig(LdapFilteringGroupProviderConfig.class);
+            binder.bind(LdapGroupSearcher.class).in(Scopes.SINGLETON);
+            binder.bind(LdapGroupResolver.class).to(switch (buildConfigObject(LdapFilteringGroupProviderConfig.class).getLdapGroupSearchMode()) {
+                case DIRECT -> DirectLdapGroupResolver.class;
+                case RECURSIVE -> RecursiveLdapGroupResolver.class;
+                case MATCHING_RULE_IN_CHAIN -> MatchingRuleInChainLdapGroupResolver.class;
+            }).in(Scopes.SINGLETON);
             binder.bind(GroupProvider.class).to(LdapFilteringGroupProvider.class).in(Scopes.SINGLETON);
         }
         else {

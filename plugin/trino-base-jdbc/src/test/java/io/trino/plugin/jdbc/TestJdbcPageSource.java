@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
 import org.junit.jupiter.api.AfterAll;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -195,8 +197,40 @@ public class TestJdbcPageSource
         assertThat(pageSource.isBlocked().isDone()).isTrue();
     }
 
+    @Test
+    public void testReportsMemoryUsageToMemoryContext()
+    {
+        List<Long> reportedBytes = new ArrayList<>();
+        try (JdbcPageSource pageSource = createPageSource(
+                ImmutableList.of(
+                        columnHandles.get("text"),
+                        columnHandles.get("value")),
+                reportedBytes::add)) {
+            assertThat(reportedBytes).hasSize(1);
+            assertThat(reportedBytes.getLast()).isPositive();
+            // the memory must not be accounted for again when getMemoryUsage is polled
+            assertThat(pageSource.getMemoryUsage()).isZero();
+
+            SourcePage page = pageSource.getNextSourcePage();
+            assertThat(page.getPositionCount()).isEqualTo(6);
+            assertThat(pageSource.isFinished()).isTrue();
+            assertThat(reportedBytes).hasSize(2);
+            assertThat(reportedBytes.getLast()).isPositive();
+
+            assertThat(pageSource.getNextSourcePage()).isNull();
+            assertThat(reportedBytes).hasSize(2);
+        }
+        // the page builder is still retained after close, so its reservation is released by the context's owner
+        assertThat(reportedBytes).hasSize(2);
+    }
+
     private JdbcPageSource createPageSource(List<JdbcColumnHandle> columnHandles)
     {
-        return new JdbcPageSource(jdbcClient, executor, SESSION, split, table, columnHandles);
+        return createPageSource(columnHandles, MemoryContext.NO_LIMIT);
+    }
+
+    private JdbcPageSource createPageSource(List<JdbcColumnHandle> columnHandles, MemoryContext memoryContext)
+    {
+        return new JdbcPageSource(jdbcClient, executor, SESSION, split, table, columnHandles, memoryContext);
     }
 }

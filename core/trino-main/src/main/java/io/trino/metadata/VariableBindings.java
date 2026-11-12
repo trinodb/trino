@@ -103,12 +103,6 @@ public final class VariableBindings
         return value;
     }
 
-    public boolean containsNumericVariable(String variableName)
-    {
-        requireNonNull(variableName, "variableName is null");
-        return bindings.get(variableName) instanceof NumericBinding;
-    }
-
     @Override
     public boolean equals(Object o)
     {

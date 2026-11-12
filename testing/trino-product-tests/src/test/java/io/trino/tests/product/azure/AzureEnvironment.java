@@ -67,8 +67,6 @@ public class AzureEnvironment
     private static final Duration HADOOP_STARTUP_TIMEOUT = Duration.ofMinutes(12);
     private static final String AZURE_URI_SCHEME = "abfs";
     private static final String AZURE_ENDPOINT = "dfs.core.windows.net";
-    private static final String HADOOP_AZURE_JAR_URL = "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/3.2.4/hadoop-azure-3.2.4.jar";
-    private static final String WILDFLY_OPENSSL_JAR_URL = "https://repo1.maven.org/maven2/org/wildfly/openssl/wildfly-openssl/1.0.7.Final/wildfly-openssl-1.0.7.Final.jar";
 
     static {
         try {
@@ -335,27 +333,18 @@ public class AzureEnvironment
                 if ! command -v xsltproc >/dev/null 2>&1; then
                     dnf install -y libxslt
                 fi
-                if ! command -v curl >/dev/null 2>&1; then
-                    dnf install -y curl
-                fi
                 cp -f /opt/hadoop/share/hadoop/tools/lib/hadoop-azure-*.jar /opt/hadoop/share/hadoop/common/lib/
-                cp -f /opt/hadoop/share/hadoop/tools/lib/hadoop-azure-datalake-*.jar /opt/hadoop/share/hadoop/common/lib/
                 cp -f /opt/hadoop/share/hadoop/tools/lib/azure-*.jar /opt/hadoop/share/hadoop/common/lib/
-                mkdir -p /tmp/azure-libs
-                curl -fsSL --retry 5 --retry-delay 2 -o /tmp/azure-libs/hadoop-azure-3.2.4.jar "%s"
-                curl -fsSL --retry 5 --retry-delay 2 -o /tmp/azure-libs/wildfly-openssl-1.0.7.Final.jar "%s"
-                cp -f /tmp/azure-libs/hadoop-azure-3.2.4.jar /opt/hadoop/share/hadoop/common/lib/
-                cp -f /tmp/azure-libs/wildfly-openssl-1.0.7.Final.jar /opt/hadoop/share/hadoop/common/lib/
+                cp -f /opt/hadoop/share/hadoop/tools/lib/wildfly-openssl-*.jar /opt/hadoop/share/hadoop/common/lib/
                 cp -f /opt/hadoop/share/hadoop/common/lib/hadoop-azure-*.jar /opt/hive/lib/
-                cp -f /opt/hadoop/share/hadoop/common/lib/hadoop-azure-datalake-*.jar /opt/hive/lib/
                 cp -f /opt/hadoop/share/hadoop/common/lib/azure-*.jar /opt/hive/lib/
-                cp -f /opt/hadoop/share/hadoop/common/lib/wildfly-openssl-1.0.7.Final.jar /opt/hive/lib/
+                cp -f /opt/hadoop/share/hadoop/common/lib/wildfly-openssl-*.jar /opt/hive/lib/
                 CORE_SITE_PATH="/opt/hadoop/etc/hadoop/core-site.xml"
                 if [ -f /etc/hadoop/conf/core-site.xml ]; then
                     CORE_SITE_PATH="/etc/hadoop/conf/core-site.xml"
                 fi
                 apply-site-xml-override "${CORE_SITE_PATH}" "/docker/trino-product-tests/conf/environment/multinode-azure/core-site-overrides.xml"
-                """.formatted(HADOOP_AZURE_JAR_URL, WILDFLY_OPENSSL_JAR_URL);
+                """;
 
         container.withEnv("ABFS_CONTAINER", abfsContainer);
         container.withEnv("ABFS_ACCOUNT", account);

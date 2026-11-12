@@ -45,6 +45,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 
@@ -159,6 +161,10 @@ public class ThriftMetadata
     @Override
     public Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
+        // Index lookup restrictions must survive serialization exactly.
+        if (!tupleDomain.filter((_, domain) -> domain.getValues() instanceof FloatingPointValueSet floatingPoint && floatingPoint.asRanges().isEmpty()).isAll()) {
+            return Optional.empty();
+        }
         ThriftTableHandle table = (ThriftTableHandle) tableHandle;
         ThriftTableMetadata tableMetadata = getRequiredTableMetadata(new SchemaTableName(table.schemaName(), table.tableName()));
         if (tableMetadata.containsIndexableColumns(indexableColumns)) {
@@ -173,7 +179,14 @@ public class ThriftMetadata
         ThriftTableHandle handle = (ThriftTableHandle) table;
 
         TupleDomain<ColumnHandle> oldDomain = handle.constraint();
-        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        // The existing wire format has no NaN membership. Keep the original residual below.
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary())
+                .transformDomains((_, domain) -> {
+                    if (domain.getValues() instanceof FloatingPointValueSet floatingPoint && floatingPoint.asRanges().isEmpty()) {
+                        return domain.isNullAllowed() ? Domain.all(domain.getType()) : Domain.notNull(domain.getType());
+                    }
+                    return domain;
+                });
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }

@@ -19,7 +19,6 @@ import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.HashCommon;
 
 import java.util.function.BiFunction;
-import java.util.function.LongBinaryOperator;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static it.unimi.dsi.fastutil.HashCommon.bigArraySize;
@@ -225,11 +224,6 @@ public class LongLong2LongOpenCustomBigHashMap
         defRetValue = rv;
     }
 
-    public long defaultReturnValue()
-    {
-        return defRetValue;
-    }
-
     /**
      * Returns the size of this hash map in bytes.
      */
@@ -334,74 +328,6 @@ public class LongLong2LongOpenCustomBigHashMap
         final long oldValue = value.get(pos);
         value.set(pos, v);
         return oldValue;
-    }
-
-    private long addToValue(final long pos, final long incr)
-    {
-        final long oldValue = value.get(pos);
-        value.set(pos, oldValue + incr);
-        return oldValue;
-    }
-
-    /**
-     * Adds an increment to value currently associated with a key.
-     *
-     * <p>
-     * Note that this method respects the {@linkplain #defaultReturnValue() default
-     * return value} semantics: when called with a key that does not currently
-     * appears in the map, the key will be associated with the default return value
-     * plus the given increment.
-     *
-     * @param k1 the first half of key.
-     * @param k2 the second half of key.
-     * @param incr the increment.
-     * @return the old value, or the {@linkplain #defaultReturnValue() default
-     *         return value} if no value was present for the given key.
-     */
-    public long addTo(final long k1, final long k2, final long incr)
-    {
-        long pos;
-        if (strategy.equals(k1, k2, nullKey1, nullKey2)) {
-            if (containsNullKey) {
-                return addToValue(n, incr);
-            }
-            pos = n;
-            containsNullKey = true;
-        }
-        else {
-            final LongBigArray key1 = this.key1;
-            final LongBigArray key2 = this.key2;
-            // The starting point.
-            pos = HashCommon.mix(strategy.hashCode(k1, k2)) & mask;
-            long curr1 = key1.get(pos);
-            long curr2 = key2.get(pos);
-            if (!(curr1 == nullKey1 && curr2 == nullKey2)) {
-                if (strategy.equals(curr1, curr2, k1, k2)) {
-                    return addToValue(pos, incr);
-                }
-                pos = (pos + 1) & mask;
-                curr1 = key1.get(pos);
-                curr2 = key2.get(pos);
-                while (!(curr1 == nullKey1 && curr2 == nullKey2)) {
-                    if (strategy.equals(curr1, curr2, k1, k2)) {
-                        return addToValue(pos, incr);
-                    }
-                    pos = (pos + 1) & mask;
-                    curr1 = key1.get(pos);
-                    curr2 = key2.get(pos);
-                }
-            }
-        }
-        key1.set(pos, k1);
-        key2.set(pos, k2);
-        value.set(pos, defRetValue + incr);
-        if (size++ >= maxFill) {
-            rehash(bigArraySize(size + 1, f));
-        }
-        if (ASSERTS) {
-            checkTable();
-        }
-        return defRetValue;
     }
 
     /**
@@ -553,47 +479,6 @@ public class LongLong2LongOpenCustomBigHashMap
         return false;
     }
 
-    public long getOrDefault(final long k1, final long k2, final long defaultValue)
-    {
-        if (strategy.equals(k1, k2, nullKey1, nullKey2)) {
-            return containsNullKey ? value.get(n) : defaultValue;
-        }
-        final LongBigArray key1 = this.key1;
-        final LongBigArray key2 = this.key2;
-        // The starting point.
-        long pos = HashCommon.mix(strategy.hashCode(k1, k2)) & mask;
-        long curr1 = key1.get(pos);
-        long curr2 = key2.get(pos);
-        if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
-            return defaultValue;
-        }
-        if (strategy.equals(k1, k2, curr1, curr2)) {
-            return value.get(pos);
-        }
-        // There's always an unused entry.
-        while (true) {
-            pos = (pos + 1) & mask;
-            curr1 = key1.get(pos);
-            curr2 = key2.get(pos);
-            if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
-                return defaultValue;
-            }
-            if (strategy.equals(k1, k2, curr1, curr2)) {
-                return value.get(pos);
-            }
-        }
-    }
-
-    public long putIfAbsent(final long k1, final long k2, final long v)
-    {
-        final long pos = find(k1, k2);
-        if (pos >= 0) {
-            return value.get(pos);
-        }
-        insert(-pos - 1, k1, k2, v);
-        return defRetValue;
-    }
-
     public boolean remove(final long k1, final long k2, final long v)
     {
         if (strategy.equals(k1, k2, nullKey1, nullKey2)) {
@@ -649,18 +534,6 @@ public class LongLong2LongOpenCustomBigHashMap
         final long oldValue = value.get(pos);
         value.set(pos, v);
         return oldValue;
-    }
-
-    public long computeIfAbsent(final long k1, final long k2, final LongBinaryOperator mappingFunction)
-    {
-        requireNonNull(mappingFunction);
-        final long pos = find(k1, k2);
-        if (pos >= 0) {
-            return value.get(pos);
-        }
-        final long newValue = mappingFunction.applyAsLong(k1, k2);
-        insert(-pos - 1, k1, k2, newValue);
-        return newValue;
     }
 
     public long merge(

@@ -24,11 +24,14 @@ import java.util.List;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.ceil;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestVariableWidthBlockBuilder
         extends AbstractTestBlockBuilder<String>
@@ -42,6 +45,73 @@ final class TestVariableWidthBlockBuilder
     public void testFixedBlockIsFull()
     {
         testIsFull(PageBuilder.withMaxPageSize(VARCHAR_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, ImmutableList.of(VARCHAR)));
+    }
+
+    @Test
+    public void testInitialEntryCapacity()
+    {
+        assertInitialEntryCapacity(0, 1, 1);
+        assertInitialEntryCapacity(1, 1, 1);
+        assertInitialEntryCapacity(3, 1, 3);
+        assertInitialEntryCapacity(1, 5, 5);
+        assertInitialEntryCapacity(100, 1, 100);
+    }
+
+    private static void assertInitialEntryCapacity(int expectedEntries, int requiredEntries, int expectedCapacity)
+    {
+        VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, expectedEntries, 0);
+        assertThat(builder.buildValueBlock().getRawOffsets()).hasSize(1);
+
+        VariableWidthBlock value = new VariableWidthBlockBuilder(null, 1, 0).writeEntry(EMPTY_SLICE).buildValueBlock();
+        builder.appendRepeated(value, 0, requiredEntries);
+
+        VariableWidthBlock block = builder.buildValueBlock();
+        assertThat(block.getRawOffsets()).hasSize(expectedCapacity + 1);
+        assertThat(toStrings(block)).isEqualTo(nCopies(requiredEntries, ""));
+    }
+
+    @Test
+    public void testInvalidExpectedEntries()
+    {
+        for (int expectedEntries : new int[] {-1, Integer.MAX_VALUE}) {
+            VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, expectedEntries, 0);
+            assertThatThrownBy(() -> builder.writeEntry(EMPTY_SLICE))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Invalid currentSize or minimumSize");
+        }
+    }
+
+    @Test
+    public void testInvalidInitialCapacity()
+    {
+        VariableWidthBlock value = new VariableWidthBlockBuilder(null, 1, 0).writeEntry(EMPTY_SLICE).buildValueBlock();
+        for (int count : new int[] {MAX_ARRAY_SIZE + 1, Integer.MAX_VALUE}) {
+            VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, 1, 0);
+            assertThatThrownBy(() -> builder.appendRepeated(value, 0, count))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Invalid currentSize or minimumSize");
+        }
+
+        VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, 1, 0);
+        assertThatThrownBy(() -> builder.appendRepeated(value, 0, MAX_ARRAY_SIZE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Cannot grow array beyond size " + MAX_ARRAY_SIZE);
+    }
+
+    @Test
+    public void testGrowthAfterInitialAllocation()
+    {
+        VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, 1, 0);
+        builder.appendNull();
+        assertThat(builder.buildValueBlock().getRawOffsets()).containsExactly(0, 0);
+
+        builder.writeEntry(utf8Slice("value"));
+        VariableWidthBlock block = builder.buildValueBlock();
+        assertThat(block.getRawOffsets()).hasSize(65);
+        assertThat(block.getPositionCount()).isEqualTo(2);
+        assertThat(block.isNull(0)).isTrue();
+        assertThat(block.isNull(1)).isFalse();
+        assertThat(block.getSlice(1)).isEqualTo(utf8Slice("value"));
     }
 
     @Test
@@ -60,6 +130,54 @@ final class TestVariableWidthBlockBuilder
         long actualArraySize = sizeOf(new int[(int) ceil(resetSkew * (entries + 1))]);
         long actualBytesSize = sizeOf(new byte[(int) ceil(resetSkew * entries)]);
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(BLOCK_BUILDER_INSTANCE_SIZE + actualBytesSize + actualArraySize);
+    }
+
+    @Test
+    public void testNewBlockBuilderLikeWithExpectedEntries()
+    {
+        VariableWidthBlockBuilder previous = new VariableWidthBlockBuilder(null, 100, 0);
+        for (int i = 0; i < 100; i++) {
+            previous.writeEntry(utf8Slice("abcdefgh"));
+        }
+
+        assertNewBlockBuilderLikeSize(previous, 25, 250);
+        assertNewBlockBuilderLikeSize(previous, 100, 1000);
+        // growth is capped at twice the previous bytes
+        assertNewBlockBuilderLikeSize(previous, 400, 2000);
+    }
+
+    @Test
+    public void testNewBlockBuilderLikeCapsGrowthFromSingleWideRow()
+    {
+        VariableWidthBlockBuilder previous = new VariableWidthBlockBuilder(null, 1, 0);
+        previous.writeEntry(Slices.allocate(100 * 1024));
+
+        assertNewBlockBuilderLikeSize(previous, 8192, 256_000);
+    }
+
+    @Test
+    public void testNewBlockBuilderLikeRejectsInvalidExpectedEntries()
+    {
+        VariableWidthBlockBuilder previous = new VariableWidthBlockBuilder(null, 100, 0);
+        for (int i = 0; i < 100; i++) {
+            previous.writeEntry(utf8Slice("abcdefgh"));
+        }
+
+        assertThatThrownBy(() -> previous.newBlockBuilderLike(Integer.MAX_VALUE, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("expectedEntries");
+        assertThatThrownBy(() -> previous.newBlockBuilderLike(-1, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("expectedEntries");
+    }
+
+    private static void assertNewBlockBuilderLikeSize(VariableWidthBlockBuilder previous, int expectedEntries, int expectedBytes)
+    {
+        VariableWidthBlockBuilder next = (VariableWidthBlockBuilder) previous.newBlockBuilderLike(expectedEntries, null);
+        next.writeEntry(utf8Slice("abcdefgh"));
+        long expectedSize = BLOCK_BUILDER_INSTANCE_SIZE + sizeOf(new int[expectedEntries + 1]) + sizeOf(new byte[expectedBytes]);
+        assertThat(next.getRetainedSizeInBytes()).isEqualTo(expectedSize);
+        assertThat(toStrings(next.buildValueBlock())).containsExactly("abcdefgh");
     }
 
     private void testIsFull(PageBuilder pageBuilder)

@@ -35,7 +35,6 @@ import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.util.Collections.emptyList;
 
 public class TestTransformUncorrelatedSubqueryToJoin
         extends BaseRuleTest
@@ -48,7 +47,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
+                            ImmutableList.of(),
                             p.values(a),
                             LEFT,
                             TRUE,
@@ -68,7 +67,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
+                            ImmutableList.of(),
                             p.values(a),
                             LEFT,
                             comparison(
@@ -92,7 +91,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
+                            ImmutableList.of(),
                             p.values(a),
                             LEFT,
                             comparison(
@@ -116,7 +115,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
+                            ImmutableList.of(),
                             p.values(a),
                             RIGHT,
                             TRUE,
@@ -132,7 +131,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
+                            ImmutableList.of(),
                             p.values(a),
                             RIGHT,
                             comparison(
@@ -159,7 +158,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
+                            ImmutableList.of(),
                             p.values(a),
                             FULL,
                             TRUE,
@@ -175,7 +174,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
+                            ImmutableList.of(),
                             p.values(a),
                             FULL,
                             comparison(

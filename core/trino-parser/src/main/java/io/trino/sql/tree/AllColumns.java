@@ -22,7 +22,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class AllColumns
+public final class AllColumns
         extends SelectItem
 {
     private final List<Identifier> aliases;
@@ -32,12 +32,6 @@ public class AllColumns
     public AllColumns()
     {
         this(Optional.empty(), Optional.empty(), ImmutableList.of());
-    }
-
-    @Deprecated
-    public AllColumns(Expression target, List<Identifier> aliases)
-    {
-        this(Optional.empty(), Optional.of(target), aliases);
     }
 
     @Deprecated
@@ -68,12 +62,6 @@ public class AllColumns
     public Optional<Expression> getTarget()
     {
         return target;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAllColumns(this, context);
     }
 
     @Override

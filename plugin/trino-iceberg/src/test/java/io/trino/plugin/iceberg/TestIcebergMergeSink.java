@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.delete.DeletionVector;
@@ -137,7 +138,7 @@ final class TestIcebergMergeSink
                     .orElseThrow();
             ImmutableList.Builder<Long> rows = ImmutableList.builder();
             deletionVector.forEachDeletedRow(rows::add);
-            deletedRows.put(task.referencedDataFile().orElseThrow(), rows.build());
+            deletedRows.put(task.referencedDataFile().orElseThrow().path(), rows.build());
         }
         return deletedRows.buildOrThrow();
     }
@@ -147,7 +148,7 @@ final class TestIcebergMergeSink
         return new IcebergMergeSink(
                 3,
                 LocationProviders.locationsFor("memory:///table", ImmutableMap.of()),
-                new IcebergFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), new FileFormatDataSourceStats(), new IcebergConfig(), new OrcWriterConfig(), new ParquetWriterConfig()),
+                new IcebergFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), new FileFormatDataSourceStats(), new IcebergConfig(), new OrcReaderConfig(), new OrcWriterConfig(), new ParquetWriterConfig()),
                 new MemoryFileSystemFactory().create(SESSION),
                 JsonCodec.jsonCodec(CommitTaskData.class),
                 SESSION,
@@ -185,6 +186,9 @@ final class TestIcebergMergeSink
         BlockBuilder partitionSpecIdBuilder = INTEGER.createFixedSizeBlockBuilder(rowCount);
         BlockBuilder partitionDataBuilder = VARCHAR.createBlockBuilder(null, rowCount);
         BlockBuilder sourceRowIdBuilder = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder fileRecordCountBuilder = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder fileSizeBuilder = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder fileFormatBuilder = VARCHAR.createBlockBuilder(null, rowCount);
         for (Deletion deletion : deletions) {
             BIGINT.writeLong(dataBuilder, deletion.rowPosition());
             TINYINT.writeByte(operationBuilder, (byte) DELETE_OPERATION_NUMBER);
@@ -194,6 +198,9 @@ final class TestIcebergMergeSink
             INTEGER.writeInt(partitionSpecIdBuilder, 0);
             VARCHAR.writeString(partitionDataBuilder, "{}");
             sourceRowIdBuilder.appendNull();
+            BIGINT.writeLong(fileRecordCountBuilder, 0);
+            BIGINT.writeLong(fileSizeBuilder, 0);
+            VARCHAR.writeString(fileFormatBuilder, IcebergFileFormat.PARQUET.name());
         }
         Block rowIdBlock = RowBlock.fromFieldBlocks(rowCount, new Block[] {
                 filePathBuilder.build(),
@@ -201,6 +208,9 @@ final class TestIcebergMergeSink
                 partitionSpecIdBuilder.build(),
                 partitionDataBuilder.build(),
                 sourceRowIdBuilder.build(),
+                fileRecordCountBuilder.build(),
+                fileSizeBuilder.build(),
+                fileFormatBuilder.build(),
         });
         return new Page(dataBuilder.build(), operationBuilder.build(), caseNumberBuilder.build(), rowIdBlock);
     }

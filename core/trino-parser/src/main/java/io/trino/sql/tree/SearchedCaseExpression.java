@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class SearchedCaseExpression
+public final class SearchedCaseExpression
         extends Expression
 {
     private final List<WhenClause> whenClauses;
@@ -42,12 +42,6 @@ public class SearchedCaseExpression
     public Optional<Expression> getDefaultValue()
     {
         return defaultValue;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSearchedCaseExpression(this, context);
     }
 
     @Override

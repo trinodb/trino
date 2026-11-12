@@ -197,6 +197,34 @@ final class TestIcebergRestCatalogFileSystemFactory
                 .containsEntry(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "abfs://container@mystorageaccount.dfs.core.windows.net/some/path/file",
+            "abfss://container@mystorageaccount.dfs.core.windows.net/some/path/file",
+            "wasb://container@mystorageaccount.blob.core.windows.net/some/path/file",
+            "wasbs://container@mystorageaccount.blob.core.windows.net/some/path/file",
+    })
+    void testAzureVendedCredentialsForAllSchemes(String location)
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of(location));
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
+    }
+
     @Test
     void testAzureVendedCredentialsWithMultipleAccounts()
     {
@@ -561,6 +589,110 @@ final class TestIcebergRestCatalogFileSystemFactory
 
         fileSystem.newInputFile(Location.of("gs://bucket-b/data/file"));
         assertGcsExtraCredentials(capturedIdentityB.get(), "ya29.token-b");
+    }
+
+    @Test
+    void testAzureStorageCredentialsSinglePrefixIcebergTableCredentials()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        IcebergStorageCredentials storageCredential = new IcebergStorageCredentials(
+                "abfss://container@account.dfs.core.windows.net/table/",
+                ImmutableMap.of(
+                        AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account.dfs.core.windows.net", "sas-token-plan",
+                        AzureProperties.ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX + "account.dfs.core.windows.net", "4102444800000"));
+
+        TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of(storageCredential)));
+        fileSystem.newInputFile(Location.of("abfss://container@account.dfs.core.windows.net/table/data/file.parquet"));
+
+        assertThat(capturedIdentity.get()).isNotNull();
+        assertThat(capturedIdentity.get().getExtraCredentials())
+                .containsExactlyInAnyOrderEntriesOf(ImmutableMap.of(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "account", "sas-token-plan"));
+    }
+
+    @Test
+    void testAzureStorageCredentialsMultiplePrefixes()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        IcebergStorageCredentials credentialA = new IcebergStorageCredentials(
+                "abfss://container@account1.dfs.core.windows.net/",
+                ImmutableMap.of(AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account1.dfs.core.windows.net", "sas-token-a"));
+        IcebergStorageCredentials credentialANested = new IcebergStorageCredentials(
+                "abfss://container@account1.dfs.core.windows.net/nested/",
+                ImmutableMap.of(AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account1.dfs.core.windows.net", "sas-token-a-nested"));
+        IcebergStorageCredentials credentialB = new IcebergStorageCredentials(
+                "wasbs://container@account2.blob.core.windows.net/",
+                ImmutableMap.of(AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account2.blob.core.windows.net", "sas-token-b"));
+
+        TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of(credentialA, credentialANested, credentialB)));
+
+        fileSystem.newInputFile(Location.of("abfss://container@account1.dfs.core.windows.net/path/file"));
+        assertThat(capturedIdentity.get().getExtraCredentials())
+                .containsExactlyInAnyOrderEntriesOf(ImmutableMap.of(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "account1", "sas-token-a"));
+
+        fileSystem.newInputFile(Location.of("abfss://container@account1.dfs.core.windows.net/nested/file"));
+        assertThat(capturedIdentity.get().getExtraCredentials())
+                .containsExactlyInAnyOrderEntriesOf(ImmutableMap.of(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "account1", "sas-token-a-nested"));
+
+        fileSystem.newInputFile(Location.of("wasbs://container@account2.blob.core.windows.net/path/file"));
+        assertThat(capturedIdentity.get().getExtraCredentials())
+                .containsExactlyInAnyOrderEntriesOf(ImmutableMap.of(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "account2", "sas-token-b"));
+    }
+
+    @Test
+    void testAzureStorageCredentialsOverrideFileIoPropertiesTokens()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        // Same account keyed in a different form than the storage credential, which must not be reported as a conflict
+        Map<String, String> fileIoProperties = ImmutableMap.of(AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account", "sas-token-root");
+        IcebergStorageCredentials storageCredential = new IcebergStorageCredentials(
+                "abfss://container@account.dfs.core.windows.net/table/",
+                ImmutableMap.of(AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account.dfs.core.windows.net", "sas-token-prefix"));
+
+        TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(fileIoProperties, ImmutableList.of(storageCredential)));
+
+        fileSystem.newInputFile(Location.of("abfss://container@account.dfs.core.windows.net/table/file"));
+        assertThat(capturedIdentity.get().getExtraCredentials())
+                .containsExactlyInAnyOrderEntriesOf(ImmutableMap.of(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "account", "sas-token-prefix"));
+
+        fileSystem.newInputFile(Location.of("abfss://container@account.dfs.core.windows.net/other/file"));
+        assertThat(capturedIdentity.get().getExtraCredentials())
+                .containsExactlyInAnyOrderEntriesOf(ImmutableMap.of(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "account", "sas-token-root"));
+    }
+
+    @Test
+    void testAzureStorageCredentialsNoMatchingPrefix()
+    {
+        IcebergRestCatalogFileSystemFactory factory = createFactory(_ -> new MockTrinoFileSystem(), true);
+
+        IcebergStorageCredentials storageCredential = new IcebergStorageCredentials(
+                "abfss://container@account1.dfs.core.windows.net/table/",
+                ImmutableMap.of(AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account1.dfs.core.windows.net", "sas-token-a"));
+
+        TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of(storageCredential)));
+
+        assertThatThrownBy(() -> fileSystem.newInputFile(Location.of("abfss://container@account2.dfs.core.windows.net/table/file")))
+                .hasMessage("Failed to initialize the vended credentials from the provided fileIoProperties");
     }
 
     private static void assertGcsExtraCredentials(ConnectorIdentity identity, String oautToken)

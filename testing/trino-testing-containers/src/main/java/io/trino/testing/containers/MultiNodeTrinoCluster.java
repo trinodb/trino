@@ -14,7 +14,6 @@
 package io.trino.testing.containers;
 
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.trino.TrinoContainer;
@@ -34,7 +33,8 @@ import java.util.Properties;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import static io.trino.testing.containers.TrinoProductTestContainer.withResourceLimits;
+import static io.trino.testing.containers.TrinoProductTestContainer.STARTUP_TIMEOUT_SECONDS;
+import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -69,7 +69,6 @@ import static java.util.Objects.requireNonNull;
 public class MultiNodeTrinoCluster
         implements AutoCloseable
 {
-    private static final String BASE_IMAGE = "trinodb/trino";
     private static final String COORDINATOR_ALIAS = "trino-coordinator";
 
     private final TrinoContainer coordinator;
@@ -210,14 +209,6 @@ public class MultiNodeTrinoCluster
         return workers;
     }
 
-    /**
-     * Returns the expected number of nodes in the cluster (coordinator + workers).
-     */
-    public int getExpectedNodeCount()
-    {
-        return expectedNodeCount;
-    }
-
     @Override
     public void close()
     {
@@ -257,24 +248,6 @@ public class MultiNodeTrinoCluster
         private Consumer<TrinoWorkerContainer> workerCustomizer;
 
         private Builder() {}
-
-        /**
-         * Sets the Docker image to use for Trino.
-         */
-        public Builder withImage(String imageName)
-        {
-            this.imageName = requireNonNull(imageName, "imageName is null");
-            return this;
-        }
-
-        /**
-         * Sets the Trino version to use (uses trinodb/trino:{version}).
-         */
-        public Builder withVersion(String version)
-        {
-            this.imageName = BASE_IMAGE + ":" + requireNonNull(version, "version is null");
-            return this;
-        }
 
         /**
          * Adds a catalog configuration that will be applied to all nodes.
@@ -320,18 +293,6 @@ public class MultiNodeTrinoCluster
             requireNonNull(key, "key is null");
             requireNonNull(value, "value is null");
             configProperties.put(key, value);
-            return this;
-        }
-
-        /**
-         * Adds multiple config properties that will be applied to all nodes.
-         *
-         * @param properties the properties to add
-         */
-        public Builder withConfigProperties(Map<String, String> properties)
-        {
-            requireNonNull(properties, "properties is null");
-            configProperties.putAll(properties);
             return this;
         }
 
@@ -393,7 +354,7 @@ public class MultiNodeTrinoCluster
             }
 
             // Build coordinator
-            TrinoContainer coordinator = withResourceLimits(new TrinoContainer(DockerImageName.parse(imageName).asCompatibleSubstituteFor("trinodb/trino")));
+            TrinoContainer coordinator = configureTrinoContainer(new TrinoContainer(DockerImageName.parse(imageName).asCompatibleSubstituteFor("trinodb/trino")));
             coordinator.withNetwork(network);
             coordinator.withNetworkAliases(COORDINATOR_ALIAS);
 
@@ -432,19 +393,15 @@ public class MultiNodeTrinoCluster
                 coordinatorCustomizer.accept(coordinator);
             }
 
-            // Add a robust wait strategy
-            coordinator.waitingFor(
-                    Wait.forHttp("/v1/info")
-                            .forPort(8080)
-                            .forStatusCode(200)
-                            .withStartupTimeout(Duration.ofSeconds(90)));
+            // TrinoContainer waits by running a test query, ignoring waitingFor()
+            coordinator.withStartupTimeoutSeconds(STARTUP_TIMEOUT_SECONDS);
 
             // Build workers
             List<TrinoWorkerContainer> workers = new ArrayList<>();
             String discoveryUri = "http://" + COORDINATOR_ALIAS + ":8080";
 
             for (int i = 0; i < workerCount; i++) {
-                TrinoWorkerContainer worker = withResourceLimits(new TrinoWorkerContainer(imageName));
+                TrinoWorkerContainer worker = configureTrinoContainer(new TrinoWorkerContainer(imageName));
                 worker.withNetwork(network);
                 worker.withNetworkAliases("trino-worker-" + i);
                 worker.withDiscoveryUri(discoveryUri);

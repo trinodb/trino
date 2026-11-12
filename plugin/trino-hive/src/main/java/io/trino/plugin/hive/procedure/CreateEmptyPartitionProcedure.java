@@ -46,6 +46,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metastore.Partitions.makePartName;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
@@ -133,28 +134,34 @@ public class CreateEmptyPartitionProcedure
             if (metastore.getTable(schemaName, tableName).flatMap(table -> metastore.getPartition(table, partitionValues)).isPresent()) {
                 throw new TrinoException(ALREADY_EXISTS, "Partition already exists");
             }
-            HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
-            String partitionName = makePartName(actualPartitionColumnNames, partitionValues);
+            try {
+                HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
+                String partitionName = makePartName(actualPartitionColumnNames, partitionValues);
 
-            WriteInfo writeInfo = locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName);
-            Slice serializedPartitionUpdate = Slices.wrappedBuffer(
-                    partitionUpdateJsonCodec.toJsonBytes(
-                            new PartitionUpdate(
-                                    partitionName,
-                                    UpdateMode.NEW,
-                                    writeInfo.writePath().toString(),
-                                    writeInfo.targetPath().toString(),
-                                    ImmutableList.of(),
-                                    0,
-                                    0,
-                                    0)));
+                WriteInfo writeInfo = locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName);
+                Slice serializedPartitionUpdate = Slices.wrappedBuffer(
+                        partitionUpdateJsonCodec.toJsonBytes(
+                                new PartitionUpdate(
+                                        partitionName,
+                                        UpdateMode.NEW,
+                                        writeInfo.writePath().toString(),
+                                        writeInfo.targetPath().toString(),
+                                        ImmutableList.of(),
+                                        0,
+                                        0,
+                                        0)));
 
-            hiveMetadata.finishInsert(
-                    session,
-                    hiveInsertTableHandle,
-                    ImmutableList.of(),
-                    ImmutableList.of(serializedPartitionUpdate),
-                    ImmutableList.of());
+                hiveMetadata.finishInsert(
+                        session,
+                        hiveInsertTableHandle,
+                        ImmutableList.of(),
+                        ImmutableList.of(serializedPartitionUpdate),
+                        ImmutableList.of());
+            }
+            catch (Throwable t) {
+                closeAllSuppress(t, hiveMetadata::rollback);
+                throw t;
+            }
             hiveMetadata.commit();
         }
     }

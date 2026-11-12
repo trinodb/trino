@@ -24,7 +24,6 @@ import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -64,7 +63,7 @@ public class HiveHudiPartitionInfo
         this.partitionColumns = partitionColumns;
         if (partitionColumns.isEmpty()) {
             this.relativePartitionPath = NON_PARTITION;
-            this.hivePartitionKeys = Collections.emptyList();
+            this.hivePartitionKeys = ImmutableList.of();
         }
         this.hiveMetastore = hiveMetastore;
     }

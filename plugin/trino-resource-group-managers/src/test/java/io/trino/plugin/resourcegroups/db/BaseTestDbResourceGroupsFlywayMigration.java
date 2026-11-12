@@ -34,11 +34,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public abstract class BaseTestDbResourceGroupsFlywayMigration
 {
     protected final JdbcDatabaseContainer<?> container = startContainer();
-    protected final Jdbi jdbi = Jdbi.create(container.getJdbcUrl(), container.getUsername(), container.getPassword());
+    protected final Jdbi jdbi = Jdbi.create(ClassLoaderAwareConnectionFactory.create(container.getJdbcUrl(), container.getUsername(), container.getPassword()));
 
     protected abstract JdbcDatabaseContainer<?> startContainer();
-
-    protected abstract boolean tableExists(String tableName);
 
     @AfterAll
     public final void close()
@@ -49,11 +47,7 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
     @Test
     public void testMigrationWithEmptyDatabase()
     {
-        DbResourceGroupConfig config = new DbResourceGroupConfig()
-                .setConfigDbUrl(container.getJdbcUrl())
-                .setConfigDbUser(container.getUsername())
-                .setConfigDbPassword(container.getPassword());
-        new FlywayMigration(config).migrate();
+        migrateDatabase();
         verifyResourceGroupsSchema(0);
 
         dropAllTables();
@@ -67,11 +61,7 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
         Handle jdbiHandle = jdbi.open();
         jdbiHandle.execute(t1Create);
         jdbiHandle.execute(t2Create);
-        DbResourceGroupConfig config = new DbResourceGroupConfig()
-                .setConfigDbUrl(container.getJdbcUrl())
-                .setConfigDbUser(container.getUsername())
-                .setConfigDbPassword(container.getPassword());
-        new FlywayMigration(config).migrate();
+        migrateDatabase();
         verifyResourceGroupsSchema(0);
         String t1Drop = "DROP TABLE t1";
         String t2Drop = "DROP TABLE t2";
@@ -83,26 +73,9 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
     }
 
     @Test
-    public void testMigrationDisabled()
-    {
-        DbResourceGroupConfig config = new DbResourceGroupConfig()
-                .setConfigDbUrl(container.getJdbcUrl())
-                .setConfigDbUser(container.getUsername())
-                .setConfigDbPassword(container.getPassword())
-                .setRunMigrationsEnabled(false);
-        new FlywayMigration(config).migrate();
-        assertThat(tableExists("resource_groups")).isFalse();
-        assertThat(tableExists("resource_groups_global_properties")).isFalse();
-    }
-
-    @Test
     public void testMigrationForConstraints()
     {
-        DbResourceGroupConfig config = new DbResourceGroupConfig()
-                .setConfigDbUrl(container.getJdbcUrl())
-                .setConfigDbUser(container.getUsername())
-                .setConfigDbPassword(container.getPassword());
-        new FlywayMigration(config).migrate();
+        migrateDatabase();
         String cpuInsert = "INSERT INTO resource_groups_global_properties VALUES ('cpu_quota_period', '1h')";
         String dataInsert = "INSERT INTO resource_groups_global_properties VALUES ('physical_data_scan_quota_period', '1h')";
         Handle handle = jdbi.open();
@@ -143,5 +116,10 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
         jdbiHandle.execute(exactMatchTable);
         jdbiHandle.execute(flywayHistoryTable);
         jdbiHandle.close();
+    }
+
+    private void migrateDatabase()
+    {
+        new FlywayDatabaseMigrator(container.getJdbcUrl(), container.getUsername(), container.getPassword(), SupportedDatabase.requireSupported(container.getJdbcUrl()).getMigrationLocation()).migrate();
     }
 }

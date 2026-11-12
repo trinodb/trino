@@ -17,7 +17,6 @@ import io.trino.Session;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.Plugin;
-import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
@@ -146,11 +145,6 @@ public class TestingFunctionResolution
     public ResolvedFunction getCoercion(Type fromType, Type toType)
     {
         return inTransaction(session -> metadata.getCoercion(getCharVarcharCoercion(session), fromType, toType));
-    }
-
-    public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
-    {
-        return inTransaction(session -> metadata.getCoercion(getCharVarcharCoercion(session), name, fromType, toType));
     }
 
     public TestingFunctionCallBuilder functionCallBuilder(String name)

@@ -29,7 +29,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
-import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,7 +46,7 @@ public class TestOrcDeleteDeltaPageSource
                 new FileFormatDataSourceStats());
 
         ConnectorPageSource pageSource = pageSourceFactory.createPageSource(inputFile).orElseThrow();
-        MaterializedResult materializedRows = MaterializedResult.materializeSourceDataStream(SESSION, pageSource, ImmutableList.of(BIGINT, INTEGER, BIGINT));
+        MaterializedResult materializedRows = MaterializedResult.materializeSourceDataStream(pageSource, ImmutableList.of(BIGINT, INTEGER, BIGINT));
 
         assertThat(materializedRows.getRowCount()).isEqualTo(1);
 

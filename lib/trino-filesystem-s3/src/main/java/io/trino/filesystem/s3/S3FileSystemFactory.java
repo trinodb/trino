@@ -23,6 +23,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
 
@@ -40,7 +41,7 @@ public final class S3FileSystemFactory
     {
         this.loader = new S3FileSystemLoader(openTelemetry, config, stats);
         this.client = loader.createClient();
-        this.preSigner = createS3PreSigner(config, client);
+        this.preSigner = createS3PreSigner(new S3PresignerSettings(config), client);
         this.context = loader.context();
         this.uploadExecutor = loader.uploadExecutor();
     }
@@ -57,5 +58,12 @@ public final class S3FileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
         return new S3FileSystem(uploadExecutor, client, preSigner, context.withCredentials(identity));
+    }
+
+    @Override
+    public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
+    {
+        ConnectorIdentity identity = identitySupplier.get();
+        return new S3FileSystem(uploadExecutor, client, preSigner, context.withCredentials(identity, identitySupplier));
     }
 }

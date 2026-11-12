@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class SimpleCaseExpression
+public final class SimpleCaseExpression
         extends Expression
 {
     private final Expression operand;
@@ -49,12 +49,6 @@ public class SimpleCaseExpression
     public Optional<Expression> getDefaultValue()
     {
         return defaultValue;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSimpleCaseExpression(this, context);
     }
 
     @Override

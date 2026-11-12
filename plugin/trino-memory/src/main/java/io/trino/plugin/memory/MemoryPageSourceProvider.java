@@ -28,16 +28,12 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
-import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeUtils;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
@@ -66,7 +62,8 @@ public final class MemoryPageSourceProvider
             ConnectorTableHandle table,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         MemorySplit memorySplit = (MemorySplit) split;
         long tableId = memorySplit.table();
@@ -94,24 +91,21 @@ public final class MemoryPageSourceProvider
                 memorySplit.limit(),
                 sampleRatio);
 
-        return new DynamicFilteringPageSource(new FixedPageSource(pages), columns, dynamicFilter, enableLazyDynamicFiltering);
+        return new DynamicFilteringPageSource(new FixedPageSource(pages, memoryContext), dynamicFilter, enableLazyDynamicFiltering);
     }
 
     private static class DynamicFilteringPageSource
             implements ConnectorPageSource
     {
         private final FixedPageSource delegate;
-        private final List<ColumnHandle> columns;
         private final DynamicFilter dynamicFilter;
         private final boolean enableLazyDynamicFiltering;
         private long rows;
-        private long completedPositions;
         private boolean closed;
 
-        private DynamicFilteringPageSource(FixedPageSource delegate, List<ColumnHandle> columns, DynamicFilter dynamicFilter, boolean enableLazyDynamicFiltering)
+        private DynamicFilteringPageSource(FixedPageSource delegate, DynamicFilter dynamicFilter, boolean enableLazyDynamicFiltering)
         {
             this.delegate = delegate;
-            this.columns = columns;
             this.dynamicFilter = dynamicFilter;
             this.enableLazyDynamicFiltering = enableLazyDynamicFiltering;
         }
@@ -125,7 +119,7 @@ public final class MemoryPageSourceProvider
         @Override
         public OptionalLong getCompletedPositions()
         {
-            return OptionalLong.of(completedPositions);
+            return OptionalLong.of(rows);
         }
 
         @Override
@@ -146,19 +140,13 @@ public final class MemoryPageSourceProvider
             if (enableLazyDynamicFiltering && dynamicFilter.isAwaitable()) {
                 return null;
             }
-            TupleDomain<ColumnHandle> predicate = dynamicFilter.getCurrentPredicate();
-            if (predicate.isNone()) {
+            if (dynamicFilter.getCurrentPredicate().isNone()) {
                 close();
                 return null;
             }
             SourcePage page = delegate.getNextSourcePage();
             if (page == null) {
                 return null;
-            }
-            completedPositions += page.getPositionCount();
-
-            if (!predicate.isAll()) {
-                applyFilter(page, predicate.transformKeys(columns::indexOf).getDomains().get());
             }
             rows += page.getPositionCount();
             return page;
@@ -171,12 +159,6 @@ public final class MemoryPageSourceProvider
                 return dynamicFilter.isBlocked();
             }
             return NOT_BLOCKED;
-        }
-
-        @Override
-        public long getMemoryUsage()
-        {
-            return delegate.getMemoryUsage();
         }
 
         @Override
@@ -194,31 +176,5 @@ public final class MemoryPageSourceProvider
                     "finished", new LongCount(closed ? 1 : 0),
                     "started", new LongCount(1)));
         }
-    }
-
-    private static void applyFilter(SourcePage page, Map<Integer, Domain> domains)
-    {
-        int[] positions = new int[page.getPositionCount()];
-        int length = 0;
-        for (int position = 0; position < page.getPositionCount(); ++position) {
-            if (positionMatchesPredicate(page, position, domains)) {
-                positions[length++] = position;
-            }
-        }
-        page.selectPositions(positions, 0, length);
-    }
-
-    private static boolean positionMatchesPredicate(SourcePage page, int position, Map<Integer, Domain> domains)
-    {
-        for (Entry<Integer, Domain> entry : domains.entrySet()) {
-            int channel = entry.getKey();
-            Domain domain = entry.getValue();
-            Object value = TypeUtils.readNativeValue(domain.getType(), page.getBlock(channel), position);
-            if (!domain.includesNullableValue(value)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

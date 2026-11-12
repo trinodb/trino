@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class TableExecute
+public final class TableExecute
         extends Statement
 {
     private final Table table;
@@ -62,12 +62,6 @@ public class TableExecute
     public Optional<Expression> getWhere()
     {
         return where;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTableExecute(this, context);
     }
 
     @Override

@@ -111,7 +111,6 @@ import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static io.trino.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
-import static java.util.Collections.emptySet;
 
 public interface SystemAccessControl
 {
@@ -164,7 +163,7 @@ public interface SystemAccessControl
      */
     default Collection<Identity> filterViewQueryOwnedBy(Identity identity, Collection<Identity> queryOwners)
     {
-        return emptySet();
+        return Set.of();
     }
 
     /**
@@ -244,7 +243,7 @@ public interface SystemAccessControl
      */
     default Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
-        return emptySet();
+        return Set.of();
     }
 
     /**
@@ -308,7 +307,7 @@ public interface SystemAccessControl
      */
     default Set<String> filterSchemas(SystemSecurityContext context, String catalogName, Set<String> schemaNames)
     {
-        return emptySet();
+        return Set.of();
     }
 
     /**
@@ -420,7 +419,7 @@ public interface SystemAccessControl
      */
     default Set<SchemaTableName> filterTables(SystemSecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
-        return emptySet();
+        return Set.of();
     }
 
     /**
@@ -445,7 +444,7 @@ public interface SystemAccessControl
     @Deprecated
     default Set<String> filterColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
-        return emptySet();
+        return Set.of();
     }
 
     /**
@@ -995,7 +994,7 @@ public interface SystemAccessControl
      */
     default Set<SchemaFunctionName> filterFunctions(SystemSecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
     {
-        return emptySet();
+        return Set.of();
     }
 
     /**
@@ -1149,7 +1148,7 @@ public interface SystemAccessControl
      */
     default Iterable<EventListener> getEventListeners()
     {
-        return emptySet();
+        return Set.of();
     }
 
     default void shutdown() {}

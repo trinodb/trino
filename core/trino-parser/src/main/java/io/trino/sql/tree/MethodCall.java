@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class MethodCall
+public final class MethodCall
         extends Expression
 {
     private final Expression receiver;
@@ -53,12 +53,6 @@ public class MethodCall
     public boolean hasNamedArguments()
     {
         return arguments.stream().anyMatch(argument -> argument.getName().isPresent());
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMethodCall(this, context);
     }
 
     @Override

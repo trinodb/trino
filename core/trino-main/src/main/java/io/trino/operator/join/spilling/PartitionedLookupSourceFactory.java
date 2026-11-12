@@ -55,7 +55,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.SizeOf.sizeOfBooleanArray;
 import static io.trino.operator.join.OuterLookupSource.createOuterLookupSourceSupplier;
 import static io.trino.operator.join.spilling.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public final class PartitionedLookupSourceFactory
@@ -328,7 +327,7 @@ public final class PartitionedLookupSourceFactory
 
                 return immediateFuture(new PartitionedConsumption<>(
                         1,
-                        emptyList(),
+                        ImmutableList.of(),
                         _ -> {
                             throw new UnsupportedOperationException();
                         },

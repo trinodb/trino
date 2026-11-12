@@ -80,4 +80,44 @@ public class TestJsonPrinter
 
         assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
+
+    @Test
+    public void testJsonArrayPrinting()
+            throws IOException
+    {
+        StringWriter writer = new StringWriter();
+        OutputPrinter printer = new JsonPrinter(ImmutableList.of("strings", "numbers", "booleans"), writer);
+
+        printer.printRows(rows(
+                        row(row("GET", "a\"b\nc", null), row(123, -15, null), row(true, false, null)),
+                        row(row(), row(), row()),
+                        row(null, null, null)),
+                true);
+        printer.finish();
+
+        String expected = "" +
+                "{\"strings\":[\"GET\",\"a\\\"b\\nc\",null],\"numbers\":[123,-15,null],\"booleans\":[true,false,null]}\n" +
+                "{\"strings\":[],\"numbers\":[],\"booleans\":[]}\n" +
+                "{\"strings\":null,\"numbers\":null,\"booleans\":null}\n";
+
+        assertThat(writer.toString()).isEqualTo(expected);
+    }
+
+    @Test
+    public void testJsonNestedArrayPrinting()
+            throws IOException
+    {
+        StringWriter writer = new StringWriter();
+        OutputPrinter printer = new JsonPrinter(ImmutableList.of("strings", "binary"), writer);
+
+        printer.printRows(rows(row(
+                        row(row("GET", null), row(), null),
+                        row(row("hello".getBytes(UTF_8), null), row(), null))),
+                true);
+        printer.finish();
+
+        String expected = "{\"strings\":[[\"GET\",null],[],null],\"binary\":[[\"68 65 6c 6c 6f\",null],[],null]}\n";
+
+        assertThat(writer.toString()).isEqualTo(expected);
+    }
 }

@@ -22,7 +22,10 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.filesystem.metrics.MeasuredTrinoFileSystem;
+import io.trino.plugin.base.metrics.ApiCallStats;
 import io.trino.plugin.iceberg.IcebergStorageCredentials;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -41,10 +44,17 @@ public class IcebergRestCatalogFileSystem
 {
     protected List<IcebergStorageCredentials> storageCredentials = ImmutableList.of();
     private final IcebergRestCatalogFileSystemLoader loader;
+    private Optional<ApiCallStats> stats = Optional.empty();
 
     public IcebergRestCatalogFileSystem(IcebergRestCatalogFileSystemLoader loader)
     {
         this.loader = requireNonNull(loader, "loader is null");
+    }
+
+    public IcebergRestCatalogFileSystem measuredWith(ApiCallStats stats)
+    {
+        this.stats = Optional.of(stats);
+        return this;
     }
 
     public void setCredentials(List<IcebergStorageCredentials> storageCredentials)
@@ -208,8 +218,16 @@ public class IcebergRestCatalogFileSystem
         return fileSystem(location).encryptedPreSignedUri(location, ttl, key);
     }
 
+    @Override
+    public Metrics getMetrics()
+    {
+        // The file system is chosen per location, so there is no single delegate to report from
+        return Metrics.EMPTY;
+    }
+
     private TrinoFileSystem fileSystem(Location location)
     {
-        return loader.create(location);
+        TrinoFileSystem fileSystem = loader.create(location);
+        return stats.<TrinoFileSystem>map(value -> new MeasuredTrinoFileSystem(fileSystem, value)).orElse(fileSystem);
     }
 }

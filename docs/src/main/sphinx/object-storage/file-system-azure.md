@@ -33,6 +33,9 @@ system support:
     Use `core.usgovcloudapi.net` for the Azure US Government cloud,
     `core.cloudapi.de` for the Azure Germany cloud,
     or `core.chinacloudapi.cn` for the Azure China cloud.
+* - `azure.service-endpoint`
+  - HTTPS root URI of an Azure-compatible storage service. File-location hostname
+    suffixes remain controlled by `azure.endpoint`.
 * - `azure.read-block-size`
   - [Data size](prop-type-data-size) for blocks during read operations. Defaults
     to `4MB`.

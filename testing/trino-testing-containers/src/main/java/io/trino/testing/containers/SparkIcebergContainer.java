@@ -155,12 +155,4 @@ public class SparkIcebergContainer
     {
         return "jdbc:hive2://" + getHost() + ":" + getMappedPort(SPARK_THRIFT_PORT);
     }
-
-    /**
-     * Returns the internal JDBC URL for connecting from other containers on the same network.
-     */
-    public String getInternalJdbcUrl()
-    {
-        return "jdbc:hive2://" + HOST_NAME + ":" + SPARK_THRIFT_PORT;
-    }
 }

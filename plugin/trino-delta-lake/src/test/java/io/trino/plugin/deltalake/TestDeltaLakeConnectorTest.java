@@ -235,7 +235,7 @@ public class TestDeltaLakeConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -696,6 +696,30 @@ public class TestDeltaLakeConnectorTest
                 "SELECT * FROM " + tableName + " WHERE t = TIMESTAMP '" + value + "'",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 _ -> {});
+    }
+
+    @Test
+    public void testPartitionOnlyDeletePhysicalInputDataSize()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_partition_only_delete_input",
+                "WITH (partitioned_by = ARRAY['part']) AS SELECT x, x % 3 part FROM UNNEST(sequence(1, 100)) t(x)")) {
+            // Deleting by partition columns only generates row ids without reading data files
+            assertQueryStats(
+                    getSession(),
+                    "DELETE FROM " + table.getName() + " WHERE part % 3 = 0",
+                    queryStats -> {
+                        assertThat(queryStats.getPhysicalInputPositions()).isPositive();
+                        assertThat(queryStats.getPhysicalInputDataSize().toBytes()).isZero();
+                    },
+                    result -> assertThat(result.getOnlyValue()).isEqualTo(33L));
+
+            assertQueryStats(
+                    getSession(),
+                    "DELETE FROM " + table.getName() + " WHERE x % 2 = 0",
+                    queryStats -> assertThat(queryStats.getPhysicalInputDataSize().toBytes()).isPositive(),
+                    _ -> {});
+        }
     }
 
     @Test

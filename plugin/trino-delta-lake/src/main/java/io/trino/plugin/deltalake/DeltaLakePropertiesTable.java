@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -95,7 +96,7 @@ public class DeltaLakePropertiesTable
             throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + table.location(), e);
         }
 
-        return new FixedPageSource(buildPages(metadataEntry, protocolEntry));
+        return new FixedPageSource(buildPages(metadataEntry, protocolEntry), NO_LIMIT);
     }
 
     private List<Page> buildPages(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)

@@ -141,7 +141,7 @@ final class TestExasolConnectorTest
         // - double instead of decimal(10,2) for column totalprice
         // - integer instead of decimal(10,0) for column shippriority
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(19,0)", "", "")
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
@@ -160,7 +160,7 @@ final class TestExasolConnectorTest
     public void testDescribeTable()
     {
         // Exasol reports bigint columns as decimal(19,0)
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(19,0)", "", "")
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
@@ -243,7 +243,7 @@ final class TestExasolConnectorTest
     void testPredicatePushdownForChars()
     {
         // Equality against a varchar literal: the char column is coerced to varchar (trailing spaces trimmed,
-        // NO PAD comparison), but UnwrapCastInComparison rewrites c = varchar back to c = char(n) because the
+        // NO PAD comparison), but the cast preimage rewrites c = varchar back to c = char(n) because the
         // literal '0' round-trips through char(1) unchanged, so the predicate still pushes down as a char comparison.
         predicatePushdownTest("CHAR(1)", "'0'", "=", "'0'");
         // Ordering comparison against a char literal: char ordering is PAD SPACE, so the comparison must stay char-to-char

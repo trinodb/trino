@@ -668,11 +668,6 @@ public class TestElasticsearchMetadata
                 Optional.empty());
     }
 
-    private static AggregateFunction sumAggregation(String variableName)
-    {
-        return sumAggregation(variableName, BIGINT);
-    }
-
     private static AggregateFunction sumAggregation(String variableName, Type inputType)
     {
         return new AggregateFunction(

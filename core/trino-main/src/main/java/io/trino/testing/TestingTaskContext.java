@@ -133,18 +133,6 @@ public final class TestingTaskContext
             return this;
         }
 
-        public Builder setMaxSpillSize(DataSize maxSpillSize)
-        {
-            this.maxSpillSize = maxSpillSize;
-            return this;
-        }
-
-        public Builder setQueryMaxSpillSize(DataSize queryMaxSpillSize)
-        {
-            this.queryMaxSpillSize = queryMaxSpillSize;
-            return this;
-        }
-
         public Builder setQueryId(QueryId queryId)
         {
             this.queryId = queryId;

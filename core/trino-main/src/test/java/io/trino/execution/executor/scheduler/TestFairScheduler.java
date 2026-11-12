@@ -21,6 +21,8 @@ import io.airlift.testing.TestingTicker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -34,6 +36,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.testing.assertions.Assert.assertEventually;
+import static java.util.Collections.synchronizedList;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -62,7 +66,6 @@ public class TestFairScheduler
         };
 
         FairScheduler scheduler = new FairScheduler(2, threadFactory, Ticker.systemTicker());
-        scheduler.start();
         ExecutorService submitter = newSingleThreadExecutor(daemonThreadsNamed("submitter"));
         try {
             Group group = scheduler.createGroup("G1");
@@ -102,7 +105,6 @@ public class TestFairScheduler
         };
 
         FairScheduler scheduler = new FairScheduler(1, threadFactory, Ticker.systemTicker());
-        scheduler.start();
         Group group = scheduler.createGroup("G");
         ExecutorService executor = newSingleThreadExecutor(daemonThreadsNamed("submitter"));
         try {
@@ -155,6 +157,22 @@ public class TestFairScheduler
     }
 
     @Test
+    public void testRunnerFailureFailsFuture()
+    {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1)) {
+            Group group = scheduler.createGroup("G1");
+
+            ListenableFuture<Void> done = scheduler.submit(group, 1, _ -> {
+                throw new RuntimeException("runner failed");
+            });
+
+            assertThatThrownBy(done::get)
+                    .isInstanceOf(ExecutionException.class)
+                    .hasRootCauseMessage("runner failed");
+        }
+    }
+
+    @Test
     @Timeout(5)
     public void testYield()
             throws ExecutionException, InterruptedException
@@ -186,6 +204,92 @@ public class TestFairScheduler
             }
 
             task1.get();
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testYieldingTaskCompetesForItsSlot()
+            throws ExecutionException, InterruptedException
+    {
+        TestingTicker ticker = new TestingTicker();
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+            Group heavyGroup = scheduler.createGroup("heavy");
+            Group lightGroup = scheduler.createGroup("light");
+            List<String> events = synchronizedList(new ArrayList<>());
+
+            CountDownLatch heavyStarted = new CountDownLatch(1);
+            CountDownLatch heavyMayYield = new CountDownLatch(1);
+            ListenableFuture<Void> heavy = scheduler.submit(heavyGroup, 1, context -> {
+                heavyStarted.countDown();
+                awaitUninterruptibly(heavyMayYield);
+                if (context.maybeYield()) {
+                    events.add("heavy resumed");
+                }
+            });
+            heavyStarted.await();
+
+            CountDownLatch lightStarted = new CountDownLatch(1);
+            CountDownLatch lightMayYield = new CountDownLatch(1);
+            ListenableFuture<Void> light = scheduler.submit(lightGroup, 2, context -> {
+                lightStarted.countDown();
+                awaitUninterruptibly(lightMayYield);
+                if (context.maybeYield()) {
+                    events.add("light resumed");
+                }
+            });
+            assertEventually(() -> assertThat(scheduler.getTasks(lightGroup)).containsExactly(2));
+
+            // heavy yields after five quanta, handing the slot to light
+            ticker.increment(FairScheduler.QUANTUM_NANOS * 5, TimeUnit.NANOSECONDS);
+            heavyMayYield.countDown();
+            lightStarted.await();
+
+            // light yields after one quantum, still behind heavy in fair order, so it keeps the slot
+            ticker.increment(FairScheduler.QUANTUM_NANOS, TimeUnit.NANOSECONDS);
+            lightMayYield.countDown();
+
+            light.get();
+            heavy.get();
+            assertThat(events).containsExactly("light resumed", "heavy resumed");
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testCancelledYieldHandsOverSlot()
+            throws ExecutionException, InterruptedException
+    {
+        TestingTicker ticker = new TestingTicker();
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+            Group waitingGroup = scheduler.createGroup("waiting");
+            Group cancelledGroup = scheduler.createGroup("cancelled");
+
+            CountDownLatch cancelledStarted = new CountDownLatch(1);
+            CountDownLatch groupRemoved = new CountDownLatch(1);
+            CountDownLatch waitingRan = new CountDownLatch(1);
+            ListenableFuture<Void> cancelled = scheduler.submit(cancelledGroup, 1, context -> {
+                cancelledStarted.countDown();
+                awaitUninterruptibly(groupRemoved);
+                ticker.increment(FairScheduler.QUANTUM_NANOS * 2, TimeUnit.NANOSECONDS);
+                assertThat(context.maybeYield())
+                        .describedAs("Cancelled while yielding")
+                        .isFalse();
+                // the slot the cancelled yield freed goes to the waiting task while this one still runs
+                assertThat(awaitUninterruptibly(waitingRan, 5, TimeUnit.SECONDS))
+                        .describedAs("Waiting task ran on the freed slot")
+                        .isTrue();
+            });
+            cancelledStarted.await();
+
+            ListenableFuture<Void> waiting = scheduler.submit(waitingGroup, 2, _ -> waitingRan.countDown());
+            assertEventually(() -> assertThat(scheduler.getTasks(waitingGroup)).containsExactly(2));
+
+            scheduler.removeGroup(cancelledGroup);
+            groupRemoved.countDown();
+
+            cancelled.get();
+            waiting.get();
         }
     }
 

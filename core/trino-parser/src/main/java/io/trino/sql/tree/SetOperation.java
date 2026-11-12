@@ -18,8 +18,11 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public abstract class SetOperation
+public abstract sealed class SetOperation
         extends QueryBody
+        permits Except,
+                Intersect,
+                Union
 {
     private final boolean distinct;
     private final Optional<Corresponding> corresponding;
@@ -39,12 +42,6 @@ public abstract class SetOperation
     public Optional<Corresponding> getCorresponding()
     {
         return corresponding;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSetOperation(this, context);
     }
 
     public abstract List<Relation> getRelations();

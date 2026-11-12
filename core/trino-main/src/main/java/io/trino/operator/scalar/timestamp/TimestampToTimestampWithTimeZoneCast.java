@@ -13,8 +13,10 @@
  */
 package io.trino.operator.scalar.timestamp;
 
+import io.trino.operator.scalar.preimage.TimestampWithTimeZoneCastPreimage;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -37,6 +39,7 @@ import static io.trino.type.DateTimes.scaleFactor;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static java.lang.Math.incrementExact;
 
+@FunctionPreimage(TimestampWithTimeZoneCastPreimage.class)
 @ScalarOperator(CAST)
 public final class TimestampToTimestampWithTimeZoneCast
 {

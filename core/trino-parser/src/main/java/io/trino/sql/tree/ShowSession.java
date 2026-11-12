@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ShowSession
+public final class ShowSession
         extends Statement
 {
     private final Optional<String> likePattern;
@@ -43,12 +43,6 @@ public class ShowSession
     public Optional<String> getEscape()
     {
         return escape;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitShowSession(this, context);
     }
 
     @Override

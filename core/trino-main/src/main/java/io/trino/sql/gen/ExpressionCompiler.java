@@ -84,10 +84,9 @@ public class ExpressionCompiler
             List<PageProjection> pageProjections = pageProjectionSuppliers.stream()
                     .map(Supplier::get)
                     .collect(toImmutableList());
-            Optional<FilterEvaluator> dynamicFilterEvaluator = dynamicPageFilter
-                    .map(pageFilter -> pageFilter.createDynamicPageFilterEvaluator(columnarFilterCompiler, dynamicFilter))
-                    .map(Supplier::get);
-            return new PageProcessor(filterEvaluator, dynamicFilterEvaluator, pageProjections, initialBatchSize);
+            Optional<Supplier<FilterEvaluator>> dynamicFilterSupplier = dynamicPageFilter
+                    .map(pageFilter -> () -> pageFilter.createDynamicPageFilterEvaluator(columnarFilterCompiler, dynamicFilter).get());
+            return new PageProcessor(filterEvaluator, dynamicFilterSupplier, pageProjections, initialBatchSize);
         };
     }
 

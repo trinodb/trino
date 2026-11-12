@@ -16,12 +16,16 @@ package io.trino.spi.predicate;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
+import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -42,16 +46,21 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.predicate.Preconditions.checkArgument;
+import static io.trino.spi.predicate.Preconditions.checkState;
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.DISCRETE;
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.NON_DISCRETE;
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.UNKNOWN;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
+import static io.trino.spi.type.TypeUtils.isDirectLongComparisonValidType;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -95,9 +104,7 @@ public final class SortedRangeSet
     private SortedRangeSet(Type type, boolean[] inclusive, Block sortedRanges, DiscreteSetMarker discreteSetMarker)
     {
         requireNonNull(type, "type is null");
-        if (!type.isOrderable()) {
-            throw new IllegalArgumentException("Type is not orderable: " + type);
-        }
+        checkArgument(type.isOrderable(), "Type is not orderable: %s", type);
         this.type = type;
         this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
         this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
@@ -108,19 +115,14 @@ public final class SortedRangeSet
 
         requireNonNull(inclusive, "inclusive is null");
         requireNonNull(sortedRanges, "sortedRanges is null");
-        if (inclusive.length % 2 != 0) {
-            throw new IllegalArgumentException("Malformed inclusive markers");
-        }
-        if (inclusive.length != sortedRanges.getPositionCount()) {
-            throw new IllegalArgumentException(format("Size mismatch between inclusive markers and sortedRanges block: %s, %s", inclusive.length, sortedRanges.getPositionCount()));
-        }
-        for (int position = 0; position < sortedRanges.getPositionCount(); position++) {
-            if (sortedRanges.isNull(position)) {
-                if (inclusive[position]) {
-                    throw new IllegalArgumentException("Invalid inclusive marker for null value at position " + position);
-                }
-                if (position != 0 && position != sortedRanges.getPositionCount() - 1) {
-                    throw new IllegalArgumentException(format("Invalid null value at position %s of %s", position, sortedRanges.getPositionCount()));
+        checkArgument(inclusive.length % 2 == 0, "Malformed inclusive markers");
+        checkArgument(inclusive.length == sortedRanges.getPositionCount(), "Size mismatch between inclusive markers and sortedRanges block: %s, %s", inclusive.length, sortedRanges.getPositionCount());
+        if (sortedRanges.mayHaveNull()) {
+            for (int position = 0; position < sortedRanges.getPositionCount(); position++) {
+                if (sortedRanges.isNull(position)) {
+                    checkArgument(discreteSetMarker != DISCRETE, "Invalid null value at position %s of a discrete set", position);
+                    checkArgument(!inclusive[position], "Invalid inclusive marker for null value at position %s", position);
+                    checkArgument(position == 0 || position == sortedRanges.getPositionCount() - 1, "Invalid null value at position %s of %s", position, sortedRanges.getPositionCount());
                 }
             }
         }
@@ -158,14 +160,39 @@ public final class SortedRangeSet
     @Deprecated // Discourage usages in SPI consumers
     public static SortedRangeSet fromJson(
             @JsonProperty("type") Type type,
-            @JsonProperty("inclusive") boolean[] inclusive,
+            @JsonProperty("inclusive") byte[] packedInclusive,
             @JsonProperty("sortedRanges") Block sortedRanges,
             @JsonProperty("discreteSetMarker") DiscreteSetMarker discreteSetMarker)
     {
-        if (sortedRanges instanceof BlockBuilder) {
-            throw new IllegalArgumentException("sortedRanges must be a block: " + sortedRanges);
+        requireNonNull(sortedRanges, "sortedRanges is null");
+        checkArgument(!(sortedRanges instanceof BlockBuilder), "sortedRanges must be a block: %s", sortedRanges);
+        return new SortedRangeSet(type, unpackInclusive(packedInclusive, sortedRanges.getPositionCount()), sortedRanges, discreteSetMarker);
+    }
+
+    // Inclusive markers travel as a bit set, one bit per bound, least significant bit first.
+    private static byte[] packInclusive(boolean[] inclusive)
+    {
+        byte[] packed = new byte[(inclusive.length + 7) / 8];
+        for (int index = 0; index < inclusive.length; index++) {
+            if (inclusive[index]) {
+                packed[index >>> 3] |= (byte) (1 << (index & 7));
+            }
         }
-        return new SortedRangeSet(type, inclusive.clone(), sortedRanges, discreteSetMarker);
+        return packed;
+    }
+
+    private static boolean[] unpackInclusive(byte[] packed, int count)
+    {
+        checkArgument(packed != null, "inclusive is null");
+        int expectedLength = (count + 7) / 8;
+        checkArgument(packed.length == expectedLength, "Size mismatch between inclusive markers and sortedRanges block: %s bytes, expected %s bytes for %s positions", packed.length, expectedLength, count);
+        int usedBitsInLastByte = count & 7;
+        checkArgument(usedBitsInLastByte == 0 || (packed[packed.length - 1] & 0xFF) >>> usedBitsInLastByte == 0, "Invalid inclusive marker beyond position %s", count - 1);
+        boolean[] inclusive = new boolean[count];
+        for (int index = 0; index < count; index++) {
+            inclusive[index] = (packed[index >>> 3] & (1 << (index & 7))) != 0;
+        }
+        return inclusive;
     }
 
     /**
@@ -175,6 +202,24 @@ public final class SortedRangeSet
     {
         if (rest.length == 0) {
             return of(type, first);
+        }
+        if (isDirectLongComparisonValidType(type)) {
+            long[] values = new long[1 + rest.length];
+            values[0] = (long) requireNonNull(first, "value is null");
+            for (int i = 0; i < rest.length; i++) {
+                values[i + 1] = (long) requireNonNull(rest[i], "value is null");
+            }
+            Arrays.sort(values);
+            return fromOrderedLongValues(type, values);
+        }
+        if (isSliceOrderedType(type)) {
+            Slice[] values = new Slice[1 + rest.length];
+            values[0] = (Slice) requireNonNull(first, "value is null");
+            for (int i = 0; i < rest.length; i++) {
+                values[i + 1] = (Slice) requireNonNull(rest[i], "value is null");
+            }
+            Arrays.sort(values);
+            return fromOrderedSliceValues(type, values);
         }
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1 + rest.length);
@@ -194,6 +239,26 @@ public final class SortedRangeSet
         if (values.isEmpty()) {
             return none(type);
         }
+        if (isDirectLongComparisonValidType(type)) {
+            long[] primitiveValues = new long[values.size()];
+            int index = 0;
+            for (Object value : values) {
+                primitiveValues[index] = (long) requireNonNull(value, "value is null");
+                index++;
+            }
+            Arrays.sort(primitiveValues);
+            return fromOrderedLongValues(type, primitiveValues);
+        }
+        if (isSliceOrderedType(type)) {
+            Slice[] sliceValues = new Slice[values.size()];
+            int index = 0;
+            for (Object value : values) {
+                sliceValues[index] = (Slice) requireNonNull(value, "value is null");
+                index++;
+            }
+            Arrays.sort(sliceValues);
+            return fromOrderedSliceValues(type, sliceValues);
+        }
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, values.size());
         for (Object value : values) {
@@ -207,6 +272,9 @@ public final class SortedRangeSet
 
     private static SortedRangeSet fromUnorderedValuesBlock(Type type, Block block)
     {
+        checkArgument(!isDirectLongComparisonValidType(type), "Unexpected type in generic builder: %s", type);
+        checkArgument(!isSliceOrderedType(type), "Unexpected type in generic builder: %s", type);
+
         // choice of placing unordered values first or last does not matter for this code
         MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
 
@@ -223,9 +291,7 @@ public final class SortedRangeSet
 
         for (int i = 1; i < indexes.size(); i++) {
             int compare = compareValues(comparisonOperator, block, indexes.get(i - 1), block, indexes.get(i));
-            if (compare > 0) {
-                throw new IllegalStateException("Values not sorted");
-            }
+            checkState(compare <= 0, "Values not sorted");
             if (compare == 0) {
                 // equal, skip
                 continue;
@@ -236,14 +302,83 @@ public final class SortedRangeSet
             dictionaryIndex++;
         }
 
-        boolean[] inclusive = new boolean[dictionaryIndex];
-        Arrays.fill(inclusive, true);
+        return new SortedRangeSet(
+                type,
+                allInclusive(dictionaryIndex),
+                DictionaryBlock.create(dictionaryIndex, block, dictionary),
+                DISCRETE);
+    }
+
+    private static SortedRangeSet fromOrderedLongValues(Type type, long[] values)
+    {
+        int distinctCount = values.length > 0 ? 1 : 0;
+        for (int i = 1; i < values.length; i++) {
+            if (values[i] != values[i - 1]) {
+                distinctCount++;
+            }
+        }
+
+        BlockBuilder builder = type.createBlockBuilder(null, distinctCount * 2);
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0 && values[i] == values[i - 1]) {
+                continue;
+            }
+            // each distinct value is both the low and the high bound of a single value range
+            type.writeLong(builder, values[i]);
+            type.writeLong(builder, values[i]);
+        }
+        Block ranges = builder.build();
 
         return new SortedRangeSet(
                 type,
-                inclusive,
-                DictionaryBlock.create(dictionaryIndex, block, dictionary),
+                allInclusive(ranges.getPositionCount()),
+                ranges,
                 DISCRETE);
+    }
+
+    /**
+     * Types whose values order and compare equal exactly like their {@link Slice} values, unlike char.
+     */
+    private static boolean isSliceOrderedType(Type type)
+    {
+        return type instanceof VarcharType || type instanceof VarbinaryType || type instanceof UuidType;
+    }
+
+    private static SortedRangeSet fromOrderedSliceValues(Type type, Slice[] values)
+    {
+        int distinctCount = values.length > 0 ? 1 : 0;
+        for (int i = 1; i < values.length; i++) {
+            if (!values[i].equals(values[i - 1])) {
+                distinctCount++;
+            }
+        }
+
+        BlockBuilder distinctValues = type.createBlockBuilder(null, distinctCount);
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0 && values[i].equals(values[i - 1])) {
+                continue;
+            }
+            type.writeSlice(distinctValues, values[i]);
+        }
+
+        // each distinct value is both the low and the high bound of a single value range
+        int[] dictionary = new int[distinctCount * 2];
+        for (int i = 0; i < distinctCount; i++) {
+            dictionary[2 * i] = i;
+            dictionary[2 * i + 1] = i;
+        }
+        return new SortedRangeSet(
+                type,
+                allInclusive(dictionary.length),
+                DictionaryBlock.create(dictionary.length, distinctValues.build(), dictionary),
+                DISCRETE);
+    }
+
+    private static boolean[] allInclusive(int boundCount)
+    {
+        boolean[] inclusive = new boolean[boundCount];
+        Arrays.fill(inclusive, true);
+        return inclusive;
     }
 
     /**
@@ -263,9 +398,7 @@ public final class SortedRangeSet
 
     static SortedRangeSet of(List<Range> rangeList)
     {
-        if (rangeList.isEmpty()) {
-            throw new IllegalArgumentException("cannot use empty rangeList");
-        }
+        checkArgument(!rangeList.isEmpty(), "cannot use empty rangeList");
         return copyOf(rangeList.get(0).getType(), rangeList);
     }
 
@@ -300,10 +433,17 @@ public final class SortedRangeSet
         return type;
     }
 
-    @JsonProperty
     public boolean[] getInclusive()
     {
         return inclusive;
+    }
+
+    @JsonProperty("inclusive")
+    @DoNotCall // For JSON serialization only
+    @Deprecated // Discourage usages in SPI consumers
+    public byte[] getPackedInclusive()
+    {
+        return packInclusive(inclusive);
     }
 
     @JsonProperty
@@ -443,9 +583,7 @@ public final class SortedRangeSet
 
     public Range getSpan()
     {
-        if (isNone()) {
-            throw new IllegalStateException("Cannot get span if no ranges exist");
-        }
+        checkState(!isNone(), "Cannot get span if no ranges exist");
         int lastIndex = (getRangeCount() - 1) * 2 + 1;
         return new RangeView(
                 type,
@@ -536,7 +674,15 @@ public final class SortedRangeSet
     }
 
     @Override
-    public SortedRangeSet intersect(ValueSet other)
+    public ValueSet intersect(ValueSet other)
+    {
+        if (other instanceof FloatingPointValueSet floatingPoint) {
+            return floatingPoint.intersect(this);
+        }
+        return intersect(checkCompatibility(other));
+    }
+
+    public SortedRangeSet intersect(SortedRangeSet other)
     {
         SortedRangeSet that = checkCompatibility(other);
 
@@ -802,6 +948,19 @@ public final class SortedRangeSet
     @Override
     public boolean overlaps(ValueSet other)
     {
+        if (other instanceof FloatingPointValueSet floatingPoint) {
+            return floatingPoint.overlaps(this);
+        }
+        if (typeHasNaN(type)) {
+            // An unbounded end and an inclusive infinity denote the same ordered values
+            return FloatingPointValueSet.fromRanges(this).overlaps(other);
+        }
+        return overlaps(checkCompatibility(other));
+    }
+
+    /// Compares the ranges of both sets without interpreting NaN membership.
+    boolean overlaps(SortedRangeSet other)
+    {
         SortedRangeSet that = checkCompatibility(other);
 
         if (this.isNone() || that.isNone()) {
@@ -931,25 +1090,49 @@ public final class SortedRangeSet
     }
 
     @Override
-    public SortedRangeSet union(Collection<ValueSet> valueSets)
+    public ValueSet union(Collection<ValueSet> valueSets)
+    {
+        // A union of proper subsets can cover every ordered value. Join them with explicit NaN
+        // membership, so the result does not become the all-values set, which includes NaN.
+        if (typeHasNaN(type) || valueSets.stream().anyMatch(FloatingPointValueSet.class::isInstance)) {
+            return FloatingPointValueSet.fromRanges(this).union(valueSets);
+        }
+        return unionRanges(valueSets.stream().map(this::checkCompatibility).toList());
+    }
+
+    SortedRangeSet unionRanges(Collection<SortedRangeSet> valueSets)
     {
         if (this.isAll()) {
             return this;
         }
 
-        // Logically this organizes all value sets (this and valueSets) into a binary tree and merges them pairwise, bottom-up.
-        // TODO generalize union(SortedRangeSet) to merge multiple sources at once
-
         List<SortedRangeSet> toUnion = new ArrayList<>(1 + valueSets.size());
-        toUnion.add(this);
+        if (!this.isNone()) {
+            toUnion.add(this);
+        }
         for (ValueSet valueSet : valueSets) {
             SortedRangeSet other = checkCompatibility(valueSet);
             if (other.isAll()) {
                 return other;
             }
+            if (other.isNone()) {
+                continue;
+            }
             toUnion.add(other);
         }
 
+        if (toUnion.isEmpty()) {
+            return this;
+        }
+        if (toUnion.size() == 1) {
+            return toUnion.get(0);
+        }
+        if (toUnion.stream().allMatch(rangeSet -> rangeSet.discreteSetMarker == DISCRETE)) {
+            return kWayDiscreteSetUnion(toUnion);
+        }
+
+        // Logically this organizes all value sets (this and valueSets) into a binary tree and merges them pairwise, bottom-up.
+        // TODO merge non-discrete sets in one pass like kWayDiscreteSetUnion
         while (toUnion.size() > 1) {
             List<SortedRangeSet> unioned = new ArrayList<>((toUnion.size() + 1) / 2);
             for (int i = 0; i < toUnion.size() - 1; i += 2) {
@@ -965,7 +1148,29 @@ public final class SortedRangeSet
     }
 
     @Override
-    public SortedRangeSet union(ValueSet other)
+    public ValueSet union(ValueSet other)
+    {
+        if (other instanceof FloatingPointValueSet floatingPoint) {
+            return floatingPoint.union(this);
+        }
+        if (typeHasNaN(type)) {
+            // See union(Collection)
+            return FloatingPointValueSet.fromRanges(this).union(other);
+        }
+        return union(checkCompatibility(other));
+    }
+
+    @Override
+    public ValueSet subtract(ValueSet other)
+    {
+        if (typeHasNaN(type) || other instanceof FloatingPointValueSet) {
+            // The complement of a proper subset excludes NaN even when this set includes it
+            return FloatingPointValueSet.fromRanges(this).subtract(other);
+        }
+        return intersect(other.complement());
+    }
+
+    public SortedRangeSet union(SortedRangeSet other)
     {
         SortedRangeSet that = checkCompatibility(other);
 
@@ -1125,6 +1330,139 @@ public final class SortedRangeSet
         return new SortedRangeSet(type, inclusive, blockBuilder.build(), leftRangeSet.unionIsDiscreteSet(rightRangeSet, resultRangeIndex > 0));
     }
 
+    // Cursor of a set with no values left.
+    private static final int EXHAUSTED = -1;
+
+    // Merges two or more non-empty discrete sets of the same type in one pass with a loser tree over one cursor
+    // per set. Leaves are the sets, conceptually at nodes setCount to 2 * setCount - 1, and node n has the children
+    // 2n and 2n + 1. losers[n] holds the set that lost the match at node n and losers[0] the overall winner.
+    // An exhausted set loses every match.
+    private static SortedRangeSet kWayDiscreteSetUnion(List<SortedRangeSet> rangeSets)
+    {
+        int setCount = rangeSets.size();
+        Type type = rangeSets.get(0).type;
+        MethodHandle valueComparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(
+                type,
+                simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
+
+        Block[] sortedRangesBlocks = new Block[setCount];
+        ValueBlock[] valueBlocks = new ValueBlock[setCount];
+        int[] rangeCounts = new int[setCount];
+        // range index of the current value of each set
+        int[] currentRangeIndexes = new int[setCount];
+        // position of the current value of each set within its value block
+        int[] currentPositions = new int[setCount];
+        int totalPositionCount = 0;
+        for (int setIndex = 0; setIndex < setCount; setIndex++) {
+            SortedRangeSet rangeSet = rangeSets.get(setIndex);
+            sortedRangesBlocks[setIndex] = rangeSet.sortedRanges;
+            valueBlocks[setIndex] = rangeSet.sortedRanges.getUnderlyingValueBlock();
+            rangeCounts[setIndex] = rangeSet.getRangeCount();
+            currentPositions[setIndex] = rangeSet.sortedRanges.getUnderlyingValuePosition(0);
+            totalPositionCount = Math.addExact(totalPositionCount, rangeSet.sortedRanges.getPositionCount());
+        }
+
+        int[] losers = new int[setCount];
+        // subtreeWinners[n] is the set that won the match at node n; a leaf wins its own subtree
+        int[] subtreeWinners = new int[2 * setCount];
+        for (int setIndex = 0; setIndex < setCount; setIndex++) {
+            subtreeWinners[setCount + setIndex] = setIndex;
+        }
+        for (int node = setCount - 1; node >= 1; node--) {
+            int leftWinner = subtreeWinners[2 * node];
+            int rightWinner = subtreeWinners[2 * node + 1];
+            if (isLess(valueComparisonOperator, valueBlocks, currentPositions, leftWinner, rightWinner)) {
+                losers[node] = rightWinner;
+                subtreeWinners[node] = leftWinner;
+            }
+            else {
+                losers[node] = leftWinner;
+                subtreeWinners[node] = rightWinner;
+            }
+        }
+        losers[0] = subtreeWinners[1];
+
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, totalPositionCount);
+        // values already consumed from the winning set but not yet copied to the result
+        int runSetIndex = losers[0];
+        int runStartRangeIndex = 0;
+        int runRangeCount = 0;
+        int lastPosition = -1;
+        while (losers[0] != EXHAUSTED) {
+            int winner = losers[0];
+            if (winner != runSetIndex) {
+                if (compareValueBlocks(valueComparisonOperator, valueBlocks[winner], currentPositions[winner], valueBlocks[runSetIndex], lastPosition) == 0) {
+                    advance(valueComparisonOperator, valueBlocks, currentPositions, sortedRangesBlocks, rangeCounts, currentRangeIndexes, losers, winner);
+                    continue;
+                }
+                blockBuilder.appendBlockRange(sortedRangesBlocks[runSetIndex], runStartRangeIndex * 2, runRangeCount * 2);
+                runSetIndex = winner;
+                runStartRangeIndex = currentRangeIndexes[winner];
+                runRangeCount = 0;
+            }
+            runRangeCount++;
+            lastPosition = currentPositions[winner];
+            advance(valueComparisonOperator, valueBlocks, currentPositions, sortedRangesBlocks, rangeCounts, currentRangeIndexes, losers, winner);
+        }
+        blockBuilder.appendBlockRange(sortedRangesBlocks[runSetIndex], runStartRangeIndex * 2, runRangeCount * 2);
+
+        Block sortedRanges = blockBuilder.build();
+        // overlapping inputs leave unused capacity behind the result; drop it when it is more than half
+        if (sortedRanges.getPositionCount() < totalPositionCount / 2) {
+            sortedRanges = sortedRanges.copyRegion(0, sortedRanges.getPositionCount());
+        }
+        return new SortedRangeSet(type, allInclusive(sortedRanges.getPositionCount()), sortedRanges, DISCRETE);
+    }
+
+    // Moves the set to its next value and replays its matches up the loser tree.
+    private static void advance(
+            MethodHandle valueComparisonOperator,
+            ValueBlock[] valueBlocks,
+            int[] currentPositions,
+            Block[] sortedRangesBlocks,
+            int[] rangeCounts,
+            int[] currentRangeIndexes,
+            int[] losers,
+            int setIndex)
+    {
+        int candidate = EXHAUSTED;
+        int rangeIndex = currentRangeIndexes[setIndex] + 1;
+        currentRangeIndexes[setIndex] = rangeIndex;
+        if (rangeIndex < rangeCounts[setIndex]) {
+            currentPositions[setIndex] = sortedRangesBlocks[setIndex].getUnderlyingValuePosition(rangeIndex * 2);
+            candidate = setIndex;
+        }
+        for (int node = (setIndex + losers.length) / 2; node > 0; node /= 2) {
+            if (isLess(valueComparisonOperator, valueBlocks, currentPositions, losers[node], candidate)) {
+                int loser = candidate;
+                candidate = losers[node];
+                losers[node] = loser;
+            }
+        }
+        losers[0] = candidate;
+    }
+
+    private static boolean isLess(MethodHandle valueComparisonOperator, ValueBlock[] valueBlocks, int[] currentPositions, int leftSetIndex, int rightSetIndex)
+    {
+        if (leftSetIndex == EXHAUSTED) {
+            return false;
+        }
+        if (rightSetIndex == EXHAUSTED) {
+            return true;
+        }
+        return compareValueBlocks(valueComparisonOperator, valueBlocks[leftSetIndex], currentPositions[leftSetIndex], valueBlocks[rightSetIndex], currentPositions[rightSetIndex]) < 0;
+    }
+
+    private static int compareValueBlocks(MethodHandle valueComparisonOperator, ValueBlock leftBlock, int leftPosition, ValueBlock rightBlock, int rightPosition)
+    {
+        try {
+            return (int) (long) valueComparisonOperator.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);
+        }
+        catch (Throwable throwable) {
+            throw handleThrowable(throwable);
+        }
+    }
+
     private DiscreteSetMarker unionIsDiscreteSet(SortedRangeSet that, boolean nonEmpty)
     {
         // union set will be discrete if all input sets are discrete
@@ -1140,6 +1478,16 @@ public final class SortedRangeSet
 
     @Override
     public boolean contains(ValueSet other)
+    {
+        // An unbounded end and an inclusive infinity denote the same ordered values
+        if (typeHasNaN(type) || other instanceof FloatingPointValueSet) {
+            return FloatingPointValueSet.fromRanges(this).contains(other);
+        }
+        return contains(checkCompatibility(other));
+    }
+
+    /// Compares the ranges of both sets without interpreting NaN membership.
+    boolean contains(SortedRangeSet other)
     {
         SortedRangeSet that = checkCompatibility(other);
 
@@ -1231,9 +1579,7 @@ public final class SortedRangeSet
             resultRangeIndex++;
         }
 
-        if (resultRangeIndex * 2 != inclusive.length) {
-            throw new IllegalStateException("Incorrect number of ranges written");
-        }
+        checkState(resultRangeIndex * 2 == inclusive.length, "Incorrect number of ranges written");
 
         return new SortedRangeSet(
                 type,
@@ -1244,9 +1590,7 @@ public final class SortedRangeSet
 
     private SortedRangeSet checkCompatibility(ValueSet other)
     {
-        if (!getType().equals(other.getType())) {
-            throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
-        }
+        checkState(getType().equals(other.getType()), "Mismatched types: %s vs %s", getType(), other.getType());
         if (!(other instanceof SortedRangeSet sortedRangeSet)) {
             throw new IllegalStateException(format("ValueSet is not a SortedRangeSet: %s", other.getClass()));
         }
@@ -1385,9 +1729,7 @@ public final class SortedRangeSet
                 return Optional.empty();
             }
             Iterator<?> iterator = discreteValues.get().iterator();
-            if (!iterator.hasNext()) {
-                throw new IllegalStateException("discreteValues iterator is empty");
-            }
+            checkState(iterator.hasNext(), "discreteValues iterator is empty");
             if (!range.isLowInclusive()) {
                 iterator.next();
             }
@@ -1474,15 +1816,11 @@ public final class SortedRangeSet
         requireNonNull(type, "type is null");
         requireNonNull(unsortedRanges, "unsortedRanges is null");
 
-        if (!type.isOrderable()) {
-            throw new IllegalArgumentException("Type is not orderable: " + type);
-        }
+        checkArgument(type.isOrderable(), "Type is not orderable: %s", type);
 
         List<Range> ranges = new ArrayList<>(unsortedRanges);
         for (Range range : ranges) {
-            if (!type.equals(range.getType())) {
-                throw new IllegalArgumentException(format("Range type %s does not match builder type %s", range.getType(), type));
-            }
+            checkArgument(type.equals(range.getType()), "Range type %s does not match builder type %s", range.getType(), type);
         }
 
         ranges.sort(Range::compareLowBound);
@@ -1538,9 +1876,7 @@ public final class SortedRangeSet
 
     private static void checkNotNaN(Type type, Object value)
     {
-        if (isFloatingPointNaN(type, value)) {
-            throw new IllegalArgumentException("cannot use NaN as range bound");
-        }
+        checkArgument(!isFloatingPointNaN(type, value), "cannot use NaN as range bound");
     }
 
     private static class RangeView
@@ -1627,9 +1963,7 @@ public final class SortedRangeSet
          */
         public Optional<RangeView> tryMergeWithNext(RangeView next)
         {
-            if (this.compareTo(next) > 0) {
-                throw new IllegalArgumentException("next before this");
-            }
+            checkArgument(this.compareTo(next) <= 0, "next before this");
 
             if (this.isHighUnbounded()) {
                 return Optional.of(this);

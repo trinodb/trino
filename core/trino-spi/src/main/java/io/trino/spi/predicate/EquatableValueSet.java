@@ -20,7 +20,6 @@ import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -86,12 +85,12 @@ public class EquatableValueSet
 
     static EquatableValueSet none(Type type)
     {
-        return new EquatableValueSet(type, true, Collections.emptySet());
+        return new EquatableValueSet(type, true, Set.of());
     }
 
     static EquatableValueSet all(Type type)
     {
-        return new EquatableValueSet(type, false, Collections.emptySet());
+        return new EquatableValueSet(type, false, Set.of());
     }
 
     static EquatableValueSet of(Type type, Object first, Object... rest)
@@ -452,6 +451,7 @@ public class EquatableValueSet
 
         public static ValueEntry create(Type type, Object value)
         {
+            requireNonNull(value, "value is null");
             return new ValueEntry(type, writeNativeValue(type, value));
         }
 

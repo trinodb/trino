@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class TryExpression
+public final class TryExpression
         extends Expression
 {
     private final Expression innerExpression;
@@ -34,12 +34,6 @@ public class TryExpression
     public Expression getInnerExpression()
     {
         return innerExpression;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTryExpression(this, context);
     }
 
     @Override

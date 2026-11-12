@@ -56,6 +56,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.BytecodeUtils.fitsMethodSizeLimit;
+import static io.airlift.bytecode.BytecodeUtils.isJitCompilable;
 import static io.airlift.bytecode.OpCode.NOP;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantClassDataAt;
@@ -94,11 +96,6 @@ public final class BytecodeUtils
     public static BytecodeNode ifWasNullPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Iterable<? extends Class<?>> stackArgsToPop)
     {
         return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
-    }
-
-    public static BytecodeNode ifWasNullClearPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
-    {
-        return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), true);
     }
 
     public static BytecodeNode handleNullValue(
@@ -571,5 +568,11 @@ public final class BytecodeUtils
         scope.releaseTempVariableForReuse(tempOutput);
         scope.releaseTempVariableForReuse(tempValue);
         return block;
+    }
+
+    // The 64KB JVM limit is checked separately, as -XX:-DontCompileHugeMethods makes the JIT limit vacuous
+    public static boolean fitsJitCompilableMethod(BytecodeNode node, Scope scope)
+    {
+        return isJitCompilable(node, scope) && fitsMethodSizeLimit(node, scope);
     }
 }

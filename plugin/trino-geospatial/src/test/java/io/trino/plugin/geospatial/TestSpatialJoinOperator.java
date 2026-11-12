@@ -154,7 +154,7 @@ public class TestSpatialJoinOperator
                 .pageBreak()
                 .row(POINT_W, "w");
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR))
                 .row("x", "A")
                 .row("y", "A")
                 .row("y", "B")
@@ -178,7 +178,7 @@ public class TestSpatialJoinOperator
                 .row(srid("POINT Z (6 6 123)"), "z")
                 .row(srid("POINT Z (20 20 0)"), "w");
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR))
                 .row("x", "A")
                 .row("y", "A")
                 .row("y", "B")
@@ -198,7 +198,7 @@ public class TestSpatialJoinOperator
                 .row(srid("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))"), "A");
         PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.contains(probe), OptionalInt.empty(), Optional.empty(), buildPages);
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR)).build();
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR)).build();
         RowPagesBuilder mismatchedProbePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(srid("POINT (20 20)", OTHER_TEST_SRID), "w");
         OperatorFactory mismatchedProbeJoinOperatorFactory = new SpatialJoinOperatorFactory(3, new PlanNodeId("test"), INNER, mismatchedProbePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), pagesSpatialIndexFactory);
@@ -219,7 +219,7 @@ public class TestSpatialJoinOperator
         RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(stPoint(1, 1), "x")
                 .row(stPoint(11, 11), "y");
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR))
                 .row("x", "A")
                 .row("y", "B")
                 .build();
@@ -238,7 +238,7 @@ public class TestSpatialJoinOperator
                 .row(srid("POLYGON ((10 10, 10 15, 15 15, 15 10, 10 10))", OTHER_TEST_SRID), "B");
         PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.contains(probe), OptionalInt.empty(), Optional.empty(), buildPages);
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR)).build();
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR)).build();
         RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(srid("POINT (20 20)", TEST_SRID), "w");
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(4, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), pagesSpatialIndexFactory);
@@ -256,7 +256,7 @@ public class TestSpatialJoinOperator
                 .row(stGeometryFromText(Slices.utf8Slice("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))")), "A");
         RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(srid("POINT (1 1)", TEST_SRID), "x");
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR))
                 .row("x", "A")
                 .build();
 
@@ -281,7 +281,7 @@ public class TestSpatialJoinOperator
                 .row(POINT_Z, "z")
                 .pageBreak()
                 .row(POINT_W, "w");
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR))
                 .row("x", "A")
                 .row("null", null)
                 .row("y", "A")
@@ -316,7 +316,7 @@ public class TestSpatialJoinOperator
                 .pageBreak()
                 .row(POINT_W, "w");
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR)).build();
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR)).build();
 
         assertSpatialJoin(taskContext, INNER, buildPages, probePages, expected);
     }
@@ -336,7 +336,7 @@ public class TestSpatialJoinOperator
                 .pageBreak()
                 .row(POINT_W, "w");
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR))
                 .row("x", null)
                 .row("null", null)
                 .row("y", null)
@@ -359,7 +359,7 @@ public class TestSpatialJoinOperator
 
         RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR));
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR)).build();
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR)).build();
 
         assertSpatialJoin(taskContext, INNER, buildPages, probePages, expected);
     }
@@ -464,10 +464,63 @@ public class TestSpatialJoinOperator
             secondFactory.noMoreOperators();
         }
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR))
                 .row("0_1", "0_0")
                 .build();
         assertOperatorEquals(firstFactory, probeDriver, probePages.build(), expected);
+    }
+
+    @Test
+    public void testProbeBlockedUntilIndexIsBuilt()
+            throws Exception
+    {
+        TaskContext taskContext = createTaskContext();
+        PipelineContext pipelineContext = taskContext.addPipelineContext(0, true, true, false);
+        DriverContext buildDriverContext = pipelineContext.addDriverContext();
+
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(POLYGON_A, "A");
+        ValuesOperator.ValuesOperatorFactory valuesOperatorFactory = new ValuesOperator.ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.build());
+        SpatialIndexBuilderOperatorFactory buildOperatorFactory = new SpatialIndexBuilderOperatorFactory(
+                1,
+                new PlanNodeId("test"),
+                buildPages.getTypes(),
+                Ints.asList(1),
+                0,
+                OptionalInt.empty(),
+                OptionalDouble.empty(),
+                OptionalInt.empty(),
+                (build, probe, _) -> build.contains(probe),
+                Optional.empty(),
+                Optional.empty(),
+                10_000,
+                new TestingFactory(false));
+        Driver buildDriver = Driver.createDriver(
+                buildDriverContext,
+                valuesOperatorFactory.createOperator(buildDriverContext),
+                buildOperatorFactory.createOperator(buildDriverContext));
+
+        RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR));
+        OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), buildOperatorFactory.getPagesSpatialIndexFactory());
+        try (Operator probeOperator = joinOperatorFactory.createOperator(pipelineContext.addDriverContext());
+                Operator finishingProbeOperator = joinOperatorFactory.createOperator(pipelineContext.addDriverContext())) {
+            ListenableFuture<Void> probeBlocked = probeOperator.isBlocked();
+            assertThat(probeBlocked.isDone()).isFalse();
+            assertThat(probeOperator.needsInput()).isFalse();
+
+            finishingProbeOperator.finish();
+            assertThat(finishingProbeOperator.isBlocked().isDone()).isTrue();
+            assertThat(finishingProbeOperator.getOutput()).isNull();
+            assertThat(finishingProbeOperator.isFinished()).isTrue();
+
+            while (!probeOperator.isBlocked().isDone()) {
+                buildDriver.processUntilBlocked();
+            }
+            assertThat(probeBlocked.isDone()).isTrue();
+            assertThat(probeOperator.needsInput()).isTrue();
+        }
+        joinOperatorFactory.noMoreOperators();
+        runDriverInThread(executor, buildDriver);
     }
 
     @Test
@@ -496,7 +549,7 @@ public class TestSpatialJoinOperator
                 .row(stPoint(10, 1), "10_1");
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), pagesSpatialIndexFactory);
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR))
                 .row("0_1", "0_0")
                 .row("0_1", "1_0")
                 .row("1_1", "0_0")
@@ -528,7 +581,7 @@ public class TestSpatialJoinOperator
                 .row(srid("POINT Z (10 1 -400)"), "10_1");
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), pagesSpatialIndexFactory);
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR))
                 .row("0_1", "0_0")
                 .row("0_1", "1_0")
                 .row("1_1", "0_0")
@@ -561,7 +614,7 @@ public class TestSpatialJoinOperator
                 .pageBreak()
                 .row(POINT_Z, "z", 0);
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR))
                 .row("x", "A")
                 .row("y", "A")
                 .row("y", "B")
@@ -590,7 +643,7 @@ public class TestSpatialJoinOperator
                 .row(srid("POINT Z (4.5 4.5 -7)"), "y", 2)
                 .row(srid("POINT Z (6 6 123)"), "z", 0);
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR))
                 .row("x", "A")
                 .row("y", "A")
                 .row("y", "B")
@@ -616,7 +669,7 @@ public class TestSpatialJoinOperator
                 .row(POLYGON_B, "B", 0)
                 .row(POLYGON_B, "B", 2);
 
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+        MaterializedResult expected = resultBuilder(ImmutableList.of(VARCHAR, VARCHAR))
                 .row("A", "A")
                 .row("A", "B")
                 .row("B", "A")

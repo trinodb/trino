@@ -14,6 +14,7 @@
 
 package io.trino.plugin.base.metrics;
 
+import com.fasterxml.jackson.core.Base64Variants;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.TDigest;
@@ -26,6 +27,7 @@ import java.util.Arrays;
 import java.util.Map;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.spi.metrics.Metrics.accumulator;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -94,6 +96,10 @@ public class TestMetrics
         String json = codec.toJson(new TDigestHistogram(digest));
         TDigestHistogram result = codec.fromJson(json);
         assertThat(result.getDigest().getCount()).isEqualTo(digest.getCount());
+        assertThat(result.getDigest().serialize()).isEqualTo(digest.serialize());
+        // same text as Jackson's byte[] encoding of the digest
+        assertThat(mapJsonCodec(String.class, Object.class).fromJson(json).get("digest"))
+                .isEqualTo(Base64Variants.MIME_NO_LINEFEEDS.encode(digest.serialize().getBytes()));
     }
 
     @Test

@@ -308,9 +308,13 @@ public class TestDeltaLakeAlluxioCacheFileOperations
 
     @Test
     public void testTimeTravelWithLastCheckpoint()
+            throws Exception
     {
         // Version 2 has a checkpoint file
-        registerTable("time_travel_with_last_checkpoint", "trino440/time_travel");
+        Path tableLocation = Files.createTempFile("time_travel_with_last_checkpoint", null);
+        copyDirectoryContents(new File(Resources.getResource("trino440/time_travel").toURI()).toPath(), tableLocation);
+
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, 'time_travel_with_last_checkpoint', '" + tableLocation.toUri() + "')");
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'time_travel_with_last_checkpoint')");
 
         assertFileSystemAccesses(
@@ -359,16 +363,24 @@ public class TestDeltaLakeAlluxioCacheFileOperations
 
     @Test
     public void testTimeTravelWithLastCheckpointUsingTemporalVersion()
+            throws Exception
     {
         // Version 2 has a checkpoint file
-        registerTable("time_travel_with_last_checkpoint_using_temporal", "trino440/time_travel");
+        Path tableLocation = Files.createTempFile("time_travel_with_last_checkpoint_using_temporal", null);
+        copyDirectoryContents(new File(Resources.getResource("trino440/time_travel").toURI()).toPath(), tableLocation);
+
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, 'time_travel_with_last_checkpoint_using_temporal', '" + tableLocation.toUri() + "')");
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'time_travel_with_last_checkpoint_using_temporal')");
 
         assertFileSystemAccesses(
                 "SELECT * FROM time_travel_with_last_checkpoint_using_temporal FOR TIMESTAMP AS OF TIMESTAMP '2024-03-13 04:33:19.122 UTC'", // version 1
                 ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Input.readFully", "00000000000000000000.json", 0, 1015))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000000.json", 0, 1015))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1015))
                         .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
+                        .add(new CacheOperation("Input.readFully", "00000000000000000001.json", 0, 613))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000001.json", 0, 613))
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 613), 2)
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000001.json"), 3)
                         .add(new CacheOperation("InputFile.length", "00000000000000000001.crc"))
@@ -377,6 +389,8 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 613))
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.json"), 2)
                         .add(new CacheOperation("Input.readFully", "00000000000000000002.json", 0, 613))
+                        .addCopies(new CacheOperation("Input.readFully", "data", 0, 199), 2)
+                        .addCopies(new CacheOperation("Alluxio.writeCache", "data", 0, 199), 2)
                         .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 2)
                         .build());
         assertFileSystemAccesses(
@@ -385,6 +399,8 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.checkpoint.parquet"), 2)
                         .add(new CacheOperation("InputFile.length", "00000000000000000002.crc"))
+                        .add(new CacheOperation("Input.readFully", "data", 0, 199))
+                        .add(new CacheOperation("Alluxio.writeCache", "data", 0, 199))
                         .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
                         .addCopies(new CacheOperation("InputFile.newStream", "_last_checkpoint"), 2)
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.json"), 2)

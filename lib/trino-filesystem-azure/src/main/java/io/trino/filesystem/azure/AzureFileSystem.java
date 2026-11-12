@@ -14,10 +14,17 @@
 package io.trino.filesystem.azure;
 
 import com.azure.core.http.HttpClient;
+import com.azure.core.http.HttpHeaderName;
+import com.azure.core.http.HttpPipelineCallContext;
+import com.azure.core.http.HttpPipelineNextPolicy;
+import com.azure.core.http.HttpPipelinePosition;
+import com.azure.core.http.HttpRequest;
+import com.azure.core.http.HttpResponse;
 import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.core.util.ClientOptions;
 import com.azure.core.util.TracingOptions;
+import com.azure.core.util.UrlBuilder;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
@@ -37,6 +44,7 @@ import com.azure.storage.file.datalake.models.DataLakeStorageException;
 import com.azure.storage.file.datalake.models.ListPathsOptions;
 import com.azure.storage.file.datalake.models.PathItem;
 import com.azure.storage.file.datalake.options.DataLakePathDeleteOptions;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -51,6 +59,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.net.URI;
@@ -64,6 +73,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
+import static com.azure.core.http.HttpPipelinePosition.PER_CALL;
 import static com.azure.storage.common.implementation.Constants.HeaderConstants.ETAG_WILDCARD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -87,7 +97,9 @@ public class AzureFileSystem
     private final ExecutorService uploadExecutor;
     private final TracingOptions tracingOptions;
     private final AzureAuth azureAuth;
+    // endpoint validates user locations; serviceEndpoint optionally routes requests to a compatible backend.
     private final String endpoint;
+    private final Optional<URI> serviceEndpoint;
     private final int readBlockSizeBytes;
     private final long writeBlockSizeBytes;
     private final int maxWriteConcurrency;
@@ -101,6 +113,7 @@ public class AzureFileSystem
             TracingOptions tracingOptions,
             AzureAuth azureAuth,
             String endpoint,
+            Optional<URI> serviceEndpoint,
             DataSize readBlockSize,
             DataSize writeBlockSize,
             int maxWriteConcurrency,
@@ -113,6 +126,7 @@ public class AzureFileSystem
         this.tracingOptions = requireNonNull(tracingOptions, "tracingOptions is null");
         this.azureAuth = requireNonNull(azureAuth, "azureAuth is null");
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
+        this.serviceEndpoint = requireNonNull(serviceEndpoint, "serviceEndpoint is null");
         this.readBlockSizeBytes = toIntExact(readBlockSize.toBytes());
         this.writeBlockSizeBytes = writeBlockSize.toBytes();
         checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
@@ -687,7 +701,8 @@ public class AzureFileSystem
         return createBlobContainerClient(location, key).getBlobClient(location.path());
     }
 
-    private BlobContainerClient createBlobContainerClient(AzureLocation location, Optional<EncryptionKey> key)
+    @VisibleForTesting
+    BlobContainerClient createBlobContainerClient(AzureLocation location, Optional<EncryptionKey> key)
     {
         requireNonNull(location, "location is null");
 
@@ -695,7 +710,7 @@ public class AzureFileSystem
                 .httpClient(httpClient)
                 .addPolicy(concurrencyPolicy)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
-                .endpoint("https://%s.blob.%s".formatted(location.account(), validatedEndpoint(location)));
+                .endpoint(blobEndpoint(location));
 
         key.ifPresent(encryption -> builder.customerProvidedKey(blobCustomerProvidedKey(encryption)));
 
@@ -704,26 +719,58 @@ public class AzureFileSystem
         return builder.buildClient();
     }
 
-    private DataLakeFileSystemClient createFileSystemClient(AzureLocation location, Optional<EncryptionKey> key)
+    @VisibleForTesting
+    DataLakeFileSystemClient createFileSystemClient(AzureLocation location, Optional<EncryptionKey> key)
     {
         requireNonNull(location, "location is null");
 
+        String host = "%s.dfs.%s".formatted(location.account(), validatedEndpoint(location));
         DataLakeServiceClientBuilder builder = new DataLakeServiceClientBuilder()
                 .httpClient(httpClient)
                 .addPolicy(concurrencyPolicy)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
-                .endpoint("https://%s.dfs.%s".formatted(location.account(), validatedEndpoint(location)));
+                .endpoint("https://" + host);
+        serviceEndpoint.ifPresent(uri -> {
+            builder.endpoint(uri.toString());
+            builder.addPolicy(createServiceEndpointPolicy(uri, host));
+        });
         key.ifPresent(encryption -> builder.customerProvidedKey(lakeCustomerProvidedKey(encryption)));
         azureAuth.setAuth(location.account(), builder);
         DataLakeServiceClient client = builder.buildClient();
         DataLakeFileSystemClient fileSystemClient = client.getFileSystemClient(location.container().orElseThrow());
         // SAS tokens are scoped to an existing container; directory-scoped tokens cannot perform container-level operations
-        if (!(azureAuth instanceof AzureAuthSasToken)) {
+        if (!(azureAuth instanceof AzureAuthSasToken || azureAuth instanceof AzureAuthRefreshingSasToken)) {
             if (!fileSystemClient.exists()) {
                 throw new IllegalArgumentException();
             }
         }
         return fileSystemClient;
+    }
+
+    private static HttpPipelinePolicy createServiceEndpointPolicy(URI serviceEndpoint, String host)
+    {
+        return new HttpPipelinePolicy()
+        {
+            @Override
+            public Mono<HttpResponse> process(HttpPipelineCallContext context, HttpPipelineNextPolicy next)
+            {
+                HttpRequest request = context.getHttpRequest();
+                // The SDK rewrites Blob/DFS hosts; retain the configured backend and logical service host.
+                request.setUrl(UrlBuilder.parse(request.getUrl())
+                        .setScheme(serviceEndpoint.getScheme())
+                        .setHost(serviceEndpoint.getHost())
+                        .setPort(serviceEndpoint.getPort() == -1 ? 443 : serviceEndpoint.getPort())
+                        .toString());
+                request.setHeader(HttpHeaderName.HOST, host);
+                return next.process();
+            }
+
+            @Override
+            public HttpPipelinePosition getPipelinePosition()
+            {
+                return PER_CALL;
+            }
+        };
     }
 
     private static String startingFromLowerBound(String startingFrom)
@@ -752,5 +799,17 @@ public class AzureFileSystem
     private static DataLakeDirectoryClient createDirectoryIfNotExists(DataLakeFileSystemClient fileSystemClient, String name)
     {
         return fileSystemClient.createDirectoryIfNotExists(name);
+    }
+
+    private String blobEndpoint(AzureLocation location)
+    {
+        String validatedEndpoint = validatedEndpoint(location);
+        return serviceEndpoint
+                .map(uri -> {
+                    // An explicit port makes the SDK preserve path-style account addressing.
+                    int port = uri.getPort() == -1 ? 443 : uri.getPort();
+                    return "https://%s:%s/%s".formatted(uri.getHost(), port, location.account());
+                })
+                .orElseGet(() -> "https://%s.blob.%s".formatted(location.account(), validatedEndpoint));
     }
 }

@@ -17,6 +17,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -56,6 +57,7 @@ import static io.trino.plugin.jdbc.DefaultJdbcMetadata.createSyntheticAggregatio
 import static io.trino.plugin.jdbc.DefaultJdbcMetadata.createSyntheticJoinProjectionColumn;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -82,7 +84,6 @@ public class TestDefaultJdbcMetadata
         metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(
                 database.getJdbcClient(),
                 Optional.empty()),
-                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty());
@@ -94,7 +95,6 @@ public class TestDefaultJdbcMetadata
         metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(
                 database.getJdbcClient(),
                 Optional.of(false)),
-                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
@@ -112,7 +112,6 @@ public class TestDefaultJdbcMetadata
         metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(
                 database.getJdbcClient(),
                 Optional.of(true)),
-                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
@@ -180,6 +179,30 @@ public class TestDefaultJdbcMetadata
         // unknown table
         unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), new RemoteTableName(Optional.of("unknown"), Optional.of("unknown"), "unknown"), Optional.empty()));
         unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("example", "numbers"), new RemoteTableName(Optional.empty(), Optional.of("example"), "unknown"), Optional.empty()));
+    }
+
+    @Test
+    public void testGetColumnHandlesForQueryWithColumnsDifferingOnlyInCase()
+    {
+        JdbcTableHandle handle = metadata.getTableHandle(SESSION, new PreparedQuery("SELECT 1 AS \"Foo\", 2 AS \"foo\"", ImmutableList.of()));
+
+        assertTrinoExceptionThrownBy(() -> metadata.getColumnHandles(SESSION, handle))
+                .hasErrorCode(AMBIGUOUS_COLUMN_NAME)
+                .hasMessage("Table _generated._generated_query has multiple columns with the same name after lower-case normalization: 'Foo' and 'foo'");
+    }
+
+    @Test
+    public void testGetColumnHandlesForProcedureWithColumnsDifferingOnlyInCase()
+    {
+        JdbcProcedureHandle handle = new JdbcProcedureHandle(
+                new ProcedureQuery("CALL test_procedure()"),
+                ImmutableList.of(
+                        new JdbcColumnHandle("Foo", JDBC_BIGINT, BIGINT),
+                        new JdbcColumnHandle("foo", JDBC_BIGINT, BIGINT)));
+
+        assertTrinoExceptionThrownBy(() -> metadata.getColumnHandles(SESSION, handle))
+                .hasErrorCode(AMBIGUOUS_COLUMN_NAME)
+                .hasMessage("Table _generated._generated_procedure has multiple columns with the same name after lower-case normalization: 'Foo' and 'foo'");
     }
 
     private void unknownTableColumnHandle(JdbcTableHandle tableHandle)
@@ -438,7 +461,6 @@ public class TestDefaultJdbcMetadata
                 database.getJdbcClient(),
                 Optional.empty(),
                 Optional.of(tableScanRedirectApplicationResult)),
-                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
 

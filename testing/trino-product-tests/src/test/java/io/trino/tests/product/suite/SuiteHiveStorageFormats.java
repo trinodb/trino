@@ -27,7 +27,7 @@ public final class SuiteHiveStorageFormats
     public static void main(String[] args)
             throws Exception
     {
-        System.setProperty("trino.product-test.environment-mode", "STRICT");
+        SuiteRunner.initialize(SuiteHiveStorageFormats.class);
 
         List<TestRunResult> results = new ArrayList<>();
 

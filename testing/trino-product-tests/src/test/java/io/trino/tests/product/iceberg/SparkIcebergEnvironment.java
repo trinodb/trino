@@ -25,7 +25,6 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.trino.TrinoContainer;
 
 import java.net.URI;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -36,7 +35,7 @@ import java.util.Map;
 
 import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 import static io.trino.tests.product.iceberg.IcebergCatalogPropertiesBuilder.icebergCatalog;
-import static java.util.Objects.requireNonNull;
+import static io.trino.tests.product.utils.DownloadedJars.downloadedJar;
 
 /**
  * Spark/Iceberg product test environment for interoperability testing.
@@ -269,16 +268,6 @@ public class SparkIcebergEnvironment
         return trino != null && trino.isRunning();
     }
 
-    protected final Network getNetwork()
-    {
-        return requireNonNull(network, "Environment is not started: network is null");
-    }
-
-    protected final HadoopContainer getHadoopContainer()
-    {
-        return requireNonNull(hadoop, "Environment is not started: hadoop is null");
-    }
-
     @Override
     protected void doClose()
     {
@@ -364,25 +353,12 @@ public class SparkIcebergEnvironment
 
     private static Path findIcebergSparkRuntimeJar()
     {
-        return findGeneratedJar("iceberg-spark-runtime.jar");
+        return downloadedJar("iceberg-spark-runtime.jar");
     }
 
     private static Path findIcebergAwsBundleJar()
     {
-        return findGeneratedJar("iceberg-aws-bundle.jar");
-    }
-
-    private static Path findGeneratedJar(String fileName)
-    {
-        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
-        while (current != null) {
-            Path jar = current.resolve("testing/trino-product-tests/target/" + fileName);
-            if (Files.isRegularFile(jar)) {
-                return jar;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException(fileName + " was not generated");
+        return downloadedJar("iceberg-aws-bundle.jar");
     }
 
     /**

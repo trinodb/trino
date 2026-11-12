@@ -32,6 +32,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hiveCatalog;
+import static io.trino.tests.product.utils.DownloadedJars.downloadedJar;
 
 /**
  * Hive storage format product test environment.
@@ -82,7 +83,7 @@ public class HiveStorageFormatsEnvironment
         hadoop = new HadoopContainer()
                 .withNetwork(network)
                 .withNetworkAliases(HadoopContainer.HOST_NAME)
-                .withLzoCodec();
+                .withLzoCodec(downloadedJar("lzo-hadoop.jar"), downloadedJar("lzo-core.jar"));
         hadoop.start();
 
         trinoCluster = MultiNodeTrinoCluster.builder()

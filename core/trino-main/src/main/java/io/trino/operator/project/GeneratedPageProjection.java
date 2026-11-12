@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.PageProjectionWork;
 import io.trino.sql.ir.Expression;
+import jakarta.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 
@@ -34,6 +35,7 @@ public class GeneratedPageProjection
     private final InputChannels inputChannels;
     private final MethodHandle pageProjectionWorkFactory;
 
+    @Nullable
     private BlockBuilder blockBuilder;
 
     public GeneratedPageProjection(Expression projection, boolean isDeterministic, InputChannels inputChannels, MethodHandle pageProjectionWorkFactory)
@@ -42,7 +44,6 @@ public class GeneratedPageProjection
         this.isDeterministic = isDeterministic;
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
         this.pageProjectionWorkFactory = requireNonNull(pageProjectionWorkFactory, "pageProjectionWorkFactory is null");
-        this.blockBuilder = projection.type().createBlockBuilder(null, 1);
     }
 
     @Override
@@ -60,7 +61,12 @@ public class GeneratedPageProjection
     @Override
     public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
-        blockBuilder = blockBuilder.newBlockBuilderLike(selectedPositions.size(), null);
+        if (blockBuilder == null) {
+            blockBuilder = projection.type().createBlockBuilder(null, selectedPositions.size());
+        }
+        else {
+            blockBuilder = blockBuilder.newBlockBuilderLike(selectedPositions.size(), null);
+        }
         try {
             return ((PageProjectionWork) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions)).process();
         }

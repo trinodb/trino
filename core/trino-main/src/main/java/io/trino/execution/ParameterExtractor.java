@@ -14,11 +14,13 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.tree.DefaultTraversalVisitor;
+import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Property;
 import io.trino.sql.tree.Statement;
 
 import java.util.ArrayList;
@@ -28,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.tree.AstTraversal.forEachChild;
 
 public final class ParameterExtractor
 {
@@ -40,9 +43,9 @@ public final class ParameterExtractor
 
     public static List<Parameter> extractParameters(Statement statement)
     {
-        ParameterExtractingVisitor parameterExtractingVisitor = new ParameterExtractingVisitor();
-        parameterExtractingVisitor.process(statement, null);
-        return parameterExtractingVisitor.getParameters().stream()
+        List<Parameter> parameters = new ArrayList<>();
+        collectParameters(statement, parameters);
+        return parameters.stream()
                 .sorted(Comparator.comparing(
                         parameter -> parameter.getLocation().get(),
                         Comparator.comparingInt(NodeLocation::line)
@@ -62,21 +65,17 @@ public final class ParameterExtractor
         return builder.buildOrThrow();
     }
 
-    private static class ParameterExtractingVisitor
-            extends DefaultTraversalVisitor<Void>
+    private static void collectParameters(Node node, List<Parameter> parameters)
     {
-        private final List<Parameter> parameters = new ArrayList<>();
-
-        public List<Parameter> getParameters()
-        {
-            return parameters;
-        }
-
-        @Override
-        public Void visitParameter(Parameter node, Void context)
-        {
-            parameters.add(node);
-            return null;
+        switch (node) {
+            case Parameter parameter -> parameters.add(parameter);
+            case CreateMaterializedView view -> {
+                // The query is stored unbound in the view definition, so its parameters are not bindable.
+                for (Property property : view.getProperties()) {
+                    collectParameters(property, parameters);
+                }
+            }
+            default -> forEachChild(node, child -> collectParameters(child, parameters));
         }
     }
 }

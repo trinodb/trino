@@ -35,7 +35,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
@@ -329,6 +331,61 @@ public class TestJoinCompiler
                     assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(0, leftPosition, 0, rightPosition)).isEqualTo(expected);
                     assertThat(hashStrategy.positionEqualsRowIgnoreNulls(0, leftPosition, rightPosition, new Page(block))).isEqualTo(expected);
                 }
+            }
+        }
+    }
+
+    @Test
+    void testManyOutputChannels()
+    {
+        // the per-channel appendTo code of 3000 channels exceeds the 64KB JVM method size limit unless it is split
+        int channelCount = 3000;
+        ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<ObjectArrayList<Block>> channels = ImmutableList.builder();
+        for (int channel = 0; channel < channelCount; channel++) {
+            ObjectArrayList<Block> blocks = new ObjectArrayList<>();
+            if (channel % 2 == 0) {
+                typesBuilder.add(BIGINT);
+                blocks.add(BlockAssertions.createLongSequenceBlock(channel, channel + 3));
+            }
+            else {
+                typesBuilder.add(VARCHAR);
+                blocks.add(BlockAssertions.createStringSequenceBlock(channel, channel + 3));
+            }
+            channels.add(blocks);
+        }
+        List<Type> types = typesBuilder.build();
+        // output the channels in reverse order, so each output position maps to a different channel
+        List<Integer> outputChannels = IntStream.range(0, channelCount)
+                .map(channel -> channelCount - 1 - channel)
+                .boxed()
+                .collect(toImmutableList());
+        List<Type> outputTypes = outputChannels.stream()
+                .map(types::get)
+                .collect(toImmutableList());
+
+        PagesHashStrategy hashStrategy = joinCompiler.compilePagesHashStrategyFactory(types, Ints.asList(0), Optional.of(outputChannels))
+                .createPagesHashStrategy(channels.build());
+
+        assertThat(hashStrategy.getChannelCount()).isEqualTo(channelCount);
+
+        // appendTo the page builder at a non-zero output channel offset, after a leading BIGINT column
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.<Type>builder().add(BIGINT).addAll(outputTypes).build());
+        int position = 2;
+        pageBuilder.declarePosition();
+        BIGINT.writeLong(pageBuilder.getBlockBuilder(0), -1);
+        hashStrategy.appendTo(0, position, pageBuilder, 1);
+
+        Page page = pageBuilder.build();
+        assertThat(BIGINT.getLong(page.getBlock(0), 0)).isEqualTo(-1);
+        for (int output = 0; output < channelCount; output++) {
+            int channel = channelCount - 1 - output;
+            Block pageBlock = page.getBlock(output + 1);
+            if (channel % 2 == 0) {
+                assertThat(BIGINT.getLong(pageBlock, 0)).isEqualTo(channel + position);
+            }
+            else {
+                assertThat(VARCHAR.getSlice(pageBlock, 0).toStringUtf8()).isEqualTo(String.valueOf(channel + position));
             }
         }
     }

@@ -125,7 +125,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.stream;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosFromTypeString;
@@ -148,7 +147,7 @@ class ParquetTester
 
     private static final ConnectorSession SESSION_USE_NAME = getHiveSession(createHiveConfig(true));
 
-    public static final List<String> TEST_COLUMN = singletonList("test");
+    public static final List<String> TEST_COLUMN = List.of("test");
 
     private final Set<CompressionCodec> compressions;
 
@@ -254,11 +253,11 @@ class ParquetTester
             throws Exception
     {
         testRoundTrip(
-                singletonList(objectInspector),
+                List.of(objectInspector),
                 new Iterable<?>[] {writeValues},
                 new Iterable<?>[] {readValues},
-                singletonList(columnName),
-                singletonList(type),
+                List.of(columnName),
+                List.of(type),
                 parquetSchema,
                 schemaOptions);
     }
@@ -306,11 +305,11 @@ class ParquetTester
             throws Exception
     {
         assertRoundTrip(
-                singletonList(objectInspectors),
+                List.of(objectInspectors),
                 new Iterable[] {writeValues},
                 new Iterable[] {readValues},
-                singletonList(columnName),
-                singletonList(columnType),
+                List.of(columnName),
+                List.of(columnType),
                 parquetSchema,
                 ParquetSchemaOptions.defaultOptions());
     }
@@ -394,11 +393,11 @@ class ParquetTester
             throws Exception
     {
         assertMaxReadBytes(
-                singletonList(objectInspector),
+                List.of(objectInspector),
                 new Iterable<?>[] {writeValues},
                 new Iterable<?>[] {readValues},
                 TEST_COLUMN,
-                singletonList(type),
+                List.of(type),
                 Optional.empty(),
                 maxReadBlockSize);
     }
@@ -490,9 +489,6 @@ class ParquetTester
                 continue;
             }
 
-            maxReadBlockSize.ifPresent(max ->
-                    assertThat(page.getPositionCount() == 1 || page.getSizeInBytes() <= max).isTrue());
-
             for (int field = 0; field < page.getChannelCount(); field++) {
                 Block block = page.getBlock(field);
                 for (int i = 0; i < block.getPositionCount(); i++) {
@@ -502,6 +498,10 @@ class ParquetTester
                     assertThat(actual).isEqualTo(expected);
                 }
             }
+
+            // The page is lazy and reports only the size of its loaded blocks
+            maxReadBlockSize.ifPresent(max ->
+                    assertThat(page.getPositionCount() == 1 || page.getSizeInBytes() <= max).isTrue());
         }
     }
 

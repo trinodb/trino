@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class TypeParameter
+public final class TypeParameter
         extends DataTypeParameter
 {
     private final DataType type;
@@ -47,12 +47,6 @@ public class TypeParameter
     public List<? extends Node> getChildren()
     {
         return ImmutableList.of(type);
-    }
-
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTypeParameter(this, context);
     }
 
     @Override

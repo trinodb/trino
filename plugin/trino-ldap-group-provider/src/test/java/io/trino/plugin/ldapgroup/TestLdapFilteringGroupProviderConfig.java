@@ -21,6 +21,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.ldapgroup.LdapFilteringGroupProviderConfig.LdapGroupSearchMode.DIRECT;
+import static io.trino.plugin.ldapgroup.LdapFilteringGroupProviderConfig.LdapGroupSearchMode.MATCHING_RULE_IN_CHAIN;
 
 final class TestLdapFilteringGroupProviderConfig
 {
@@ -30,7 +32,8 @@ final class TestLdapFilteringGroupProviderConfig
         assertRecordedDefaults(recordDefaults(LdapFilteringGroupProviderConfig.class)
                 .setLdapGroupBaseDN(null)
                 .setLdapGroupsSearchFilter(null)
-                .setLdapGroupsSearchMemberAttribute("member"));
+                .setLdapGroupsSearchMemberAttribute("member")
+                .setLdapGroupSearchMode(DIRECT));
     }
 
     @Test
@@ -39,12 +42,14 @@ final class TestLdapFilteringGroupProviderConfig
         Map<String, String> properties = ImmutableMap.of(
                 "ldap.group-base-dn", "ou=group,dc=trino,dc=io",
                 "ldap.group-search-filter", "(cn=dev*)",
-                "ldap.group-search-member-attribute", "memberUser");
+                "ldap.group-search-member-attribute", "memberUser",
+                "ldap.group-search-mode", "MATCHING_RULE_IN_CHAIN");
 
         LdapFilteringGroupProviderConfig expected = new LdapFilteringGroupProviderConfig()
                 .setLdapGroupBaseDN("ou=group,dc=trino,dc=io")
                 .setLdapGroupsSearchFilter("(cn=dev*)")
-                .setLdapGroupsSearchMemberAttribute("memberUser");
+                .setLdapGroupsSearchMemberAttribute("memberUser")
+                .setLdapGroupSearchMode(MATCHING_RULE_IN_CHAIN);
 
         assertFullMapping(properties, expected);
     }

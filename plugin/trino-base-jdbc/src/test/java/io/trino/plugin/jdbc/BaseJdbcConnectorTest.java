@@ -2343,13 +2343,16 @@ public abstract class BaseJdbcConnectorTest
 
         assertUpdate("CREATE TABLE " + schemaTableName + "(a int)");
         try {
-            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + " VALUES (1)')");
+            assertThat(query("CALL system.execute('INSERT INTO " + schemaTableName + " VALUES (1)')"))
+                    .matches("VALUES (VARCHAR 'row_count', BIGINT '1')");
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES 1");
 
-            assertUpdate("CALL system.execute('UPDATE " + schemaTableName + " SET a = 2')");
+            assertThat(query("CALL system.execute('UPDATE " + schemaTableName + " SET a = 2')"))
+                    .matches("VALUES (VARCHAR 'row_count', BIGINT '1')");
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES 2");
 
-            assertUpdate("CALL system.execute('DELETE FROM " + schemaTableName + "')");
+            assertThat(query("CALL system.execute('DELETE FROM " + schemaTableName + "')"))
+                    .matches("VALUES (VARCHAR 'row_count', BIGINT '1')");
             assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
 
             assertUpdate("EXECUTE IMMEDIATE 'CALL system.execute(?)' USING 'DROP TABLE " + schemaTableName + "'");

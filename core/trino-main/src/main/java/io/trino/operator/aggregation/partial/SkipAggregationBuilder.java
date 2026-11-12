@@ -93,7 +93,7 @@ public class SkipAggregationBuilder
     public void updateMemory()
     {
         if (currentPage != null) {
-            memoryContext.setBytes(currentPage.getSizeInBytes());
+            memoryContext.setBytes(currentPage.getRetainedSizeInBytes());
         }
     }
 

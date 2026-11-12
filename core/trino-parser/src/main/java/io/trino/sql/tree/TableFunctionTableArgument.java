@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 import static io.trino.sql.ExpressionFormatter.formatSortItems;
 import static java.util.Objects.requireNonNull;
 
-public class TableFunctionTableArgument
+public final class TableFunctionTableArgument
         extends Node
 {
     private final Relation table;
@@ -63,12 +63,6 @@ public class TableFunctionTableArgument
     public Optional<EmptyTableTreatment> getEmptyTableTreatment()
     {
         return emptyTableTreatment;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTableArgument(this, context);
     }
 
     @Override

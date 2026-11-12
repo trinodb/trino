@@ -28,11 +28,6 @@ public final class Unnest
     private final List<Expression> expressions;
     private final boolean withOrdinality;
 
-    public Unnest(List<Expression> expressions, boolean withOrdinality)
-    {
-        this(Optional.empty(), expressions, withOrdinality);
-    }
-
     public Unnest(NodeLocation location, List<Expression> expressions, boolean withOrdinality)
     {
         this(Optional.of(location), expressions, withOrdinality);
@@ -54,12 +49,6 @@ public final class Unnest
     public boolean isWithOrdinality()
     {
         return withOrdinality;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitUnnest(this, context);
     }
 
     @Override

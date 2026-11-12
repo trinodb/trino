@@ -42,7 +42,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -95,7 +94,7 @@ public class TestSetSessionAuthorizationTask
         SetSessionAuthorization statement = (SetSessionAuthorization) parser.createStatement(query);
         TransactionId transactionId = transactionManager.beginTransaction(false);
         QueryStateMachine stateMachine = createStateMachine(Optional.of(transactionId), query);
-        assertThatThrownBy(() -> new SetSessionAuthorizationTask(accessControl, transactionManager).execute(statement, stateMachine, emptyList(), WarningCollector.NOOP))
+        assertThatThrownBy(() -> new SetSessionAuthorizationTask(accessControl, transactionManager).execute(statement, stateMachine, ImmutableList.of(), WarningCollector.NOOP))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageContaining("Can't set authorization user in the middle of a transaction");
     }
@@ -104,7 +103,7 @@ public class TestSetSessionAuthorizationTask
     {
         SetSessionAuthorization statement = (SetSessionAuthorization) parser.createStatement(query);
         QueryStateMachine stateMachine = createStateMachine(Optional.empty(), query);
-        new SetSessionAuthorizationTask(accessControl, transactionManager).execute(statement, stateMachine, emptyList(), WarningCollector.NOOP);
+        new SetSessionAuthorizationTask(accessControl, transactionManager).execute(statement, stateMachine, ImmutableList.of(), WarningCollector.NOOP);
         QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
         assertThat(queryInfo.getSetAuthorizationUser()).isEqualTo(expected);
     }

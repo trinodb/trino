@@ -20,6 +20,7 @@ import io.trino.hive.formats.avro.AvroTypeBlockHandler;
 import io.trino.hive.formats.avro.AvroTypeException;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import org.apache.avro.Schema;
 
@@ -36,6 +37,7 @@ public class AvroPageSource
     private static final long GUESSED_MEMORY_USAGE = DataSize.of(16, DataSize.Unit.MEGABYTE).toBytes();
 
     private final String fileName;
+    private final MemoryContext memoryContext;
     private final AvroFileReader avroFileReader;
 
     public AvroPageSource(
@@ -43,10 +45,14 @@ public class AvroPageSource
             Schema schema,
             AvroTypeBlockHandler avroTypeManager,
             long offset,
-            long length)
+            long length,
+            MemoryContext memoryContext)
             throws IOException, AvroTypeException
     {
         fileName = requireNonNull(inputFile, "inputFile is null").location().fileName();
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        // Report before the reader is opened, so that exceeding the memory limit leaks no resources
+        memoryContext.setBytes(GUESSED_MEMORY_USAGE);
         avroFileReader = new AvroFileReader(inputFile, schema, avroTypeManager, offset, OptionalLong.of(length));
     }
 
@@ -92,15 +98,10 @@ public class AvroPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return GUESSED_MEMORY_USAGE;
-    }
-
-    @Override
     public void close()
             throws IOException
     {
         avroFileReader.close();
+        memoryContext.setBytes(0);
     }
 }

@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ExcludedPattern
+public final class ExcludedPattern
         extends RowPattern
 {
     private final RowPattern pattern;
@@ -35,12 +35,6 @@ public class ExcludedPattern
     public RowPattern getPattern()
     {
         return pattern;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitExcludedPattern(this, context);
     }
 
     @Override

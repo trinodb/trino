@@ -33,6 +33,7 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.RollbackAction;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
@@ -61,6 +62,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
@@ -71,6 +73,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergPageSourceProvider.withSessionOrcReaderOptions;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcStringStatisticsLimit;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxDictionaryMemory;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxRowGroupRows;
@@ -109,6 +112,7 @@ public class IcebergFileWriterFactory
     private final FileFormatDataSourceStats readStats;
     private final OrcWriterStats orcWriterStats = new OrcWriterStats();
     private final HiveCompressionOption hiveCompressionOption;
+    private final OrcReaderOptions orcReaderOptions;
     private final OrcWriterOptions orcWriterOptions;
     private final DataSize parquetRowGroupSize;
 
@@ -118,6 +122,7 @@ public class IcebergFileWriterFactory
             NodeVersion nodeVersion,
             FileFormatDataSourceStats readStats,
             IcebergConfig icebergConfig,
+            OrcReaderConfig orcReaderConfig,
             OrcWriterConfig orcWriterConfig,
             ParquetWriterConfig parquetWriterConfig)
     {
@@ -126,6 +131,7 @@ public class IcebergFileWriterFactory
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.readStats = requireNonNull(readStats, "readStats is null");
         this.hiveCompressionOption = icebergConfig.getCompressionCodec();
+        this.orcReaderOptions = orcReaderConfig.toOrcReaderOptions();
         this.orcWriterOptions = orcWriterConfig.toOrcWriterOptions();
         this.parquetRowGroupSize = parquetWriterConfig.getRowGroupSize();
     }
@@ -229,37 +235,52 @@ public class IcebergFileWriterFactory
             Map<String, String> storageProperties,
             DataSize stringStatisticsLimit)
     {
+        RollbackAction rollbackAction = () -> fileSystem.deleteFile(outputPath);
+
+        List<Types.NestedField> columnFields = icebergSchema.columns();
+        List<String> fileColumnNames = columnFields.stream()
+                .map(Types.NestedField::name)
+                .collect(toImmutableList());
+        List<Type> fileColumnTypes = columnFields.stream()
+                .map(Types.NestedField::type)
+                .map(type -> toTrinoType(type, typeManager))
+                .map(this::toFileTrinoType)
+                .collect(toImmutableList());
+
+        Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
+        if (isOrcWriterValidate(session)) {
+            OrcReaderOptions validationReaderOptions = withSessionOrcReaderOptions(orcReaderOptions, session);
+            validationInputFactory = Optional.of(() -> {
+                try {
+                    TrinoInputFile inputFile = fileSystem.newInputFile(outputPath);
+                    return new TrinoOrcDataSource(inputFile, validationReaderOptions, readStats);
+                }
+                catch (IOException | UncheckedIOException e) {
+                    throw new TrinoException(ICEBERG_WRITE_VALIDATION_FAILED, e);
+                }
+            });
+        }
+
+        HiveCompressionCodec compressionCodec = getHiveCompressionCodec(ORC, storageProperties)
+                .orElse(toCompressionCodec(hiveCompressionOption));
+
+        OrcWriterOptions writerOptions = withBloomFilterOptions(orcWriterOptions, storageProperties)
+                .withStripeMinSize(getOrcWriterMinStripeSize(session))
+                .withStripeMaxSize(getOrcWriterMaxStripeSize(session))
+                .withStripeMaxRowCount(getOrcWriterMaxStripeRows(session))
+                .withRowGroupMaxRowCount(getOrcWriterMaxRowGroupRows(session))
+                .withDictionaryMaxMemory(getOrcWriterMaxDictionaryMemory(session))
+                .withMaxStringStatisticsLimit(stringStatisticsLimit);
+
+        OrcDataSink orcDataSink;
         try {
-            OrcDataSink orcDataSink = OutputStreamOrcDataSink.create(fileSystem.newOutputFile(outputPath));
+            orcDataSink = OutputStreamOrcDataSink.create(fileSystem.newOutputFile(outputPath));
+        }
+        catch (IOException | UncheckedIOException e) {
+            throw closeAllSuppress(new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating ORC file", e), rollbackAction::run);
+        }
 
-            RollbackAction rollbackAction = () -> fileSystem.deleteFile(outputPath);
-
-            List<Types.NestedField> columnFields = icebergSchema.columns();
-            List<String> fileColumnNames = columnFields.stream()
-                    .map(Types.NestedField::name)
-                    .collect(toImmutableList());
-            List<Type> fileColumnTypes = columnFields.stream()
-                    .map(Types.NestedField::type)
-                    .map(type -> toTrinoType(type, typeManager))
-                    .map(this::toFileTrinoType)
-                    .collect(toImmutableList());
-
-            Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
-            if (isOrcWriterValidate(session)) {
-                validationInputFactory = Optional.of(() -> {
-                    try {
-                        TrinoInputFile inputFile = fileSystem.newInputFile(outputPath);
-                        return new TrinoOrcDataSource(inputFile, new OrcReaderOptions(), readStats);
-                    }
-                    catch (IOException | UncheckedIOException e) {
-                        throw new TrinoException(ICEBERG_WRITE_VALIDATION_FAILED, e);
-                    }
-                });
-            }
-
-            HiveCompressionCodec compressionCodec = getHiveCompressionCodec(ORC, storageProperties)
-                    .orElse(toCompressionCodec(hiveCompressionOption));
-
+        try {
             return new IcebergOrcFileWriter(
                     metricsConfig,
                     icebergSchema,
@@ -269,13 +290,7 @@ public class IcebergFileWriterFactory
                     fileColumnTypes,
                     toOrcType(toFileSchema(icebergSchema)),
                     compressionCodec.getOrcCompressionKind(),
-                    withBloomFilterOptions(orcWriterOptions, storageProperties)
-                            .withStripeMinSize(getOrcWriterMinStripeSize(session))
-                            .withStripeMaxSize(getOrcWriterMaxStripeSize(session))
-                            .withStripeMaxRowCount(getOrcWriterMaxStripeRows(session))
-                            .withRowGroupMaxRowCount(getOrcWriterMaxRowGroupRows(session))
-                            .withDictionaryMaxMemory(getOrcWriterMaxDictionaryMemory(session))
-                            .withMaxStringStatisticsLimit(stringStatisticsLimit),
+                    writerOptions,
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     ImmutableMap.<String, String>builder()
                             .put(TRINO_VERSION_NAME, nodeVersion.toString())
@@ -285,8 +300,8 @@ public class IcebergFileWriterFactory
                     getOrcWriterValidateMode(session),
                     orcWriterStats);
         }
-        catch (IOException | UncheckedIOException e) {
-            throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating ORC file", e);
+        catch (RuntimeException e) {
+            throw closeAllSuppress(e, orcDataSink::abort, rollbackAction::run);
         }
     }
 

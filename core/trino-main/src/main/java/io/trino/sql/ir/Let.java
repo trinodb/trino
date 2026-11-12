@@ -47,12 +47,6 @@ public record Let(Symbol name, Expression value, Expression body)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLet(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         return ImmutableList.of(value, body);

@@ -21,7 +21,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class JsonConstructor
+public final class JsonConstructor
         extends Expression
 {
     private final Expression expression;
@@ -42,12 +42,6 @@ public class JsonConstructor
     public JsonFormat getFormat()
     {
         return format;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitJsonConstructor(this, context);
     }
 
     @Override

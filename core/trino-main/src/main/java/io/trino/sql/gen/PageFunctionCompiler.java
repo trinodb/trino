@@ -88,7 +88,6 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
-import static io.trino.sql.gen.BytecodeUtils.generateWrite;
 import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -405,7 +404,7 @@ public class PageFunctionCompiler
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
 
-        Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
+        scope.declareVariable("wasNull", body, constantFalse());
         ExpressionBytecodeCompiler compiler = new ExpressionBytecodeCompiler(
                 classDefinition,
                 callSiteBinder,
@@ -418,9 +417,7 @@ public class PageFunctionCompiler
                 compiledLambdaMap,
                 ImmutableList.of(session, position));
 
-        body.append(thisVariable.getField(blockBuilder))
-                .append(compiler.compile(projection, scope))
-                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.type()))
+        body.append(compiler.compileToBlock(projection, projection.type(), scope, thisVariable.getField(blockBuilder)))
                 .ret();
         return method;
     }

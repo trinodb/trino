@@ -83,7 +83,7 @@ public class TestGroupIdOperator
                         ImmutableList.of(VARCHAR, BOOLEAN, BIGINT, BIGINT, BIGINT),
                         ImmutableList.of(ImmutableMap.of(0, 1, 1, 2, 3, 0), ImmutableMap.of(2, 3, 3, 0)));
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BOOLEAN, BIGINT, BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(VARCHAR, BOOLEAN, BIGINT, BIGINT, BIGINT)
                 .row("400", true, null, 100L, 0L)
                 .row("401", false, null, 101L, 0L)
                 .row("402", true, null, 102L, 0L)

@@ -17,10 +17,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.compress.v3.Compressor;
+import io.airlift.compress.v3.lz4.Lz4Compressor;
+import io.airlift.compress.v3.lz4.Lz4Decompressor;
+import io.airlift.compress.v3.snappy.SnappyCompressor;
+import io.airlift.compress.v3.zstd.ZstdCompressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSource;
@@ -40,6 +46,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -58,12 +65,14 @@ import io.trino.spi.variant.Variant;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.LogicalTypes;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -72,11 +81,13 @@ import org.assertj.core.data.Percentage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -88,9 +99,11 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
+import java.util.zip.GZIPOutputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -99,11 +112,13 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
 import static io.trino.parquet.BloomFilterStore.hasBloomFilter;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
+import static io.trino.parquet.ParquetTestUtils.createArrayBlock;
+import static io.trino.parquet.ParquetTestUtils.createMapBlock;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
+import static io.trino.parquet.ParquetTestUtils.createRowBlock;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.parquet.metadata.HiddenColumnChunkMetadata.isHiddenColumn;
@@ -398,7 +413,7 @@ public class TestParquetWriter
 
         String threeByteCodePoint = new String(Character.toChars(0x20AC));
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
-        Slice minB = Slices.utf8Slice(threeByteCodePoint.repeat(300)); // truncation in middle of unicode bytes
+        Slice minB = Slices.utf8Slice(threeByteCodePoint.repeat(400)); // truncation in middle of unicode bytes
         Block blockB = VARCHAR.createBlockBuilder(null, 2)
                 .writeEntry(minB)
                 // start with maxCodePoint to make it max value in stats
@@ -423,7 +438,7 @@ public class TestParquetWriter
         assertThat(chunkMetaData.getStatistics().getMaxBytes()).isEqualTo(truncatedMax.getBytes());
 
         chunkMetaData = blockMetaData.columns().get(1);
-        Slice truncatedMin = varcharToVarcharSaturatedFloorCast(1024, minB);
+        Slice truncatedMin = Slices.utf8Slice(threeByteCodePoint.repeat(341));
         assertThat(chunkMetaData.getStatistics().getMinBytes()).isEqualTo(truncatedMin.getBytes());
         truncatedMax = Slices.utf8Slice(maxCodePoint + "d".repeat(1016) + "e");
         assertThat(chunkMetaData.getStatistics().getMaxBytes()).isEqualTo(truncatedMax.getBytes());
@@ -837,6 +852,8 @@ public class TestParquetWriter
                 assertThat(chunkMetaData.getEncodingStats().hasNonDictionaryEncodedPages()).isTrue();
 
                 bloomFilterOffsetsBuilder.add(chunkMetaData.getBloomFilterOffset());
+                // The recorded length covers the Bloom filter header and the bitset
+                assertThat(chunkMetaData.getBloomFilterLength()).isBetween(65536 + 1, 65536 + 17);
             }
         }
         // Check that bloom filters are right after each other
@@ -872,6 +889,81 @@ public class TestParquetWriter
             }
             assertThat(rowsRead).isEqualTo(data.size());
         }
+    }
+
+    @Test
+    void testReadBloomFilterWithRecordedLength()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(BIGINT);
+        AtomicInteger reads = new AtomicInteger();
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setBloomFilterColumns(ImmutableSet.copyOf(columnNames))
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, shuffle(new Random(42), 2000))),
+                ParquetReaderOptions.defaultOptions())
+        {
+            @Override
+            protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
+                    throws IOException
+            {
+                reads.incrementAndGet();
+                super.readInternal(position, buffer, bufferOffset, bufferLength);
+            }
+        };
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        BlockMetadata block = getOnlyElement(parquetMetadata.getBlocks());
+        ColumnChunkMetadata chunkMetadata = getOnlyElement(block.columns());
+        assertThat(hasBloomFilter(chunkMetadata)).isTrue();
+        int recordedLength = chunkMetadata.getBloomFilterLength();
+        assertThat(recordedLength).isGreaterThan(0);
+
+        // The header and the bitset are fetched together when the length is recorded
+        reads.set(0);
+        byte[] bitset = readBloomFilterBitset(dataSource, block);
+        assertThat(reads.get()).isEqualTo(1);
+
+        // Files without the length need a read for the header and a read for the bitset
+        chunkMetadata.setBloomFilterLength(-1);
+        reads.set(0);
+        assertThat(readBloomFilterBitset(dataSource, block)).isEqualTo(bitset);
+        assertThat(reads.get()).isEqualTo(2);
+
+        // A length that does not cover the bitset is not trusted
+        chunkMetadata.setBloomFilterLength(recordedLength - 1);
+        reads.set(0);
+        assertThat(readBloomFilterBitset(dataSource, block)).isEqualTo(bitset);
+        assertThat(reads.get()).isEqualTo(2);
+
+        // A length shorter than the header is ignored
+        chunkMetadata.setBloomFilterLength(1);
+        reads.set(0);
+        assertThat(readBloomFilterBitset(dataSource, block)).isEqualTo(bitset);
+        assertThat(reads.get()).isEqualTo(2);
+
+        // Neither is a length beyond the maximum size of a Bloom filter
+        chunkMetadata.setBloomFilterLength(Integer.MAX_VALUE);
+        reads.set(0);
+        assertThat(readBloomFilterBitset(dataSource, block)).isEqualTo(bitset);
+        assertThat(reads.get()).isEqualTo(2);
+    }
+
+    private static byte[] readBloomFilterBitset(ParquetDataSource dataSource, BlockMetadata block)
+            throws IOException
+    {
+        ColumnPath path = getOnlyElement(block.columns()).getPath();
+        BloomFilter bloomFilter = new BloomFilterStore(dataSource, block, ImmutableSet.of(path), Optional.empty())
+                .getBloomFilter(path)
+                .orElseThrow();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        bloomFilter.writeTo(out);
+        return out.toByteArray();
     }
 
     @Test
@@ -952,6 +1044,135 @@ public class TestParquetWriter
         assertThat(readBackBuilder.build()).isEqualTo(sliceValues);
     }
 
+    @ParameterizedTest
+    @EnumSource(value = CompressionCodec.class, names = {"UNCOMPRESSED", "GZIP", "SNAPPY", "ZSTD", "LZ4"})
+    public void testWidePagesCompressedThroughSharedBuffers(CompressionCodec codec)
+            throws IOException
+    {
+        // pages above 4 MB and a dictionary page in each of three row groups
+        int rowCount = 100_000;
+        Random random = new Random(42);
+        List<Slice> wideValues = new ArrayList<>(rowCount);
+        List<Slice> narrowValues = new ArrayList<>(rowCount);
+        for (int i = 0; i < rowCount; i++) {
+            byte[] value = new byte[300];
+            random.nextBytes(value);
+            wideValues.add(Slices.wrappedBuffer(value));
+            narrowValues.add(Slices.utf8Slice("value-" + (i % 100)));
+        }
+        List<String> columnNames = ImmutableList.of("narrow", "wide");
+        List<Type> types = ImmutableList.of(VARCHAR, VARBINARY);
+        ParquetWriterOptions writerOptions = ParquetWriterOptions.builder()
+                .setMaxPageSize(DataSize.of(4, MEGABYTE))
+                .setBatchSize(10_000)
+                .setMaxRowGroupRowCount(40_000)
+                .setUseDeltaLengthByteArrayEncoding(true)
+                .build();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try (ParquetWriter writer = createParquetWriter(outputStream, writerOptions, types, columnNames, codec)) {
+            int inputPageSize = 25_000;
+            for (int offset = 0; offset < rowCount; offset += inputPageSize) {
+                BlockBuilder wide = VARBINARY.createBlockBuilder(null, inputPageSize);
+                BlockBuilder narrow = VARCHAR.createBlockBuilder(null, inputPageSize);
+                for (int i = offset; i < offset + inputPageSize; i++) {
+                    VARBINARY.writeSlice(wide, wideValues.get(i));
+                    VARCHAR.writeSlice(narrow, narrowValues.get(i));
+                }
+                writer.write(new Page(narrow.build(), wide.build()));
+            }
+        }
+        Slice file = Slices.wrappedBuffer(outputStream.toByteArray());
+        ParquetDataSource dataSource = new TestingParquetDataSource(file, ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        assertThat(parquetMetadata.getBlocks()).hasSize(3);
+
+        int widePagesAbove4MB = 0;
+        int dictionaryPages = 0;
+        for (BlockMetadata block : parquetMetadata.getBlocks()) {
+            for (ColumnChunkMetadata column : block.columns()) {
+                SliceInput input = file.slice(toIntExact(column.getStartingPos()), toIntExact(column.getTotalSize())).getInput();
+                while (input.isReadable()) {
+                    PageHeader header = Util.readPageHeader(input);
+                    Slice compressed = input.readSlice(header.getCompressed_page_size());
+                    Slice uncompressed = decompressPage(codec, compressed, header.getUncompressed_page_size());
+                    assertThat(uncompressed.length()).isEqualTo(header.getUncompressed_page_size());
+                    assertThat(compressed).isEqualTo(compress(codec, uncompressed));
+                    if (header.getType() == PageType.DICTIONARY_PAGE) {
+                        dictionaryPages++;
+                    }
+                    else if (column.getPath().toDotString().equals("wide") && header.getUncompressed_page_size() >= 4 * 1024 * 1024) {
+                        widePagesAbove4MB++;
+                    }
+                }
+                if (column.getPath().toDotString().equals("wide")) {
+                    assertThat(column.getEncodings()).contains(Encoding.DELTA_LENGTH_BYTE_ARRAY);
+                }
+                else {
+                    assertThat(column.hasDictionaryPage()).isTrue();
+                }
+            }
+        }
+        assertThat(widePagesAbove4MB).isEqualTo(5);
+        assertThat(dictionaryPages).isEqualTo(3);
+
+        if (codec == CompressionCodec.LZ4) {
+            // the reader expects Hadoop-framed LZ4 while the writer emits raw LZ4 blocks
+            return;
+        }
+        List<Slice> readWideValues = new ArrayList<>(rowCount);
+        List<Slice> readNarrowValues = new ArrayList<>(rowCount);
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, types, columnNames)) {
+            SourcePage page;
+            while ((page = reader.nextPage()) != null) {
+                Block narrow = page.getBlock(0);
+                Block wide = page.getBlock(1);
+                for (int i = 0; i < page.getPositionCount(); i++) {
+                    readWideValues.add(VARBINARY.getSlice(wide, i));
+                    readNarrowValues.add(VARCHAR.getSlice(narrow, i));
+                }
+            }
+        }
+        assertThat(readWideValues).isEqualTo(wideValues);
+        assertThat(readNarrowValues).isEqualTo(narrowValues);
+    }
+
+    private static Slice decompressPage(CompressionCodec codec, Slice compressed, int uncompressedSize)
+            throws IOException
+    {
+        if (codec == CompressionCodec.LZ4) {
+            byte[] output = new byte[uncompressedSize];
+            int size = Lz4Decompressor.create().decompress(compressed.byteArray(), compressed.byteArrayOffset(), compressed.length(), output, 0, output.length);
+            return Slices.wrappedBuffer(output, 0, size);
+        }
+        return decompress(new ParquetDataSourceId("test"), codec, compressed, uncompressedSize);
+    }
+
+    private static Slice compress(CompressionCodec codec, Slice uncompressed)
+    {
+        if (codec == CompressionCodec.UNCOMPRESSED) {
+            return uncompressed;
+        }
+        if (codec == CompressionCodec.GZIP) {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            try (GZIPOutputStream gzip = new GZIPOutputStream(output)) {
+                gzip.write(uncompressed.getBytes());
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            return Slices.wrappedBuffer(output.toByteArray());
+        }
+        Compressor compressor = switch (codec) {
+            case SNAPPY -> SnappyCompressor.create();
+            case ZSTD -> ZstdCompressor.create();
+            case LZ4 -> Lz4Compressor.create();
+            default -> throw new IllegalArgumentException("Unexpected codec: " + codec);
+        };
+        byte[] output = new byte[compressor.maxCompressedLength(uncompressed.length())];
+        int compressedSize = compressor.compress(uncompressed.byteArray(), uncompressed.byteArrayOffset(), uncompressed.length(), output, 0, output.length);
+        return Slices.wrappedBuffer(output, 0, compressedSize);
+    }
+
     @Test
     public void testLongDecimalRoundTrip()
             throws Exception
@@ -989,6 +1210,66 @@ public class TestParquetWriter
             }
             assertThat(readBackBuilder.build()).describedAs("precision %s", precision).isEqualTo(values);
         }
+    }
+
+    @Test
+    public void testRunLengthEncodedNullNestedColumnsRoundTrip()
+            throws Exception
+    {
+        int nullPositions = 1000;
+        int otherPositions = 100;
+        RowType rowType = rowType(field("a", BIGINT), field("b", BIGINT), field("c", BIGINT), field("d", BIGINT));
+        ArrayType arrayType = new ArrayType(BIGINT);
+        MapType mapType = new MapType(BIGINT, BIGINT, new TypeOperators());
+        List<Type> types = ImmutableList.of(rowType, arrayType, mapType);
+        List<String> columnNames = ImmutableList.of("row", "array", "map");
+
+        // The first page has only nulls, which the writer sees as run length encoded blocks
+        Page nullsPage = new Page(
+                RunLengthEncodedBlock.create(rowType, null, nullPositions),
+                RunLengthEncodedBlock.create(arrayType, null, nullPositions),
+                RunLengthEncodedBlock.create(mapType, null, nullPositions));
+        Page otherPage = new Page(
+                createRowBlock(Optional.empty(), otherPositions),
+                createArrayBlock(Optional.empty(), otherPositions),
+                createMapBlock(Optional.empty(), otherPositions));
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(ParquetWriterOptions.builder().build(), types, columnNames, ImmutableList.of(nullsPage, otherPage)),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+
+        int position = 0;
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, types, columnNames)) {
+            SourcePage page;
+            while ((page = reader.nextPage()) != null) {
+                for (int column = 0; column < types.size(); column++) {
+                    Block block = page.getBlock(column);
+                    for (int i = 0; i < page.getPositionCount(); i++) {
+                        if (position + i < nullPositions) {
+                            assertThat(block.isNull(i)).describedAs("column %s position %s", column, position + i).isTrue();
+                        }
+                        else {
+                            Block expected = otherPage.getBlock(column);
+                            assertThat(types.get(column).getObjectValue(block, i))
+                                    .describedAs("column %s position %s", column, position + i)
+                                    .isEqualTo(types.get(column).getObjectValue(expected, position + i - nullPositions));
+                        }
+                    }
+                }
+                position += page.getPositionCount();
+            }
+        }
+        assertThat(position).isEqualTo(nullPositions + otherPositions);
+    }
+
+    @Test
+    public void testRunLengthEncodedNullVariantRoundTrip()
+            throws IOException
+    {
+        assertThat(writeAndReadColumn(VARIANT_SCHEMA, ImmutableMap.of(), VARIANT, RunLengthEncodedBlock.create(VARIANT, null, 1000)))
+                .hasSize(1000)
+                .containsOnlyNulls();
     }
 
     @Test

@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ShowColumns
+public final class ShowColumns
         extends Statement
 {
     private final QualifiedName table;
@@ -50,12 +50,6 @@ public class ShowColumns
     public Optional<String> getEscape()
     {
         return escape;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitShowColumns(this, context);
     }
 
     @Override

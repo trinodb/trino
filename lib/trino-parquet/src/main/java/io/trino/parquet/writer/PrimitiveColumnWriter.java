@@ -15,6 +15,7 @@ package io.trino.parquet.writer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.DynamicSliceOutput;
 import io.trino.parquet.ParquetMetadataConverter;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefinitionLevelWriter;
@@ -26,9 +27,7 @@ import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.trino.plugin.base.io.ChunkedSliceOutput;
 import jakarta.annotation.Nullable;
-import org.apache.parquet.bytes.ByteBufferReleaser;
 import org.apache.parquet.bytes.BytesInput;
-import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
@@ -112,6 +111,7 @@ public class PrimitiveColumnWriter
 
     @Nullable
     private final ParquetCompressor compressor;
+    private final CompressionBuffers compressionBuffers;
 
     private final int pageSizeThreshold;
     private final int pageValueCountLimit;
@@ -119,12 +119,13 @@ public class PrimitiveColumnWriter
     // Total size of compressed parquet pages
     private long pageBufferedBytes;
 
-    public PrimitiveColumnWriter(
+    PrimitiveColumnWriter(
             ColumnDescriptor columnDescriptor,
             PrimitiveValueWriter primitiveValueWriter,
             ColumnDescriptorValuesWriter definitionLevelWriter,
             ColumnDescriptorValuesWriter repetitionLevelWriter,
             CompressionCodec compressionCodec,
+            CompressionBuffers compressionBuffers,
             int pageSizeThreshold,
             int pageValueCountLimit,
             Optional<BloomFilter> bloomFilter)
@@ -136,6 +137,7 @@ public class PrimitiveColumnWriter
         this.primitiveValueWriter = requireNonNull(primitiveValueWriter, "primitiveValueWriter is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.compressor = getCompressor(compressionCodec);
+        this.compressionBuffers = requireNonNull(compressionBuffers, "compressionBuffers is null");
         this.pageSizeThreshold = pageSizeThreshold;
         this.pageValueCountLimit = pageValueCountLimit;
         this.columnStatistics = createStatistics(columnDescriptor.getPrimitiveType());
@@ -297,9 +299,18 @@ public class PrimitiveColumnWriter
         if (dictionaryPage != null) {
             int uncompressedSize = dictionaryPage.getUncompressedSize();
             BytesInput dictionaryBytes = dictionaryPage.getBytes();
-            ParquetDataOutput pageData = compressor != null
-                    ? compress(dictionaryBytes)
-                    : createDataOutput(dictionaryBytes);
+            ParquetDataOutput pageData;
+            if (compressor != null) {
+                // the dictionary page is written after the pages of the other columns, by which time the shared
+                // compression buffers have been reused, so the compressed dictionary is copied out
+                ParquetDataOutput compressedDictionary = compress(dictionaryBytes);
+                DynamicSliceOutput dictionaryData = new DynamicSliceOutput(compressedDictionary.size());
+                compressedDictionary.writeData(dictionaryData);
+                pageData = createDataOutput(dictionaryData.slice());
+            }
+            else {
+                pageData = createDataOutput(dictionaryBytes);
+            }
             int compressedSize = pageData.size();
 
             ByteArrayOutputStream dictStream = new ByteArrayOutputStream();
@@ -330,11 +341,7 @@ public class PrimitiveColumnWriter
     private ParquetDataOutput compress(BytesInput bytesInput)
             throws IOException
     {
-        // toByteBuffer references the input data without copying when it is backed by a single buffer; the releaser frees
-        // the temporary buffer that is allocated only when the input has to be materialized (e.g. concatenated pages)
-        try (ByteBufferReleaser releaser = new ByteBufferReleaser(HeapByteBufferAllocator.getInstance())) {
-            return compressor.compress(bytesInput.toByteBuffer(releaser));
-        }
+        return compressor.compress(bytesInput.toByteBuffer(compressionBuffers, _ -> {}), compressionBuffers);
     }
 
     @Override

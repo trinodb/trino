@@ -245,7 +245,7 @@ public final class UtcConstraintExtractor
             Map<String, ColumnHandle> assignments)
     {
         if (!(castSource instanceof Variable sourceVariable)) {
-            // Engine unwraps casts in comparisons in UnwrapCastInComparison. Within a connector we can do more than
+            // Engine unwraps casts through function preimages. Within a connector we can do more than
             // engine only for source columns. We cannot draw many conclusions for intermediate expressions without
             // knowing them well.
             return Optional.empty();
@@ -347,7 +347,7 @@ public final class UtcConstraintExtractor
             Map<String, ColumnHandle> assignments)
     {
         if (!(dateTruncSource instanceof Variable sourceVariable)) {
-            // Engine unwraps date_trunc in comparisons in UnwrapDateTruncInComparison. Within a connector we can do more than
+            // Engine unwraps date_trunc through function preimages. Within a connector we can do more than
             // engine only for source columns. We cannot draw many conclusions for intermediate expressions without
             // knowing them well.
             return Optional.empty();
@@ -487,7 +487,7 @@ public final class UtcConstraintExtractor
             Map<String, ColumnHandle> assignments)
     {
         if (!(yearSource instanceof Variable sourceVariable)) {
-            // Engine unwraps year in comparisons in UnwrapYearInComparison. Within a connector we can do more than
+            // Engine unwraps year through function preimages. Within a connector we can do more than
             // engine only for source columns. We cannot draw many conclusions for intermediate expressions without
             // knowing them well.
             return Optional.empty();

@@ -81,6 +81,7 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.type.TypeUtils.isDirectLongComparisonValidType;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.createClassInstanceWithoutTemplate;
@@ -90,13 +91,16 @@ import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateBlockPosi
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateGetInputChannels;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.updateOutputPositions;
 import static io.trino.util.CompilerUtils.makeClassName;
-import static io.trino.util.FastutilSetHelper.isDirectLongComparisonValidType;
 import static io.trino.util.FastutilSetHelper.toFastutilHashSet;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class InColumnarFilterGenerator
 {
+    // Lookup in Set is generally faster than switch case for not super tiny IN lists.
+    // Tipping point is between 5 and 10 (using round 8)
+    static final int MAX_SWITCH_CASE_VALUES = 8;
+
     private final Reference valueReference;
     private final Map<Symbol, Integer> layout;
     private final TypeOperators typeOperators;
@@ -271,9 +275,7 @@ public class InColumnarFilterGenerator
         if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
             throw new UnsupportedOperationException("Structural type not supported");
         }
-        if (values.size() >= 8) {
-            // Lookup in Set is generally faster than switch case for not super tiny IN lists.
-            // Tipping point is between 5 and 10 (using round 8)
+        if (values.size() >= MAX_SWITCH_CASE_VALUES) {
             return false;
         }
 

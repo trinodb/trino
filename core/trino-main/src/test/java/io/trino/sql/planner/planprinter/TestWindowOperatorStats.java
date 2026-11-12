@@ -13,10 +13,10 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.operator.WindowInfo;
 import org.junit.jupiter.api.Test;
 
-import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestWindowOperatorStats
@@ -24,7 +24,7 @@ public class TestWindowOperatorStats
     @Test
     public void testEmptyDriverInfosList()
     {
-        WindowInfo info = new WindowInfo(emptyList());
+        WindowInfo info = new WindowInfo(ImmutableList.of());
 
         WindowOperatorStats stats = WindowOperatorStats.create(info);
 

@@ -24,7 +24,6 @@ import io.trino.metastore.Table;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.MaxTableParameterLength;
-import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.spi.Node;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -210,11 +209,6 @@ public class DeltaLakeTableMetadataScheduler
             scheduler.shutdownNow();
             executor.shutdownNow();
         }
-    }
-
-    public static boolean isSameTransactionVersion(Table table, TableSnapshot snapshot)
-    {
-        return isSameTransactionVersion(table, snapshot.getVersion());
     }
 
     public static boolean isSameTransactionVersion(Table table, long snapshotVersion)

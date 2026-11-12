@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class CreateTableAsSelect
+public final class CreateTableAsSelect
         extends Statement
 {
     private final QualifiedName name;
@@ -78,12 +78,6 @@ public class CreateTableAsSelect
     public Optional<String> getComment()
     {
         return comment;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCreateTableAsSelect(this, context);
     }
 
     @Override

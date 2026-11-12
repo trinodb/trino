@@ -19,6 +19,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -119,7 +120,7 @@ public final class JoinUtils
     {
         List<PlanNode> dynamicFilterSourceNodes = PlanNodeSearcher.searchFrom(joinNode.getRight())
                 .where(DynamicFilterSourceNode.class::isInstance)
-                .recurseOnlyWhen(node -> node instanceof ExchangeNode || node instanceof ProjectNode)
+                .recurseOnlyWhen(JoinUtils::isDynamicFilterSourcePassThrough)
                 .findAll();
         Map<DynamicFilterId, Symbol> dynamicFilters = joinNode.getDynamicFilters();
         // This method maybe called before AddJoinDynamicFilterSource has rewritten join dynamic filters to DynamicFilterSourceNode
@@ -137,7 +138,7 @@ public final class JoinUtils
     {
         List<PlanNode> dynamicFilterSourceNodes = PlanNodeSearcher.searchFrom(semiJoinNode.getFilteringSource())
                 .where(DynamicFilterSourceNode.class::isInstance)
-                .recurseOnlyWhen(node -> node instanceof ExchangeNode || node instanceof ProjectNode)
+                .recurseOnlyWhen(JoinUtils::isDynamicFilterSourcePassThrough)
                 .findAll();
         Optional<DynamicFilterId> dynamicFilterId = semiJoinNode.getDynamicFilterId();
         // This method maybe called before AddSemiJoinDynamicFilterSource has rewritten join dynamic filters to DynamicFilterSourceNode
@@ -149,6 +150,12 @@ public final class JoinUtils
                 dynamicFilterId);
         verify(dynamicFilterSourceNodes.size() == 1, "Expected only 1 dynamic filter source node");
         return Optional.of(getOnlyElement(((DynamicFilterSourceNode) getOnlyElement(dynamicFilterSourceNodes)).getDynamicFilters().keySet()));
+    }
+
+    // Keep in sync with AddDynamicFilterSource.canAddDynamicFilterSource, which decides how far the source node can be pushed
+    private static boolean isDynamicFilterSourcePassThrough(PlanNode node)
+    {
+        return node instanceof ExchangeNode || node instanceof ProjectNode || node instanceof AssignUniqueId;
     }
 
     private static boolean isRemoteReplicatedExchange(PlanNode node)

@@ -42,12 +42,8 @@ java/util/Optional.get:()Ljava/lang/Object;
 # Trino's code style mandates the static format() over String.formatted(); see .github/DEVELOPMENT.md
 java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
 
-# Collections.singletonList/emptyList/singleton/emptySet/emptyMap are allowed; the List/Set/Map.of() analogues have different semantics (e.g. null handling)
+# Collections.singletonList is allowed; the List/Set/Map.of() analogues have different semantics (e.g. null handling)
 java/util/Collections.singletonList:(Ljava/lang/Object;)Ljava/util/List;
-java/util/Collections.emptyList:()Ljava/util/List;
-java/util/Collections.singleton:(Ljava/lang/Object;)Ljava/util/Set;
-java/util/Collections.emptySet:()Ljava/util/Set;
-java/util/Collections.emptyMap:()Ljava/util/Map;
 java/util/Collections.singletonMap:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
 
 # toUnmodifiableList() rejects nulls whereas Stream.toList() permits them; they are not interchangeable
@@ -59,14 +55,8 @@ com/google/common/base/Joiner.join:(Ljava/lang/Iterable;)Ljava/lang/String;
 # Lists.newArrayList(...) is more readable than new ArrayList<>(Arrays.asList(...))
 com/google/common/collect/Lists.newArrayList:([Ljava/lang/Object;)Ljava/util/ArrayList;
 
-# Guava's Strings.repeat is allowed alongside String.repeat(int)
-com/google/common/base/Strings.repeat:(Ljava/lang/String;I)Ljava/lang/String;
-
 # Guava's CharStreams.copy is allowed alongside Reader.transferTo(Writer)
 com/google/common/io/CharStreams.copy:(Ljava/lang/Readable;Ljava/lang/Appendable;)J
-
-# Guava's Files.copy is allowed alongside java.nio.file.Files.copy
-com/google/common/io/Files.copy:(Ljava/io/File;Ljava/io/File;)V
 
 # Guava's Files.createParentDirs is allowed alongside java.nio.file.Files.createDirectories
 com/google/common/io/Files.createParentDirs:(Ljava/io/File;)V

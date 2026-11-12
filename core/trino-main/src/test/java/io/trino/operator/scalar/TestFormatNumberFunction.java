@@ -141,7 +141,19 @@ public class TestFormatNumberFunction
 
         assertThat(assertions.function("format_number", "-9223372036854775808"))
                 .hasType(VARCHAR)
-                .isEqualTo("-9223.37Q");
+                .isEqualTo("-9223Q");
+
+        assertThat(assertions.function("format_number", "SMALLINT '-12345'"))
+                .hasType(VARCHAR)
+                .isEqualTo("-12.3K");
+
+        assertThat(assertions.function("format_number", "INTEGER '-123456789'"))
+                .hasType(VARCHAR)
+                .isEqualTo("-123M");
+
+        assertThat(assertions.function("format_number", "DOUBLE '-1234.5'"))
+                .hasType(VARCHAR)
+                .isEqualTo("-1.23K");
 
         assertThat(assertions.function("format_number", "0"))
                 .hasType(VARCHAR)

@@ -17,17 +17,7 @@ import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;
 
-import static io.trino.hdfs.TrinoFileSystemCache.CACHE_KEY;
-
 public interface DynamicConfigurationProvider
 {
     void updateConfiguration(Configuration configuration, HdfsContext context, URI uri);
-
-    /**
-     * Set a cache key to invalidate the file system on credential (or other configuration) change.
-     */
-    static void setCacheKey(Configuration configuration, String value)
-    {
-        configuration.set(CACHE_KEY, configuration.get(CACHE_KEY, "") + "|" + value);
-    }
 }

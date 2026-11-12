@@ -266,13 +266,39 @@ public final class TestParquetEncryption
         file.deleteOnExit();
 
         // age column encrypted, id column plaintext
-        writeTwoColumnFile(file, /*encryptAge*/ true, /*encryptId*/ false);
+        writeTwoColumnFile(file, /*encryptAge*/ true, /*encryptId*/ false, /*encryptFooter*/ true);
 
         // Provide keys for both footer & encrypted age column
-        Map<String, List<Integer>> data = readTwoColumnFile(file, new TestingKeyRetriever(Optional.of(KEY_FOOT), Optional.of(KEY_AGE), Optional.empty()));
+        Map<String, List<Integer>> data = readTwoColumnFile(file, new TestingKeyRetriever(Optional.of(KEY_FOOT), Optional.of(KEY_AGE), Optional.empty()), /*checkFooterIntegrity*/ true);
 
         verifySequence(data.get("age"), 100);
         verifyReverseSequence(data.get("id"), 100);
+    }
+
+    /**
+     * Two columns; footer plaintext; one column plaintext, other encrypted.
+     */
+    @ParameterizedTest(name = "checkFooterIntegrity={0}")
+    @CsvSource({"false", "true"})
+    void footerPlaintextMixedEncryptedAndPlaintextColumns(boolean checkFooterIntegrity)
+            throws IOException
+    {
+        File file = createTempFile("pme‑mixed‑cols‑footer‑plaintext", ".parquet").toFile();
+        file.deleteOnExit();
+
+        // age column plaintext, id column encrypted
+        writeTwoColumnFile(file, /*encryptAge*/ false, /*encryptId*/ true, /*encryptFooter*/ false);
+
+        Optional<byte[]> footerKey = checkFooterIntegrity ? Optional.of(KEY_FOOT) : Optional.empty();
+
+        Map<String, List<Integer>> data = readTwoColumnFile(file, new TestingKeyRetriever(footerKey, Optional.empty(), Optional.of(KEY_ID)), checkFooterIntegrity);
+        verifySequence(data.get("age"), 100);
+        verifyReverseSequence(data.get("id"), 100);
+
+        TestingKeyRetriever withoutIdKey = new TestingKeyRetriever(footerKey, Optional.empty(), Optional.empty());
+        verifySequence(readSingleColumnFile(file, withoutIdKey, checkFooterIntegrity, Optional.empty()), 100);
+        assertThatThrownBy(() -> readTwoColumnFile(file, withoutIdKey, checkFooterIntegrity))
+                .isInstanceOf(ParquetCryptoException.class);
     }
 
     /**
@@ -286,7 +312,7 @@ public final class TestParquetEncryption
         file.deleteOnExit();
 
         // both columns encrypted with different keys
-        writeTwoColumnFile(file, /*encryptAge*/ true, /*encryptId*/ true);
+        writeTwoColumnFile(file, /*encryptAge*/ true, /*encryptId*/ true, /*encryptFooter*/ true);
 
         // reader has footer key + KEY_AGE only, not KEY_ID
         TestingKeyRetriever retriever = new TestingKeyRetriever(Optional.of(KEY_FOOT), Optional.of(KEY_AGE), Optional.empty());
@@ -674,7 +700,8 @@ public final class TestParquetEncryption
     private static void writeTwoColumnFile(
             File target,
             boolean encryptAge,
-            boolean encryptId)
+            boolean encryptId,
+            boolean encryptFooter)
             throws IOException
     {
         ImmutableMap.Builder<ColumnPath, ColumnEncryptionProperties> columnMap = ImmutableMap.builder();
@@ -685,15 +712,18 @@ public final class TestParquetEncryption
             columnMap.put(ID_PATH, ColumnEncryptionProperties.builder(ID_PATH).withKey(KEY_ID).build());
         }
 
-        FileEncryptionProperties fileEncryption = FileEncryptionProperties.builder(KEY_FOOT)
+        FileEncryptionProperties.Builder fileEncryption = FileEncryptionProperties.builder(KEY_FOOT)
                 .withAlgorithm(ParquetCipher.AES_GCM_CTR_V1)
-                .withEncryptedColumns(columnMap.buildOrThrow())
-                .build();
+                .withEncryptedColumns(columnMap.buildOrThrow());
+
+        if (!encryptFooter) {
+            fileEncryption.withPlaintextFooter();
+        }
 
         ExampleParquetWriter.Builder builder = ExampleParquetWriter.builder(new Path(target.getAbsolutePath()))
                 .withType(TWO_COL_SCHEMA)
                 .withConf(new Configuration())
-                .withEncryption(fileEncryption)
+                .withEncryption(fileEncryption.build())
                 .withWriteMode(OVERWRITE)
                 // tiny page => even 100 ints give us ≥ 2 data pages
                 .withPageSize(64);
@@ -921,13 +951,14 @@ public final class TestParquetEncryption
      */
     private static Map<String, List<Integer>> readTwoColumnFile(
             File file,
-            DecryptionKeyRetriever retriever)
+            DecryptionKeyRetriever retriever,
+            boolean checkFooterIntegrity)
             throws IOException
     {
         ParquetDataSource source = new FileParquetDataSource(file, ParquetReaderOptions.builder().build());
 
         FileDecryptionProperties properties = FileDecryptionProperties
-                .builder().withKeyRetriever(retriever).withCheckFooterIntegrity(true).build();
+                .builder().withKeyRetriever(retriever).withCheckFooterIntegrity(checkFooterIntegrity).build();
 
         ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties));
 

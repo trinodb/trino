@@ -50,12 +50,6 @@ public final class RowDataType
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitRowDataType(this, context);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -74,7 +68,7 @@ public final class RowDataType
         return Objects.hash(fields);
     }
 
-    public static class Field
+    public static final class Field
             extends Node
     {
         private final Optional<Identifier> name;
@@ -115,12 +109,6 @@ public final class RowDataType
             children.add(type);
 
             return children.build();
-        }
-
-        @Override
-        protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-        {
-            return visitor.visitRowDataTypeField(this, context);
         }
 
         @Override

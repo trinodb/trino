@@ -53,7 +53,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Collections.emptyList;
 
 public class TestRemoveEmptyUnionBranches
         extends BasePlanTest
@@ -125,7 +124,7 @@ public class TestRemoveEmptyUnionBranches
                         .collect(toImmutableList()))
                 .withGetTableProperties((_, handle) -> {
                     MockConnectorTableHandle table = (MockConnectorTableHandle) handle;
-                    return new ConnectorTableProperties(table.getConstraint(), Optional.empty(), Optional.empty(), emptyList());
+                    return new ConnectorTableProperties(table.getConstraint(), Optional.empty(), Optional.empty(), ImmutableList.of());
                 })
                 .withApplyFilter(applyFilter())
                 .withName(catalogHandle)

@@ -25,7 +25,6 @@ import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -41,7 +40,8 @@ public class OAuth2Config
     private String clientSecret;
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
     private String principalField = "sub";
-    private List<String> additionalAudiences = Collections.emptyList();
+    private List<String> additionalAudiences = ImmutableList.of();
+    private boolean requireAudience;
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
     private Duration maxClockSkew = new Duration(1, TimeUnit.MINUTES);
     private Optional<String> jwtType = Optional.empty();
@@ -119,6 +119,19 @@ public class OAuth2Config
     public OAuth2Config setAdditionalAudiences(List<String> additionalAudiences)
     {
         this.additionalAudiences = ImmutableList.copyOf(additionalAudiences);
+        return this;
+    }
+
+    public boolean isRequireAudience()
+    {
+        return requireAudience;
+    }
+
+    @Config("http-server.authentication.oauth2.require-audience")
+    @ConfigDescription("Reject access tokens without an audience claim")
+    public OAuth2Config setRequireAudience(boolean requireAudience)
+    {
+        this.requireAudience = requireAudience;
         return this;
     }
 

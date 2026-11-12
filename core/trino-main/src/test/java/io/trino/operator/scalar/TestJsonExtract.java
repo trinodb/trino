@@ -16,10 +16,13 @@ package io.trino.operator.scalar;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.core.StreamWriteConstraints;
+import com.fasterxml.jackson.core.exc.StreamConstraintsException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.operator.scalar.JsonExtract.JsonExtractor;
+import io.trino.operator.scalar.JsonExtract.JsonSizeExtractor;
 import io.trino.operator.scalar.JsonExtract.JsonValueJsonExtractor;
 import io.trino.operator.scalar.JsonExtract.ObjectFieldJsonExtractor;
 import io.trino.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
@@ -33,9 +36,11 @@ import java.util.List;
 
 import static io.trino.operator.scalar.JsonExtract.generateExtractor;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
+import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.type.JsonType.JSON;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -336,6 +341,79 @@ public class TestJsonExtract
     {
         String longString = "a".repeat(StreamReadConstraints.DEFAULT_MAX_STRING_LEN + 1);
         assertThat(doJsonExtract("{\"key\": \"" + longString + "\"}", "$.key")).isEqualTo('"' + longString + '"');
+    }
+
+    @Test
+    public void testReadConstraintFailure()
+            throws IOException
+    {
+        JsonFactory factory = jsonFactoryBuilder()
+                .streamReadConstraints(StreamReadConstraints.builder().maxNestingDepth(1).build())
+                .build();
+        for (JsonExtractor<?> extractor : List.of(new ScalarValueJsonExtractor(), new JsonValueJsonExtractor(), new JsonSizeExtractor())) {
+            try (JsonParser parser = factory.createParser("[[0]]")) {
+                assertTrinoExceptionThrownBy(() -> JsonExtract.extract(parser, generateExtractor("$[0]", extractor)))
+                        .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                        .hasMessageContaining("Document nesting depth (2) exceeds the maximum allowed (1,")
+                        .hasCauseInstanceOf(StreamConstraintsException.class);
+            }
+        }
+    }
+
+    @Test
+    public void testConstraintFailureWithoutMessage()
+            throws IOException
+    {
+        StreamConstraintsException exception = new StreamConstraintsException("ignored")
+        {
+            @Override
+            public String getMessage()
+            {
+                return null;
+            }
+        };
+        try (JsonParser parser = jsonFactory().createParser("0")) {
+            assertTrinoExceptionThrownBy(() -> JsonExtract.extract(parser, _ -> {
+                throw exception;
+            }))
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("JSON exceeds a stream constraint: " + exception)
+                    .hasCause(exception);
+        }
+    }
+
+    @Test
+    public void testStringConstraintFailure()
+            throws IOException
+    {
+        JsonFactory factory = jsonFactoryBuilder()
+                .streamReadConstraints(StreamReadConstraints.builder().maxStringLength(10).build())
+                .build();
+        try (JsonParser parser = factory.createParser("\"" + "a".repeat(20) + "\"")) {
+            assertTrinoExceptionThrownBy(() -> JsonExtract.extract(parser, new ScalarValueJsonExtractor()))
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessageContaining("String value length (20) exceeds the maximum allowed (10,")
+                    .hasCauseInstanceOf(StreamConstraintsException.class);
+        }
+    }
+
+    @Test
+    public void testWriteConstraintFailure()
+    {
+        int depth = StreamWriteConstraints.DEFAULT_MAX_DEPTH + 1;
+        String json = "[".repeat(depth) + "0" + "]".repeat(depth);
+        assertTrinoExceptionThrownBy(() -> doJsonExtract(json, "$"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Document nesting depth (%s) exceeds the maximum allowed (%s,".formatted(depth, depth - 1))
+                .hasCauseInstanceOf(StreamConstraintsException.class);
+
+        try (QueryAssertions assertions = new QueryAssertions()) {
+            assertTrinoExceptionThrownBy(assertions.function("json_extract", "'" + json + "'", "'$'")::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessageContaining("Document nesting depth (%s) exceeds the maximum allowed (%s,".formatted(depth, depth - 1));
+            assertThat(assertions.expression("try(json_extract(json, '$'))").binding("json", "'" + json + "'"))
+                    .isNull(JSON);
+        }
     }
 
     @Test

@@ -30,6 +30,9 @@ public interface GroupedAccumulator
 
     void evaluateIntermediate(int groupId, BlockBuilder output);
 
+    /**
+     * Ordered aggregations require ascending group id order, which holds since they are not spillable.
+     */
     void evaluateFinal(int groupId, BlockBuilder output);
 
     void prepareFinal(UpdateMemory updateMemory);

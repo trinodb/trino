@@ -19,10 +19,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-public class FunctionCall
+public final class FunctionCall
         extends Expression
 {
     private final QualifiedName name;
@@ -74,7 +73,6 @@ public class FunctionCall
             List<CallArgument> arguments)
     {
         super(Optional.ofNullable(location));
-        window.ifPresent(node -> checkArgument(node instanceof WindowReference || node instanceof WindowSpecification, "unexpected window: %s", node.getClass().getSimpleName()));
 
         this.name = name;
         this.window = window;
@@ -136,12 +134,6 @@ public class FunctionCall
     public Optional<Expression> getFilter()
     {
         return filter;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitFunctionCall(this, context);
     }
 
     @Override

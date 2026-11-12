@@ -43,12 +43,6 @@ public record Lambda(List<Symbol> arguments, Expression body)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLambda(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         return ImmutableList.of(body);

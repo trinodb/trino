@@ -14,7 +14,9 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
+import io.trino.operator.scalar.preimage.DateTruncPreimage;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -27,6 +29,7 @@ import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 
 @Description("Truncate to the specified precision in the session timezone")
 @ScalarFunction("date_trunc")
+@FunctionPreimage(DateTruncPreimage.class)
 public final class DateTrunc
 {
     private DateTrunc() {}

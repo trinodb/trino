@@ -512,9 +512,9 @@ public class QueryAssertions
             PlanMatchPattern expectedPlan = PlanMatchPattern.anyTree(retainedSubplan);
 
             return hasPlan(expectedPlan, plan -> {
-                if (PlanNodeSearcher.searchFrom(plan.getRoot())
+                if (!PlanNodeSearcher.searchFrom(plan.getRoot())
                         .whereIsInstanceOfAny(TableScanNode.class)
-                        .findFirst().isEmpty()) {
+                        .matches()) {
                     throw new IllegalArgumentException("Incorrect use of isNotFullyPushedDown: the actual plan matched the expected despite not having a TableScanNode left " +
                             "in the plan. Use hasPlan() instead");
                 }
@@ -746,35 +746,11 @@ public class QueryAssertions
         }
 
         @CanIgnoreReturnValue
-        public ResultAssert hasColumnNames(String... expectedColumnNames)
-        {
-            return hasColumnNames(Arrays.asList(expectedColumnNames));
-        }
-
-        @CanIgnoreReturnValue
-        public ResultAssert hasColumnNames(List<String> expectedColumnNames)
-        {
-            assertThat(actual.getColumnNames())
-                    .as("Column names for query [%s]", description)
-                    .isEqualTo(expectedColumnNames);
-            return this;
-        }
-
-        @CanIgnoreReturnValue
         public ResultAssert hasTypes(List<Type> expectedTypes)
         {
             assertThat(actual.getTypes())
                     .as("Output types for query [%s]", description)
                     .isEqualTo(expectedTypes);
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public ResultAssert hasType(int index, Type expectedType)
-        {
-            assertThat(actual.getTypes())
-                    .as("Output types for query [%s]", description)
-                    .element(index).isEqualTo(expectedType);
             return this;
         }
 

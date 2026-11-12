@@ -15,6 +15,7 @@ package io.trino.plugin.bigquery.procedure;
 
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.plugin.bigquery.BigQueryClient;
@@ -25,6 +26,7 @@ import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Map;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -62,11 +64,12 @@ public final class ExecuteProcedure
                 EXECUTE.bindTo(this));
     }
 
-    public void execute(ConnectorSession session, String query)
+    public Map<String, Long> execute(ConnectorSession session, String query)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             BigQueryClient client = clientFactory.create(session);
-            client.executeUpdate(session, QueryJobConfiguration.of(query));
+            long rowCount = client.executeUpdate(session, QueryJobConfiguration.of(query));
+            return ImmutableMap.of("row_count", rowCount);
         }
     }
 }

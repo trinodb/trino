@@ -1000,7 +1000,7 @@ public class PipelinedQueryScheduler
             if (partitioningHandle.equals(SOURCE_DISTRIBUTION) || partitioningHandle.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
                 return ONE;
             }
-            if (searchFrom(fragment.getRoot()).where(node -> node instanceof TableScanNode).findFirst().isPresent() &&
+            if (searchFrom(fragment.getRoot()).where(node -> node instanceof TableScanNode).matches() &&
                     fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                 return EMPTY;
             }

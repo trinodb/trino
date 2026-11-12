@@ -17,6 +17,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 
 public class PlanNodeIdAllocator
 {
+    private final int startId;
     private int nextId;
 
     public PlanNodeIdAllocator()
@@ -26,11 +27,17 @@ public class PlanNodeIdAllocator
 
     public PlanNodeIdAllocator(int startId)
     {
+        this.startId = startId;
         this.nextId = startId;
     }
 
     public PlanNodeId getNextId()
     {
         return new PlanNodeId(Integer.toString(nextId++));
+    }
+
+    public int allocatedIdCount()
+    {
+        return nextId - startId;
     }
 }

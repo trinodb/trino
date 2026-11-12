@@ -30,7 +30,7 @@ public record CommitTaskData(
         int partitionSpecId,
         Optional<String> partitionDataJson,
         FileContent content,
-        Optional<String> referencedDataFile,
+        Optional<ReferencedDataFile> referencedDataFile,
         Optional<List<Long>> fileSplitOffsets,
         int sortOrderId,
         Optional<byte[]> serializedDeletionVector)

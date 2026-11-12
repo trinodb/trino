@@ -13,13 +13,13 @@
  */
 package io.trino.procedure;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Provider;
 import io.trino.spi.procedure.Procedure;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.util.Reflection.methodHandle;
-import static java.util.Collections.emptyList;
 
 public class TestProcedure
         implements Provider<Procedure>
@@ -29,7 +29,7 @@ public class TestProcedure
     @Override
     public Procedure get()
     {
-        return new Procedure("default", "test_procedure", emptyList(), TEST_METADATA.bindTo(this));
+        return new Procedure("default", "test_procedure", ImmutableList.of(), TEST_METADATA.bindTo(this));
     }
 
     public void testProcedure() {}

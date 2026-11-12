@@ -70,16 +70,4 @@ public final class TpchTableResults
      * The number of rows in the region table.
      */
     public static final int REGION_ROW_COUNT = 5;
-
-    /**
-     * All 5 region rows from the TPCH region table.
-     * <p>
-     * Schema: regionkey (bigint), name (varchar), comment (varchar)
-     */
-    public static final List<Row> REGION_ROWS = List.of(
-            row(0L, "AFRICA", "lar deposits. blithely final packages cajole. regular waters are final requests. regular accounts are according to "),
-            row(1L, "AMERICA", "hs use ironic, even requests. s"),
-            row(2L, "ASIA", "ges. thinly even pinto beans ca"),
-            row(3L, "EUROPE", "ly final courts cajole furiously final excuse"),
-            row(4L, "MIDDLE EAST", "uickly special accounts cajole carefully blithely close requests. carefully final asymptotes haggle furiousl"));
 }

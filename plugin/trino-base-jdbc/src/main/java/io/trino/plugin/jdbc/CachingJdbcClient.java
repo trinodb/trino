@@ -663,17 +663,6 @@ public class CachingJdbcClient
         invalidateAllIf(statisticsCache, key -> key.mayReference(table));
     }
 
-    /**
-     * @deprecated {@link JdbcTableHandle} is not a good representation of the table. For example, we don't want
-     *         to distinguish between "a plan table" and "table with selected columns", or "a table with a constraint" here.
-     *         Use {@link #onDataChanged(SchemaTableName)}, which avoids these ambiguities.
-     */
-    @Deprecated
-    public void onDataChanged(JdbcTableHandle handle)
-    {
-        statisticsCache.invalidate(handle);
-    }
-
     @Override
     public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {

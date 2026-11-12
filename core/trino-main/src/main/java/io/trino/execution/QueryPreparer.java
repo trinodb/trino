@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.spi.TrinoException;
@@ -35,7 +36,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.util.StatementUtils.getQueryType;
-import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 
 public class QueryPreparer
@@ -96,7 +96,7 @@ public class QueryPreparer
             throw semanticException(INVALID_PARAMETER_USAGE, node, "Incorrect number of parameters: expected %s but found %s", parameterCount, parameterValues.size());
         }
         for (Expression expression : parameterValues) {
-            verifyExpressionIsConstant(emptySet(), expression);
+            verifyExpressionIsConstant(ImmutableSet.of(), expression);
         }
     }
 

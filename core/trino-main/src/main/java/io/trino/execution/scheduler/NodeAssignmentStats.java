@@ -86,11 +86,6 @@ public final class NodeAssignmentStats
         getOrCreateStageSplitInfo(node).addAssignedSplit(splitWeight);
     }
 
-    public void removeAssignedSplit(InternalNode node, SplitWeight splitWeight)
-    {
-        getOrCreateStageSplitInfo(node).removeAssignedSplit(splitWeight);
-    }
-
     private PendingSplitInfo getOrCreateStageSplitInfo(InternalNode node)
     {
         String nodeId = node.getNodeIdentifier();
@@ -135,12 +130,6 @@ public final class NodeAssignmentStats
         {
             assignedSplits++;
             assignedSplitsWeight = addExact(assignedSplitsWeight, splitWeight.getRawValue());
-        }
-
-        public void removeAssignedSplit(SplitWeight splitWeight)
-        {
-            assignedSplits--;
-            assignedSplitsWeight -= splitWeight.getRawValue();
         }
     }
 }

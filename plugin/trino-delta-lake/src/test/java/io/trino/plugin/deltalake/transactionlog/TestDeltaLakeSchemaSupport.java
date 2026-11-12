@@ -60,6 +60,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
@@ -107,7 +108,7 @@ public class TestDeltaLakeSchemaSupport
                 ColumnMetadata.builder().setName("a").setType(DATE).setNullable(true).build());
         testSinglePrimitiveFieldSchema(
                 "{\"type\":\"struct\",\"fields\":[{\"name\":\"a\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
-                ColumnMetadata.builder().setName("a").setType(TIMESTAMP_TZ_MICROS).setNullable(true).build());
+                ColumnMetadata.builder().setName("a").setType(TIMESTAMP_TZ_MICROS).setTimeZone(Optional.of(UTC_KEY)).setNullable(true).build());
     }
 
     private void testSinglePrimitiveFieldSchema(String json, ColumnMetadata metadata)
@@ -151,7 +152,7 @@ public class TestDeltaLakeSchemaSupport
         assertThat(schema.get(1).toString()).isEqualTo("ColumnMetadata{name='b', type=row(\"b1\" integer, \"b2\" row(\"b21\" varchar, \"b22\" boolean)), nullable}");
         assertThat(schema.get(2).toString()).isEqualTo("ColumnMetadata{name='c', type=array(integer), nullable}");
         assertThat(schema.get(3).toString()).isEqualTo("ColumnMetadata{name='d', type=array(row(\"d1\" integer)), nullable}");
-        assertThat(schema.get(4).toString()).isEqualTo("ColumnMetadata{name='e', type=map(varchar, row(\"e1\" date, \"e2\" timestamp(6) with time zone)), nullable}");
+        assertThat(schema.get(4).toString()).isEqualTo("ColumnMetadata{name='e', type=map(varchar, row(\"e1\" date, \"e2\" timestamp(6) with time zone)), timeZone=UTC, nullable}");
     }
 
     @Test

@@ -54,7 +54,6 @@ final class TestIcebergAzureRestCatalogVendedCredentialsRefresh
     private final String accessKey = requiredNonEmptySystemProperty("testing.azure-abfs-access-key");
 
     private String sasToken;
-    private long sasTokenExpiresAtMs;
     private TrinoFileSystem fileSystem;
 
     @BeforeAll
@@ -87,7 +86,6 @@ final class TestIcebergAzureRestCatalogVendedCredentialsRefresh
     {
         OffsetDateTime sasTokenExpiry = OffsetDateTime.now().plusHours(1);
         sasToken = generateAccountSasToken(sasTokenExpiry);
-        sasTokenExpiresAtMs = sasTokenExpiry.toInstant().toEpochMilli();
 
         return "abfss://%s@%s.dfs.core.windows.net/azure-vending-rest-refresh-test-%s/".formatted(container, account, randomNameSuffix());
     }
@@ -132,10 +130,16 @@ final class TestIcebergAzureRestCatalogVendedCredentialsRefresh
                 return ImmutableMap.<String, String>builder()
                         .put(AzureProperties.ADLS_SAS_TOKEN_PREFIX + account, sasToken)
                         .put(AzureProperties.ADLS_REFRESH_CREDENTIALS_ENABLED, "true")
-                        .put(AzureProperties.ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX + account, Long.toString(sasTokenExpiresAtMs))
+                        .put(AzureProperties.ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX + account, Long.toString(sessionTokenExpirationTime.get().toEpochMilli()))
                         .buildOrThrow();
             }
         };
+    }
+
+    @Override
+    protected int expectedVendedCredentialsRefreshCountDuringWrite()
+    {
+        return 4;
     }
 
     @Override
@@ -143,6 +147,8 @@ final class TestIcebergAzureRestCatalogVendedCredentialsRefresh
     {
         return ImmutableMap.<String, String>builder()
                 .put("fs.azure.enabled", "true")
+                .put("azure.write-block-size", WRITE_PART_SIZE.toString())
+                .put("azure.max-single-upload-size", WRITE_PART_SIZE.toString())
                 .put("azure.auth-type", "DEFAULT")
                 .buildOrThrow();
     }

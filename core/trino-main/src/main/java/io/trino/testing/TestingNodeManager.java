@@ -107,12 +107,6 @@ public class TestingNodeManager
             return this;
         }
 
-        public Builder doNotScheduleOnCoordinator()
-        {
-            this.scheduleOnCoordinator = false;
-            return this;
-        }
-
         public TestingNodeManager build()
         {
             return new TestingNodeManager(localNode, otherNodes, scheduleOnCoordinator);

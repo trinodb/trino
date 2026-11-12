@@ -40,9 +40,10 @@ import java.util.function.Function;
 import java.util.function.LongUnaryOperator;
 import java.util.function.ToLongFunction;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
+import static io.trino.plugin.iceberg.TransformUtils.ICEBERG_BUCKET_PATTERN;
+import static io.trino.plugin.iceberg.TransformUtils.ICEBERG_TRUNCATE_PATTERN;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTzMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTzNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampToNanos;
@@ -77,9 +78,6 @@ import static java.util.concurrent.TimeUnit.DAYS;
 
 public final class PartitionTransforms
 {
-    private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket\\[(\\d+)]");
-    private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
-
     private static final VarHandle LONG_HANDLE_BIG_ENDIAN =
             MethodHandles.byteArrayViewVarHandle(long[].class, BIG_ENDIAN);
 
@@ -90,8 +88,16 @@ public final class PartitionTransforms
 
     public static ColumnTransform getColumnTransform(PartitionField field, Type sourceType)
     {
-        String transform = field.transform().toString();
+        try {
+            return getColumnTransform(field.transform().toString(), sourceType);
+        }
+        catch (UnsupportedOperationException e) {
+            throw new UnsupportedOperationException("%s (partition field: %s)".formatted(e.getMessage(), field), e);
+        }
+    }
 
+    public static ColumnTransform getColumnTransform(String transform, Type sourceType)
+    {
         switch (transform) {
             case "identity" -> {
                 return identity(sourceType);
@@ -112,7 +118,7 @@ public final class PartitionTransforms
                 if (sourceType.equals(TIMESTAMP_TZ_NANOS)) {
                     return yearsFromTimestampNanosWithTimeZone();
                 }
-                throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
+                throw new UnsupportedOperationException("Unsupported type for 'year': " + sourceType);
             }
             case "month" -> {
                 if (sourceType.equals(DATE)) {
@@ -130,7 +136,7 @@ public final class PartitionTransforms
                 if (sourceType.equals(TIMESTAMP_TZ_NANOS)) {
                     return monthsFromTimestampNanosWithTimeZone();
                 }
-                throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
+                throw new UnsupportedOperationException("Unsupported type for 'month': " + sourceType);
             }
             case "day" -> {
                 if (sourceType.equals(DATE)) {
@@ -148,7 +154,7 @@ public final class PartitionTransforms
                 if (sourceType.equals(TIMESTAMP_TZ_NANOS)) {
                     return daysFromTimestampNanosWithTimeZone();
                 }
-                throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
+                throw new UnsupportedOperationException("Unsupported type for 'day': " + sourceType);
             }
             case "hour" -> {
                 if (sourceType.equals(TIMESTAMP_MICROS)) {
@@ -163,20 +169,20 @@ public final class PartitionTransforms
                 if (sourceType.equals(TIMESTAMP_TZ_NANOS)) {
                     return hoursFromTimestampNanosWithTimeZone();
                 }
-                throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
+                throw new UnsupportedOperationException("Unsupported type for 'hour': " + sourceType);
             }
             case "void" -> {
                 return voidTransform(sourceType);
             }
         }
 
-        Matcher matcher = BUCKET_PATTERN.matcher(transform);
+        Matcher matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);
         if (matcher.matches()) {
             int count = parseInt(matcher.group(1));
             return bucket(sourceType, count);
         }
 
-        matcher = TRUNCATE_PATTERN.matcher(transform);
+        matcher = ICEBERG_TRUNCATE_PATTERN.matcher(transform);
         if (matcher.matches()) {
             int width = parseInt(matcher.group(1));
             if (sourceType.equals(INTEGER)) {
@@ -197,10 +203,10 @@ public final class PartitionTransforms
             if (sourceType.equals(VARBINARY)) {
                 return truncateVarbinary(width);
             }
-            throw new UnsupportedOperationException("Unsupported type for 'truncate': " + field);
+            throw new UnsupportedOperationException("Unsupported type for 'truncate': " + sourceType);
         }
 
-        throw new UnsupportedOperationException("Unsupported partition transform: " + field);
+        throw new UnsupportedOperationException("Unsupported transform: " + transform);
     }
 
     public static ColumnTransform getColumnTransform(IcebergPartitionFunction field)

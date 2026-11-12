@@ -38,11 +38,6 @@ public final class GroupingSets
     private final Type type;
     private final List<List<Expression>> sets;
 
-    public GroupingSets(Type type, List<List<Expression>> groupingSets)
-    {
-        this(Optional.empty(), type, groupingSets);
-    }
-
     public GroupingSets(NodeLocation location, Type type, List<List<Expression>> sets)
     {
         this(Optional.of(location), type, sets);
@@ -73,12 +68,6 @@ public final class GroupingSets
         return sets.stream()
                 .flatMap(List::stream)
                 .collect(Collectors.toList());
-    }
-
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitGroupingSets(this, context);
     }
 
     @Override

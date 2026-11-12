@@ -117,14 +117,6 @@ public class SparkIcebergNessieEnvironment
 
     // Nessie access methods
 
-    /**
-     * Returns the external Nessie URI for connecting from the host.
-     */
-    public String getExternalNessieUri()
-    {
-        return nessie.getExternalNessieUri();
-    }
-
     // Spark JDBC methods
 
     /**

@@ -34,7 +34,9 @@ public final class TestHiveDynamicRowFiltering
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .setHiveProperties(ImmutableMap.of(
                         "hive.dynamic-filtering.wait-timeout", "1h",
-                        "hive.target-max-file-size", "10kB"))  // Needed to generate multiple splits to allow dynamic filter to be ready
+                        // A probe below several joins can start reading a split before every join above it collects its dynamic filter.
+                        // Multiple splits let the later splits apply the collected filters.
+                        "hive.target-max-file-size", "10kB"))
                 .build();
     }
 

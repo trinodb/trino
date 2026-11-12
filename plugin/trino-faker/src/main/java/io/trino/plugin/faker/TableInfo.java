@@ -29,6 +29,8 @@ public record TableInfo(List<ColumnInfo> columns, Map<String, Object> properties
     public static final String DEFAULT_LIMIT_PROPERTY = "default_limit";
     public static final String SEQUENCE_DETECTION_ENABLED = "sequence_detection_enabled";
     public static final String DICTIONARY_DETECTION_ENABLED = "dictionary_detection_enabled";
+    public static final String GENERATOR_DETECTION_ENABLED = "generator_detection_enabled";
+    public static final String SEED_PROPERTY = "seed";
 
     public TableInfo
     {
@@ -39,8 +41,13 @@ public record TableInfo(List<ColumnInfo> columns, Map<String, Object> properties
 
     public ColumnInfo column(ColumnHandle handle)
     {
+        FakerColumnHandle columnHandle = (FakerColumnHandle) handle;
         return columns.stream()
-                .filter(column -> column.handle().equals(handle))
+                // the referenced column is resolved when reading the table, so the stored handles don't have it
+                .filter(column -> columnHandle.referencedColumn()
+                        .map(column.handle()::withReferencedColumn)
+                        .orElse(column.handle())
+                        .equals(columnHandle))
                 .findFirst()
                 .orElseThrow();
     }

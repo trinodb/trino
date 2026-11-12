@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class CurrentUser
+public final class CurrentUser
         extends Expression
 {
     public CurrentUser(NodeLocation location)
@@ -29,12 +29,6 @@ public class CurrentUser
     public List<Node> getChildren()
     {
         return ImmutableList.of();
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCurrentUser(this, context);
     }
 
     @Override

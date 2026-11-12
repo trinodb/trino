@@ -27,7 +27,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
-import static java.util.Collections.emptyList;
 
 public class TestRemoveUnreferencedScalarSubqueries
         extends BaseRuleTest
@@ -39,8 +38,8 @@ public class TestRemoveUnreferencedScalarSubqueries
                 .on(p -> {
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
-                            p.values(emptyList(), ImmutableList.of(emptyList())),
+                            ImmutableList.of(),
+                            p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())),
                             p.values(2, b));
                 })
                 .matches(values("b"));
@@ -49,8 +48,8 @@ public class TestRemoveUnreferencedScalarSubqueries
                 .on(p -> {
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
-                            p.values(emptyList(), ImmutableList.of(emptyList())),
+                            ImmutableList.of(),
+                            p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())),
                             LEFT,
                             TRUE,
                             p.values(2, b));
@@ -61,8 +60,8 @@ public class TestRemoveUnreferencedScalarSubqueries
                 .on(p -> {
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
-                            p.values(emptyList(), ImmutableList.of(emptyList())),
+                            ImmutableList.of(),
+                            p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())),
                             RIGHT,
                             TRUE,
                             p.values(2, b));
@@ -73,8 +72,8 @@ public class TestRemoveUnreferencedScalarSubqueries
                 .on(p -> {
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
-                            p.values(emptyList(), ImmutableList.of(emptyList())),
+                            ImmutableList.of(),
+                            p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())),
                             FULL,
                             TRUE,
                             p.values(2, b));
@@ -89,8 +88,8 @@ public class TestRemoveUnreferencedScalarSubqueries
                 .on(p -> {
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
-                            p.values(emptyList(), ImmutableList.of(emptyList())),
+                            ImmutableList.of(),
+                            p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())),
                             LEFT,
                             TRUE,
                             p.filter(
@@ -106,8 +105,8 @@ public class TestRemoveUnreferencedScalarSubqueries
                 .on(p -> {
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
-                            emptyList(),
-                            p.values(emptyList(), ImmutableList.of(emptyList())),
+                            ImmutableList.of(),
+                            p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())),
                             FULL,
                             TRUE,
                             p.filter(
@@ -140,36 +139,36 @@ public class TestRemoveUnreferencedScalarSubqueries
     {
         tester().assertThat(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
-                        emptyList(),
+                        ImmutableList.of(),
                         p.values(p.symbol("b", BIGINT)),
-                        p.values(emptyList(), ImmutableList.of(emptyList()))))
+                        p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))
                 .matches(values("b"));
 
         tester().assertThat(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
-                        emptyList(),
+                        ImmutableList.of(),
                         p.values(p.symbol("b", BIGINT)),
                         LEFT,
                         TRUE,
-                        p.values(emptyList(), ImmutableList.of(emptyList()))))
+                        p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))
                 .matches(values("b"));
 
         tester().assertThat(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
-                        emptyList(),
+                        ImmutableList.of(),
                         p.values(p.symbol("b", BIGINT)),
                         RIGHT,
                         TRUE,
-                        p.values(emptyList(), ImmutableList.of(emptyList()))))
+                        p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))
                 .matches(values("b"));
 
         tester().assertThat(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
-                        emptyList(),
+                        ImmutableList.of(),
                         p.values(p.symbol("b", BIGINT)),
                         FULL,
                         TRUE,
-                        p.values(emptyList(), ImmutableList.of(emptyList()))))
+                        p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))
                 .matches(values("b"));
     }
 
@@ -178,7 +177,7 @@ public class TestRemoveUnreferencedScalarSubqueries
     {
         tester().assertThat(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
-                        emptyList(),
+                        ImmutableList.of(),
                         p.values(),
                         p.values()))
                 .doesNotFire();

@@ -16,6 +16,7 @@ package io.trino.client.uri;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
@@ -50,7 +51,6 @@ import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.uri.AbstractConnectionProperty.validator;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -824,7 +824,7 @@ final class ConnectionProperties
         public ExternalAuthenticationRedirectHandlers()
         {
             super(PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS,
-                    Optional.of(singletonList(ExternalRedirectStrategy.OPEN)),
+                    Optional.of(ImmutableList.of(ExternalRedirectStrategy.OPEN)),
                     NOT_REQUIRED,
                     ALLOWED,
                     converter(ExternalAuthenticationRedirectHandlers::parse, ExternalAuthenticationRedirectHandlers::toString));

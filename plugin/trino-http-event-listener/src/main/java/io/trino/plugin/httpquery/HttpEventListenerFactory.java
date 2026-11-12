@@ -15,19 +15,15 @@ package io.trino.plugin.httpquery;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
-import io.trino.spi.eventlistener.QueryCompletedEvent;
-import io.trino.spi.eventlistener.QueryCreatedEvent;
 
 import java.util.Map;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class HttpEventListenerFactory
         implements EventListenerFactory
@@ -43,12 +39,9 @@ public class HttpEventListenerFactory
     {
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.listener." + getName(),
-                new JsonModule(),
                 binder -> {
                     binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                     binder.bind(Tracer.class).toInstance(context.getTracer());
-                    jsonCodecBinder(binder).bindJsonCodec(QueryCompletedEvent.class);
-                    jsonCodecBinder(binder).bindJsonCodec(QueryCreatedEvent.class);
                     configBinder(binder).bindConfig(HttpEventListenerConfig.class);
                     httpClientBinder(binder).bindHttpClient("http-event-listener", ForHttpEventListener.class);
                     binder.bind(HttpEventListener.class).in(Scopes.SINGLETON);

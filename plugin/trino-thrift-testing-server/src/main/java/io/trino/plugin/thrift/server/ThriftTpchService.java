@@ -60,6 +60,7 @@ import static io.trino.plugin.thrift.server.SplitInfo.normalSplit;
 import static io.trino.plugin.tpch.TpchMetadata.getTrinoType;
 import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static java.lang.Math.min;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toList;
@@ -292,7 +293,7 @@ public class ThriftTpchService
                 schemaNameToScaleFactor(splitInfo.getSchemaName()),
                 splitInfo.getPartNumber(),
                 splitInfo.getTotalParts(),
-                TupleDomain.all()));
+                TupleDomain.all()), NO_LIMIT);
     }
 
     private static List<String> getSchemaNames(String schemaNameOrNull)

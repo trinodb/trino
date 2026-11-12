@@ -994,19 +994,6 @@ public final class Session
         }
 
         /**
-         * Sets system properties, discarding any system properties previously set.
-         */
-        @CanIgnoreReturnValue
-        public SessionBuilder setSystemProperties(Map<String, String> systemProperties)
-        {
-            requireNonNull(systemProperties, "systemProperties is null");
-            this.systemProperties.clear();
-            this.systemProperties.putAll(systemProperties);
-            this.defaultedSystemProperties.clear();
-            return this;
-        }
-
-        /**
          * Sets a catalog property for the session.  The property name and value must
          * only contain characters from US-ASCII and must not be for '='.
          */

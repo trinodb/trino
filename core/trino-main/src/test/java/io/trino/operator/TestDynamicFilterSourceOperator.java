@@ -25,17 +25,21 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.DynamicFilterSourceConsumer;
+import io.trino.sql.planner.LocalDynamicFilterConsumer;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
+import org.assertj.core.api.AbstractLongAssert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
@@ -88,6 +92,7 @@ public class TestDynamicFilterSourceOperator
     private PipelineContext pipelineContext;
 
     private ImmutableList.Builder<TupleDomain<DynamicFilterId>> partitions;
+    private boolean consumerCollectionComplete;
 
     @BeforeEach
     public void setUp()
@@ -117,8 +122,8 @@ public class TestDynamicFilterSourceOperator
     {
         List<Page> inputPages = ImmutableList.copyOf(pages);
         List<Page> outputPages = toPages(operator, inputPages.iterator());
-        MaterializedResult actual = toMaterializedResult(pipelineContext.getSession(), types, outputPages);
-        MaterializedResult expected = toMaterializedResult(pipelineContext.getSession(), types, inputPages);
+        MaterializedResult actual = toMaterializedResult(types, outputPages);
+        MaterializedResult expected = toMaterializedResult(types, inputPages);
         assertThat(actual).containsExactlyElementsOf(expected);
     }
 
@@ -133,26 +138,37 @@ public class TestDynamicFilterSourceOperator
             int minMaxCollectionLimit,
             Iterable<DynamicFilterSourceOperator.Channel> buildChannels)
     {
+        DynamicFilterSourceConsumer consumer = new DynamicFilterSourceConsumer()
+        {
+            @Override
+            public void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
+            {
+                partitions.add(tupleDomain);
+            }
+
+            @Override
+            public void setPartitionCount(int partitionCount) {}
+
+            @Override
+            public boolean isDomainCollectionComplete()
+            {
+                return consumerCollectionComplete;
+            }
+        };
+        return createOperatorFactory(consumer, maxFilterDistinctValues, maxFilterSize, minMaxCollectionLimit, buildChannels);
+    }
+
+    private OperatorFactory createOperatorFactory(
+            DynamicFilterSourceConsumer consumer,
+            int maxFilterDistinctValues,
+            DataSize maxFilterSize,
+            int minMaxCollectionLimit,
+            Iterable<DynamicFilterSourceOperator.Channel> buildChannels)
+    {
         return new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                 0,
                 new PlanNodeId("PLAN_NODE_ID"),
-                new DynamicFilterSourceConsumer()
-                {
-                    @Override
-                    public void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
-                    {
-                        partitions.add(tupleDomain);
-                    }
-
-                    @Override
-                    public void setPartitionCount(int partitionCount) {}
-
-                    @Override
-                    public boolean isDomainCollectionComplete()
-                    {
-                        return false;
-                    }
-                },
+                consumer,
                 ImmutableList.copyOf(buildChannels),
                 maxFilterDistinctValues,
                 maxFilterSize,
@@ -168,6 +184,11 @@ public class TestDynamicFilterSourceOperator
     private static DynamicFilterSourceOperator.Channel channel(int index, Type type)
     {
         return new DynamicFilterSourceOperator.Channel(new DynamicFilterId(Integer.toString(index)), type, index);
+    }
+
+    private static AbstractLongAssert<?> assertMemory(Operator operator)
+    {
+        return assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory());
     }
 
     private void assertDynamicFilters(int maxFilterDistinctValues, List<Type> types, List<Page> pages, List<TupleDomain<DynamicFilterId>> expectedTupleDomains)
@@ -400,6 +421,51 @@ public class TestDynamicFilterSourceOperator
     }
 
     @Test
+    public void testCollectTooMuchRowsCompletesBeforeFinish()
+            throws Exception
+    {
+        int maxDistinctValues = 100;
+        OperatorFactory operatorFactory = createOperatorFactory(maxDistinctValues, DataSize.of(10, KILOBYTE), 1_000_000, ImmutableList.of(channel(0, DOUBLE)));
+        try (Operator operator = createOperator(operatorFactory)) {
+            operator.addInput(new Page(createDoubleSequenceBlock(0, maxDistinctValues + 1)));
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(TupleDomain.all()));
+            assertMemory(operator).isZero();
+
+            operator.getOutput();
+            operator.finish();
+            operatorFactory.noMoreOperators();
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(TupleDomain.all()));
+        }
+    }
+
+    @Test
+    public void testMultipleColumnsCollectTooMuchRowsCompletesBeforeFinish()
+            throws Exception
+    {
+        int maxDistinctValues = 100;
+        OperatorFactory operatorFactory = createOperatorFactory(maxDistinctValues, DataSize.of(10, KILOBYTE), 1_000_000, ImmutableList.of(channel(0, DOUBLE), channel(1, DOUBLE)));
+        try (Operator operator = createOperator(operatorFactory)) {
+            operator.addInput(new Page(
+                    createDoubleSequenceBlock(0, maxDistinctValues + 1),
+                    createDoubleRepeatBlock(1.0, maxDistinctValues + 1)));
+            operator.getOutput();
+            assertThat(partitions.build()).isEmpty();
+            assertMemory(operator).isPositive();
+
+            operator.addInput(new Page(
+                    createDoubleRepeatBlock(1.0, maxDistinctValues + 1),
+                    createDoubleSequenceBlock(0, maxDistinctValues + 1)));
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(TupleDomain.all()));
+            assertMemory(operator).isZero();
+
+            operator.getOutput();
+            operator.finish();
+            operatorFactory.noMoreOperators();
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(TupleDomain.all()));
+        }
+    }
+
+    @Test
     public void testCollectRowsNonOrderable()
             throws Exception
     {
@@ -563,6 +629,30 @@ public class TestDynamicFilterSourceOperator
     }
 
     @Test
+    public void testCollectMinMaxAfterOverflowOnNullsOnly()
+            throws Exception
+    {
+        String largeText = "B".repeat(10_000);
+        OperatorFactory operatorFactory = createOperatorFactory(100, DataSize.ofBytes(1), 1_000_000, ImmutableList.of(channel(0, VARCHAR)));
+        try (Operator operator = createOperator(operatorFactory)) {
+            toPagesPartial(operator, ImmutableList.of(new Page(createStringsBlock(null, null))).iterator());
+            toPagesPartial(operator, ImmutableList.of(new Page(createStringsBlock(largeText))).iterator());
+            assertMemory(operator).isGreaterThan(2L * largeText.length());
+
+            toPagesPartial(operator, ImmutableList.of(new Page(createStringsBlock("A"))).iterator());
+            assertMemory(operator)
+                    .isGreaterThan(largeText.length())
+                    .isLessThan(2L * largeText.length());
+            finishOperator(operator);
+            operatorFactory.noMoreOperators();
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
+                    new DynamicFilterId("0"), Domain.create(
+                            ValueSet.ofRanges(range(VARCHAR, utf8Slice("A"), true, utf8Slice(largeText), true)),
+                            false)))));
+        }
+    }
+
+    @Test
     public void testMultipleColumnsCollectMinMaxRangeWhenTooManyBytes()
             throws Exception
     {
@@ -702,6 +792,81 @@ public class TestDynamicFilterSourceOperator
                             new DynamicFilterId("1"), Domain.create(
                                     ValueSet.ofRanges(range(BIGINT, 0L, true, 200L, true)),
                                     false)))));
+        }
+    }
+
+    @Test
+    public void testStopCollectionWhenConsumerIsComplete()
+            throws Exception
+    {
+        OperatorFactory operatorFactory = createOperatorFactory(channel(0, BIGINT), channel(1, BIGINT));
+        try (Operator stopsOnInput = createOperator(operatorFactory);
+                Operator stopsOnFirstInput = createOperator(operatorFactory);
+                Operator stopsOnFinish = createOperator(operatorFactory)) {
+            stopsOnInput.addInput(new Page(createLongsBlock(1, 2), createLongsBlock(11, 12)));
+            assertThat(stopsOnInput.getOutput()).isNotNull();
+            stopsOnFinish.addInput(new Page(createLongsBlock(7, 8), createLongsBlock(17, 18)));
+            assertThat(stopsOnFinish.getOutput()).isNotNull();
+            assertMemory(stopsOnFinish).isPositive();
+            assertMemory(stopsOnInput).isPositive();
+            assertMemory(stopsOnFirstInput).isPositive();
+
+            consumerCollectionComplete = true;
+            Page firstInputPage = new Page(createLongsBlock(3, 4), createLongsBlock(13, 14));
+            stopsOnFirstInput.addInput(firstInputPage);
+            assertThat(stopsOnFirstInput.getOutput()).isSameAs(firstInputPage);
+            assertMemory(stopsOnFirstInput).isZero();
+
+            Page inputPage = new Page(createLongsBlock(5, 6), createLongsBlock(15, 16));
+            stopsOnInput.addInput(inputPage);
+            assertThat(stopsOnInput.getOutput()).isSameAs(inputPage);
+            assertMemory(stopsOnInput).isZero();
+
+            stopsOnFinish.finish();
+            assertThat(stopsOnFinish.isFinished()).isTrue();
+            assertMemory(stopsOnFinish).isZero();
+
+            stopsOnFirstInput.finish();
+            stopsOnInput.finish();
+            operatorFactory.noMoreOperators();
+            assertThat(stopsOnFirstInput.isFinished()).isTrue();
+            assertThat(stopsOnInput.isFinished()).isTrue();
+            assertThat(partitions.build()).isEmpty();
+        }
+    }
+
+    @Test
+    public void testStopCollectionAfterOtherOperatorSendsAll()
+            throws Exception
+    {
+        int maxDistinctValues = 100;
+        DynamicFilterId filterId = new DynamicFilterId("0");
+        List<Map<DynamicFilterId, Domain>> collectedDomains = new ArrayList<>();
+        LocalDynamicFilterConsumer consumer = new LocalDynamicFilterConsumer(
+                ImmutableMap.of(filterId, 0),
+                ImmutableMap.of(filterId, DOUBLE),
+                ImmutableList.of(collectedDomains::add),
+                DataSize.of(10, KILOBYTE));
+        OperatorFactory operatorFactory = createOperatorFactory(consumer, maxDistinctValues, DataSize.of(10, KILOBYTE), 1_000_000, ImmutableList.of(channel(0, DOUBLE)));
+        try (Operator overflowing = createOperator(operatorFactory);
+                Operator other = createOperator(operatorFactory)) {
+            other.addInput(new Page(createDoublesBlock(1.0, 2.0)));
+            other.getOutput();
+            assertMemory(other).isPositive();
+
+            overflowing.addInput(new Page(createDoubleSequenceBlock(0, maxDistinctValues + 1)));
+            overflowing.getOutput();
+            assertThat(consumer.isDomainCollectionComplete()).isTrue();
+
+            Page page = new Page(createDoublesBlock(3.0, 4.0));
+            other.addInput(page);
+            assertThat(other.getOutput()).isSameAs(page);
+            assertMemory(other).isZero();
+
+            overflowing.finish();
+            other.finish();
+            operatorFactory.noMoreOperators();
+            assertThat(collectedDomains).isEqualTo(ImmutableList.of(ImmutableMap.of(filterId, Domain.all(DOUBLE))));
         }
     }
 }

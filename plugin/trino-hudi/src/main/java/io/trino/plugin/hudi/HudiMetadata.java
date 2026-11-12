@@ -74,7 +74,6 @@ import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
@@ -257,7 +256,7 @@ public class HudiMetadata
         SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new)
                 .orElseGet(SchemaTablePrefix::new);
         List<SchemaTableName> tables = prefix.getTable()
-                .map(_ -> singletonList(prefix.toSchemaTableName()))
+                .map(_ -> List.of(prefix.toSchemaTableName()))
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
 
         Map<SchemaTableName, RelationColumnsMetadata> relationColumns = tables.stream()
@@ -346,7 +345,7 @@ public class HudiMetadata
     {
         return schemaName
                 .filter(name -> !isHiveSystemSchema(name))
-                .map(Collections::singletonList)
+                .map(List::of)
                 .orElseGet(() -> listSchemaNames(session));
     }
 }

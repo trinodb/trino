@@ -72,7 +72,6 @@ import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -600,11 +599,6 @@ public class TestPushJoinIntoTableScan
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("Column handle mappings do not match old column handles");
         }
-    }
-
-    private static TableHandle createTableHandle(ConnectorTableHandle tableHandle)
-    {
-        return createTableHandle(tableHandle, TEST_CATALOG_HANDLE);
     }
 
     private static TableHandle createTableHandle(ConnectorTableHandle tableHandle, CatalogHandle catalogHandle)

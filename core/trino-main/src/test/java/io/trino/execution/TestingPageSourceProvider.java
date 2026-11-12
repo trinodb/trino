@@ -58,7 +58,8 @@ public class TestingPageSourceProvider
             ConnectorTableHandle table,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         requireNonNull(columns, "columns is null");
 
@@ -66,6 +67,6 @@ public class TestingPageSourceProvider
                 .map(_ -> new LongArrayBlock(1, Optional.of(new long[] {0}), new long[1]))
                 .collect(toImmutableList());
 
-        return new FixedPageSource(ImmutableList.of(new Page(blocks.toArray(new Block[blocks.size()]))));
+        return new FixedPageSource(ImmutableList.of(new Page(blocks.toArray(new Block[blocks.size()]))), memoryContext);
     }
 }

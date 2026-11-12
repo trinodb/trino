@@ -96,6 +96,7 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
@@ -180,7 +181,6 @@ import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -2619,7 +2619,7 @@ public final class MetadataManager
             ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
 
             List<CatalogHandle> catalogHandles = prefix.asQualifiedObjectName()
-                    .map(qualifiedTableName -> singletonList(catalogMetadata.getCatalogHandle(session, qualifiedTableName, Optional.empty(), Optional.empty())))
+                    .map(qualifiedTableName -> List.of(catalogMetadata.getCatalogHandle(session, qualifiedTableName, Optional.empty(), Optional.empty())))
                     .orElseGet(catalogMetadata::listCatalogHandles);
             for (CatalogHandle catalogHandle : catalogHandles) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
@@ -2788,6 +2788,21 @@ public final class MetadataManager
                 .forEach(functions::add);
 
         return functions.build();
+    }
+
+    @Override
+    public Optional<DomainProjection> getDomainProjection(Session session, ResolvedFunction resolvedFunction)
+    {
+        if (isTrinoSqlLanguageFunction(resolvedFunction.functionId())) {
+            return Optional.empty();
+        }
+        if (resolvedFunction.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)) {
+            return functions.getFunctionMetadata(resolvedFunction.functionId()).getDomainProjection();
+        }
+        ConnectorSession connectorSession = session.toConnectorSession(resolvedFunction.catalogHandle());
+        return getMetadata(session, resolvedFunction.catalogHandle())
+                .getFunctionMetadata(connectorSession, resolvedFunction.functionId())
+                .getDomainProjection();
     }
 
     @Override

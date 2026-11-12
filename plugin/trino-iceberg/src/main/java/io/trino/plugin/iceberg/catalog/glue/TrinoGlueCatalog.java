@@ -140,6 +140,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_COMMENT_CACHE_PREV
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_METADATA_INFO_VALID_FOR;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumn;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.isGcEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
@@ -153,6 +154,8 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -468,7 +471,7 @@ public class TrinoGlueCatalog
             List<ColumnMetadata> columns;
             try {
                 org.apache.iceberg.Table icebergTable = loadTable(session, tableName);
-                columns = getColumnMetadatas(icebergTable.schema(), typeManager, TableUtil.formatVersion(icebergTable));
+                columns = getColumnMetadatas(icebergTable.schema(), getPartitionColumn(icebergTable, typeManager), typeManager, TableUtil.formatVersion(icebergTable));
             }
             catch (RuntimeException e) {
                 logSkippedRelation(e, tableName);
@@ -687,6 +690,7 @@ public class TrinoGlueCatalog
             columns.add(ColumnMetadata.builder()
                     .setName(glueColumn.name())
                     .setType(type)
+                    .setTimeZone(containsTimestampWithTimeZone(type) ? Optional.of(UTC_KEY) : Optional.empty())
                     .setComment(Optional.ofNullable(glueColumn.comment()))
                     .setNullable(!notNull)
                     .build());

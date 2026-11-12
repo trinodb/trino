@@ -39,6 +39,7 @@ import static org.jline.reader.LineReader.MAIN;
 import static org.jline.reader.LineReader.Option.HISTORY_IGNORE_SPACE;
 import static org.jline.reader.LineReader.Option.HISTORY_TIMESTAMPED;
 import static org.jline.reader.LineReader.SECONDARY_PROMPT_PATTERN;
+import static org.jline.reader.LineReader.TOO_MANY_CANDIDATES;
 
 public class InputReader
         implements Closeable
@@ -55,6 +56,7 @@ public class InputReader
                 .variable(HISTORY_FILE, historyFile)
                 .variable(SECONDARY_PROMPT_PATTERN, isRealTerminal() ? colored("%P -> ") : "") // workaround for https://github.com/jline/jline3/issues/751
                 .variable(BLINK_MATCHING_PAREN, 0)
+                .variable(TOO_MANY_CANDIDATES, "partial") // list up to LIST_MAX candidates instead of prompting
                 .option(HISTORY_IGNORE_SPACE, false) // store history even if the query starts with spaces
                 .parser(new InputParser())
                 .highlighter(new InputHighlighter(theme))

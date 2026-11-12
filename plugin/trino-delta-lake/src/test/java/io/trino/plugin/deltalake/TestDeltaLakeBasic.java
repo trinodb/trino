@@ -107,6 +107,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.plugin.deltalake.DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
@@ -2134,6 +2135,12 @@ public class TestDeltaLakeBasic
         assertQueryFails(
                 "MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1",
                 "\\QUnsupported writer features: [identityColumns]");
+        assertQueryFails(
+                "CREATE OR REPLACE TABLE " + tableName + " (a int, b int)",
+                "\\QUnsupported writer features: [identityColumns]");
+        assertQueryFails(
+                "CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 a, 2 b",
+                "\\QUnsupported writer features: [identityColumns]");
     }
 
     /**
@@ -2950,6 +2957,9 @@ public class TestDeltaLakeBasic
         assertQuery("SELECT * FROM liquid_clustering FOR VERSION AS OF 3", "VALUES ('test 1', 2024, 1), ('test 2', 2024, 2)");
 
         assertQueryFails("INSERT INTO liquid_clustering VALUES ('test 3', 2024, 3)", "Unsupported writer features: .*");
+        assertQueryFails("CREATE OR REPLACE TABLE liquid_clustering (data varchar, year int, month int)", "Unsupported writer features: .*");
+        assertQueryFails("CREATE OR REPLACE TABLE liquid_clustering AS SELECT 'test 3' data, 2024 year, 3 month", "Unsupported writer features: .*");
+        assertQuery("SELECT * FROM liquid_clustering", "VALUES ('test 1', 2024, 1), ('test 2', 2024, 2)");
     }
 
     /**
@@ -3008,6 +3018,9 @@ public class TestDeltaLakeBasic
     {
         assertQuery("SELECT * FROM uniform_iceberg_v2", "VALUES (1, 'test data')");
         assertQueryFails("INSERT INTO uniform_iceberg_v2 VALUES (2, 'new data')", "\\QUnsupported universal formats: [iceberg]");
+        assertQueryFails("CREATE OR REPLACE TABLE uniform_iceberg_v2 (a int, b varchar)", "\\QUnsupported universal formats: [iceberg]");
+        assertQueryFails("CREATE OR REPLACE TABLE uniform_iceberg_v2 AS SELECT 2 a, 'new data' b", "\\QUnsupported universal formats: [iceberg]");
+        assertQuery("SELECT * FROM uniform_iceberg_v2", "VALUES (1, 'test data')");
         assertQueryFails("DROP TABLE uniform_iceberg_v2", "\\QUnsupported universal formats: [iceberg]");
     }
 
@@ -3994,6 +4007,73 @@ public class TestDeltaLakeBasic
     }
 
     /**
+     * @see deltalake.no_columns
+     */
+    @Test
+    public void testTableWithoutColumns()
+            throws Exception
+    {
+        // Delta Lake on Spark can create a table without columns, as spark.databricks.delta.createEmptySchemaTable.enabled defaults to true
+        // Table metadata is read from the checksum file when it exists, and from the transaction log otherwise, so test both
+        testTableWithoutColumns(false);
+        testTableWithoutColumns(true);
+    }
+
+    private void testTableWithoutColumns(boolean withChecksum)
+            throws Exception
+    {
+        String tableName = "test_table_without_columns_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a integer)");
+        Path tableLocation = Path.of(URI.create(getTableLocation(tableName)));
+        // Replace the transaction log with one whose schema has no fields, as register_table rejects such a table
+        deleteRecursively(tableLocation.resolve("_delta_log"), ALLOW_INSECURE);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/no_columns").toURI()).toPath(), tableLocation);
+        if (!withChecksum) {
+            Files.delete(tableLocation.resolve("_delta_log/00000000000000000000.crc"));
+        }
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '%s')".formatted(tableName));
+
+        String expectedMessage = "Delta table tpch.%s has no columns".formatted(tableName);
+        assertThat(query("SHOW COLUMNS FROM " + tableName)).failure()
+                .hasErrorCode(DELTA_LAKE_INVALID_SCHEMA)
+                .hasMessage(expectedMessage);
+        assertThat(query("DESCRIBE " + tableName)).failure()
+                .hasErrorCode(DELTA_LAKE_INVALID_SCHEMA)
+                .hasMessage(expectedMessage);
+        assertThat(query("SELECT * FROM " + tableName)).failure()
+                .hasErrorCode(DELTA_LAKE_INVALID_SCHEMA)
+                .hasMessage(expectedMessage);
+        assertThat(query("ALTER TABLE " + tableName + " ADD COLUMN col integer")).failure()
+                .hasErrorCode(DELTA_LAKE_INVALID_SCHEMA)
+                .hasMessage(expectedMessage);
+
+        // Metadata listing skips the table instead of failing
+        assertQuery("SHOW TABLES LIKE '" + tableName + "'", "VALUES '" + tableName + "'");
+        assertQueryReturnsEmptyResult("SELECT column_name FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '" + tableName + "'");
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+    }
+
+    /**
+     * @see deltalake.no_columns
+     */
+    @Test
+    public void testRegisterTableWithoutColumns()
+            throws Exception
+    {
+        String tableName = "test_register_table_without_columns_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/no_columns").toURI()).toPath(), tableLocation);
+
+        assertThat(query("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri())))
+                .failure()
+                .hasErrorCode(DELTA_LAKE_INVALID_SCHEMA)
+                .hasMessage("Cannot register table tpch.%s: the schema at %s has no columns".formatted(tableName, tableLocation.toUri()));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+    }
+
+    /**
      * @see deltalake.unsupported_writer_feature
      */
     @Test
@@ -4072,6 +4152,19 @@ public class TestDeltaLakeBasic
         // The first two versions commitInfo doesn't contain `inCommitTimestamp`, the value is read from `timestamp` in commitInfo
         // The last two versions commitInfo contain `inCommitTimestamp`, the value is read from it.
         assertQuery("SELECT date_diff('millisecond', TIMESTAMP '1970-01-01 00:00:00 UTC', timestamp) FROM \"%s$history\"".formatted(tableName), "VALUES 1739859668531L, 1739859684775L, 1739859743394L, 1739859755480L");
+
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Asia/Kathmandu"))
+                .build();
+        assertThat(query(session, "SELECT timestamp FROM \"%s$history\"".formatted(tableName)))
+                .matches(
+                        """
+                        VALUES
+                            TIMESTAMP '2025-02-18 06:21:08.531 UTC',
+                            TIMESTAMP '2025-02-18 06:21:24.775 UTC',
+                            TIMESTAMP '2025-02-18 06:22:23.394 UTC',
+                            TIMESTAMP '2025-02-18 06:22:35.480 UTC'
+                        """);
     }
 
     /**

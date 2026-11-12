@@ -1007,10 +1007,10 @@ public final class GeoFunctions
         double lineLength = lineString.getLength();
 
         if (fractionStep == 0) {
-            return Collections.singletonList(withSrid(lineString.getStartPoint(), geometry.getSRID()));
+            return ImmutableList.of(withSrid(lineString.getStartPoint(), geometry.getSRID()));
         }
         if (fractionStep == 1) {
-            return Collections.singletonList(withSrid(lineString.getEndPoint(), geometry.getSRID()));
+            return ImmutableList.of(withSrid(lineString.getEndPoint(), geometry.getSRID()));
         }
 
         int pointCount = repeated ? (int) Math.floor(1 / fractionStep) : 1;

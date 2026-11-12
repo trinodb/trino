@@ -24,6 +24,7 @@ import io.trino.spi.block.ValueBlock;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.min;
 
 public final class PageSplitterUtil
 {
@@ -74,11 +75,11 @@ public final class PageSplitterUtil
     }
 
     /**
-     * Returns the size of the page in bytes.
-     * This is used to determine if the page should be split.
-     * This differs from {@link Page#getSizeInBytes()} in that it purposely calculates the size RLE blocks
-     * as the size of the underlying value block. This is because we want to avoid creating a large number
-     * of smaller Pages when the source has produced RLE-only Pages with large positions count.
+     * Returns the size of the page in bytes, used to decide whether to split it.
+     * Unlike {@link Page#getSizeInBytes()}, an RLE block counts only its underlying value block,
+     * so an RLE-only page with many positions is not split into many small pages.
+     * A dictionary block counts at most its dictionary plus its ids, which bounds its serialized size.
+     * The ids count only the block's own positions, so each region is smaller than its parent.
      */
     private static long getPageSizeForSplit(Page page)
     {
@@ -87,9 +88,16 @@ public final class PageSplitterUtil
             Block block = page.getBlock(channel);
             switch (block) {
                 case RunLengthEncodedBlock rleBlock -> size += rleBlock.getUnderlyingValueBlock().getSizeInBytes();
-                case DictionaryBlock _, ValueBlock _ -> size += block.getSizeInBytes();
+                case DictionaryBlock dictionaryBlock -> size += getDictionaryBlockSizeForSplit(dictionaryBlock);
+                case ValueBlock _ -> size += block.getSizeInBytes();
             }
         }
         return size;
+    }
+
+    private static long getDictionaryBlockSizeForSplit(DictionaryBlock dictionaryBlock)
+    {
+        long valuesSizeInBytes = min(dictionaryBlock.getSizeInBytes(), dictionaryBlock.getDictionary().getSizeInBytes());
+        return valuesSizeInBytes + Integer.BYTES * (long) dictionaryBlock.getPositionCount();
     }
 }

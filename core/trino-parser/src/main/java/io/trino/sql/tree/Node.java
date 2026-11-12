@@ -18,7 +18,74 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public abstract class Node
+public abstract sealed class Node
+        permits CallArgument,
+                CaseStatementWhenClause,
+                ControlStatement,
+                Corresponding,
+                DataTypeParameter,
+                Descriptor,
+                DescriptorField,
+                ElseClause,
+                ElseIfClause,
+                EmptyTableTreatment,
+                ExplainOption,
+                Expression,
+                FetchFirst,
+                FrameBound,
+                FunctionSpecification,
+                GrantObject,
+                GroupBy,
+                GroupingElement,
+                IntervalQualifier,
+                JsonArrayElement,
+                JsonObjectMember,
+                JsonPathInvocation,
+                JsonPathParameter,
+                JsonTableColumnDefinition,
+                JsonTablePlan,
+                Limit,
+                MeasureDefinition,
+                MergeCase,
+                Offset,
+                OrderBy,
+                ParameterDeclaration,
+                PathElement,
+                PathSpecification,
+                PatternQuantifier,
+                PatternSearchMode,
+                PivotAggregation,
+                PivotValueGroup,
+                Predicate,
+                ProcessingMode,
+                Property,
+                QueryPeriod,
+                Relation,
+                ReturnsClause,
+                RoutineCharacteristic,
+                Row.Field,
+                RowDataType.Field,
+                RowPattern,
+                Select,
+                SelectItem,
+                SessionProperty,
+                SkipTo,
+                SortItem,
+                Statement,
+                SubsetDefinition,
+                TableElement,
+                TableFunctionArgument,
+                TableFunctionDescriptorArgument,
+                TableFunctionTableArgument,
+                TransactionMode,
+                UpdateAssignment,
+                VariableDefinition,
+                WindowDefinition,
+                WindowFrame,
+                WindowReference,
+                WindowSpecification,
+                With,
+                WithQuery
 {
     private final Optional<NodeLocation> location;
 
@@ -31,14 +98,6 @@ public abstract class Node
     protected Node(NodeLocation location)
     {
         this.location = Optional.ofNullable(location);
-    }
-
-    /**
-     * Accessible for {@link AstVisitor}, use {@link AstVisitor#process(Node, Object)} instead.
-     */
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitNode(this, context);
     }
 
     public Optional<NodeLocation> getLocation()

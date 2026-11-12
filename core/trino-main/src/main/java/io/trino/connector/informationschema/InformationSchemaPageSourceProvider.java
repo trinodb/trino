@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 
 import java.util.List;
 import java.util.Optional;
@@ -54,7 +55,8 @@ public class InformationSchemaPageSourceProvider
             ConnectorTableHandle tableHandle,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
         log.debug(
@@ -67,6 +69,7 @@ public class InformationSchemaPageSourceProvider
                 metadata,
                 accessControl,
                 (InformationSchemaTableHandle) tableHandle,
-                columns);
+                columns,
+                memoryContext);
     }
 }

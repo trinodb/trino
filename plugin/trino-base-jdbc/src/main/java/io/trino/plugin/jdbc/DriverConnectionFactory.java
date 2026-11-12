@@ -96,12 +96,6 @@ public class DriverConnectionFactory
             return this;
         }
 
-        public Builder setCredentialPropertiesProvider(CredentialPropertiesProvider credentialPropertiesProvider)
-        {
-            this.credentialPropertiesProvider = credentialPropertiesProvider;
-            return this;
-        }
-
         public Builder setOpenTelemetry(OpenTelemetry openTelemetry)
         {
             this.openTelemetry = openTelemetry;

@@ -130,7 +130,6 @@ import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
@@ -258,7 +257,6 @@ public class Analysis
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<AnalyzeMetadata> analyzeMetadata = Optional.empty();
-    private Optional<List<ColumnSchema>> updatedColumns = Optional.empty();
     private Optional<MergeAnalysis> mergeAnalysis = Optional.empty();
 
     private final QueryType queryType;
@@ -810,11 +808,6 @@ public class Analysis
         this.sortKeyCoercionsForFrameBoundComparison.putAll(sortKeyCoercionsForFrameBoundComparison);
     }
 
-    public void addNullIfComparisonType(NullIfExpression expression, Type type)
-    {
-        this.nullIfComparisonTypes.put(NodeRef.of(expression), type);
-    }
-
     public void addNullIfComparisonTypes(Map<NodeRef<NullIfExpression>, Type> types)
     {
         this.nullIfComparisonTypes.putAll(types);
@@ -898,16 +891,6 @@ public class Analysis
     public Optional<Insert> getInsert()
     {
         return insert;
-    }
-
-    public void setUpdatedColumns(List<ColumnSchema> updatedColumns)
-    {
-        this.updatedColumns = Optional.of(updatedColumns);
-    }
-
-    public Optional<List<ColumnSchema>> getUpdatedColumns()
-    {
-        return updatedColumns;
     }
 
     public Optional<MergeAnalysis> getMergeAnalysis()
@@ -1031,7 +1014,7 @@ public class Analysis
     public List<GroupingOperation> getGroupingOperations(QuerySpecification querySpecification)
     {
         return Optional.ofNullable(groupingOperations.get(NodeRef.of(querySpecification)))
-                .orElse(emptyList());
+                .orElse(ImmutableList.of());
     }
 
     public Map<NodeRef<Parameter>, Expression> getParameters()

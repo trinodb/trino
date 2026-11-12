@@ -22,7 +22,6 @@ import javax.security.auth.login.Configuration;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 
-import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 
 public class KerberosAuthentication
@@ -44,25 +43,11 @@ public class KerberosAuthentication
 
     public Subject getSubject()
     {
-        Subject subject = new Subject(false, ImmutableSet.of(principal), emptySet(), emptySet());
+        Subject subject = new Subject(false, ImmutableSet.of(principal), ImmutableSet.of(), ImmutableSet.of());
         try {
             LoginContext loginContext = new LoginContext("", subject, null, configuration);
             loginContext.login();
             return loginContext.getSubject();
-        }
-        catch (LoginException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public void attemptLogin(Subject subject)
-    {
-        try {
-            synchronized (subject.getPrivateCredentials()) {
-                subject.getPrivateCredentials().clear();
-                LoginContext loginContext = new LoginContext("", subject, null, configuration);
-                loginContext.login();
-            }
         }
         catch (LoginException e) {
             throw new RuntimeException(e);

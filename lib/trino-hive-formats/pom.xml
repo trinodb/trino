@@ -148,7 +148,7 @@
         <dependency>
             <groupId>com.github.luben</groupId>
             <artifactId>zstd-jni</artifactId>
-            <version>1.5.7-24</version>
+            <version>1.5.7-25</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -297,6 +297,16 @@
             </plugins>
         </pluginManagement>
         <plugins>
+            <plugin>
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-plugin</artifactId>
+                <configuration>
+                    <ignoreClassNamePatterns>
+                        <!-- generated protobuf code -->
+                        <ignoreClassNamePattern>io/trino/hive/formats/line/protobuf/examples/DataRecordProtos.*</ignoreClassNamePattern>
+                    </ignoreClassNamePatterns>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>com.github.os72</groupId>
                 <artifactId>protoc-jar-maven-plugin</artifactId>

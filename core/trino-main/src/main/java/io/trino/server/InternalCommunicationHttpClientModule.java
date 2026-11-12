@@ -116,12 +116,6 @@ public class InternalCommunicationHttpClientModule
             return this;
         }
 
-        public Builder withFilter(Class<? extends HttpRequestFilter> requestFilter)
-        {
-            this.filters.add(requestFilter);
-            return this;
-        }
-
         public InternalCommunicationHttpClientModule build()
         {
             return new InternalCommunicationHttpClientModule(clientName, annotation, configDefaults, filters);

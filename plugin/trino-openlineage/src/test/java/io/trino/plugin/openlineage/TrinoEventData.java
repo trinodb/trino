@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.openlineage;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
@@ -28,7 +29,6 @@ import io.trino.spi.session.ResourceEstimates;
 
 import java.net.URI;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -53,7 +53,7 @@ public class TrinoEventData
     }
 
     static {
-        queryIOMetadata = new QueryIOMetadata(Collections.emptyList(), Optional.empty());
+        queryIOMetadata = new QueryIOMetadata(ImmutableList.of(), Optional.empty());
 
         queryContext = new QueryContext(
                 "user",
@@ -131,16 +131,16 @@ public class TrinoEventData
                 0L,
                 0L,
                 0.0f,
-                Collections.emptyList(),
+                ImmutableList.of(),
                 0,
                 true,
-                Collections.emptyList(),
+                ImmutableList.of(),
                 List.of(new StageOutputBufferUtilization(0, 10, 0.1, 0.5, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.0, 1.0, ofSeconds(1234))),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 Optional.empty());
@@ -152,7 +152,7 @@ public class TrinoEventData
                 queryIOMetadata,
                 Optional.empty(),
                 Optional.empty(),
-                Collections.emptyList(),
+                ImmutableList.of(),
                 Instant.parse("2025-04-28T11:23:55.384424Z"),
                 Instant.parse("2025-04-28T11:24:16.256207Z"),
                 Instant.parse("2025-04-28T11:24:26.993340Z"));

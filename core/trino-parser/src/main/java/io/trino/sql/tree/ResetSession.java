@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class ResetSession
+public final class ResetSession
         extends Statement
 {
     private final QualifiedName name;
@@ -34,12 +34,6 @@ public class ResetSession
     public QualifiedName getName()
     {
         return name;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitResetSession(this, context);
     }
 
     @Override

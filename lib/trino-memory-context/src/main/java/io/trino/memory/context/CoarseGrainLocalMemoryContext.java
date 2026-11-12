@@ -41,11 +41,6 @@ public class CoarseGrainLocalMemoryContext
     @GuardedBy("this")
     private long exactBytes;
 
-    public CoarseGrainLocalMemoryContext(LocalMemoryContext delegate)
-    {
-        this(delegate, DEFAULT_GRANULARITY);
-    }
-
     public CoarseGrainLocalMemoryContext(LocalMemoryContext delegate, long granularity)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");

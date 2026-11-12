@@ -22,7 +22,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class PlanSiblings
+public final class PlanSiblings
         extends JsonTableSpecificPlan
 {
     private final SiblingsPlanType type;
@@ -44,12 +44,6 @@ public class PlanSiblings
     public List<JsonTableSpecificPlan> getSiblings()
     {
         return siblings;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPlanSiblings(this, context);
     }
 
     @Override

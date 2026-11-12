@@ -48,12 +48,6 @@ public record Case(List<WhenClause> whenClauses, Expression defaultValue)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCase(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         ImmutableList.Builder<Expression> builder = ImmutableList.builder();

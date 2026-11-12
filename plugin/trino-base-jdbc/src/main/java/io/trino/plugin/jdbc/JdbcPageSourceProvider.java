@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 
 import java.util.List;
 import java.util.Map;
@@ -68,7 +69,8 @@ public class JdbcPageSourceProvider
             ConnectorTableHandle table,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         JdbcSplit jdbcSplit = (JdbcSplit) split;
         List<JdbcColumnHandle> jdbcColumns = columns.stream()
@@ -82,7 +84,7 @@ public class JdbcPageSourceProvider
                     .collect(toImmutableMap(sourceColumns::get, identity()));
 
             return new MappedPageSource(
-                    createPageSource(session, jdbcSplit, procedureHandle, sourceColumns),
+                    createPageSource(session, jdbcSplit, procedureHandle, sourceColumns, memoryContext),
                     jdbcColumns.stream()
                             .map(columnIndexMap::get)
                             .collect(toImmutableList()));
@@ -98,11 +100,13 @@ public class JdbcPageSourceProvider
                     executor,
                     session,
                     jdbcSplit,
-                    tableHandle.intersectedWithConstraint(jdbcSplit.getDynamicFilter().transformKeys(ColumnHandle.class::cast)),
-                    jdbcColumns);
+                    tableHandle,
+                    jdbcColumns,
+                    jdbcSplit.getDynamicFilter(),
+                    memoryContext);
         }
 
-        return createMergePageSource(session, jdbcSplit, jdbcColumns, tableHandle, mergeRowId);
+        return createMergePageSource(session, jdbcSplit, jdbcColumns, tableHandle, mergeRowId, memoryContext);
     }
 
     private MergeJdbcPageSource createMergePageSource(
@@ -110,7 +114,8 @@ public class JdbcPageSourceProvider
             JdbcSplit jdbcSplit,
             List<JdbcColumnHandle> columns,
             JdbcTableHandle tableHandle,
-            Optional<JdbcColumnHandle> mergeRowId)
+            Optional<JdbcColumnHandle> mergeRowId,
+            MemoryContext memoryContext)
     {
         List<JdbcColumnHandle> primaryKeys = jdbcClient.getPrimaryKeys(session, tableHandle.getRequiredNamedRelation().getRemoteTableName());
         List<JdbcColumnHandle> scanColumns = getScanColumns(session, jdbcClient, tableHandle, primaryKeys);
@@ -137,7 +142,7 @@ public class JdbcPageSourceProvider
                 tableHandle.getAuthorization(),
                 tableHandle.getUpdateAssignments());
         return new MergeJdbcPageSource(
-                createPageSource(session, jdbcSplit, newTableHandle, scanColumns),
+                createPageSource(session, jdbcSplit, newTableHandle, scanColumns, memoryContext),
                 columnAdaptationsBuilder.build());
     }
 
@@ -145,9 +150,10 @@ public class JdbcPageSourceProvider
             ConnectorSession session,
             JdbcSplit jdbcSplit,
             BaseJdbcConnectorTableHandle table,
-            List<JdbcColumnHandle> columnHandles)
+            List<JdbcColumnHandle> columnHandles,
+            MemoryContext memoryContext)
     {
-        return retry(policy, () -> new JdbcPageSource(jdbcClient, executor, session, jdbcSplit, table, columnHandles));
+        return retry(policy, () -> new JdbcPageSource(jdbcClient, executor, session, jdbcSplit, table, columnHandles, memoryContext));
     }
 
     private static List<JdbcColumnHandle> getScanColumns(

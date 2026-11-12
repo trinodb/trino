@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class Prepare
+public final class Prepare
         extends Statement
 {
     private final Identifier name;
@@ -42,12 +42,6 @@ public class Prepare
     public Statement getStatement()
     {
         return statement;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPrepare(this, context);
     }
 
     @Override

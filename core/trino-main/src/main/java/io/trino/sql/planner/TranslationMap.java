@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.json.JsonItems;
 import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalParseResult;
@@ -164,6 +165,7 @@ import static io.trino.operator.scalar.timestamp.LocalTimestamp.LOCALTIMESTAMP_F
 import static io.trino.operator.scalar.timestamptz.CurrentTimestamp.CURRENT_TIMESTAMP_FUNCTION_NAME;
 import static io.trino.operator.scalar.timetz.AtTimeZone.AT_TIMEZONE_FUNCTION_NAME;
 import static io.trino.operator.scalar.timetz.CurrentTime.CURRENT_TIME_FUNCTION_NAME;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
@@ -461,7 +463,7 @@ public class TranslationMap
                 case SimpleCaseExpression expression -> translate(expression);
                 case SearchedCaseExpression expression -> translate(expression);
                 case NullIfExpression expression -> translate(expression);
-                default -> throw new IllegalArgumentException("Unsupported expression (%s): %s".formatted(expr.getClass().getName(), expr));
+                default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported expression (%s): %s".formatted(expr.getClass().getName(), expr));
             };
         }
 

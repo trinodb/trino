@@ -18,21 +18,15 @@ import io.airlift.slice.Slice;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
 import io.trino.spi.TrinoException;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
-import org.joda.time.DateTime;
 import org.joda.time.DurationFieldType;
 import org.joda.time.MutablePeriod;
 import org.joda.time.Period;
 import org.joda.time.PeriodType;
 import org.joda.time.ReadWritablePeriod;
-import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
-import org.joda.time.format.DateTimeParser;
-import org.joda.time.format.DateTimePrinter;
 import org.joda.time.format.ISODateTimeFormat;
 import org.joda.time.format.PeriodFormatter;
 import org.joda.time.format.PeriodFormatterBuilder;
@@ -46,7 +40,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -55,8 +48,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
-import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
@@ -162,61 +153,6 @@ public final class DateTimeUtils
         buffer[8] = (byte) ('0' + day / 10);
         buffer[9] = (byte) ('0' + day % 10);
         return wrappedBuffer(buffer);
-    }
-
-    private static final DateTimeFormatter TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER;
-
-    static {
-        DateTimeParser[] timestampWithoutTimeZoneParser = {
-                DateTimeFormat.forPattern("yyyyyy-M-d").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS").getParser(),
-        };
-
-        DateTimeParser[] timestampWithTimeZoneParser = {
-                DateTimeFormat.forPattern("yyyyyy-M-dZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d Z").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:mZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m Z").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:sZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s Z").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSSZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS Z").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-dZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d ZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:mZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m ZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:sZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s ZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSSZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS ZZZ").getParser(),
-        };
-
-        DateTimePrinter timestampWithTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter();
-
-        DateTimeParser[] timestampWithOrWithoutTimeZoneParser = Stream.concat(Stream.of(timestampWithoutTimeZoneParser), Stream.of(timestampWithTimeZoneParser))
-                .toArray(DateTimeParser[]::new);
-        TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
-                .append(timestampWithTimeZonePrinter, timestampWithOrWithoutTimeZoneParser)
-                .toFormatter()
-                .withOffsetParsed();
-    }
-
-    /**
-     * Parse a string (optionally containing a zone) as a value of TIMESTAMP WITH TIME ZONE type.
-     * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
-     * <p>
-     * For example: {@code "2000-01-01 01:23:00"} is parsed to TIMESTAMP WITH TIME ZONE
-     * {@code 2000-01-01T01:23:00 <provided zone>} and {@code "2000-01-01 01:23:00 +01:23"}
-     * is parsed to TIMESTAMP WITH TIME ZONE {@code 2000-01-01T01:23:00.000+01:23}.
-     *
-     * @return stack representation of TIMESTAMP WITH TIME ZONE type
-     */
-    public static long convertToTimestampWithTimeZone(TimeZoneKey timeZoneKey, String timestampWithTimeZone)
-    {
-        DateTime dateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).withOffsetParsed().parseDateTime(timestampWithTimeZone);
-        return packDateTimeWithZone(dateTime);
     }
 
     private static final int PICOS_PER_MICRO = 1_000_000;

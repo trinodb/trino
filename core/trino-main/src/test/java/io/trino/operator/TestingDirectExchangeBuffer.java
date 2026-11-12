@@ -31,7 +31,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static java.util.Objects.requireNonNull;
 
 public class TestingDirectExchangeBuffer
         implements DirectExchangeBuffer
@@ -57,11 +56,6 @@ public class TestingDirectExchangeBuffer
     public synchronized ListenableFuture<Void> isBlocked()
     {
         return blocked;
-    }
-
-    public synchronized void setBlocked(ListenableFuture<Void> blocked)
-    {
-        this.blocked = requireNonNull(blocked, "blocked is null");
     }
 
     @Override

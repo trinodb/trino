@@ -39,7 +39,6 @@ import javax.security.auth.kerberos.KerberosPrincipal;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -225,7 +224,7 @@ final class TestRangerSystemAccessControl
         assertThatThrownBy(() -> accessControlManager.checkCanCreateTable(context(BOB), TABLE_ALICE_SCH1_TBL1, ImmutableMap.of())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanDropTable(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanRenameTable(context(BOB), TABLE_ALICE_SCH1_TBL1, newTableName)).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanSetTableProperties(context(BOB), TABLE_ALICE_SCH1_TBL1, Collections.emptyMap())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanSetTableProperties(context(BOB), TABLE_ALICE_SCH1_TBL1, ImmutableMap.of())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanSetTableComment(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanSetEntityAuthorization(context(BOB), aliceEntityKindAndName, new TrinoPrincipal(USER, "principal"))).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanShowTables(context(BOB), SCHEMA_ALICE_SCH1)).isInstanceOf(AccessDeniedException.class);
@@ -254,7 +253,7 @@ final class TestRangerSystemAccessControl
         Map<SchemaTableName, Set<String>> tableColumns = ImmutableMap.of(TABLE_ALICE_SCH1_TBL1.getSchemaTableName(), columns);
 
         assertThat(accessControlManager.filterColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1.getCatalogName(), tableColumns)).isEqualTo(tableColumns);
-        assertThat(accessControlManager.filterColumns(context(BOB), TABLE_ALICE_SCH1_TBL1.getCatalogName(), tableColumns)).isEqualTo(Collections.singletonMap(TABLE_ALICE_SCH1_TBL1.getSchemaTableName(), Collections.emptySet()));
+        assertThat(accessControlManager.filterColumns(context(BOB), TABLE_ALICE_SCH1_TBL1.getCatalogName(), tableColumns)).isEqualTo(Map.of(TABLE_ALICE_SCH1_TBL1.getSchemaTableName(), ImmutableSet.of()));
 
         assertThatThrownBy(() -> accessControlManager.checkCanAddColumn(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanAlterColumn(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
@@ -266,7 +265,7 @@ final class TestRangerSystemAccessControl
                 .hasMessageContaining("Cannot select from table tbl1");
         assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_USER_SCH1_TBL1, Optional.empty(), ImmutableSet.of("id", "name", "time"))).isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot select from columns [id, name] in table or view tbl1");
-        assertThatThrownBy(() -> accessControlManager.checkCanUpdateTableColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty(), Collections.emptySet())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanUpdateTableColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty(), ImmutableSet.of())).isInstanceOf(AccessDeniedException.class);
     }
 
     @Test

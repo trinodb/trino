@@ -73,14 +73,6 @@ public class IcebergRestCatalogContainer
     }
 
     /**
-     * Returns the externally accessible REST catalog URI for connecting from the host.
-     */
-    public String getExternalRestUri()
-    {
-        return "http://" + getHost() + ":" + getMappedPort(REST_PORT) + "/";
-    }
-
-    /**
      * Returns the warehouse location configured for this REST catalog.
      */
     public String getWarehouse()

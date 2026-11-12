@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class ArithmeticUnaryExpression
+public final class ArithmeticUnaryExpression
         extends Expression
 {
     public enum Sign
@@ -60,12 +60,6 @@ public class ArithmeticUnaryExpression
     public Sign getSign()
     {
         return sign;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitArithmeticUnary(this, context);
     }
 
     @Override

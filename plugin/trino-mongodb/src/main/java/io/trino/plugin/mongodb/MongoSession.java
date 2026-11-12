@@ -15,6 +15,7 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -93,10 +94,12 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.mongodb.MongoErrorCode.MONGODB_CLUSTER_ERROR;
+import static io.trino.plugin.mongodb.MongoNetworkErrorTranslator.translateNetworkErrors;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static io.trino.spi.predicate.FloatingPointValueSet.boundedRanges;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
@@ -185,7 +188,8 @@ public class MongoSession
     public MongoSession(TypeManager typeManager, Supplier<MongoClient> client, MongoClientConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.client = requireNonNull(client, "client is null");
+        requireNonNull(client, "client is null");
+        this.client = Suppliers.memoize(() -> translateNetworkErrors(client.get()));
         this.schemaCollection = requireNonNull(config.getSchemaCollection(), "config.getSchemaCollection() is null");
         this.caseInsensitiveNameMatching = config.isCaseInsensitiveNameMatching();
         this.cursorBatchSize = config.getCursorBatchSize();
@@ -636,7 +640,8 @@ public class MongoSession
 
         List<Object> singleValues = new ArrayList<>();
         List<Document> disjuncts = new ArrayList<>();
-        for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
+        // BSON accepts infinities. Keep the lower infinity bound because MongoDB orders NaN before numbers.
+        for (Range range : boundedRanges(domain.getValues()).getOrderedRanges()) {
             if (range.isSingleValue()) {
                 Optional<Object> translated = translateValue(range.getSingleValue(), type);
                 if (translated.isEmpty()) {

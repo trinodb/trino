@@ -32,10 +32,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static io.trino.plugin.ldapgroup.LdapFilteringGroupProviderConfig.LdapGroupSearchMode.DIRECT;
+import static io.trino.plugin.ldapgroup.LdapFilteringGroupProviderConfig.LdapGroupSearchMode.RECURSIVE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -46,28 +47,33 @@ public class TestLdapGroupProviderIntegration
 {
     private final LdapGroupProviderFactory factory = new LdapGroupProviderFactory();
 
-    private static final List<ConfigBuilder> CONFIG_BUILDERS;
+    private static final ConfigBuilder WITH_MEMBER_OF = builder -> {
+        builder.put("ldap.user-member-of-attribute", "memberOf");
+        return builder;
+    };
 
-    static {
-        ConfigBuilder withMemberOf = builder -> {
-            builder.put("ldap.user-member-of-attribute", "memberOf");
-            return builder;
-        };
+    private static final ConfigBuilder WITH_GROUP_FILTER = builder -> {
+        builder.put("ldap.use-group-filter", "true");
+        builder.put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com");
+        return builder;
+    };
 
-        ConfigBuilder withGroupFilter = builder -> {
-            builder.put("ldap.use-group-filter", "true");
-            builder.put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com");
-            return builder;
-        };
+    private static final ConfigBuilder WITH_GROUP_FILTER_NESTED = builder -> {
+        builder.put("ldap.use-group-filter", "true");
+        builder.put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com");
+        builder.put("ldap.group-search-mode", "RECURSIVE");
+        return builder;
+    };
 
-        CONFIG_BUILDERS = ImmutableList.of(withMemberOf, withGroupFilter);
-    }
+    private static final List<ConfigBuilder> CONFIG_BUILDERS = ImmutableList.of(WITH_MEMBER_OF, WITH_GROUP_FILTER, WITH_GROUP_FILTER_NESTED);
 
     private Closer closer;
     private Map<String, String> baseConfig;
     private DisposableSubContext clients;
     private DisposableSubContext developers;
     private DisposableSubContext qualityAssurance;
+    private DisposableSubContext engineering;
+    private DisposableSubContext division;
 
     @BeforeAll
     public void setup()
@@ -107,6 +113,14 @@ public class TestLdapGroupProviderIntegration
         qualityAssurance = openLdapServer.createGroup(groupsOU, "qualityAssurance");
         openLdapServer.addUserToGroup(alicea, qualityAssurance);
         openLdapServer.addUserToGroup(bobq, qualityAssurance);
+
+        engineering = openLdapServer.createGroup(groupsOU, "engineering");
+        // Nest in both directions so RECURSIVE mode has a cycle to terminate on
+        openLdapServer.addUserToGroup(developers, engineering);
+        openLdapServer.addUserToGroup(engineering, developers);
+
+        division = openLdapServer.createGroup(groupsOU, "division");
+        openLdapServer.addUserToGroup(engineering, division);
     }
 
     @AfterAll
@@ -119,8 +133,11 @@ public class TestLdapGroupProviderIntegration
     @Test
     public void testGetGroups()
     {
+        assertGetGroups(WITH_MEMBER_OF, "alicea", ImmutableSet.of("clients", "developers", "qualityAssurance"));
+        assertGetGroups(WITH_GROUP_FILTER, "alicea", ImmutableSet.of("clients", "developers", "qualityAssurance"));
+        assertGetGroups(WITH_GROUP_FILTER_NESTED, "alicea", ImmutableSet.of("clients", "developers", "qualityAssurance", "engineering", "division"));
+
         for (ConfigBuilder configBuilder : CONFIG_BUILDERS) {
-            assertGetGroups(configBuilder, "alicea", ImmutableSet.of("clients", "developers", "qualityAssurance"));
             assertGetGroups(configBuilder, "johnb", ImmutableSet.of("clients"));
             assertGetGroups(configBuilder, "bobq", ImmutableSet.of("qualityAssurance"));
             assertGetGroups(configBuilder, "carlp", ImmutableSet.of());
@@ -134,19 +151,33 @@ public class TestLdapGroupProviderIntegration
 
         Set<String> groups = groupsProvider.getGroups(userName);
 
-        assertThat(groups).containsAll(expectedGroups);
+        assertThat(groups).isEqualTo(expectedGroups);
     }
 
     @Test
-    public void testGetGroupsWithGroupsFilter()
+    public void testGetGroupsWithGroupsFilterDirect()
     {
-        assertGetGroupsWithGroupsFilter("alicea", "cn=*", ImmutableSet.of("clients", "developers", "qualityAssurance"));
-        assertGetGroupsWithGroupsFilter("alicea", "cn=dev*", ImmutableSet.of("developers"));
-        assertGetGroupsWithGroupsFilter("alicea", "(|(cn=dev*)(cn=cl*))", ImmutableSet.of("developers", "clients"));
-        assertGetGroupsWithGroupsFilter("alicea", "(&(objectclass=groupOfNames)(!(ou:dn:=external)))", ImmutableSet.of("developers", "qualityAssurance"));
+        assertGetGroupsWithGroupsFilter(DIRECT, "alicea", "cn=*", ImmutableSet.of("clients", "developers", "qualityAssurance"));
+        assertGetGroupsWithGroupsFilter(DIRECT, "alicea", "cn=dev*", ImmutableSet.of("developers"));
+        assertGetGroupsWithGroupsFilter(DIRECT, "alicea", "cn=eng*", ImmutableSet.of());
+        assertGetGroupsWithGroupsFilter(DIRECT, "alicea", "(|(cn=dev*)(cn=cl*))", ImmutableSet.of("developers", "clients"));
+        assertGetGroupsWithGroupsFilter(DIRECT, "alicea", "(&(objectclass=groupOfNames)(!(ou:dn:=external)))", ImmutableSet.of("developers", "qualityAssurance"));
+        assertGetGroupsWithGroupsFilter(DIRECT, "alicea", "cn=does-not-match", ImmutableSet.of());
     }
 
-    private void assertGetGroupsWithGroupsFilter(String userName, String groupFilter, Set<String> expectedGroups)
+    @Test
+    public void testGetGroupsWithGroupsFilterRecursive()
+    {
+        assertGetGroupsWithGroupsFilter(RECURSIVE, "alicea", "cn=*", ImmutableSet.of("clients", "developers", "qualityAssurance", "engineering", "division"));
+        assertGetGroupsWithGroupsFilter(RECURSIVE, "alicea", "cn=dev*", ImmutableSet.of("developers"));
+        assertGetGroupsWithGroupsFilter(RECURSIVE, "alicea", "cn=eng*", ImmutableSet.of("engineering"));
+        assertGetGroupsWithGroupsFilter(RECURSIVE, "alicea", "cn=division", ImmutableSet.of("division"));
+        assertGetGroupsWithGroupsFilter(RECURSIVE, "alicea", "(|(cn=dev*)(cn=cl*))", ImmutableSet.of("developers", "clients"));
+        assertGetGroupsWithGroupsFilter(RECURSIVE, "alicea", "(&(objectclass=groupOfNames)(!(ou:dn:=external)))", ImmutableSet.of("developers", "qualityAssurance", "engineering", "division"));
+        assertGetGroupsWithGroupsFilter(RECURSIVE, "alicea", "cn=does-not-match", ImmutableSet.of());
+    }
+
+    private void assertGetGroupsWithGroupsFilter(LdapFilteringGroupProviderConfig.LdapGroupSearchMode searchMode, String userName, String groupFilter, Set<String> expectedGroups)
     {
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .putAll(baseConfig)
@@ -154,22 +185,20 @@ public class TestLdapGroupProviderIntegration
                 .put("ldap.group-search-member-attribute", "member")
                 .put("ldap.group-name-attribute", "cn")
                 .put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com")
+                .put("ldap.group-search-mode", searchMode.name())
                 .put("ldap.group-search-filter", groupFilter)
                 .buildOrThrow();
         GroupProvider groupsProvider = factory.create(config);
 
         Set<String> groups = groupsProvider.getGroups(userName);
 
-        assertThat(groups).containsAll(expectedGroups);
+        assertThat(groups).isEqualTo(expectedGroups);
     }
 
     @Test
     public void testGetGroupForMissingUserReturnsEmpty()
     {
         for (ConfigBuilder configBuilder : CONFIG_BUILDERS) {
-            assertGetGroupForMissingUserReturnsEmpty(configBuilder);
-            assertGetGroupForMissingUserReturnsEmpty(configBuilder);
-            assertGetGroupForMissingUserReturnsEmpty(configBuilder);
             assertGetGroupForMissingUserReturnsEmpty(configBuilder);
         }
     }
@@ -187,32 +216,32 @@ public class TestLdapGroupProviderIntegration
     @Test
     public void testGetGroupsWithBadGroupMemberAttributeReturnsEmpty()
     {
-        Map<String, String> config = ImmutableMap.<String, String>builder()
-                .putAll(baseConfig)
-                .put("ldap.use-group-filter", "true")
-                .put("ldap.group-search-member-attribute", "some-attribute-that-does-not-exist")
-                .put("ldap.group-name-attribute", "cn")
-                .put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com")
-                .buildOrThrow();
-        GroupProvider groupsProvider = factory.create(config);
+        for (LdapFilteringGroupProviderConfig.LdapGroupSearchMode searchMode : ImmutableList.of(DIRECT, RECURSIVE)) {
+            Map<String, String> config = ImmutableMap.<String, String>builder()
+                    .putAll(baseConfig)
+                    .put("ldap.use-group-filter", "true")
+                    .put("ldap.group-search-member-attribute", "some-attribute-that-does-not-exist")
+                    .put("ldap.group-name-attribute", "cn")
+                    .put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com")
+                    .put("ldap.group-search-mode", searchMode.name())
+                    .buildOrThrow();
+            GroupProvider groupsProvider = factory.create(config);
 
-        Set<String> groups = groupsProvider.getGroups("alicea");
+            Set<String> groups = groupsProvider.getGroups("alicea");
 
-        assertThat(groups).isEmpty();
+            assertThat(groups).isEmpty();
+        }
     }
 
     @Test
     public void testGetGroupsWithBadGroupNameReturnsFullName()
     {
-        for (ConfigBuilder configBuilder : CONFIG_BUILDERS) {
-            assertGetGroupsWithBadGroupNameReturnsFullName(configBuilder);
-            assertGetGroupsWithBadGroupNameReturnsFullName(configBuilder);
-            assertGetGroupsWithBadGroupNameReturnsFullName(configBuilder);
-            assertGetGroupsWithBadGroupNameReturnsFullName(configBuilder);
-        }
+        assertGetGroupsWithBadGroupNameReturnsFullName(WITH_MEMBER_OF, ImmutableSet.of(clients.getDistinguishedName(), developers.getDistinguishedName(), qualityAssurance.getDistinguishedName()));
+        assertGetGroupsWithBadGroupNameReturnsFullName(WITH_GROUP_FILTER, ImmutableSet.of(clients.getDistinguishedName(), developers.getDistinguishedName(), qualityAssurance.getDistinguishedName()));
+        assertGetGroupsWithBadGroupNameReturnsFullName(WITH_GROUP_FILTER_NESTED, ImmutableSet.of(clients.getDistinguishedName(), developers.getDistinguishedName(), qualityAssurance.getDistinguishedName(), engineering.getDistinguishedName(), division.getDistinguishedName()));
     }
 
-    private void assertGetGroupsWithBadGroupNameReturnsFullName(ConfigBuilder configBuilder)
+    private void assertGetGroupsWithBadGroupNameReturnsFullName(ConfigBuilder configBuilder, Set<String> expectedGroups)
     {
         Map<String, String> config = configBuilder.apply(new HashMap<>(baseConfig));
         config.put("ldap.group-name-attribute", "some-attribute-that-does-not-exist");
@@ -220,51 +249,34 @@ public class TestLdapGroupProviderIntegration
 
         Set<String> groups = groupsProvider.getGroups("alicea");
 
-        assertThat(groups).containsAll(ImmutableSet.of(clients.getDistinguishedName(), developers.getDistinguishedName(), qualityAssurance.getDistinguishedName()));
+        assertThat(groups).isEqualTo(expectedGroups);
     }
 
     @Test
     public void testGetGroupsConcurrently()
-            throws InterruptedException
     {
-        for (ConfigBuilder configBuilder : CONFIG_BUILDERS) {
-            assertGetGroupsConcurrently(configBuilder);
-            assertGetGroupsConcurrently(configBuilder);
-            assertGetGroupsConcurrently(configBuilder);
-            assertGetGroupsConcurrently(configBuilder);
-        }
+        assertGetGroupsConcurrently(WITH_MEMBER_OF, ImmutableSet.of("clients", "qualityAssurance", "developers"));
+        assertGetGroupsConcurrently(WITH_GROUP_FILTER, ImmutableSet.of("clients", "qualityAssurance", "developers"));
+        assertGetGroupsConcurrently(WITH_GROUP_FILTER_NESTED, ImmutableSet.of("clients", "qualityAssurance", "developers", "engineering", "division"));
     }
 
-    private void assertGetGroupsConcurrently(ConfigBuilder configBuilder)
-            throws InterruptedException
+    private void assertGetGroupsConcurrently(ConfigBuilder configBuilder, Set<String> expectedAliceGroups)
     {
         Map<String, String> config = configBuilder.apply(new HashMap<>(baseConfig));
         GroupProvider groupsProvider = factory.create(config);
 
-        ExecutorService executor = Executors.newFixedThreadPool(4);
-        CountDownLatch latch = new CountDownLatch(4);
+        try (ExecutorService executor = Executors.newFixedThreadPool(4)) {
+            CompletableFuture<Void> alice = CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("alicea"), executor)
+                    .thenAccept(groups -> assertThat(groups).isEqualTo(expectedAliceGroups));
+            CompletableFuture<Void> bob = CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("bobq"), executor)
+                    .thenAccept(groups -> assertThat(groups).isEqualTo(ImmutableSet.of("qualityAssurance")));
+            CompletableFuture<Void> john = CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("johnb"), executor)
+                    .thenAccept(groups -> assertThat(groups).isEqualTo(ImmutableSet.of("clients")));
+            CompletableFuture<Void> carl = CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("carlp"), executor)
+                    .thenAccept(groups -> assertThat(groups).isEmpty());
 
-        CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("alicea"), executor).whenComplete((g, _) -> {
-            assertThat(g).containsAll(ImmutableSet.of("clients", "qualityAssurance", "developers"));
-            latch.countDown();
-        });
-
-        CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("bobq"), executor).whenComplete((g, _) -> {
-            assertThat(g).containsAll(ImmutableSet.of("qualityAssurance"));
-            latch.countDown();
-        });
-
-        CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("johnb"), executor).whenComplete((g, _) -> {
-            assertThat(g).containsAll(ImmutableSet.of("clients"));
-            latch.countDown();
-        });
-
-        CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("carlp"), executor).whenComplete((g, _) -> {
-            assertThat(g).isEmpty();
-            latch.countDown();
-        });
-
-        latch.await();
+            CompletableFuture.allOf(alice, bob, john, carl).join();
+        }
     }
 
     @FunctionalInterface

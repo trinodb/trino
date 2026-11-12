@@ -21,6 +21,7 @@ import io.trino.plugin.iceberg.IcebergFileWriter;
 import io.trino.plugin.iceberg.IcebergFileWriterFactory;
 import io.trino.plugin.iceberg.MetricsWrapper;
 import io.trino.plugin.iceberg.PartitionData;
+import io.trino.plugin.iceberg.ReferencedDataFile;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
@@ -42,7 +43,7 @@ import static java.util.UUID.randomUUID;
 
 public class PositionDeleteWriter
 {
-    private final String dataFilePath;
+    private final ReferencedDataFile referencedDataFile;
     private final Block dataFilePathBlock;
     private final PartitionSpec partitionSpec;
     private final Optional<PartitionData> partition;
@@ -51,7 +52,7 @@ public class PositionDeleteWriter
     private final IcebergFileFormat fileFormat;
 
     public PositionDeleteWriter(
-            String dataFilePath,
+            ReferencedDataFile referencedDataFile,
             PartitionSpec partitionSpec,
             Optional<PartitionData> partition,
             LocationProvider locationProvider,
@@ -61,8 +62,8 @@ public class PositionDeleteWriter
             IcebergFileFormat fileFormat,
             Map<String, String> storageProperties)
     {
-        this.dataFilePath = requireNonNull(dataFilePath, "dataFilePath is null");
-        this.dataFilePathBlock = writeNativeValue(VARCHAR, utf8Slice(dataFilePath));
+        this.referencedDataFile = requireNonNull(referencedDataFile, "referencedDataFile is null");
+        this.dataFilePathBlock = writeNativeValue(VARCHAR, utf8Slice(referencedDataFile.path()));
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.partition = requireNonNull(partition, "partition is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
@@ -89,7 +90,7 @@ public class PositionDeleteWriter
                 partitionSpec.specId(),
                 partition.map(PartitionData::toJson),
                 FileContent.POSITION_DELETES,
-                Optional.of(dataFilePath),
+                Optional.of(referencedDataFile),
                 writer.getFileMetrics().splitOffsets(),
                 SortOrder.unsorted().orderId(),
                 Optional.empty());

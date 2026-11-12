@@ -51,7 +51,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -362,7 +361,7 @@ public final class BigQueryTypeManager
     {
         FieldList subFields = field.getSubFields();
         List<BigQueryColumnHandle> subColumns = subFields == null ?
-                Collections.emptyList() :
+                ImmutableList.of() :
                 subFields.stream()
                 .filter(column -> isSupportedType(column, useStorageApi))
                 .map(column -> toColumnHandle(column, useStorageApi))

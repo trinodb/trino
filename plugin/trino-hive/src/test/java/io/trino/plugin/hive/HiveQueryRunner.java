@@ -210,22 +210,6 @@ public final class HiveQueryRunner
             return self();
         }
 
-        @SuppressWarnings("unused")
-        @CanIgnoreReturnValue
-        public SELF setTpchColumnNaming(ColumnNaming tpchColumnNaming)
-        {
-            this.tpchColumnNaming = requireNonNull(tpchColumnNaming, "tpchColumnNaming is null");
-            return self();
-        }
-
-        @SuppressWarnings("unused")
-        @CanIgnoreReturnValue
-        public SELF setTpchDecimalTypeMapping(DecimalTypeMapping tpchDecimalTypeMapping)
-        {
-            this.tpchDecimalTypeMapping = requireNonNull(tpchDecimalTypeMapping, "tpchDecimalTypeMapping is null");
-            return self();
-        }
-
         @CanIgnoreReturnValue
         public SELF setDecryptionKeyRetriever(DecryptionKeyRetriever decryptionKeyRetriever)
         {

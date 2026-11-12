@@ -21,6 +21,8 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.Storage.SignUrlOption;
 import com.google.cloud.storage.StorageBatch;
+import com.google.cloud.storage.StorageBatchResult;
+import com.google.cloud.storage.StorageException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -47,6 +49,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,6 +66,7 @@ import static com.google.cloud.storage.Storage.SignUrlOption.withV4Signature;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.partition;
+import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.filesystem.TrinoFileSystem.checkStartingFrom;
 import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
@@ -171,17 +175,11 @@ public class GcsFileSystem
     public void deleteFiles(Collection<Location> locations)
             throws IOException
     {
-        List<ListenableFuture<?>> batchFutures = new ArrayList<>();
         try {
-            for (List<Location> locationBatch : partition(locations, batchSize)) {
-                StorageBatch batch = storage.batch();
-                for (Location location : locationBatch) {
-                    GcsLocation gcsLocation = new GcsLocation(location);
-                    batch.delete(BlobId.of(gcsLocation.bucket(), gcsLocation.path()));
-                }
-                batchFutures.add(executorService.submit(batch::submit));
-            }
-            getFutureValue(Futures.allAsList(batchFutures));
+            deleteBlobs(transform(locations, location -> {
+                GcsLocation gcsLocation = new GcsLocation(location);
+                return BlobId.of(gcsLocation.bucket(), gcsLocation.path());
+            }));
         }
         catch (RuntimeException e) {
             throw handleGcsException(e, "delete files", locations);
@@ -194,20 +192,47 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(normalizeToDirectory(location));
         try {
-            List<ListenableFuture<?>> batchFutures = new ArrayList<>();
-
-            for (List<Blob> blobBatch : partition(getPage(gcsLocation).iterateAll(), batchSize)) {
-                StorageBatch batch = storage.batch();
-                for (Blob blob : blobBatch) {
-                    batch.delete(blob.getBlobId());
-                }
-                batchFutures.add(executorService.submit(batch::submit));
-            }
-            getFutureValue(Futures.allAsList(batchFutures));
+            deleteBlobs(transform(getPage(gcsLocation).iterateAll(), Blob::getBlobId));
         }
         catch (RuntimeException e) {
             throw handleGcsException(e, "deleting directory", gcsLocation);
         }
+    }
+
+    private void deleteBlobs(Iterable<BlobId> blobIds)
+            throws IOException
+    {
+        List<ListenableFuture<Map<String, String>>> batchFutures = new ArrayList<>();
+        for (List<BlobId> blobIdBatch : partition(blobIds, batchSize)) {
+            batchFutures.add(executorService.submit(() -> deleteBatch(blobIdBatch)));
+        }
+        Map<String, String> failures = new LinkedHashMap<>();
+        getFutureValue(Futures.allAsList(batchFutures)).forEach(failures::putAll);
+        if (!failures.isEmpty()) {
+            throw new IOException("Failed to delete one or more files: " + failures);
+        }
+    }
+
+    private Map<String, String> deleteBatch(List<BlobId> blobIds)
+    {
+        StorageBatch batch = storage.batch();
+        List<StorageBatchResult<Boolean>> results = new ArrayList<>(blobIds.size());
+        for (BlobId blobId : blobIds) {
+            results.add(batch.delete(blobId));
+        }
+        batch.submit();
+
+        Map<String, String> failures = new LinkedHashMap<>();
+        for (int i = 0; i < blobIds.size(); i++) {
+            try {
+                results.get(i).get();
+            }
+            catch (StorageException e) {
+                BlobId blobId = blobIds.get(i);
+                failures.put("gs://%s/%s".formatted(blobId.getBucket(), blobId.getName()), "%s (%s)".formatted(e.getMessage(), e.getCode()));
+            }
+        }
+        return failures;
     }
 
     @Override

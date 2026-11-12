@@ -13,17 +13,19 @@
  */
 package io.trino.sql.tree;
 
-public abstract class RowPattern
+public abstract sealed class RowPattern
         extends Node
+        permits AnchorPattern,
+                EmptyPattern,
+                ExcludedPattern,
+                PatternAlternation,
+                PatternConcatenation,
+                PatternPermutation,
+                PatternVariable,
+                QuantifiedPattern
 {
     protected RowPattern(NodeLocation location)
     {
         super(location);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitRowPattern(this, context);
     }
 }

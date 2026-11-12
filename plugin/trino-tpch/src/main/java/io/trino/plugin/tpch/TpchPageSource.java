@@ -42,7 +42,8 @@ class TpchPageSource
     private static final int ROWS_PER_REQUEST = 4096;
     private final int maxRowsPerPage;
     private final RecordCursor cursor;
-    private final List<Type> types;
+    private final Type[] columnTypes;
+    private final ColumnKind[] columnKinds;
     private final PageBuilder pageBuilder;
     private boolean closed;
 
@@ -52,8 +53,13 @@ class TpchPageSource
 
         this.maxRowsPerPage = maxRowsPerPage;
         this.cursor = recordSet.cursor();
-        this.types = ImmutableList.copyOf(recordSet.getColumnTypes());
-        this.pageBuilder = new PageBuilder(this.types);
+        List<Type> types = ImmutableList.copyOf(recordSet.getColumnTypes());
+        this.columnTypes = types.toArray(new Type[0]);
+        this.columnKinds = new ColumnKind[columnTypes.length];
+        for (int column = 0; column < columnTypes.length; column++) {
+            columnKinds[column] = ColumnKind.of(columnTypes[column].getJavaType());
+        }
+        this.pageBuilder = new PageBuilder(types);
     }
 
     @Override
@@ -98,29 +104,22 @@ class TpchPageSource
                 }
 
                 pageBuilder.declarePosition();
-                for (int column = 0; column < types.size(); column++) {
+                for (int column = 0; column < columnTypes.length; column++) {
                     BlockBuilder output = pageBuilder.getBlockBuilder(column);
                     if (cursor.isNull(column)) {
                         output.appendNull();
                     }
                     else {
-                        Type type = types.get(column);
-                        Class<?> javaType = type.getJavaType();
-                        if (javaType == boolean.class) {
-                            type.writeBoolean(output, cursor.getBoolean(column));
-                        }
-                        else if (javaType == long.class) {
-                            type.writeLong(output, cursor.getLong(column));
-                        }
-                        else if (javaType == double.class) {
-                            type.writeDouble(output, cursor.getDouble(column));
-                        }
-                        else if (javaType == Slice.class) {
-                            Slice slice = cursor.getSlice(column);
-                            type.writeSlice(output, slice, 0, slice.length());
-                        }
-                        else {
-                            type.writeObject(output, cursor.getObject(column));
+                        Type type = columnTypes[column];
+                        switch (columnKinds[column]) {
+                            case BOOLEAN -> type.writeBoolean(output, cursor.getBoolean(column));
+                            case LONG -> type.writeLong(output, cursor.getLong(column));
+                            case DOUBLE -> type.writeDouble(output, cursor.getDouble(column));
+                            case SLICE -> {
+                                Slice slice = cursor.getSlice(column);
+                                type.writeSlice(output, slice, 0, slice.length());
+                            }
+                            case OBJECT -> type.writeObject(output, cursor.getObject(column));
                         }
                     }
                 }
@@ -134,6 +133,32 @@ class TpchPageSource
         }
 
         return null;
+    }
+
+    private enum ColumnKind
+    {
+        BOOLEAN,
+        LONG,
+        DOUBLE,
+        SLICE,
+        OBJECT;
+
+        static ColumnKind of(Class<?> javaType)
+        {
+            if (javaType == boolean.class) {
+                return BOOLEAN;
+            }
+            if (javaType == long.class) {
+                return LONG;
+            }
+            if (javaType == double.class) {
+                return DOUBLE;
+            }
+            if (javaType == Slice.class) {
+                return SLICE;
+            }
+            return OBJECT;
+        }
     }
 
     private static class TpchSourcePage

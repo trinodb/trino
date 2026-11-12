@@ -799,7 +799,7 @@ public abstract class BaseBigQueryTypeMapping
     public void testJson()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("JSON", "JSON '{\"name\": \"Alice\", \"age\": 30}'", JSON, "JSON '{\"name\": \"Alice\", \"age\": 30}'")
+                .addRoundTrip("JSON", "JSON '{\"age\": 30, \"name\": \"Alice\"}'", JSON, "JSON '{\"age\": 30, \"name\": \"Alice\"}'")
                 .addRoundTrip("JSON", "NULL", JSON, "CAST(NULL AS JSON)")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.json"))
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.json"));

@@ -78,12 +78,6 @@ public class MergeJdbcPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return delegate.getMemoryUsage();
-    }
-
-    @Override
     public void close()
             throws IOException
     {

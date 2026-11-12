@@ -22,7 +22,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class JsonQuery
+public final class JsonQuery
         extends Expression
 {
     private final JsonPathInvocation jsonPathInvocation;
@@ -128,12 +128,6 @@ public class JsonQuery
     public EmptyOrErrorBehavior getErrorBehavior()
     {
         return errorBehavior;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitJsonQuery(this, context);
     }
 
     @Override

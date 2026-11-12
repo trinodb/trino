@@ -73,7 +73,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -241,7 +240,7 @@ public class TestCachingJdbcClient
                     cachingJdbcClient.getTableStatistics(SESSION, cachedTable);
                 });
 
-        cachingJdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList()));
+        cachingJdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, ImmutableList.of()));
 
         assertTableHandleByQueryCache(cachingJdbcClient)
                 .misses(1)
@@ -387,7 +386,7 @@ public class TestCachingJdbcClient
 
     private JdbcTableHandle createTable(SchemaTableName phantomTable)
     {
-        jdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList()));
+        jdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, ImmutableList.of()));
         return jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
     }
 

@@ -19,7 +19,6 @@ import io.trino.spi.type.SqlVarbinary;
 import static com.google.common.base.CharMatcher.ascii;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public final class SqlVarbinaryTestingUtil
@@ -35,11 +34,6 @@ public final class SqlVarbinaryTestingUtil
     {
         checkArgument(ascii().matchesAllOf(value), "string must be ASCII: '%s'", value);
         return new SqlVarbinary(value.getBytes(US_ASCII));
-    }
-
-    public static SqlVarbinary sqlVarbinaryFromIso(String value)
-    {
-        return new SqlVarbinary(value.getBytes(ISO_8859_1));
     }
 
     public static SqlVarbinary sqlVarbinary(int... bytesAsInts)

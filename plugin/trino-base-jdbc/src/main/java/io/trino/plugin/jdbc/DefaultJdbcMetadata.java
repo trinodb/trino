@@ -117,13 +117,17 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownE
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalInsert;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalMerge;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static java.lang.Math.max;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultJdbcMetadata
@@ -134,7 +138,6 @@ public class DefaultJdbcMetadata
     private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
 
     private final JdbcClient jdbcClient;
-    private final TimestampTimeZoneDomain timestampTimeZoneDomain;
     private final boolean precalculateStatisticsForPushdown;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
@@ -145,12 +148,10 @@ public class DefaultJdbcMetadata
 
     public DefaultJdbcMetadata(
             JdbcClient jdbcClient,
-            TimestampTimeZoneDomain timestampTimeZoneDomain,
             boolean precalculateStatisticsForPushdown,
             Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        this.timestampTimeZoneDomain = requireNonNull(timestampTimeZoneDomain, "timestampTimeZoneDomain is null");
         this.precalculateStatisticsForPushdown = precalculateStatisticsForPushdown;
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
     }
@@ -205,17 +206,18 @@ public class DefaultJdbcMetadata
 
         TupleDomain<ColumnHandle> filterDomain;
         ConnectorExpression remainingExpression;
-        switch (timestampTimeZoneDomain) {
-            case ANY -> {
-                filterDomain = constraint.getSummary();
-                remainingExpression = constraint.getExpression();
-            }
-            case UTC_ONLY -> {
-                ExtractionResult extractionResult = UtcConstraintExtractor.extractTupleDomain(constraint);
-                filterDomain = extractionResult.tupleDomain();
-                remainingExpression = extractionResult.remainingExpression();
-            }
-            default -> throw new UnsupportedOperationException("Unsupported timestamp time zone domain: " + timestampTimeZoneDomain);
+
+        boolean utcOnly = constraint.getAssignments().values().stream()
+                .map(JdbcColumnHandle.class::cast)
+                .allMatch(column -> !containsTimestampWithTimeZone(column.getColumnType()) || column.getTimeZone().equals(Optional.of(UTC_KEY)));
+        if (!utcOnly) {
+            filterDomain = constraint.getSummary();
+            remainingExpression = constraint.getExpression();
+        }
+        else {
+            ExtractionResult extractionResult = UtcConstraintExtractor.extractTupleDomain(constraint);
+            filterDomain = extractionResult.tupleDomain();
+            remainingExpression = extractionResult.remainingExpression();
         }
 
         JdbcTableHandle handle = (JdbcTableHandle) table;
@@ -1104,13 +1106,27 @@ public class DefaultJdbcMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        List<JdbcColumnHandle> columns;
         if (tableHandle instanceof JdbcProcedureHandle procedureHandle) {
-            return procedureHandle.getColumns().orElseThrow().stream()
-                    .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
+            columns = procedureHandle.getColumns().orElseThrow();
+        }
+        else {
+            columns = getColumns(session, jdbcClient, (JdbcTableHandle) tableHandle);
         }
 
-        return getColumns(session, jdbcClient, (JdbcTableHandle) tableHandle).stream()
-                .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
+        Map<String, String> originalNames = new HashMap<>();
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        for (JdbcColumnHandle column : columns) {
+            String name = column.getColumnName().toLowerCase(ENGLISH);
+            String existing = originalNames.putIfAbsent(name, column.getColumnName());
+            if (existing != null) {
+                // TODO (https://github.com/trinodb/trino/issues/17) remove once case-sensitive identifiers are supported
+                throw new TrinoException(AMBIGUOUS_COLUMN_NAME, "Table %s has multiple columns with the same name after lower-case normalization: '%s' and '%s'"
+                        .formatted(getTableName(session, tableHandle), existing, column.getColumnName()));
+            }
+            columnHandles.put(name, column);
+        }
+        return columnHandles.buildOrThrow();
     }
 
     @Override

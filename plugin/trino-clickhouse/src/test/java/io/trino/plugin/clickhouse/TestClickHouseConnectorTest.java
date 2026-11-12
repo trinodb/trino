@@ -193,8 +193,8 @@ public class TestClickHouseConnectorTest
         assertUpdate("INSERT INTO " + tableName + "(x,y,a) SELECT 123, 456, 111", 1);
 
         // the columns are referenced by order_by/partition_by property can not be dropped
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).* Missing columns: 'x' while processing: 'x', required columns: 'x'.*");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).* Missing columns: 'a' while processing: 'a', required columns: 'a'.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).*Trying to ALTER DROP key x column which is a part of key expression.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).*Trying to ALTER DROP key a column which is a part of key expression.*");
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
@@ -314,7 +314,7 @@ public class TestClickHouseConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -866,6 +866,16 @@ public class TestClickHouseConnectorTest
                     .isFullyPushedDown();
 
             assertThat(query("SELECT c_real FROM %s WHERE c_double_pos_infinity = +infinity()".formatted(table.getName())))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT c_real FROM %s WHERE c_double_nan < 0".formatted(table.getName())))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT c_real FROM %s WHERE c_double_nan > 0".formatted(table.getName())))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT c_real FROM %s WHERE c_double_neg_infinity < 0 AND c_double_pos_infinity > 0".formatted(table.getName())))
+                    .matches("VALUES REAL '3.14'")
                     .isFullyPushedDown();
 
             assertThat(query("SELECT c_real FROM %s WHERE c_double_nan = nan()".formatted(table.getName())))

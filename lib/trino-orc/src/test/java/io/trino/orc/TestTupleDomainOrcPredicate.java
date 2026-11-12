@@ -14,7 +14,10 @@
 package io.trino.orc;
 
 import io.airlift.slice.Slice;
+import io.trino.orc.metadata.ColumnMetadata;
+import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.statistics.BinaryStatistics;
+import io.trino.orc.metadata.statistics.BloomFilter;
 import io.trino.orc.metadata.statistics.BooleanStatistics;
 import io.trino.orc.metadata.statistics.ColumnStatistics;
 import io.trino.orc.metadata.statistics.DateStatistics;
@@ -23,6 +26,7 @@ import io.trino.orc.metadata.statistics.DoubleStatistics;
 import io.trino.orc.metadata.statistics.IntegerStatistics;
 import io.trino.orc.metadata.statistics.StringStatistics;
 import io.trino.orc.metadata.statistics.TimestampStatistics;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Decimals;
@@ -33,8 +37,11 @@ import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.orc.TupleDomainOrcPredicate.checkInBloomFilter;
 import static io.trino.orc.TupleDomainOrcPredicate.getDomain;
 import static io.trino.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
 import static io.trino.spi.predicate.Domain.all;
@@ -71,6 +78,50 @@ public class TestTupleDomainOrcPredicate
     private static final Type SHORT_DECIMAL = createDecimalType(5, 2);
     private static final Type LONG_DECIMAL = createDecimalType(20, 10);
     private static final Type CHAR = createCharType(10);
+
+    @Test
+    public void testNaNBloomFilterMembership()
+    {
+        BloomFilter bloom = new BloomFilter(100, 0.01);
+        // Empty bits cannot prove NaN absence: producers may hash a different payload.
+        assertThat(checkInBloomFilter(bloom, Double.NaN, DOUBLE)).isTrue();
+        assertThat(checkInBloomFilter(bloom, Double.longBitsToDouble(0x7FF0000000000001L), DOUBLE)).isTrue();
+        assertThat(checkInBloomFilter(bloom, (long) floatToRawIntBits(Float.NaN), REAL)).isTrue();
+        assertThat(checkInBloomFilter(bloom, 0x7F800001L, REAL)).isTrue();
+        assertThat(checkInBloomFilter(bloom, 42.0, DOUBLE)).isFalse();
+    }
+
+    @Test
+    public void testSkipNaNBloomFilter()
+    {
+        for (Type type : List.of(DOUBLE, REAL)) {
+            List<Object> values = new ArrayList<>();
+            for (int value = 0; value < 10_000; value++) {
+                values.add(type.equals(DOUBLE) ? (Object) (double) value : (long) floatToRawIntBits((float) value));
+            }
+            values.add(type.equals(DOUBLE) ? (Object) Double.NaN : (long) floatToRawIntBits(Float.NaN));
+            Domain domain = create(ValueSet.copyOf(type, values), false);
+            BloomFilter unused = new BloomFilter(100, 0.01)
+            {
+                @Override
+                public boolean testDouble(double value)
+                {
+                    throw new AssertionError("NaN-allowing column must not probe the bloom filter");
+                }
+            };
+            ColumnStatistics statistics = doubleColumnStats(10L, 0.0, 10_000.0).withBloomFilter(unused);
+            var builder = TupleDomainOrcPredicate.builder()
+                    .setBloomFiltersEnabled(true)
+                    .setDomainCompactionThreshold(256)
+                    .addColumn(new OrcColumnId(0), domain);
+            assertThat(builder.build().matches(10, new ColumnMetadata<>(List.of(statistics)))).isTrue();
+
+            // A skipped NaN column must not prevent another column's bloom filter from pruning.
+            builder.addColumn(new OrcColumnId(1), singleValue(DOUBLE, 42.0));
+            ColumnStatistics rejecting = doubleColumnStats(10L, 0.0, 100.0).withBloomFilter(new BloomFilter(100, 0.01));
+            assertThat(builder.build().matches(10, new ColumnMetadata<>(List.of(statistics, rejecting)))).isFalse();
+        }
+    }
 
     @Test
     public void testBoolean()
@@ -145,15 +196,15 @@ public class TestTupleDomainOrcPredicate
         assertThat(getDomain(DOUBLE, 10, doubleColumnStats(0L, null, null))).isEqualTo(onlyNull(DOUBLE));
         assertThat(getDomain(DOUBLE, 10, doubleColumnStats(10L, null, null))).isEqualTo(notNull(DOUBLE));
 
-        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(10L, 42.24, 42.24))).isEqualTo(singleValue(DOUBLE, 42.24));
+        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(10L, 42.24, 42.24))).isEqualTo(singleValue(DOUBLE, 42.24).union(singleValue(DOUBLE, Double.NaN)));
 
-        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(10L, 3.3, 42.24))).isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, 3.3, true, 42.24, true)), false));
-        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(10L, null, 42.24))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(DOUBLE, 42.24)), false));
-        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(10L, 3.3, null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(DOUBLE, 3.3)), false));
+        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(10L, 3.3, 42.24))).isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, 3.3, true, 42.24, true)), false).union(singleValue(DOUBLE, Double.NaN)));
+        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(10L, null, 42.24))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(DOUBLE, 42.24)), false).union(singleValue(DOUBLE, Double.NaN)));
+        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(10L, 3.3, null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(DOUBLE, 3.3)), false).union(singleValue(DOUBLE, Double.NaN)));
 
-        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(5L, 3.3, 42.24))).isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, 3.3, true, 42.24, true)), true));
-        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(5L, null, 42.24))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(DOUBLE, 42.24)), true));
-        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(5L, 3.3, null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(DOUBLE, 3.3)), true));
+        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(5L, 3.3, 42.24))).isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, 3.3, true, 42.24, true)), true).union(singleValue(DOUBLE, Double.NaN)));
+        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(5L, null, 42.24))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(DOUBLE, 42.24)), true).union(singleValue(DOUBLE, Double.NaN)));
+        assertThat(getDomain(DOUBLE, 10, doubleColumnStats(5L, 3.3, null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(DOUBLE, 3.3)), true).union(singleValue(DOUBLE, Double.NaN)));
     }
 
     private static ColumnStatistics doubleColumnStats(Long numberOfValues, Double minimum, Double maximum)
@@ -174,15 +225,15 @@ public class TestTupleDomainOrcPredicate
         assertThat(getDomain(REAL, 10, doubleColumnStats(0L, null, null))).isEqualTo(onlyNull(REAL));
         assertThat(getDomain(REAL, 10, doubleColumnStats(10L, null, null))).isEqualTo(notNull(REAL));
 
-        assertThat(getDomain(REAL, 10, doubleColumnStats(10L, (double) 42.24f, (double) 42.24f))).isEqualTo(singleValue(REAL, (long) floatToRawIntBits(42.24f)));
+        assertThat(getDomain(REAL, 10, doubleColumnStats(10L, (double) 42.24f, (double) 42.24f))).isEqualTo(singleValue(REAL, (long) floatToRawIntBits(42.24f)).union(singleValue(REAL, (long) floatToRawIntBits(Float.NaN))));
 
-        assertThat(getDomain(REAL, 10, doubleColumnStats(10L, 3.3, (double) 42.24f))).isEqualTo(create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(3.3f), true, (long) floatToRawIntBits(42.24f), true)), false));
-        assertThat(getDomain(REAL, 10, doubleColumnStats(10L, null, (double) 42.24f))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(REAL, (long) floatToRawIntBits(42.24f))), false));
-        assertThat(getDomain(REAL, 10, doubleColumnStats(10L, 3.3, null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(REAL, (long) floatToRawIntBits(3.3f))), false));
+        assertThat(getDomain(REAL, 10, doubleColumnStats(10L, 3.3, (double) 42.24f))).isEqualTo(create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(3.3f), true, (long) floatToRawIntBits(42.24f), true)), false).union(singleValue(REAL, (long) floatToRawIntBits(Float.NaN))));
+        assertThat(getDomain(REAL, 10, doubleColumnStats(10L, null, (double) 42.24f))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(REAL, (long) floatToRawIntBits(42.24f))), false).union(singleValue(REAL, (long) floatToRawIntBits(Float.NaN))));
+        assertThat(getDomain(REAL, 10, doubleColumnStats(10L, 3.3, null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(REAL, (long) floatToRawIntBits(3.3f))), false).union(singleValue(REAL, (long) floatToRawIntBits(Float.NaN))));
 
-        assertThat(getDomain(REAL, 10, doubleColumnStats(5L, 3.3, (double) 42.24f))).isEqualTo(create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(3.3f), true, (long) floatToRawIntBits(42.24f), true)), true));
-        assertThat(getDomain(REAL, 10, doubleColumnStats(5L, null, (double) 42.24f))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(REAL, (long) floatToRawIntBits(42.24f))), true));
-        assertThat(getDomain(REAL, 10, doubleColumnStats(5L, 3.3, null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(REAL, (long) floatToRawIntBits(3.3f))), true));
+        assertThat(getDomain(REAL, 10, doubleColumnStats(5L, 3.3, (double) 42.24f))).isEqualTo(create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(3.3f), true, (long) floatToRawIntBits(42.24f), true)), true).union(singleValue(REAL, (long) floatToRawIntBits(Float.NaN))));
+        assertThat(getDomain(REAL, 10, doubleColumnStats(5L, null, (double) 42.24f))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(REAL, (long) floatToRawIntBits(42.24f))), true).union(singleValue(REAL, (long) floatToRawIntBits(Float.NaN))));
+        assertThat(getDomain(REAL, 10, doubleColumnStats(5L, 3.3, null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(REAL, (long) floatToRawIntBits(3.3f))), true).union(singleValue(REAL, (long) floatToRawIntBits(Float.NaN))));
     }
 
     @Test

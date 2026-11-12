@@ -14,24 +14,40 @@
 package io.trino.sql.analyzer;
 
 import io.trino.metadata.ResolvedFunction;
-import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.SubqueryExpression;
 
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.MISSING_OVER;
 import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.tree.AstTraversal.forEachChild;
 import static java.util.Objects.requireNonNull;
 
-class WindowFunctionValidator
-        extends DefaultExpressionTraversalVisitor<Analysis>
+final class WindowFunctionValidator
 {
-    @Override
-    protected Void visitFunctionCall(FunctionCall functionCall, Analysis analysis)
+    private WindowFunctionValidator() {}
+
+    static void validate(Node node, Analysis analysis)
     {
         requireNonNull(analysis, "analysis is null");
 
+        switch (node) {
+            case SubqueryExpression _ -> {
+                // Don't traverse into subqueries within an expression
+            }
+            case FunctionCall functionCall -> {
+                validateFunctionCall(functionCall, analysis);
+                forEachChild(node, child -> validate(child, analysis));
+            }
+            default -> forEachChild(node, child -> validate(child, analysis));
+        }
+    }
+
+    private static void validateFunctionCall(FunctionCall functionCall, Analysis analysis)
+    {
         // pattern recognition functions are not resolved
         if (!analysis.isPatternRecognitionFunction(functionCall)) {
             Optional<ResolvedFunction> resolvedFunction = analysis.getResolvedFunction(functionCall);
@@ -39,6 +55,5 @@ class WindowFunctionValidator
                 throw semanticException(MISSING_OVER, functionCall, "Window function %s requires an OVER clause", resolvedFunction.get().signature().getName());
             }
         }
-        return super.visitFunctionCall(functionCall, analysis);
     }
 }

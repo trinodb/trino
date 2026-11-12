@@ -41,10 +41,12 @@ import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -60,6 +62,7 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.sql.gen.BytecodeUtils.generateToString;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.createClassInstanceDirect;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateGetInputChannels;
+import static io.trino.sql.gen.columnar.InColumnarFilterGenerator.MAX_SWITCH_CASE_VALUES;
 import static io.trino.sql.gen.columnar.InColumnarFilterGenerator.generateInFilterMethods;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.FastutilSetHelper.toFastutilHashSet;
@@ -83,11 +86,6 @@ public final class InSetDynamicFilterGenerator
         if (!(in.value() instanceof Reference valueReference)) {
             return Optional.empty();
         }
-        Type valueType = valueReference.type();
-        // FastutilSetHelper does not handle indeterminate values in structural types
-        if (valueType instanceof ArrayType || valueType instanceof MapType || valueType instanceof RowType) {
-            return Optional.empty();
-        }
         ImmutableSet.Builder<Object> valuesBuilder = ImmutableSet.builder();
         for (Expression expression : in.valueList()) {
             if (!(expression instanceof Constant constant) || constant.value() == null) {
@@ -95,21 +93,37 @@ public final class InSetDynamicFilterGenerator
             }
             valuesBuilder.add(constant.value());
         }
-        Set<Object> values = valuesBuilder.build();
-        if (values.isEmpty()) {
+        return tryCreate(valueReference, valuesBuilder.build().asList(), layout, metadata, charVarcharCoercion, functionManager, typeOperators);
+    }
+
+    // The values must be distinct and not null. Returns empty when they are not an eligible
+    // dynamic filter, so the caller falls back to the shared cache path.
+    public static Optional<InSetDynamicFilterGenerator> tryCreate(Reference valueReference, List<Object> distinctNonNullValues, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager, TypeOperators typeOperators)
+    {
+        Type valueType = valueReference.type();
+        // FastutilSetHelper does not handle indeterminate values in structural types
+        if (valueType instanceof ArrayType || valueType instanceof MapType || valueType instanceof RowType) {
+            return Optional.empty();
+        }
+        if (distinctNonNullValues.isEmpty()) {
             return Optional.empty();
         }
 
         // Small integer IN lists compile to a lookupswitch with tiny baked data; leave them on the
         // shared cache path where the switch is faster and retention is not a concern.
-        if (InColumnarFilterGenerator.useSwitchCaseGeneration(valueType, in.valueList())) {
-            return Optional.empty();
+        if (distinctNonNullValues.size() < MAX_SWITCH_CASE_VALUES) {
+            List<Expression> constants = distinctNonNullValues.stream()
+                    .map(value -> (Expression) new Constant(valueType, value))
+                    .collect(toImmutableList());
+            if (InColumnarFilterGenerator.useSwitchCaseGeneration(valueType, constants)) {
+                return Optional.empty();
+            }
         }
         ResolvedFunction resolvedEquals = metadata.resolveOperator(charVarcharCoercion, EQUAL, ImmutableList.of(valueType, valueType));
         ResolvedFunction resolvedHashCode = metadata.resolveOperator(charVarcharCoercion, HASH_CODE, ImmutableList.of(valueType));
         MethodHandle equalsHandle = functionManager.getScalarFunctionImplementation(resolvedEquals, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle();
         MethodHandle hashCodeHandle = functionManager.getScalarFunctionImplementation(resolvedHashCode, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
-        Set<?> valueSet = toFastutilHashSet(values, valueType, hashCodeHandle, equalsHandle);
+        Set<?> valueSet = toFastutilHashSet(distinctNonNullValues, valueType, hashCodeHandle, equalsHandle);
         return Optional.of(new InSetDynamicFilterGenerator(valueReference, layout, valueSet, typeOperators));
     }
 

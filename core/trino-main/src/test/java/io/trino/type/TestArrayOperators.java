@@ -38,6 +38,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Collections;
+import java.util.List;
 
 import static io.trino.block.BlockSerdeUtil.writeBlock;
 import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
@@ -87,7 +88,6 @@ import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -533,7 +533,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS array(ARRAY(BIGINT)))")
                 .binding("a", "JSON '[[1, 2], [3, null], [], [null, null], null]'"))
                 .hasType(new ArrayType(new ArrayType(BIGINT)))
-                .isEqualTo(asList(asList(1L, 2L), asList(3L, null), emptyList(), asList(null, null), null));
+                .isEqualTo(asList(asList(1L, 2L), asList(3L, null), ImmutableList.of(), asList(null, null), null));
 
         assertThat(assertions.expression("CAST(a AS ARRAY(MAP(VARCHAR, BIGINT)))")
                 .binding(
@@ -1941,7 +1941,7 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[ARRAY[ARRAY[1]]]")
                 .binding("b", "ARRAY[ARRAY[ARRAY[2]]]"))
                 .hasType(new ArrayType(new ArrayType(new ArrayType(INTEGER))))
-                .isEqualTo(asList(singletonList(Ints.asList(1)), singletonList(Ints.asList(2))));
+                .isEqualTo(asList(List.of(Ints.asList(1)), List.of(Ints.asList(2))));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "ARRAY[]")
@@ -5827,6 +5827,13 @@ public class TestArrayOperators
     @Test
     public void testFlatten()
     {
+        assertThat(assertions.function("flatten", "CAST(ARRAY[] AS ARRAY(ARRAY(INTEGER)))"))
+                .matches("CAST(ARRAY[] AS ARRAY(INTEGER))");
+        assertThat(assertions.function("flatten", "CAST(ARRAY[NULL, ARRAY[], NULL] AS ARRAY(ARRAY(INTEGER)))"))
+                .matches("CAST(ARRAY[] AS ARRAY(INTEGER))");
+        assertThat(assertions.function("flatten", "ARRAY[ARRAY[], sequence(1, 1000), NULL, ARRAY[NULL], ARRAY[]]"))
+                .matches("concat(sequence(1, 1000), ARRAY[CAST(NULL AS BIGINT)])");
+
         // BOOLEAN Tests
         assertThat(assertions.function("flatten", "ARRAY[ARRAY[TRUE, FALSE], ARRAY[FALSE]]"))
                 .hasType(new ArrayType(BOOLEAN))

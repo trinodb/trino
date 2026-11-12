@@ -14,6 +14,8 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
@@ -64,6 +66,15 @@ public final class TypeUtils
                 || type instanceof DecimalType
                 || type instanceof ObjectIdType
                 || PUSHDOWN_SUPPORTED_PRIMITIVE_TYPES.contains(type);
+    }
+
+    public static boolean isPushdownSupportedDomain(Domain domain)
+    {
+        if (!isPushdownSupportedType(domain.getType())) {
+            return false;
+        }
+        return !(domain.getValues() instanceof FloatingPointValueSet floatingPoint) ||
+                floatingPoint.isAll() || !floatingPoint.isNaNAllowed();
     }
 
     public static boolean isImplicitRowField(String fieldName, String implicitPrefix)

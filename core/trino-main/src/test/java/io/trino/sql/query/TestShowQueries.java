@@ -20,6 +20,7 @@ import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.connector.TestingTableFunctions.SimpleTableFunction;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.session.PropertyMetadata;
@@ -116,6 +117,18 @@ public class TestShowQueries
                     }
                     return new MockConnectorTableHandle(schemaTableName);
                 })
+                .withGetMaterializedViews((_, _) -> ImmutableMap.of(
+                        new SchemaTableName("mockschema", "mockmaterializedview"), new ConnectorMaterializedViewDefinition(
+                                "SELECT 1 AS test_column",
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test_column", BIGINT.getTypeId(), Optional.empty())),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of("user"),
+                                ImmutableList.of())))
                 .withGetViews((_, _) -> ImmutableMap.of(
                         new SchemaTableName("mockschema", "mockview"), new ConnectorViewDefinition(
                                 "SELECT cola_ AS test_column FROM mock_table",
@@ -300,6 +313,42 @@ public class TestShowQueries
                            col_short_timestamptz timestamp(0) with time zone DEFAULT TIMESTAMP '1970-01-01 00:00:00 UTC',
                            col_long_timestamptz timestamp(12) with time zone DEFAULT TIMESTAMP '1970-01-01 00:00:00.000000000000 UTC'
                         )""");
+    }
+
+    @Test
+    public void testShowCreateTableWithMixedCaseName()
+    {
+        // Both forms resolve to the same canonical name
+        assertThat(assertions.getQueryRunner().execute("SHOW CREATE TABLE Mock.MockSchema.MockTable").getOnlyValue())
+                .asString()
+                .startsWith("CREATE TABLE mock.mockschema.mocktable");
+        assertThat(assertions.getQueryRunner().execute("SHOW CREATE TABLE \"Mock\".\"MockSchema\".\"MockTable\"").getOnlyValue())
+                .asString()
+                .startsWith("CREATE TABLE mock.mockschema.mocktable");
+    }
+
+    @Test
+    public void testShowCreateMaterializedViewWithMixedCaseName()
+    {
+        // Both forms resolve to the same canonical name but retain the original spelling in the generated SQL.
+        assertThat(assertions.getQueryRunner().execute("SHOW CREATE MATERIALIZED VIEW Mock.MockSchema.MockMaterializedView").getOnlyValue())
+                .asString()
+                .startsWith("CREATE MATERIALIZED VIEW Mock.MockSchema.MockMaterializedView");
+        assertThat(assertions.getQueryRunner().execute("SHOW CREATE MATERIALIZED VIEW \"Mock\".\"MockSchema\".\"MockMaterializedView\"").getOnlyValue())
+                .asString()
+                .startsWith("CREATE MATERIALIZED VIEW \"Mock\".\"MockSchema\".\"MockMaterializedView\"");
+    }
+
+    @Test
+    public void testShowCreateViewWithMixedCaseName()
+    {
+        // Both forms resolve to the same canonical name but retain the original spelling in the generated SQL.
+        assertThat(assertions.getQueryRunner().execute("SHOW CREATE VIEW Mock.MockSchema.MockView").getOnlyValue())
+                .asString()
+                .startsWith("CREATE VIEW Mock.MockSchema.MockView");
+        assertThat(assertions.getQueryRunner().execute("SHOW CREATE VIEW \"Mock\".\"MockSchema\".\"MockView\"").getOnlyValue())
+                .asString()
+                .startsWith("CREATE VIEW \"Mock\".\"MockSchema\".\"MockView\"");
     }
 
     @Test

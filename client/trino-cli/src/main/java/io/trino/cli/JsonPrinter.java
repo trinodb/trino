@@ -50,7 +50,8 @@ public class JsonPrinter
                 jsonGenerator.writeStartObject();
                 for (int position = 0; position < row.size(); position++) {
                     String columnName = fieldNames.get(position);
-                    jsonGenerator.writeObjectField(columnName, formatValue(row.get(position)));
+                    jsonGenerator.writeFieldName(columnName);
+                    writeValue(jsonGenerator, row.get(position));
                 }
                 jsonGenerator.writeEndObject();
                 jsonGenerator.writeRaw('\n');
@@ -66,12 +67,22 @@ public class JsonPrinter
         writer.flush();
     }
 
-    private static Object formatValue(Object o)
+    private static void writeValue(JsonGenerator jsonGenerator, Object value)
+            throws IOException
     {
-        if (o instanceof byte[]) {
-            return formatHexDump((byte[]) o);
+        if (value instanceof List) {
+            jsonGenerator.writeStartArray();
+            for (Object element : (List<?>) value) {
+                writeValue(jsonGenerator, element);
+            }
+            jsonGenerator.writeEndArray();
         }
-        return o;
+        else if (value instanceof byte[]) {
+            jsonGenerator.writeString(formatHexDump((byte[]) value));
+        }
+        else {
+            jsonGenerator.writeObject(value);
+        }
     }
 
     @SuppressModernizer

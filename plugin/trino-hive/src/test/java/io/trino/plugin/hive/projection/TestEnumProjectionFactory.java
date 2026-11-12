@@ -41,7 +41,7 @@ class TestEnumProjectionFactory
     @Test
     void testCreate()
     {
-        Projection projection = new EnumProjection("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_VALUES, ImmutableList.of("a", "b", "c")));
+        Projection projection = new EnumProjection("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_VALUES, ImmutableList.of("a", "b", "b", "c")));
         assertThat(projection.getProjectedValues(Optional.empty())).containsExactly("a", "b", "c");
         assertThat(projection.getProjectedValues(Optional.of(Domain.all(VARCHAR)))).containsExactly("a", "b", "c");
         assertThat(projection.getProjectedValues(Optional.of(Domain.none(VARCHAR)))).isEmpty();

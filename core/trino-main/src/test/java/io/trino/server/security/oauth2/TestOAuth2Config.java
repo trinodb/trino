@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -21,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -44,7 +44,8 @@ public class TestOAuth2Config
                 .setScopes(ImmutableSet.of("openid"))
                 .setChallengeTimeout(new Duration(15, MINUTES))
                 .setPrincipalField("sub")
-                .setAdditionalAudiences(Collections.emptyList())
+                .setAdditionalAudiences(ImmutableList.of())
+                .setRequireAudience(false)
                 .setMaxClockSkew(new Duration(1, MINUTES))
                 .setJwtType(null)
                 .setUserMappingPattern(null)
@@ -67,6 +68,7 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.scopes", "email,offline")
                 .put("http-server.authentication.oauth2.principal-field", "some-field")
                 .put("http-server.authentication.oauth2.additional-audiences", "test-aud1,test-aud2")
+                .put("http-server.authentication.oauth2.require-audience", "true")
                 .put("http-server.authentication.oauth2.challenge-timeout", "90s")
                 .put("http-server.authentication.oauth2.max-clock-skew", "15s")
                 .put("http-server.authentication.oauth2.jwt-type", "at+jwt")
@@ -85,6 +87,7 @@ public class TestOAuth2Config
                 .setScopes(ImmutableSet.of("email", "offline"))
                 .setPrincipalField("some-field")
                 .setAdditionalAudiences(List.of("test-aud1", "test-aud2"))
+                .setRequireAudience(true)
                 .setChallengeTimeout(new Duration(90, SECONDS))
                 .setMaxClockSkew(new Duration(15, SECONDS))
                 .setJwtType("at+jwt")

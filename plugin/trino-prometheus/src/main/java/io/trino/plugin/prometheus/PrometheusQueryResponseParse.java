@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 
 import java.io.IOException;
@@ -29,7 +30,6 @@ import java.util.Map;
 
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_PARSE_ERROR;
-import static java.util.Collections.singletonList;
 
 public class PrometheusQueryResponseParse
 {
@@ -91,8 +91,8 @@ public class PrometheusQueryResponseParse
                     PrometheusTimeSeriesValue stringOrScalarResult = mapper.readValue(result, new TypeReference<PrometheusTimeSeriesValue>() {});
                     Map<String, String> madeUpMetricHeader = new HashMap<>();
                     madeUpMetricHeader.put("__name__", resultType);
-                    PrometheusTimeSeriesValueArray timeSeriesValues = new PrometheusTimeSeriesValueArray(singletonList(stringOrScalarResult));
-                    results = singletonList(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues));
+                    PrometheusTimeSeriesValueArray timeSeriesValues = new PrometheusTimeSeriesValueArray(ImmutableList.of(stringOrScalarResult));
+                    results = ImmutableList.of(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues));
                 }
             }
         }

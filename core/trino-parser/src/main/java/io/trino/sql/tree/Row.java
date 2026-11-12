@@ -45,12 +45,6 @@ public final class Row
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitRow(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return fields;
@@ -81,7 +75,7 @@ public final class Row
         return sameClass(this, other);
     }
 
-    public static class Field
+    public static final class Field
             extends Node
     {
         private final Optional<Identifier> name;
@@ -122,12 +116,6 @@ public final class Row
             children.add(expression);
 
             return children.build();
-        }
-
-        @Override
-        protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-        {
-            return visitor.visitRowField(this, context);
         }
 
         @Override

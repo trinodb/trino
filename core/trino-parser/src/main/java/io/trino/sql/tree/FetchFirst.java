@@ -22,34 +22,16 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class FetchFirst
+public final class FetchFirst
         extends Node
 {
     private final Optional<Expression> rowCount;
     private final boolean withTies;
 
     @Deprecated
-    public FetchFirst(Expression rowCount)
-    {
-        this(Optional.empty(), Optional.of(rowCount), false);
-    }
-
-    @Deprecated
-    public FetchFirst(Expression rowCount, boolean withTies)
-    {
-        this(Optional.empty(), Optional.of(rowCount), withTies);
-    }
-
-    @Deprecated
     public FetchFirst(Optional<Expression> rowCount)
     {
         this(Optional.empty(), rowCount, false);
-    }
-
-    @Deprecated
-    public FetchFirst(Optional<Expression> rowCount, boolean withTies)
-    {
-        this(Optional.empty(), rowCount, withTies);
     }
 
     @Deprecated
@@ -83,12 +65,6 @@ public class FetchFirst
     public boolean isWithTies()
     {
         return withTies;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitFetchFirst(this, context);
     }
 
     @Override

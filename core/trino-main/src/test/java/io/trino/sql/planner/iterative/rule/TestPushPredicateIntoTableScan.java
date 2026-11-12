@@ -41,6 +41,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
@@ -53,6 +54,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.FilterNode;
@@ -107,6 +109,10 @@ public class TestPushPredicateIntoTableScan
             new MockConnectorTableHandle(new SchemaTableName("schema", "unpartitioned"));
     private static final ConnectorTableHandle CONNECTOR_LAMBDA_TABLE_HANDLE =
             new MockConnectorTableHandle(new SchemaTableName("schema", "lambda"));
+    private static final ConnectorTableHandle NAN_TABLE = new MockConnectorTableHandle(new SchemaTableName("schema", "nan_values"));
+    private static final ConnectorTableHandle EXACT_NAN_TABLE = new MockConnectorTableHandle(new SchemaTableName("schema", "exact_nan_values"));
+    private static final ConnectorTableHandle FILTERED_NAN_TABLE = new MockConnectorTableHandle(new SchemaTableName("schema", "filtered_nan_values"));
+    private static final ColumnHandle NAN_COLUMN = new MockConnectorColumnHandle("x", DOUBLE);
     private static final ConnectorPartitioningHandle PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
     private static final ColumnHandle MOCK_COLUMN_HANDLE = new MockConnectorColumnHandle("col", VARCHAR);
 
@@ -136,6 +142,41 @@ public class TestPushPredicateIntoTableScan
                 catalogHandle,
                 orders,
                 TpchTransactionHandle.INSTANCE);
+    }
+
+    @Test
+    public void testConnectorEnforcesNaNConstraint()
+    {
+        tester().assertThat(pushPredicateIntoTableScan)
+                .withSession(Session.builder(tester().getSession()).setCatalog(MOCK_CATALOG).build())
+                .on(p -> {
+                    Symbol x = p.symbol("x", DOUBLE);
+                    return p.filter(
+                            comparison(ComparisonOperator.NOT_EQUAL, x.toSymbolReference(), new Constant(DOUBLE, 1.0)),
+                            p.tableScan(mockTableHandle(EXACT_NAN_TABLE), ImmutableList.of(x), ImmutableMap.of(x, NAN_COLUMN)));
+                })
+                .matches(tableScan("filtered_nan_values"));
+    }
+
+    @Test
+    public void testNaNConstraintRemainsAfterConnectorPushdown()
+    {
+        Session session = Session.builder(tester().getSession()).setCatalog(MOCK_CATALOG).build();
+        tester().assertThat(pushPredicateIntoTableScan)
+                .withSession(session)
+                .on(p -> {
+                    Symbol x = p.symbol("x", DOUBLE);
+                    return p.filter(
+                            comparison(ComparisonOperator.NOT_EQUAL, x.toSymbolReference(), new Constant(DOUBLE, 1.0)),
+                            p.tableScan(mockTableHandle(NAN_TABLE), ImmutableList.of(x), ImmutableMap.of(x, NAN_COLUMN)));
+                })
+                .matches(node(FilterNode.class, tableScan("filtered_nan_values"))
+                        .with(FilterNode.class, filter -> {
+                            DomainTranslator.ExtractionResult result = DomainTranslator.getExtractionResult(tester().getPlannerContext(), session, filter.getPredicate());
+                            Domain residual = result.tupleDomain().getDomains().orElseThrow().get(new Symbol(DOUBLE, "x"));
+                            return result.remainingExpression().equals(TRUE) && residual.includesNullableValue(Double.NaN)
+                                    && residual.includesNullableValue(2.0) && !residual.includesNullableValue(1.0) && !residual.includesNullableValue(null);
+                        }));
     }
 
     @Test
@@ -507,6 +548,11 @@ public class TestPushPredicateIntoTableScan
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder();
         builder
                 .withApplyFilter((_, tableHandle, constraint) -> {
+                    if (tableHandle.equals(NAN_TABLE) || tableHandle.equals(EXACT_NAN_TABLE)) {
+                        assertThat(constraint.getSummary()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
+                                NAN_COLUMN, Domain.create(ValueSet.of(DOUBLE, 1.0).complement(), false))));
+                        return Optional.of(new ConstraintApplicationResult<>(FILTERED_NAN_TABLE, tableHandle.equals(EXACT_NAN_TABLE) ? TupleDomain.all() : constraint.getSummary(), io.trino.spi.expression.Constant.TRUE, false));
+                    }
                     if (tableHandle.equals(CONNECTOR_LAMBDA_TABLE_HANDLE)) {
                         assertThat(constraint.getExpression()).isEqualTo(connectorAnyMatch(LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME));
                         return Optional.of(new ConstraintApplicationResult<>(

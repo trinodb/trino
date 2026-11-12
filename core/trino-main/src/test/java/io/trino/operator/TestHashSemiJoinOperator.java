@@ -121,7 +121,7 @@ public class TestHashSemiJoinOperator
                 0);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row(30L, 0L, true)
                 .row(31L, 1L, false)
                 .row(32L, 2L, false)
@@ -183,7 +183,7 @@ public class TestHashSemiJoinOperator
                 0);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row("30", 0L, true)
                 .row("31", 1L, false)
                 .row("32", 2L, false)
@@ -245,7 +245,7 @@ public class TestHashSemiJoinOperator
                 0);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row(1L, true)
                 .row(2L, true)
                 .row(3L, true)
@@ -301,7 +301,7 @@ public class TestHashSemiJoinOperator
                 0);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row(0L, true)
                 .row(null, null)
                 .row(1L, true)
@@ -358,7 +358,7 @@ public class TestHashSemiJoinOperator
                 0);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(concat(probeTypes, ImmutableList.of(BOOLEAN)))
                 .row(0L, true)
                 .row(null, null)
                 .row(1L, true)

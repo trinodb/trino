@@ -24,9 +24,14 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.RowEntryBuilder;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
@@ -58,10 +63,13 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
+import static io.trino.sql.gen.BytecodeUtils.generateWrite;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateLambda;
+import static io.trino.sql.gen.RowConstructorCodeGenerator.MEGAMORPHIC_FIELD_COUNT;
 import static io.trino.sql.ir.Cast.Kind.REINTERPRET;
 import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static java.util.Objects.requireNonNull;
@@ -114,6 +122,29 @@ public class ExpressionBytecodeCompiler
     public BytecodeNode compile(Expression expression, Scope scope, Optional<Class<?>> lambdaInterface, Map<String, LetBinding> lets)
     {
         return new Visitor().process(expression, new Context(scope, lambdaInterface, lets));
+    }
+
+    public BytecodeNode compileToBlock(Expression expression, Type type, Scope scope, BytecodeExpression blockBuilder)
+    {
+        Variable wasNull = scope.getVariable("wasNull");
+        BytecodeBlock block = new BytecodeBlock();
+        if (expression instanceof Row row && row.items().size() <= MEGAMORPHIC_FIELD_COUNT) {
+            // A field failure can leave an open entry with uneven field counts. GeneratedPageProjection
+            // creates a fresh output builder on every project() call, including dictionary retries.
+            List<Type> fieldTypes = ((RowType) type).getFieldTypes();
+            Variable entry = scope.getOrCreateTempVariable(RowEntryBuilder.class);
+            block.append(entry.set(blockBuilder.cast(RowBlockBuilder.class).invoke("buildEntry", RowEntryBuilder.class)));
+            for (int field = 0; field < row.items().size(); field++) {
+                block.append(compileToBlock(row.items().get(field), fieldTypes.get(field), scope, entry.invoke("getFieldBuilder", BlockBuilder.class, constantInt(field))));
+            }
+            block.append(entry.invoke("build", void.class));
+            scope.releaseTempVariableForReuse(entry);
+            return block.append(wasNull.set(constantFalse()));
+        }
+        return block.append(wasNull.set(constantFalse()))
+                .append(blockBuilder)
+                .append(compile(expression, scope))
+                .append(generateWrite(callSiteBinder, scope, wasNull, type));
     }
 
     private BytecodeGeneratorContext generatorContext(Scope scope, Map<String, LetBinding> lets)

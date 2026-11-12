@@ -13,9 +13,9 @@
  */
 package io.trino.matching.example.rel;
 
-import java.util.List;
+import com.google.common.collect.ImmutableList;
 
-import static java.util.Collections.emptyList;
+import java.util.List;
 
 public class ScanNode
         implements RelNode
@@ -30,7 +30,7 @@ public class ScanNode
     @Override
     public List<RelNode> getSources()
     {
-        return emptyList();
+        return ImmutableList.of();
     }
 
     public String getTableName()

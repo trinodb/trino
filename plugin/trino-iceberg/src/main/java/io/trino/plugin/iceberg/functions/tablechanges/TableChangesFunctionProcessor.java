@@ -167,6 +167,9 @@ public class TableChangesFunctionProcessor
 
         SourcePage dataPage = pageSource.getNextSourcePage();
         if (dataPage == null) {
+            if (!pageSource.isFinished()) {
+                return TableFunctionProcessorState.Blocked.blocked(pageSource.isBlocked().thenRun(() -> {}));
+            }
             return TableFunctionProcessorState.Processed.produced(EMPTY_PAGE);
         }
 

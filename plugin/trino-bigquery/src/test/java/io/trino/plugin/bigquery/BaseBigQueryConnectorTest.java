@@ -183,7 +183,7 @@ public abstract class BaseBigQueryConnectorTest
     protected MaterializedResult getDescribeOrdersResult()
     {
         // shippriority column is bigint (not integer) in BigQuery connector
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -1296,16 +1296,20 @@ public abstract class BaseBigQueryConnectorTest
 
         assertUpdate("CREATE TABLE " + schemaTableName + "(a int)");
         try {
-            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + " VALUES (1)')");
+            assertThat(query("CALL system.execute('INSERT INTO " + schemaTableName + " VALUES (1)')"))
+                    .matches("VALUES (VARCHAR 'row_count', BIGINT '1')");
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES 1");
 
-            assertUpdate("CALL system.execute('UPDATE " + schemaTableName + " SET a = 2 WHERE true')");
+            assertThat(query("CALL system.execute('UPDATE " + schemaTableName + " SET a = 2 WHERE true')"))
+                    .matches("VALUES (VARCHAR 'row_count', BIGINT '1')");
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES 2");
 
-            assertUpdate("CALL system.execute('DELETE FROM " + schemaTableName + " WHERE true')");
+            assertThat(query("CALL system.execute('DELETE FROM " + schemaTableName + " WHERE true')"))
+                    .matches("VALUES (VARCHAR 'row_count', BIGINT '1')");
             assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
 
-            assertUpdate("CALL system.execute('DROP TABLE " + schemaTableName + "')");
+            assertThat(query("CALL system.execute('DROP TABLE " + schemaTableName + "')"))
+                    .matches("VALUES (VARCHAR 'row_count', BIGINT '0')");
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         }
         finally {

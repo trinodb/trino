@@ -89,7 +89,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -844,7 +843,7 @@ public abstract class BaseHiveConnectorTest
                 .setCatalog(getSession().getCatalog())
                 .setSchema("test_createschema_authorization_role")
                 .setIdentity(Identity.forUser("user")
-                        .withConnectorRoles(Collections.emptyMap())
+                        .withConnectorRoles(ImmutableMap.of())
                         .build())
                 .build();
 
@@ -2623,7 +2622,7 @@ public abstract class BaseHiveConnectorTest
         // verify that we create bucket_count files in each partition
         assertEqualsIgnoreOrder(
                 computeActual(format("SELECT orderpriority_nulls, orderstatus, COUNT(DISTINCT \"$path\") FROM %s GROUP BY 1, 2", tableName)),
-                resultBuilder(getSession(), createVarcharType(1), BIGINT)
+                resultBuilder(createVarcharType(1), BIGINT)
                         .row(null, "F", 4L)
                         .row(null, "O", 4L)
                         .row(null, "P", 4L)
@@ -2783,7 +2782,7 @@ public abstract class BaseHiveConnectorTest
         // verify that we create bucket_count files in each partition
         assertEqualsIgnoreOrder(
                 computeActual(format("SELECT orderstatus, COUNT(DISTINCT \"$path\") FROM %s GROUP BY 1", tableName)),
-                resultBuilder(getSession(), createVarcharType(1), BIGINT)
+                resultBuilder(createVarcharType(1), BIGINT)
                         .row("F", 11L)
                         .row("O", 11L)
                         .row("P", 11L)
@@ -2949,7 +2948,7 @@ public abstract class BaseHiveConnectorTest
         assertThat(partitions).hasSize(3);
 
         MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
-        MaterializedResult expected = resultBuilder(getSession(), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
+        MaterializedResult expected = resultBuilder(canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
                 .row("a", "b", "c")
                 .row("aa", "bb", "cc")
                 .row("aaa", "bbb", "ccc")
@@ -3908,7 +3907,7 @@ public abstract class BaseHiveConnectorTest
                 """);
 
         Type unboundedVarchar = canonicalizeType(VARCHAR);
-        MaterializedResult expected = resultBuilder(getSession(), unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar)
+        MaterializedResult expected = resultBuilder(unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar)
                 .row("grape", canonicalizeType(BIGINT).toString(), "", "")
                 .row("orange", canonicalizeType(BIGINT).toString(), "", "")
                 .row("pear", canonicalizeType(createVarcharType(65535)).toString(), "", "")
@@ -4275,27 +4274,28 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testWriterTaskCountLimitUnpartitioned()
     {
-        testLimitWriterTasks(2, 2, true, true, false, DataSize.of(1, MEGABYTE));
-        testLimitWriterTasks(2, 2, false, true, false, DataSize.of(1, MEGABYTE));
-        testLimitWriterTasks(2, 3, false, false, false, DataSize.of(1, MEGABYTE));
+        testLimitWriterTasks(2, true, true, false, DataSize.of(1, MEGABYTE)).isEqualTo(2L);
+        testLimitWriterTasks(2, false, true, false, DataSize.of(1, MEGABYTE)).isEqualTo(2L);
+        testLimitWriterTasks(2, false, false, false, DataSize.of(1, MEGABYTE)).isEqualTo(3L);
     }
 
     @Test
     public void testWriterTaskCountLimitPartitionedScaleWritersDisabled()
     {
-        testLimitWriterTasks(2, 2, false, true, true, DataSize.of(1, MEGABYTE));
+        testLimitWriterTasks(2, false, true, true, DataSize.of(1, MEGABYTE)).isEqualTo(2L);
     }
 
     @Test
     public void testWriterTaskCountLimitPartitionedScaleWritersEnabled()
     {
-        testLimitWriterTasks(2, 4, true, true, true, DataSize.of(1, MEGABYTE));
+        // Each source task rebalances independently, so one or both partitions scale to the second writer task
+        testLimitWriterTasks(2, true, true, true, DataSize.of(1, MEGABYTE)).isBetween(3L, 4L);
         // Since we track page size for scaling writer instead of actual compressed output file size, we need to have a
         // larger threshold for writerScalingMinDataProcessed. This way we can ensure that the writer scaling is not triggered.
-        testLimitWriterTasks(2, 2, true, true, true, DataSize.of(2, GIGABYTE));
+        testLimitWriterTasks(2, true, true, true, DataSize.of(2, GIGABYTE)).isEqualTo(2L);
     }
 
-    private void testLimitWriterTasks(int maxWriterTasks, int expectedFilesCount, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned, DataSize writerScalingMinDataProcessed)
+    private AbstractLongAssert<?> testLimitWriterTasks(int maxWriterTasks, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned, DataSize writerScalingMinDataProcessed)
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(SCALE_WRITERS, Boolean.toString(scaleWritersEnabled))
@@ -4315,8 +4315,7 @@ public abstract class BaseHiveConnectorTest
                 partitioned ? ", partitioned_by = ARRAY['part_key']" : "");
         try {
             assertUpdate(session, createTableSql, (long) computeActual("SELECT count(*) FROM tpch.sf3.orders").getOnlyValue());
-            long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM %s".formatted(tableName));
-            assertThat(files).isEqualTo(expectedFilesCount);
+            return assertThat((long) computeScalar("SELECT count(DISTINCT \"$path\") FROM %s".formatted(tableName)));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS %s".formatted(tableName));
@@ -4702,7 +4701,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSql, 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('3', '4')", 1);
         MaterializedResult materializedRows = computeActual("SELECT * FROM " + tableName);
-        assertEqualsIgnoreOrder(materializedRows, resultBuilder(getSession(), VARCHAR, VARCHAR)
+        assertEqualsIgnoreOrder(materializedRows, resultBuilder(VARCHAR, VARCHAR)
                 .row("1", "2")
                 .row("3", "4")
                 .build()
@@ -5106,7 +5105,7 @@ public abstract class BaseHiveConnectorTest
                         "SELECT * FROM (VALUES (CAST (101 AS BIGINT), CAST (1 AS BIGINT)), (201, 2), (202, 2), (401, 4), (402, 4), (403, 4)) t(a, z)",
                 6);
 
-        List<MaterializedRow> expectedBefore = resultBuilder(session, BIGINT, BIGINT)
+        List<MaterializedRow> expectedBefore = resultBuilder(BIGINT, BIGINT)
                 .row(101L, 1L)
                 .row(201L, 2L)
                 .row(202L, 2L)
@@ -5115,7 +5114,7 @@ public abstract class BaseHiveConnectorTest
                 .row(403L, 4L)
                 .build()
                 .getMaterializedRows();
-        List<MaterializedRow> expectedAfter = resultBuilder(session, BIGINT, BIGINT)
+        List<MaterializedRow> expectedAfter = resultBuilder(BIGINT, BIGINT)
                 .row(101L, 1L)
                 .row(203L, 2L)
                 .row(204L, 2L)
@@ -5163,7 +5162,7 @@ public abstract class BaseHiveConnectorTest
     {
         Session session = getSession();
 
-        List<MaterializedRow> expected = resultBuilder(session, BIGINT, BIGINT)
+        List<MaterializedRow> expected = resultBuilder(BIGINT, BIGINT)
                 .row(101L, 1L)
                 .row(201L, 2L)
                 .row(202L, 2L)
@@ -5339,7 +5338,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate("DROP TABLE char_order_by");
 
-        MaterializedResult expected = resultBuilder(getSession(), createCharType(2))
+        MaterializedResult expected = resultBuilder(createCharType(2))
                 .row("a\0")
                 .row("a ")
                 .row("a ")
@@ -9302,14 +9301,14 @@ public abstract class BaseHiveConnectorTest
                                 Optional.of(tableLocation),
                                 Optional.empty(),
                                 false,
-                                Collections.emptyMap()),
+                                ImmutableMap.of()),
                         List.of(new Column("t", HiveType.HIVE_TIMESTAMPLOCALTZ, Optional.empty(), Map.of())),
                         List.of(),
-                        Collections.emptyMap(),
+                        ImmutableMap.of(),
                         Optional.empty(),
                         Optional.empty(),
                         OptionalLong.empty()),
-                PrincipalPrivileges.fromHivePrivilegeInfos(Collections.emptySet()));
+                PrincipalPrivileges.fromHivePrivilegeInfos(ImmutableSet.of()));
 
         long microsFraction = switch (timestampPrecision) {
             case MILLISECONDS -> 123;

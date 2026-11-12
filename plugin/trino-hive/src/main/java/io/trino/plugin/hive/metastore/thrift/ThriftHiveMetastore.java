@@ -87,7 +87,6 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -1679,7 +1678,7 @@ public final class ThriftHiveMetastore
             DataOperationType operation,
             boolean isDynamicPartitionWrite)
     {
-        acquireSharedLock(transactionOwner, queryId, transactionId, ImmutableList.of(new SchemaTableName(dbName, tableName)), Collections.emptyList(), operation, isDynamicPartitionWrite);
+        acquireSharedLock(transactionOwner, queryId, transactionId, ImmutableList.of(new SchemaTableName(dbName, tableName)), ImmutableList.of(), operation, isDynamicPartitionWrite);
     }
 
     private void acquireSharedLock(

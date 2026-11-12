@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 /// SQL:2023 §6.36 T864 array wildcard accessor: `base[*]` selects all
 /// elements of a JSON array. Parallels [DereferenceExpression] with an empty
 /// field for the `base.*` member-wildcard form.
-public class ArrayWildcardSubscript
+public final class ArrayWildcardSubscript
         extends Expression
 {
     private final Expression base;
@@ -43,12 +43,6 @@ public class ArrayWildcardSubscript
     public Expression getBase()
     {
         return base;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitArrayWildcardSubscript(this, context);
     }
 
     @Override

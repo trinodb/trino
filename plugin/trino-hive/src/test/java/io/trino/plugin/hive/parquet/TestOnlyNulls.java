@@ -16,7 +16,6 @@ package io.trino.plugin.hive.parquet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -32,7 +31,6 @@ import java.util.Optional;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
-import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.parquet.ParquetUtil.createPageSource;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.predicate.Domain.notNull;
@@ -57,13 +55,13 @@ public class TestOnlyNulls
 
         // match not null
         try (ConnectorPageSource pageSource = createPageSource(SESSION, parquetFile, ImmutableList.of(column), TupleDomain.withColumnDomains(Map.of(column, notNull(columnType))))) {
-            MaterializedResult result = materializeSourceDataStream(getHiveSession(new HiveConfig()), pageSource, List.of(columnType)).toTestTypes();
+            MaterializedResult result = materializeSourceDataStream(pageSource, List.of(columnType)).toTestTypes();
             assertThat(result.getMaterializedRows()).isEmpty();
         }
 
         // match null
         try (ConnectorPageSource pageSource = createPageSource(SESSION, parquetFile, ImmutableList.of(column), TupleDomain.withColumnDomains(Map.of(column, onlyNull(columnType))))) {
-            MaterializedResult result = materializeSourceDataStream(getHiveSession(new HiveConfig()), pageSource, List.of(columnType)).toTestTypes();
+            MaterializedResult result = materializeSourceDataStream(pageSource, List.of(columnType)).toTestTypes();
 
             assertThat(result.getMaterializedRows())
                     .isEqualTo(List.of(

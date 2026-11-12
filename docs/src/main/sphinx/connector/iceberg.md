@@ -276,6 +276,12 @@ implementation is used:
   - Number of threads to use for deleting files when running the `expire_snapshots`
     or `remove_orphan_files` procedure, or when executing `DROP TABLE` queries.
   - Double the number of processors on the coordinator node.
+* - `iceberg.delete-loading.parallelism`
+  - Maximum number of delete files opened and deletion vectors read in parallel
+    per catalog per node, so that their reads overlap. They are opened on
+    virtual threads, and always decoded on the split thread. Set to `0` to open
+    deletes on split threads.
+  - Double the number of processors on the worker node.
 * - `iceberg.bucket-execution`
   - Enable bucket-aware execution. This allows the engine to use physical
     bucketing information to optimize queries by reducing data exchanges.
@@ -1054,12 +1060,16 @@ than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
 
 The command accepts an optional `retain_last` parameter to specify the minimum
-number of ancestor snapshots to preserve (defaults to 1), regardless of the
-`retention_threshold` value.
+number of ancestor snapshots of the current snapshot to preserve (defaults to
+1), regardless of the `retention_threshold` value. Snapshots that are not
+ancestors of the current snapshot do not count towards this limit.
 
 The command accepts an optional `clean_expired_metadata` parameter (defaults to false).
 When true, cleans up metadata such as partition specs and schemas that are no
 longer referenced by snapshots.
+
+The procedure fails on tables with the `gc_enabled` table property set to
+`false`.
 
 (iceberg-remove-orphan-files)=
 ##### remove_orphan_files
@@ -1090,6 +1100,9 @@ The value for `retention_threshold` must be higher than or equal to
 procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
+
+The procedure fails on tables with the `gc_enabled` table property set to
+`false`.
 
 The output of the query has the following metrics:
 
@@ -1584,6 +1597,7 @@ The output of the query has the following columns:
   - Partition range metadata.
 :::
 
+(iceberg-partitions-table)=
 ##### `$partitions` table
 
 The `$partitions` table provides a detailed overview of the partitions of the
@@ -1615,7 +1629,10 @@ The output of the query has the following columns:
 * - `partition`
   - `ROW(...)`
   - A row that contains the mapping of the partition column names to the
-    partition column values.
+    partition column values. When partition fields of different partition
+    specs share a name, the most recent field keeps the name, and earlier ones
+    are suffixed with their partition field ID, for example `x_1000`. The
+    suffix is repeated if that name is also taken, for example `x_1000_1000`.
 * - `record_count`
   - `BIGINT`
   - The number of records in the partition.
@@ -1677,7 +1694,8 @@ The output of the query has the following columns:
 * - `partition`
   - `ROW(...)`
   - A row that contains the mapping of the partition column names to the
-    partition column values.
+    partition column values. See [`$partitions`](iceberg-partitions-table) for
+    how partition fields are named.
 * - `record_count`
   - `BIGINT`
   - The number of entries contained in the data file.
@@ -1812,6 +1830,8 @@ The metadata tables include the following columns:
 * - `data_file`
   - `ROW`
   - Metadata including file path, file format, file size and other information.
+    See [`$partitions`](iceberg-partitions-table) for how partition fields are
+    named.
 * - `readable_metrics`
   - `JSON`
   - JSON-formatted file metrics such as column size, value count, and others.
@@ -1872,7 +1892,11 @@ The output of the query has the following columns:
 In addition to the defined columns, the Iceberg connector automatically exposes
 path metadata as a hidden column in each table:
 
-- `$partition`: Partition path for this row
+- `$partition`: Partition values for this row as a `ROW` with one field per
+  partition field across all partition specs, matching the `partition` column
+  of the [`$partitions`](iceberg-partitions-table) table. Fields not in the
+  row's partition spec are `NULL`. Not exposed for tables that have never been
+  partitioned.
 - `$path`: Full file system path name of the file for this row
 - `$file_modified_time`: Timestamp of the last modification of the file for
   this row
@@ -1893,6 +1917,22 @@ SELECT *
 FROM example.web.page_views
 WHERE "$path" = '/usr/iceberg/table/web.page_views/data/file_01.parquet'
 ```
+
+Retrieve all records that belong to a specific partition using a filter on a
+field of `"$partition"`. Simple comparisons on individual partition fields are
+pushed down, including for transforms such as `bucket`:
+
+```sql
+SELECT *
+FROM example.web.page_views
+WHERE "$partition".user_id_bucket = 3
+```
+
+Equality and `IN` filters on the whole `"$partition"` row are also pushed down
+and satisfy the `query_partition_filter_required` session property. A compared
+row with a `NULL` or `NaN` field never matches, so an equality with such a row
+is not pushed down and `IN` ignores it. Other filters on the whole row are not
+pushed down.
 
 Retrieve all records that belong to a specific file using
 `"$file_modified_time"` filter:
@@ -2033,9 +2073,10 @@ Sorting is particularly beneficial when the sorted columns show a high
 cardinality and are used as a filter for selective reads.
 
 The sort order is configured with the `sorted_by` table property. Specify an
-array of one or more columns to use for sorting when creating the table. The
-following example configures the `order_date` column of the `orders` table
-in the `customers` schema in the `example` catalog:
+array of one or more columns or [column transforms](#iceberg-tables) to use for
+sorting when creating the table. The following example configures the
+`order_date` column of the `orders` table in the `customers` schema in the
+`example` catalog:
 
 ```sql
 CREATE TABLE example.customers.orders (
@@ -2047,7 +2088,8 @@ CREATE TABLE example.customers.orders (
 WITH (sorted_by = ARRAY['order_date']);
 ```
 
-You can explicitly configure sort directions or null ordering in the following way:
+You can also use [Iceberg column transforms](#iceberg-tables) and explicitly
+configure sort directions or null ordering in the following way:
 
 ```sql
 CREATE TABLE example.customers.orders (
@@ -2056,7 +2098,7 @@ CREATE TABLE example.customers.orders (
     account_number BIGINT,
     customer VARCHAR,
     country VARCHAR)
-WITH (sorted_by = ARRAY['order_date DESC NULLS FIRST', 'order_id ASC NULLS LAST']);
+WITH (sorted_by = ARRAY['month(order_date) DESC NULLS FIRST', 'order_id ASC NULLS LAST']);
 ```
 
 Sorting can be combined with partitioning on the same column. For example:
@@ -2213,6 +2255,15 @@ CREATE TABLE example_table (
 
 When trying to insert/update data in the table, the query fails if trying to set
 `NULL` value on a column having the `NOT NULL` constraint.
+
+The `NOT NULL` constraint can be removed from a top-level column by using the
+{doc}`ALTER TABLE </sql/alter-table>` syntax:
+
+```sql
+ALTER TABLE example_table ALTER COLUMN name DROP NOT NULL;
+```
+
+Dropping the constraint from nested fields is not supported.
 
 (iceberg-views)=
 ### Views

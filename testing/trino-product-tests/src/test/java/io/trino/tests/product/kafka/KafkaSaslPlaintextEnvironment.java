@@ -45,10 +45,10 @@ public class KafkaSaslPlaintextEnvironment
     @Override
     protected void customizeTrinoContainer(TrinoContainer container)
     {
-        configureTrinoContainer(container);
+        configureKafkaClient(container);
     }
 
-    static void configureTrinoContainer(TrinoContainer container)
+    static void configureKafkaClient(TrinoContainer container)
     {
         container.withCopyToContainer(
                 Transferable.of(

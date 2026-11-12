@@ -31,6 +31,7 @@ import static java.lang.Long.numberOfLeadingZeros;
 import static java.lang.Math.abs;
 import static java.lang.Math.fma;
 import static java.lang.Math.min;
+import static java.lang.Math.multiplyExact;
 import static java.lang.Math.nextDown;
 import static java.lang.Math.nextUp;
 import static java.lang.Math.rint;
@@ -360,7 +361,12 @@ public final class DecimalConversions
     {
         long returnValue;
         if (resultScale >= sourceScale) {
-            returnValue = value * scalingFactor;
+            try {
+                returnValue = multiplyExact(value, scalingFactor);
+            }
+            catch (ArithmeticException _) {
+                throw throwCastException(value, sourcePrecision, sourceScale, resultPrecision, resultScale);
+            }
         }
         else {
             returnValue = value / scalingFactor;

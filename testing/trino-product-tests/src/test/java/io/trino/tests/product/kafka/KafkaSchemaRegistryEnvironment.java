@@ -89,14 +89,6 @@ public class KafkaSchemaRegistryEnvironment
     }
 
     /**
-     * Returns the Schema Registry URL (external) for tests that need direct access.
-     */
-    public String getSchemaRegistryConnectString()
-    {
-        return getKafka().getSchemaRegistryConnectString();
-    }
-
-    /**
      * Finds a JAR on the classpath by locating a class within it, reads the JAR bytes,
      * and copies them into the Trino container's Kafka plugin directory.
      */

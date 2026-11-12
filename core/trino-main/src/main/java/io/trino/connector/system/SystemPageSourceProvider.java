@@ -160,16 +160,18 @@ public class SystemPageSourceProvider
                     userToSystemFieldIndex.build());
         }
         catch (UnsupportedOperationException e) {
-            return new RecordPageSource(new MappedRecordSet(
-                    toRecordSet(
-                            systemTransaction.getConnectorTransactionHandle(),
-                            systemTable,
-                            session,
-                            newConstraint,
-                            requiredColumns.build(),
-                            systemSplit,
-                            accessControl),
-                    userToSystemFieldIndex.build()));
+            return new RecordPageSource(
+                    new MappedRecordSet(
+                            toRecordSet(
+                                    systemTransaction.getConnectorTransactionHandle(),
+                                    systemTable,
+                                    session,
+                                    newConstraint,
+                                    requiredColumns.build(),
+                                    systemSplit,
+                                    accessControl),
+                            userToSystemFieldIndex.build()),
+                    memoryContext);
         }
     }
 

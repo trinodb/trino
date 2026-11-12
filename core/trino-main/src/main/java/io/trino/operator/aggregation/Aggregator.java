@@ -93,13 +93,18 @@ public class Aggregator
         }
     }
 
-    public void evaluate(BlockBuilder blockBuilder, UpdateMemory updateMemory)
+    public boolean prepareFinal(UpdateMemory updateMemory)
+    {
+        return accumulator.prepareFinal(updateMemory);
+    }
+
+    public void evaluate(BlockBuilder blockBuilder)
     {
         if (step.isOutputPartial()) {
             accumulator.evaluateIntermediate(blockBuilder);
         }
         else {
-            accumulator.evaluateFinal(blockBuilder, updateMemory);
+            accumulator.evaluateFinal(blockBuilder);
         }
     }
 

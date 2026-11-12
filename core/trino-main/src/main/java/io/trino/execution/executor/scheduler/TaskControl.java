@@ -103,7 +103,7 @@ final class TaskControl
     }
 
     /**
-     * Called by the scheduler thread when the task is ready to run. It
+     * Called by the dispatching thread when the task receives a slot. It
      * causes anyone blocking in {@link #awaitReady()} to wake up.
      *
      * @return false if the task was already cancelled

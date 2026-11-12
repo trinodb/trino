@@ -13,9 +13,15 @@
  */
 package io.trino.testing.containers.environment;
 
+import com.google.common.collect.ImmutableSet;
+
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Manages product test environments with single-environment-at-a-time constraint.
@@ -92,6 +98,7 @@ public final class EnvironmentManager
     // Current running environment (null if none)
     private ProductTestEnvironment currentEnvironment;
     private Class<? extends ProductTestEnvironment> currentEnvironmentClass;
+    private Optional<Set<String>> installedPlugins = Optional.empty();
 
     public EnvironmentManager()
     {
@@ -101,6 +108,37 @@ public final class EnvironmentManager
     public EnvironmentManager(Mode mode)
     {
         this.mode = mode;
+    }
+
+    /**
+     * Restricts the Trino containers of the environments to the given plugins, so that a test
+     * fails when it uses a plugin it does not declare.
+     */
+    public void restrictInstalledPlugins(Set<String> plugins)
+    {
+        lock.lock();
+        try {
+            checkState(currentEnvironment == null, "Environment already started: %s", currentEnvironmentClass);
+            checkState(installedPlugins.isEmpty(), "Installed plugins already restricted");
+            installedPlugins = Optional.of(ImmutableSet.copyOf(plugins));
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Returns the plugins to keep in the Trino containers, or empty to keep all.
+     */
+    public Optional<Set<String>> installedPlugins()
+    {
+        lock.lock();
+        try {
+            return installedPlugins;
+        }
+        finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -123,7 +161,7 @@ public final class EnvironmentManager
         try {
             // Compatible environment already running? Reuse it.
             // This supports superclass-based environment reuse:
-            // if HiveKerberosKmsEnvironment is running, a request for HiveBasicEnvironment
+            // if HiveKerberosEnvironment is running, a request for HiveBasicEnvironment
             // can safely reuse it, but not vice-versa.
             if (currentEnvironment != null && environmentClass.isAssignableFrom(currentEnvironmentClass)) {
                 stats.updateAndGet(s -> s.withReuse());
@@ -152,7 +190,20 @@ public final class EnvironmentManager
             stats.updateAndGet(s -> s.withStart());
             T newEnvironment = instantiate(environmentClass);
             newEnvironment.setManaged(true);
-            newEnvironment.start();  // If this throws, currentEnvironment stays null
+            try {
+                newEnvironment.start();
+            }
+            catch (Throwable e) {
+                // Release containers already started by a partially started environment
+                try {
+                    newEnvironment.allowClose();
+                    newEnvironment.close();
+                }
+                catch (Throwable closeFailure) {
+                    e.addSuppressed(closeFailure);
+                }
+                throw e;
+            }
 
             // Only set current after successful start
             currentEnvironment = newEnvironment;
@@ -173,20 +224,6 @@ public final class EnvironmentManager
         lock.lock();
         try {
             return currentEnvironment;
-        }
-        finally {
-            lock.unlock();
-        }
-    }
-
-    /**
-     * Returns the class of the currently running environment, or null if none.
-     */
-    public Class<? extends ProductTestEnvironment> currentClass()
-    {
-        lock.lock();
-        try {
-            return currentEnvironmentClass;
         }
         finally {
             lock.unlock();

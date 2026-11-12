@@ -145,7 +145,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult.Builder expectedBuilder = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT);
+        MaterializedResult.Builder expectedBuilder = resultBuilder(DOUBLE, BIGINT, BIGINT);
         for (int i = 0; i < numberOfRows; ++i) {
             expectedBuilder.row((double) numberOfRows - i - 1, (long) numberOfRows - i - 1, (long) i + 1);
         }
@@ -154,7 +154,7 @@ public class TestWindowOperator
         List<Page> pages = toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
         assertThat(pages).as("Expected more than one output page").hasSizeGreaterThan(1);
 
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
+        MaterializedResult actual = toMaterializedResult(expected.getTypes(), pages);
         assertThat(actual.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
 
         assertThat(spillEnabled == (spillerFactory.getSpillsCount() > 0))
@@ -194,7 +194,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(DOUBLE, BIGINT, BIGINT)
                 .row(-0.1, -1L, 1L)
                 .row(0.3, 2L, 2L)
                 .row(0.2, 4L, 3L)
@@ -237,7 +237,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT)
+        MaterializedResult expected = resultBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT)
                 .row("a", 2L, 0.3, false, 1L)
                 .row("a", 4L, 0.2, true, 2L)
                 .row("a", 6L, 0.1, true, 3L)
@@ -274,7 +274,7 @@ public class TestWindowOperator
                 false);
 
         DriverContext driverContext = createDriverContext();
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                 .row(1L, 1L)
                 .row(3L, 2L)
                 .row(5L, 3L)
@@ -314,7 +314,7 @@ public class TestWindowOperator
                 true);
 
         DriverContext driverContext = createDriverContext();
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                 .row(1L, 1L)
                 .row(2L, 2L)
                 .row(3L, 3L)
@@ -374,7 +374,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, DOUBLE, BIGINT)
+        MaterializedResult expected = resultBuilder(DOUBLE, DOUBLE, BIGINT)
                 .row(1.0, 0.0, 1L)
                 .row(1.0, 1.0, 2L)
                 .row(1.0, Double.NaN, 3L)
@@ -464,7 +464,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("a", "A2", 1L, false, "A2")
                 .row("a", "B1", 2L, true, "A2")
                 .row("a", "C2", 3L, true, "A2")
@@ -545,7 +545,7 @@ public class TestWindowOperator
                 new DummySpillerFactory(),
                 spillEnabled);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("a", "A2", 1L, false, "C2")
                 .row("a", "B1", 2L, true, "C2")
                 .row("a", "C2", 3L, true, "C2")
@@ -589,7 +589,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("a", "A2", 1L, false, "C2")
                 .row("a", "B1", 2L, true, "B1")
                 .row("a", "C2", 3L, true, "A2")
@@ -634,7 +634,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("a", "A2", 1L, false, "D")
                 .row("a", "B1", 2L, true, "D")
                 .row("a", "C2", 3L, true, "A2")
@@ -679,7 +679,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("a", "A2", 1L, false, "C2")
                 .row("a", "B1", 2L, true, "D")
                 .row("a", "C2", 3L, true, "D")
@@ -721,7 +721,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
@@ -765,7 +765,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
                 .row(1L, "a", 100L, "A", 1L)
                 .row(2L, "a", 101L, "B", 1L)
                 .row(3L, "b", 104L, "C", 1L)
@@ -816,7 +816,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
                 .row(1L, "a", 100L, "A", 1L)
                 .row(2L, "a", 101L, "B", 1L)
                 .row(2L, "b", 103L, "C", 1L)
@@ -869,7 +869,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
                 .row(1L, "a", 100L, "A", 1L)
                 .row(2L, "a", 100L, "A", 1L)
                 .row(2L, "b", 101L, "A", 1L)
@@ -923,7 +923,7 @@ public class TestWindowOperator
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
                 .row(1L, "a", 100L, "A", 1L)
                 .row(2L, "a", 101L, "A", 1L)
                 .row(2L, "b", 102L, "A", 1L)

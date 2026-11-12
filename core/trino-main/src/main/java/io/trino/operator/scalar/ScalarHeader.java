@@ -15,6 +15,8 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.function.DomainProjection;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
@@ -50,8 +52,14 @@ public class ScalarHeader
     private final boolean neverFails;
     private final Optional<TypeTemplate> receiverType;
     private final boolean instanceMethod;
+    private final Optional<DomainProjection> domainProjection;
 
     public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails, Optional<TypeTemplate> receiverType, boolean instanceMethod)
+    {
+        this(name, aliases, description, hidden, deterministic, neverFails, receiverType, instanceMethod, Optional.empty());
+    }
+
+    private ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails, Optional<TypeTemplate> receiverType, boolean instanceMethod, Optional<DomainProjection> domainProjection)
     {
         this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty());
@@ -65,9 +73,15 @@ public class ScalarHeader
         this.receiverType = requireNonNull(receiverType, "receiverType is null");
         checkArgument(!instanceMethod || receiverType.isEmpty(), "instance method receiver type is inferred from the first argument");
         this.instanceMethod = instanceMethod;
+        this.domainProjection = requireNonNull(domainProjection, "domainProjection is null");
     }
 
     public ScalarHeader(OperatorType operatorType, Optional<String> description, boolean neverFails)
+    {
+        this(operatorType, description, neverFails, Optional.empty());
+    }
+
+    private ScalarHeader(OperatorType operatorType, Optional<String> description, boolean neverFails, Optional<DomainProjection> domainProjection)
     {
         this.name = mangleOperatorName(operatorType);
         this.operatorType = Optional.of(operatorType);
@@ -78,6 +92,7 @@ public class ScalarHeader
         this.neverFails = neverFails;
         this.receiverType = Optional.empty();
         this.instanceMethod = false;
+        this.domainProjection = requireNonNull(domainProjection, "domainProjection is null");
     }
 
     public static List<ScalarHeader> fromAnnotatedElement(AnnotatedElement annotated)
@@ -87,6 +102,7 @@ public class ScalarHeader
         StaticMethod staticMethod = annotated.getAnnotation(StaticMethod.class);
         InstanceMethod instanceMethod = annotated.getAnnotation(InstanceMethod.class);
         Optional<String> description = parseDescription(annotated);
+        Optional<DomainProjection> projection = parseDomainProjection(annotated);
 
         ImmutableList.Builder<ScalarHeader> builder = ImmutableList.builder();
 
@@ -99,7 +115,7 @@ public class ScalarHeader
                 TypeDescriptor parsed = parseTypeDescriptor(staticMethod.value());
                 receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(new TypeDescriptor(parsed.getBase())));
             }
-            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), receiverType, instanceMethod != null));
+            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), receiverType, instanceMethod != null, projection));
         }
         else if (staticMethod != null) {
             throw new IllegalArgumentException("@StaticMethod requires @ScalarFunction on " + annotated);
@@ -112,12 +128,26 @@ public class ScalarHeader
             if (scalarOperator.value().neverFails() && scalarOperator.neverFails()) {
                 throw new IllegalArgumentException("@ScalarOperator(neverFails = true) is redundant for %s operator which is always infallible: %s".formatted(scalarOperator.value(), annotated));
             }
-            builder.add(new ScalarHeader(scalarOperator.value(), description, scalarOperator.neverFails()));
+            builder.add(new ScalarHeader(scalarOperator.value(), description, scalarOperator.neverFails(), projection));
         }
 
         List<ScalarHeader> result = builder.build();
         checkArgument(!result.isEmpty());
         return result;
+    }
+
+    private static Optional<DomainProjection> parseDomainProjection(AnnotatedElement annotated)
+    {
+        FunctionPreimage projection = annotated.getAnnotation(FunctionPreimage.class);
+        if (projection == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(new DomainProjection(projection.value().getConstructor().newInstance()));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new IllegalArgumentException("Cannot instantiate domain projection provider for " + annotated, e);
+        }
     }
 
     private static String camelToSnake(String name)
@@ -180,5 +210,10 @@ public class ScalarHeader
     public boolean isInstanceMethod()
     {
         return instanceMethod;
+    }
+
+    public Optional<DomainProjection> getDomainProjection()
+    {
+        return domainProjection;
     }
 }

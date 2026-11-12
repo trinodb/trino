@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.iceberg.IcebergPartitionColumn;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.plugin.iceberg.system.files.FilesTableSplitSource;
 import io.trino.spi.connector.ColumnHandle;

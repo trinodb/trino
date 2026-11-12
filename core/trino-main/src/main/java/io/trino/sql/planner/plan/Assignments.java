@@ -52,13 +52,6 @@ public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> a
         return builder().putIdentities(symbols).build();
     }
 
-    public static Assignments copyOf(Map<Symbol, Expression> assignments)
-    {
-        return builder()
-                .putAll(assignments)
-                .build();
-    }
-
     public static Assignments of()
     {
         return builder().build();

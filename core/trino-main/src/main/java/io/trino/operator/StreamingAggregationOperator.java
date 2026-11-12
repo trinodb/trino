@@ -40,6 +40,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
+import static io.trino.operator.WorkProcessor.TransformationState.yielded;
 import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
@@ -182,6 +183,11 @@ public class StreamingAggregationOperator
         private final PageBuilder pageBuilder;
         private final Deque<Page> outputPages = new LinkedList<>();
         private Page currentGroup;
+        // start of the input page group that processInput() handles next
+        private int inputPosition;
+        // a group has all its rows added but its evaluation yielded on memory
+        private boolean groupEvaluationPending;
+        private int preparedAggregatorCount;
 
         private StreamingAggregation(
                 OperatorContext operatorContext,
@@ -217,7 +223,9 @@ public class StreamingAggregationOperator
         {
             if (inputPage == null) {
                 if (currentGroup != null) {
-                    evaluateAndFlushGroup(currentGroup, 0);
+                    if (!evaluateAndFlushGroup(currentGroup, 0)) {
+                        return yielded();
+                    }
                     currentGroup = null;
                 }
 
@@ -236,13 +244,17 @@ public class StreamingAggregationOperator
 
             // flush remaining output pages before requesting next input page
             // invariant: queued output pages are produced from argument `inputPage`
-            if (!outputPages.isEmpty()) {
+            if (!groupEvaluationPending && !outputPages.isEmpty()) {
                 Page outputPage = outputPages.removeFirst();
                 return ofResult(outputPage, outputPages.isEmpty());
             }
 
-            processInput(inputPage);
+            boolean inputProcessed = processInput(inputPage);
             updateMemoryUsage();
+
+            if (!inputProcessed) {
+                return yielded();
+            }
 
             if (outputPages.isEmpty()) {
                 return needsMoreData();
@@ -269,7 +281,10 @@ public class StreamingAggregationOperator
             return userMemoryContext.setBytes(memorySize).isDone();
         }
 
-        private void processInput(Page page)
+        /**
+         * Returns false when a group evaluation yields on memory. The caller calls it again with the same page to resume.
+         */
+        private boolean processInput(Page page)
         {
             requireNonNull(page, "page is null");
 
@@ -277,25 +292,32 @@ public class StreamingAggregationOperator
             if (currentGroup != null) {
                 if (!pagesHashStrategy.rowIdenticalToRow(0, currentGroup.getColumns(groupByChannels), 0, groupByPage)) {
                     // page starts with new group, so flush it
-                    evaluateAndFlushGroup(currentGroup, 0);
+                    if (!evaluateAndFlushGroup(currentGroup, 0)) {
+                        return false;
+                    }
                 }
                 currentGroup = null;
             }
 
-            int startPosition = 0;
             while (true) {
                 // may be equal to page.getPositionCount() if the end is not found in this page
-                int nextGroupStart = findNextGroupStart(startPosition, groupByPage);
-                addRowsToAggregates(page, startPosition, nextGroupStart - 1);
+                int nextGroupStart = findNextGroupStart(inputPosition, groupByPage);
+                // a pending group already holds its rows, and the flush below resumes its evaluation
+                if (!groupEvaluationPending) {
+                    addRowsToAggregates(page, inputPosition, nextGroupStart - 1);
+                }
 
                 if (nextGroupStart < page.getPositionCount()) {
                     // current group stops somewhere in the middle of the page, so flush it
-                    evaluateAndFlushGroup(page, startPosition);
-                    startPosition = nextGroupStart;
+                    if (!evaluateAndFlushGroup(page, inputPosition)) {
+                        return false;
+                    }
+                    inputPosition = nextGroupStart;
                 }
                 else {
                     currentGroup = page.getRegion(page.getPositionCount() - 1, 1);
-                    return;
+                    inputPosition = 0;
+                    return true;
                 }
             }
         }
@@ -308,8 +330,22 @@ public class StreamingAggregationOperator
             }
         }
 
-        private void evaluateAndFlushGroup(Page page, int position)
+        /**
+         * Returns false when an aggregator yields on memory while preparing its final output. The caller calls it again with the same group to resume.
+         */
+        private boolean evaluateAndFlushGroup(Page page, int position)
         {
+            // an aggregator can grow while preparing final output (e.g. ordered aggregation replaying
+            // its buffered pages into a distinct hash); report that growth and yield when memory is blocked
+            while (preparedAggregatorCount < aggregates.size()) {
+                if (!aggregates.get(preparedAggregatorCount).prepareFinal(this::updateMemoryUsage)) {
+                    groupEvaluationPending = true;
+                    return false;
+                }
+                preparedAggregatorCount++;
+            }
+            groupEvaluationPending = false;
+
             pageBuilder.declarePosition();
             for (int i = 0; i < groupByTypes.size(); i++) {
                 Block block = page.getBlock(groupByChannels[i]);
@@ -317,7 +353,7 @@ public class StreamingAggregationOperator
             }
             int offset = groupByTypes.size();
             for (int i = 0; i < aggregates.size(); i++) {
-                aggregates.get(i).evaluate(pageBuilder.getBlockBuilder(offset + i), this::updateMemoryUsage);
+                aggregates.get(i).evaluate(pageBuilder.getBlockBuilder(offset + i));
             }
 
             if (pageBuilder.isFull()) {
@@ -328,6 +364,8 @@ public class StreamingAggregationOperator
             aggregates = aggregatorFactories.stream()
                     .map(factory -> factory.createAggregator(aggregationMetrics))
                     .collect(toImmutableList());
+            preparedAggregatorCount = 0;
+            return true;
         }
 
         private int findNextGroupStart(int startPosition, Page page)

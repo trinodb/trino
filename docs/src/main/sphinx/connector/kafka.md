@@ -40,7 +40,7 @@ must be taken:
 
 - Copy the `kafka-protobuf-provider` and `kafka-protobuf-types` JAR files
   from [Confluent](https://packages.confluent.io/maven/io/confluent/) for
-  Confluent version 8.1.1 to the Kafka connector plugin directory (`<install
+  Confluent version 8.4.0 to the Kafka connector plugin directory (`<install
   directory>/plugin/kafka`) on all nodes in the cluster.
   The plugin directory depends on the {doc}`/installation` method.
 - By copying those JARs and using them, you agree to the terms of the [Confluent
@@ -236,11 +236,11 @@ For each defined table, the connector maintains the following columns:
 | `_segment_end`      | BIGINT                         | Highest offset in the segment (exclusive) which contains this row. The offset is partition specific. This is the same value as `_segment_start` of the next segment (if it exists). |
 | `_segment_count`    | BIGINT                         | Running count for the current row within the segment. For an uncompacted topic, `_segment_start + _segment_count` is equal to `_partition_offset`.                                  |
 | `_message_corrupt`  | BOOLEAN                        | True if the decoder could not decode the message for this row. When true, data columns mapped from the message should be treated as invalid.                                        |
-| `_message`          | VARCHAR                        | Message bytes as a UTF-8 encoded string. This is only useful for a text topic.                                                                                                      |
+| `_message`          | VARBINARY                      | Raw message bytes.                                                                                                                                                                  |
 | `_message_length`   | BIGINT                         | Number of bytes in the message.                                                                                                                                                     |
 | `_headers`          | map(VARCHAR, array(VARBINARY)) | Headers of the message where values with the same key are grouped as array.                                                                                                         |
 | `_key_corrupt`      | BOOLEAN                        | True if the key decoder could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.                                            |
-| `_key`              | VARCHAR                        | Key bytes as a UTF-8 encoded string. This is only useful for textual keys.                                                                                                          |
+| `_key`              | VARBINARY                      | Raw key bytes.                                                                                                                                                                      |
 | `_key_length`       | BIGINT                         | Number of bytes in the key.                                                                                                                                                         |
 | `_timestamp`        | TIMESTAMP                      | Message timestamp.                                                                                                                                                                  |
 
@@ -302,9 +302,9 @@ this data must be mapped into columns to allow queries against the data.
 :::{note}
 For textual topics that contain JSON data, it is entirely possible to not
 use any table definition files, but instead use the Trino
-{doc}`/functions/json` to parse the `_message` column which contains
-the bytes mapped into a UTF-8 string. This is cumbersome and makes it
-difficult to write SQL queries. This only works when reading data.
+{doc}`/functions/json` to parse the `_message` column, converting the
+bytes into a UTF-8 string with {func}`from_utf8`. This is cumbersome and
+makes it difficult to write SQL queries. This only works when reading data.
 :::
 
 A table definition file consists of a JSON definition for a table. The
@@ -347,12 +347,13 @@ A table definition file contains sections for both key and message to map
 the data onto table columns.
 
 Each of the `key` and `message` fields in the table definition is a
-JSON object that must contain two fields:
+JSON object with the following fields:
 
-| Field        | Required | Type       | Description                                                                                 |
-| ------------ | -------- | ---------- | ------------------------------------------------------------------------------------------- |
-| `dataFormat` | required | string     | Selects the decoder for this group of fields.                                               |
-| `fields`     | required | JSON array | A list of field definitions. Each field definition creates a new column in the Trino table. |
+| Field        | Required | Type       | Description                                                                                                 |
+| ------------ | -------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `dataFormat` | required | string     | Selects the decoder for this group of fields.                                                               |
+| `dataSchema` | optional | string     | The path or URL where the Avro or Protobuf schema resides. Used by Avro and Protobuf encoders and decoders. |
+| `fields`     | required | JSON array | A list of field definitions. Each field definition creates a new column in the Trino table.                 |
 
 Each field definition is a JSON object:
 
@@ -373,7 +374,6 @@ Each field definition is a JSON object:
 | `name`       | required | string  | Name of the column in the Trino table.                                                                               |
 | `type`       | required | string  | Trino type of the column.                                                                                            |
 | `dataFormat` | optional | string  | Selects the column decoder for this field. Defaults to the default decoder for this row data format and column type. |
-| `dataSchema` | optional | string  | The path or URL where the Avro schema resides. Used only for Avro decoder.                                           |
 | `mapping`    | optional | string  | Mapping information for the column. This is decoder specific, see below.                                             |
 | `formatHint` | optional | string  | Sets a column-specific format hint to the column decoder.                                                            |
 | `hidden`     | optional | boolean | Hides the column from `DESCRIBE <table name>` and `SELECT *`. Defaults to `false`.                                   |

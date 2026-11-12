@@ -15,6 +15,7 @@ package io.trino.plugin.clickhouse;
 
 import com.clickhouse.client.api.ClientConfigProperties;
 import com.clickhouse.jdbc.Driver;
+import com.clickhouse.jdbc.DriverProperties;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -26,9 +27,11 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.FloatingPointQueryBuilder;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -36,6 +39,7 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.clickhouse.ClickHouseClient.DEFAULT_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.jdbc.DecimalModule.MappingToNumber.ON_BY_DEFAULT;
@@ -51,6 +55,7 @@ public class ClickHouseClientModule
         ConfigBinder.configBinder(binder).bindConfig(ClickHouseConfig.class);
         bindSessionPropertiesProvider(binder, ClickHouseSessionProperties.class);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(ClickHouseClient.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, QueryBuilder.class).setBinding().to(FloatingPointQueryBuilder.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, ClickHouseTableProperties.class);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setDomainCompactionThreshold(DEFAULT_DOMAIN_COMPACTION_THRESHOLD));
         binder.install(DecimalModule.withNumberMapping(ON_BY_DEFAULT));
@@ -67,6 +72,8 @@ public class ClickHouseClientModule
         // clickhouse-jdbc decodes them as UTF-8 (replacing invalid sequences with U+FFFD) before
         // getBytes() re-encodes, corrupting non-UTF-8 varbinary data.
         properties.setProperty(ClientConfigProperties.BINARY_STRING_SUPPORT.getKey(), "true");
+        // SHOW statements based metadata returns null table comments
+        properties.setProperty(DriverProperties.METADATA_USE_SHOW_STATEMENTS.getKey(), "false");
         return new ClickHouseConnectionFactory(DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
                 .setConnectionProperties(properties)
                 .setOpenTelemetry(openTelemetry)

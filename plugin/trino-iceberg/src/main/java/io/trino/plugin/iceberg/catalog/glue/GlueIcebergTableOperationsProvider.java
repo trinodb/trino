@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -74,7 +75,7 @@ public class GlueIcebergTableOperationsProvider
                 // Share Glue Table cache between Catalog and TableOperations so that, when doing metadata queries (e.g. information_schema.columns)
                 // the GetTableRequest is issued once per table.
                 ((TrinoGlueCatalog) catalog)::getTable,
-                fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
+                fileIoFactory.create(((AbstractTrinoCatalog) catalog).measureFileSystem(fileSystemFactory.create(session)), isUseFileSizeFromMetadata(session)),
                 session,
                 database,
                 table,

@@ -45,15 +45,13 @@ public class FakerSplitManager
         FakerTableHandle fakerTable = (FakerTableHandle) table;
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
 
-        int splitNum = 0;
         long rowsOffset = 0;
         long remainingRows = fakerTable.limit();
         while (remainingRows > 0) {
             long splitSize = min(remainingRows, MAX_ROWS_PER_SPLIT);
-            splits.add(new FakerSplit(splitNum, rowsOffset, splitSize));
+            splits.add(new FakerSplit(rowsOffset, splitSize));
             rowsOffset += splitSize;
             remainingRows -= splitSize;
-            splitNum++;
         }
         return new FixedSplitSource(splits.build());
     }

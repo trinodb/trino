@@ -273,28 +273,6 @@ public class CallColumnarFilterGenerator
         body.append(outputPositionsCount.ret());
     }
 
-    static BytecodeBlock generateInvocation(
-            FunctionManager functionManager,
-            CallSiteBinder binder,
-            ResolvedFunction function,
-            List<Expression> arguments,
-            Map<Symbol, Integer> layout,
-            Scope scope,
-            BytecodeExpression position)
-    {
-        return generateFullInvocation(
-                functionManager,
-                _ -> {
-                    throw new IllegalArgumentException("Simple method invocation can not be used with functions that require an instance factory");
-                },
-                binder,
-                function,
-                arguments,
-                layout,
-                scope,
-                position);
-    }
-
     private static BytecodeBlock generateFullInvocation(
             FunctionManager functionManager,
             Function<MethodHandle, BytecodeNode> instanceFactory,

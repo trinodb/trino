@@ -405,7 +405,7 @@ public abstract class BaseHiveS3AndGlueTest
         assertThat(query("SHOW FUNCTIONS"))
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "double", "double", "scalar", true, "t88")
                         .build());
@@ -424,7 +424,7 @@ public abstract class BaseHiveS3AndGlueTest
         assertThat(query("SHOW FUNCTIONS"))
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "bigint", "bigint", "scalar", true, "")
                         .row(name, "double", "double", "scalar", true, "t88")

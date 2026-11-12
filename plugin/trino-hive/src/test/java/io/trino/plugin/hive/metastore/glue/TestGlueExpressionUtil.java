@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
@@ -27,11 +28,19 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static io.trino.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpressionForSingleDomain;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGlueExpressionUtil
 {
+    @Test
+    public void testNaNPartitionFilterIsDeclined()
+    {
+        assertThat(buildGlueExpressionForSingleDomain("x", Domain.singleValue(DOUBLE, Double.NaN), true)).isEmpty();
+        assertThat(buildGlueExpressionForSingleDomain("x", Domain.create(ValueSet.of(DOUBLE, Double.NaN).complement(), false), true)).isEmpty();
+    }
+
     @Test
     public void testBuildGlueExpressionDomainEqualsSingleValue()
     {

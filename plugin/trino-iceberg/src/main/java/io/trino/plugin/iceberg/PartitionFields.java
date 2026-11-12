@@ -22,41 +22,25 @@ import org.apache.iceberg.transforms.Transform;
 import org.apache.iceberg.transforms.Transforms;
 
 import java.util.List;
-import java.util.function.Consumer;
-import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.iceberg.TransformUtils.BUCKET_PATTERN;
+import static io.trino.plugin.iceberg.TransformUtils.DAY_PATTERN;
+import static io.trino.plugin.iceberg.TransformUtils.HOUR_PATTERN;
+import static io.trino.plugin.iceberg.TransformUtils.IDENTITY_PATTERN;
+import static io.trino.plugin.iceberg.TransformUtils.MONTH_PATTERN;
+import static io.trino.plugin.iceberg.TransformUtils.TRUNCATE_PATTERN;
+import static io.trino.plugin.iceberg.TransformUtils.VOID_PATTERN;
+import static io.trino.plugin.iceberg.TransformUtils.YEAR_PATTERN;
+import static io.trino.plugin.iceberg.TransformUtils.fromIdentifierToColumn;
+import static io.trino.plugin.iceberg.TransformUtils.toTransformTerm;
+import static io.trino.plugin.iceberg.TransformUtils.tryMatch;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
-import static java.util.regex.Pattern.CASE_INSENSITIVE;
 
 public final class PartitionFields
 {
-    private static final String UNQUOTED_IDENTIFIER = "[a-zA-Z_][a-zA-Z0-9_]*";
-    private static final String QUOTED_IDENTIFIER = "\"(?:\"\"|[^\"])*\"";
-    public static final String IDENTIFIER = "(" + UNQUOTED_IDENTIFIER + "|" + QUOTED_IDENTIFIER + ")";
-    private static final Pattern UNQUOTED_IDENTIFIER_PATTERN = Pattern.compile(UNQUOTED_IDENTIFIER);
-    private static final Pattern QUOTED_IDENTIFIER_PATTERN = Pattern.compile(QUOTED_IDENTIFIER);
-
-    private static final String FUNCTION_ARGUMENT_NAME = "\\(" + IDENTIFIER + "\\)\\s*";
-    private static final String FUNCTION_ARGUMENT_NAME_AND_INT = "\\(" + IDENTIFIER + ",\\s*(\\d+)\\)";
-
-    private static final Pattern IDENTITY_PATTERN = Pattern.compile(IDENTIFIER, CASE_INSENSITIVE);
-    private static final Pattern YEAR_PATTERN = Pattern.compile("year" + FUNCTION_ARGUMENT_NAME, CASE_INSENSITIVE);
-    private static final Pattern MONTH_PATTERN = Pattern.compile("month" + FUNCTION_ARGUMENT_NAME, CASE_INSENSITIVE);
-    private static final Pattern DAY_PATTERN = Pattern.compile("day" + FUNCTION_ARGUMENT_NAME, CASE_INSENSITIVE);
-    private static final Pattern HOUR_PATTERN = Pattern.compile("hour" + FUNCTION_ARGUMENT_NAME, CASE_INSENSITIVE);
-    private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket" + FUNCTION_ARGUMENT_NAME_AND_INT, CASE_INSENSITIVE);
-    private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate" + FUNCTION_ARGUMENT_NAME_AND_INT, CASE_INSENSITIVE);
-    private static final Pattern VOID_PATTERN = Pattern.compile("void" + FUNCTION_ARGUMENT_NAME, CASE_INSENSITIVE);
-
-    static final Pattern ICEBERG_BUCKET_PATTERN = Pattern.compile("bucket\\[(\\d+)]");
-    static final Pattern ICEBERG_TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
-
     private PartitionFields() {}
 
     public static PartitionSpec parsePartitionFields(Schema schema, List<String> fields)
@@ -167,27 +151,6 @@ public final class PartitionFields
         }
     }
 
-    public static String fromIdentifierToColumn(String identifier)
-    {
-        if (QUOTED_IDENTIFIER_PATTERN.matcher(identifier).matches()) {
-            return identifier.substring(1, identifier.length() - 1).replace("\"\"", "\"");
-        }
-        // Currently, all Iceberg columns are stored in lowercase in the Iceberg metadata files.
-        // Unquoted identifiers are canonicalized to lowercase here which is not according ANSI SQL spec.
-        // See https://github.com/trinodb/trino/issues/17
-        return identifier.toLowerCase(ENGLISH);
-    }
-
-    private static boolean tryMatch(CharSequence value, Pattern pattern, Consumer<MatchResult> match)
-    {
-        Matcher matcher = pattern.matcher(value);
-        if (matcher.matches()) {
-            match.accept(matcher.toMatchResult());
-            return true;
-        }
-        return false;
-    }
-
     public static List<String> toPartitionFields(PartitionSpec spec)
     {
         return spec.fields().stream()
@@ -197,41 +160,6 @@ public final class PartitionFields
 
     private static String toPartitionField(PartitionSpec spec, PartitionField field)
     {
-        String name = fromColumnToIdentifier(spec.schema().findColumnName(field.sourceId()));
-        String transform = field.transform().toString();
-
-        switch (transform) {
-            case "identity" -> {
-                return name;
-            }
-            case "year", "month", "day", "hour", "void" -> {
-                return format("%s(%s)", transform, name);
-            }
-        }
-
-        Matcher matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);
-        if (matcher.matches()) {
-            return format("bucket(%s, %s)", name, matcher.group(1));
-        }
-
-        matcher = ICEBERG_TRUNCATE_PATTERN.matcher(transform);
-        if (matcher.matches()) {
-            return format("truncate(%s, %s)", name, matcher.group(1));
-        }
-
-        throw new UnsupportedOperationException("Unsupported partition transform: " + field);
-    }
-
-    private static String fromColumnToIdentifier(String column)
-    {
-        return quotedName(column);
-    }
-
-    public static String quotedName(String name)
-    {
-        if (UNQUOTED_IDENTIFIER_PATTERN.matcher(name).matches() && name.toLowerCase(ENGLISH).equals(name)) {
-            return name;
-        }
-        return '"' + name.replace("\"", "\"\"") + '"';
+        return toTransformTerm(spec.schema().findColumnName(field.sourceId()), field.transform().toString());
     }
 }

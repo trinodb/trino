@@ -1473,7 +1473,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         bucketCountProvider);
                 closer.register(stage::abort);
                 stageRegistry.add(stage);
-                stage.addFinalStageInfoListener(_ -> queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStages())));
+                stage.addFinalStageInfoListener(_ -> queryStateMachine.updateFinalQueryInfo(() -> Optional.ofNullable(stageRegistry.getStages())));
 
                 ImmutableMap.Builder<PlanFragmentId, Exchange> sourceExchangesBuilder = ImmutableMap.builder();
                 Map<PlanFragmentId, OutputDataSizeEstimate> sourceOutputEstimatesByFragmentId = new HashMap<>();
@@ -2202,15 +2202,6 @@ public class EventDrivenFaultTolerantQueryScheduler
         public boolean isExchangeClosed()
         {
             return exchangeClosed;
-        }
-
-        public void setSpeculative(boolean speculative)
-        {
-            checkArgument(!speculative || this.speculative, "cannot mark non-speculative stage as speculative");
-            if (this.speculative && !speculative) {
-                nonSpeculativeSwitchTime = OptionalLong.of(System.nanoTime());
-            }
-            this.speculative = speculative;
         }
 
         public void addPartition(int partitionId, NodeRequirements nodeRequirements)
@@ -3148,13 +3139,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
         }
 
-        private static Map<PlanNodeId, ListMultimap<Integer, Split>> copySplits(Map<PlanNodeId, ListMultimap<Integer, Split>> splits)
-        {
-            ImmutableMap.Builder<PlanNodeId, ListMultimap<Integer, Split>> splitsBuilder = ImmutableMap.builder();
-            splits.forEach((planNodeId, planNodeSplits) -> splitsBuilder.put(planNodeId, ImmutableListMultimap.copyOf(planNodeSplits)));
-            return splitsBuilder.buildOrThrow();
-        }
-
         public SplitsMapping getSplits()
         {
             return splits;
@@ -3747,11 +3731,6 @@ public class EventDrivenFaultTolerantQueryScheduler
         public boolean isWaitingForNode()
         {
             return waitingForNode;
-        }
-
-        public void setWaitingForNode(boolean waitingForNode)
-        {
-            this.waitingForNode = waitingForNode;
         }
 
         public boolean isWaitingForSinkInstanceHandle()

@@ -1368,24 +1368,6 @@ public class FileBasedSystemAccessControl
             return this;
         }
 
-        @SuppressWarnings("unused")
-        public Builder denyAllAccess()
-        {
-            catalogRules = ImmutableList.of();
-            queryAccessRules = Optional.of(ImmutableList.of());
-            impersonationRules = Optional.of(ImmutableList.of());
-            principalUserMatchRules = Optional.of(ImmutableList.of());
-            systemInformationRules = Optional.of(ImmutableList.of());
-            authorizationRules = ImmutableList.of();
-            schemaRules = ImmutableList.of();
-            tableRules = ImmutableList.of();
-            sessionPropertyRules = ImmutableList.of();
-            catalogSessionPropertyRules = ImmutableList.of();
-            functionRules = ImmutableList.of();
-            procedureRules = ImmutableList.of();
-            return this;
-        }
-
         public Builder setCatalogRules(List<CatalogAccessControlRule> catalogRules)
         {
             this.catalogRules = catalogRules;

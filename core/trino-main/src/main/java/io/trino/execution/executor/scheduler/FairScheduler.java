@@ -20,13 +20,9 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
-import io.airlift.log.Logger;
 
 import java.util.Set;
 import java.util.StringJoiner;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -39,26 +35,22 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 
-/**
- * <h2>Implementation nodes</h2>
- *
- * <ul>
- *     <li>The TaskControl state machine is only modified by the task executor
- * thread (i.e., from within {@link FairScheduler#runTask(Schedulable, TaskControl)} )}). Other threads
- * can indirectly affect what the task executor thread does by marking the task as ready or cancelled
- * and unblocking the task executor thread, which will then act on that information.</li>
- * </ul>
- */
+/// Implementation notes:
+///
+///   - The [TaskControl] state machine is only modified by the task executor thread (i.e. from
+///     within [#runTask]). Other threads can indirectly affect what the task executor thread does by
+///     marking the task as ready or cancelled and unblocking it, which will then act on that
+///     information.
+///   - There is no scheduler thread. Whichever thread makes a task runnable or frees a slot calls
+///     [#dispatch()], which hands free slots to runnable tasks in fair order. A slot is reserved
+///     under the queue lock only once a runnable task is present, so it is always held by a task;
+///     every release is followed by a dispatch, so no runnable task waits while a slot is free.
 @ThreadSafe
 public final class FairScheduler
         implements AutoCloseable
 {
-    private static final Logger LOG = Logger.get(FairScheduler.class);
-
     public static final long QUANTUM_NANOS = TimeUnit.MILLISECONDS.toNanos(1000);
 
-    private final ExecutorService schedulerExecutor;
-    private final ThreadPoolExecutorMBean schedulerExecutorMBean;
     private final ListeningExecutorService taskExecutor;
     private final ThreadPoolExecutor executor; // instance underlying taskExecutor, for diagnostics
     private final ThreadPoolExecutorMBean executorMBean;
@@ -66,7 +58,7 @@ public final class FairScheduler
     private final Reservation<TaskControl> concurrencyControl;
     private final Ticker ticker;
 
-    private final Gate paused = new Gate(true);
+    private volatile boolean paused;
 
     /// Prevents group creation and removal from racing with [#close()]. Submission only needs the
     /// volatile `closed` check: a task accepted while close is in progress either observes that its
@@ -87,10 +79,7 @@ public final class FairScheduler
 
         concurrencyControl = new Reservation<>(maxConcurrentTasks);
 
-        schedulerExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("fair-scheduler-%d"));
-        schedulerExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) schedulerExecutor);
-
-        executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(), threadFactory);
+        executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new StaggeredExitSynchronousQueue(10, TimeUnit.MILLISECONDS), threadFactory);
         executorMBean = new ThreadPoolExecutorMBean(executor);
         taskExecutor = MoreExecutors.listeningDecorator(executor);
     }
@@ -102,24 +91,18 @@ public final class FairScheduler
 
     public static FairScheduler newInstance(int maxConcurrentTasks, Ticker ticker)
     {
-        FairScheduler scheduler = new FairScheduler(maxConcurrentTasks, "fair-scheduler-runner-%d", ticker);
-        scheduler.start();
-        return scheduler;
-    }
-
-    public void start()
-    {
-        schedulerExecutor.submit(this::runScheduler);
+        return new FairScheduler(maxConcurrentTasks, "fair-scheduler-runner-%d", ticker);
     }
 
     public void pause()
     {
-        paused.close();
+        paused = true;
     }
 
     public void resume()
     {
-        paused.open();
+        paused = false;
+        dispatch();
     }
 
     @Override
@@ -139,7 +122,6 @@ public final class FairScheduler
             }
 
             taskExecutor.shutdownNow();
-            schedulerExecutor.shutdownNow();
         }
         finally {
             lifecycleLock.writeLock().unlock();
@@ -207,28 +189,27 @@ public final class FairScheduler
         try {
             runner.run(context);
         }
-        catch (Exception e) {
-            LOG.error(e);
-        }
         finally {
             // If the runner exited due to an exception in user code or
             // normally (not in response to an interruption during blocking or yield),
             // it must have had a semaphore permit reserved, so release it.
+            long delta = 0;
             if (task.getState() == TaskControl.State.RUNNING) {
+                delta = task.elapsed();
                 concurrencyControl.release(task);
             }
-            queue.finish(task.group(), task);
+            queue.finish(task.group(), task, delta);
             task.transitionToFinished();
+            dispatch();
         }
     }
 
     private boolean makeRunnableAndAwait(TaskControl task, long deltaWeight)
     {
-        if (!task.transitionToWaiting()) {
-            return false;
-        }
-
-        if (!queue.enqueue(task.group(), task, deltaWeight)) {
+        boolean enqueued = task.transitionToWaiting() && queue.enqueue(task.group(), task, deltaWeight);
+        // Dispatch even if the task was cancelled: a yield freed its slot without dispatching it.
+        dispatch();
+        if (!enqueued) {
             return false;
         }
 
@@ -245,13 +226,13 @@ public final class FairScheduler
             if (task.isReady()) {
                 // If the task was marked as ready (slot acquired) but then cancelled before
                 // awaitReady() was notified, we need to release the slot.
-                concurrencyControl.release(task);
+                release(task);
             }
             return false;
         }
 
         if (!task.transitionToRunning()) {
-            concurrencyControl.release(task);
+            release(task);
             return false;
         }
 
@@ -267,6 +248,8 @@ public final class FairScheduler
             return true;
         }
 
+        // Free the slot without dispatching it: makeRunnableAndAwait re-enqueues this task first, so
+        // it competes for the slot in fair order instead of handing it to whichever task was waiting.
         concurrencyControl.release(task);
 
         return makeRunnableAndAwait(task, delta);
@@ -278,13 +261,12 @@ public final class FairScheduler
 
         long delta = task.elapsed();
 
+        // Dispatch the freed slot only once the queue has charged the time this task actually used,
+        // so the next task is chosen against up-to-date weights.
         concurrencyControl.release(task);
-
-        if (!task.transitionToBlocked()) {
-            return false;
-        }
-
-        if (!queue.block(task.group(), task, delta)) {
+        boolean blocked = task.transitionToBlocked() && queue.block(task.group(), task, delta);
+        dispatch();
+        if (!blocked) {
             return false;
         }
 
@@ -294,25 +276,25 @@ public final class FairScheduler
         return makeRunnableAndAwait(task, 0);
     }
 
-    private void runScheduler()
+    private void release(TaskControl task)
     {
-        while (true) {
-            try {
-                paused.awaitOpen();
-                concurrencyControl.reserve();
-                TaskControl task = queue.dequeue(QUANTUM_NANOS);
+        concurrencyControl.release(task);
+        dispatch();
+    }
 
-                concurrencyControl.register(task);
-                if (!task.markReady()) {
-                    concurrencyControl.release(task);
-                }
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+    /// Hand free slots to runnable tasks in fair order, on the calling thread.
+    private void dispatch()
+    {
+        while (!paused) {
+            TaskControl task = queue.dequeue(QUANTUM_NANOS, concurrencyControl::tryReserve);
+            if (task == null) {
                 return;
             }
-            catch (Exception e) {
-                LOG.error(e);
+
+            concurrencyControl.register(task);
+            if (!task.markReady()) {
+                // cancelled before it could run
+                concurrencyControl.release(task);
             }
         }
     }
@@ -352,9 +334,6 @@ public final class FairScheduler
                 concurrencyControl.availableSlots()));
 
         builder.append("Reservations:\n");
-        if (concurrencyControl.totalSlots() - concurrencyControl.availableSlots() == 1) {
-            builder.append("    (pending)\n");
-        }
         concurrencyControl.reservations().forEach(reservation ->
                 builder.append("    ")
                         .append(reservation)
@@ -376,11 +355,6 @@ public final class FairScheduler
     //
     // STATS, exposed from ThreadPerDriverTaskExecutor
     //
-    public ThreadPoolExecutorMBean getSchedulerExecutor()
-    {
-        return schedulerExecutorMBean;
-    }
-
     public ThreadPoolExecutorMBean getTaskExecutor()
     {
         return executorMBean;

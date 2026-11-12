@@ -169,7 +169,7 @@ public class DistinctAggregationStrategyChooser
             return false;
         }
 
-        if (searchFrom(aggregationNode.getSource(), lookup).whereIsInstanceOfAny(UnionNode.class).findFirst().isPresent()) {
+        if (searchFrom(aggregationNode.getSource(), lookup).whereIsInstanceOfAny(UnionNode.class).matches()) {
             // supporting union with auto decision is complex
             return false;
         }

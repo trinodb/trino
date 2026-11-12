@@ -18,13 +18,16 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.trino.filesystem.azure.AzureFileSystemConfig.AuthType;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -36,6 +39,7 @@ class TestAzureFileSystemConfig
         assertRecordedDefaults(recordDefaults(AzureFileSystemConfig.class)
                 .setAuthType(AuthType.DEFAULT)
                 .setEndpoint("core.windows.net")
+                .setServiceEndpoint(null)
                 .setReadBlockSize(DataSize.of(4, Unit.MEGABYTE))
                 .setWriteBlockSize(DataSize.of(4, Unit.MEGABYTE))
                 .setMaxWriteConcurrency(8)
@@ -54,6 +58,7 @@ class TestAzureFileSystemConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("azure.auth-type", "oauth")
                 .put("azure.endpoint", "core.usgovcloudapi.net")
+                .put("azure.service-endpoint", "https://localhost:4577")
                 .put("azure.read-block-size", "3MB")
                 .put("azure.write-block-size", "5MB")
                 .put("azure.max-write-concurrency", "7")
@@ -69,6 +74,7 @@ class TestAzureFileSystemConfig
         AzureFileSystemConfig expected = new AzureFileSystemConfig()
                 .setAuthType(AuthType.OAUTH)
                 .setEndpoint("core.usgovcloudapi.net")
+                .setServiceEndpoint(URI.create("https://localhost:4577"))
                 .setReadBlockSize(DataSize.of(3, Unit.MEGABYTE))
                 .setWriteBlockSize(DataSize.of(5, Unit.MEGABYTE))
                 .setMaxWriteConcurrency(7)
@@ -81,5 +87,15 @@ class TestAzureFileSystemConfig
                 .setMultipartWriteEnabled(true);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    void testServiceEndpointRequiresHttps()
+    {
+        assertFailsValidation(
+                new AzureFileSystemConfig().setServiceEndpoint(URI.create("http://localhost:4577")),
+                "serviceEndpointValid",
+                "azure.service-endpoint must be an HTTPS root URI",
+                AssertTrue.class);
     }
 }

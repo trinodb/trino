@@ -20,7 +20,11 @@ import io.trino.Session;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.plugin.base.metrics.DistributionSnapshot;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.testing.BaseConnectorSmokeTest;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
@@ -57,6 +61,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
@@ -911,6 +916,41 @@ public abstract class BaseIcebergConnectorSmokeTest
                     .projected("column_name", "distinct_values_count")
                     .matches("VALUES (VARCHAR 'id', 3e0), (null, null)");
         }
+    }
+
+    @Test
+    public void testShowStatsAfterUpdateAndExpireSnapshots()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+
+        try (TestTable table = newTrinoTable("test_stats_expire", "(id int, val varchar)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+            assertUpdate("UPDATE " + table.getName() + " SET val = 'updated' WHERE id = 1", 1);
+            assertUpdate(session, "ALTER TABLE " + table.getName() + " EXECUTE expire_snapshots(retention_threshold => '0d')");
+
+            assertThat(query("SHOW STATS FOR " + table.getName())).result()
+                    .projected("column_name", "distinct_values_count")
+                    .skippingTypesCheck()
+                    .containsAll("VALUES ('id', DOUBLE '3.0'), ('val', DOUBLE '3.0'), (null, null)");
+        }
+    }
+
+    @Test
+    public void testFileSystemMetrics()
+    {
+        QueryRunner.MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(getSession(), "SELECT * FROM region");
+        Map<String, Metrics> catalogMetrics = getQueryRunner().getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(result.queryId())
+                .getQueryStats()
+                .getCatalogMetadataMetrics();
+        assertThat(catalogMetrics).containsKey("iceberg");
+        Map<String, Metric<?>> metrics = catalogMetrics.get("iceberg").getMetrics();
+        assertThat(metrics.keySet()).anyMatch(key -> key.startsWith("filesystem.catalog."));
+        assertThat(((DistributionSnapshot) metrics.get("filesystem.catalog.all.time.distribution")).total()).isGreaterThan(0);
     }
 
     protected void verifyAnalyzeFailurePermissible(Exception e)

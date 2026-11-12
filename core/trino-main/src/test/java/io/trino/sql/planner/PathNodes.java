@@ -278,11 +278,6 @@ public class PathNodes
         return new IrLikeRegexPredicate(path, XQueryRegex.patternWithFlags(pattern, XQueryRegex.parseFlags("")));
     }
 
-    public static IrPredicate likeRegex(IrPathNode path, String pattern, String flag)
-    {
-        return new IrLikeRegexPredicate(path, XQueryRegex.patternWithFlags(pattern, XQueryRegex.parseFlags(flag)));
-    }
-
     public static IrPredicate negation(IrPredicate predicate)
     {
         return new IrNegationPredicate(predicate);

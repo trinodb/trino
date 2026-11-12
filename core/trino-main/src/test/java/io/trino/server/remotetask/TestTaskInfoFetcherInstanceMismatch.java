@@ -32,7 +32,7 @@ import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
-import io.trino.spi.type.TypeOperators;
+import io.trino.spi.TrinoException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -43,12 +43,15 @@ import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Consumer;
 
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.execution.TaskState.FAILED;
+import static io.trino.execution.TaskState.PLANNED;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskStatus.STARTING_VERSION;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -158,6 +161,33 @@ public class TestTaskInfoFetcherInstanceMismatch
         }
     }
 
+    @Test
+    @Timeout(10)
+    public void testInstanceSeenOnlyByTaskInfoIsEnforcedOnTaskStatus()
+            throws Exception
+    {
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(2);
+        try {
+            TaskInfo initialTaskInfo = createTaskInfo(0, STARTING_VERSION, PLANNED);
+
+            CompletableFuture<Throwable> failure = new CompletableFuture<>();
+            ContinuousTaskStatusFetcher statusFetcher = createStatusFetcher(initialTaskInfo.taskStatus(), failure::complete, executor);
+            TaskInfoFetcher fetcher = createFetcher(initialTaskInfo, statusFetcher, executor);
+
+            fetcher.updateTaskInfo(createTaskInfo(42L, STARTING_VERSION + 1, RUNNING));
+            assertThat(statusFetcher.getTaskStatus().taskInstanceId()).isZero();
+
+            statusFetcher.updateTaskStatus(createTaskInfo(999L, STARTING_VERSION + 1, RUNNING).taskStatus());
+
+            assertThat(failure.get(5, SECONDS))
+                    .isInstanceOfSatisfying(TrinoException.class, e -> assertThat(e.getErrorCode()).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode()));
+            assertThat(statusFetcher.getTaskStatus().taskInstanceId()).isZero();
+        }
+        finally {
+            executor.shutdownNow();
+        }
+    }
+
     private static TaskInfo createTaskInfo(long taskInstanceId, long version, TaskState state)
     {
         TaskStatus status = new TaskStatus(
@@ -211,6 +241,14 @@ public class TestTaskInfoFetcherInstanceMismatch
             TaskStatus initialStatus,
             ScheduledExecutorService executor)
     {
+        return createStatusFetcher(initialStatus, _ -> {}, executor);
+    }
+
+    private static ContinuousTaskStatusFetcher createStatusFetcher(
+            TaskStatus initialStatus,
+            Consumer<Throwable> onFail,
+            ScheduledExecutorService executor)
+    {
         DynamicFiltersFetcher dynamicFiltersFetcher = new DynamicFiltersFetcher(
                 _ -> {},
                 TASK_ID,
@@ -226,11 +264,11 @@ public class TestTaskInfoFetcherInstanceMismatch
                 new DynamicFilterService(
                         createTestingMetadataManager(),
                         PLANNER_CONTEXT.getFunctionManager(),
-                        new TypeOperators(),
+                        PLANNER_CONTEXT.getTypeManager(),
                         new DynamicFilterConfig()));
 
         return new ContinuousTaskStatusFetcher(
-                _ -> {},
+                onFail,
                 initialStatus,
                 new Duration(10, SECONDS),
                 JsonCodec.jsonCodec(TaskStatus.class),

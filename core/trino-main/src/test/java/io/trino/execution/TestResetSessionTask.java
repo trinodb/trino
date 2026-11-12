@@ -50,7 +50,6 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -130,7 +129,7 @@ public class TestResetSessionTask
         getFutureValue(new ResetSessionTask(metadata, sessionPropertyManager).execute(
                 new ResetSession(new NodeLocation(1, 1), QualifiedName.of(CATALOG_NAME, "baz")),
                 stateMachine,
-                emptyList(),
+                ImmutableList.of(),
                 WarningCollector.NOOP));
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();

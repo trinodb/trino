@@ -55,11 +55,6 @@ public final class ExpressionExtractor
         return expressionsBuilder.build();
     }
 
-    public static void forEachExpression(PlanNode plan, Consumer<Expression> expressionConsumer)
-    {
-        plan.accept(new Visitor(expressionConsumer, true, noLookup()), null);
-    }
-
     private ExpressionExtractor() {}
 
     private static class Visitor

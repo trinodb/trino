@@ -31,7 +31,6 @@ import java.util.function.Function;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.TimeType.createTimeType;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static java.lang.String.format;
@@ -116,18 +115,6 @@ public class DataType<T>
                 format("time(%s)", precision),
                 createTimeType(precision),
                 format.toFormatter()::format);
-    }
-
-    /**
-     * @deprecated Use {@link #timestampDataType(int)} instead.
-     */
-    @Deprecated
-    public static DataType<LocalDateTime> timestampDataType()
-    {
-        return dataType(
-                "timestamp",
-                TIMESTAMP_MILLIS,
-                DateTimeFormatter.ofPattern("'TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSS''")::format);
     }
 
     public static DataType<LocalDateTime> timestampDataType(int precision)

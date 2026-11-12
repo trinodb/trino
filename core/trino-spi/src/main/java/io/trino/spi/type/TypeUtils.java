@@ -105,6 +105,23 @@ public final class TypeUtils
         return type == REAL || type == DOUBLE || type == NUMBER;
     }
 
+    /**
+     * Returns whether values of {@code type} are equal exactly when their {@code long} representations
+     * are equal, and are ordered like their {@code long} representations. Such values can be compared,
+     * hashed and sorted directly as {@code long}, instead of going through the type specific operators.
+     */
+    public static boolean isDirectLongComparisonValidType(Type type)
+    {
+        return type instanceof TinyintType ||
+                type instanceof SmallintType ||
+                type instanceof IntegerType ||
+                type instanceof BigintType ||
+                type instanceof TimeType ||
+                type instanceof DateType ||
+                type instanceof TimestampType timestampType && timestampType.isShort() ||
+                type instanceof DecimalType decimalType && decimalType.isShort();
+    }
+
     public static boolean isFloatingPointNaN(Type type, Object value)
     {
         requireNonNull(type, "type is null");
@@ -137,5 +154,19 @@ public final class TypeUtils
             case RowType rowType -> rowType.getFields().stream().anyMatch(field -> containsType(field.getType(), predicate));
             default -> false;
         };
+    }
+
+    public static boolean containsTimestampWithTimeZone(Type type)
+    {
+        if (type instanceof ArrayType arrayType) {
+            return containsTimestampWithTimeZone(arrayType.getElementType());
+        }
+        if (type instanceof MapType mapType) {
+            return containsTimestampWithTimeZone(mapType.getKeyType()) || containsTimestampWithTimeZone(mapType.getValueType());
+        }
+        if (type instanceof RowType rowType) {
+            return rowType.getFields().stream().anyMatch(field -> containsTimestampWithTimeZone(field.getType()));
+        }
+        return type instanceof TimestampWithTimeZoneType;
     }
 }

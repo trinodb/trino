@@ -121,23 +121,6 @@ public class NativeLogicalTypesAvroTypeManager
         };
     }
 
-    static Type getAvroLogicalTypeSpiType(LogicalType logicalType)
-    {
-        return switch (logicalType.getName()) {
-            case DATE -> DateType.DATE;
-            case DECIMAL -> {
-                LogicalTypes.Decimal decimal = (LogicalTypes.Decimal) logicalType;
-                yield DecimalType.createDecimalType(decimal.getPrecision(), decimal.getScale());
-            }
-            case TIME_MILLIS -> TimeType.TIME_MILLIS;
-            case TIME_MICROS -> TimeType.TIME_MICROS;
-            case TIMESTAMP_MILLIS -> TimestampType.TIMESTAMP_MILLIS;
-            case TIMESTAMP_MICROS -> TimestampType.TIMESTAMP_MICROS;
-            case UUID -> UuidType.UUID;
-            default -> throw new IllegalStateException("Unreachable unfiltered logical type");
-        };
-    }
-
     private static BiFunction<Block, Integer, Object> getAvroFunction(AvroLogicalType logicalType, Schema schema, Type type)
             throws AvroTypeException
     {
@@ -257,7 +240,7 @@ public class NativeLogicalTypesAvroTypeManager
                 logicalType = fromSchemaIgnoreInvalid(schema);
                 break;
             case LOCAL_TIMESTAMP_MICROS, LOCAL_TIMESTAMP_MILLIS:
-                log.debug("Logical type %s not currently supported by by Trino", typeName);
+                log.debug("Logical type %s not currently supported by Trino", typeName);
                 // fall through
             default:
                 return new NonNativeAvroLogicalType(typeName);

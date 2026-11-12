@@ -14,7 +14,6 @@
 package io.trino.testing.statistics;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 
 import java.util.Map;
@@ -34,10 +33,5 @@ public class StatsContext
     {
         checkArgument(columnSymbols.containsKey(columnName), "no symbol found for column '%s'", columnName);
         return columnSymbols.get(columnName);
-    }
-
-    public Type getTypeForSymbol(Symbol symbol)
-    {
-        return symbol.type();
     }
 }

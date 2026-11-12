@@ -72,7 +72,9 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
@@ -573,6 +575,30 @@ public class TestQueryStateMachine
         queryInfo = stateMachine.updateResultQueryInfo(stateMachine.getQueryState(), Optional.empty(), Optional::empty);
         assertThat(queryInfo.state()).isEqualTo(FAILED);
         assertThat(queryInfo.finalQueryInfo()).isTrue();
+        assertThat(stateMachine.getFinalQueryInfo()).isPresent();
+    }
+
+    @Test
+    public void testUpdateFinalQueryInfoBuildsStagesInfoOnlyWhenDone()
+    {
+        QueryStateMachine stateMachine = createQueryStateMachine();
+        assertThat(stateMachine.transitionToPlanning()).isTrue();
+        assertThat(stateMachine.transitionToStarting()).isTrue();
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+
+        AtomicInteger stagesInfoBuilds = new AtomicInteger();
+        Supplier<Optional<StagesInfo>> stagesInfoProvider = () -> {
+            stagesInfoBuilds.incrementAndGet();
+            return Optional.empty();
+        };
+
+        stateMachine.updateFinalQueryInfo(stagesInfoProvider);
+        assertThat(stagesInfoBuilds.get()).isZero();
+        assertThat(stateMachine.getFinalQueryInfo()).isEmpty();
+
+        assertThat(stateMachine.transitionToFailed(newFailedCause())).isTrue();
+        stateMachine.updateFinalQueryInfo(stagesInfoProvider);
+        assertThat(stagesInfoBuilds.get()).isEqualTo(1);
         assertThat(stateMachine.getFinalQueryInfo()).isPresent();
     }
 

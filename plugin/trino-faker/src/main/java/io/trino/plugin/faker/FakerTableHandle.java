@@ -19,7 +19,7 @@ import io.trino.spi.connector.SchemaTableName;
 
 import static java.util.Objects.requireNonNull;
 
-public record FakerTableHandle(SchemaTableName schemaTableName, long limit)
+public record FakerTableHandle(SchemaTableName schemaTableName, long limit, long seed)
         implements ConnectorTableHandle
 {
     public FakerTableHandle
@@ -29,6 +29,6 @@ public record FakerTableHandle(SchemaTableName schemaTableName, long limit)
 
     public FakerTableHandle withLimit(long limit)
     {
-        return new FakerTableHandle(schemaTableName, limit);
+        return new FakerTableHandle(schemaTableName, limit, seed);
     }
 }

@@ -45,14 +45,6 @@ public class TestingIcebergConnectorFactory
         this(localFileSystemRootPath, Optional::empty, Optional::empty);
     }
 
-    @Deprecated
-    public TestingIcebergConnectorFactory(
-            Path localFileSystemRootPath,
-            Supplier<Optional<Module>> icebergCatalogModule)
-    {
-        this(localFileSystemRootPath, icebergCatalogModule, Optional::empty);
-    }
-
     public TestingIcebergConnectorFactory(
             Path localFileSystemRootPath,
             Supplier<Optional<Module>> icebergCatalogModule,

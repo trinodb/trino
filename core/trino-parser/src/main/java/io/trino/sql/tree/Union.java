@@ -23,15 +23,10 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class Union
+public final class Union
         extends SetOperation
 {
     private final List<Relation> relations;
-
-    public Union(List<Relation> relations, boolean distinct, Optional<Corresponding> corresponding)
-    {
-        this(Optional.empty(), relations, distinct, corresponding);
-    }
 
     public Union(NodeLocation location, List<Relation> relations, boolean distinct, Optional<Corresponding> corresponding)
     {
@@ -51,12 +46,6 @@ public class Union
     public List<Relation> getRelations()
     {
         return relations;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitUnion(this, context);
     }
 
     @Override

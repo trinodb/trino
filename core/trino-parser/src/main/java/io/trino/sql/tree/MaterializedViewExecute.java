@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class MaterializedViewExecute
+public final class MaterializedViewExecute
         extends Statement
 {
     private final Table table;
@@ -67,12 +67,6 @@ public class MaterializedViewExecute
     public Optional<Expression> getWhere()
     {
         return where;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMaterializedViewExecute(this, context);
     }
 
     @Override

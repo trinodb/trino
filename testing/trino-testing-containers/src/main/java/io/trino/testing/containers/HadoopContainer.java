@@ -13,25 +13,22 @@
  */
 package io.trino.testing.containers;
 
-import dev.failsafe.Failsafe;
-import dev.failsafe.RetryPolicy;
-import io.airlift.log.Logger;
 import io.trino.testing.TestingProperties;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 /**
  * A reusable Hadoop container for product tests.
@@ -50,15 +47,6 @@ import static java.util.Objects.requireNonNull;
 public class HadoopContainer
         extends GenericContainer<HadoopContainer>
 {
-    private static final Logger log = Logger.get(HadoopContainer.class);
-
-    private static final RetryPolicy<Object> DOWNLOAD_RETRY_POLICY = RetryPolicy.builder()
-            .handle(IOException.class)
-            .withMaxAttempts(5)
-            .withBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10))
-            .onRetry(event -> log.warn(event.getLastException(), "Download failed (attempt %s), retrying", event.getAttemptCount()))
-            .build();
-
     private static final String DEFAULT_IMAGE = "ghcr.io/trinodb/testing/hive3.1";
     private static final String KERBERIZED_IMAGE = "ghcr.io/trinodb/testing/hive3.1-kerberos";
     private static final String GCP_CREDENTIALS_FILE = "/etc/trino/gcp-credentials.json";
@@ -255,12 +243,6 @@ public class HadoopContainer
                """.formatted(hostName);
     }
 
-    // Core-site configuration with HDFS default and proxy user settings
-    private String getCoreSiteXml()
-    {
-        return getCoreSiteXml(false);
-    }
-
     // Core-site configuration with optional LZO codec registration
     private String getCoreSiteXml(boolean includeLzoCodecs)
     {
@@ -448,14 +430,6 @@ public class HadoopContainer
     public String getHiveMetastoreUri()
     {
         return "thrift://" + hostName + ":" + HIVE_METASTORE_PORT;
-    }
-
-    /**
-     * Returns the externally accessible Hive Metastore URI for connecting from the host.
-     */
-    public String getExternalHiveMetastoreUri()
-    {
-        return "thrift://" + getHost() + ":" + getMappedPort(HIVE_METASTORE_PORT);
     }
 
     /**
@@ -886,55 +860,27 @@ public class HadoopContainer
     /**
      * Configures the container to include the pure Java LZO compression codec.
      * <p>
-     * This downloads lzo-hadoop and lzo-core JARs from Maven Central and
-     * bind mounts them into the Hive lib directory, enabling LZO/LZOP compression
+     * This copies the provided lzo-hadoop and lzo-core JARs into the Hive and
+     * Hadoop lib directories, enabling LZO/LZOP compression
      * support without any native library dependencies.
      * <p>
      * This method must be called before {@link #start()}.
      *
      * @return this container for method chaining
-     * @throws RuntimeException if downloading the JARs fails
      */
-    public HadoopContainer withLzoCodec()
+    public HadoopContainer withLzoCodec(Path lzoHadoopJar, Path lzoCoreJar)
     {
-        try {
-            String lzoHadoopUrl = "https://repo1.maven.org/maven2/org/anarres/lzo/lzo-hadoop/1.0.6/lzo-hadoop-1.0.6.jar";
-            String lzoCoreUrl = "https://repo1.maven.org/maven2/org/anarres/lzo/lzo-core/1.0.6/lzo-core-1.0.6.jar";
+        // Copy to Hive lib directory
+        withCopyFileToContainer(forHostPath(lzoHadoopJar), "/opt/hive/lib/lzo-hadoop.jar");
+        withCopyFileToContainer(forHostPath(lzoCoreJar), "/opt/hive/lib/lzo-core.jar");
 
-            byte[] lzoHadoopJar = Failsafe.with(DOWNLOAD_RETRY_POLICY).get(() -> downloadUrl(lzoHadoopUrl));
-            byte[] lzoCoreJar = Failsafe.with(DOWNLOAD_RETRY_POLICY).get(() -> downloadUrl(lzoCoreUrl));
+        // Also copy to Hadoop lib directory for MapReduce jobs
+        withCopyFileToContainer(forHostPath(lzoHadoopJar), "/opt/hadoop/share/hadoop/common/lib/lzo-hadoop.jar");
+        withCopyFileToContainer(forHostPath(lzoCoreJar), "/opt/hadoop/share/hadoop/common/lib/lzo-core.jar");
 
-            // Verify downloads succeeded
-            if (lzoHadoopJar.length < 1000) {
-                throw new RuntimeException("lzo-hadoop JAR download appears to have failed, size=" + lzoHadoopJar.length);
-            }
-            if (lzoCoreJar.length < 1000) {
-                throw new RuntimeException("lzo-core JAR download appears to have failed, size=" + lzoCoreJar.length);
-            }
+        // Enable LZO codec registration in core-site.xml (applied in containerIsStarting)
+        this.lzoCodecEnabled = true;
 
-            // Copy to Hive lib directory
-            withCopyToContainer(Transferable.of(lzoHadoopJar), "/opt/hive/lib/lzo-hadoop-1.0.6.jar");
-            withCopyToContainer(Transferable.of(lzoCoreJar), "/opt/hive/lib/lzo-core-1.0.6.jar");
-
-            // Also copy to Hadoop lib directory for MapReduce jobs
-            withCopyToContainer(Transferable.of(lzoHadoopJar), "/opt/hadoop/share/hadoop/common/lib/lzo-hadoop-1.0.6.jar");
-            withCopyToContainer(Transferable.of(lzoCoreJar), "/opt/hadoop/share/hadoop/common/lib/lzo-core-1.0.6.jar");
-
-            // Enable LZO codec registration in core-site.xml (applied in containerIsStarting)
-            this.lzoCodecEnabled = true;
-
-            return this;
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Failed to configure LZO codec", e);
-        }
-    }
-
-    private static byte[] downloadUrl(String url)
-            throws Exception
-    {
-        try (InputStream in = URI.create(url).toURL().openStream()) {
-            return in.readAllBytes();
-        }
+        return this;
     }
 }

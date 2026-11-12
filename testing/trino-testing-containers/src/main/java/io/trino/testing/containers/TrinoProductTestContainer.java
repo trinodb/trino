@@ -13,10 +13,12 @@
  */
 package io.trino.testing.containers;
 
+import com.github.dockerjava.api.model.ContainerConfig;
 import io.airlift.units.DataSize;
+import io.trino.testing.containers.environment.EnvironmentManager;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.trino.TrinoContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -30,8 +32,10 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
+import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.Objects.requireNonNull;
 
@@ -70,13 +74,20 @@ public final class TrinoProductTestContainer
     private static final String DEFAULT_IMAGE = "trinodb/trino";
     private static final DataSize MEMORY_LIMIT = DataSize.of(6, GIGABYTE);
     private static final long CPU_LIMIT = 4;
+    static final int STARTUP_TIMEOUT_SECONDS = 300;
 
     private TrinoProductTestContainer() {}
 
     /**
-     * Limits the resources of a container running the Trino image. The image sizes the JVM heap
-     * as a percentage of the available memory, so without a limit every Trino container sizes its
-     * heap from the whole host's memory, and together they overcommit it. The provided
+     * Configures a container running the Trino image for product tests: removes the plugins not used
+     * by the product test suite, and limits the container resources.
+     * <p>
+     * The suite runner restricts the {@link EnvironmentManager#installedPlugins() installed plugins} to the plugins
+     * the suite declares, and CI selects the suites to run for a change based on these declarations. Removing the other
+     * plugins makes the suite fail when it uses a plugin it does not declare.
+     * <p>
+     * The image sizes the JVM heap as a percentage of the available memory, so without a limit every
+     * Trino container sizes its heap from the whole host's memory, and together they overcommit it. The provided
      * {@code jvm.config} sets the heap explicitly instead, leaving room for off-heap memory within
      * the container's limit. An environment can copy its own {@code jvm.config} afterwards.
      * <p>
@@ -85,8 +96,9 @@ public final class TrinoProductTestContainer
      * limit and creates up to 8 malloc arenas per host CPU, each retaining freed memory, so the
      * number of arenas is limited as well.
      */
-    public static <T extends GenericContainer<?>> T withResourceLimits(T container)
+    public static <T extends GenericContainer<?>> T configureTrinoContainer(T container)
     {
+        removeUndeclaredPlugins(container);
         container.withCopyFileToContainer(MountableFile.forClasspathResource("io/trino/testing/containers/jvm.config"), "/etc/trino/jvm.config");
         container.withEnv("MALLOC_ARENA_MAX", "2");
         container.withCreateContainerCmdModifier(command -> command.getHostConfig()
@@ -94,6 +106,32 @@ public final class TrinoProductTestContainer
                 .withMemorySwap(MEMORY_LIMIT.toBytes())
                 .withNanoCPUs(CPU_LIMIT * 1_000_000_000));
         return container;
+    }
+
+    private static void removeUndeclaredPlugins(GenericContainer<?> container)
+    {
+        Optional<Set<String>> plugins = EnvironmentManager.shared().installedPlugins();
+        if (plugins.isEmpty()) {
+            return;
+        }
+        // The image has no find. The script removes the plugins, then runs the container's command.
+        String script = "cd /usr/lib/trino/plugin && for plugin in *; do case \"$plugin\" in %s) ;; *) rm -r \"$plugin\" || exit 1 ;; esac; done && exec \"$@\""
+                .formatted(String.join("|", plugins.get()));
+        container.withCreateContainerCmdModifier(command -> {
+            ContainerConfig image = DockerClientFactory.instance().client().inspectImageCmd(command.getImage()).exec().getConfig();
+            checkState(isEmpty(command.getEntrypoint()) && isEmpty(image.getEntrypoint()), "Removing plugins of a container with an entrypoint is not supported");
+            String[] containerCommand = command.getCmd();
+            if (isEmpty(containerCommand)) {
+                containerCommand = image.getCmd();
+            }
+            command.withEntrypoint("/bin/sh", "-c", script, "sh")
+                    .withCmd(containerCommand);
+        });
+    }
+
+    private static boolean isEmpty(String[] array)
+    {
+        return array == null || array.length == 0;
     }
 
     /**
@@ -136,15 +174,6 @@ public final class TrinoProductTestContainer
             connection.close();
             throw e;
         }
-    }
-
-    /**
-     * Creates a JDBC connection to the given Trino container with the specified properties.
-     */
-    public static Connection createConnection(TrinoContainer container, Properties properties)
-            throws SQLException
-    {
-        return DriverManager.getConnection(container.getJdbcUrl(), properties);
     }
 
     /**
@@ -218,15 +247,6 @@ public final class TrinoProductTestContainer
         private Builder() {}
 
         /**
-         * Sets the Docker image to use for Trino.
-         */
-        public Builder withImage(String imageName)
-        {
-            this.imageName = requireNonNull(imageName, "imageName is null");
-            return this;
-        }
-
-        /**
          * Sets the Trino version to use (uses trinodb/trino:{version}).
          */
         public Builder withVersion(String version)
@@ -298,7 +318,7 @@ public final class TrinoProductTestContainer
          */
         public TrinoContainer build()
         {
-            TrinoContainer container = withResourceLimits(new TrinoContainer(DockerImageName.parse(imageName).asCompatibleSubstituteFor("trinodb/trino")));
+            TrinoContainer container = configureTrinoContainer(new TrinoContainer(DockerImageName.parse(imageName).asCompatibleSubstituteFor("trinodb/trino")));
 
             // Add catalog configurations
             for (Map.Entry<String, Map<String, String>> catalog : catalogs.entrySet()) {
@@ -325,12 +345,8 @@ public final class TrinoProductTestContainer
                 }
             }
 
-            // Add a more robust wait strategy that ensures nodes are available
-            container.waitingFor(
-                    Wait.forHttp("/v1/info")
-                            .forPort(8080)
-                            .forStatusCode(200)
-                            .withStartupTimeout(Duration.ofSeconds(90)));
+            // TrinoContainer waits by running a test query, ignoring waitingFor()
+            container.withStartupTimeoutSeconds(STARTUP_TIMEOUT_SECONDS);
 
             return container;
         }

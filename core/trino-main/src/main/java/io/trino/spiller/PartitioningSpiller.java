@@ -46,8 +46,6 @@ public interface PartitioningSpiller
     // TODO getSpilledPages should not need flush last buffer to disk
     Iterator<Page> getSpilledPages(int partition);
 
-    void verifyAllPartitionsRead();
-
     /**
      * Closes and removes all underlying resources used during spilling.
      */

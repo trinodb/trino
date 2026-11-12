@@ -13,6 +13,7 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 
 import java.util.LinkedHashMap;
@@ -21,7 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
-import static java.util.Collections.emptyMap;
+import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -30,6 +31,7 @@ public class ColumnMetadata
 {
     private final String name;
     private final Type type;
+    private final Optional<TimeZoneKey> timeZone;
     private final Optional<String> defaultValue;
     private final boolean nullable;
     private final Optional<String> comment;
@@ -39,13 +41,14 @@ public class ColumnMetadata
 
     public ColumnMetadata(String name, Type type)
     {
-        this(name, type, Optional.empty(), true, Optional.empty(), Optional.empty(), false, emptyMap());
+        this(name, type, Optional.empty(), Optional.empty(), true, Optional.empty(), Optional.empty(), false, Map.of());
     }
 
     // VisibleForTesting
     ColumnMetadata(
             String name,
             Type type,
+            Optional<TimeZoneKey> timeZone,
             Optional<String> defaultValue,
             boolean nullable,
             Optional<String> comment,
@@ -55,6 +58,10 @@ public class ColumnMetadata
     {
         checkNotEmpty(name, "name");
         requireNonNull(type, "type is null");
+        requireNonNull(timeZone, "timeZone is null");
+        if (timeZone.isPresent() && !containsTimestampWithTimeZone(type)) {
+            throw new IllegalArgumentException("timeZone is set for column %s of type %s, which contains no timestamp with time zone".formatted(name, type));
+        }
         requireNonNull(defaultValue, "defaultValue is null");
         requireNonNull(comment, "comment is null");
         requireNonNull(extraInfo, "extraInfo is null");
@@ -62,11 +69,12 @@ public class ColumnMetadata
 
         this.name = name.toLowerCase(ENGLISH);
         this.type = type;
+        this.timeZone = timeZone;
         this.defaultValue = defaultValue;
         this.comment = comment;
         this.extraInfo = extraInfo;
         this.hidden = hidden;
-        this.properties = properties.isEmpty() ? emptyMap() : unmodifiableMap(new LinkedHashMap<>(properties));
+        this.properties = properties.isEmpty() ? Map.of() : unmodifiableMap(new LinkedHashMap<>(properties));
         this.nullable = nullable;
     }
 
@@ -78,6 +86,13 @@ public class ColumnMetadata
     public Type getType()
     {
         return type;
+    }
+
+    /// The zone of every `time with time zone` or timestamp with time zone` value in the column,
+    /// nested ones included, when the connector guarantees one.
+    public Optional<TimeZoneKey> getTimeZone()
+    {
+        return timeZone;
     }
 
     public Optional<String> getDefaultValue()
@@ -122,6 +137,8 @@ public class ColumnMetadata
         StringBuilder sb = new StringBuilder("ColumnMetadata{");
         sb.append("name='").append(name).append('\'');
         sb.append(", type=").append(type);
+        timeZone.ifPresent(zone ->
+                sb.append(", timeZone=").append(zone.getId()));
         sb.append(", ").append(nullable ? "nullable" : "nonnull");
         comment.ifPresent(text ->
                 sb.append(", comment='").append(text).append('\''));
@@ -140,7 +157,7 @@ public class ColumnMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, nullable, comment, extraInfo, hidden);
+        return Objects.hash(name, type, timeZone, nullable, comment, extraInfo, hidden);
     }
 
     @Override
@@ -155,6 +172,7 @@ public class ColumnMetadata
         ColumnMetadata other = (ColumnMetadata) obj;
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
+                Objects.equals(this.timeZone, other.timeZone) &&
                 this.nullable == other.nullable &&
                 Objects.equals(this.comment, other.comment) &&
                 Objects.equals(this.extraInfo, other.extraInfo) &&
@@ -175,12 +193,13 @@ public class ColumnMetadata
     {
         private String name;
         private Type type;
+        private Optional<TimeZoneKey> timeZone = Optional.empty();
         private Optional<String> defaultValue = Optional.empty();
         private boolean nullable = true;
         private Optional<String> comment = Optional.empty();
         private Optional<String> extraInfo = Optional.empty();
         private boolean hidden;
-        private Map<String, Object> properties = emptyMap();
+        private Map<String, Object> properties = Map.of();
 
         private Builder() {}
 
@@ -188,6 +207,7 @@ public class ColumnMetadata
         {
             this.name = columnMetadata.getName();
             this.type = columnMetadata.getType();
+            this.timeZone = columnMetadata.getTimeZone();
             this.defaultValue = columnMetadata.getDefaultValue();
             this.nullable = columnMetadata.isNullable();
             this.comment = columnMetadata.getComment();
@@ -205,6 +225,12 @@ public class ColumnMetadata
         public Builder setType(Type type)
         {
             this.type = requireNonNull(type, "type is null");
+            return this;
+        }
+
+        public Builder setTimeZone(Optional<TimeZoneKey> timeZone)
+        {
+            this.timeZone = requireNonNull(timeZone, "timeZone is null");
             return this;
         }
 
@@ -249,6 +275,7 @@ public class ColumnMetadata
             return new ColumnMetadata(
                     name,
                     type,
+                    timeZone,
                     defaultValue,
                     nullable,
                     comment,

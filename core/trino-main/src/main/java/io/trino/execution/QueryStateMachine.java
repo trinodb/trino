@@ -1497,6 +1497,14 @@ public class QueryStateMachine
         return queryInfo;
     }
 
+    public void updateFinalQueryInfo(Supplier<Optional<StagesInfo>> stagesInfoProvider)
+    {
+        // query info is final only once the query is done
+        if (isDone()) {
+            updateQueryInfo(stagesInfoProvider.get());
+        }
+    }
+
     public ResultQueryInfo updateResultQueryInfo(QueryState state, Optional<BasicStagesInfo> stages, Supplier<Optional<StagesInfo>> stagesInfoProvider)
     {
         ResultQueryInfo queryInfo = getResultQueryInfo(state, stages);

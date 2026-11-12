@@ -338,11 +338,11 @@ public class ReorderJoins
          * <p>
          * Requiring both sides to be connected does not remove any join order: a set of sources
          * that is disconnected cannot be joined without a cross join at some level, and
-         * {@link #createJoin} rejects those with {@link #INFINITE_COST_RESULT}. Skipping them turns
-         * enumeration of all {@code 2^n} partitions of every subset into an enumeration of the
-         * connected subgraph pairs only, which for anything sparser than a clique is dramatically
-         * fewer. A clique — the shape that joining several tables on one shared key produces — is
-         * not improved at all.
+         * {@link #createJoin} rejects those with {@link JoinEnumerationResult#INFINITE_COST_RESULT}.
+         * Skipping them turns enumeration of all {@code 2^n} partitions of every subset into an
+         * enumeration of the connected subgraph pairs only, which for anything sparser than a clique
+         * is dramatically fewer. A clique — the shape that joining several tables on one shared key
+         * produces — is not improved at all.
          * <p>
          * Partitions are returned in ascending mask order, which is the order in which a plain
          * enumeration of all subsets would have evaluated them.

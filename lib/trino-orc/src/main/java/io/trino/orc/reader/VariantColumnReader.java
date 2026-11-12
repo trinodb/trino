@@ -139,8 +139,8 @@ public class VariantColumnReader
             }
             else {
                 // All values are null
-                metadataBlock = RunLengthEncodedBlock.create(VARBINARY.createBlockBuilder(null, 0).appendNull().build(), nextBatchSize);
-                valueBlock = RunLengthEncodedBlock.create(VARBINARY.createBlockBuilder(null, 0).appendNull().build(), nextBatchSize);
+                metadataBlock = RunLengthEncodedBlock.create(VARBINARY.createBlockBuilder(null, 1).appendNull().build(), nextBatchSize);
+                valueBlock = RunLengthEncodedBlock.create(VARBINARY.createBlockBuilder(null, 1).appendNull().build(), nextBatchSize);
             }
         }
 

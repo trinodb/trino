@@ -15,6 +15,8 @@ package io.trino.plugin.iceberg.delete;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.block.Block;
@@ -28,21 +30,23 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
 import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 
@@ -50,17 +54,23 @@ public final class PositionDeleteReader
 {
     private PositionDeleteReader() {}
 
-    public static Optional<DeletionVector> readPositionDeletes(
+    /**
+     * Starts reading the position delete files that apply to the split and returns a future of the combined deletion vector.
+     * Each file is opened on {@code openExecutor}, and decoded and merged on {@code decodeExecutor}.
+     */
+    public static ListenableFuture<Optional<DeletionVector>> readPositionDeletes(
             String dataFilePath,
             List<DeleteFile> positionDeleteFiles,
             OptionalLong startRowPosition,
             OptionalLong endRowPosition,
             DeletePageSourceProvider deletePageSourceProvider,
             TypeManager typeManager,
+            Executor openExecutor,
+            Executor decodeExecutor,
             MemoryContext memoryContext)
     {
         if (positionDeleteFiles.isEmpty()) {
-            return Optional.empty();
+            return immediateFuture(Optional.empty());
         }
 
         Slice targetPath = utf8Slice(dataFilePath);
@@ -75,23 +85,28 @@ public final class PositionDeleteReader
             TupleDomain<IcebergColumnHandle> positionDomain = TupleDomain.withColumnDomains(ImmutableMap.of(deleteFilePos, Domain.create(ValueSet.ofRanges(positionRange), false)));
             deleteDomain = deleteDomain.intersect(positionDomain);
         }
+        TupleDomain<IcebergColumnHandle> effectiveDeleteDomain = deleteDomain;
 
         DeletionVector.Builder deletionVector = DeletionVector.builder();
-        for (DeleteFile deleteFile : positionDeleteFiles) {
-            if (shouldLoadPositionDeleteFile(deleteFile, startRowPosition, endRowPosition)) {
-                try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, deleteDomain)) {
-                    readMultiFilePositionDeletes(pageSource, targetPath, deletionVector::add);
-                }
-                catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-                // report after each file so that concurrent loads get memory pool pushback
-                // before the whole set is read
-                memoryContext.setBytes(deletionVector.retainedSizeInBytes());
-            }
-        }
-
-        return deletionVector.build();
+        ReferenceCountedLoader<ConnectorPageSource> loader = new ReferenceCountedLoader<>();
+        List<DeleteFile> filesToLoad = positionDeleteFiles.stream()
+                .filter(deleteFile -> shouldLoadPositionDeleteFile(deleteFile, startRowPosition, endRowPosition))
+                .collect(toImmutableList());
+        ListenableFuture<Void> loads = BoundedLoader.loadAll(
+                filesToLoad,
+                deleteFile -> loader.load(
+                        deleteFile.path(),
+                        openExecutor,
+                        () -> deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, effectiveDeleteDomain),
+                        decodeExecutor,
+                        pageSource -> {
+                            // decodes run one at a time on the thread reading the split, so they add to the vector directly
+                            readMultiFilePositionDeletes(pageSource, targetPath, deletionVector::add);
+                            // report after each file so that concurrent loads get memory pool pushback
+                            // before the whole set is read
+                            memoryContext.setBytes(deletionVector.retainedSizeInBytes());
+                        }));
+        return Futures.transform(loads, _ -> deletionVector.build(), directExecutor());
     }
 
     private static boolean shouldLoadPositionDeleteFile(DeleteFile deleteFile, OptionalLong startRowPosition, OptionalLong endRowPosition)
@@ -109,6 +124,7 @@ public final class PositionDeleteReader
     public static void readSingleFilePositionDeletes(ConnectorPageSource pageSource, LongConsumer filePositionConsumer)
     {
         while (!pageSource.isFinished()) {
+            getFutureValue(pageSource.isBlocked());
             SourcePage page = pageSource.getNextSourcePage();
             if (page == null) {
                 continue;
@@ -127,8 +143,8 @@ public final class PositionDeleteReader
         // Use a linear search since we expect most deletion files to only contain
         // entries for a single path. The comparison cost is minimal if the
         // path values are dictionary encoded, since we only do the comparison once.
-        CachingVarcharComparator comparator = new CachingVarcharComparator(targetPath);
         while (!pageSource.isFinished()) {
+            getFutureValue(pageSource.isBlocked());
             SourcePage page = pageSource.getNextSourcePage();
             if (page == null) {
                 continue;
@@ -138,8 +154,17 @@ public final class PositionDeleteReader
             Block block = page.getBlock(1);
 
             // TODO: add specialized code for RLE and dictionary blocks
+            int lastPathPosition = -1;
+            int result = 0;
             for (int position = 0; position < page.getPositionCount(); position++) {
-                int result = comparator.compare(pathBlock, position);
+                // The expected case is a dictionary block with many entries for the
+                // same path. Only perform a comparison if the path has changed.
+                int pathPosition = pathBlock.getUnderlyingValuePosition(position);
+                if (lastPathPosition != pathPosition) {
+                    checkArgument(!pathBlock.isNull(position), "position is null");
+                    lastPathPosition = pathPosition;
+                    result = VARCHAR.getSlice(pathBlock, position).compareTo(targetPath);
+                }
                 if (result > 0) {
                     // deletion files are sorted by path, so we're done
                     return;
@@ -154,6 +179,7 @@ public final class PositionDeleteReader
     public static void readMultiFilePositionDeletes(ConnectorPageSource pageSource, BiConsumer<String, Long> filePositionConsumer)
     {
         while (!pageSource.isFinished()) {
+            getFutureValue(pageSource.isBlocked());
             SourcePage page = pageSource.getNextSourcePage();
             if (page == null) {
                 continue;
@@ -162,50 +188,19 @@ public final class PositionDeleteReader
             Block pathBlock = page.getBlock(0);
             Block posBlock = page.getBlock(1);
 
-            Slice lastPath = null;
+            int lastPathPosition = -1;
             String pathString = null;
             for (int position = 0; position < page.getPositionCount(); position++) {
-                Slice path = VARCHAR.getSlice(pathBlock, position);
-                // We expect that paths are dictionary or RLE encoded, and thus getSlice()
-                // will return the same object for each delete position for a data file,
+                // We expect that paths are dictionary or RLE encoded, and thus the delete
+                // positions for a data file share the same underlying value position,
                 // so this caches the conversion to string.
-                if (lastPath != path) {
-                    lastPath = path;
-                    pathString = path.toStringUtf8();
+                int pathPosition = pathBlock.getUnderlyingValuePosition(position);
+                if (lastPathPosition != pathPosition) {
+                    lastPathPosition = pathPosition;
+                    pathString = VARCHAR.getSlice(pathBlock, position).toStringUtf8();
                 }
                 filePositionConsumer.accept(pathString, BIGINT.getLong(posBlock, position));
             }
-        }
-    }
-
-    private static final class CachingVarcharComparator
-    {
-        private final Slice reference;
-        private int result;
-        private Slice value;
-
-        public CachingVarcharComparator(Slice reference)
-        {
-            this.reference = requireNonNull(reference, "reference is null");
-        }
-
-        @SuppressWarnings({"ObjectEquality", "ReferenceEquality"})
-        public int compare(Block block, int position)
-        {
-            checkArgument(!block.isNull(position), "position is null");
-            Slice next = VARCHAR.getSlice(block, position);
-            return compare(next);
-        }
-
-        public int compare(Slice next)
-        {
-            // The expected case is a dictionary block with many entries for the
-            // same path. Only perform a comparison if the object has changed.
-            if (value != next) {
-                value = next;
-                result = value.compareTo(reference);
-            }
-            return result;
         }
     }
 }

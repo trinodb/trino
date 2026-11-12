@@ -39,11 +39,6 @@ public final class QueryCardinalityUtil
 {
     private QueryCardinalityUtil() {}
 
-    public static boolean isScalar(PlanNode node)
-    {
-        return isScalar(node, noLookup());
-    }
-
     public static boolean isScalar(PlanNode node, Lookup lookup)
     {
         return extractCardinality(node, lookup).isScalar();

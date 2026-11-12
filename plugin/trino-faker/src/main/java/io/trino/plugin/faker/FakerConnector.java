@@ -27,7 +27,6 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
@@ -39,8 +38,10 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.DISTRIBUTION_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.REFERENCES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
@@ -48,6 +49,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -61,7 +63,7 @@ public class FakerConnector
     private final FakerSplitManager splitManager;
     private final FakerPageSourceProvider pageSourceProvider;
     private final FakerPageSinkProvider pageSinkProvider;
-    private final FunctionBundle functionBundle;
+    private final FakerFunctionProvider functionProvider;
 
     @Inject
     public FakerConnector(
@@ -70,14 +72,14 @@ public class FakerConnector
             FakerSplitManager splitManager,
             FakerPageSourceProvider pageSourceProvider,
             FakerPageSinkProvider pageSinkProvider,
-            FunctionBundle functionBundle)
+            FakerFunctionProvider functionProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
+        this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
     }
 
     @Override
@@ -145,6 +147,13 @@ public class FakerConnector
                         If true, when creating a table using existing data, columns with a low number of distinct values
                         are treated as dictionaries, and get the allowed_values column property populated with random values""",
                         null,
+                        false),
+                booleanProperty(
+                        SchemaInfo.GENERATOR_DETECTION_ENABLED,
+                        """
+                        If true, when creating a table, CHAR and VARCHAR columns with a recognized name, like email or city,
+                        get the generator column property set to a matching Faker expression""",
+                        null,
                         false));
     }
 
@@ -176,6 +185,18 @@ public class FakerConnector
                         """
                         If true, when creating a table using existing data, columns with a low number of distinct values
                         are treated as dictionaries, and get the allowed_values column property populated with random values""",
+                        null,
+                        false),
+                booleanProperty(
+                        TableInfo.GENERATOR_DETECTION_ENABLED,
+                        """
+                        If true, when creating a table, CHAR and VARCHAR columns with a recognized name, like email or city,
+                        get the generator column property set to a matching Faker expression""",
+                        null,
+                        false),
+                longProperty(
+                        TableInfo.SEED_PROPERTY,
+                        "Seed for generating data in this table, derived from the schema and table name if not specified",
                         null,
                         false));
     }
@@ -228,6 +249,17 @@ public class FakerConnector
                         STEP_PROPERTY,
                         "If set, generate sequential values with this step. For date and time columns set this to a duration",
                         null,
+                        false),
+                stringProperty(
+                        REFERENCES_PROPERTY,
+                        "Column of the same or another table, as table.column or schema.table.column, to generate only values existing in that column",
+                        null,
+                        false),
+                enumProperty(
+                        DISTRIBUTION_PROPERTY,
+                        "Distribution of generated values",
+                        Distribution.class,
+                        null,
                         false));
     }
 
@@ -241,7 +273,7 @@ public class FakerConnector
     @Override
     public Optional<FunctionProvider> getFunctionProvider()
     {
-        return Optional.of(functionBundle.toProvider());
+        return Optional.of(functionProvider);
     }
 
     @Override

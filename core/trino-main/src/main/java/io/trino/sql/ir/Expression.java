@@ -70,14 +70,6 @@ public sealed interface Expression
     @Override
     String toString();
 
-    /**
-     * Accessible for {@link IrVisitor}, use {@link IrVisitor#process(Expression, Object)} instead.
-     */
-    default <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitExpression(this, context);
-    }
-
     @JsonIgnore
     List<? extends Expression> children();
 }

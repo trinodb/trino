@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class SubqueryExpression
+public final class SubqueryExpression
         extends Expression
 {
     private final Query query;
@@ -40,12 +40,6 @@ public class SubqueryExpression
     public Query getQuery()
     {
         return query;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSubqueryExpression(this, context);
     }
 
     @Override

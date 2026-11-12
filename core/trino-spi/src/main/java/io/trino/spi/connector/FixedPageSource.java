@@ -15,6 +15,7 @@ package io.trino.spi.connector;
 
 import io.trino.spi.Page;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -23,15 +24,18 @@ import static java.util.Objects.requireNonNull;
 public class FixedPageSource
         implements ConnectorPageSource
 {
-    private final Iterator<Page> pages;
-    private final long memoryUsageBytes;
+    private Iterator<Page> pages;
+    private final MemoryContext memoryContext;
 
     private long completedBytes;
     private boolean closed;
 
-    public FixedPageSource(List<Page> pages)
+    /**
+     * Reports the retained size of {@code pages} to {@code memoryContext}.
+     */
+    public FixedPageSource(List<Page> pages, MemoryContext memoryContext)
     {
-        this(pages.iterator(), memoryUsage(pages));
+        this(pages.iterator(), memoryUsage(pages), memoryContext);
     }
 
     private static long memoryUsage(List<Page> pages)
@@ -43,16 +47,23 @@ public class FixedPageSource
         return memoryUsageBytes;
     }
 
-    public FixedPageSource(Iterator<Page> pages, long memoryUsageBytes)
+    /**
+     * Reports {@code memoryUsageBytes} to {@code memoryContext}.
+     */
+    public FixedPageSource(Iterator<Page> pages, long memoryUsageBytes, MemoryContext memoryContext)
     {
         this.pages = requireNonNull(pages, "pages is null");
-        this.memoryUsageBytes = memoryUsageBytes;
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        memoryContext.setBytes(memoryUsageBytes);
     }
 
     @Override
     public void close()
     {
         closed = true;
+        // Drop the remaining pages, so that they are not retained after their memory is released
+        pages = Collections.emptyIterator();
+        memoryContext.setBytes(0);
     }
 
     @Override
@@ -82,11 +93,5 @@ public class FixedPageSource
         Page page = pages.next();
         completedBytes += page.getSizeInBytes();
         return SourcePage.create(page);
-    }
-
-    @Override
-    public long getMemoryUsage()
-    {
-        return memoryUsageBytes;
     }
 }

@@ -165,7 +165,7 @@ public class StructColumnReader
                 List<Type> fieldTypes = type.getFieldTypes();
                 blocks = new Block[fieldTypes.size()];
                 for (int i = 0; i < fieldTypes.size(); i++) {
-                    blocks[i] = RunLengthEncodedBlock.create(fieldTypes.get(i).createBlockBuilder(null, 0).appendNull().build(), nextBatchSize);
+                    blocks[i] = RunLengthEncodedBlock.create(fieldTypes.get(i).createBlockBuilder(null, 1).appendNull().build(), nextBatchSize);
                 }
             }
         }

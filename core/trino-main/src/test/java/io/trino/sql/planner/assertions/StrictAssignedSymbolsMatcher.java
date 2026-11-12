@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
@@ -59,11 +58,6 @@ public class StrictAssignedSymbolsMatcher
     public static Function<PlanNode, Set<Symbol>> actualAssignments()
     {
         return node -> ((ProjectNode) node).getAssignments().outputs();
-    }
-
-    public static Function<PlanNode, Set<Symbol>> actualSubqueryAssignments()
-    {
-        return node -> ((ApplyNode) node).getSubqueryAssignments().keySet();
     }
 
     @Override

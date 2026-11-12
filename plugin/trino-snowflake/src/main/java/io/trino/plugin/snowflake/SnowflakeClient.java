@@ -536,7 +536,7 @@ public class SnowflakeClient
 
     private static WriteMapping snowflakeTimestampWithTimeZoneWriteMapping(int precision)
     {
-        checkArgument(precision <= MAX_SUPPORTED_TEMPORAL_PRECISION, "Max Snowflake precision is is " + MAX_SUPPORTED_TEMPORAL_PRECISION);
+        checkArgument(precision <= MAX_SUPPORTED_TEMPORAL_PRECISION, "Max Snowflake precision is " + MAX_SUPPORTED_TEMPORAL_PRECISION);
         if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
             return WriteMapping.longMapping(format("timestamp_tz(%d)", precision), shortTimestampWithTimeZoneWriteFunction());
         }

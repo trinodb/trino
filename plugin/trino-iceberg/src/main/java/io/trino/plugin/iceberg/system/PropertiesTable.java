@@ -33,7 +33,8 @@ import org.apache.iceberg.SortOrder;
 import java.util.List;
 import java.util.Set;
 
-import static io.trino.plugin.iceberg.SortFieldUtils.toSortFields;
+import static io.trino.plugin.iceberg.SortFieldUtils.tryToSortFields;
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
@@ -49,6 +50,7 @@ public class PropertiesTable
             .add("current-snapshot-id")
             .add("location")
             .add("format-version")
+            .add("sort-order")
             .build();
 
     private final ConnectorTableMetadata tableMetadata;
@@ -79,7 +81,7 @@ public class PropertiesTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        return new FixedPageSource(buildPages(tableMetadata, icebergTable));
+        return new FixedPageSource(buildPages(tableMetadata, icebergTable), NO_LIMIT);
     }
 
     private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, BaseTable icebergTable)
@@ -92,11 +94,9 @@ public class PropertiesTable
         properties.put("current-snapshot-id", currentSnapshotId);
         properties.put("location", icebergTable.location());
         properties.put("format-version", String.valueOf(formatVersion(icebergTable)));
-        // TODO: Support sort column transforms (https://github.com/trinodb/trino/issues/15088)
         SortOrder sortOrder = icebergTable.sortOrder();
-        if (!sortOrder.isUnsorted() && sortOrder.fields().stream().allMatch(sortField -> sortField.transform().isIdentity())) {
-            List<String> sortColumnNames = toSortFields(sortOrder);
-            properties.put("sort-order", String.join(", ", sortColumnNames));
+        if (!sortOrder.isUnsorted()) {
+            tryToSortFields(sortOrder).ifPresent(sortColumnNames -> properties.put("sort-order", String.join(", ", sortColumnNames)));
         }
         icebergTable.properties().entrySet().stream()
                 .filter(entry -> !RESERVED_PROPERTIES.contains(entry.getKey()))

@@ -59,6 +59,34 @@ public record ResolvedFunction(
     }
 
     @Override
+    public int hashCode()
+    {
+        // equal instances share the function id, which is cheap to hash
+        return functionId.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object object)
+    {
+        if (this == object) {
+            return true;
+        }
+        if (object == null || getClass() != object.getClass()) {
+            return false;
+        }
+        ResolvedFunction other = (ResolvedFunction) object;
+        return functionId.equals(other.functionId) &&
+                deterministic == other.deterministic &&
+                neverFails == other.neverFails &&
+                functionKind == other.functionKind &&
+                signature.equals(other.signature) &&
+                catalogHandle.equals(other.catalogHandle) &&
+                functionNullability.equals(other.functionNullability) &&
+                typeDependencies.equals(other.typeDependencies) &&
+                functionDependencies.equals(other.functionDependencies);
+    }
+
+    @Override
     public String toString()
     {
         return signature.toString();

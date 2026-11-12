@@ -46,6 +46,6 @@ public class KafkaSaslPlaintextSchemaRegistryEnvironment
     @Override
     protected void customizeTrinoContainer(TrinoContainer container)
     {
-        KafkaSaslPlaintextEnvironment.configureTrinoContainer(container);
+        KafkaSaslPlaintextEnvironment.configureKafkaClient(container);
     }
 }

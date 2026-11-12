@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.FieldReference;
@@ -36,7 +37,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.ApplyNode.Operator.EQUAL;
 import static io.trino.sql.planner.plan.ApplyNode.Quantifier.ALL;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.util.Collections.emptyList;
 
 public class TestUnwrapSingleColumnRowInApply
         extends BaseRuleTest
@@ -50,7 +50,7 @@ public class TestUnwrapSingleColumnRowInApply
                                 .put(p.symbol("output1", BOOLEAN), new ApplyNode.In(new Symbol(UNKNOWN, "value"), new Symbol(UNKNOWN, "element")))
                                 .put(p.symbol("output2", BOOLEAN), new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol(UNKNOWN, "value"), new Symbol(UNKNOWN, "element")))
                                 .buildOrThrow(),
-                        emptyList(),
+                        ImmutableList.of(),
                         p.values(p.symbol("value", INTEGER)),
                         p.values(p.symbol("element", INTEGER))))
                 .doesNotFire();
@@ -65,7 +65,7 @@ public class TestUnwrapSingleColumnRowInApply
                                 .put(p.symbol("unwrapped", BOOLEAN), new ApplyNode.In(new Symbol(RowType.anonymousRow(INTEGER), "rowValue"), new Symbol(RowType.anonymousRow(INTEGER), "rowElement")))
                                 .put(p.symbol("notUnwrapped", BOOLEAN), new ApplyNode.In(new Symbol(INTEGER, "nonRowValue"), new Symbol(INTEGER, "nonRowElement")))
                                 .buildOrThrow(),
-                        emptyList(),
+                        ImmutableList.of(),
                         p.values(
                                 p.symbol("rowValue", RowType.anonymousRow(INTEGER)),
                                 p.symbol("nonRowValue", INTEGER)),
@@ -103,7 +103,7 @@ public class TestUnwrapSingleColumnRowInApply
                                 .put(p.symbol("unwrapped", BOOLEAN), new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol(RowType.anonymousRow(INTEGER), "rowValue"), new Symbol(RowType.anonymousRow(INTEGER), "rowElement")))
                                 .put(p.symbol("notUnwrapped", BOOLEAN), new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol(INTEGER, "nonRowValue"), new Symbol(INTEGER, "nonRowElement")))
                                 .buildOrThrow(),
-                        emptyList(),
+                        ImmutableList.of(),
                         p.values(
                                 p.symbol("rowValue", RowType.anonymousRow(INTEGER)),
                                 p.symbol("nonRowValue", INTEGER)),

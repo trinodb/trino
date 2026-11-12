@@ -30,5 +30,10 @@ public interface Accumulator
 
     void evaluateIntermediate(BlockBuilder blockBuilder);
 
-    void evaluateFinal(BlockBuilder blockBuilder, UpdateMemory updateMemory);
+    void evaluateFinal(BlockBuilder blockBuilder);
+
+    /**
+     * Returns false when {@code updateMemory} asks to yield. The caller calls it again to resume.
+     */
+    boolean prepareFinal(UpdateMemory updateMemory);
 }

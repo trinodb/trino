@@ -15,8 +15,8 @@ package io.trino.plugin.hive.projection;
 
 import io.trino.spi.predicate.Domain;
 
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 sealed interface Projection
         permits DateProjection,
@@ -24,7 +24,7 @@ sealed interface Projection
                 InjectedProjection,
                 IntegerProjection
 {
-    List<String> getProjectedValues(Optional<Domain> partitionValueFilter);
+    Set<String> getProjectedValues(Optional<Domain> partitionValueFilter);
 
     default String toPartitionLocationTemplateValue(String value)
     {

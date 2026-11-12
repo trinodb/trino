@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
@@ -33,7 +34,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST_FUNCTION_NAME;
 import static io.trino.sql.ir.IrExpressions.cast;
 
-/// Replace a `$try_cast` with a plain [io.trino.sql.ir.Cast] when the underlying coercion can never fail. E.g,
+/// Replace a `$try_cast` with a plain [Cast] when the underlying coercion can never fail. E.g,
 ///
 /// - `$try_cast(x::integer as bigint) -> Cast(x, bigint)`
 ///

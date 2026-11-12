@@ -13,10 +13,9 @@
  */
 package io.trino.plugin.ranger;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.Plugin;
 import io.trino.spi.security.SystemAccessControlFactory;
-
-import static java.util.Collections.singletonList;
 
 public class ApacheRangerPlugin
         implements Plugin
@@ -24,6 +23,6 @@ public class ApacheRangerPlugin
     @Override
     public Iterable<SystemAccessControlFactory> getSystemAccessControlFactories()
     {
-        return singletonList(new RangerSystemAccessControlFactory());
+        return ImmutableList.of(new RangerSystemAccessControlFactory());
     }
 }
