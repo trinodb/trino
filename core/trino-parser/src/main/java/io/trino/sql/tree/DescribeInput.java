@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class DescribeInput
+public final class DescribeInput
         extends Statement
 {
     private final Identifier name;
@@ -34,12 +34,6 @@ public class DescribeInput
     public Identifier getName()
     {
         return name;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDescribeInput(this, context);
     }
 
     @Override

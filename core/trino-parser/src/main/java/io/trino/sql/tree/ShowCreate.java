@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ShowCreate
+public final class ShowCreate
         extends Statement
 {
     public enum Type
@@ -51,12 +51,6 @@ public class ShowCreate
     public Type getType()
     {
         return type;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitShowCreate(this, context);
     }
 
     @Override

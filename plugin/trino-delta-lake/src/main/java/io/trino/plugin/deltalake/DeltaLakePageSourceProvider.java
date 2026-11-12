@@ -142,7 +142,8 @@ public class DeltaLakePageSourceProvider
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
-        this.parquetReaderOptions = ParquetReaderOptions.builder(parquetReaderConfig.toParquetReaderOptions()).withBloomFilter(false).build();
+        checkArgument(!parquetReaderConfig.isUseBloomFilter(), "Delta Lake connector does not support Parquet bloom filter");
+        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -228,14 +229,7 @@ public class DeltaLakePageSourceProvider
         Location location = Location.of(split.path());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials.map(DeltaLakeTableCredentials.class::cast));
         TrinoInputFile inputFile = fileSystem.newInputFile(location, split.fileSize());
-        ParquetReaderOptions options = ParquetReaderOptions.builder(parquetReaderOptions)
-                .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
-                .withSmallFileThreshold(getParquetSmallFileThreshold(session))
-                .withUseColumnIndex(isParquetUseColumnIndex(session))
-                .withIgnoreStatistics(isParquetIgnoreStatistics(session))
-                .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
-                .build();
+        ParquetReaderOptions options = withSessionParquetReaderOptions(parquetReaderOptions, session);
 
         Map<Integer, String> parquetFieldIdToName = columnMappingMode == ColumnMappingMode.ID ? loadParquetIdAndNameMapping(inputFile, options) : ImmutableMap.of();
 
@@ -489,5 +483,17 @@ public class DeltaLakePageSourceProvider
         {
             return createRowIdBlock(pathBlock, block, partitionsBlock);
         }
+    }
+
+    public static ParquetReaderOptions withSessionParquetReaderOptions(ParquetReaderOptions configuredOptions, ConnectorSession session)
+    {
+        return ParquetReaderOptions.builder(configuredOptions)
+                .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
+                .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
+                .withSmallFileThreshold(getParquetSmallFileThreshold(session))
+                .withUseColumnIndex(isParquetUseColumnIndex(session))
+                .withIgnoreStatistics(isParquetIgnoreStatistics(session))
+                .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
+                .build();
     }
 }

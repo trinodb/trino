@@ -22,7 +22,7 @@ import java.util.Arrays;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class BinaryLiteral
+public final class BinaryLiteral
         extends Literal
 {
     // the grammar could possibly include whitespace in the value it passes to us
@@ -58,12 +58,6 @@ public class BinaryLiteral
     public byte[] getValue()
     {
         return value.clone();
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitBinaryLiteral(this, context);
     }
 
     @Override

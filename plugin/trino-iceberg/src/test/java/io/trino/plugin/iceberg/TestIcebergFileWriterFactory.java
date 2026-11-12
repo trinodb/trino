@@ -60,6 +60,7 @@ final class TestIcebergFileWriterFactory
             new NodeVersion("test"),
             new FileFormatDataSourceStats(),
             new IcebergConfig(),
+            new OrcReaderConfig(),
             new OrcWriterConfig(),
             new ParquetWriterConfig());
 

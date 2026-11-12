@@ -22,7 +22,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class JsonArray
+public final class JsonArray
         extends Expression
 {
     private final List<JsonArrayElement> elements;
@@ -62,12 +62,6 @@ public class JsonArray
     public Optional<JsonFormat> getOutputFormat()
     {
         return outputFormat;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitJsonArray(this, context);
     }
 
     @Override

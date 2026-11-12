@@ -48,10 +48,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_TYPE_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockRowCount;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockSize;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetIgnoreStatistics;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetUseColumnIndex;
+import static io.trino.plugin.deltalake.DeltaLakePageSourceProvider.withSessionParquetReaderOptions;
 import static io.trino.plugin.deltalake.functions.tablechanges.TableChangesFileType.CDF_FILE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -180,12 +177,7 @@ public class TableChangesFunctionProcessor
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(split.path()), split.fileSize());
         Map<String, Optional<String>> partitionKeys = split.partitionKeys();
 
-        parquetReaderOptions = ParquetReaderOptions.builder(parquetReaderOptions)
-                .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
-                .withUseColumnIndex(isParquetUseColumnIndex(session))
-                .withIgnoreStatistics(isParquetIgnoreStatistics(session))
-                .build();
+        parquetReaderOptions = withSessionParquetReaderOptions(parquetReaderOptions, session);
 
         List<DeltaLakeColumnHandle> splitColumns = switch (split.fileType()) {
             case CDF_FILE -> ImmutableList.<DeltaLakeColumnHandle>builder().addAll(handle.columns())

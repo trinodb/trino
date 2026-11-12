@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class SetColumnType
+public final class SetColumnType
         extends Statement
 {
     private final QualifiedName tableName;
@@ -56,12 +56,6 @@ public class SetColumnType
     public boolean isTableExists()
     {
         return tableExists;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSetColumnType(this, context);
     }
 
     @Override

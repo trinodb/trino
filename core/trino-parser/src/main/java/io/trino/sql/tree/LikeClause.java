@@ -62,12 +62,6 @@ public final class LikeClause
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLikeClause(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.of();

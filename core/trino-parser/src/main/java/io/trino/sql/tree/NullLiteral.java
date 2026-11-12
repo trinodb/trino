@@ -15,7 +15,7 @@ package io.trino.sql.tree;
 
 import java.util.Optional;
 
-public class NullLiteral
+public final class NullLiteral
         extends Literal
 {
     @Deprecated
@@ -27,12 +27,6 @@ public class NullLiteral
     public NullLiteral(NodeLocation location)
     {
         super(location);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitNullLiteral(this, context);
     }
 
     @Override

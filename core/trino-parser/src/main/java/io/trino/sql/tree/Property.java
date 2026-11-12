@@ -24,7 +24,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 // TODO: Model DEFAULT as a type of expression to make it easier to do analysis, planning and error reporting in a uniform way
-public class Property
+public final class Property
         extends Node
 {
     private final Identifier name;
@@ -84,12 +84,6 @@ public class Property
     {
         checkState(!isSetToDefault(), "Cannot get non-default value of property %s since its value is set to DEFAULT", name);
         return value.get();
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitProperty(this, context);
     }
 
     @Override

@@ -46,12 +46,6 @@ public final class CallArgument
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCallArgument(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         ImmutableList.Builder<Node> children = ImmutableList.builder();

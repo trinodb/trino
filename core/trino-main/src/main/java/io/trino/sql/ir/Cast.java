@@ -65,12 +65,6 @@ public record Cast(Expression expression, Type type, Kind kind)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCast(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         return ImmutableList.of(expression);

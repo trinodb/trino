@@ -76,7 +76,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run zizmor
-        uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
           inputs: .github
           # Version of the zizmor tool to install and run
@@ -972,6 +972,11 @@ jobs:
           (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
           !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
           !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        env:
+          # Whether the secrets of the secret-suites in product-test-suites.yaml are available, not their values
+          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY != '' && 'present' || '' }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN != '' && 'present' || '' }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD != '' && 'present' || '' }}
         run: |
           .github/bin/build-pt-matrix.py -v --changed gib-changed.log \
             --server core/trino-server/target/trino-server-*.tar.gz \
@@ -982,6 +987,11 @@ jobs:
           (github.event_name != 'pull_request' && github.event_name != 'merge_group') ||
           contains(github.event.pull_request.labels.*.name, 'tests:all') ||
           contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        env:
+          # Whether the secrets of the secret-suites in product-test-suites.yaml are available, not their values
+          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY != '' && 'present' || '' }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN != '' && 'present' || '' }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD != '' && 'present' || '' }}
         run: .github/bin/build-pt-matrix.py -v --server core/trino-server/target/trino-server-*.tar.gz > matrix.json
       - id: set-matrix
         run: |
@@ -1013,7 +1023,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
         with:
-          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
           persist-credentials: false
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
@@ -1023,6 +1032,7 @@ jobs:
         timeout-minutes: 15
         with:
           cache: 'false'
+          maven: 'false'
       - name: Product tests artifact
         uses: actions/download-artifact@v8
         with:
@@ -1034,9 +1044,8 @@ jobs:
           path: testing/trino-product-tests/target
       - name: Load Trino Docker image for product tests
         run: |
-          gzip -dc product-tests-trino-image.tar.gz | docker load
-          version=$($MAVEN -f pom.xml --quiet help:evaluate -Dexpression=project.version -DforceStdout --raw-streams)
-          docker tag "product-tests-trino:${version}-amd64" trino:for-product-tests
+          image=$(gzip -dc product-tests-trino-image.tar.gz | docker load | sed -n 's/^Loaded image: //p')
+          docker tag "${image}" trino:for-product-tests
       - name: Product Tests (JUnit suites)
         id: tests
         shell: bash
@@ -1070,7 +1079,6 @@ jobs:
 
           declare -a suite_results=()
           declare -a suite_totals=()
-          declare -a skipped_suites=()
           echo "## pt ${MATRIX_SUITE}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -1082,54 +1090,6 @@ jobs:
             echo "### ${suite}" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
 
-            availability_env=""
-            required_env=()
-            case "${suite}" in
-              SuiteAzure)
-                availability_env=ABFS_ACCESS_KEY
-                required_env+=(ABFS_CONTAINER ABFS_ACCOUNT ABFS_ACCESS_KEY)
-                ;;
-              SuiteSnowflake)
-                availability_env=SNOWFLAKE_PASSWORD
-                required_env+=(SNOWFLAKE_URL SNOWFLAKE_USER SNOWFLAKE_PASSWORD SNOWFLAKE_DATABASE SNOWFLAKE_ROLE SNOWFLAKE_WAREHOUSE)
-                ;;
-              SuiteDeltaLakeDatabricks154)
-                availability_env=DATABRICKS_TOKEN
-                required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_154_JDBC_URL)
-                ;;
-              SuiteDeltaLakeDatabricks18)
-                availability_env=DATABRICKS_TOKEN
-                required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_18_JDBC_URL)
-                ;;
-            esac
-
-            if [ -n "${availability_env}" ] && [ -z "${!availability_env:-}" ] && [ -z "${CI_SKIP_SECRETS_PRESENCE_CHECKS:-}" ]; then
-              suite_results+=("${suite}:SKIPPED")
-              suite_totals+=("${suite}:missing availability credential: ${availability_env}")
-              skipped_suites+=("${suite}")
-              echo "- Result: SKIPPED (missing availability credential: ${availability_env})" >> "$GITHUB_STEP_SUMMARY"
-              echo "" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            if [ "${#required_env[@]}" -gt 0 ]; then
-              missing_env=()
-              for env_name in "${required_env[@]}"; do
-                if [ -z "${!env_name:-}" ]; then
-                  missing_env+=("${env_name}")
-                fi
-              done
-              if [ "${#missing_env[@]}" -gt 0 ]; then
-                failed=1
-                failed_suites+=("${suite}")
-                suite_results+=("${suite}:FAILED")
-                suite_totals+=("${suite}:missing required env: ${missing_env[*]}")
-                echo "Missing required env: ${missing_env[*]}" > "${log_file}"
-                echo "- Result: FAILED (missing required env: ${missing_env[*]})" >> "$GITHUB_STEP_SUMMARY"
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                continue
-              fi
-            fi
             set +e
             java \
               -Xmx512M \

@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class SingleColumn
+public final class SingleColumn
         extends SelectItem
 {
     private final Optional<Identifier> alias;
@@ -87,12 +87,6 @@ public class SingleColumn
         }
 
         return expression.toString();
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSingleColumn(this, context);
     }
 
     @Override

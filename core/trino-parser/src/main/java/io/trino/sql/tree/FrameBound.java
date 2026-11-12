@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class FrameBound
+public final class FrameBound
         extends Node
 {
     public enum Type
@@ -65,12 +65,6 @@ public class FrameBound
     public Optional<Expression> getValue()
     {
         return value;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitFrameBound(this, context);
     }
 
     @Override

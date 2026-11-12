@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class CreateSchema
+public final class CreateSchema
         extends Statement
 {
     private final QualifiedName schemaName;
@@ -57,12 +57,6 @@ public class CreateSchema
     public List<Property> getProperties()
     {
         return properties;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCreateSchema(this, context);
     }
 
     @Override

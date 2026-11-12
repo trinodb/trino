@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class DescriptorField
+public final class DescriptorField
         extends Node
 {
     private final Identifier name;
@@ -42,12 +42,6 @@ public class DescriptorField
     public Optional<DataType> getType()
     {
         return type;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDescriptorField(this, context);
     }
 
     @Override

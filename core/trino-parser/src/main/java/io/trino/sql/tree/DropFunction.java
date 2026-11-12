@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class DropFunction
+public final class DropFunction
         extends Statement
 {
     private final QualifiedName name;
@@ -49,12 +49,6 @@ public class DropFunction
     public boolean isExists()
     {
         return exists;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDropFunction(this, context);
     }
 
     @Override

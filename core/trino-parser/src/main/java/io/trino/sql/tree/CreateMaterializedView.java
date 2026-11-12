@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class CreateMaterializedView
+public final class CreateMaterializedView
         extends Statement
 {
     public enum WhenStaleBehavior
@@ -100,12 +100,6 @@ public class CreateMaterializedView
     public Optional<String> getComment()
     {
         return comment;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCreateMaterializedView(this, context);
     }
 
     @Override

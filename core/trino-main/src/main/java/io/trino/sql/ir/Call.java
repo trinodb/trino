@@ -46,12 +46,6 @@ public record Call(ResolvedFunction function, List<Expression> arguments)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCall(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         return arguments;

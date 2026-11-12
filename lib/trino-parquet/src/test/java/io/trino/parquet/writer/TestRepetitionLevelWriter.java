@@ -21,7 +21,10 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeOperators;
 import org.junit.jupiter.api.Test;
 
@@ -60,30 +63,44 @@ public class TestRepetitionLevelWriter
             RowBlock rowBlock = createRowBlock(nullsProvider.getValidities(rowBlockPositions), rowBlockPositions);
             ArrayBlock arrayBlock = fromElementBlock(POSITIONS, valueIsValid, arrayOffsets, rowBlock);
 
-            ColumnarArray columnarArray = toColumnarArray(arrayBlock);
-            Block row = columnarArray.getElementsBlock();
+            Block row = toColumnarArray(arrayBlock).getElementsBlock();
             List<Block> nullSuppressedFields = getNullSuppressedRowFieldsFromBlock(row);
             // Write Repetition levels for all positions
             for (int fieldIndex = 0; fieldIndex < nullSuppressedFields.size(); fieldIndex++) {
                 Block field = nullSuppressedFields.get(fieldIndex);
-                assertRepetitionLevels(columnarArray, row, field, ImmutableList.of());
-                assertRepetitionLevels(columnarArray, row, field, ImmutableList.of());
+                assertRowRepetitionLevels(arrayBlock, row, field, ImmutableList.of());
 
                 // Write Repetition levels for all positions one-at-a-time
-                assertRepetitionLevels(
-                        columnarArray,
+                assertRowRepetitionLevels(
+                        arrayBlock,
                         row,
                         field,
-                        nCopies(columnarArray.getPositionCount(), 1));
+                        nCopies(arrayBlock.getPositionCount(), 1));
 
                 // Write Repetition levels for all positions with different group sizes
-                assertRepetitionLevels(
-                        columnarArray,
+                assertRowRepetitionLevels(
+                        arrayBlock,
                         row,
                         field,
-                        generateGroupSizes(columnarArray.getPositionCount()));
+                        generateGroupSizes(arrayBlock.getPositionCount()));
             }
         }
+    }
+
+    @Test
+    public void testWriteRunLengthEncodedNullRowRepetitionLevels()
+    {
+        // Using an array of row blocks for testing as Structs don't have a repetition level by themselves
+        Optional<long[]> valueIsValid = RANDOM_NULLS.getValidities(POSITIONS);
+        int[] arrayOffsets = generateOffsets(valueIsValid, POSITIONS);
+        Block rowBlock = RunLengthEncodedBlock.create(RowType.anonymous(ImmutableList.of(BIGINT)), null, arrayOffsets[POSITIONS]);
+        ArrayBlock arrayBlock = fromElementBlock(POSITIONS, valueIsValid, arrayOffsets, rowBlock);
+
+        Block row = toColumnarArray(arrayBlock).getElementsBlock();
+        Block field = getNullSuppressedRowFieldsFromBlock(row).get(0);
+        assertRowRepetitionLevels(arrayBlock, row, field, ImmutableList.of());
+        assertRowRepetitionLevels(arrayBlock, row, field, nCopies(arrayBlock.getPositionCount(), 1));
+        assertRowRepetitionLevels(arrayBlock, row, field, generateGroupSizes(arrayBlock.getPositionCount()));
     }
 
     @Test
@@ -91,15 +108,26 @@ public class TestRepetitionLevelWriter
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
             Block arrayBlock = createArrayBlock(nullsProvider.getValidities(POSITIONS), POSITIONS);
-            ColumnarArray columnarArray = toColumnarArray(arrayBlock);
             // Write Repetition levels for all positions
-            assertRepetitionLevels(columnarArray, ImmutableList.of());
+            assertArrayRepetitionLevels(arrayBlock, ImmutableList.of());
 
             // Write Repetition levels for all positions one-at-a-time
-            assertRepetitionLevels(columnarArray, nCopies(columnarArray.getPositionCount(), 1));
+            assertArrayRepetitionLevels(arrayBlock, nCopies(arrayBlock.getPositionCount(), 1));
 
             // Write Repetition levels for all positions with different group sizes
-            assertRepetitionLevels(columnarArray, generateGroupSizes(columnarArray.getPositionCount()));
+            assertArrayRepetitionLevels(arrayBlock, generateGroupSizes(arrayBlock.getPositionCount()));
+        }
+    }
+
+    @Test
+    public void testWriteRunLengthEncodedArrayRepetitionLevels()
+    {
+        for (Block arrayBlock : ImmutableList.of(
+                RunLengthEncodedBlock.create(new ArrayType(BIGINT), null, POSITIONS),
+                RunLengthEncodedBlock.create(createArrayBlock(Optional.empty(), 1), POSITIONS))) {
+            assertArrayRepetitionLevels(arrayBlock, ImmutableList.of());
+            assertArrayRepetitionLevels(arrayBlock, nCopies(arrayBlock.getPositionCount(), 1));
+            assertArrayRepetitionLevels(arrayBlock, generateGroupSizes(arrayBlock.getPositionCount()));
         }
     }
 
@@ -108,15 +136,26 @@ public class TestRepetitionLevelWriter
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
             Block mapBlock = createMapBlock(nullsProvider.getValidities(POSITIONS), POSITIONS);
-            ColumnarMap columnarMap = toColumnarMap(mapBlock);
             // Write Repetition levels for all positions
-            assertRepetitionLevels(columnarMap, ImmutableList.of());
+            assertMapRepetitionLevels(mapBlock, ImmutableList.of());
 
             // Write Repetition levels for all positions one-at-a-time
-            assertRepetitionLevels(columnarMap, nCopies(columnarMap.getPositionCount(), 1));
+            assertMapRepetitionLevels(mapBlock, nCopies(mapBlock.getPositionCount(), 1));
 
             // Write Repetition levels for all positions with different group sizes
-            assertRepetitionLevels(columnarMap, generateGroupSizes(columnarMap.getPositionCount()));
+            assertMapRepetitionLevels(mapBlock, generateGroupSizes(mapBlock.getPositionCount()));
+        }
+    }
+
+    @Test
+    public void testWriteRunLengthEncodedMapRepetitionLevels()
+    {
+        for (Block mapBlock : ImmutableList.of(
+                RunLengthEncodedBlock.create(new MapType(BIGINT, BIGINT, new TypeOperators()), null, POSITIONS),
+                RunLengthEncodedBlock.create(createMapBlock(Optional.empty(), 1), POSITIONS))) {
+            assertMapRepetitionLevels(mapBlock, ImmutableList.of());
+            assertMapRepetitionLevels(mapBlock, nCopies(mapBlock.getPositionCount(), 1));
+            assertMapRepetitionLevels(mapBlock, generateGroupSizes(mapBlock.getPositionCount()));
         }
     }
 
@@ -131,16 +170,14 @@ public class TestRepetitionLevelWriter
                 Block fieldBlock = fieldBlocks.get(field);
                 ColumnarMap columnarMap = toColumnarMap(fieldBlock);
                 for (Block mapElements : ImmutableList.of(columnarMap.getKeysBlock(), columnarMap.getValuesBlock())) {
-                    ColumnarArray columnarArray = toColumnarArray(mapElements);
-
                     // Write Repetition levels for all positions
-                    assertRepetitionLevels(rowBlock, columnarMap, columnarArray, ImmutableList.of());
+                    assertRepetitionLevels(rowBlock, fieldBlock, mapElements, ImmutableList.of());
 
                     // Write Repetition levels for all positions one-at-a-time
-                    assertRepetitionLevels(rowBlock, columnarMap, columnarArray, nCopies(rowBlock.getPositionCount(), 1));
+                    assertRepetitionLevels(rowBlock, fieldBlock, mapElements, nCopies(rowBlock.getPositionCount(), 1));
 
                     // Write Repetition levels for all positions with different group sizes
-                    assertRepetitionLevels(rowBlock, columnarMap, columnarArray, generateGroupSizes(rowBlock.getPositionCount()));
+                    assertRepetitionLevels(rowBlock, fieldBlock, mapElements, generateGroupSizes(rowBlock.getPositionCount()));
                 }
             }
         }
@@ -166,18 +203,19 @@ public class TestRepetitionLevelWriter
         return fromKeyValueBlock(mapIsValid, offsets, keyBlock, valueBlock, new MapType(BIGINT, BIGINT, new TypeOperators()));
     }
 
-    private static void assertRepetitionLevels(
-            ColumnarArray columnarArray,
+    private static void assertRowRepetitionLevels(
+            Block arrayBlock,
             Block row,
             Block field,
             List<Integer> writePositionCounts)
     {
+        ColumnarArray columnarArray = toColumnarArray(arrayBlock);
         int maxRepetitionLevel = 1;
         // Write Repetition levels
         TestingValuesWriter valuesWriter = new TestingValuesWriter();
         RepetitionLevelWriter fieldRootRepLevelWriter = getRootRepetitionLevelWriter(
                 ImmutableList.of(
-                        RepLevelWriterProviders.of(columnarArray, maxRepetitionLevel),
+                        RepLevelWriterProviders.of(columnarArray, arrayBlock, maxRepetitionLevel),
                         RepLevelWriterProviders.of(row),
                         RepLevelWriterProviders.of(field)),
                 valuesWriter);
@@ -199,16 +237,17 @@ public class TestRepetitionLevelWriter
         assertThat(valuesWriter.getWrittenValues()).isEqualTo(ImmutableList.copyOf(expectedRepetitionLevelsIter));
     }
 
-    private static void assertRepetitionLevels(
-            ColumnarArray columnarArray,
+    private static void assertArrayRepetitionLevels(
+            Block arrayBlock,
             List<Integer> writePositionCounts)
     {
+        ColumnarArray columnarArray = toColumnarArray(arrayBlock);
         int maxRepetitionLevel = 1;
         // Write Repetition levels
         TestingValuesWriter valuesWriter = new TestingValuesWriter();
         RepetitionLevelWriter elementsRootRepLevelWriter = getRootRepetitionLevelWriter(
                 ImmutableList.of(
-                        RepLevelWriterProviders.of(columnarArray, maxRepetitionLevel),
+                        RepLevelWriterProviders.of(columnarArray, arrayBlock, maxRepetitionLevel),
                         RepLevelWriterProviders.of(columnarArray.getElementsBlock())),
                 valuesWriter);
         if (writePositionCounts.isEmpty()) {
@@ -242,16 +281,17 @@ public class TestRepetitionLevelWriter
         assertThat(valuesWriter.getWrittenValues()).isEqualTo(expectedRepLevelsBuilder.build());
     }
 
-    private static void assertRepetitionLevels(
-            ColumnarMap columnarMap,
+    private static void assertMapRepetitionLevels(
+            Block mapBlock,
             List<Integer> writePositionCounts)
     {
+        ColumnarMap columnarMap = toColumnarMap(mapBlock);
         int maxRepetitionLevel = 1;
         // Write Repetition levels for map keys
         TestingValuesWriter keysWriter = new TestingValuesWriter();
         RepetitionLevelWriter keysRootRepLevelWriter = getRootRepetitionLevelWriter(
                 ImmutableList.of(
-                        RepLevelWriterProviders.of(columnarMap, maxRepetitionLevel),
+                        RepLevelWriterProviders.of(columnarMap, mapBlock, maxRepetitionLevel),
                         RepLevelWriterProviders.of(columnarMap.getKeysBlock())),
                 keysWriter);
         if (writePositionCounts.isEmpty()) {
@@ -267,7 +307,7 @@ public class TestRepetitionLevelWriter
         TestingValuesWriter valuesWriter = new TestingValuesWriter();
         RepetitionLevelWriter valuesRootRepLevelWriter = getRootRepetitionLevelWriter(
                 ImmutableList.of(
-                        RepLevelWriterProviders.of(columnarMap, maxRepetitionLevel),
+                        RepLevelWriterProviders.of(columnarMap, mapBlock, maxRepetitionLevel),
                         RepLevelWriterProviders.of(columnarMap.getValuesBlock())),
                 valuesWriter);
         if (writePositionCounts.isEmpty()) {
@@ -300,17 +340,19 @@ public class TestRepetitionLevelWriter
 
     private static void assertRepetitionLevels(
             RowBlock rowBlock,
-            ColumnarMap columnarMap,
-            ColumnarArray columnarArray,
+            Block mapBlock,
+            Block arrayBlock,
             List<Integer> writePositionCounts)
     {
+        ColumnarMap columnarMap = toColumnarMap(mapBlock);
+        ColumnarArray columnarArray = toColumnarArray(arrayBlock);
         // Write Repetition levels
         TestingValuesWriter valuesWriter = new TestingValuesWriter();
         RepetitionLevelWriter fieldRootRepLevelWriter = getRootRepetitionLevelWriter(
                 ImmutableList.of(
                         RepLevelWriterProviders.of(rowBlock),
-                        RepLevelWriterProviders.of(columnarMap, 1),
-                        RepLevelWriterProviders.of(columnarArray, 2),
+                        RepLevelWriterProviders.of(columnarMap, mapBlock, 1),
+                        RepLevelWriterProviders.of(columnarArray, arrayBlock, 2),
                         RepLevelWriterProviders.of(columnarArray.getElementsBlock())),
                 valuesWriter);
         if (writePositionCounts.isEmpty()) {

@@ -15,17 +15,13 @@ package io.trino.sql.tree;
 
 import java.util.Optional;
 
-public abstract class DataTypeParameter
+public abstract sealed class DataTypeParameter
         extends Node
+        permits NumericParameter,
+                TypeParameter
 {
     protected DataTypeParameter(Optional<NodeLocation> location)
     {
         super(location);
-    }
-
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDataTypeParameter(this, context);
     }
 }

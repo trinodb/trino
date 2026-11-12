@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-public class TableFunctionInvocation
+public final class TableFunctionInvocation
         extends Relation
 {
     private final QualifiedName name;
@@ -48,12 +48,6 @@ public class TableFunctionInvocation
     public List<List<QualifiedName>> getCopartitioning()
     {
         return copartitioning;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTableFunctionInvocation(this, context);
     }
 
     @Override

@@ -26,6 +26,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSource;
@@ -45,6 +46,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -63,12 +65,14 @@ import io.trino.spi.variant.Variant;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.LogicalTypes;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -95,6 +99,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -109,8 +114,11 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.BloomFilterStore.hasBloomFilter;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
+import static io.trino.parquet.ParquetTestUtils.createArrayBlock;
+import static io.trino.parquet.ParquetTestUtils.createMapBlock;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
+import static io.trino.parquet.ParquetTestUtils.createRowBlock;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.parquet.metadata.HiddenColumnChunkMetadata.isHiddenColumn;
@@ -844,6 +852,8 @@ public class TestParquetWriter
                 assertThat(chunkMetaData.getEncodingStats().hasNonDictionaryEncodedPages()).isTrue();
 
                 bloomFilterOffsetsBuilder.add(chunkMetaData.getBloomFilterOffset());
+                // The recorded length covers the Bloom filter header and the bitset
+                assertThat(chunkMetaData.getBloomFilterLength()).isBetween(65536 + 1, 65536 + 17);
             }
         }
         // Check that bloom filters are right after each other
@@ -879,6 +889,81 @@ public class TestParquetWriter
             }
             assertThat(rowsRead).isEqualTo(data.size());
         }
+    }
+
+    @Test
+    void testReadBloomFilterWithRecordedLength()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(BIGINT);
+        AtomicInteger reads = new AtomicInteger();
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setBloomFilterColumns(ImmutableSet.copyOf(columnNames))
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, shuffle(new Random(42), 2000))),
+                ParquetReaderOptions.defaultOptions())
+        {
+            @Override
+            protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
+                    throws IOException
+            {
+                reads.incrementAndGet();
+                super.readInternal(position, buffer, bufferOffset, bufferLength);
+            }
+        };
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        BlockMetadata block = getOnlyElement(parquetMetadata.getBlocks());
+        ColumnChunkMetadata chunkMetadata = getOnlyElement(block.columns());
+        assertThat(hasBloomFilter(chunkMetadata)).isTrue();
+        int recordedLength = chunkMetadata.getBloomFilterLength();
+        assertThat(recordedLength).isGreaterThan(0);
+
+        // The header and the bitset are fetched together when the length is recorded
+        reads.set(0);
+        byte[] bitset = readBloomFilterBitset(dataSource, block);
+        assertThat(reads.get()).isEqualTo(1);
+
+        // Files without the length need a read for the header and a read for the bitset
+        chunkMetadata.setBloomFilterLength(-1);
+        reads.set(0);
+        assertThat(readBloomFilterBitset(dataSource, block)).isEqualTo(bitset);
+        assertThat(reads.get()).isEqualTo(2);
+
+        // A length that does not cover the bitset is not trusted
+        chunkMetadata.setBloomFilterLength(recordedLength - 1);
+        reads.set(0);
+        assertThat(readBloomFilterBitset(dataSource, block)).isEqualTo(bitset);
+        assertThat(reads.get()).isEqualTo(2);
+
+        // A length shorter than the header is ignored
+        chunkMetadata.setBloomFilterLength(1);
+        reads.set(0);
+        assertThat(readBloomFilterBitset(dataSource, block)).isEqualTo(bitset);
+        assertThat(reads.get()).isEqualTo(2);
+
+        // Neither is a length beyond the maximum size of a Bloom filter
+        chunkMetadata.setBloomFilterLength(Integer.MAX_VALUE);
+        reads.set(0);
+        assertThat(readBloomFilterBitset(dataSource, block)).isEqualTo(bitset);
+        assertThat(reads.get()).isEqualTo(2);
+    }
+
+    private static byte[] readBloomFilterBitset(ParquetDataSource dataSource, BlockMetadata block)
+            throws IOException
+    {
+        ColumnPath path = getOnlyElement(block.columns()).getPath();
+        BloomFilter bloomFilter = new BloomFilterStore(dataSource, block, ImmutableSet.of(path), Optional.empty())
+                .getBloomFilter(path)
+                .orElseThrow();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        bloomFilter.writeTo(out);
+        return out.toByteArray();
     }
 
     @Test
@@ -1125,6 +1210,66 @@ public class TestParquetWriter
             }
             assertThat(readBackBuilder.build()).describedAs("precision %s", precision).isEqualTo(values);
         }
+    }
+
+    @Test
+    public void testRunLengthEncodedNullNestedColumnsRoundTrip()
+            throws Exception
+    {
+        int nullPositions = 1000;
+        int otherPositions = 100;
+        RowType rowType = rowType(field("a", BIGINT), field("b", BIGINT), field("c", BIGINT), field("d", BIGINT));
+        ArrayType arrayType = new ArrayType(BIGINT);
+        MapType mapType = new MapType(BIGINT, BIGINT, new TypeOperators());
+        List<Type> types = ImmutableList.of(rowType, arrayType, mapType);
+        List<String> columnNames = ImmutableList.of("row", "array", "map");
+
+        // The first page has only nulls, which the writer sees as run length encoded blocks
+        Page nullsPage = new Page(
+                RunLengthEncodedBlock.create(rowType, null, nullPositions),
+                RunLengthEncodedBlock.create(arrayType, null, nullPositions),
+                RunLengthEncodedBlock.create(mapType, null, nullPositions));
+        Page otherPage = new Page(
+                createRowBlock(Optional.empty(), otherPositions),
+                createArrayBlock(Optional.empty(), otherPositions),
+                createMapBlock(Optional.empty(), otherPositions));
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(ParquetWriterOptions.builder().build(), types, columnNames, ImmutableList.of(nullsPage, otherPage)),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+
+        int position = 0;
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, types, columnNames)) {
+            SourcePage page;
+            while ((page = reader.nextPage()) != null) {
+                for (int column = 0; column < types.size(); column++) {
+                    Block block = page.getBlock(column);
+                    for (int i = 0; i < page.getPositionCount(); i++) {
+                        if (position + i < nullPositions) {
+                            assertThat(block.isNull(i)).describedAs("column %s position %s", column, position + i).isTrue();
+                        }
+                        else {
+                            Block expected = otherPage.getBlock(column);
+                            assertThat(types.get(column).getObjectValue(block, i))
+                                    .describedAs("column %s position %s", column, position + i)
+                                    .isEqualTo(types.get(column).getObjectValue(expected, position + i - nullPositions));
+                        }
+                    }
+                }
+                position += page.getPositionCount();
+            }
+        }
+        assertThat(position).isEqualTo(nullPositions + otherPositions);
+    }
+
+    @Test
+    public void testRunLengthEncodedNullVariantRoundTrip()
+            throws IOException
+    {
+        assertThat(writeAndReadColumn(VARIANT_SCHEMA, ImmutableMap.of(), VARIANT, RunLengthEncodedBlock.create(VARIANT, null, 1000)))
+                .hasSize(1000)
+                .containsOnlyNulls();
     }
 
     @Test

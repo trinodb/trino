@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class QuerySpecification
+public final class QuerySpecification
         extends QueryBody
 {
     private final Select select;
@@ -147,12 +147,6 @@ public class QuerySpecification
     public Optional<Node> getLimit()
     {
         return limit;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitQuerySpecification(this, context);
     }
 
     @Override

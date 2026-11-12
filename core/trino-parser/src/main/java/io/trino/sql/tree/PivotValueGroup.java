@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class PivotValueGroup
+public final class PivotValueGroup
         extends Node
 {
     private final List<Expression> values;
@@ -46,12 +46,6 @@ public class PivotValueGroup
     public Optional<Identifier> getAlias()
     {
         return alias;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPivotValueGroup(this, context);
     }
 
     @Override

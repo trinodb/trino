@@ -52,6 +52,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_TYPE_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaLakePageSourceProvider.withSessionParquetReaderOptions;
 import static io.trino.plugin.deltalake.DeltaLakeParquetSchemas.createParquetSchemaMapping;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
@@ -231,7 +232,7 @@ public class DeltaLakePageSinkProvider
                 () -> createCdfPageSink(merge, session, deltaTableCredentials),
                 changeDataFeedEnabled(tableHandle.metadataEntry(), tableHandle.protocolEntry()).orElse(false),
                 parquetSchemaMapping,
-                parquetReaderOptions,
+                withSessionParquetReaderOptions(parquetReaderOptions, session),
                 fileFormatDataSourceStats,
                 isDeletionVectorEnabled(tableHandle.metadataEntry(), tableHandle.protocolEntry()),
                 merge.deletionVectors(),

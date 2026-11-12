@@ -79,9 +79,8 @@ public final class OrcMetrics
 {
     private OrcMetrics() {}
 
-    public static Metrics fileMetrics(TrinoInputFile file, MetricsConfig metricsConfig, Schema schema)
+    public static Metrics fileMetrics(TrinoInputFile file, OrcReaderOptions options, MetricsConfig metricsConfig, Schema schema)
     {
-        OrcReaderOptions options = new OrcReaderOptions();
         try (OrcDataSource dataSource = new TrinoOrcDataSource(file, options, new FileFormatDataSourceStats())) {
             Optional<OrcReader> reader = createOrcReader(dataSource, options);
             if (reader.isEmpty()) {

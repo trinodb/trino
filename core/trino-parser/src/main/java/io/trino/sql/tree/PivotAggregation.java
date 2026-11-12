@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class PivotAggregation
+public final class PivotAggregation
         extends Node
 {
     private final Expression expression;
@@ -43,12 +43,6 @@ public class PivotAggregation
     public Optional<Identifier> getAlias()
     {
         return alias;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPivotAggregation(this, context);
     }
 
     @Override

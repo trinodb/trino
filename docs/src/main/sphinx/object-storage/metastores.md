@@ -512,6 +512,16 @@ following properties:
   - Maximum number of retry attempts for failed REST catalog HTTP requests
     (default: `5`). Only idempotent requests, such as `GET`, are retried on
     server errors; retries use exponential backoff.
+* - `iceberg.rest-catalog.http-proxy`
+  - Host and port of the HTTP proxy used to connect to the REST catalog, in the
+    form `host:port`.
+* - `iceberg.rest-catalog.http-proxy.username`
+  - Username for authenticating with the HTTP proxy. Requires
+    `iceberg.rest-catalog.http-proxy` and
+    `iceberg.rest-catalog.http-proxy.password`.
+* - `iceberg.rest-catalog.http-proxy.password`
+  - Password for authenticating with the HTTP proxy. Requires
+    `iceberg.rest-catalog.http-proxy.username`.
 * - `iceberg.rest-catalog.session-timeout`
   - [Duration](prop-type-duration) to keep authentication session in cache. Defaults to `1h`.
 * - `iceberg.rest-catalog.oauth2.token`

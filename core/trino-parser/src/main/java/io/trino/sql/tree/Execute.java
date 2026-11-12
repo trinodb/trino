@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class Execute
+public final class Execute
         extends Statement
 {
     private final Identifier name;
@@ -42,12 +42,6 @@ public class Execute
     public List<Expression> getParameters()
     {
         return parameters;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitExecute(this, context);
     }
 
     @Override

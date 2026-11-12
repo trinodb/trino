@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ShowRoles
+public final class ShowRoles
         extends Statement
 {
     private final Optional<Identifier> catalog;
@@ -43,12 +43,6 @@ public class ShowRoles
     public boolean isCurrent()
     {
         return current;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitShowRoles(this, context);
     }
 
     @Override

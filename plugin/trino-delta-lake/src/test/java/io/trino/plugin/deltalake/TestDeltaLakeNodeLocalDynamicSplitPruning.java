@@ -75,7 +75,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeNodeLocalDynamicSplitPruning
 {
-    private static final ParquetReaderConfig PARQUET_READER_CONFIG = new ParquetReaderConfig();
+    private static final ParquetReaderConfig PARQUET_READER_CONFIG = new ParquetReaderConfig()
+            // Bloom filters are currently not supported by the connector
+            .setUseBloomFilter(false);
     private static final ParquetWriterConfig PARQUET_WRITER_CONFIG = new ParquetWriterConfig();
 
     @Test

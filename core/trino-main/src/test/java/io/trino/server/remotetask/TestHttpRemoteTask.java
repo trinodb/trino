@@ -620,6 +620,8 @@ public class TestHttpRemoteTask
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
 
+        // stopping the factory before the scenario has failed the task would fail it with a shutdown error instead
+        poll(() -> remoteTask.getTaskStatus().state().isDone());
         waitUntilIdle(lastActivityNanos);
 
         httpRemoteTaskFactory.stop();

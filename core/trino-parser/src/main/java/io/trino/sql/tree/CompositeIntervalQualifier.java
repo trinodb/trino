@@ -69,12 +69,6 @@ public final class CompositeIntervalQualifier
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCompositeIntervalQualifier(this, context);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         if (!(o instanceof CompositeIntervalQualifier that)) {

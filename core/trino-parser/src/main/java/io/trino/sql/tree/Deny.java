@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class Deny
+public final class Deny
         extends Statement
 {
     private final Optional<List<String>> privileges; // missing means ALL PRIVILEGES
@@ -51,12 +51,6 @@ public class Deny
     public PrincipalSpecification getGrantee()
     {
         return grantee;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDeny(this, context);
     }
 
     @Override

@@ -29,6 +29,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
@@ -70,6 +71,7 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -2362,6 +2364,35 @@ public class TestIcebergV3
         assertQueryFails("MERGE INTO " + tableName + " t USING (VALUES 1) s(x) ON t.x = s.x WHEN MATCHED THEN DELETE", "Writing to Iceberg tables with unknown type columns is not supported");
         assertQueryFails("ALTER TABLE " + tableName + " EXECUTE optimize", "Writing to Iceberg tables with unknown type columns is not supported");
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL)");
+
+        catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+    }
+
+    @Test
+    void testAnalyzeUnknownType()
+            throws Exception
+    {
+        String tableName = "test_analyze_unknown_type" + randomNameSuffix();
+        createV3Table(tableName, new Schema(
+                Types.NestedField.optional(1, "x", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "y", Types.UnknownType.get())));
+
+        // statistics are collected when writing to an empty table
+        assertQueryFails("INSERT INTO " + tableName + " VALUES (1, NULL)", "Writing to Iceberg tables with unknown type columns is not supported");
+
+        Table table = loadTable(tableName);
+        Record record = GenericRecord.create(table.schema());
+        record.setField("x", 1);
+        record.setField("y", null);
+        appendDataFile(table, FileFormat.PARQUET, record, null);
+
+        assertUpdate("ANALYZE " + tableName);
+        assertThat(computeActual("SHOW STATS FOR " + tableName).project("column_name", "distinct_values_count").getMaterializedRows())
+                .extracting(MaterializedRow::getFields)
+                .containsExactlyInAnyOrder(
+                        Arrays.asList("x", 1.0),
+                        Arrays.asList("y", 0.0),
+                        Arrays.asList(null, null));
 
         catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
     }

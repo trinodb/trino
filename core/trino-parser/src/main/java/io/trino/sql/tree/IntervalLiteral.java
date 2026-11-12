@@ -18,7 +18,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IntervalLiteral
+public final class IntervalLiteral
         extends Literal
 {
     public enum Sign
@@ -84,12 +84,6 @@ public class IntervalLiteral
     public IntervalQualifier qualifier()
     {
         return qualifier;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitIntervalLiteral(this, context);
     }
 
     @Override

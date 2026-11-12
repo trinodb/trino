@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class DropColumn
+public final class DropColumn
         extends Statement
 {
     private final QualifiedName table;
@@ -56,12 +56,6 @@ public class DropColumn
     public boolean isColumnExists()
     {
         return columnExists;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDropColumn(this, context);
     }
 
     @Override

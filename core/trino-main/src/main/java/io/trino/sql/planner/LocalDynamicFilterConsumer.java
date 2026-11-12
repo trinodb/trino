@@ -58,7 +58,6 @@ public class LocalDynamicFilterConsumer
     private Integer expectedPartitionCount;
     @GuardedBy("this")
     private int collectedPartitionCount;
-    @GuardedBy("this")
     private volatile boolean collected;
 
     private final Queue<TupleDomain<DynamicFilterId>> summaryDomains = new ConcurrentLinkedQueue<>();
@@ -210,7 +209,7 @@ public class LocalDynamicFilterConsumer
     }
 
     @Override
-    public synchronized boolean isDomainCollectionComplete()
+    public boolean isDomainCollectionComplete()
     {
         return collected;
     }

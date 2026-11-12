@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class Grant
+public final class Grant
         extends Statement
 {
     private final Optional<List<String>> privileges; // missing means ALL PRIVILEGES
@@ -58,12 +58,6 @@ public class Grant
     public boolean isWithGrantOption()
     {
         return grantOption;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitGrant(this, context);
     }
 
     @Override

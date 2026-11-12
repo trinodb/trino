@@ -18,8 +18,17 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
-public abstract class Literal
+public abstract sealed class Literal
         extends Expression
+        permits BinaryLiteral,
+                BooleanLiteral,
+                DecimalLiteral,
+                DoubleLiteral,
+                GenericLiteral,
+                IntervalLiteral,
+                LongLiteral,
+                NullLiteral,
+                StringLiteral
 {
     protected Literal(NodeLocation location)
     {
@@ -30,12 +39,6 @@ public abstract class Literal
     protected Literal(Optional<NodeLocation> location)
     {
         super(location);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLiteral(this, context);
     }
 
     @Override

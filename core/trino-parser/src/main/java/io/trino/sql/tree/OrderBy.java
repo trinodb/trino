@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class OrderBy
+public final class OrderBy
         extends Node
 {
     private final List<SortItem> sortItems;
@@ -48,12 +48,6 @@ public class OrderBy
     public List<SortItem> getSortItems()
     {
         return sortItems;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitOrderBy(this, context);
     }
 
     @Override

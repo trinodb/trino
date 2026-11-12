@@ -7,6 +7,9 @@ inputs:
   cache:
     description: "Cache Maven repo (true/false/restore)"
     default: restore
+  maven:
+    description: "Verify the Maven wrapper and preload Maven core extensions (true/false)"
+    default: true
   cleanup-node:
     description: "Clean up node (true/false) to increase free disk space"
     default: false # Disabled by default as it adds ~4 minutes of test runtime. Should be enabled case by case.
@@ -52,7 +55,7 @@ runs:
         if: runner.os == 'Linux'
         shell: bash
         run: ./.github/bin/configure-docker-hub-mirror.sh
-      - uses: actions/setup-java@v6.1.0
+      - uses: actions/setup-java@v6.2.0
         if: ${{ inputs.java-version != '' }}
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
@@ -148,11 +151,11 @@ runs:
           restore-keys: |
             ${{ runner.os }}-maven-wrapper-google-maven-central-
       - name: Verify Maven wrapper
-        if: ${{ inputs.java-version != '' }}
+        if: ${{ inputs.java-version != '' && format('{0}', inputs.maven) == 'true' }}
         shell: bash
         run: .github/bin/retry ./mvnw -v
       - name: Preload Maven core extensions
-        if: ${{ inputs.java-version != '' }}
+        if: ${{ inputs.java-version != '' && format('{0}', inputs.maven) == 'true' }}
         shell: bash
         # Load maven core extensions with retry.
         # Full plugin coordinates avoid prefix and version lookups, which query every declared repository and log warnings for blocked ones.

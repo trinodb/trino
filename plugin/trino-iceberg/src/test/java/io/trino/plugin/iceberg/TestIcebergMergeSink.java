@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.delete.DeletionVector;
@@ -147,7 +148,7 @@ final class TestIcebergMergeSink
         return new IcebergMergeSink(
                 3,
                 LocationProviders.locationsFor("memory:///table", ImmutableMap.of()),
-                new IcebergFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), new FileFormatDataSourceStats(), new IcebergConfig(), new OrcWriterConfig(), new ParquetWriterConfig()),
+                new IcebergFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), new FileFormatDataSourceStats(), new IcebergConfig(), new OrcReaderConfig(), new OrcWriterConfig(), new ParquetWriterConfig()),
                 new MemoryFileSystemFactory().create(SESSION),
                 JsonCodec.jsonCodec(CommitTaskData.class),
                 SESSION,

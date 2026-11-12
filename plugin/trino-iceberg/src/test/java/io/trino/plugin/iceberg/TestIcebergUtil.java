@@ -79,14 +79,13 @@ public class TestIcebergUtil
                 NestedField.required(3, "nested", Types.ListType.ofRequired(4, Types.TimestampType.withZone())),
                 NestedField.required(5, "local_ts", Types.TimestampType.withoutZone()));
 
-        assertThat(getColumnMetadatas(schema, TESTING_TYPE_MANAGER, 2))
+        assertThat(getColumnMetadatas(schema, Optional.empty(), TESTING_TYPE_MANAGER, 2))
                 .extracting(ColumnMetadata::getName, ColumnMetadata::getTimeZone)
                 .containsExactly(
                         tuple("id", Optional.empty()),
                         tuple("ts", Optional.of(UTC_KEY)),
                         tuple("nested", Optional.of(UTC_KEY)),
                         tuple("local_ts", Optional.empty()),
-                        tuple("$partition", Optional.empty()),
                         tuple("$path", Optional.empty()),
                         tuple("$file_modified_time", Optional.of(UTC_KEY)));
     }

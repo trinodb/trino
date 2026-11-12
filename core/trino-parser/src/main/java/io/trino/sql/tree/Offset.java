@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class Offset
+public final class Offset
         extends Node
 {
     private final Expression rowCount;
@@ -44,12 +44,6 @@ public class Offset
     public Expression getRowCount()
     {
         return rowCount;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitOffset(this, context);
     }
 
     @Override

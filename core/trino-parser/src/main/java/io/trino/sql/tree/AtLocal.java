@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class AtLocal
+public final class AtLocal
         extends Expression
 {
     private final Expression value;
@@ -34,12 +34,6 @@ public class AtLocal
     public Expression getValue()
     {
         return value;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAtLocal(this, context);
     }
 
     @Override

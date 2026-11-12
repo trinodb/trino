@@ -21,6 +21,10 @@ import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.spi.catalog.CatalogName;
@@ -47,6 +51,8 @@ public class IcebergMetadataFactory
     private final TableStatisticsWriter tableStatisticsWriter;
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
+    private final OrcReaderOptions orcReaderOptions;
+    private final ParquetReaderOptions parquetReaderOptions;
     private final Predicate<String> allowedExtraProperties;
     private final ExecutorService icebergScanExecutor;
     private final Executor metadataFetchingExecutor;
@@ -73,6 +79,8 @@ public class IcebergMetadataFactory
             @ForIcebergPlanning ExecutorService icebergPlanningExecutor,
             @ForIcebergFileDelete ExecutorService icebergFileDeleteExecutor,
             IcebergConfig config,
+            OrcReaderConfig orcReaderConfig,
+            ParquetReaderConfig parquetReaderConfig,
             ConnectorExpressionEvaluator evaluator)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -86,6 +94,8 @@ public class IcebergMetadataFactory
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
         this.addFilesProcedureEnabled = config.isAddFilesProcedureEnabled();
+        this.orcReaderOptions = orcReaderConfig.toOrcReaderOptions();
+        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         if (config.getAllowedExtraProperties().equals(ImmutableList.of("*"))) {
             this.allowedExtraProperties = _ -> true;
         }
@@ -119,6 +129,8 @@ public class IcebergMetadataFactory
                 deletionVectorWriter,
                 metastoreFactory,
                 addFilesProcedureEnabled,
+                orcReaderOptions,
+                parquetReaderOptions,
                 allowedExtraProperties,
                 icebergScanExecutor,
                 metadataFetchingExecutor,

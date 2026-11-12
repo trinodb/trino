@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class CurrentSchema
+public final class CurrentSchema
         extends Expression
 {
     public CurrentSchema(NodeLocation location)
@@ -29,12 +29,6 @@ public class CurrentSchema
     public List<Node> getChildren()
     {
         return ImmutableList.of();
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCurrentSchema(this, context);
     }
 
     @Override

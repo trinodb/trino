@@ -15,7 +15,10 @@ package io.trino.sql.tree;
 
 import java.util.List;
 
-public abstract class JoinCriteria
+public abstract sealed class JoinCriteria
+        permits JoinOn,
+                JoinUsing,
+                NaturalJoin
 {
     // Force subclasses to have a proper equals and hashcode implementation
     @Override

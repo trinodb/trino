@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.iceberg.IcebergPartitionColumn;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;

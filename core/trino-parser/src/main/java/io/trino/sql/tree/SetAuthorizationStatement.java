@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class SetAuthorizationStatement
+public final class SetAuthorizationStatement
         extends Statement
 {
     private final String ownedEntityKind;
@@ -34,12 +34,6 @@ public class SetAuthorizationStatement
         this.ownedEntityKind = requireNonNull(ownedEntityKind, "ownedEntityKind is null");
         this.source = requireNonNull(source, "source is null");
         this.principal = requireNonNull(principal, "principal is null");
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSetAuthorization(this, context);
     }
 
     public String getOwnedEntityKind()

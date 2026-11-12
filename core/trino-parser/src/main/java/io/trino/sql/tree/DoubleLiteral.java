@@ -17,7 +17,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class DoubleLiteral
+public final class DoubleLiteral
         extends Literal
 {
     private final double value;
@@ -43,12 +43,6 @@ public class DoubleLiteral
     public double getValue()
     {
         return value;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDoubleLiteral(this, context);
     }
 
     @Override

@@ -58,12 +58,6 @@ public final class Isolation
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitIsolationLevel(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.of();

@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class Limit
+public final class Limit
         extends Node
 {
     private final Expression rowCount;
@@ -53,12 +53,6 @@ public class Limit
     public Expression getRowCount()
     {
         return rowCount;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLimit(this, context);
     }
 
     @Override

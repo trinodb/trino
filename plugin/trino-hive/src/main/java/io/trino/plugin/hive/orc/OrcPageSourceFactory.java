@@ -206,15 +206,7 @@ public class OrcPageSourceFactory
                 schema.isFullAcidTable(),
                 effectivePredicate,
                 legacyTimeZone,
-                orcReaderOptions
-                        .withMaxMergeDistance(getOrcMaxMergeDistance(session))
-                        .withMaxBufferSize(getOrcMaxBufferSize(session))
-                        .withStreamBufferSize(getOrcStreamBufferSize(session))
-                        .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))
-                        .withMaxReadBlockSize(getOrcMaxReadBlockSize(session))
-                        .withLazyReadSmallRanges(getOrcLazyReadSmallRanges(session))
-                        .withNestedLazy(isOrcNestedLazy(session))
-                        .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session)),
+                withSessionOrcReaderOptions(orcReaderOptions, session),
                 acidInfo,
                 bucketNumber,
                 originalFile,
@@ -693,5 +685,18 @@ public class OrcPageSourceFactory
                         .map(dereference -> dereference.toLowerCase(ENGLISH))
                         .collect(toImmutableList()))
                 .orElse(ImmutableList.of());
+    }
+
+    private static OrcReaderOptions withSessionOrcReaderOptions(OrcReaderOptions configuredOptions, ConnectorSession session)
+    {
+        return configuredOptions
+                .withMaxMergeDistance(getOrcMaxMergeDistance(session))
+                .withMaxBufferSize(getOrcMaxBufferSize(session))
+                .withStreamBufferSize(getOrcStreamBufferSize(session))
+                .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))
+                .withMaxReadBlockSize(getOrcMaxReadBlockSize(session))
+                .withLazyReadSmallRanges(getOrcLazyReadSmallRanges(session))
+                .withNestedLazy(isOrcNestedLazy(session))
+                .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session));
     }
 }

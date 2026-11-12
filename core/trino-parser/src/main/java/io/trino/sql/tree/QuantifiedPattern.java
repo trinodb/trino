@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class QuantifiedPattern
+public final class QuantifiedPattern
         extends RowPattern
 {
     private final RowPattern pattern;
@@ -42,12 +42,6 @@ public class QuantifiedPattern
     public PatternQuantifier getPatternQuantifier()
     {
         return patternQuantifier;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitQuantifiedPattern(this, context);
     }
 
     @Override

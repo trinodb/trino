@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class MergeUpdate
+public final class MergeUpdate
         extends MergeCase
 {
     private final List<Assignment> assignments;
@@ -37,12 +37,6 @@ public class MergeUpdate
     public List<Assignment> getAssignments()
     {
         return assignments;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMergeUpdate(this, context);
     }
 
     @Override

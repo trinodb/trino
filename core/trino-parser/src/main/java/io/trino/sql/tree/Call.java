@@ -45,12 +45,6 @@ public final class Call
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCall(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return arguments;

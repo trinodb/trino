@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class RenameColumn
+public final class RenameColumn
         extends Statement
 {
     private final QualifiedName table;
@@ -63,12 +63,6 @@ public class RenameColumn
     public boolean isColumnExists()
     {
         return columnExists;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitRenameColumn(this, context);
     }
 
     @Override

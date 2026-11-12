@@ -13,6 +13,7 @@
  */
 package io.trino.testing;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class SystemEnvironmentUtils
@@ -20,11 +21,14 @@ public final class SystemEnvironmentUtils
     private SystemEnvironmentUtils() {}
 
     /**
-     * Get the named environment variable, throwing an exception if it is not set.
+     * Get the named environment variable, throwing an exception if it is not set or empty.
+     * CI passes an unavailable secret as an empty value.
      */
     public static String requireEnv(String variable)
     {
-        return requireNonNull(System.getenv(variable), () -> "environment variable not set: " + variable);
+        String value = requireNonNull(System.getenv(variable), () -> "environment variable not set: " + variable);
+        checkState(!value.isEmpty(), "environment variable is empty: %s", variable);
+        return value;
     }
 
     public static boolean isEnvSet(String variable)

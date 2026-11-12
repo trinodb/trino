@@ -39,7 +39,6 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
-import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static java.util.Objects.requireNonNull;
 
 public final class EqualityDeleteFilter
@@ -59,7 +58,7 @@ public final class EqualityDeleteFilter
         Map<Integer, Integer> dataChannelsByFieldId = new HashMap<>();
         for (int channel = 0; channel < columns.size(); channel++) {
             IcebergColumnHandle column = columns.get(channel);
-            if (isMetadataColumnId(column.getId())) {
+            if (column.isMetadataColumn()) {
                 continue;
             }
             dataChannelsByFieldId.putIfAbsent(column.getId(), channel);

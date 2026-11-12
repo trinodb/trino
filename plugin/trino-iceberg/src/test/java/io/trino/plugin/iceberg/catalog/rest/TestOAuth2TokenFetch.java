@@ -14,12 +14,7 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.http.server.HttpConfig;
-import io.airlift.http.server.HttpServerConfig;
-import io.airlift.http.server.HttpServerInfo;
-import io.airlift.http.server.ServerFeature;
 import io.airlift.http.server.testing.TestingHttpServer;
-import io.airlift.node.NodeInfo;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.DistributedQueryRunner;
 import org.apache.iceberg.catalog.Catalog;
@@ -36,11 +31,11 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
+import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.createTestingHttpServer;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -89,13 +84,7 @@ final class TestOAuth2TokenFetch
     private static TestingHttpServer createTestServer(ExpiringTokenRestCatalogAdapter adapter)
             throws Exception
     {
-        NodeInfo nodeInfo = new NodeInfo("test");
-        HttpServerConfig config = new HttpServerConfig()
-                .setHttpEnabled(true);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
-        return new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, new RESTCatalogServlet(adapter), ServerFeature.builder()
-                .withLegacyUriCompliance(true)
-                .build());
+        return createTestingHttpServer(new RESTCatalogServlet(adapter));
     }
 
     private static final class ExpiringTokenRestCatalogAdapter

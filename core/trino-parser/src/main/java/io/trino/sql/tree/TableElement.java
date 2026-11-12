@@ -15,17 +15,13 @@ package io.trino.sql.tree;
 
 import java.util.Optional;
 
-public abstract class TableElement
+public abstract sealed class TableElement
         extends Node
+        permits ColumnDefinition,
+                LikeClause
 {
     public TableElement(Optional<NodeLocation> location)
     {
         super(location);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTableElement(this, context);
     }
 }

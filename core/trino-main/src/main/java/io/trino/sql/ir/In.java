@@ -43,12 +43,6 @@ public record In(Expression value, List<Expression> valueList)
     }
 
     @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitIn(this, context);
-    }
-
-    @Override
     public List<? extends Expression> children()
     {
         return ImmutableList.<Expression>builder()

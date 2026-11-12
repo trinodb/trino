@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class SampledRelation
+public final class SampledRelation
         extends Relation
 {
     public enum Type
@@ -56,12 +56,6 @@ public class SampledRelation
     public Expression getSamplePercentage()
     {
         return samplePercentage;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSampledRelation(this, context);
     }
 
     @Override

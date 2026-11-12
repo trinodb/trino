@@ -30,7 +30,11 @@ import io.trino.metastore.Partition;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.metastore.Storage;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.hive.HiveStorageFormat;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileFormat;
@@ -92,6 +96,8 @@ import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static io.trino.plugin.iceberg.IcebergPageSourceProvider.withSessionOrcReaderOptions;
+import static io.trino.plugin.iceberg.IcebergPageSourceProvider.withSessionParquetReaderOptions;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.procedure.MigrationUtils.buildDataFiles;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
@@ -124,6 +130,8 @@ public class MigrateProcedure
     private final HiveMetastoreFactory metastoreFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
+    private final OrcReaderOptions orcReaderOptions;
+    private final ParquetReaderOptions parquetReaderOptions;
     private final int formatVersion;
     private final boolean isUsingSystemSecurity;
 
@@ -144,6 +152,8 @@ public class MigrateProcedure
             @RawHiveMetastoreFactory HiveMetastoreFactory metastoreFactory,
             TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
+            OrcReaderConfig orcReaderConfig,
+            ParquetReaderConfig parquetReaderConfig,
             IcebergConfig icebergConfig,
             @UsingSystemSecurity boolean usingSystemSecurity)
     {
@@ -151,6 +161,8 @@ public class MigrateProcedure
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.orcReaderOptions = orcReaderConfig.toOrcReaderOptions();
+        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         this.formatVersion = icebergConfig.getFormatVersion();
         this.isUsingSystemSecurity = usingSystemSecurity;
     }
@@ -212,6 +224,8 @@ public class MigrateProcedure
         Map<String, String> properties = icebergTableProperties(location, hiveTable.getParameters(), nameMapping, toIcebergFileFormat(storageFormat));
         PartitionSpec partitionSpec = parsePartitionFields(schema, hiveTable);
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        OrcReaderOptions sessionOrcReaderOptions = withSessionOrcReaderOptions(orcReaderOptions, session);
+        ParquetReaderOptions sessionParquetReaderOptions = withSessionParquetReaderOptions(parquetReaderOptions, session);
         Location metadataLocation = Location.of(location).appendPath("metadata");
         Set<Location> existingMetadataFiles = Set.copyOf(listFiles(fileSystem, metadataLocation));
         PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
@@ -220,7 +234,7 @@ public class MigrateProcedure
             ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
             if (hiveTable.getPartitionColumns().isEmpty()) {
                 log.debug("Building data files from %s", location);
-                dataFilesBuilder.addAll(buildDataFiles(fileSystem, recursive, storageFormat, location, partitionSpec, Optional.empty(), schema));
+                dataFilesBuilder.addAll(buildDataFiles(fileSystem, sessionOrcReaderOptions, sessionParquetReaderOptions, recursive, storageFormat, location, partitionSpec, Optional.empty(), schema));
             }
             else {
                 Map<String, Optional<Partition>> partitions = listAllPartitions(metastore, hiveTable);
@@ -230,7 +244,7 @@ public class MigrateProcedure
                     log.debug("Building data files from '%s' for partition %d of %d", storage.getLocation(), fileCount++, partitions.size());
                     HiveStorageFormat partitionStorageFormat = extractHiveStorageFormat(storage.getStorageFormat());
                     StructLike partitionData = DataFiles.data(partitionSpec, partition.getKey());
-                    dataFilesBuilder.addAll(buildDataFiles(fileSystem, recursive, partitionStorageFormat, storage.getLocation(), partitionSpec, Optional.of(partitionData), schema));
+                    dataFilesBuilder.addAll(buildDataFiles(fileSystem, sessionOrcReaderOptions, sessionParquetReaderOptions, recursive, partitionStorageFormat, storage.getLocation(), partitionSpec, Optional.of(partitionData), schema));
                 }
             }
 

@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class SetSession
+public final class SetSession
         extends Statement
 {
     private final QualifiedName name;
@@ -41,12 +41,6 @@ public class SetSession
     public Expression getValue()
     {
         return value;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSetSession(this, context);
     }
 
     @Override

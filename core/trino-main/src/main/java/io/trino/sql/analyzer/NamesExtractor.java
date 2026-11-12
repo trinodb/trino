@@ -14,17 +14,17 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.sql.tree.DefaultTraversalVisitor;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SubqueryExpression;
 
 import java.util.Set;
 
-import static java.util.Objects.requireNonNull;
+import static io.trino.sql.tree.AstTraversal.forEachChild;
 
 public final class NamesExtractor
 {
@@ -34,56 +34,35 @@ public final class NamesExtractor
     public static Set<QualifiedName> extractNames(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
         ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
-        new QualifiedNameBuilderVisitor(columnReferences, true).process(expression, builder);
+        collectNames(expression, columnReferences, true, builder);
         return builder.build();
     }
 
     public static Set<QualifiedName> extractNamesNoSubqueries(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
         ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
-        new QualifiedNameBuilderVisitor(columnReferences, false).process(expression, builder);
+        collectNames(expression, columnReferences, false, builder);
         return builder.build();
     }
 
-    private static class QualifiedNameBuilderVisitor
-            extends DefaultTraversalVisitor<ImmutableSet.Builder<QualifiedName>>
+    private static void collectNames(
+            Node node,
+            Set<NodeRef<Expression>> columnReferences,
+            boolean recurseIntoSubqueries,
+            ImmutableSet.Builder<QualifiedName> builder)
     {
-        private final Set<NodeRef<Expression>> columnReferences;
-        private final boolean recurseIntoSubqueries;
-
-        private QualifiedNameBuilderVisitor(Set<NodeRef<Expression>> columnReferences, boolean recurseIntoSubqueries)
-        {
-            this.columnReferences = requireNonNull(columnReferences, "columnReferences is null");
-            this.recurseIntoSubqueries = recurseIntoSubqueries;
-        }
-
-        @Override
-        protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableSet.Builder<QualifiedName> builder)
-        {
-            if (columnReferences.contains(NodeRef.<Expression>of(node))) {
-                builder.add(DereferenceExpression.getQualifiedName(node));
+        switch (node) {
+            case DereferenceExpression dereference -> {
+                if (columnReferences.contains(NodeRef.<Expression>of(dereference))) {
+                    builder.add(DereferenceExpression.getQualifiedName(dereference));
+                }
+                else {
+                    collectNames(dereference.getBase(), columnReferences, recurseIntoSubqueries, builder);
+                }
             }
-            else {
-                process(node.getBase(), builder);
-            }
-            return null;
-        }
-
-        @Override
-        protected Void visitIdentifier(Identifier node, ImmutableSet.Builder<QualifiedName> builder)
-        {
-            builder.add(QualifiedName.of(node.getValue()));
-            return null;
-        }
-
-        @Override
-        protected Void visitSubqueryExpression(SubqueryExpression node, ImmutableSet.Builder<QualifiedName> context)
-        {
-            if (!recurseIntoSubqueries) {
-                return null;
-            }
-
-            return super.visitSubqueryExpression(node, context);
+            case Identifier identifier -> builder.add(QualifiedName.of(identifier.getValue()));
+            case SubqueryExpression _ when !recurseIntoSubqueries -> {}
+            default -> forEachChild(node, child -> collectNames(child, columnReferences, recurseIntoSubqueries, builder));
         }
     }
 }

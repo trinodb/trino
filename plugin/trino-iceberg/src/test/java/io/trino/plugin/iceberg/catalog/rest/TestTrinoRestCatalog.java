@@ -247,6 +247,8 @@ public class TestTrinoRestCatalog
                     UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
+                    new OrcReaderConfig().toOrcReaderOptions(),
+                    new ParquetReaderConfig().toParquetReaderOptions(),
                     _ -> false,
                     newDirectExecutorService(),
                     directExecutor(),

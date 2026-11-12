@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class TableFunctionDescriptorArgument
+public final class TableFunctionDescriptorArgument
         extends Node
 {
     private final Optional<Descriptor> descriptor;
@@ -46,12 +46,6 @@ public class TableFunctionDescriptorArgument
     public Optional<Descriptor> getDescriptor()
     {
         return descriptor;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDescriptorArgument(this, context);
     }
 
     @Override
