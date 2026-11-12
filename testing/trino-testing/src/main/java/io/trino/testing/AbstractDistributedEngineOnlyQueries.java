@@ -232,7 +232,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
         // ExplainAnalyzeOperator may finish before dynamic filter stats are reported to QueryInfo
         assertEventually(() -> assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
-                "Dynamic filters: \n.*ranges=25, \\{\\[0], ..., \\[24]}.* collection time=\\d+.*"));
+                "Dynamic filters: \n.*ranges=1, \\{\\[0,24]}.* collection time=\\d+.*"));
     }
 
     @Test
