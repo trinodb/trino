@@ -37,6 +37,7 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.metastore.DeltaTableType.MANAGED_TABLE;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public final class TestingDeltaLakeUtils
@@ -58,7 +59,7 @@ public final class TestingDeltaLakeUtils
         return new DeltaLakeTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
-                true,
+                MANAGED_TABLE,
                 tableLocation,
                 new MetadataEntry("id", "test", "description", null, "", ImmutableList.of(), ImmutableMap.of(), 0),
                 new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
@@ -76,7 +77,7 @@ public final class TestingDeltaLakeUtils
         return new DeltaLakeTableHandle(
                 "schema",
                 "table",
-                true,
+                MANAGED_TABLE,
                 "",
                 metadataEntry,
                 protocolEntry,

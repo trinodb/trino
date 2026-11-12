@@ -19,13 +19,14 @@ import static java.util.Objects.requireNonNull;
 
 public record DeltaMetastoreTable(
         SchemaTableName schemaTableName,
-        boolean managed,
+        DeltaTableType tableType,
         String location,
         boolean catalogOwned)
 {
     public DeltaMetastoreTable
     {
         requireNonNull(schemaTableName, "schemaTableName is null");
+        requireNonNull(tableType, "tableType is null");
         requireNonNull(location, "location is null");
     }
 }

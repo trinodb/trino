@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.plugin.deltalake.metastore.DeltaTableType;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
@@ -22,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 public record CorruptedDeltaLakeTableHandle(
         SchemaTableName schemaTableName,
         boolean catalogOwned,
-        boolean managed,
+        DeltaTableType tableType,
         String location,
         TrinoException originalException)
         implements LocatedTableHandle
@@ -30,6 +31,7 @@ public record CorruptedDeltaLakeTableHandle(
     public CorruptedDeltaLakeTableHandle
     {
         requireNonNull(schemaTableName, "schemaTableName is null");
+        requireNonNull(tableType, "tableType is null");
         requireNonNull(location, "location is null");
         requireNonNull(originalException, "originalException is null");
     }
@@ -43,6 +45,6 @@ public record CorruptedDeltaLakeTableHandle(
     @Override
     public VendedCredentialsHandle toCredentialsHandle()
     {
-        return new VendedCredentialsHandle(catalogOwned, managed, location);
+        return new VendedCredentialsHandle(catalogOwned, tableType, location);
     }
 }

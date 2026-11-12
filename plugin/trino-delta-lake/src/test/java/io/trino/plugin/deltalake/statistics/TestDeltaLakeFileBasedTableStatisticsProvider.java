@@ -60,6 +60,7 @@ import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.createTable;
+import static io.trino.plugin.deltalake.metastore.DeltaTableType.EXTERNAL_TABLE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -127,7 +128,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         return new DeltaLakeTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
-                false,
+                EXTERNAL_TABLE,
                 tableLocation,
                 metadataEntry,
                 new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
@@ -257,7 +258,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandleWithUnenforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
-                tableHandle.isManaged(),
+                tableHandle.tableType(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
@@ -281,7 +282,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandleWithNoneEnforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
-                tableHandle.isManaged(),
+                tableHandle.tableType(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
@@ -295,7 +296,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandleWithNoneUnenforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
-                tableHandle.isManaged(),
+                tableHandle.tableType(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),

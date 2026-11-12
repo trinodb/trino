@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
 import static java.lang.String.format;
@@ -129,9 +130,21 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         verifyDeltaLakeTable(table);
         return new DeltaMetastoreTable(
                 new SchemaTableName(table.getDatabaseName(), table.getTableName()),
-                table.getTableType().equals(MANAGED_TABLE.name()),
+                tableType(table),
                 getTableLocation(table),
                 false);
+    }
+
+    private static DeltaTableType tableType(Table table)
+    {
+        if (MANAGED_TABLE.name().equals(table.getTableType())) {
+            return DeltaTableType.MANAGED_TABLE;
+        }
+        if (EXTERNAL_TABLE.name().equals(table.getTableType())) {
+            return DeltaTableType.EXTERNAL_TABLE;
+        }
+
+        throw new IllegalArgumentException("Unsupported table type: " + table.getTableType());
     }
 
     public static String getTableLocation(Table table)
