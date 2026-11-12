@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 @ThreadSafe
@@ -30,6 +31,7 @@ public class PlanOptimizersStatsCollector
 {
     private final Map<Class<?>, QueryPlanOptimizerStats> stats = new ConcurrentHashMap<>();
     private final int queryReportedRuleStatsLimit;
+    private volatile boolean closed;
 
     public PlanOptimizersStatsCollector(int queryReportedRuleStatsLimit)
     {
@@ -76,6 +78,15 @@ public class PlanOptimizersStatsCollector
                 .collect(toImmutableList());
     }
 
+    /**
+     * Releases the collected stats and rejects further recording.
+     */
+    public void close()
+    {
+        closed = true;
+        stats.clear();
+    }
+
     public void add(PlanOptimizersStatsCollector other)
     {
         other.stats.forEach((key, value) -> statsForClass(key).merge(value));
@@ -83,6 +94,7 @@ public class PlanOptimizersStatsCollector
 
     private QueryPlanOptimizerStats statsForClass(Class<?> clazz)
     {
+        checkState(!closed, "Plan optimizer stats collector is closed");
         return stats.computeIfAbsent(clazz, key -> new QueryPlanOptimizerStats(key.getCanonicalName()));
     }
 
