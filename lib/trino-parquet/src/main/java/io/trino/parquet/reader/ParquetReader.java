@@ -14,6 +14,7 @@
 package io.trino.parquet.reader;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,6 +39,7 @@ import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.VariantField;
 import io.trino.parquet.crypto.FileDecryptionContext;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.metadata.IndexReference;
 import io.trino.parquet.metadata.PrunedBlockMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.FilteredOffsetIndex.OffsetRange;
@@ -64,6 +66,7 @@ import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.filter2.compat.FilterCompat;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
+import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexFilter;
@@ -93,6 +96,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.parquet.ParquetMetadataConverter.fromParquetOffsetIndex;
 import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation.createStatisticsValidationBuilder;
@@ -1343,19 +1347,36 @@ public class ParquetReader
                 offsetIndex = getFilteredOffsetIndex(rowRanges, currentRowGroup, currentBlockMetadata.getRowCount(), metadata.getPath());
             }
             ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
-            columnReader.setPageReader(
-                    createPageReader(
-                            dataSource.getId(),
-                            columnChunkInputStream,
-                            metadata,
-                            columnDescriptor,
-                            offsetIndex,
-                            fileCreatedBy,
-                            decryptionContext,
-                            options.getMaxPageReadSize().toBytes()),
-                    Optional.ofNullable(rowRanges));
+            PageReader pageReader = createPageReader(
+                    dataSource.getId(),
+                    columnChunkInputStream,
+                    metadata,
+                    columnDescriptor,
+                    offsetIndex,
+                    fileCreatedBy,
+                    decryptionContext,
+                    options.getMaxPageReadSize().toBytes());
+            IndexReference offsetIndexReference = metadata.getOffsetIndexReference();
+            if (rowRanges == null && columnDescriptor.getMaxRepetitionLevel() > 0 && offsetIndexReference != null && decryptionContext.isEmpty()) {
+                // Allows to skip whole pages of repeated columns, which requires knowing the number of rows in a page
+                pageReader.setOffsetIndexLoader(
+                        Suppliers.memoize(() -> loadOffsetIndex(offsetIndexReference)),
+                        currentBlockMetadata.getRowCount());
+            }
+            columnReader.setPageReader(pageReader, Optional.ofNullable(rowRanges));
         }
         return columnReader;
+    }
+
+    private OffsetIndex loadOffsetIndex(IndexReference reference)
+    {
+        try {
+            Slice data = dataSource.readFully(reference.getOffset(), reference.getLength());
+            return fromParquetOffsetIndex(Util.readOffsetIndex(data.getInput(), null, null));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Error reading offset index", e);
+        }
     }
 
     public List<Column> getColumnFields()

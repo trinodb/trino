@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.trino.parquet.ParquetMetadataConverter;
+import io.trino.parquet.writer.ColumnWriter.DataPageLocation;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefinitionLevelWriter;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
@@ -104,6 +105,9 @@ public class PrimitiveColumnWriter
     private long dictionaryPageCompressedSize;
     private long dictionaryPageUncompressedSize;
     private long totalValues;
+    private int currentPageRowCount;
+    private long rowsInFlushedPages;
+    private final ImmutableList.Builder<DataPageLocation> dataPageLocations = ImmutableList.builder();
 
     private final int maxDefinitionLevel;
 
@@ -162,6 +166,7 @@ public class PrimitiveColumnWriter
         DefLevelWriterProvider.ValuesCount valuesCount = rootDefinitionLevelWriter.writeDefinitionLevels();
         currentPageNullCounts += valuesCount.totalValuesCount() - valuesCount.maxDefinitionLevelValuesCount();
         valueCount += valuesCount.totalValuesCount();
+        currentPageRowCount += columnChunk.getRowCount();
 
         if (columnDescriptor.getMaxRepetitionLevel() > 0) {
             // write repetition levels for nested types
@@ -200,6 +205,7 @@ public class PrimitiveColumnWriter
                 dataStreams.data(),
                 dataStreams.dictionaryPageSize(),
                 isOnlyDictionaryEncodingPages ? Optional.empty() : dataStreams.bloomFilter(),
+                dataPageLocations.build(),
                 columnMetaData));
     }
 
@@ -260,6 +266,8 @@ public class PrimitiveColumnWriter
                 primitiveValueWriter.getEncoding());
         writePageHeader(header, compressedOutputStream);
         int pageHeaderSize = compressedOutputStream.size() - writtenBytesSoFar;
+        dataPageLocations.add(new DataPageLocation(writtenBytesSoFar, pageHeaderSize + compressedSize, rowsInFlushedPages));
+        rowsInFlushedPages += currentPageRowCount;
 
         dataPagesWithEncoding.merge(getEncoding(primitiveValueWriter.getEncoding()), 1, Integer::sum);
 
@@ -279,6 +287,7 @@ public class PrimitiveColumnWriter
 
         // reset page stats
         valueCount = 0;
+        currentPageRowCount = 0;
         currentPageNullCounts = 0;
 
         repetitionLevelWriter.reset();

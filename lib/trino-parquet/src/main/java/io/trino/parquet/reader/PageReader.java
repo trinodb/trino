@@ -34,6 +34,7 @@ import org.apache.parquet.format.BlockCipher;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
+import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -41,12 +42,15 @@ import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class PageReader
@@ -71,6 +75,9 @@ public final class PageReader
     private byte[] dataPageAad;
     @Nullable
     private byte[] dictionaryPageAad;
+    @Nullable
+    private Supplier<OffsetIndex> offsetIndexLoader;
+    private long rowGroupRowCount;
 
     public static PageReader createPageReader(
             ParquetDataSourceId dataSourceId,
@@ -131,6 +138,45 @@ public final class PageReader
             dataPageAad = AesCipherUtils.createModuleAAD(decryptionContext.get().fileAad(), ModuleType.DataPage, rowGroupOrdinal, columnOrdinal, 0);
             dictionaryPageAad = AesCipherUtils.createModuleAAD(decryptionContext.get().fileAad(), ModuleType.DictionaryPage, rowGroupOrdinal, columnOrdinal, -1);
         }
+    }
+
+    /**
+     * Allows the number of rows in a data page to be determined without decoding it.
+     * The loader is invoked at most once, only when the row count of a page is requested.
+     * It may return null when the column chunk has no offset index.
+     */
+    public void setOffsetIndexLoader(Supplier<OffsetIndex> offsetIndexLoader, long rowGroupRowCount)
+    {
+        this.offsetIndexLoader = requireNonNull(offsetIndexLoader, "offsetIndexLoader is null");
+        this.rowGroupRowCount = rowGroupRowCount;
+    }
+
+    /**
+     * Returns the number of rows in the next data page, if the column chunk has an offset index.
+     * The offset index guarantees that the page starts on a row boundary, so the rows of
+     * the page are not shared with any other page.
+     */
+    public OptionalLong getNextPageRowCount()
+    {
+        if (offsetIndexLoader == null || !hasNext()) {
+            return OptionalLong.empty();
+        }
+        int pageIndex = getNextPage().getPageIndex();
+        OffsetIndex offsetIndex = offsetIndexLoader.get();
+        if (offsetIndex == null) {
+            return OptionalLong.empty();
+        }
+        int pageCount = offsetIndex.getPageCount();
+        if (pageIndex >= pageCount) {
+            throw new ParquetDecodingException(format("Offset index of column in %s has %s pages, but page %s was found", dataSourceId, pageCount, pageIndex));
+        }
+        long firstRowIndex = offsetIndex.getFirstRowIndex(pageIndex);
+        long nextFirstRowIndex = pageIndex + 1 < pageCount ? offsetIndex.getFirstRowIndex(pageIndex + 1) : rowGroupRowCount;
+        long rowCount = nextFirstRowIndex - firstRowIndex;
+        if (firstRowIndex < 0 || rowCount <= 0) {
+            throw new ParquetDecodingException(format("Offset index of column in %s has invalid first row index %s of page %s", dataSourceId, firstRowIndex, pageIndex));
+        }
+        return OptionalLong.of(rowCount);
     }
 
     public boolean hasNoNulls()

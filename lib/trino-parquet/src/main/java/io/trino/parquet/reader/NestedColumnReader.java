@@ -29,20 +29,24 @@ import io.trino.parquet.reader.flat.ColumnAdapter;
 import io.trino.parquet.reader.flat.DictionaryDecoder;
 import io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import org.apache.parquet.io.ParquetDecodingException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
+import static io.trino.parquet.reader.flat.RowRangesIterator.ALL_ROW_RANGES_ITERATOR;
 import static io.trino.spi.block.Bitmap.isSet;
 import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -105,6 +109,8 @@ public class NestedColumnReader<BufferType>
     // This way the remaining part of this row that may be stored in the next page
     // will be skipped as well
     private boolean pageLastRowSkipped;
+    // True if the preceding page was skipped based on the offset index, so the next page has to start a new row
+    private boolean nextPageMustStartNewRow;
 
     private int remainingPageValueCount;
     private int pageValueCount;
@@ -126,6 +132,12 @@ public class NestedColumnReader<BufferType>
     public boolean hasPageReader()
     {
         return pageReader != null;
+    }
+
+    @Override
+    public int getDataPageReadCount()
+    {
+        return pageReader == null ? 0 : pageReader.getDataPageReadCount();
     }
 
     @Override
@@ -284,6 +296,7 @@ public class NestedColumnReader<BufferType>
         int remainingInBatch = readOffset;
         while (remainingInBatch > 0) {
             if (remainingPageValueCount == 0) {
+                remainingInBatch = skipWholePages(remainingInBatch);
                 if (!readNextPage()) {
                     break;
                 }
@@ -309,6 +322,44 @@ public class NestedColumnReader<BufferType>
             int seek = rowRanges.seekForward(valueCount.rows + (pageLastRowUnfinished ? 1 : 0));
             remainingInBatch -= seek - (pageLastRowUnfinished ? 1 : 0);
         }
+    }
+
+    /**
+     * Skips the pages that are entirely covered by the rows to skip without decompressing them.
+     * This relies on the offset index, which guarantees that pages start on row boundaries.
+     * A page is skipped only if at least one more row has to be skipped afterwards,
+     * the remaining part is left to the regular seek.
+     *
+     * @return The number of rows that are still to be skipped
+     */
+    private int skipWholePages(int remainingInBatch)
+    {
+        if (!hasRepetitionLevels() || rowRanges != ALL_ROW_RANGES_ITERATOR) {
+            return remainingInBatch;
+        }
+        boolean skippedPages = false;
+        while (remainingInBatch > 0) {
+            OptionalLong pageRowCount = pageReader.getNextPageRowCount();
+            if (pageRowCount.isEmpty()) {
+                break;
+            }
+            // A row from a previous page that was not finished is finished by this page.
+            // The last row of this page is unfinished again, as it's not known whether the next page continues it.
+            long finishedRows = pageLastRowUnfinished ? pageRowCount.orElseThrow() : pageRowCount.orElseThrow() - 1;
+            if (finishedRows >= remainingInBatch) {
+                break;
+            }
+            pageReader.skipNextPage();
+            skippedPages = true;
+            remainingInBatch -= toIntExact(finishedRows);
+            pageLastRowUnfinished = true;
+            pageLastRowSkipped = true;
+            nextPageMustStartNewRow = true;
+        }
+        if (skippedPages) {
+            updateMemoryUsage();
+        }
+        return remainingInBatch;
     }
 
     private int readDefinitionLevels(IntegersBuffer outputDefinitionLevels, int[] definitionLevels)
@@ -511,14 +562,23 @@ public class NestedColumnReader<BufferType>
             // This makes decoding faster unless major parts of the page are skipped
             repetitionBuffer = new int[pageValueCount];
             repetitionLevelDecoder.read(repetitionBuffer, 0, pageValueCount);
+            if (nextPageMustStartNewRow && pageValueCount > 0 && repetitionBuffer[0] != 0) {
+                throw new ParquetDecodingException(format("Page %s of field %s does not start on a row boundary, but the offset index requires it", page.getPageIndex(), field));
+            }
         }
+        nextPageMustStartNewRow = false;
         remainingPageValueCount = pageValueCount;
         rowRanges.resetForNewPage(page.getFirstRowIndex());
 
+        updateMemoryUsage();
+        return true;
+    }
+
+    private void updateMemoryUsage()
+    {
         long dictionarySizeInBytes = dictionaryDecoder == null ? 0 : dictionaryDecoder.getRetainedSizeInBytes();
         long repetitionBufferSizeInBytes = sizeOf(repetitionBuffer);
         memoryContext.setBytes(dictionarySizeInBytes + repetitionBufferSizeInBytes + pageReader.getRetainedPageBytes());
-        return true;
     }
 
     private void readFlatPageV1(DataPageV1 page)

@@ -34,6 +34,7 @@ import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.parquet.writer.ColumnWriter.BufferData;
 import io.trino.parquet.writer.ColumnWriter.CompressionStats;
+import io.trino.parquet.writer.ColumnWriter.DataPageLocation;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
@@ -48,6 +49,8 @@ import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.KeyValue;
+import org.apache.parquet.format.OffsetIndex;
+import org.apache.parquet.format.PageLocation;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.SplitBlockAlgorithm;
 import org.apache.parquet.format.Uncompressed;
@@ -111,6 +114,7 @@ public class ParquetWriter
     private final Optional<DateTimeZone> parquetTimeZone;
     private final FileFooter fileFooter;
     private final ImmutableList.Builder<List<Optional<BloomFilter>>> bloomFilterGroups = ImmutableList.builder();
+    private final ImmutableList.Builder<List<List<DataPageLocation>>> dataPageLocationGroups = ImmutableList.builder();
     private final Optional<ParquetWriteValidationBuilder> validationBuilder;
 
     private List<ColumnWriter> columnWriters;
@@ -228,6 +232,7 @@ public class ParquetWriter
             compressionBuffers.clear();
             fileMetaData = fileFooter.createFileMetadata();
             writeBloomFilters(fileMetaData.getRow_groups(), bloomFilterGroups.build());
+            writeOffsetIndexes(fileMetaData.getRow_groups(), dataPageLocationGroups.build());
             writeFooter();
         }
         estimatedBufferedBytes = 0;
@@ -364,6 +369,7 @@ public class ParquetWriter
         }
 
         bloomFilterGroups.add(bufferDataList.stream().map(BufferData::getBloomFilter).collect(toImmutableList()));
+        dataPageLocationGroups.add(bufferDataList.stream().map(BufferData::getDataPageLocations).collect(toImmutableList()));
     }
 
     private void writeFooter()
@@ -412,6 +418,32 @@ public class ParquetWriter
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
+            }
+        }
+    }
+
+    private void writeOffsetIndexes(List<RowGroup> rowGroups, List<List<List<DataPageLocation>>> rowGroupDataPageLocations)
+    {
+        checkArgument(rowGroups.size() == rowGroupDataPageLocations.size(), "Row groups size %s should match row group data page locations size %s", rowGroups.size(), rowGroupDataPageLocations.size());
+        for (int group = 0; group < rowGroups.size(); group++) {
+            List<org.apache.parquet.format.ColumnChunk> columns = rowGroups.get(group).getColumns();
+            List<List<DataPageLocation>> columnDataPageLocations = rowGroupDataPageLocations.get(group);
+            for (int i = 0; i < columns.size(); i++) {
+                org.apache.parquet.format.ColumnChunk column = columns.get(i);
+                long dataPageOffset = column.getMeta_data().getData_page_offset();
+                ImmutableList.Builder<PageLocation> pageLocations = ImmutableList.builder();
+                for (DataPageLocation location : columnDataPageLocations.get(i)) {
+                    pageLocations.add(new PageLocation(dataPageOffset + location.offset(), location.compressedPageSize(), location.firstRowIndex()));
+                }
+                long offsetIndexOffset = outputStream.longSize();
+                try {
+                    Util.writeOffsetIndex(new OffsetIndex(pageLocations.build()), outputStream, null, null);
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+                column.setOffset_index_offset(offsetIndexOffset);
+                column.setOffset_index_length(toIntExact(outputStream.longSize() - offsetIndexOffset));
             }
         }
     }
