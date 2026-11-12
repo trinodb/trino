@@ -406,6 +406,51 @@ public class TestDynamicFilterSourceOperator
     }
 
     @Test
+    public void testCollectTooMuchRowsCompletesBeforeFinish()
+            throws Exception
+    {
+        int maxDistinctValues = 100;
+        OperatorFactory operatorFactory = createOperatorFactory(maxDistinctValues, DataSize.of(10, KILOBYTE), 1_000_000, ImmutableList.of(channel(0, DOUBLE)));
+        try (Operator operator = createOperator(operatorFactory)) {
+            operator.addInput(new Page(createDoubleSequenceBlock(0, maxDistinctValues + 1)));
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(TupleDomain.all()));
+            assertMemory(operator).isZero();
+
+            operator.getOutput();
+            operator.finish();
+            operatorFactory.noMoreOperators();
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(TupleDomain.all()));
+        }
+    }
+
+    @Test
+    public void testMultipleColumnsCollectTooMuchRowsCompletesBeforeFinish()
+            throws Exception
+    {
+        int maxDistinctValues = 100;
+        OperatorFactory operatorFactory = createOperatorFactory(maxDistinctValues, DataSize.of(10, KILOBYTE), 1_000_000, ImmutableList.of(channel(0, DOUBLE), channel(1, DOUBLE)));
+        try (Operator operator = createOperator(operatorFactory)) {
+            operator.addInput(new Page(
+                    createDoubleSequenceBlock(0, maxDistinctValues + 1),
+                    createDoubleRepeatBlock(1.0, maxDistinctValues + 1)));
+            operator.getOutput();
+            assertThat(partitions.build()).isEmpty();
+            assertMemory(operator).isPositive();
+
+            operator.addInput(new Page(
+                    createDoubleRepeatBlock(1.0, maxDistinctValues + 1),
+                    createDoubleSequenceBlock(0, maxDistinctValues + 1)));
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(TupleDomain.all()));
+            assertMemory(operator).isZero();
+
+            operator.getOutput();
+            operator.finish();
+            operatorFactory.noMoreOperators();
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(TupleDomain.all()));
+        }
+    }
+
+    @Test
     public void testCollectRowsNonOrderable()
             throws Exception
     {

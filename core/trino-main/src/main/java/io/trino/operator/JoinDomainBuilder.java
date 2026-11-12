@@ -205,9 +205,6 @@ public class JoinDomainBuilder
                         retainedSizeInBytes += minValue.getRetainedSizeInBytes() + maxValue.getRetainedSizeInBytes();
                     }
                 }
-                else {
-                    notifyStateChange.run();
-                }
 
                 collectDistinctValues = false;
                 distinctCapacity = 0;
@@ -216,6 +213,11 @@ public class JoinDomainBuilder
                 distinctVariableWidthData = null;
                 distinctSize = 0;
                 distinctMaxFill = 0;
+
+                // notify after isCollecting() reflects the dropped distinct values
+                if (!collectMinMax) {
+                    notifyStateChange.run();
+                }
             }
         }
         else if (collectMinMax) {
