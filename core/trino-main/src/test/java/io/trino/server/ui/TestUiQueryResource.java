@@ -162,10 +162,13 @@ class TestUiQueryResource
 
             String queryId = runToCompletion(client, prunedServer, "SELECT * FROM tpch.tiny.nation");
 
-            assertEventually(() -> assertThat(prunedServer.getDispatchManager().getFullQueryInfo(new QueryId(queryId)).orElseThrow()
-                    .getStages().orElseThrow()
-                    .getStages())
-                    .allSatisfy(stage -> assertThat(stage.plan()).isNull()));
+            assertEventually(() -> {
+                assertThat(prunedServer.getDispatchManager().getFullQueryInfo(new QueryId(queryId)).orElseThrow()
+                        .getStages().orElseThrow()
+                        .getStages())
+                        .allSatisfy(stage -> assertThat(stage.plan()).isNull());
+                assertThat(prunedServer.getQueryPlan(new QueryId(queryId))).isEmpty();
+            });
             assertThat(queryPlan(prunedServer, queryId)).isEmpty();
         }
     }
