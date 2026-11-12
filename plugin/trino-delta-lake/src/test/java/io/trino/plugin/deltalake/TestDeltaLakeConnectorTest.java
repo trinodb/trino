@@ -908,6 +908,29 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testPartitionValuesWithNonPositiveYears()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_partition_non_positive_years_",
+                "(x int, d date, ts timestamp(6), tstz timestamp(6) with time zone) WITH (partitioned_by = ARRAY['d', 'ts', 'tstz'])")) {
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " VALUES " +
+                            "(1, DATE '-0001-01-01', TIMESTAMP '-0001-01-01 01:02:03.123456', TIMESTAMP '-0001-01-01 01:02:03.123456 UTC'), " +
+                            "(2, DATE '0000-06-01', TIMESTAMP '0000-06-01 00:00:00', TIMESTAMP '0000-06-01 00:00:00 UTC')",
+                    2);
+
+            assertThat(query("SELECT x, CAST(d AS varchar), CAST(ts AS varchar), CAST(tstz AS varchar) FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "(1, '-0001-01-01', '-0001-01-01 01:02:03.123456', '-0001-01-01 01:02:03.123456 UTC'), " +
+                            "(2, '0000-06-01', '0000-06-01 00:00:00.000000', '0000-06-01 00:00:00.000000 UTC')");
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE d = DATE '-0001-01-01'"))
+                    .isFullyPushedDown()
+                    .matches("VALUES 1");
+        }
+    }
+
+    @Test
     public void testAddColumnToPartitionedTable()
     {
         try (TestTable table = newTrinoTable("test_add_column_partitioned_table_", "(x VARCHAR, part VARCHAR) WITH (partitioned_by = ARRAY['part'])")) {
