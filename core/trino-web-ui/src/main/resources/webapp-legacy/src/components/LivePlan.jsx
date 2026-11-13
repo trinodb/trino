@@ -417,6 +417,14 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                     </div>
                 </div>
             )
+        } else if (query && query.pruned) {
+            loadingMessage = (
+                <div className="row error-message">
+                    <div className="col-xs-12">
+                        <h4>Live plan is no longer available for this query.</h4>
+                    </div>
+                </div>
+            )
         }
 
         // TODO: Refactor components to move refreshLoop to parent rather than using this property
