@@ -280,6 +280,7 @@ import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimeType.TIME_PICOS;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
@@ -5210,6 +5211,9 @@ public class ExpressionAnalyzer
         }
         if (expression instanceof CurrentUser || expression instanceof CurrentCatalog || expression instanceof CurrentSchema) {
             // The length shall be at least 128 characters, as required by the SQL standard
+            if (!isCharacterStringType(columnType)) {
+                throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires a character string column");
+            }
             if ((columnType instanceof VarcharType varcharType && !varcharType.isUnbounded() && varcharType.getBoundedLength() < 128) ||
                     (columnType instanceof CharType charType && charType.getLength() < 128)) {
                 throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
@@ -5218,6 +5222,9 @@ public class ExpressionAnalyzer
         }
         if (expression instanceof CurrentPath) {
             // The length shall be at least 1031 characters, as required by the SQL standard
+            if (!isCharacterStringType(columnType)) {
+                throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "CURRENT_PATH requires a character string column");
+            }
             if ((columnType instanceof VarcharType varcharType && !varcharType.isUnbounded() && varcharType.getBoundedLength() < 1031) ||
                     (columnType instanceof CharType charType && charType.getLength() < 1031)) {
                 throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "CURRENT_PATH requires at least 1031 length");
@@ -5249,6 +5256,9 @@ public class ExpressionAnalyzer
             Slice slice = (Slice) value;
             long actualLength = countCodePoints(slice);
             checkArgument(targetLength >= actualLength, "Cannot truncate characters when casting value '%s' to %s".formatted(slice.toStringUtf8(), type));
+        }
+        if (type instanceof TimeType timeType && value instanceof Long picos) {
+            checkArgument(picos % Math.pow(10, TIME_PICOS.getPrecision() - timeType.getPrecision()) == 0, "Value too large");
         }
         if (type instanceof TimestampType timestampType) {
             int precision = timestampType.getPrecision();

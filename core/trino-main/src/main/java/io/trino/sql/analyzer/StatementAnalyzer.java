@@ -193,6 +193,7 @@ import io.trino.sql.tree.JsonTableColumnDefinition;
 import io.trino.sql.tree.JsonTableSpecificPlan;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.Limit;
+import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.MeasureDefinition;
@@ -2435,7 +2436,10 @@ class StatementAnalyzer
                     }
 
                     validateDefaultExpression(expression, columnMetadata.getType());
-                    analyzeExpression(expression, scope);
+                    Type expressionType = analyzeExpression(expression, scope).getType(expression);
+                    if (!(expression instanceof Literal) && !typeCoercion.isStoreAssignable(expressionType, columnMetadata.getType())) {
+                        throw semanticException(INVALID_DEFAULT_COLUMN_VALUE, table, "Default value of '%s.%s' has type %s, which is not assignable to %s", table.getName(), columnMetadata.getName(), expressionType, columnMetadata.getType());
+                    }
                     analysis.addDefaultColumnValue(table, columnHandle, expression);
                 });
             }
