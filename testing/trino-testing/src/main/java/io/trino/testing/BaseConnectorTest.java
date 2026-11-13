@@ -4306,7 +4306,7 @@ public abstract class BaseConnectorTest
         try {
             assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + invalidTableName + " (a bigint)"))
                     .satisfies(this::verifyTableNameLengthFailurePermissible);
-            assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isFalse();
+            assertThat(getQueryRunner().tableExists(getSession(), invalidTableName)).isFalse();
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + invalidTableName);
