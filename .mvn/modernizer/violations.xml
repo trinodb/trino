@@ -384,4 +384,14 @@
         <version>1.1</version>
         <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
     </violation>
+    <violation>
+        <name>org/assertj/core/api/AssertionsForClassTypes.assertThatThrownBy:(Lorg/assertj/core/api/ThrowableAssert$ThrowingCallable;)Lorg/assertj/core/api/AbstractThrowableAssert;</name>
+        <version>1.1</version>
+        <comment>Use org.assertj.core.api.Assertions.assertThatThrownBy</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/AssertionsForClassTypes.assertThatThrownBy:(Lorg/assertj/core/api/ThrowableAssert$ThrowingCallable;Ljava/lang/String;[Ljava/lang/Object;)Lorg/assertj/core/api/AbstractThrowableAssert;</name>
+        <version>1.1</version>
+        <comment>Use org.assertj.core.api.Assertions.assertThatThrownBy</comment>
+    </violation>
 </modernizer>
