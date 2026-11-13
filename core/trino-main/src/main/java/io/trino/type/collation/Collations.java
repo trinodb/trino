@@ -13,6 +13,7 @@
  */
 package io.trino.type.collation;
 
+import io.trino.spi.type.Collation;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
@@ -27,6 +28,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public final class Collations
 {
     private Collations() {}
+
+    /// A collation's name, followed by `PAD SPACE` for a `PAD SPACE` collation, as `COLLATION FOR`
+    /// and `information_schema` report it.
+    public static String displayName(Collation collation)
+    {
+        return collation.isPadSpace() ? collation.name() + " PAD SPACE" : collation.name();
+    }
 
     /// Whether a type contains a character string with a non-default collation.
     ///

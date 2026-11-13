@@ -50,10 +50,10 @@ public final class CollationRegistry
     public static final String UNICODE_NAME = "unicode";
     public static final String UNICODE_CI_NAME = "unicode_ci";
 
-    // the root collation, ISO/IEC 14651 without tailoring, at each catalog strength; built on first use
-    private static final Map<String, Supplier<CollationComparison>> COMPARISONS = ImmutableMap.of(
-            UNICODE_NAME, memoize(() -> rootCollation(Collator.TERTIARY)),
-            UNICODE_CI_NAME, memoize(() -> rootCollation(Collator.SECONDARY)));
+    // the root collation, ISO/IEC 14651 without tailoring, at each catalog strength
+    private static final Map<String, RootCollation> ROOT_COLLATIONS = ImmutableMap.of(
+            UNICODE_NAME, new RootCollation(Collator.TERTIARY),
+            UNICODE_CI_NAME, new RootCollation(Collator.SECONDARY));
 
     private static final CollationRegistry INSTANCE = new CollationRegistry();
 
@@ -74,12 +74,21 @@ public final class CollationRegistry
         return findCollation(name).orElseThrow(() -> new TrinoException(COLLATION_NOT_FOUND, "Collation not found: " + name));
     }
 
+    /// Resolves a collation descriptor produced by [Collation#descriptor()].
+    public Collation getCollationByDescriptor(String descriptor)
+    {
+        Collation collation = Collation.fromDescriptor(descriptor);
+        // fails when the catalog has no collation of the name
+        getCollation(collation.name());
+        return collation;
+    }
+
     public Optional<Collation> findCollation(String name)
     {
         if (name.equals(UCS_BASIC.name())) {
             return Optional.of(UCS_BASIC);
         }
-        if (!COMPARISONS.containsKey(name)) {
+        if (!ROOT_COLLATIONS.containsKey(name)) {
             return Optional.empty();
         }
         return Optional.of(Collation.of(name));
@@ -91,14 +100,14 @@ public final class CollationRegistry
     @Override
     public CollationComparison comparison(Collation collation)
     {
-        if (collation.isDefault()) {
-            return BinaryComparison.BINARY;
+        if (collation.name().equals(UCS_BASIC.name())) {
+            return collation.isPadSpace() ? BinaryPadSpaceComparison.BINARY_PAD_SPACE : BinaryComparison.BINARY;
         }
-        Supplier<CollationComparison> comparison = COMPARISONS.get(collation.name());
-        if (comparison == null) {
+        RootCollation root = ROOT_COLLATIONS.get(collation.name());
+        if (root == null) {
             throw new IllegalArgumentException("Collation not found: " + collation);
         }
-        return comparison.get();
+        return collation.isPadSpace() ? root.padSpace().get() : root.noPad().get();
     }
 
     /// The names of every collation in the catalog, sorted.
@@ -106,13 +115,13 @@ public final class CollationRegistry
     {
         return ImmutableList.<String>builder()
                 .add(UCS_BASIC.name())
-                .addAll(COMPARISONS.keySet())
+                .addAll(ROOT_COLLATIONS.keySet())
                 .build().stream()
                 .sorted()
                 .collect(toImmutableList());
     }
 
-    private static CollationComparison rootCollation(int strength)
+    static RuleBasedCollator rootCollator(int strength)
     {
         // getInstance can return a shared instance, so configure a private thawed copy
         RuleBasedCollator collator = (RuleBasedCollator) Collator.getInstance(ULocale.ROOT).cloneAsThawed();
@@ -120,6 +129,15 @@ public final class CollationRegistry
         // Spaces and punctuation are significant, so that trailing spaces are governed only by the
         // collation's pad attribute
         collator.setAlternateHandlingShifted(false);
-        return new IcuCollation(collator.freeze());
+        return (RuleBasedCollator) collator.freeze();
+    }
+
+    // the comparisons of a root collation with each pad attribute, built on first use
+    private record RootCollation(Supplier<CollationComparison> noPad, Supplier<CollationComparison> padSpace)
+    {
+        RootCollation(int strength)
+        {
+            this(memoize(() -> new IcuCollation(rootCollator(strength))), memoize(() -> new IcuPadSpaceCollation(rootCollator(strength))));
+        }
     }
 }

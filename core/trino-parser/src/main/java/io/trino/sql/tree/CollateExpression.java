@@ -21,23 +21,25 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-/// `value COLLATE collation`, which gives a character string expression an explicit collation.
+/// `value COLLATE collation [PAD SPACE | NO PAD]`, which gives a character string expression an explicit collation.
 public final class CollateExpression
         extends Expression
 {
     private final Expression value;
     private final Identifier collation;
+    private final Optional<PadAttribute> padAttribute;
 
-    public CollateExpression(NodeLocation location, Expression value, Identifier collation)
+    public CollateExpression(NodeLocation location, Expression value, Identifier collation, Optional<PadAttribute> padAttribute)
     {
-        this(Optional.of(location), value, collation);
+        this(Optional.of(location), value, collation, padAttribute);
     }
 
-    public CollateExpression(Optional<NodeLocation> location, Expression value, Identifier collation)
+    public CollateExpression(Optional<NodeLocation> location, Expression value, Identifier collation, Optional<PadAttribute> padAttribute)
     {
         super(location);
         this.value = requireNonNull(value, "value is null");
         this.collation = requireNonNull(collation, "collation is null");
+        this.padAttribute = requireNonNull(padAttribute, "padAttribute is null");
     }
 
     public Expression getValue()
@@ -48,6 +50,11 @@ public final class CollateExpression
     public Identifier getCollation()
     {
         return collation;
+    }
+
+    public Optional<PadAttribute> getPadAttribute()
+    {
+        return padAttribute;
     }
 
     @Override
@@ -66,18 +73,18 @@ public final class CollateExpression
             return false;
         }
         CollateExpression that = (CollateExpression) o;
-        return value.equals(that.value) && collation.equals(that.collation);
+        return value.equals(that.value) && collation.equals(that.collation) && padAttribute.equals(that.padAttribute);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, collation);
+        return Objects.hash(value, collation, padAttribute);
     }
 
     @Override
     public boolean shallowEquals(Node other)
     {
-        return sameClass(this, other);
+        return sameClass(this, other) && padAttribute.equals(((CollateExpression) other).padAttribute);
     }
 }

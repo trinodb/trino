@@ -127,7 +127,7 @@ public final class VarcharType
         super(
                 new TypeDescriptor(
                         NAME,
-                        List.of(TypeParameter.numericParameter(length), TypeParameter.textParameter(collation.name()))),
+                        List.of(TypeParameter.numericParameter(length), TypeParameter.textParameter(collation.descriptor()))),
                 Slice.class);
         this.length = length;
         this.collation = collation;

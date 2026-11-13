@@ -21,7 +21,8 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-/// A data type followed by a `COLLATE` clause, as in `varchar(10) COLLATE unicode_ci`.
+/// A data type followed by a `COLLATE` clause, as in `varchar(10) COLLATE unicode_ci`, and an
+/// optional pad attribute, as in `varchar(10) COLLATE unicode_ci PAD SPACE`.
 ///
 /// The grammar accepts the clause after any type; analysis accepts it only for character
 /// string types, as ISO/IEC 9075-2 6.1 allows a collate clause only for those.
@@ -30,17 +31,19 @@ public final class CollatedDataType
 {
     private final DataType type;
     private final Identifier collation;
+    private final Optional<PadAttribute> padAttribute;
 
-    public CollatedDataType(NodeLocation location, DataType type, Identifier collation)
+    public CollatedDataType(NodeLocation location, DataType type, Identifier collation, Optional<PadAttribute> padAttribute)
     {
-        this(Optional.of(location), type, collation);
+        this(Optional.of(location), type, collation, padAttribute);
     }
 
-    public CollatedDataType(Optional<NodeLocation> location, DataType type, Identifier collation)
+    public CollatedDataType(Optional<NodeLocation> location, DataType type, Identifier collation, Optional<PadAttribute> padAttribute)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");
         this.collation = requireNonNull(collation, "collation is null");
+        this.padAttribute = requireNonNull(padAttribute, "padAttribute is null");
     }
 
     public DataType getType()
@@ -51,6 +54,13 @@ public final class CollatedDataType
     public Identifier getCollation()
     {
         return collation;
+    }
+
+    /// The pad attribute written after the collation name. An explicit `NO PAD` is distinct
+    /// syntax from an omitted attribute, though both denote a `NO PAD` collation.
+    public Optional<PadAttribute> getPadAttribute()
+    {
+        return padAttribute;
     }
 
     @Override
@@ -65,18 +75,18 @@ public final class CollatedDataType
         if (!(o instanceof CollatedDataType that)) {
             return false;
         }
-        return type.equals(that.type) && collation.equals(that.collation);
+        return type.equals(that.type) && collation.equals(that.collation) && padAttribute.equals(that.padAttribute);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, collation);
+        return Objects.hash(type, collation, padAttribute);
     }
 
     @Override
     public boolean shallowEquals(Node other)
     {
-        return sameClass(this, other);
+        return sameClass(this, other) && padAttribute.equals(((CollatedDataType) other).padAttribute);
     }
 }

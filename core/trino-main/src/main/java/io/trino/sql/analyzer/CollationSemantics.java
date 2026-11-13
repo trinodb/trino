@@ -196,7 +196,7 @@ public final class CollationSemantics
         for (Collated operand : operands) {
             if (operand.derivation() == Derivation.EXPLICIT) {
                 if (explicit.isPresent() && !explicit.get().equals(operand.collation())) {
-                    throw new CollationConflictException(Derivation.EXPLICIT, ImmutableSortedSet.of(explicit.get().name(), operand.collation().name()));
+                    throw new CollationConflictException(Derivation.EXPLICIT, ImmutableSortedSet.of(explicit.get().descriptor(), operand.collation().descriptor()));
                 }
                 explicit = Optional.of(operand.collation());
             }
@@ -211,7 +211,7 @@ public final class CollationSemantics
         for (Collated operand : operands) {
             switch (operand.derivation()) {
                 case IMPLICIT -> {
-                    implicitNames.add(operand.collation().name());
+                    implicitNames.add(operand.collation().descriptor());
                     implicit = Optional.of(operand.collation());
                 }
                 case NONE -> {

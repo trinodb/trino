@@ -19,6 +19,7 @@ import io.trino.sql.tree.CollationFor;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.PadAttribute;
 import io.trino.sql.tree.ShowCollations;
 import org.junit.jupiter.api.Test;
 
@@ -76,6 +77,33 @@ class TestCollateExpression
     }
 
     @Test
+    void testPadAttribute()
+    {
+        CollatedDataType padSpace = (CollatedDataType) parser.createType("varchar(10) COLLATE unicode_ci PAD SPACE");
+        assertThat(padSpace.getCollation()).isEqualTo(new Identifier("unicode_ci"));
+        assertThat(padSpace.getPadAttribute()).contains(PadAttribute.PAD_SPACE);
+        assertThat(((CollatedDataType) parser.createType("varchar COLLATE unicode NO PAD")).getPadAttribute()).contains(PadAttribute.NO_PAD);
+        assertThat(((CollatedDataType) parser.createType("varchar COLLATE unicode")).getPadAttribute()).isEmpty();
+
+        CollateExpression expression = (CollateExpression) parser.createExpression("x COLLATE unicode PAD SPACE");
+        assertThat(expression.getCollation()).isEqualTo(new Identifier("unicode"));
+        assertThat(expression.getPadAttribute()).contains(PadAttribute.PAD_SPACE);
+        assertThat(((CollateExpression) parser.createExpression("x COLLATE unicode NO PAD")).getPadAttribute()).contains(PadAttribute.NO_PAD);
+        // the pad attribute binds to COLLATE, before any following operator
+        assertSameAst("x COLLATE unicode PAD SPACE = y", "(x COLLATE unicode PAD SPACE) = y");
+        // an explicit NO PAD is distinct syntax from an omitted pad attribute
+        assertThat(parser.createExpression("x COLLATE unicode NO PAD")).isNotEqualTo(parser.createExpression("x COLLATE unicode"));
+
+        // pad, space, and no remain identifiers
+        assertThat(parser.createExpression("pad")).isEqualTo(new Identifier("pad"));
+        assertThat(parser.createExpression("space")).isEqualTo(new Identifier("space"));
+        assertThat(parser.createStatement("SELECT pad, space, no FROM t")).isNotNull();
+        // a collation may be named pad
+        assertThat(((CollateExpression) parser.createExpression("x COLLATE pad")).getCollation()).isEqualTo(new Identifier("pad"));
+        assertThat(((CollateExpression) parser.createExpression("x COLLATE pad PAD SPACE")).getPadAttribute()).contains(PadAttribute.PAD_SPACE);
+    }
+
+    @Test
     void testShowCollations()
     {
         assertThat(parser.createStatement("SHOW COLLATIONS")).isEqualTo(new ShowCollations(new NodeLocation(1, 1), Optional.empty(), Optional.empty()));
@@ -95,6 +123,10 @@ class TestCollateExpression
                 "x COLLATE unicode COLLATE unicode_ci",
                 "COLLATION FOR (x COLLATE unicode)",
                 "CAST(x AS varchar(10) COLLATE unicode_ci)",
+                "CAST(x AS varchar(10) COLLATE unicode_ci PAD SPACE)",
+                "CAST(x AS varchar COLLATE unicode NO PAD)",
+                "x COLLATE unicode PAD SPACE",
+                "x COLLATE unicode NO PAD",
         }) {
             Expression parsed = parser.createExpression(sql);
             assertThat(expression(formatExpression(parsed)))

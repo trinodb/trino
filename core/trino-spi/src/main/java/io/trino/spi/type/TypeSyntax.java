@@ -118,7 +118,9 @@ public final class TypeSyntax
         // A collated character string carries its collation name as a trailing text parameter,
         // spelled as a COLLATE clause. The name is quoted, as row field names are.
         if (isCharacterString(base) && parameters.size() == 2 && parameters.get(1).startsWith("'")) {
-            return render(base, parameters.subList(0, 1)) + " COLLATE " + quoted(unquoteText(parameters.get(1)));
+            Collation collation = Collation.fromDescriptor(unquoteText(parameters.get(1)));
+            String padAttribute = collation.isPadSpace() ? " PAD SPACE" : "";
+            return render(base, parameters.subList(0, 1)) + " COLLATE " + quoted(collation.name()) + padAttribute;
         }
         // An unbounded varchar renders without its sentinel length, as `varchar`.
         if (base.equalsIgnoreCase(StandardTypes.VARCHAR)

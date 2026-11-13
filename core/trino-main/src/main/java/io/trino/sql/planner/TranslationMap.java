@@ -201,6 +201,7 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
+import static io.trino.type.collation.Collations.displayName;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -1229,7 +1230,7 @@ public class TranslationMap
     private io.trino.sql.ir.Expression translate(CollationFor node)
     {
         Type valueType = Optional.ofNullable(analysis.getCoercion(node.getValue())).orElseGet(() -> analysis.getType(node.getValue()));
-        String collation = ((VarcharType) valueType).getCollation().name();
+        String collation = displayName(((VarcharType) valueType).getCollation());
         return new Constant(analysis.getType(node), utf8Slice(collation));
     }
 

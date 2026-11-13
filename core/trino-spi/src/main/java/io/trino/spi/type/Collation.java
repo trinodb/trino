@@ -15,24 +15,33 @@ package io.trino.spi.type;
 
 import static java.util.Objects.requireNonNull;
 
-/// A named rule for comparing character strings.
+/// A rule for comparing character strings: a named comparison and a pad attribute.
 ///
 /// A collation is a value: it names a comparison but does not implement it. The default
 /// collation, [#UCS_BASIC], orders strings by Unicode code point, which for valid UTF-8 is the
 /// order of their bytes. The engine implements every other collation, and plugins see collations
-/// only as part of character string types. Two collations are the same collation exactly when
-/// their canonical names are equal.
+/// only as part of character string types.
+///
+/// A `PAD SPACE` collation compares the shorter of two strings as though it were extended with
+/// spaces to the length of the longer, so trailing spaces do not affect equality, and a string
+/// followed by a character that sorts below a space, such as a tab, sorts below the string. A
+/// `NO PAD` collation treats every character as significant. Two collations are the same
+/// collation exactly when their names and pad attributes are equal.
 public final class Collation
 {
     static final String UCS_BASIC_NAME = "ucs_basic";
+    // the suffix of the descriptor of a PAD SPACE collation, as in "unicode_ci pad space"
+    private static final String PAD_SPACE_SUFFIX = " pad space";
 
-    public static final Collation UCS_BASIC = new Collation(UCS_BASIC_NAME);
+    public static final Collation UCS_BASIC = new Collation(UCS_BASIC_NAME, false);
 
     private final String name;
+    private final boolean padSpace;
 
-    private Collation(String name)
+    private Collation(String name, boolean padSpace)
     {
         this.name = requireNonNull(name, "name is null");
+        this.padSpace = padSpace;
     }
 
     /// The collation with the given canonical name, which is a lower-case letter followed by
@@ -47,7 +56,16 @@ public final class Collation
         if (!isValidName(name)) {
             throw new IllegalArgumentException("Invalid collation name: " + name);
         }
-        return new Collation(name);
+        return new Collation(name, false);
+    }
+
+    /// The collation a type descriptor records, as produced by [#descriptor()].
+    public static Collation fromDescriptor(String descriptor)
+    {
+        if (descriptor.endsWith(PAD_SPACE_SUFFIX)) {
+            return of(descriptor.substring(0, descriptor.length() - PAD_SPACE_SUFFIX.length())).withPadSpace();
+        }
+        return of(descriptor);
     }
 
     // Whether a name is a canonical collation name: a lower-case letter followed by lower-case
@@ -66,32 +84,58 @@ public final class Collation
         return true;
     }
 
+    /// The name of this collation's comparison, without its pad attribute.
     public String name()
     {
         return name;
     }
 
-    /// Whether this is the default, code-point order collation.
+    /// Whether this collation compares strings as though the shorter were padded with spaces.
+    public boolean isPadSpace()
+    {
+        return padSpace;
+    }
+
+    /// This collation's comparison with the `PAD SPACE` attribute.
+    public Collation withPadSpace()
+    {
+        return padSpace ? this : new Collation(name, true);
+    }
+
+    /// This collation's comparison with the `NO PAD` attribute.
+    public Collation withNoPad()
+    {
+        return padSpace ? of(name) : this;
+    }
+
+    /// The canonical descriptor of this collation: its name, followed by ` pad space` for a
+    /// `PAD SPACE` collation. Types record a collation by its descriptor.
+    public String descriptor()
+    {
+        return padSpace ? name + PAD_SPACE_SUFFIX : name;
+    }
+
+    /// Whether this is the default, code-point order `NO PAD` collation.
     public boolean isDefault()
     {
-        return name.equals(UCS_BASIC_NAME);
+        return name.equals(UCS_BASIC_NAME) && !padSpace;
     }
 
     @Override
     public boolean equals(Object o)
     {
-        return o instanceof Collation that && name.equals(that.name);
+        return o instanceof Collation that && name.equals(that.name) && padSpace == that.padSpace;
     }
 
     @Override
     public int hashCode()
     {
-        return name.hashCode();
+        return descriptor().hashCode();
     }
 
     @Override
     public String toString()
     {
-        return name;
+        return descriptor();
     }
 }

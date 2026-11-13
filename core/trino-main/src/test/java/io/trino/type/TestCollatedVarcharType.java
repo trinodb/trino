@@ -132,4 +132,63 @@ public class TestCollatedVarcharType
         assertThat(unbounded.getDisplayName()).isEqualTo("varchar COLLATE \"unicode_ci\"");
         assertThat(unbounded.getTypeDescriptor().toString()).isEqualTo("varchar(2147483647,'unicode_ci')");
     }
+
+    @Test
+    public void testPadSpace()
+            throws Throwable
+    {
+        TypeOperators typeOperators = new TypeOperators(collationRegistry());
+        for (VarcharType padSpace : new VarcharType[] {
+                createVarcharType(20, collationRegistry().getCollation("unicode_ci").withPadSpace()),
+                createVarcharType(20, collationRegistry().getCollation("ucs_basic").withPadSpace()),
+        }) {
+            MethodHandle equal = typeOperators.getEqualOperator(padSpace, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
+            MethodHandle xxHash64 = typeOperators.getXxHash64Operator(padSpace, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+            MethodHandle comparison = typeOperators.getComparisonUnorderedLastOperator(padSpace, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+
+            // the shorter string compares as though padded with spaces, so trailing spaces are
+            // disregarded by equality, hashing, and ordering
+            Slice padded = utf8Slice("abc  ");
+            Slice unpadded = utf8Slice("abc");
+            assertThat((Boolean) equal.invokeExact(padded, unpadded)).as(padSpace.getDisplayName()).isTrue();
+            assertThat((long) xxHash64.invokeExact(padded)).isEqualTo((long) xxHash64.invokeExact(unpadded));
+            assertThat((long) comparison.invokeExact(padded, unpadded)).isZero();
+            assertThat((long) comparison.invokeExact(utf8Slice("abc "), utf8Slice("abc!"))).isNegative();
+            // a tab sorts below the padding space
+            assertThat((long) comparison.invokeExact(utf8Slice("abc\t"), unpadded)).isNegative();
+            // leading spaces, inner spaces, and other trailing white space remain significant
+            assertThat((Boolean) equal.invokeExact(utf8Slice(" abc"), unpadded)).isFalse();
+            assertThat((Boolean) equal.invokeExact(utf8Slice("a bc"), unpadded)).isFalse();
+            assertThat((Boolean) equal.invokeExact(utf8Slice("abc\t"), unpadded)).isFalse();
+            // a no-break space is a different code point, but has the space's weights when case
+            // and width differences are disregarded
+            boolean binary = padSpace.getCollation().name().equals("ucs_basic");
+            assertThat((Boolean) equal.invokeExact(utf8Slice("abc\u00a0"), unpadded)).isEqualTo(!binary);
+        }
+
+        // the binary PAD SPACE collation still distinguishes case
+        VarcharType binaryPadSpace = createVarcharType(20, collationRegistry().getCollation("ucs_basic").withPadSpace());
+        MethodHandle binaryEqual = typeOperators.getEqualOperator(binaryPadSpace, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
+        assertThat((Boolean) binaryEqual.invokeExact(utf8Slice("ABC "), utf8Slice("abc"))).isFalse();
+        // the NO PAD default collation compares bytes, including trailing spaces
+        MethodHandle defaultEqual = typeOperators.getEqualOperator(createVarcharType(20), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
+        assertThat((Boolean) defaultEqual.invokeExact(utf8Slice("abc "), utf8Slice("abc"))).isFalse();
+    }
+
+    @Test
+    public void testPadSpaceTypeIdentity()
+    {
+        VarcharType padSpace = createVarcharType(10, collationRegistry().getCollation("unicode").withPadSpace());
+        assertThat(padSpace).isNotEqualTo(TYPE);
+        assertThat(padSpace).isEqualTo(createVarcharType(10, collationRegistry().getCollation("unicode").withPadSpace()));
+        assertThat(padSpace.getCollation().withNoPad()).isEqualTo(TYPE.getCollation());
+        assertThat(padSpace.getDisplayName()).isEqualTo("varchar(10) COLLATE \"unicode\" PAD SPACE");
+        assertThat(padSpace.getTypeDescriptor().toString()).isEqualTo("varchar(10,'unicode pad space')");
+
+        // the binary PAD SPACE collation is not the default collation
+        VarcharType binaryPadSpace = VarcharType.VARCHAR.withCollation(collationRegistry().getCollation("ucs_basic").withPadSpace());
+        assertThat(binaryPadSpace).isNotEqualTo(VarcharType.VARCHAR);
+        assertThat(binaryPadSpace.getCollation().isDefault()).isFalse();
+        assertThat(binaryPadSpace.getDisplayName()).isEqualTo("varchar COLLATE \"ucs_basic\" PAD SPACE");
+    }
 }

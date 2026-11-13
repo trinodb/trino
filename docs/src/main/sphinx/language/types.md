@@ -229,6 +229,24 @@ A collation name is an identifier: unquoted, it is case-insensitive, and quoted,
 written in lower case. A name that is not in the list is an error.
 Use {doc}`/sql/show-collations` to list the names.
 
+A collation can disregard trailing spaces. Add `PAD SPACE` after its name:
+
+```sql
+CREATE TABLE codes (code varchar(10) COLLATE ucs_basic PAD SPACE)
+SELECT * FROM t WHERE code COLLATE unicode_ci PAD SPACE = 'A1'
+```
+
+A `PAD SPACE` collation compares the shorter of two strings as though it were extended
+with spaces to the length of the longer. `'A1  '` equals `'A1'`, and grouping and sorting
+treat them as one value. Leading and inner spaces remain significant, and so do other
+trailing characters: a tab sorts below a space, so `'A1' || chr(9)` sorts before `'A1'`,
+as it does for `char` values. `ucs_basic PAD SPACE` pads with the space character.
+`unicode PAD SPACE` and `unicode_ci PAD SPACE` pad the collation's weights, so a
+character the collation ignores, such as a zero-width space, does not count toward the
+padding. `NO PAD`, the default for every collation name, treats every character as
+significant. Collations that differ only in their pad attribute are different
+collations.
+
 Changing a collation is a cast, `CAST(x AS varchar COLLATE unicode)`, or the shorthand
 `x COLLATE unicode` described in {doc}`/functions/collation`. Values of different
 collations never convert implicitly.

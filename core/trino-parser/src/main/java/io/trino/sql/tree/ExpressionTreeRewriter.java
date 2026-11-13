@@ -249,7 +249,7 @@ public final class ExpressionTreeRewriter<C>
 
             Expression value = rewrite(node.getValue(), context.get());
             if (value != node.getValue()) {
-                return new CollateExpression(node.getLocation(), value, node.getCollation());
+                return new CollateExpression(node.getLocation(), value, node.getCollation(), node.getPadAttribute());
             }
             return node;
         }
@@ -1145,7 +1145,7 @@ public final class ExpressionTreeRewriter<C>
             DataType type = rewrite(node.getType(), context.get());
             Identifier collation = rewrite(node.getCollation(), context.get());
             if (type != node.getType() || collation != node.getCollation()) {
-                return new CollatedDataType(node.getLocation(), type, collation);
+                return new CollatedDataType(node.getLocation(), type, collation, node.getPadAttribute());
             }
 
             return node;

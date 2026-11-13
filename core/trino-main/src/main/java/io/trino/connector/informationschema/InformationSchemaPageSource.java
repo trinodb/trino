@@ -65,6 +65,7 @@ import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.type.collation.CollationRegistry.collationRegistry;
+import static io.trino.type.collation.Collations.displayName;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSource
@@ -231,11 +232,11 @@ public class InformationSchemaPageSource
         }
     }
 
-    // The collation of a character string column, or null for the default collation and other types
+    // The SQL spelling of the collation of a character string column, or null for the default collation and other types
     private static String collationName(Type type)
     {
         if (type instanceof VarcharType varcharType && !varcharType.getCollation().isDefault()) {
-            return varcharType.getCollation().name();
+            return displayName(varcharType.getCollation());
         }
         return null;
     }
@@ -389,7 +390,7 @@ public class InformationSchemaPageSource
     private void addCollationsRecords()
     {
         for (String name : collationRegistry().collationNames()) {
-            // every collation compares trailing spaces
+            // every predefined collation is NO PAD; its PAD SPACE variant is spelled with the pad attribute
             addRecord(name, "NO PAD");
             if (isLimitExhausted()) {
                 return;

@@ -61,7 +61,7 @@ public class VarcharParametricType
             if (!(parameters.get(1) instanceof TypeParameter.Text(String collation))) {
                 throw new IllegalArgumentException("VARCHAR collation must be a name");
             }
-            return VarcharType.createVarcharType(toIntExact(value), collationRegistry().getCollation(collation));
+            return VarcharType.createVarcharType(toIntExact(value), collationRegistry().getCollationByDescriptor(collation));
         }
 
         if (value == VarcharType.UNBOUNDED_LENGTH) {

@@ -40,6 +40,8 @@ import java.util.Comparator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -366,6 +368,104 @@ public class TestMemoryConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE test_collated_ctas");
+        }
+    }
+
+    @Test
+    public void testPadSpaceColumns()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_pad_space_column",
+                "(code varchar(10) COLLATE ucs_basic PAD SPACE, name varchar COLLATE unicode_ci PAD SPACE, id bigint)",
+                ImmutableList.of("'A1', 'Alice', 1", "'A1  ', 'ALICE ', 2", "'a1', 'bob', 3", "' A1', 'Bob   ', 4"))) {
+            // trailing spaces are disregarded by comparisons, grouping, and joins
+            assertQuery("SELECT id FROM %s WHERE code = 'A1'".formatted(table.getName()), "VALUES 1, 2");
+            assertQuery("SELECT id FROM %s WHERE code = 'A1   '".formatted(table.getName()), "VALUES 1, 2");
+            assertQuery("SELECT id FROM %s WHERE name = 'alice'".formatted(table.getName()), "VALUES 1, 2");
+            assertQuery("SELECT count(DISTINCT code), count(DISTINCT name) FROM %s".formatted(table.getName()), "VALUES (3, 2)");
+            assertQuery("SELECT count(*) FROM %1$s a JOIN %1$s b ON a.code = b.code".formatted(table.getName()), "VALUES 6");
+            assertQuery("SELECT id FROM %s ORDER BY code DESC, id".formatted(table.getName()), "VALUES 3, 1, 2, 4");
+            // the predicate is not a domain, since equal values need not be identical
+            assertThat(query("SELECT id FROM %s WHERE code = 'A1'".formatted(table.getName())))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query("SELECT COLLATION FOR (code) FROM %s LIMIT 1".formatted(table.getName())))
+                    .matches("VALUES varchar 'ucs_basic PAD SPACE'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("code varchar(10) COLLATE ucs_basic PAD SPACE")
+                    .contains("name varchar COLLATE unicode_ci PAD SPACE");
+            assertThat(query("SELECT column_name, data_type, collation_name FROM information_schema.columns WHERE table_name = '%s'".formatted(table.getName())))
+                    .matches(
+                            """
+                            VALUES
+                                (varchar 'code', varchar 'varchar(10) COLLATE "ucs_basic" PAD SPACE', varchar 'ucs_basic PAD SPACE'),
+                                (varchar 'name', varchar 'varchar COLLATE "unicode_ci" PAD SPACE', varchar 'unicode_ci PAD SPACE'),
+                                (varchar 'id', varchar 'bigint', NULL)
+                            """);
+
+            // a view keeps the pad attribute of its columns
+            String view = "test_pad_space_view_" + randomNameSuffix();
+            assertUpdate("CREATE VIEW %s AS SELECT code, CAST(code AS varchar) plain_code, name COLLATE unicode_ci no_pad_name FROM %s".formatted(view, table.getName()));
+            try {
+                assertThat(query("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '%s'".formatted(view)))
+                        .matches("VALUES (varchar 'code', varchar 'varchar(10) COLLATE \"ucs_basic\" PAD SPACE'), (varchar 'plain_code', varchar 'varchar'), (varchar 'no_pad_name', varchar 'varchar COLLATE \"unicode_ci\"')");
+                assertQuery("SELECT count(*) FROM %s WHERE code = 'A1'".formatted(view), "VALUES 2");
+                assertQuery("SELECT count(*) FROM %s WHERE plain_code = 'A1'".formatted(view), "VALUES 1");
+                assertQuery("SELECT count(*) FROM %s WHERE no_pad_name = 'alice'".formatted(view), "VALUES 1");
+            }
+            finally {
+                assertUpdate("DROP VIEW " + view);
+            }
+        }
+    }
+
+    @Test
+    public void testPadSpaceColumnOrder()
+    {
+        // the shorter string compares as though padded with spaces: 'a' followed by a tab sorts
+        // below 'a', because a tab sorts below a space; across workers, with and without collation
+        // keys, in joins with dynamic filters, and in filters on the scan
+        String rows = "(id bigint, code varchar(10) COLLATE ucs_basic PAD SPACE, name varchar COLLATE unicode_ci PAD SPACE)";
+        try (TestTable table = newTrinoTable(
+                "test_pad_space_order",
+                rows,
+                ImmutableList.of(
+                        "1, '', ''",
+                        "2, ' ', ' '",
+                        "3, 'A', 'A'",
+                        "4, U&'a\\0009', U&'a\\0009'",
+                        "5, U&'a \\0009', U&'a \\0009'",
+                        "6, 'a', 'a'",
+                        "7, 'a ', 'a '",
+                        "8, 'b', 'b'",
+                        "9, 'a!', 'a!'"));
+                TestTable probe = newTrinoTable(
+                        "test_pad_space_probe",
+                        rows,
+                        ImmutableList.of("1, 'a', 'a'", "2, U&'a\\0009', U&'a\\0009'"))) {
+            assertQueryOrdered("SELECT id FROM %s ORDER BY code, id".formatted(table.getName()), "VALUES 1, 2, 3, 4, 5, 6, 7, 9, 8");
+            // unicode_ci places 'A' with 'a', above 'a' followed by white space below a space
+            assertQueryOrdered("SELECT id FROM %s ORDER BY name, id".formatted(table.getName()), "VALUES 1, 2, 4, 5, 3, 6, 7, 9, 8");
+            assertQueryOrdered("SELECT id FROM %s ORDER BY code DESC, id LIMIT 3".formatted(table.getName()), "VALUES 8, 9, 6");
+            assertQueryOrdered("SELECT id, rank() OVER (ORDER BY name) FROM %s ORDER BY id".formatted(table.getName()), "VALUES (1, 1), (2, 1), (3, 5), (4, 3), (5, 4), (6, 5), (7, 5), (8, 9), (9, 8)");
+            assertQuery("SELECT count(*) FROM (SELECT code FROM %s GROUP BY code)".formatted(table.getName()), "VALUES 7");
+            assertQuery("SELECT count(*) FROM (SELECT name FROM %s GROUP BY name)".formatted(table.getName()), "VALUES 6");
+
+            // filters on the scan compare under the collation, not as domains of the stored strings
+            assertQuery("SELECT count(*) FROM %s WHERE code < 'a'".formatted(table.getName()), "VALUES 5");
+            assertQuery("SELECT count(*) FROM %s WHERE name < 'a'".formatted(table.getName()), "VALUES 4");
+            assertQuery("SELECT count(*) FROM %s WHERE code BETWEEN U&'a\\0009' AND 'a'".formatted(table.getName()), "VALUES 4");
+            assertQuery("SELECT max(code), max(name) FROM %s".formatted(table.getName()), "VALUES ('b', 'b')");
+
+            for (JoinDistributionType distribution : JoinDistributionType.values()) {
+                Session session = Session.builder(getSession())
+                        .setSystemProperty(JOIN_DISTRIBUTION_TYPE, distribution.name())
+                        .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
+                        .build();
+                assertQuery(session, "SELECT count(*) FROM %s t JOIN %s p ON t.code = p.code".formatted(table.getName(), probe.getName()), "VALUES 3");
+                assertQuery(session, "SELECT count(*) FROM %s t JOIN %s p ON t.name = p.name".formatted(table.getName(), probe.getName()), "VALUES 4");
+                assertQuery(session, "SELECT count(*) FROM %s t WHERE t.name IN (SELECT name FROM %s)".formatted(table.getName(), probe.getName()), "VALUES 4");
+            }
         }
     }
 

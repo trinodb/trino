@@ -7,7 +7,7 @@ how they sort. See {ref}`varchar-collations` for the collation names.
 ## COLLATE
 
 ```text
-expression COLLATE collation
+expression COLLATE collation [ PAD SPACE | NO PAD ]
 ```
 
 Gives a string expression an explicit collation, which applies to every comparison,
@@ -65,8 +65,8 @@ implicit in the default collation, which would make `ci_value = 'abc'` an error.
 COLLATION FOR (expression)
 ```
 
-Returns the name of the collation of a string expression as `varchar`, such as `unicode_ci`
-or `ucs_basic`. It is an error for an expression with derivation none.
+Returns the name of the collation of a string expression as `varchar`, such as `unicode_ci`,
+`unicode_ci PAD SPACE`, or `ucs_basic`. It is an error for an expression with derivation none.
 
 ## Limitations
 

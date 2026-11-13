@@ -101,6 +101,141 @@ public class TestCollateExpression
     }
 
     @Test
+    public void testPadSpace()
+    {
+        // a PAD SPACE collation compares the shorter string as though padded with spaces, so it
+        // disregards trailing spaces; the default NO PAD collation does not
+        assertThat(assertions.query("SELECT 'abc  ' COLLATE ucs_basic PAD SPACE = 'abc'"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT 'ABC ' COLLATE unicode_ci PAD SPACE = 'abc'"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT 'abc ' = 'abc'"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT 'abc ' COLLATE unicode_ci = 'abc'"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT 'abc ' COLLATE unicode_ci NO PAD = 'abc'"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT ' abc' COLLATE ucs_basic PAD SPACE = 'abc'"))
+                .matches("VALUES false");
+        // the padding orders a longer string by its characters past the end of the shorter: a tab
+        // sorts below a space, and '!' above it
+        assertThat(assertions.query("SELECT 'abc ' COLLATE ucs_basic PAD SPACE < 'abc!'"))
+                .matches("VALUES true");
+        for (String collation : new String[] {"ucs_basic", "unicode", "unicode_ci"}) {
+            assertThat(assertions.query("SELECT ('abc' || chr(9)) COLLATE %s PAD SPACE < 'abc'".formatted(collation)))
+                    .as(collation)
+                    .matches("VALUES true");
+            assertThat(assertions.query("SELECT ('abc' || chr(9)) COLLATE %s < 'abc'".formatted(collation)))
+                    .as(collation)
+                    .matches("VALUES false");
+        }
+        assertThat(assertions.query("SELECT 'abc ' < 'abc!'"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT 'abc  ' COLLATE ucs_basic PAD SPACE > 'abc '"))
+                .matches("VALUES false");
+
+        // the pad attribute is part of the collation
+        assertThat(assertions.expression("a COLLATE unicode PAD SPACE")
+                .binding("a", "'x'"))
+                .hasType(createVarcharType(1, collationRegistry().getCollation("unicode").withPadSpace()));
+        assertThat(assertions.query("SELECT COLLATION FOR ('a' COLLATE unicode PAD SPACE)"))
+                .matches("VALUES varchar 'unicode PAD SPACE'");
+        assertThat(assertions.query("SELECT COLLATION FOR ('a' COLLATE unicode NO PAD)"))
+                .matches("VALUES varchar 'unicode'");
+        assertThat(assertions.query("SELECT COLLATION FOR (CAST('a' AS varchar COLLATE ucs_basic PAD SPACE))"))
+                .matches("VALUES varchar 'ucs_basic PAD SPACE'");
+        assertThat(assertions.query("SELECT CAST('a' AS varchar(3) COLLATE ucs_basic PAD SPACE)"))
+                .matches("VALUES CAST('a' AS varchar(3) COLLATE ucs_basic PAD SPACE)");
+
+        // collations that differ only in their pad attribute conflict
+        assertThat(assertions.query("SELECT 'a' COLLATE unicode PAD SPACE = 'a' COLLATE unicode"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+        assertThat(assertions.query(
+                "SELECT CAST('a' AS varchar COLLATE unicode PAD SPACE) = CAST('a' AS varchar COLLATE unicode)"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+        // an explicit collation resolves the conflict
+        assertThat(assertions.query(
+                "SELECT CAST('a ' AS varchar COLLATE unicode PAD SPACE) = CAST('a' AS varchar COLLATE unicode) COLLATE unicode PAD SPACE"))
+                .matches("VALUES true");
+
+        // LIKE matches code points, so a PAD SPACE collation is not supported
+        assertThat(assertions.query("SELECT 'a ' COLLATE ucs_basic PAD SPACE LIKE 'a'"))
+                .failure().hasMessageContaining("LIKE does not support collation ucs_basic PAD SPACE");
+    }
+
+    @Test
+    public void testPadSpaceGroupingAndJoins()
+    {
+        // grouping, distinct, joins, and set operations treat strings that differ in trailing
+        // spaces as equal
+        String values = "(VALUES 'a', 'a ', 'a  ', 'A', ' a', 'b', 'b ', '') v(x)";
+        for (String collation : new String[] {"ucs_basic PAD SPACE", "unicode_ci PAD SPACE", "unicode PAD SPACE"}) {
+            String keyed = "(SELECT x COLLATE %s k, x FROM %s)".formatted(collation, values);
+            // only unicode_ci also disregards case
+            boolean caseInsensitive = collation.startsWith("unicode_ci");
+            long expectedGroups = caseInsensitive ? 4 : 5;
+            assertThat(assertions.execute("SELECT count(*) FROM (SELECT k FROM %s t GROUP BY k)".formatted(keyed)).getOnlyValue())
+                    .as(collation)
+                    .isEqualTo(expectedGroups);
+            assertThat(assertions.execute("SELECT count(DISTINCT k) FROM %s t".formatted(keyed)).getOnlyValue())
+                    .as(collation)
+                    .isEqualTo(expectedGroups);
+            assertThat(assertions.execute("SELECT count(*) FROM (SELECT k FROM %1$s a INTERSECT SELECT k FROM %1$s b)".formatted(keyed)).getOnlyValue())
+                    .as(collation)
+                    .isEqualTo(expectedGroups);
+            assertThat(assertions.execute("SELECT count(*) FROM %1$s a JOIN %1$s b ON a.k = b.k WHERE a.x = 'a'".formatted(keyed)).getOnlyValue())
+                    .as(collation)
+                    .isEqualTo(caseInsensitive ? 4L : 3L);
+            assertThat(assertions.execute("SELECT count(*) FROM %s t WHERE k = 'a'".formatted(keyed)).getOnlyValue())
+                    .as(collation)
+                    .isEqualTo(caseInsensitive ? 4L : 3L);
+            assertThat(assertions.execute("SELECT count(*) FROM %s t WHERE k IN ('a', 'b')".formatted(keyed)).getOnlyValue())
+                    .as(collation)
+                    .isEqualTo(caseInsensitive ? 6L : 5L);
+        }
+        // the empty string equals a string of spaces
+        assertThat(assertions.query("SELECT '' COLLATE ucs_basic PAD SPACE = '   '"))
+                .matches("VALUES true");
+    }
+
+    @Test
+    public void testPadSpaceOrdering()
+    {
+        // sorting, top-n, and window partitions order strings as though the shorter were padded
+        // with spaces: a tab sorts below the padding and '!' above it
+        String values = "(VALUES (1, 'b'), (2, 'a  '), (3, 'a!'), (4, 'a'), (5, 'a '), (6, NULL), (7, ''), (8, ' '), (9, 'a' || chr(9)), (10, 'a ' || chr(9))) v(id, x)";
+        for (String collation : new String[] {"ucs_basic PAD SPACE", "unicode_ci PAD SPACE", "unicode PAD SPACE"}) {
+            String keyed = "(SELECT id, x COLLATE %s k FROM %s)".formatted(collation, values);
+            assertThat(assertions.query("SELECT id FROM %s t ORDER BY k, id".formatted(keyed)))
+                    .as(collation)
+                    .ordered()
+                    .matches("VALUES 7, 8, 9, 10, 2, 4, 5, 3, 1, 6");
+            assertThat(assertions.query("SELECT id FROM %s t ORDER BY k DESC, id LIMIT 4".formatted(keyed)))
+                    .as(collation)
+                    .ordered()
+                    .matches("VALUES 1, 3, 2, 4");
+            assertThat(assertions.query("SELECT id, rank() OVER (ORDER BY k) FROM %s t ORDER BY id".formatted(keyed)))
+                    .as(collation)
+                    .ordered()
+                    .matches("VALUES (1, bigint '9'), (2, 5), (3, 8), (4, 5), (5, 5), (6, 10), (7, 1), (8, 1), (9, 3), (10, 4)");
+            assertThat(assertions.query("SELECT id, row_number() OVER (PARTITION BY k ORDER BY id) FROM %s t ORDER BY id".formatted(keyed)))
+                    .as(collation)
+                    .ordered()
+                    .matches("VALUES (1, bigint '1'), (2, 1), (3, 1), (4, 2), (5, 3), (6, 1), (7, 1), (8, 2), (9, 1), (10, 1)");
+            assertThat(assertions.query(
+                    "SELECT id FROM (VALUES (1, 'b'), (2, 'a  '), (3, 'a!'), (4, 'a'), (5, 'a '), (6, 'a' || chr(9)), (7, 'a ' || chr(9))) v(id, x) ORDER BY x COLLATE %s, id".formatted(collation)))
+                    .as(collation)
+                    .ordered()
+                    .matches("VALUES 6, 7, 2, 4, 5, 3, 1");
+        }
+        assertThat(assertions.query("SELECT id FROM (VALUES (1, 'b'), (2, 'a  '), (3, 'a!'), (4, 'a'), (5, 'a ')) v(id, x) ORDER BY x, id"))
+                .ordered()
+                .matches("VALUES 4, 5, 2, 3, 1");
+        assertThat(assertions.query("SELECT max(x COLLATE ucs_basic PAD SPACE) = 'a' FROM (VALUES 'a', 'a ') v(x)"))
+                .matches("VALUES true");
+    }
+
+    @Test
     public void testLiteralsYield()
     {
         // a literal takes the collation of the column it is compared with

@@ -436,7 +436,7 @@ public final class ShowQueriesRewrite
 
         private Node visitShowCollations(ShowCollations node)
         {
-            // every collation is NO PAD: trailing spaces are significant
+            // every predefined collation is NO PAD; its PAD SPACE variant is spelled with the pad attribute
             List<Expression> rows = collationRegistry().collationNames().stream()
                     .map(name -> row(new StringLiteral(name), new StringLiteral("NO PAD")))
                     .collect(toImmutableList());

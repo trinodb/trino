@@ -173,6 +173,7 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OverlapsPredicate;
 import io.trino.sql.tree.Overlay;
+import io.trino.sql.tree.PadAttribute;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Predicate;
 import io.trino.sql.tree.Predicated;
@@ -362,6 +363,7 @@ import static io.trino.type.DateTimes.timestampHasTimeZone;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.type.collation.CollationRegistry.collationRegistry;
+import static io.trino.type.collation.Collations.displayName;
 import static io.trino.type.collation.Collations.hasNonDefaultCollation;
 import static io.trino.type.collation.Collations.withoutCollations;
 import static java.lang.Math.floorMod;
@@ -1743,7 +1745,7 @@ public class ExpressionAnalyzer
             // implementation-defined (ISO/IEC 9075-2 8.5), and only the default collation is
             Optional<Collation> collation = determinedCollation(anchor, ImmutableList.of(value, predicate.getPattern()));
             if (collation.isPresent() && !collation.get().isDefault()) {
-                throw semanticException(NOT_SUPPORTED, anchor, "LIKE does not support collation %s", collation.get().name());
+                throw semanticException(NOT_SUPPORTED, anchor, "LIKE does not support collation %s", displayName(collation.get()));
             }
 
             return setExpressionType(anchor, BOOLEAN);
@@ -3412,6 +3414,9 @@ public class ExpressionAnalyzer
             String name = TypeDescriptorTranslator.canonicalize(node.getCollation());
             Collation collation = collationRegistry().findCollation(name)
                     .orElseThrow(() -> semanticException(COLLATION_NOT_FOUND, node.getCollation(), "Collation not found: %s", name));
+            if (node.getPadAttribute().equals(Optional.of(PadAttribute.PAD_SPACE))) {
+                collation = collation.withPadSpace();
+            }
             collationDerivations.put(NodeRef.of(node), new Leaf(Collated.explicit(collation)));
             return setExpressionType(node, varcharType.withCollation(collation));
         }

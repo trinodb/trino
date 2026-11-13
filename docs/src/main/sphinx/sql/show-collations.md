@@ -9,7 +9,8 @@ SHOW COLLATIONS [ LIKE pattern [ ESCAPE 'escape_character' ] ]
 ## Description
 
 List the collations that string types and `COLLATE` can name, with their pad attribute.
-Every collation is `NO PAD`.
+Every collation name is `NO PAD`; its `PAD SPACE` variant is written with the pad
+attribute, as in `unicode_ci PAD SPACE`.
 
 {ref}`Specify a pattern <like-operator>` in the optional `LIKE` clause to
 filter the results to the desired subset. For example, the following query
