@@ -18,9 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
 import io.trino.client.ProtocolHeaders;
+import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.ExtraCredentialsProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import jakarta.ws.rs.WebApplicationException;
@@ -29,6 +32,8 @@ import jakarta.ws.rs.core.MultivaluedMap;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -37,6 +42,7 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
+import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -189,6 +195,39 @@ public class TestHttpRequestSessionContextFactory
                 .hasMessage("Invalid extra credential name: internal$abc");
     }
 
+    @Test
+    public void testExtraCredentialsProviderOverridesClientCredentials()
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(TRINO_HEADERS.requestUser(), "testUser")
+                .put(TRINO_HEADERS.requestExtraCredential(), "db.user=spoofed")
+                .put(TRINO_HEADERS.requestExtraCredential(), "client.only=kept")
+                .build());
+        HttpRequestSessionContextFactory factory = sessionContextFactory(TRINO_HEADERS, user -> ImmutableMap.of("db.user", user), new AllowAllAccessControl());
+
+        Identity identity = factory.extractAuthorizedIdentity(Optional.empty(), headers);
+
+        assertThat(identity.getExtraCredentials()).isEqualTo(ImmutableMap.of("db.user", "testUser", "client.only", "kept"));
+    }
+
+    @Test
+    public void testExtraCredentialsProviderNotCalledForDeniedImpersonation()
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "bob"));
+        List<String> lookups = new ArrayList<>();
+        HttpRequestSessionContextFactory factory = sessionContextFactory(
+                TRINO_HEADERS,
+                user -> {
+                    lookups.add(user);
+                    return ImmutableMap.of();
+                },
+                new DenyImpersonationAccessControl());
+
+        assertThatThrownBy(() -> factory.extractAuthorizedIdentity(Optional.of(Identity.ofUser("alice")), headers))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(lookups).isEmpty();
+    }
+
     private static AbstractThrowableAssert<?, ? extends Throwable> assertInvalidSession(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         return assertThatThrownBy(
@@ -199,13 +238,29 @@ public class TestHttpRequestSessionContextFactory
 
     private static HttpRequestSessionContextFactory sessionContextFactory(ProtocolHeaders headers)
     {
+        return sessionContextFactory(headers, _ -> ImmutableMap.of(), new AllowAllAccessControl());
+    }
+
+    private static HttpRequestSessionContextFactory sessionContextFactory(ProtocolHeaders headers, ExtraCredentialsProvider extraCredentialsProvider, AccessControl accessControl)
+    {
         return new HttpRequestSessionContextFactory(
                 new PreparedStatementEncoder(new ProtocolConfig()),
                 createTestingMetadataManager(),
                 ImmutableSet::of,
-                new AllowAllAccessControl(),
+                extraCredentialsProvider,
+                accessControl,
                 new ProtocolConfig()
                         .setAlternateHeaderName(headers.getProtocolName()),
                 QueryDataEncoder.EncoderSelector.noEncoder());
+    }
+
+    private static class DenyImpersonationAccessControl
+            extends AllowAllAccessControl
+    {
+        @Override
+        public void checkCanImpersonateUser(Identity identity, String userName)
+        {
+            denyImpersonateUser(identity.getUser(), userName);
+        }
     }
 }

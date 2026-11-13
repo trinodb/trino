@@ -25,18 +25,24 @@ import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TestingMetadataManager;
+import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.ExtraCredentialsProvider;
+import io.trino.spi.security.Identity;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.SqlPath;
 import io.trino.transaction.TransactionManager;
 import jakarta.ws.rs.core.MultivaluedMap;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -47,6 +53,7 @@ import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.LanguageFunctionManager.QUERY_LOCAL_SCHEMA;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
+import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,13 +75,7 @@ public class TestQuerySessionSupplier
             .put(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + MAX_HASH_PARTITION_COUNT + " = 43")
             .put(TRINO_HEADERS.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
             .build());
-    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(
-            new PreparedStatementEncoder(new ProtocolConfig()),
-            createTestingMetadataManager(),
-            ImmutableSet::of,
-            new AllowAllAccessControl(),
-            new ProtocolConfig(),
-            QueryDataEncoder.EncoderSelector.noEncoder());
+    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = sessionContextFactory(_ -> ImmutableMap.of());
 
     @Test
     public void testCreateSession()
@@ -230,6 +231,40 @@ public class TestQuerySessionSupplier
         assertThat(session.getSchema()).isEmpty();
     }
 
+    @Test
+    public void testExtraCredentialsProviderOverridesClientCredentials()
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(TRINO_HEADERS.requestUser(), "testUser")
+                .put(TRINO_HEADERS.requestExtraCredential(), "db.user=spoofed")
+                .put(TRINO_HEADERS.requestExtraCredential(), "client.only=kept")
+                .build());
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headers, Optional.of("testRemote"), Optional.empty());
+        QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig(), user -> ImmutableMap.of("db.user", user), new AllowAllAccessControl());
+
+        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), Span.getInvalid(), context);
+
+        assertThat(session.getIdentity().getExtraCredentials()).isEqualTo(ImmutableMap.of("db.user", "testUser", "client.only", "kept"));
+    }
+
+    @Test
+    public void testExtraCredentialsProviderNotCalledForDeniedImpersonation()
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "bob"));
+        List<String> lookups = new ArrayList<>();
+        ExtraCredentialsProvider extraCredentialsProvider = user -> {
+            lookups.add(user);
+            return ImmutableMap.of();
+        };
+        SessionContext context = sessionContextFactory(extraCredentialsProvider)
+                .createSessionContext(headers, Optional.of("testRemote"), Optional.of(Identity.ofUser("alice")));
+        QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig(), extraCredentialsProvider, new DenyImpersonationAccessControl());
+
+        assertThatThrownBy(() -> sessionSupplier.createSession(new QueryId("test_query_id"), Span.getInvalid(), context))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(lookups).isEmpty();
+    }
+
     private static Session createSession(ListMultimap<String, String> headers, SqlEnvironmentConfig config)
     {
         MultivaluedMap<String, String> headerMap = new GuavaMultivaluedMap<>(headers);
@@ -238,7 +273,24 @@ public class TestQuerySessionSupplier
         return sessionSupplier.createSession(new QueryId("test_query_id"), Span.getInvalid(), context);
     }
 
+    private static HttpRequestSessionContextFactory sessionContextFactory(ExtraCredentialsProvider extraCredentialsProvider)
+    {
+        return new HttpRequestSessionContextFactory(
+                new PreparedStatementEncoder(new ProtocolConfig()),
+                createTestingMetadataManager(),
+                ImmutableSet::of,
+                extraCredentialsProvider,
+                new AllowAllAccessControl(),
+                new ProtocolConfig(),
+                QueryDataEncoder.EncoderSelector.noEncoder());
+    }
+
     private static QuerySessionSupplier createSessionSupplier(SqlEnvironmentConfig config)
+    {
+        return createSessionSupplier(config, _ -> ImmutableMap.of(), new AllowAllAccessControl());
+    }
+
+    private static QuerySessionSupplier createSessionSupplier(SqlEnvironmentConfig config, ExtraCredentialsProvider extraCredentialsProvider, AccessControl accessControl)
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = TestingMetadataManager.builder()
@@ -246,8 +298,19 @@ public class TestQuerySessionSupplier
                 .build();
         return new QuerySessionSupplier(
                 metadata,
-                new AllowAllAccessControl(),
+                accessControl,
+                extraCredentialsProvider,
                 new SessionPropertyManager(),
                 config);
+    }
+
+    private static class DenyImpersonationAccessControl
+            extends AllowAllAccessControl
+    {
+        @Override
+        public void checkCanImpersonateUser(Identity identity, String userName)
+        {
+            denyImpersonateUser(identity.getUser(), userName);
+        }
     }
 }
