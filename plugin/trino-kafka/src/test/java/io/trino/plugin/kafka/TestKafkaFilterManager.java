@@ -14,6 +14,8 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
@@ -21,8 +23,10 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKafkaFilterManager
@@ -44,6 +48,36 @@ public class TestKafkaFilterManager
                 false);
 
         assertThat(KafkaFilterManager.filterValuesByDomain(testDomain, source)).isEqualTo(Set.of(2L, 3L, 4L));
+    }
+
+    @Test
+    public void testGetKeyPartitions()
+    {
+        Slice firstKey = utf8Slice("first");
+        Slice secondKey = utf8Slice("second");
+
+        assertThat(KafkaFilterManager.getKeyPartitions(Domain.singleValue(VARBINARY, firstKey), 10))
+                .contains(ImmutableSet.of(8));
+        assertThat(KafkaFilterManager.getKeyPartitions(multipleValues(VARBINARY, ImmutableList.of(firstKey, secondKey)), 10))
+                .contains(ImmutableSet.of(2, 8));
+
+        Domain range = Domain.create(
+                SortedRangeSet.copyOf(VARBINARY, ImmutableList.of(Range.greaterThan(VARBINARY, firstKey))),
+                false);
+        assertThat(KafkaFilterManager.getKeyPartitions(range, 10)).isEmpty();
+
+        Domain singleValueAndRange = Domain.create(
+                SortedRangeSet.copyOf(VARBINARY, ImmutableList.of(Range.equal(VARBINARY, firstKey), Range.greaterThan(VARBINARY, secondKey))),
+                false);
+        assertThat(KafkaFilterManager.getKeyPartitions(singleValueAndRange, 10)).isEmpty();
+
+        Domain nullableSingleValue = Domain.create(
+                SortedRangeSet.copyOf(VARBINARY, ImmutableList.of(Range.equal(VARBINARY, firstKey))),
+                true);
+        assertThat(KafkaFilterManager.getKeyPartitions(nullableSingleValue, 10)).isEmpty();
+
+        assertThat(KafkaFilterManager.getKeyPartitions(Domain.singleValue(VARBINARY, utf8Slice("")), 10)).isEmpty();
+        assertThat(KafkaFilterManager.getKeyPartitions(Domain.singleValue(VARBINARY, firstKey), 0)).isEmpty();
     }
 
     @Test

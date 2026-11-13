@@ -45,6 +45,7 @@ public class KafkaConfig
     private String defaultSchema = "default";
     private boolean hideInternalColumns = true;
     private int messagesPerSplit = 100_000;
+    private boolean keyPartitionPushdownEnabled;
     private boolean timestampUpperBoundPushDownEnabled;
     private String tableDescriptionSupplier = FileTableDescriptionSupplier.NAME;
     private List<File> resourceConfigFiles = ImmutableList.of();
@@ -136,6 +137,19 @@ public class KafkaConfig
     public KafkaConfig setMessagesPerSplit(int messagesPerSplit)
     {
         this.messagesPerSplit = messagesPerSplit;
+        return this;
+    }
+
+    public boolean isKeyPartitionPushdownEnabled()
+    {
+        return keyPartitionPushdownEnabled;
+    }
+
+    @Config("kafka.key-partition-pushdown-enabled")
+    @ConfigDescription("Enable partition pruning based on key predicates, assuming keys were assigned to partitions with Kafka's default partitioner")
+    public KafkaConfig setKeyPartitionPushdownEnabled(boolean keyPartitionPushdownEnabled)
+    {
+        this.keyPartitionPushdownEnabled = keyPartitionPushdownEnabled;
         return this;
     }
 
