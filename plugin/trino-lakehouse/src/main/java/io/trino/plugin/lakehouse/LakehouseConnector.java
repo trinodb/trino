@@ -22,8 +22,11 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.HiveSchemaProperties;
 import io.trino.plugin.hive.HiveViewProperties;
+import io.trino.plugin.hive.SystemTableProvider;
+import io.trino.plugin.hive.security.SystemTableAwareAccessControl;
 import io.trino.plugin.iceberg.IcebergMaterializedViewProperties;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -41,6 +44,7 @@ import io.trino.spi.type.Type;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
@@ -70,6 +74,7 @@ public class LakehouseConnector
     private final IcebergMaterializedViewProperties materializedViewProperties;
     private final Set<Procedure> procedures;
     private final Set<TableProcedureMetadata> tableProcedures;
+    private final Optional<ConnectorAccessControl> accessControl;
 
     @Inject
     public LakehouseConnector(
@@ -84,7 +89,9 @@ public class LakehouseConnector
             HiveViewProperties viewProperties,
             IcebergMaterializedViewProperties materializedViewProperties,
             Map<TableType, Set<Procedure>> procedures,
-            Map<TableType, Set<TableProcedureMetadata>> tableProcedures)
+            Map<TableType, Set<TableProcedureMetadata>> tableProcedures,
+            Optional<ConnectorAccessControl> accessControl,
+            Set<SystemTableProvider> systemTableProviders)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -98,6 +105,9 @@ public class LakehouseConnector
         this.materializedViewProperties = requireNonNull(materializedViewProperties, "materializedViewProperties is null");
         this.procedures = mergeProcedures(procedures);
         this.tableProcedures = mergeTableProcedures(tableProcedures);
+        requireNonNull(systemTableProviders, "systemTableProviders is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null")
+                .map(delegate -> new SystemTableAwareAccessControl(delegate, systemTableProviders));
     }
 
     /**
@@ -261,6 +271,12 @@ public class LakehouseConnector
     public List<PropertyMetadata<?>> getMaterializedViewProperties()
     {
         return materializedViewProperties.getMaterializedViewProperties();
+    }
+
+    @Override
+    public ConnectorAccessControl getAccessControl()
+    {
+        return accessControl.orElseThrow(UnsupportedOperationException::new);
     }
 
     @Override
