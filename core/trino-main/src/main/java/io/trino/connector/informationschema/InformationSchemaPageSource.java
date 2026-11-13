@@ -64,6 +64,7 @@ import static io.trino.metadata.MetadataListing.listTablePrivileges;
 import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSource
@@ -222,6 +223,7 @@ public class InformationSchemaPageSource
                 case ROLES -> addRolesRecords();
                 case APPLICABLE_ROLES -> addApplicableRolesRecords();
                 case ENABLED_ROLES -> addEnabledRolesRecords();
+                case COLLATIONS -> addCollationsRecords();
             }
         }
         if (!prefixIterator.get().hasNext() || isLimitExhausted()) {
@@ -378,6 +380,17 @@ public class InformationSchemaPageSource
                     grant.getGrantee().getType().toString(),
                     grant.getRoleName(),
                     grant.isGrantable() ? "YES" : "NO");
+            if (isLimitExhausted()) {
+                return;
+            }
+        }
+    }
+
+    private void addCollationsRecords()
+    {
+        for (String name : collationRegistry().collationNames()) {
+            // every collation compares trailing spaces
+            addRecord(name, "NO PAD");
             if (isLimitExhausted()) {
                 return;
             }

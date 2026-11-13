@@ -55,6 +55,15 @@ public class TestCollationRegistry
     }
 
     @Test
+    public void testCollationNames()
+    {
+        // every listed name resolves, to a collation of that name
+        for (String name : registry.collationNames()) {
+            assertThat(registry.findCollation(name)).as(name).map(Collation::name).contains(name);
+        }
+    }
+
+    @Test
     public void testSpacesAndPunctuationAreSignificant()
     {
         // no collation ignores spaces or punctuation, so trailing spaces are significant

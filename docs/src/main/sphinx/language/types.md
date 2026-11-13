@@ -227,6 +227,7 @@ Trino supports these collations:
 `ucs_basic` and `unicode` are the collations the SQL standard defines for Unicode text.
 A collation name is an identifier: unquoted, it is case-insensitive, and quoted, it must be
 written in lower case. A name that is not in the list is an error.
+Use {doc}`/sql/show-collations` to list the names.
 
 Changing a collation is a cast, `CAST(x AS varchar COLLATE unicode)`, or the shorthand
 `x COLLATE unicode` described in {doc}`/functions/collation`. Values of different

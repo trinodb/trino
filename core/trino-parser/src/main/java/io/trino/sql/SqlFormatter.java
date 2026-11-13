@@ -210,6 +210,7 @@ import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
+import io.trino.sql.tree.ShowCollations;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
 import io.trino.sql.tree.ShowFunctions;
@@ -484,6 +485,7 @@ public final class SqlFormatter
                 case SetTimeZone node -> visitSetTimeZone(node);
                 case ShowBranches node -> visitShowBranches(node);
                 case ShowCatalogs node -> visitShowCatalogs(node);
+                case ShowCollations node -> visitShowCollations(node);
                 case ShowColumns node -> visitShowColumns(node);
                 case ShowCreate node -> visitShowCreate(node);
                 case ShowFunctions node -> visitShowFunctions(node);
@@ -1564,6 +1566,19 @@ public final class SqlFormatter
             builder.append("\n");
 
             process(node.getStatement(), indent);
+        }
+
+        private void visitShowCollations(ShowCollations node)
+        {
+            builder.append("SHOW COLLATIONS");
+
+            node.getLikePattern().ifPresent(value -> builder
+                    .append(" LIKE ")
+                    .append(formatStringLiteral(value)));
+
+            node.getEscape().ifPresent(value -> builder
+                    .append(" ESCAPE ")
+                    .append(formatStringLiteral(value)));
         }
 
         private void visitShowCatalogs(ShowCatalogs node)

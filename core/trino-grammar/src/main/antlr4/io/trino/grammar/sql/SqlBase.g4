@@ -192,6 +192,8 @@ statement
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSchemas
     | SHOW CATALOGS
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showCatalogs
+    | SHOW COLLATIONS
+        (LIKE pattern=string (ESCAPE escape=string)?)?                 #showCollations
     | SHOW COLUMNS (FROM | IN) qualifiedName
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showColumns
     | SHOW STATS FOR qualifiedName                                     #showStats
@@ -1146,7 +1148,7 @@ nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | ASYMMETRIC | AT | AUTHORIZATION
     | BEGIN | BERNOULLI | BOTH | BRANCH | BRANCHES
-    | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLLATE | COLLATION | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
+    | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLLATE | COLLATION | COLLATIONS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
     | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDE | EXCLUDING | EXECUTE | EXPLAIN
     | FAIL | FAST | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FORWARD | FUNCTION | FUNCTIONS
@@ -1204,6 +1206,7 @@ CATALOG: 'CATALOG';
 CATALOGS: 'CATALOGS';
 COLLATE: 'COLLATE';
 COLLATION: 'COLLATION';
+COLLATIONS: 'COLLATIONS';
 COLUMN: 'COLUMN';
 COLUMNS: 'COLUMNS';
 COMMENT: 'COMMENT';

@@ -83,6 +83,10 @@ public enum InformationSchemaTable
             .build()),
     ENABLED_ROLES(table("enabled_roles")
             .column("role_name", createUnboundedVarcharType())
+            .build()),
+    COLLATIONS(table("collations")
+            .column("collation_name", createUnboundedVarcharType())
+            .column("pad_attribute", createUnboundedVarcharType())
             .build());
 
     public static final String INFORMATION_SCHEMA = "information_schema";

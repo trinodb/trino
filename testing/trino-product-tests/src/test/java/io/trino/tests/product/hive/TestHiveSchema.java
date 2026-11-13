@@ -148,6 +148,7 @@ class TestHiveSchema
                     .add("roles")
                     .add("applicable_roles")
                     .add("enabled_roles")
+                    .add("collations")
                     .build();
             List<Row> allInformationSchemaTablesAsRows = allInformationSchemaTables.stream()
                     .map(name -> row(name))

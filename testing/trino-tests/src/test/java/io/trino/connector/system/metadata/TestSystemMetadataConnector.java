@@ -139,7 +139,7 @@ public class TestSystemMetadataConnector
         // Whole catalog
         assertMetadataCalls(
                 "SELECT count(DISTINCT schema_name), count(DISTINCT table_name), count(comment), count(*) FROM system.metadata.table_comments WHERE catalog_name = 'test_catalog'",
-                "VALUES (3, 2008, 3000, 3008)",
+                "VALUES (3, 2009, 3000, 3009)",
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.streamRelationComments")
                         .build());
@@ -155,7 +155,7 @@ public class TestSystemMetadataConnector
         // Two catalogs
         assertMetadataCalls(
                 "SELECT count(DISTINCT schema_name), count(DISTINCT table_name), count(comment), count(*) FROM system.metadata.table_comments WHERE catalog_name IN ('test_catalog', 'tpch')",
-                "VALUES (12, 2016, 3000, 3088)",
+                "VALUES (12, 2017, 3000, 3090)",
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.streamRelationComments")
                         .build());

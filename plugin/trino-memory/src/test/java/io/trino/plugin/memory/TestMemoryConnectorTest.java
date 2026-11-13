@@ -326,6 +326,14 @@ public class TestMemoryConnectorTest
     }
 
     @Test
+    public void testCollationCatalog()
+    {
+        assertQuery("SELECT collation_name, pad_attribute FROM information_schema.collations", "VALUES ('ucs_basic', 'NO PAD'), ('unicode', 'NO PAD'), ('unicode_ci', 'NO PAD')");
+        // the name of an expression's collation is listed
+        assertQuery("SELECT count(*) FROM information_schema.collations WHERE collation_name = COLLATION FOR ('a' COLLATE unicode_ci)", "VALUES 1");
+    }
+
+    @Test
     public void testCollatedColumnDdl()
     {
         try (TestTable table = newTrinoTable("test_collated_ddl", "(id bigint)")) {

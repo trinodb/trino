@@ -82,6 +82,7 @@ public abstract sealed class Statement
                 SetTimeZone,
                 ShowBranches,
                 ShowCatalogs,
+                ShowCollations,
                 ShowColumns,
                 ShowCreate,
                 ShowFunctions,

@@ -18,7 +18,11 @@ import io.trino.sql.tree.CollatedDataType;
 import io.trino.sql.tree.CollationFor;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.ShowCollations;
 import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
 
 import static io.trino.sql.ExpressionFormatter.formatExpression;
 import static io.trino.sql.SqlFormatter.formatSql;
@@ -69,6 +73,17 @@ class TestCollateExpression
         CollatedDataType type = (CollatedDataType) parser.createType("varchar(10) COLLATE unicode_ci");
         assertThat(type.getCollation()).isEqualTo(new Identifier("unicode_ci"));
         assertSameAst("CAST(x AS varchar COLLATE unicode)", "CAST(x AS varchar COLLATE unicode)");
+    }
+
+    @Test
+    void testShowCollations()
+    {
+        assertThat(parser.createStatement("SHOW COLLATIONS")).isEqualTo(new ShowCollations(new NodeLocation(1, 1), Optional.empty(), Optional.empty()));
+        assertThat(parser.createStatement("SHOW COLLATIONS LIKE 'de%' ESCAPE '$'"))
+                .isEqualTo(new ShowCollations(new NodeLocation(1, 1), Optional.of("de%"), Optional.of("$")));
+        assertThat(formatSql(parser.createStatement("SHOW COLLATIONS LIKE 'de%' ESCAPE '$'"))).isEqualTo("SHOW COLLATIONS LIKE 'de%' ESCAPE '$'");
+        // collations remains an identifier
+        assertThat(parser.createExpression("collations")).isEqualTo(new Identifier("collations"));
     }
 
     @Test

@@ -64,6 +64,7 @@ connector accessing a data source. They are supported by all connectors:
 - {doc}`/sql/select` including {doc}`/sql/match-recognize` and {doc}`/sql/pivot`
 - {doc}`/sql/describe`
 - {doc}`/sql/show-catalogs`
+- {doc}`/sql/show-collations`
 - {doc}`/sql/show-columns`
 - {doc}`/sql/show-create-materialized-view`
 - {doc}`/sql/show-create-schema`

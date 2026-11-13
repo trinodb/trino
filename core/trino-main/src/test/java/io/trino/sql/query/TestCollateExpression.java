@@ -41,6 +41,21 @@ public class TestCollateExpression
     }
 
     @Test
+    public void testShowCollations()
+    {
+        assertThat(assertions.query("SHOW COLLATIONS"))
+                .ordered()
+                .skippingTypesCheck()
+                .matches("VALUES ('ucs_basic', 'NO PAD'), ('unicode', 'NO PAD'), ('unicode_ci', 'NO PAD')");
+        assertThat(assertions.query("SHOW COLLATIONS LIKE 'unicode\\_%' ESCAPE '\\'"))
+                .skippingTypesCheck()
+                .matches("VALUES ('unicode_ci', 'NO PAD')");
+        assertThat(assertions.query("SHOW COLLATIONS LIKE 'ucs%'"))
+                .skippingTypesCheck()
+                .matches("VALUES ('ucs_basic', 'NO PAD')");
+    }
+
+    @Test
     public void testCollate()
     {
         assertThat(assertions.expression("a COLLATE unicode_ci")
