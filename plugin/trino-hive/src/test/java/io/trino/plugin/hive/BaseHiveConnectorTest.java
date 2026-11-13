@@ -631,6 +631,29 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testPartitionValuesWithNonPositiveYears()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_partition_non_positive_years_",
+                "(x int, d date, ts timestamp(3)) WITH (partitioned_by = ARRAY['d', 'ts'])")) {
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " VALUES " +
+                            "(1, DATE '-0001-01-01', TIMESTAMP '-0001-01-01 01:02:03.123'), " +
+                            "(2, DATE '0000-06-01', TIMESTAMP '0000-06-01 00:00:00')",
+                    2);
+
+            assertThat(query("SELECT x, CAST(d AS varchar), CAST(ts AS varchar) FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "(1, '-0001-01-01', '-0001-01-01 01:02:03.123'), " +
+                            "(2, '0000-06-01', '0000-06-01 00:00:00.000')");
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE d = DATE '-0001-01-01'"))
+                    .isFullyPushedDown()
+                    .matches("VALUES 1");
+        }
+    }
+
+    @Test
     public void testIsNotNullWithNestedData()
     {
         Session admin = Session.builder(getSession())
