@@ -74,6 +74,7 @@ import static com.google.common.collect.Iterators.peekingIterator;
 import static com.google.common.collect.Iterators.singletonIterator;
 import static com.google.common.collect.Iterators.transform;
 import static com.google.common.collect.Streams.stream;
+import static io.opentelemetry.context.Context.taskWrapping;
 import static io.trino.metastore.HivePartition.UNPARTITIONED_ID;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -140,7 +141,7 @@ public class HiveSplitManager
         this(transactionManager,
                 partitionManager,
                 fileSystemFactory,
-                versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),
+                versionEmbedder.embedVersion(taskWrapping(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads()))),
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),
                 hiveConfig.getMaxOutstandingSplitsSize(),

@@ -28,6 +28,7 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.virtualThreadsNamed;
+import static io.opentelemetry.context.Context.taskWrapping;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
@@ -63,7 +64,7 @@ public class IcebergExecutorModule
     @ForIcebergSplitSource
     public ListeningExecutorService createSplitSourceExecutor(CatalogName catalogName)
     {
-        return listeningDecorator(newCachedThreadPool(daemonThreadsNamed("iceberg-split-source-" + catalogName + "-%s")));
+        return listeningDecorator(taskWrapping(newCachedThreadPool(daemonThreadsNamed("iceberg-split-source-" + catalogName + "-%s"))));
     }
 
     @Provides
@@ -74,9 +75,9 @@ public class IcebergExecutorModule
         if (config.getSplitManagerThreads() == 0) {
             return newDirectExecutorService();
         }
-        return newFixedThreadPool(
+        return taskWrapping(newFixedThreadPool(
                 config.getSplitManagerThreads(),
-                daemonThreadsNamed("iceberg-split-manager-" + catalogName + "-%s"));
+                daemonThreadsNamed("iceberg-split-manager-" + catalogName + "-%s")));
     }
 
     @Provides
