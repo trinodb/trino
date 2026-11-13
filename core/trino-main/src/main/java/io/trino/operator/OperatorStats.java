@@ -31,6 +31,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.operator.OperatorContext.CPU_TIME_DISTRIBUTION;
+import static io.trino.operator.OperatorContext.INPUT_ROWS_DISTRIBUTION;
 import static io.trino.operator.OperatorContext.SCHEDULED_TIME_DISTRIBUTION;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -657,7 +658,7 @@ public class OperatorStats
                 outputDataSize,
                 outputPositions,
                 dynamicFilterSplitsProcessed,
-                summarizeMetrics(metrics),
+                summarizeMetrics(),
                 connectorMetrics,
                 pipelineMetrics,
                 physicalWrittenDataSize,
@@ -674,15 +675,22 @@ public class OperatorStats
                 summarizedInfo);
     }
 
-    private static Metrics summarizeMetrics(Metrics metrics)
+    private Metrics summarizeMetrics()
     {
-        return new Metrics(Maps.filterKeys(metrics.getMetrics(), OperatorStats::isSummarizedMetric));
+        return new Metrics(Maps.filterKeys(metrics.getMetrics(), this::isSummarizedMetric));
     }
 
     // Per-driver time distributions are omitted from summarized operator stats
-    private static boolean isSummarizedMetric(String key)
+    private boolean isSummarizedMetric(String key)
     {
-        return !key.equals(CPU_TIME_DISTRIBUTION) && !key.equals(SCHEDULED_TIME_DISTRIBUTION);
+        if (key.equals(CPU_TIME_DISTRIBUTION) || key.equals(SCHEDULED_TIME_DISTRIBUTION)) {
+            return false;
+        }
+        // Input rows distribution is kept for table scans only
+        if (key.equals(INPUT_ROWS_DISTRIBUTION)) {
+            return sourceId.isPresent();
+        }
+        return true;
     }
 
     public OperatorStats withPipelineMetrics(Metrics pipelineMetrics)

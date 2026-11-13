@@ -149,7 +149,7 @@ public class TestOperatorStats
     }
 
     @Test
-    public void testSummarizeOmitsDriverTimeDistributions()
+    public void testSummarizeOmitsDriverDistributions()
     {
         ScheduledExecutorService scheduledExecutor = newSingleThreadScheduledExecutor();
         try {
@@ -157,8 +157,25 @@ public class TestOperatorStats
             assertThat(operatorStats.getMetrics().getMetrics())
                     .containsKeys(INPUT_ROWS_DISTRIBUTION, CPU_TIME_DISTRIBUTION, SCHEDULED_TIME_DISTRIBUTION);
             assertThat(operatorStats.summarize().getMetrics().getMetrics())
+                    .doesNotContainKeys(INPUT_ROWS_DISTRIBUTION, CPU_TIME_DISTRIBUTION, SCHEDULED_TIME_DISTRIBUTION)
+                    .containsKeys("CPU and scheduled time usage over time");
+        }
+        finally {
+            scheduledExecutor.shutdownNow();
+        }
+    }
+
+    @Test
+    public void testSummarizeKeepsInputRowsDistributionForTableScan()
+    {
+        ScheduledExecutorService scheduledExecutor = newSingleThreadScheduledExecutor();
+        try {
+            OperatorStats operatorStats = TestingOperatorContext.createDriverContext(scheduledExecutor)
+                    .addOperatorContext(1, new PlanNodeId("test"), Optional.of(new PlanNodeId("source")), "operator type")
+                    .getOperatorStats();
+            assertThat(operatorStats.summarize().getMetrics().getMetrics())
                     .doesNotContainKeys(CPU_TIME_DISTRIBUTION, SCHEDULED_TIME_DISTRIBUTION)
-                    .containsKeys(INPUT_ROWS_DISTRIBUTION, "CPU and scheduled time usage over time");
+                    .containsKeys(INPUT_ROWS_DISTRIBUTION);
         }
         finally {
             scheduledExecutor.shutdownNow();
