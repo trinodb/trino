@@ -396,8 +396,7 @@ public class TestSchedulingUtils
                 OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
+                ImmutableMap.of());
         return new SubPlan(planFragment, children);
     }
 }

@@ -204,8 +204,7 @@ public class TestNoMemoryAwarePartitionMemoryEstimator
                 OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
+                ImmutableMap.of());
     }
 
     private PartitionMemoryEstimator createEstimator(PlanFragment planFragment, PlanFragment... sourceFragments)
@@ -251,8 +250,7 @@ public class TestNoMemoryAwarePartitionMemoryEstimator
                 OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
+                ImmutableMap.of());
     }
 
     private static class MockDelgatePartitionMemoryEstimatorFactory

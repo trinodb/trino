@@ -270,8 +270,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                 OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
+                ImmutableMap.of());
     }
 
     private MemoryInfo buildWorkerMemoryInfo(DataSize usedMemory)
