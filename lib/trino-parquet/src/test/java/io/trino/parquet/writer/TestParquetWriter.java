@@ -44,6 +44,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -445,6 +446,30 @@ public class TestParquetWriter
     }
 
     @Test
+    public void testColumnOrdersAreWritten()
+            throws IOException
+    {
+        // the row column has four leaf columns, so the number of leaf columns differs from the number of columns
+        int positionCount = 100;
+        List<String> columnNames = ImmutableList.of("columnA", "columnB");
+        List<Type> types = ImmutableList.of(BIGINT, rowType(field("a", BIGINT), field("b", BIGINT), field("c", BIGINT), field("d", BIGINT)));
+        Page page = new Page(
+                new LongArrayBlock(positionCount, Optional.empty(), new long[positionCount]),
+                createRowBlock(Optional.empty(), positionCount));
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(ParquetWriterOptions.builder().build(), types, columnNames, ImmutableList.of(page)),
+                ParquetReaderOptions.defaultOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        int leafColumns = parquetMetadata.getFileMetaData().getSchema().getColumns().size();
+        assertThat(leafColumns).isEqualTo(5);
+        assertThat(parquetMetadata.getParquetMetadata().getColumn_orders())
+                .hasSize(leafColumns)
+                .allSatisfy(columnOrder -> assertThat(columnOrder.isSetTYPE_ORDER()).isTrue());
+    }
+
+    @Test
     public void testColumnReordering()
             throws IOException
     {
@@ -490,6 +515,7 @@ public class TestParquetWriter
                 CompressionCodec.SNAPPY);
         List<Page> inputPages = generateInputPages(types, 1000, 100);
 
+        assertThat(writer.getRetainedBytes()).isPositive();
         long previousRetainedBytes = 0;
         for (Page inputPage : inputPages) {
             checkArgument(types.size() == inputPage.getChannelCount());

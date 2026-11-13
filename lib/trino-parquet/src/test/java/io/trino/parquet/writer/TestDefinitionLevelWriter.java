@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefinitionLevelWriter;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider.ValuesCount;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
+import io.trino.parquet.writer.valuewriter.RunLengthBitPackingHybridValuesWriter;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
@@ -29,6 +30,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeOperators;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,6 +44,7 @@ import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.block.RowBlock.getNullSuppressedRowFieldsFromBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Collections.nCopies;
+import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDefinitionLevelWriter
@@ -76,6 +79,23 @@ public class TestDefinitionLevelWriter
             assertDefinitionLevels(block, nCopies(block.getPositionCount(), 1), maxDefinitionLevel);
             assertDefinitionLevels(block, generateGroupSizes(block.getPositionCount()), maxDefinitionLevel);
         }
+    }
+
+    @Test
+    public void testFullyDefinedPageIsSingleRleRun()
+            throws IOException
+    {
+        // The nested reader only skips level scans for pages written as a single RLE run of the max definition level
+        int maxDefinitionLevel = 3;
+        RunLengthBitPackingHybridValuesWriter levelsWriter = new RunLengthBitPackingHybridValuesWriter(getWidthFromMaxInt(maxDefinitionLevel), 1024 * 1024);
+        Block block = new LongArrayBlock(POSITIONS, Optional.empty(), new long[POSITIONS]);
+        DefLevelWriterProviders.of(block, maxDefinitionLevel)
+                .getDefinitionLevelWriter(Optional.empty(), levelsWriter)
+                .writeDefinitionLevels();
+
+        byte[] bytes = levelsWriter.getBytes().toByteArray();
+        // 4 byte length of the levels, an RLE run header of (POSITIONS << 1) = 0x3F40 as ULEB128 (0xC0 0x7E), and the one byte level
+        assertThat(bytes).containsExactly(3, 0, 0, 0, 0xC0, 0x7E, maxDefinitionLevel);
     }
 
     @Test

@@ -233,5 +233,26 @@
                 </excludes>
             </resource>
         </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>guava-collections</id>
+                        <goals>
+                            <goal>modernizer</goal>
+                        </goals>
+                        <configuration>
+                            <violationsFile>${air.main.basedir}/.mvn/modernizer/guava-collections.xml</violationsFile>
+                            <!-- Clear the project-wide plugin configuration for rules and exclusions. -->
+                            <violationsFiles combine.self="override" />
+                            <exclusionsFile combine.self="override" />
+                            <includeTestClasses>false</includeTestClasses>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 </project>

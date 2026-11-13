@@ -15,6 +15,7 @@ package io.trino.parquet.writer.valuewriter;
 
 import org.junit.jupiter.api.Test;
 
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestDictionaryIndexBuffer
@@ -54,6 +55,8 @@ class TestDictionaryIndexBuffer
         for (int value = 0; value < size; value++) {
             buffer.add(value);
         }
+
+        assertThat(buffer.sizeOf()).isGreaterThanOrEqualTo(sizeOfIntArray(size));
 
         int[] collected = new int[size];
         int[] position = {0};

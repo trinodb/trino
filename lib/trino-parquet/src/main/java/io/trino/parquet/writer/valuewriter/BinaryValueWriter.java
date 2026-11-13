@@ -20,19 +20,40 @@ import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.util.Arrays;
+
+import static com.google.common.base.Verify.verify;
+import static org.apache.parquet.schema.PrimitiveComparator.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
+
 public class BinaryValueWriter
         extends PrimitiveValueWriter
 {
+    // bounds of the values written to the current page, applied to the statistics once when the page is reset
+    private byte[] minimum;
+    private byte[] maximum;
+
     public BinaryValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
+        verify(getStatistics().comparator() == UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR, "Unexpected statistics order for %s", parquetType);
+    }
+
+    @Override
+    public Statistics<?> resetAndGetStatistics()
+    {
+        if (minimum != null) {
+            getStatistics().updateStats(Binary.fromConstantByteArray(minimum));
+            getStatistics().updateStats(Binary.fromConstantByteArray(maximum));
+            minimum = null;
+            maximum = null;
+        }
+        return super.resetAndGetStatistics();
     }
 
     @Override
     protected void writeValueBlock(ValueBlock block)
     {
         ValuesWriter valuesWriter = getValuesWriter();
-        Statistics<?> statistics = getStatistics();
         VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
 
         Slice rawSlice = variableWidthBlock.getRawSlice();
@@ -45,9 +66,7 @@ public class BinaryValueWriter
                 int sliceOffset = variableWidthBlock.getRawSliceOffset(i);
                 int sliceLength = variableWidthBlock.getSliceLength(i);
                 valuesWriter.writeBytes(rawSlice, sliceOffset, sliceLength);
-                // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
-                // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
-                statistics.updateStats(Binary.fromReusedByteArray(rawByteArray, rawByteArrayOffset + sliceOffset, sliceLength));
+                updateStatistics(rawByteArray, rawByteArrayOffset + sliceOffset, sliceLength);
             }
         }
     }
@@ -56,21 +75,17 @@ public class BinaryValueWriter
     protected void writeRepeated(ValueBlock block, int count)
     {
         ValuesWriter valuesWriter = getValuesWriter();
-        Statistics<?> statistics = getStatistics();
         Slice slice = ((VariableWidthBlock) block).getSlice(0);
         for (int i = 0; i < count; i++) {
             valuesWriter.writeBytes(slice);
         }
-        // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
-        // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
-        statistics.updateStats(Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length()));
+        updateStatistics(slice.byteArray(), slice.byteArrayOffset(), slice.length());
     }
 
     @Override
     protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
     {
         ValuesWriter valuesWriter = getValuesWriter();
-        Statistics<?> statistics = getStatistics();
         VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
 
         Slice rawSlice = variableWidthBlock.getRawSlice();
@@ -84,10 +99,24 @@ public class BinaryValueWriter
                 int sliceOffset = variableWidthBlock.getRawSliceOffset(position);
                 int sliceLength = variableWidthBlock.getSliceLength(position);
                 valuesWriter.writeBytes(rawSlice, sliceOffset, sliceLength);
-                // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
-                // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
-                statistics.updateStats(Binary.fromReusedByteArray(rawByteArray, rawByteArrayOffset + sliceOffset, sliceLength));
+                updateStatistics(rawByteArray, rawByteArrayOffset + sliceOffset, sliceLength);
             }
+        }
+    }
+
+    private void updateStatistics(byte[] bytes, int offset, int length)
+    {
+        boolean belowMinimum = minimum == null || Arrays.compareUnsigned(bytes, offset, offset + length, minimum, 0, minimum.length) < 0;
+        if (!belowMinimum && Arrays.compareUnsigned(bytes, offset, offset + length, maximum, 0, maximum.length) <= 0) {
+            return;
+        }
+        // the bounds outlive the block, so they get their own copy rather than a view of the block's bytes
+        byte[] bound = Arrays.copyOfRange(bytes, offset, offset + length);
+        if (belowMinimum) {
+            minimum = bound;
+        }
+        if (maximum == null || !belowMinimum) {
+            maximum = bound;
         }
     }
 }

@@ -141,7 +141,7 @@ public abstract class AbstractColumnWriterBenchmark
         BytesInput pageBytes = writer.getBytes();
         // getEncoding records whether the page used the dictionary and has to be called between getBytes and reset
         writer.getEncoding();
-        writer.reset();
+        writer.resetAndGetStatistics();
         return pageBytes;
     }
 

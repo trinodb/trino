@@ -15,7 +15,7 @@
     <description>Trino - ClickHouse connector</description>
 
     <properties>
-        <dep.clickhouse.version>0.11.0</dep.clickhouse.version>
+        <dep.clickhouse.version>0.11.1</dep.clickhouse.version>
     </properties>
 
     <dependencies>
