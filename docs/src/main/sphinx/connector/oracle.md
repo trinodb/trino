@@ -516,6 +516,37 @@ include `SYNONYM`, add the following configuration property:
 oracle.synonyms.enabled=true
 ```
 
+(oracle-table-statistics)=
+### Table statistics
+
+The Oracle connector can use {doc}`table and column statistics
+</optimizer/statistics>` for {doc}`cost based optimizations
+</optimizer/cost-based-optimizations>`, to improve query processing performance
+based on the actual data in the data source.
+
+The statistics are collected by Oracle and exposed through `ALL_TABLES` and
+`ALL_TAB_COL_STATISTICS`, and retrieved by the connector. Statistics retrieval
+is enabled by default and can be disabled by setting `statistics.enabled` to
+`false` in the catalog properties file.
+
+To collect statistics for a table, execute the following statement in Oracle:
+
+```sql
+BEGIN
+  DBMS_STATS.GATHER_TABLE_STATS(
+    ownname => 'TABLE_SCHEMA',
+    tabname => 'TABLE_NAME'
+  );
+END;
+```
+
+When `oracle.synonyms.enabled` is set to `true`, the connector resolves synonyms
+via `ALL_SYNONYMS` (including chained synonyms, excluding database links) and
+retrieves statistics from the underlying target table.
+
+Refer to Oracle documentation for additional `DBMS_STATS.GATHER_TABLE_STATS`
+options.
+
 (oracle-pushdown)=
 ### Pushdown
 
@@ -551,7 +582,7 @@ with the following functions:
 ```{include} pushdown-correctness-behavior.fragment
 ```
 
-```{include} join-pushdown-enabled-false.fragment
+```{include} join-pushdown-enabled-true.fragment
 ```
 
 (oracle-predicate-pushdown)=
