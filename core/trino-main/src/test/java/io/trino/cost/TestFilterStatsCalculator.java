@@ -727,6 +727,19 @@ public class TestFilterStatsCalculator
     }
 
     @Test
+    public void testInWithConstantValueAndConstantItem()
+    {
+        assertExpression(new In(new Constant(DOUBLE, 2.0), ImmutableList.of(new Reference(DOUBLE, "x"), new Constant(DOUBLE, 7.0))))
+                .outputRowsCount(18.75);
+        assertExpression(new In(new Constant(DOUBLE, 2.0), ImmutableList.of(new Reference(DOUBLE, "x"), new Constant(DOUBLE, null))))
+                .outputRowsCount(18.75);
+        assertExpression(new In(new Constant(DOUBLE, null), ImmutableList.of(new Reference(DOUBLE, "x"), new Constant(DOUBLE, 7.0))))
+                .outputRowsCount(0);
+        assertExpression(new In(new Constant(BIGINT, 5L), ImmutableList.of(new Cast(new Reference(MEDIUM_VARCHAR_TYPE, "mediumVarchar"), BIGINT), new Constant(BIGINT, 5L))))
+                .outputRowsCount(1000);
+    }
+
+    @Test
     public void testSymbolEqualsSameSymbolFilter()
     {
         assertExpression(comparison(EQUAL, new Reference(DOUBLE, "x"), new Reference(DOUBLE, "x")))

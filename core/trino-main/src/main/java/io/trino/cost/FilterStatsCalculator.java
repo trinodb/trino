@@ -305,6 +305,7 @@ public class FilterStatsCalculator
         protected PlanNodeStatsEstimate visitIn(In node, Void context)
         {
             List<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
+                    .filter(inValue -> !(inValue instanceof Constant constant && constant.value() == null))
                     .map(inValue -> process(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), EQUAL, node.value(), inValue)))
                     .collect(toImmutableList());
 
