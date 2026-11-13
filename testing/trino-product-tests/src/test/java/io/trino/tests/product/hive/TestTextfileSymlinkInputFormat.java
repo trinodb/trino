@@ -18,6 +18,7 @@ import io.trino.testing.containers.environment.ProductTest;
 import io.trino.testing.containers.environment.RequiresEnvironment;
 import io.trino.testing.services.junit.Flaky;
 import io.trino.tests.product.TestGroup;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
@@ -41,6 +42,46 @@ class TestTextfileSymlinkInputFormat
 {
     // Content of the single_int_column/data.textfile resource - a single integer value
     private static final String DATA_TEXTFILE_CONTENT = "42";
+
+    @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    void testTrinoCreatedSymlinkTable(HiveStorageFormatsEnvironment env)
+            throws Exception
+    {
+        String table = "test_trino_textfile_symlink";
+        String tableRoot = env.getWarehouseDirectory() + '/' + table;
+        String dataDir = env.getWarehouseDirectory() + "/data_test_trino_textfile_symlink";
+        HdfsClient hdfsClient = env.createHdfsClient();
+
+        env.executeTrinoUpdate("DROP TABLE IF EXISTS hive.default." + table);
+        try {
+            hdfsClient.createDirectory(tableRoot);
+            hdfsClient.createDirectory(dataDir);
+            hdfsClient.saveFile(dataDir + "/data.textfile", DATA_TEXTFILE_CONTENT);
+            hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/data.textfile", dataDir));
+
+            env.executeTrinoUpdate(
+                    """
+                    CREATE TABLE hive.default.%s (col integer)
+                    WITH (format = 'TEXTFILE', symlink_manifest = true, external_location = '%s')
+                    """.formatted(table, tableRoot));
+
+            // Hive must see the table as a regular symlink table
+            String hiveMetadata = env.executeHive("DESCRIBE FORMATTED " + table).rows().toString();
+            Assertions.assertThat(hiveMetadata).contains("org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat");
+            Assertions.assertThat(hiveMetadata).contains("org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat");
+            Assertions.assertThat(hiveMetadata).contains("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe");
+
+            // Both engines read the same data
+            assertThat(env.executeTrino("SELECT * FROM hive.default." + table)).containsExactlyInOrder(row(42));
+            assertThat(env.executeHive("SELECT * FROM " + table)).containsExactlyInOrder(row(42));
+        }
+        finally {
+            env.executeTrinoUpdate("DROP TABLE IF EXISTS hive.default." + table);
+            hdfsClient.delete(tableRoot);
+            hdfsClient.delete(dataDir);
+        }
+    }
 
     @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
