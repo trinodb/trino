@@ -13,13 +13,28 @@
  */
 package io.trino.decoder.protobuf;
 
+import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.DynamicMessage;
 
 import java.util.Optional;
 
 public interface DynamicMessageProvider
 {
+    /**
+     * Parses a record with the schema it was written with.
+     */
     DynamicMessage parseDynamicMessage(byte[] data);
+
+    /**
+     * The message type the table columns were derived from. Fields of a parsed message of this
+     * type are looked up by the number this type assigns to the column's field, so a field keeps
+     * its column across renames, as it keeps its identity on the wire. Without a reader type, and
+     * in messages of another type, fields are looked up by name.
+     */
+    default Optional<Descriptor> getReaderDescriptor()
+    {
+        return Optional.empty();
+    }
 
     interface Factory
     {

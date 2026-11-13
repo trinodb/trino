@@ -40,6 +40,7 @@ import io.trino.spi.statistics.ComputedStatistics;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -97,6 +98,9 @@ public class KafkaMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
 
+        // the data schemas and the columns come from one description, which a schema registry based
+        // supplier resolves from the latest schema versions, so later lookups with the handle use it
+        // instead of describing the table again
         return getTopicDescription(session, schemaTableName)
                 .map(kafkaTopicDescription -> new KafkaTableHandle(
                         schemaTableName.getSchemaName(),
@@ -108,9 +112,7 @@ public class KafkaMetadata
                         kafkaTopicDescription.message().flatMap(KafkaTopicFieldGroup::dataSchema),
                         kafkaTopicDescription.key().flatMap(KafkaTopicFieldGroup::subject),
                         kafkaTopicDescription.message().flatMap(KafkaTopicFieldGroup::subject),
-                        getColumnHandles(session, schemaTableName).values().stream()
-                                .map(KafkaColumnHandle.class::cast)
-                                .collect(toImmutableList()),
+                        getColumnHandles(schemaTableName, kafkaTopicDescription),
                         TupleDomain.all()))
                 .orElse(null);
     }
@@ -123,7 +125,8 @@ public class KafkaMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(session, ((KafkaTableHandle) tableHandle).schemaTableName());
+        KafkaTableHandle handle = (KafkaTableHandle) tableHandle;
+        return new ConnectorTableMetadata(handle.schemaTableName(), getColumnsMetadata(handle.columns()));
     }
 
     @Override
@@ -137,13 +140,46 @@ public class KafkaMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getColumnHandles(session, ((KafkaTableHandle) tableHandle).schemaTableName());
+        return ((KafkaTableHandle) tableHandle).columns().stream()
+                .collect(toImmutableMap(KafkaColumnHandle::getName, identity()));
     }
 
-    private Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, SchemaTableName schemaTableName)
+    private List<KafkaColumnHandle> getColumnHandles(SchemaTableName schemaTableName, KafkaTopicDescription kafkaTopicDescription)
     {
-        KafkaTopicDescription kafkaTopicDescription = getRequiredTopicDescription(session, schemaTableName);
+        List<KafkaColumnHandle> columnHandles = getColumnHandles(kafkaTopicDescription);
 
+        Set<String> columnNames = new HashSet<>();
+        Set<String> duplicateColumns = columnHandles.stream()
+                .filter(columnHandle -> !columnHandle.isInternal())
+                .map(KafkaColumnHandle::getName)
+                .filter(name -> !columnNames.add(name))
+                .collect(toSet());
+        if (!duplicateColumns.isEmpty()) {
+            throw new TrinoException(DUPLICATE_COLUMN_NAME, "Duplicate column names in the key and message of the table. "
+                    + "topic=" + schemaTableName
+                    + ", Duplicate names=" + duplicateColumns);
+        }
+
+        Set<String> conflictingColumns = columnHandles.stream()
+                .filter(columnHandle -> !columnHandle.isInternal())
+                .map(KafkaColumnHandle::getName)
+                .collect(toSet());
+        conflictingColumns.retainAll(columnHandles.stream()
+                .filter(KafkaColumnHandle::isInternal)
+                .map(KafkaColumnHandle::getName)
+                .collect(toSet()));
+        if (!conflictingColumns.isEmpty()) {
+            throw new TrinoException(DUPLICATE_COLUMN_NAME, "Internal Kafka column names conflict with column names from the table. "
+                    + "Consider changing kafka.internal-column-prefix configuration property. "
+                    + "topic=" + schemaTableName
+                    + ", Conflicting names=" + conflictingColumns);
+        }
+
+        return columnHandles;
+    }
+
+    private List<KafkaColumnHandle> getColumnHandles(KafkaTopicDescription kafkaTopicDescription)
+    {
         Stream<KafkaColumnHandle> keyColumnHandles = kafkaTopicDescription.key().stream()
                 .map(KafkaTopicFieldGroup::fields)
                 .flatMap(Collection::stream)
@@ -154,24 +190,11 @@ public class KafkaMetadata
                 .flatMap(Collection::stream)
                 .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.columnHandle(false));
 
-        List<KafkaColumnHandle> topicColumnHandles = concat(keyColumnHandles, messageColumnHandles)
+        Stream<KafkaColumnHandle> internalColumnHandles = kafkaInternalFieldManager.getInternalFields().stream()
+                .map(kafkaInternalField -> kafkaInternalField.getColumnHandle(hideInternalColumns));
+
+        return concat(concat(keyColumnHandles, messageColumnHandles), internalColumnHandles)
                 .collect(toImmutableList());
-
-        List<KafkaColumnHandle> internalColumnHandles = kafkaInternalFieldManager.getInternalFields().stream()
-                .map(kafkaInternalField -> kafkaInternalField.getColumnHandle(hideInternalColumns))
-                .collect(toImmutableList());
-
-        Set<String> conflictingColumns = topicColumnHandles.stream().map(KafkaColumnHandle::getName).collect(toSet());
-        conflictingColumns.retainAll(internalColumnHandles.stream().map(KafkaColumnHandle::getName).collect(toSet()));
-        if (!conflictingColumns.isEmpty()) {
-            throw new TrinoException(DUPLICATE_COLUMN_NAME, "Internal Kafka column names conflict with column names from the table. "
-                    + "Consider changing kafka.internal-column-prefix configuration property. "
-                    + "topic=" + schemaTableName
-                    + ", Conflicting names=" + conflictingColumns);
-        }
-
-        return concat(topicColumnHandles.stream(), internalColumnHandles.stream())
-                .collect(toImmutableMap(KafkaColumnHandle::getName, identity()));
     }
 
     @Override
@@ -214,32 +237,14 @@ public class KafkaMetadata
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName schemaTableName)
     {
         KafkaTopicDescription table = getRequiredTopicDescription(session, schemaTableName);
+        return new ConnectorTableMetadata(schemaTableName, getColumnsMetadata(getColumnHandles(table)));
+    }
 
-        ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
-
-        table.key().ifPresent(key -> {
-            List<KafkaTopicFieldDescription> fields = key.fields();
-            if (fields != null) {
-                for (KafkaTopicFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.columnMetadata());
-                }
-            }
-        });
-
-        table.message().ifPresent(message -> {
-            List<KafkaTopicFieldDescription> fields = message.fields();
-            if (fields != null) {
-                for (KafkaTopicFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.columnMetadata());
-                }
-            }
-        });
-
-        for (KafkaInternalFieldManager.InternalField fieldDescription : kafkaInternalFieldManager.getInternalFields()) {
-            builder.add(fieldDescription.getColumnMetadata(hideInternalColumns));
-        }
-
-        return new ConnectorTableMetadata(schemaTableName, builder.build());
+    private static List<ColumnMetadata> getColumnsMetadata(List<KafkaColumnHandle> columns)
+    {
+        return columns.stream()
+                .map(KafkaColumnHandle::getColumnMetadata)
+                .collect(toImmutableList());
     }
 
     @Override

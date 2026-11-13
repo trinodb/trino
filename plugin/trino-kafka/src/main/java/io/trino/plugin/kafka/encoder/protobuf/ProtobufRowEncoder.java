@@ -18,9 +18,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors.Descriptor;
+import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Timestamp;
+import com.google.protobuf.UninitializedMessageException;
 import io.trino.plugin.kafka.encoder.AbstractRowEncoder;
 import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.spi.TrinoException;
@@ -48,6 +50,7 @@ import static com.google.protobuf.Descriptors.FieldDescriptor.JavaType.ENUM;
 import static com.google.protobuf.Descriptors.FieldDescriptor.JavaType.MESSAGE;
 import static com.google.protobuf.util.Timestamps.checkValid;
 import static io.trino.decoder.protobuf.ProtobufErrorCode.INVALID_TIMESTAMP;
+import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -122,7 +125,39 @@ public class ProtobufRowEncoder
     @Override
     protected void appendNullValue()
     {
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Protobuf doesn't support serializing null values");
+        // a field that tracks presence is left unset, which decodes as NULL; the others have no value for NULL
+        checkNullAllowed(findField(columnHandles.get(currentColumnIndex).getMapping()));
+    }
+
+    private FieldDescriptor findField(String columnMapping)
+    {
+        List<String> columnPath = Splitter.on("/")
+                .omitEmptyStrings()
+                .limit(2)
+                .splitToList(columnMapping);
+        FieldDescriptor fieldDescriptor = descriptor.findFieldByName(columnPath.get(0));
+        checkState(fieldDescriptor != null, "Unknown Field %s", columnPath.get(0));
+        if (columnPath.size() == 2) {
+            checkState(fieldDescriptor.getJavaType() == MESSAGE, "Expected MESSAGE type, but got: %s", fieldDescriptor.getJavaType());
+            fieldDescriptor = fieldDescriptor.getMessageType().findFieldByName(columnPath.get(1));
+            checkState(fieldDescriptor != null, "Unknown Field %s", columnPath.get(1));
+        }
+        return fieldDescriptor;
+    }
+
+    private static void checkNullAllowed(FieldDescriptor fieldDescriptor)
+    {
+        if (fieldDescriptor.isRequired()) {
+            // a message without a required field cannot be built
+            throw new TrinoException(CONSTRAINT_VIOLATION, format("NULL value not allowed for required protobuf field '%s'", fieldDescriptor.getFullName()));
+        }
+        if (fieldDescriptor.hasPresence()) {
+            return;
+        }
+        if (fieldDescriptor.isRepeated()) {
+            throw new TrinoException(CONSTRAINT_VIOLATION, format("NULL value not allowed for repeated protobuf field '%s'", fieldDescriptor.getFullName()));
+        }
+        throw new TrinoException(CONSTRAINT_VIOLATION, format("NULL value not allowed for protobuf field '%s', which does not track presence; declare it optional to allow NULL", fieldDescriptor.getFullName()));
     }
 
     @Override
@@ -210,6 +245,10 @@ public class ProtobufRowEncoder
         try {
             return messageBuilder.build().toByteArray();
         }
+        catch (UninitializedMessageException e) {
+            // a NULL left a message typed field unset whose message has required fields, such as through a flattened mapping
+            throw new TrinoException(CONSTRAINT_VIOLATION, format("Protobuf message '%s' cannot be written: %s", descriptor.getFullName(), e.getMessage()), e);
+        }
         finally {
             messageBuilder.clear();
         }
@@ -241,14 +280,13 @@ public class ProtobufRowEncoder
             value = encodeObject(fieldDescriptor, type, value);
         }
         setField(fieldDescriptor, messageBuilder, value);
-        return messageBuilder.build();
+        // required fields of a nested message may be set by later columns; the whole message is checked when it is written
+        return messageBuilder.buildPartial();
     }
 
     private Object encodeObject(FieldDescriptor fieldDescriptor, Type type, Object value)
     {
-        if (value == null) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Protobuf doesn't support serializing null values");
-        }
+        requireNonNull(value, "value is null");
         if (type instanceof VarbinaryType) {
             if (value instanceof SqlVarbinary sqlVarbinary) {
                 return ByteString.copyFrom(sqlVarbinary.getBytes());
@@ -294,7 +332,12 @@ public class ProtobufRowEncoder
     private List<Object> encodeArray(FieldDescriptor fieldDescriptor, ArrayType type, List<Object> value)
     {
         return value.stream()
-                .map(entry -> encodeObject(fieldDescriptor, type.getElementType(), entry))
+                .map(element -> {
+                    if (element == null) {
+                        throw new TrinoException(CONSTRAINT_VIOLATION, format("NULL element not allowed in repeated protobuf field '%s'", fieldDescriptor.getFullName()));
+                    }
+                    return encodeObject(fieldDescriptor, type.getElementType(), element);
+                })
                 .collect(toImmutableList());
     }
 
@@ -303,6 +346,9 @@ public class ProtobufRowEncoder
         Descriptor descriptor = fieldDescriptor.getMessageType();
         ImmutableList.Builder<DynamicMessage> dynamicMessageListBuilder = ImmutableList.builder();
         for (Entry<Object, Object> entry : value.entrySet()) {
+            if (entry.getValue() == null) {
+                throw new TrinoException(CONSTRAINT_VIOLATION, format("NULL map value not allowed for protobuf field '%s'", fieldDescriptor.getFullName()));
+            }
             DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
             setField(
                     descriptor.findFieldByNumber(1),
@@ -330,14 +376,18 @@ public class ProtobufRowEncoder
         int index = 0;
         for (RowType.Field field : type.getFields()) {
             checkArgument(field.getName().isPresent(), "FieldName is absent");
-            setField(
-                    descriptor.findFieldByName(field.getName().get()),
-                    builder,
-                    encodeObject(
-                            descriptor.findFieldByName(field.getName().get()),
-                            field.getType(),
-                            value.get(index)));
+            FieldDescriptor rowFieldDescriptor = descriptor.findFieldByName(field.getName().get());
+            checkState(rowFieldDescriptor != null, "Unknown Field %s", field.getName().get());
+            Object fieldValue = value.get(index);
             index++;
+            if (fieldValue == null) {
+                checkNullAllowed(rowFieldDescriptor);
+                continue;
+            }
+            setField(
+                    rowFieldDescriptor,
+                    builder,
+                    encodeObject(rowFieldDescriptor, field.getType(), fieldValue));
         }
         return builder.build();
     }
@@ -345,8 +395,24 @@ public class ProtobufRowEncoder
     private void setField(FieldDescriptor fieldDescriptor, DynamicMessage.Builder builder, Object value)
     {
         if (fieldDescriptor.getJavaType() == ENUM) {
-            value = fieldDescriptor.getEnumType().findValueByName((String) value);
+            if (value instanceof List<?> values) {
+                value = values.stream()
+                        .map(element -> toEnumValue(fieldDescriptor, element))
+                        .collect(toImmutableList());
+            }
+            else {
+                value = toEnumValue(fieldDescriptor, value);
+            }
         }
         builder.setField(fieldDescriptor, value);
+    }
+
+    private static EnumValueDescriptor toEnumValue(FieldDescriptor fieldDescriptor, Object value)
+    {
+        EnumValueDescriptor enumValue = fieldDescriptor.getEnumType().findValueByName((String) value);
+        if (enumValue == null) {
+            throw new TrinoException(CONSTRAINT_VIOLATION, format("Value '%s' is not a member of enum %s of field %s", value, fieldDescriptor.getEnumType().getFullName(), fieldDescriptor.getFullName()));
+        }
+        return enumValue;
     }
 }

@@ -17,11 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
+import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.trino.plugin.kafka.KafkaTopicDescription;
 import io.trino.plugin.kafka.KafkaTopicFieldDescription;
 import io.trino.plugin.kafka.KafkaTopicFieldGroup;
+import io.trino.plugin.kafka.encoder.protobuf.ProtobufSchemaParser;
+import io.trino.plugin.kafka.schema.ProtobufAnySupportConfig;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
@@ -33,6 +36,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.decoder.protobuf.ProtobufErrorCode.INVALID_PROTO_FILE;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -45,7 +50,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestConfluentSchemaRegistryTableDescriptionSupplier
 {
     private static final String DEFAULT_NAME = "tests";
-    private static final SchemaRegistryClient SCHEMA_REGISTRY_CLIENT = new MockSchemaRegistryClient();
+    private static final SchemaRegistryClient SCHEMA_REGISTRY_CLIENT = new MockSchemaRegistryClient(ImmutableList.of(new AvroSchemaProvider(), new ConfluentProtobufSchemaProvider()));
 
     @Test
     public void testTopicDescription()
@@ -189,13 +194,71 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
                 .orElseThrow();
     }
 
+    @Test
+    public void testProtobufTopicDescription()
+            throws Exception
+    {
+        TableDescriptionSupplier tableDescriptionSupplier = createTableDescriptionSupplier();
+        String topicName = "protobuf_topic";
+        SchemaTableName schemaTableName = new SchemaTableName(DEFAULT_NAME, topicName);
+        int keySchemaId = SCHEMA_REGISTRY_CLIENT.register(topicName + "-key", getProtobufSchema(
+                """
+                syntax = "proto3";
+                message key {
+                    int64 id = 1;
+                }
+                """));
+        int messageSchemaId = SCHEMA_REGISTRY_CLIENT.register(topicName + "-value", getProtobufSchema(
+                """
+                syntax = "proto3";
+                message schema {
+                    string col1 = 1;
+                    int64 col2 = 2;
+                }
+                """));
+
+        assertThat(tableDescriptionSupplier.listTables()).contains(schemaTableName);
+
+        // the table refers to the schemas its columns were derived from
+        assertThat(getKafkaTopicDescription(tableDescriptionSupplier, schemaTableName))
+                .isEqualTo(
+                        new KafkaTopicDescription(
+                                schemaTableName.getTableName(),
+                                Optional.of(schemaTableName.getSchemaName()),
+                                schemaTableName.getTableName(),
+                                Optional.of(new KafkaTopicFieldGroup("protobuf", Optional.of("schema-registry-id:" + keySchemaId + ";message=key"), Optional.of(topicName + "-key"), ImmutableList.of(getFieldDescription("id", BIGINT)))),
+                                Optional.of(new KafkaTopicFieldGroup("protobuf", Optional.of("schema-registry-id:" + messageSchemaId + ";message=schema"), Optional.of(topicName + "-value"), ImmutableList.of(getFieldDescription("col1", createUnboundedVarcharType()), getFieldDescription("col2", BIGINT))))));
+    }
+
+    @Test
+    public void testInvalidProtobufSchema()
+            throws Exception
+    {
+        TableDescriptionSupplier tableDescriptionSupplier = createTableDescriptionSupplier();
+        String topicName = "invalid_protobuf_topic";
+        SchemaTableName schemaTableName = new SchemaTableName(DEFAULT_NAME, topicName);
+        SCHEMA_REGISTRY_CLIENT.register(topicName + "-value", getProtobufSchema("syntax = \"proto3\"; message schema { Missing missing = 1; }"));
+
+        assertThatThrownBy(() -> getKafkaTopicDescription(tableDescriptionSupplier, schemaTableName))
+                .isInstanceOfSatisfying(TrinoException.class, e -> assertThat(e.getErrorCode()).isEqualTo(INVALID_PROTO_FILE.toErrorCode()))
+                .hasMessageStartingWith("Invalid protobuf schema 'schema.proto': ")
+                .hasMessageContaining("Missing");
+    }
+
     private TableDescriptionSupplier createTableDescriptionSupplier()
     {
         return new ConfluentSchemaRegistryTableDescriptionSupplier(
                 SCHEMA_REGISTRY_CLIENT,
-                ImmutableMap.of("AVRO", new AvroSchemaParser(TESTING_TYPE_MANAGER)),
+                ImmutableMap.of(
+                        "AVRO", new AvroSchemaParser(TESTING_TYPE_MANAGER),
+                        "PROTOBUF", new ProtobufSchemaParser(TESTING_TYPE_MANAGER, new ProtobufAnySupportConfig())),
                 DEFAULT_NAME,
                 new Duration(1, SECONDS));
+    }
+
+    private static ConfluentProtobufSchema getProtobufSchema(String schema)
+    {
+        return new ConfluentProtobufSchema(schema, ImmutableList.of(), SCHEMA_REGISTRY_CLIENT);
     }
 
     private static AvroSchema getAvroSchema(String topicName, String columnNamePrefix)

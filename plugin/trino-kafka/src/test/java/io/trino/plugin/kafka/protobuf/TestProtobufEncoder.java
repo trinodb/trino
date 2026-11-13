@@ -14,15 +14,23 @@
 package io.trino.plugin.kafka.protobuf;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Timestamp;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.FieldValueProvider;
+import io.trino.decoder.protobuf.FileDescriptorProvider;
+import io.trino.decoder.protobuf.FixedSchemaDynamicMessageProvider;
+import io.trino.decoder.protobuf.ProtobufRowDecoder;
 import io.trino.plugin.kafka.KafkaColumnHandle;
 import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.plugin.kafka.encoder.RowEncoder;
 import io.trino.plugin.kafka.encoder.RowEncoderSpec;
 import io.trino.plugin.kafka.encoder.protobuf.ProtobufRowEncoder;
 import io.trino.plugin.kafka.encoder.protobuf.ProtobufRowEncoderFactory;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -38,6 +46,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -46,6 +55,7 @@ import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAG
 import static io.trino.decoder.protobuf.ProtobufUtils.getFileDescriptor;
 import static io.trino.decoder.protobuf.ProtobufUtils.getProtoFile;
 import static io.trino.plugin.kafka.encoder.KafkaFieldType.MESSAGE;
+import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -70,6 +80,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestProtobufEncoder
 {
@@ -130,7 +141,7 @@ public class TestProtobufEncoder
         messageBuilder.setField(descriptor.findFieldByName("booleanColumn"), booleanData);
         messageBuilder.setField(descriptor.findFieldByName("numberColumn"), descriptor.findEnumTypeByName("Number").findValueByName(enumData));
         messageBuilder.setField(descriptor.findFieldByName("timestampColumn"), getTimestamp(sqlTimestamp));
-        messageBuilder.setField(descriptor.findFieldByName("bytesColumn"), bytesData);
+        messageBuilder.setField(descriptor.findFieldByName("bytesColumn"), ByteString.copyFrom(bytesData));
 
         RowEncoder rowEncoder = createRowEncoder(
                 "all_datatypes.proto",
@@ -224,7 +235,7 @@ public class TestProtobufEncoder
         rowBuilder.setField(rowDescriptor.findFieldByName("boolean_column"), booleanData);
         rowBuilder.setField(rowDescriptor.findFieldByName("number_column"), descriptor.findEnumTypeByName("Number").findValueByName(enumData));
         rowBuilder.setField(rowDescriptor.findFieldByName("timestamp_column"), getTimestamp(sqlTimestamp));
-        rowBuilder.setField(rowDescriptor.findFieldByName("bytes_column"), bytesData);
+        rowBuilder.setField(rowDescriptor.findFieldByName("bytes_column"), ByteString.copyFrom(bytesData));
         messageBuilder.setField(descriptor.findFieldByName("row"), rowBuilder.build());
 
         List<EncoderColumnHandle> columnHandles = ImmutableList.of(
@@ -338,7 +349,7 @@ public class TestProtobufEncoder
         rowBuilder.setField(rowDescriptor.findFieldByName("boolean_column"), booleanData);
         rowBuilder.setField(rowDescriptor.findFieldByName("number_column"), descriptor.findEnumTypeByName("Number").findValueByName(enumData));
         rowBuilder.setField(rowDescriptor.findFieldByName("timestamp_column"), getTimestamp(sqlTimestamp));
-        rowBuilder.setField(rowDescriptor.findFieldByName("bytes_column"), bytesData);
+        rowBuilder.setField(rowDescriptor.findFieldByName("bytes_column"), ByteString.copyFrom(bytesData));
         nestedMessageBuilder.setField(nestedDescriptor.findFieldByName("nested_list"), ImmutableList.of(rowBuilder.build()));
 
         Descriptor mapDescriptor = nestedDescriptor.findFieldByName("nested_map").getMessageType();
@@ -474,7 +485,7 @@ public class TestProtobufEncoder
         rowBuilder.setField(rowDescriptor.findFieldByName("boolean_column"), booleanData);
         rowBuilder.setField(rowDescriptor.findFieldByName("number_column"), descriptor.findEnumTypeByName("Number").findValueByName(enumData));
         rowBuilder.setField(rowDescriptor.findFieldByName("timestamp_column"), getTimestamp(sqlTimestamp));
-        rowBuilder.setField(rowDescriptor.findFieldByName("bytes_column"), bytesData);
+        rowBuilder.setField(rowDescriptor.findFieldByName("bytes_column"), ByteString.copyFrom(bytesData));
         messageBuilder.setField(descriptor.findFieldByName("row"), rowBuilder.build());
 
         RowEncoder rowEncoder = createRowEncoder(
@@ -503,6 +514,185 @@ public class TestProtobufEncoder
         assertThat(messageBuilder.build().toByteArray()).isEqualTo(rowEncoder.toByteArray());
     }
 
+    @Test
+    public void testNullValues()
+    {
+        Descriptor descriptor = getFileDescriptor(
+                """
+                syntax = "proto3";
+                message schema {
+                  string name = 1;
+                  optional int64 count = 2;
+                  message Detail {
+                    string note = 1;
+                    optional int64 weight = 2;
+                  }
+                  Detail detail = 3;
+                  repeated string tags = 4;
+                  map<string, string> attributes = 5;
+                }
+                """).findMessageTypeByName(DEFAULT_MESSAGE);
+        RowType detailType = RowType.from(ImmutableList.of(RowType.field("note", VARCHAR), RowType.field("weight", BIGINT)));
+        ArrayType tagsType = new ArrayType(VARCHAR);
+        MapType attributesType = new MapType(VARCHAR, VARCHAR, TESTING_TYPE_MANAGER.getTypeOperators());
+
+        // fields that track presence are left unset by a NULL
+        RowEncoder encoder = new ProtobufRowEncoder(descriptor, TestingConnectorSession.SESSION, ImmutableList.of(
+                createEncoderColumnHandle("name", VARCHAR, "name"),
+                createEncoderColumnHandle("count", BIGINT, "count"),
+                createEncoderColumnHandle("detail", detailType, "detail")));
+        encoder.appendColumnValue(nativeValueBlock(VARCHAR, utf8Slice("Trino")), 0);
+        encoder.appendColumnValue(nullBlock(BIGINT), 0);
+        encoder.appendColumnValue(nullBlock(detailType), 0);
+        assertThat(encoder.toByteArray()).isEqualTo(DynamicMessage.newBuilder(descriptor).setField(descriptor.findFieldByName("name"), "Trino").build().toByteArray());
+
+        // so are presence-tracking fields nested in rows, whether the row is a column or flattened into columns
+        Descriptor detailDescriptor = descriptor.findFieldByName("detail").getMessageType();
+        byte[] noteOnly = DynamicMessage.newBuilder(descriptor)
+                .setField(descriptor.findFieldByName("detail"), DynamicMessage.newBuilder(detailDescriptor).setField(detailDescriptor.findFieldByName("note"), "n").build())
+                .build()
+                .toByteArray();
+        encoder = new ProtobufRowEncoder(descriptor, TestingConnectorSession.SESSION, ImmutableList.of(createEncoderColumnHandle("detail", detailType, "detail")));
+        RowBlockBuilder rowBlockBuilder = (RowBlockBuilder) detailType.createBlockBuilder(null, 1);
+        rowBlockBuilder.buildEntry(fieldBuilders -> {
+            writeNativeValue(VARCHAR, fieldBuilders.get(0), utf8Slice("n"));
+            fieldBuilders.get(1).appendNull();
+        });
+        encoder.appendColumnValue(rowBlockBuilder.build(), 0);
+        assertThat(encoder.toByteArray()).isEqualTo(noteOnly);
+
+        encoder = new ProtobufRowEncoder(descriptor, TestingConnectorSession.SESSION, ImmutableList.of(
+                createEncoderColumnHandle("note", VARCHAR, "detail/note"),
+                createEncoderColumnHandle("weight", BIGINT, "detail/weight")));
+        encoder.appendColumnValue(nativeValueBlock(VARCHAR, utf8Slice("n")), 0);
+        encoder.appendColumnValue(nullBlock(BIGINT), 0);
+        assertThat(encoder.toByteArray()).isEqualTo(noteOnly);
+
+        // fields without presence have no representation for NULL
+        assertNullRejected(descriptor, createEncoderColumnHandle("name", VARCHAR, "name"), nullBlock(VARCHAR), "NULL value not allowed for protobuf field 'schema.name', which does not track presence; declare it optional to allow NULL");
+        assertNullRejected(descriptor, createEncoderColumnHandle("note", VARCHAR, "detail/note"), nullBlock(VARCHAR), "NULL value not allowed for protobuf field 'schema.Detail.note', which does not track presence; declare it optional to allow NULL");
+        assertNullRejected(descriptor, createEncoderColumnHandle("tags", tagsType, "tags"), nullBlock(tagsType), "NULL value not allowed for repeated protobuf field 'schema.tags'");
+        assertNullRejected(descriptor, createEncoderColumnHandle("attributes", attributesType, "attributes"), nullBlock(attributesType), "NULL value not allowed for repeated protobuf field 'schema.attributes'");
+
+        rowBlockBuilder = (RowBlockBuilder) detailType.createBlockBuilder(null, 1);
+        rowBlockBuilder.buildEntry(fieldBuilders -> {
+            fieldBuilders.get(0).appendNull();
+            writeNativeValue(BIGINT, fieldBuilders.get(1), 1L);
+        });
+        assertNullRejected(descriptor, createEncoderColumnHandle("detail", detailType, "detail"), rowBlockBuilder.build(), "NULL value not allowed for protobuf field 'schema.Detail.note', which does not track presence; declare it optional to allow NULL");
+
+        ArrayBlockBuilder arrayBlockBuilder = (ArrayBlockBuilder) tagsType.createBlockBuilder(null, 1);
+        arrayBlockBuilder.buildEntry(elementBuilder -> elementBuilder.appendNull());
+        assertNullRejected(descriptor, createEncoderColumnHandle("tags", tagsType, "tags"), arrayBlockBuilder.build(), "NULL element not allowed in repeated protobuf field 'schema.tags'");
+
+        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) attributesType.createBlockBuilder(null, 1);
+        mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            writeNativeValue(VARCHAR, keyBuilder, utf8Slice("key"));
+            valueBuilder.appendNull();
+        });
+        assertNullRejected(descriptor, createEncoderColumnHandle("attributes", attributesType, "attributes"), mapBlockBuilder.build(), "NULL map value not allowed for protobuf field 'schema.attributes'");
+    }
+
+    @Test
+    public void testNullValuesOfProto2Fields()
+    {
+        Descriptor descriptor = getFileDescriptor(
+                """
+                syntax = "proto2";
+                message schema {
+                  required string name = 1;
+                  optional int64 count = 2 [default = 7];
+                  oneof choice {
+                    int64 number = 3;
+                    string word = 4;
+                  }
+                }
+                """).findMessageTypeByName(DEFAULT_MESSAGE);
+        EncoderColumnHandle nameColumn = createEncoderColumnHandle("name", VARCHAR, "name");
+        KafkaColumnHandle countColumn = new KafkaColumnHandle("count", BIGINT, "count", null, null, false, false, false, Optional.empty());
+        KafkaColumnHandle numberColumn = new KafkaColumnHandle("number", BIGINT, "number", null, null, false, false, false, Optional.empty());
+
+        // optional fields and oneof members are left unset, and read back as NULL
+        RowEncoder encoder = new ProtobufRowEncoder(descriptor, TestingConnectorSession.SESSION, ImmutableList.of(nameColumn, countColumn, numberColumn));
+        encoder.appendColumnValue(nativeValueBlock(VARCHAR, utf8Slice("Trino")), 0);
+        encoder.appendColumnValue(nullBlock(BIGINT), 0);
+        encoder.appendColumnValue(nullBlock(BIGINT), 0);
+        byte[] record = encoder.toByteArray();
+        assertThat(record).isEqualTo(DynamicMessage.newBuilder(descriptor).setField(descriptor.findFieldByName("name"), "Trino").build().toByteArray());
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new ProtobufRowDecoder(
+                new FixedSchemaDynamicMessageProvider(descriptor),
+                ImmutableSet.of(countColumn, numberColumn),
+                TESTING_TYPE_MANAGER,
+                new FileDescriptorProvider())
+                .decodeRow(record)
+                .orElseThrow();
+        assertThat(decodedRow.keySet()).containsExactlyInAnyOrder(countColumn, numberColumn);
+        assertThat(decodedRow.values()).allMatch(FieldValueProvider::isNull);
+
+        // a message without a required field cannot be built
+        assertNullRejected(descriptor, nameColumn, nullBlock(VARCHAR), "NULL value not allowed for required protobuf field 'schema.name'");
+    }
+
+    @Test
+    public void testFlattenedFieldsOfRequiredProto2Message()
+    {
+        Descriptor descriptor = getFileDescriptor(
+                """
+                syntax = "proto2";
+                message schema {
+                  required Child child = 1;
+                  message Child {
+                    required string name = 1;
+                    required int64 count = 2;
+                    optional string note = 3;
+                  }
+                }
+                """).findMessageTypeByName(DEFAULT_MESSAGE);
+        EncoderColumnHandle nameColumn = createEncoderColumnHandle("name", VARCHAR, "child/name");
+        EncoderColumnHandle countColumn = createEncoderColumnHandle("count", BIGINT, "child/count");
+        EncoderColumnHandle noteColumn = createEncoderColumnHandle("note", VARCHAR, "child/note");
+
+        // the required fields of the nested message are set by separate columns
+        RowEncoder encoder = new ProtobufRowEncoder(descriptor, TestingConnectorSession.SESSION, ImmutableList.of(nameColumn, countColumn));
+        encoder.appendColumnValue(nativeValueBlock(VARCHAR, utf8Slice("Trino")), 0);
+        encoder.appendColumnValue(nativeValueBlock(BIGINT, 3L), 0);
+        Descriptor child = descriptor.findNestedTypeByName("Child");
+        assertThat(encoder.toByteArray()).isEqualTo(DynamicMessage.newBuilder(descriptor)
+                .setField(descriptor.findFieldByName("child"), DynamicMessage.newBuilder(child)
+                        .setField(child.findFieldByName("name"), "Trino")
+                        .setField(child.findFieldByName("count"), 3L)
+                        .build())
+                .build()
+                .toByteArray());
+
+        // a NULL for the only column of the nested message leaves the required message unset
+        RowEncoder nullEncoder = new ProtobufRowEncoder(descriptor, TestingConnectorSession.SESSION, ImmutableList.of(noteColumn));
+        nullEncoder.appendColumnValue(nullBlock(VARCHAR), 0);
+        assertThatThrownBy(nullEncoder::toByteArray)
+                .isInstanceOfSatisfying(TrinoException.class, e -> assertThat(e.getErrorCode()).isEqualTo(CONSTRAINT_VIOLATION.toErrorCode()))
+                .hasMessage("Protobuf message 'schema' cannot be written: Message missing required fields: child");
+    }
+
+    private static void assertNullRejected(Descriptor descriptor, EncoderColumnHandle column, Block block, String message)
+    {
+        RowEncoder encoder = new ProtobufRowEncoder(descriptor, TestingConnectorSession.SESSION, ImmutableList.of(column));
+        assertThatThrownBy(() -> encoder.appendColumnValue(block, 0))
+                .isInstanceOfSatisfying(TrinoException.class, e -> assertThat(e.getErrorCode()).isEqualTo(CONSTRAINT_VIOLATION.toErrorCode()))
+                .hasMessage(message);
+    }
+
+    private static Block nativeValueBlock(Type type, Object value)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        writeNativeValue(type, blockBuilder, value);
+        return blockBuilder.build();
+    }
+
+    private static Block nullBlock(Type type)
+    {
+        return type.createBlockBuilder(null, 1).appendNull().build();
+    }
+
     private Timestamp getTimestamp(SqlTimestamp sqlTimestamp)
     {
         return Timestamp.newBuilder()
@@ -514,7 +704,7 @@ public class TestProtobufEncoder
     private RowEncoder createRowEncoder(String fileName, List<EncoderColumnHandle> columns)
             throws Exception
     {
-        return ENCODER_FACTORY.create(TestingConnectorSession.SESSION, new RowEncoderSpec(ProtobufRowEncoder.NAME, Optional.of(getProtoFile("decoder/protobuf/" + fileName)), columns, "ignored", MESSAGE));
+        return ENCODER_FACTORY.create(TestingConnectorSession.SESSION, new RowEncoderSpec(ProtobufRowEncoder.NAME, Optional.of(getProtoFile("decoder/protobuf/" + fileName)), Optional.empty(), columns, "ignored", MESSAGE));
     }
 
     private Descriptor getDescriptor(String fileName)
@@ -525,6 +715,6 @@ public class TestProtobufEncoder
 
     private static EncoderColumnHandle createEncoderColumnHandle(String name, Type type, String mapping)
     {
-        return new KafkaColumnHandle(name, type, mapping, null, null, false, false, false);
+        return new KafkaColumnHandle(name, type, mapping, null, null, false, false, false, Optional.empty());
     }
 }

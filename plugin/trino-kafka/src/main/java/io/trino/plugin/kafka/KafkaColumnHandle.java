@@ -21,6 +21,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -68,6 +69,8 @@ public final class KafkaColumnHandle
      */
     private final boolean internal;
 
+    private final Optional<String> comment;
+
     @JsonCreator
     public KafkaColumnHandle(
             @JsonProperty("name") String name,
@@ -77,7 +80,8 @@ public final class KafkaColumnHandle
             @JsonProperty("formatHint") String formatHint,
             @JsonProperty("keyCodec") boolean keyCodec,
             @JsonProperty("hidden") boolean hidden,
-            @JsonProperty("internal") boolean internal)
+            @JsonProperty("internal") boolean internal,
+            @JsonProperty("comment") Optional<String> comment)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
@@ -87,6 +91,7 @@ public final class KafkaColumnHandle
         this.keyCodec = keyCodec;
         this.hidden = hidden;
         this.internal = internal;
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     @Override
@@ -143,11 +148,18 @@ public final class KafkaColumnHandle
         return internal;
     }
 
+    @JsonProperty
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
     ColumnMetadata getColumnMetadata()
     {
         return ColumnMetadata.builder()
                 .setName(name)
                 .setType(type)
+                .setComment(comment)
                 .setHidden(hidden)
                 .build();
     }
@@ -155,7 +167,7 @@ public final class KafkaColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, mapping, dataFormat, formatHint, keyCodec, hidden, internal);
+        return Objects.hash(name, type, mapping, dataFormat, formatHint, keyCodec, hidden, internal, comment);
     }
 
     @Override
@@ -176,7 +188,8 @@ public final class KafkaColumnHandle
                 Objects.equals(this.formatHint, other.formatHint) &&
                 this.keyCodec == other.keyCodec &&
                 this.hidden == other.hidden &&
-                this.internal == other.internal;
+                this.internal == other.internal &&
+                Objects.equals(this.comment, other.comment);
     }
 
     @Override
@@ -191,6 +204,7 @@ public final class KafkaColumnHandle
                 .add("keyCodec", keyCodec)
                 .add("hidden", hidden)
                 .add("internal", internal)
+                .add("comment", comment)
                 .toString();
     }
 }
