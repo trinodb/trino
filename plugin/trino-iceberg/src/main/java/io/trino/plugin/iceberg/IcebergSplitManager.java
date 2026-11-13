@@ -159,6 +159,13 @@ public class IcebergSplitManager
         return icebergTable.newScan()
                 .useSnapshot(toSnapshotId)
                 .project(TypeUtil.select(schema, projectedIds)) // Using Scan.project method because Scan.select throws an exception for nested variant
+                // Iceberg applies the scan filter to equality delete files as if they were data
+                // files, so a delete file whose extra non-key columns fail the filter (e.g. an
+                // all-null column) is silently dropped from the scan and the rows it should
+                // delete reappear in results. See https://github.com/trinodb/trino/issues/31399
+                // Trino does not use residuals, so opting out of row-level filtering keeps
+                // data file pruning intact while ensuring delete files are honoured.
+                .ignoreResiduals()
                 .planWith(executor)
                 .metricsReporter(metricsReporter);
     }

@@ -86,6 +86,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -354,6 +355,43 @@ public class TestIcebergV2
             Table icebergTable = loadTable(tableName);
             writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
             assertQuery("SELECT array_column[1], map_column[1], row_column.x FROM " + tableName, "SELECT 1, 2, 1 FROM nation WHERE regionkey != 1");
+        }
+    }
+
+    @Test
+    public void testFullRowSchemaWithNullNonKeyColumns()
+            throws Exception
+    {
+        // Equality delete file written with the full row schema: the non-key columns are null
+        // and must not make the delete file look like it misses the query predicate.
+        // https://github.com/trinodb/trino/issues/31399
+        Map<String, Object> deleteRow = ImmutableMap.of(
+                "person_id", 1L,
+                "effective_start_date", LocalDateTime.parse("2026-01-01T00:00:00"));
+
+        try (TestTable table = newTrinoTable("test_equality_delete_full_row_schema_",
+                "(person_id bigint, effective_start_date timestamp(6), effective_end_date timestamp(6), " +
+                        "name varchar) WITH (format_version = 2)")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, TIMESTAMP '2026-01-01 00:00:00', " +
+                    "TIMESTAMP '9999-12-31 00:00:00', 'A')", 1);
+
+            Table icebergTable = loadTable(tableName);
+            Schema deleteRowSchema = icebergTable.schema();
+            List<Integer> equalityFieldIds = ImmutableList.of(
+                    deleteRowSchema.findField("person_id").fieldId(),
+                    deleteRowSchema.findField("effective_start_date").fieldId());
+            writeEqualityDeleteForTableWithSchema(
+                    icebergTable, fileSystemFactory, Optional.empty(), Optional.empty(), deleteRowSchema, equalityFieldIds, deleteRow);
+
+            // close version A, open version B
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(1, TIMESTAMP '2026-01-01 00:00:00', TIMESTAMP '2026-06-01 00:00:00', 'A'), " +
+                    "(1, TIMESTAMP '2026-06-01 00:00:00', TIMESTAMP '9999-12-31 00:00:00', 'B')", 2);
+
+            assertQuery("SELECT * FROM " + tableName + " WHERE person_id = 1 AND TIMESTAMP '2026-09-25 00:00:00' " +
+                            "BETWEEN effective_start_date AND effective_end_date",
+                    "VALUES (1, TIMESTAMP '2026-06-01 00:00:00', TIMESTAMP '9999-12-31 00:00:00', 'B')");
         }
     }
 
