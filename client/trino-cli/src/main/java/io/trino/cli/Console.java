@@ -13,6 +13,7 @@
  */
 package io.trino.cli;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -51,6 +52,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 import static com.google.common.base.CharMatcher.whitespace;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -72,6 +74,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 
 @Command(
@@ -240,17 +243,12 @@ public class Console
             boolean decimalDataSize,
             Theme theme)
     {
-        try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
-                InputReader reader = new InputReader(editingMode, historyFile, disableAutoSuggestion, theme, commandCompleter(), tableNameCompleter)) {
-            tableNameCompleter.populateCache();
+        try (MetadataCompleter metadataCompleter = new MetadataCompleter(queryRunner);
+                InputReader reader = new InputReader(editingMode, historyFile, disableAutoSuggestion, theme, commandCompleter(), metadataCompleter)) {
+            metadataCompleter.populateCache();
             String remaining = "";
             while (!exiting.get()) {
-                // setup prompt
-                String prompt = PROMPT_NAME;
-                Optional<String> schema = queryRunner.getSession().getSchema();
-                prompt += schema.map(value -> ":" + value.replace("%", "%%"))
-                        .orElse("");
-                String commandPrompt = prompt + "> ";
+                String commandPrompt = buildPrompt(queryRunner.getSession());
 
                 // read a line of input from user
                 String line;
@@ -305,7 +303,7 @@ public class Console
                         currentOutputFormat = OutputFormat.VERTICAL;
                     }
 
-                    process(queryRunner, split.statement(), currentOutputFormat, tableNameCompleter::populateCache, pager, progress, decimalDataSize, reader.getTerminal(), System.out, System.out);
+                    process(queryRunner, split.statement(), currentOutputFormat, metadataCompleter::populateCache, pager, progress, decimalDataSize, reader.getTerminal(), System.out, System.out);
                 }
 
                 // replace remaining with trailing partial statement
@@ -315,6 +313,19 @@ public class Console
         catch (IOException e) {
             e.printStackTrace(System.err);
         }
+    }
+
+    @VisibleForTesting
+    static String buildPrompt(ClientSession session)
+    {
+        String location = Stream.of(session.getCatalog(), session.getSchema())
+                .flatMap(Optional::stream)
+                .collect(joining("."));
+        if (location.isEmpty()) {
+            return PROMPT_NAME + "> ";
+        }
+        // the prompt is a jline pattern, where % is a special character
+        return PROMPT_NAME + ":" + location.replace("%", "%%") + "> ";
     }
 
     private static boolean executeCommand(
