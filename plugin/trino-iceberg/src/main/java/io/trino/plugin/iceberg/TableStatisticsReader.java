@@ -259,27 +259,10 @@ public final class TableStatisticsReader
             }
             else if (summary.columnSizes() != null) {
                 Long columnSize = summary.columnSizes().get(fieldId);
-                if (columnSize != null) {
-                    // columnSize is the size on disk and Trino column stats is size in memory.
-                    // The relation between the two is type and data dependent.
-                    // However, Trino currently does not use data size statistics for fixed-width types
-                    // (it's not needed for them), so do not report it at all, to avoid reporting some bogus value.
-                    if (!(columnHandle.getBaseType() instanceof FixedWidthType)) {
-                        if (columnHandle.getBaseType() == VARCHAR) {
-                            // Tested using item table from TPCDS benchmark
-                            // compared column size of item_desc column stored inside files
-                            // with length of values in that column reported by trino
-                            columnSize = (long) (columnSize * 2.7);
-                        }
-                        else if (columnHandle.getBaseType() == VARBINARY) {
-                            // Tested using VARBINARY columns with random, both in length and content, data
-                            // compared column size stored inside parquet files with length of bytes written to it
-                            // Data used for testing came from alpha numeric characters so it was not very real life like scenario
-                            // In the future better heuristic could be used here
-                            columnSize = (long) (columnSize * 1.4);
-                        }
-                        columnBuilder.setDataSize(Estimate.of(columnSize));
-                    }
+                // Trino currently does not use data size statistics for fixed-width types
+                // (it's not needed for them), so do not report it at all, to avoid reporting some bogus value.
+                if (columnSize != null && !(columnHandle.getBaseType() instanceof FixedWidthType)) {
+                    columnBuilder.setDataSize(Estimate.of(inMemoryDataSize(columnHandle.getBaseType(), columnSize)));
                 }
             }
             Object min = summary.minValues().get(fieldId);
@@ -421,5 +404,27 @@ public final class TableStatisticsReader
                                         "record_count"))
                                 .filterRows(filter)),
                 dataFile -> dataFile.copyWithStats(columnIds));
+    }
+
+    /**
+     * Converts the size on disk of a variable width column to the size in memory used by Trino column statistics.
+     * The relation between the two is type and data dependent.
+     */
+    private static long inMemoryDataSize(Type type, long columnSize)
+    {
+        if (type == VARCHAR) {
+            // Tested using item table from TPCDS benchmark
+            // compared column size of item_desc column stored inside files
+            // with length of values in that column reported by trino
+            return (long) (columnSize * 2.7);
+        }
+        if (type == VARBINARY) {
+            // Tested using VARBINARY columns with random, both in length and content, data
+            // compared column size stored inside parquet files with length of bytes written to it
+            // Data used for testing came from alpha numeric characters so it was not very real life like scenario
+            // In the future better heuristic could be used here
+            return (long) (columnSize * 1.4);
+        }
+        return columnSize;
     }
 }
