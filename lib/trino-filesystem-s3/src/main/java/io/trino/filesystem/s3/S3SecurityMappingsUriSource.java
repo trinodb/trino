@@ -15,6 +15,7 @@ package io.trino.filesystem.s3;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
@@ -26,7 +27,7 @@ import java.util.function.Supplier;
 
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static io.trino.plugin.base.util.JsonUtils.parseJson;
+import static io.trino.filesystem.s3.S3SecurityMappingsParser.parseSecurityMappings;
 import static java.util.Objects.requireNonNull;
 
 class S3SecurityMappingsUriSource
@@ -35,19 +36,21 @@ class S3SecurityMappingsUriSource
     private final URI configUri;
     private final HttpClient httpClient;
     private final String jsonPointer;
+    private final SecretsResolver secretsResolver;
 
     @Inject
-    public S3SecurityMappingsUriSource(S3SecurityMappingConfig config, @ForS3SecurityMapping HttpClient httpClient)
+    public S3SecurityMappingsUriSource(S3SecurityMappingConfig config, @ForS3SecurityMapping HttpClient httpClient, SecretsResolver secretsResolver)
     {
         this.configUri = config.getConfigUri().orElseThrow();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.jsonPointer = config.getJsonPointer();
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     @Override
     public S3SecurityMappings get()
     {
-        return parseJson(getRawJsonString(), jsonPointer, S3SecurityMappings.class);
+        return parseSecurityMappings(getRawJsonString(), jsonPointer, secretsResolver);
     }
 
     @VisibleForTesting

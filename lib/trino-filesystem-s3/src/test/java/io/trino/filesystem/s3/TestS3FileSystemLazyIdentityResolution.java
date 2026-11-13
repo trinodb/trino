@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
@@ -110,7 +111,7 @@ final class TestS3FileSystemLazyIdentityResolution
     {
         S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
                 .setConfigFile(new File(getResource("io/trino/filesystem/s3/security-mapping-with-fallback-to-cluster-default.json").toURI()));
-        S3SecurityMappingProvider mappingProvider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
+        S3SecurityMappingProvider mappingProvider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig, new SecretsResolver(ImmutableMap.of())));
         S3FileSystemLoader loader = new S3FileSystemLoader(mappingProvider, OpenTelemetry.noop(), fileSystemConfig(), new S3FileSystemStats());
         AtomicInteger invocationCount = new AtomicInteger();
         Supplier<ConnectorIdentity> identitySupplier = () -> {
