@@ -2700,11 +2700,15 @@ public abstract class BaseConnectorTest
 
         if (!hasBehavior(SUPPORTS_DROP_SCHEMA_CASCADE)) {
             String schemaName = "test_drop_schema_cascade_" + randomNameSuffix();
-            assertUpdate(createSchemaSql(schemaName));
-            assertQueryFails(
-                    "DROP SCHEMA " + schemaName + " CASCADE",
-                    "This connector does not support dropping schemas with CASCADE option");
-            assertUpdate("DROP SCHEMA " + schemaName);
+            try {
+                assertUpdate(createSchemaSql(schemaName));
+                assertQueryFails(
+                        "DROP SCHEMA " + schemaName + " CASCADE",
+                        "This connector does not support dropping schemas with CASCADE option");
+            }
+            finally {
+                assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+            }
             return;
         }
 
