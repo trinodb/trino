@@ -4743,7 +4743,6 @@ public abstract class BaseConnectorTest
 
     @Test
     public void testRenameTableAcrossSchema()
-            throws Exception
     {
         if (!hasBehavior(SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS)) {
             if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
@@ -4762,29 +4761,28 @@ public abstract class BaseConnectorTest
         }
 
         String tableName = "test_rename_old_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
-
         String schemaName = "test_schema_" + randomNameSuffix();
-        assertUpdate(createSchemaSql(schemaName));
-
         String renamedTable = "test_rename_new_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
         try {
+            assertUpdate(createSchemaSql(schemaName));
             assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + schemaName + "." + renamedTable);
+
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+            assertQuery("SELECT x FROM " + schemaName + "." + renamedTable, "VALUES 123");
+
+            assertUpdate("DROP TABLE " + schemaName + "." + renamedTable);
+            assertUpdate("DROP SCHEMA " + schemaName);
+
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+            assertThat(getQueryRunner().tableExists(Session.builder(getSession()).setSchema(schemaName).build(), renamedTable)).isFalse();
         }
-        catch (Throwable e) {
-            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + tableName)) {
-                throw e;
-            }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            assertUpdate("DROP TABLE IF EXISTS " + schemaName + "." + renamedTable);
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
         }
-
-        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertQuery("SELECT x FROM " + schemaName + "." + renamedTable, "VALUES 123");
-
-        assertUpdate("DROP TABLE " + schemaName + "." + renamedTable);
-        assertUpdate("DROP SCHEMA " + schemaName);
-
-        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertThat(getQueryRunner().tableExists(Session.builder(getSession()).setSchema(schemaName).build(), renamedTable)).isFalse();
     }
 
     @Test
