@@ -87,6 +87,30 @@ public abstract class BaseOrcWithBloomFiltersTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testBloomFilterMatchesEitherZero()
+    {
+        // -0.0 and 0.0 are the same value, but the bloom filter hashes the bits of the zero that was written
+        testBloomFilterMatchesEitherZero("-0e0", "0e0");
+        testBloomFilterMatchesEitherZero("0e0", "-0e0");
+    }
+
+    private void testBloomFilterMatchesEitherZero(String writtenZero, String queriedZero)
+    {
+        String tableName = "orc_bloom_filter_zero_" + randomNameSuffix();
+        // bloom filters are only read for a stripe with more than one row group
+        assertUpdate(
+                format(
+                        "CREATE TABLE %s WITH (%s) AS SELECT IF(orderkey = 1, %s, totalprice) totalprice, orderstatus FROM tpch.tiny.orders",
+                        tableName,
+                        getTableProperties("totalprice", "orderstatus"),
+                        writtenZero),
+                15000);
+
+        assertThat(query(format("SELECT count(*) FROM %s WHERE totalprice = %s", tableName, queriedZero))).matches("VALUES BIGINT '1'");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private void assertBloomFilterBasedRowGroupPruning(@Language("SQL") String sql)
     {
         assertQueryStats(
