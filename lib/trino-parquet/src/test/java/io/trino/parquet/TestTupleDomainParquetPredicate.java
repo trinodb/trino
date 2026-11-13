@@ -111,6 +111,7 @@ import static java.time.temporal.ChronoField.MICRO_OF_SECOND;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.intType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
@@ -290,7 +291,7 @@ public class TestTupleDomainParquetPredicate
     public void testShortDecimal()
             throws Exception
     {
-        ColumnDescriptor columnDescriptor = createColumnDescriptor(INT32, "ShortDecimalColumn");
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(INT32, decimalType(2, 5), "ShortDecimalColumn");
         Type type = createDecimalType(5, 2);
         assertThat(getDomain(columnDescriptor, type, 0, null, ID, UTC)).isEqualTo(all(type));
 
@@ -302,14 +303,14 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, type, 10, longColumnStats(100L, 10L), ID, UTC))
-                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 ShortDecimalColumn\": [min: 100, max: 10, num_nulls: 0] [testFile]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 ShortDecimalColumn (DECIMAL(5,2))\": [min: 100, max: 10, num_nulls: 0] [testFile]");
     }
 
     @Test
     public void testShortDecimalWithInt64()
             throws Exception
     {
-        ColumnDescriptor columnDescriptor = createColumnDescriptor(INT64, "ShortDecimalColumn");
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(INT64, decimalType(2, 5), "ShortDecimalColumn");
         Type type = createDecimalType(5, 2);
         assertThat(getDomain(columnDescriptor, type, 0, null, ID, UTC)).isEqualTo(all(type));
 
@@ -321,7 +322,111 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, type, 10, longColumnStats(100L, 10L), ID, UTC))
-                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int64 ShortDecimalColumn\": [min: 100, max: 10, num_nulls: 0] [testFile]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int64 ShortDecimalColumn (DECIMAL(5,2))\": [min: 100, max: 10, num_nulls: 0] [testFile]");
+    }
+
+    /**
+     * An integer column holds the number itself rather than an unscaled value, and that is how the reader turns it into
+     * a decimal, so the bounds have to be scaled the same way.
+     */
+    @Test
+    public void testShortDecimalOverInt32Column()
+            throws Exception
+    {
+        for (LogicalTypeAnnotation annotation : asList(null, intType(8, true), intType(16, true), intType(32, true))) {
+            ColumnDescriptor column = createColumnDescriptor(INT32, annotation, "IntegerColumn");
+            Type type = createDecimalType(18, 1);
+
+            assertThat(getDomain(column, type, 10, intColumnStats(1, 3), ID, UTC))
+                    .isEqualTo(create(ValueSet.ofRanges(range(type, 10L, true, 30L, true)), false));
+            assertThat(getDomain(column, type, 10, intColumnStats(-3, -1), ID, UTC))
+                    .isEqualTo(create(ValueSet.ofRanges(range(type, -30L, true, -10L, true)), false));
+
+            // scaling by one changes nothing
+            Type typeWithNoScale = createDecimalType(18, 0);
+            assertThat(getDomain(column, typeWithNoScale, 10, intColumnStats(1, 3), ID, UTC))
+                    .isEqualTo(create(ValueSet.ofRanges(range(typeWithNoScale, 1L, true, 3L, true)), false));
+
+            // the largest values of the column still fit this type once scaled
+            Type typeWithRoom = createDecimalType(18, 8);
+            assertThat(getDomain(column, typeWithRoom, 10, intColumnStats(Integer.MIN_VALUE, Integer.MAX_VALUE), ID, UTC))
+                    .isEqualTo(create(ValueSet.ofRanges(range(typeWithRoom, Integer.MIN_VALUE * 100_000_000L, true, Integer.MAX_VALUE * 100_000_000L, true)), false));
+
+            // fail on corrupted statistics
+            assertThatExceptionOfType(ParquetCorruptionException.class)
+                    .isThrownBy(() -> getDomain(column, type, 10, intColumnStats(3, 1), ID, UTC))
+                    .withMessageContaining("Corrupted statistics");
+        }
+
+        ColumnDescriptor column = createColumnDescriptor(INT32, "IntegerColumn");
+        Type type = createDecimalType(18, 1);
+
+        ColumnIndex columnIndex = ColumnIndexBuilder.build(
+                Types.required(INT32).named("test_int32"),
+                BoundaryOrder.ASCENDING,
+                asList(false, false),
+                asList(0L, 0L),
+                toIntByteBufferList(1, 4),
+                toIntByteBufferList(2, 5));
+        assertThat(getDomain(type, 200, columnIndex, ID, column, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(type, 10L, true, 20L, true), range(type, 40L, true, 50L, true)), false));
+
+        assertThat(getDomain(type, intDictionaryDescriptor(1, 3)))
+                .isEqualTo(create(ValueSet.of(type, 10L, 30L), true));
+    }
+
+    /**
+     * A bound which the type cannot hold once scaled is not usable, rather than wrapping around into one which looks valid.
+     */
+    @Test
+    public void testShortDecimalOverIntegerColumnOverflow()
+            throws Exception
+    {
+        ColumnDescriptor column = createColumnDescriptor(INT32, "IntegerColumn");
+
+        Type type = createDecimalType(3, 1);
+        assertThat(getDomain(column, type, 10, intColumnStats(1, 99), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(type, 10L, true, 990L, true)), false));
+        assertThat(getDomain(column, type, 10, intColumnStats(1, 100), ID, UTC)).isEqualTo(notNull(type));
+        assertThat(getDomain(column, type, 10, intColumnStats(-100, 1), ID, UTC)).isEqualTo(notNull(type));
+
+        // 18 * 10^18 and its negative wrap around a long to values this type can hold
+        Type typeWithLargestScale = createDecimalType(18, 18);
+        assertThat(getDomain(column, typeWithLargestScale, 10, intColumnStats(0, 18), ID, UTC)).isEqualTo(notNull(typeWithLargestScale));
+        assertThat(getDomain(column, typeWithLargestScale, 10, intColumnStats(-18, 0), ID, UTC)).isEqualTo(notNull(typeWithLargestScale));
+
+        Type typeWithLargeScale = createDecimalType(18, 9);
+        assertThat(getDomain(column, typeWithLargeScale, 10, intColumnStats(Integer.MIN_VALUE, Integer.MAX_VALUE), ID, UTC)).isEqualTo(notNull(typeWithLargeScale));
+    }
+
+    /**
+     * The reader refuses these columns, but a Hive coercion reads them the same way as a partition declared with an
+     * integer type, under a table declared with a decimal one.
+     */
+    @Test
+    public void testDecimalOverCoercedIntegerColumn()
+            throws Exception
+    {
+        for (LogicalTypeAnnotation annotation : asList(null, intType(64, true))) {
+            ColumnDescriptor column = createColumnDescriptor(INT64, annotation, "BigintColumn");
+
+            Type shortDecimal = createDecimalType(18, 1);
+            assertThat(getDomain(column, shortDecimal, 10, longColumnStats(1, 3), ID, UTC))
+                    .isEqualTo(create(ValueSet.ofRanges(range(shortDecimal, 10L, true, 30L, true)), false));
+            assertThat(getDomain(column, shortDecimal, 10, longColumnStats(1, Long.MAX_VALUE), ID, UTC)).isEqualTo(notNull(shortDecimal));
+            assertThat(getDomain(column, shortDecimal, 10, longColumnStats(Long.MIN_VALUE, 1), ID, UTC)).isEqualTo(notNull(shortDecimal));
+
+            Type longDecimal = createDecimalType(20, 1);
+            assertThat(getDomain(column, longDecimal, 10, longColumnStats(1, 3), ID, UTC)).isEqualTo(notNull(longDecimal));
+
+            Type longDecimalWithNoScale = createDecimalType(20, 0);
+            assertThat(getDomain(column, longDecimalWithNoScale, 10, longColumnStats(1, 3), ID, UTC))
+                    .isEqualTo(create(ValueSet.ofRanges(range(longDecimalWithNoScale, Int128.valueOf(1), true, Int128.valueOf(3), true)), false));
+        }
+
+        ColumnDescriptor column = createColumnDescriptor(INT32, "IntegerColumn");
+        Type longDecimal = createDecimalType(20, 1);
+        assertThat(getDomain(column, longDecimal, 10, intColumnStats(1, 3), ID, UTC)).isEqualTo(notNull(longDecimal));
     }
 
     @Test
@@ -1014,6 +1119,21 @@ public class TestTupleDomainParquetPredicate
                 .build();
     }
 
+    private DictionaryDescriptor intDictionaryDescriptor(int... values)
+            throws Exception
+    {
+        ByteArrayOutputStream buf = new ByteArrayOutputStream();
+        try (LittleEndianDataOutputStream out = new LittleEndianDataOutputStream(buf)) {
+            for (int val : values) {
+                out.writeInt(val);
+            }
+        }
+        return new DictionaryDescriptor(
+                new ColumnDescriptor(new String[] {"dummy"}, new PrimitiveType(OPTIONAL, INT32, 0, "IntColumn"), 1, 1),
+                true,
+                Optional.of(new DictionaryPage(Slices.wrappedBuffer(buf.toByteArray()), values.length, PLAIN_DICTIONARY)));
+    }
+
     private DictionaryDescriptor floatDictionaryDescriptor(float... values)
             throws Exception
     {
@@ -1062,6 +1182,15 @@ public class TestTupleDomainParquetPredicate
             else {
                 buffers.add(ByteBuffer.wrap(BytesUtils.longToBytes(value)));
             }
+        }
+        return buffers;
+    }
+
+    private static List<ByteBuffer> toIntByteBufferList(int... values)
+    {
+        List<ByteBuffer> buffers = new ArrayList<>(values.length);
+        for (int value : values) {
+            buffers.add(ByteBuffer.wrap(BytesUtils.intToBytes(value)));
         }
         return buffers;
     }

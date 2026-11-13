@@ -139,6 +139,7 @@ import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
 import static io.trino.SystemSessionProperties.WRITER_SCALING_MIN_DATA_PROCESSED;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
@@ -5558,6 +5559,73 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (n BIGINT) WITH (format = 'PARQUET')");
         assertUpdate("INSERT INTO " + tableName + " VALUES 1, 1, 2, 2, 4, 4, 5, 5", 8);
         assertNoDataRead("SELECT * FROM " + tableName + " WHERE n = 3");
+    }
+
+    @Test
+    public void testParquetPredicateOnDecimalOverIntegerColumn()
+    {
+        // The connector cannot change the type of a column, so reach the same state through an external table declaring
+        // a decimal over Parquet files which physically store integers
+        String sourceTable = "test_decimal_over_integer_source_" + randomNameSuffix();
+        String decimalTable = "test_decimal_over_integer_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTable + " (c integer) WITH (format = 'PARQUET')");
+        try {
+            assertUpdate("INSERT INTO " + sourceTable + " VALUES 1, 2, 3", 3);
+            assertUpdate(format("CREATE TABLE %s (c decimal(18, 1)) WITH (format = 'PARQUET', external_location = '%s')", decimalTable, getTableLocation(sourceTable)));
+
+            assertQuery("SELECT c FROM " + decimalTable, "VALUES 1.0, 2.0, 3.0");
+            assertQuery("SELECT c FROM " + decimalTable + " WHERE c = DECIMAL '1.0'", "VALUES 1.0");
+            assertQuery("SELECT c FROM " + decimalTable + " WHERE c > DECIMAL '2.5'", "VALUES 3.0");
+
+            // the statistics still prune, in terms of the values the reader produces
+            assertNoDataRead("SELECT c FROM " + decimalTable + " WHERE c = DECIMAL '4.0'");
+            assertNoDataRead("SELECT c FROM " + decimalTable + " WHERE c = DECIMAL '0.2'");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + decimalTable);
+            assertUpdate("DROP TABLE IF EXISTS " + sourceTable);
+        }
+    }
+
+    @Test
+    public void testParquetPredicateOnDecimalOverIntegerPartition()
+    {
+        testParquetPredicateOnDecimalOverIntegerPartition("tinyint", "decimal(12,1)");
+        testParquetPredicateOnDecimalOverIntegerPartition("smallint", "decimal(12,1)");
+        testParquetPredicateOnDecimalOverIntegerPartition("integer", "decimal(12,1)");
+        testParquetPredicateOnDecimalOverIntegerPartition("bigint", "decimal(12,1)");
+        testParquetPredicateOnDecimalOverIntegerPartition("integer", "decimal(20,1)");
+        testParquetPredicateOnDecimalOverIntegerPartition("bigint", "decimal(20,1)");
+    }
+
+    private void testParquetPredicateOnDecimalOverIntegerPartition(String partitionType, String tableType)
+    {
+        String tableName = "test_decimal_over_integer_partition_" + randomNameSuffix();
+        assertUpdate(format("CREATE TABLE %s (c %s, p integer) WITH (format = 'PARQUET', partitioned_by = ARRAY['p'])", tableName, partitionType));
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1), (2, 1), (3, 1)", 3);
+
+            // A partition keeps the type its column was written with when the type of the column changes in the table
+            String schema = getSession().getSchema().orElseThrow();
+            HiveMetastore metastore = getConnectorService(getDistributedQueryRunner(), HiveMetastoreFactory.class)
+                    .createMetastore(Optional.of(getSession().getIdentity().toConnectorIdentity(catalog)));
+            Table table = metastore.getTable(schema, tableName).orElseThrow();
+            metastore.replaceTable(
+                    schema,
+                    tableName,
+                    Table.builder(table)
+                            .setDataColumns(ImmutableList.of(new Column("c", HiveType.valueOf(tableType), Optional.empty(), ImmutableMap.of())))
+                            .build(),
+                    NO_PRIVILEGES,
+                    ImmutableMap.of());
+
+            assertQuery("SELECT c FROM " + tableName, "VALUES 1.0, 2.0, 3.0");
+            assertQuery("SELECT c FROM " + tableName + " WHERE c = DECIMAL '1.0'", "VALUES 1.0");
+            assertQuery("SELECT c FROM " + tableName + " WHERE c > DECIMAL '2.5'", "VALUES 3.0");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     private QueryInfo getQueryInfo(QueryRunner queryRunner, MaterializedResultWithPlan queryResult)
