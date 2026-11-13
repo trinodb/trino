@@ -60,9 +60,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
-import static java.lang.Math.abs;
 import static java.lang.Math.max;
-import static java.lang.Math.toIntExact;
 
 /**
  * Current implementation is based on code points from Unicode and does ignore grapheme cluster boundaries.
@@ -234,7 +232,8 @@ public final class StringFunctions
     public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring, @SqlType(StandardTypes.BIGINT) long instance)
     {
         if (instance < 0) {
-            return stringPositionFromEnd(string, substring, abs(instance));
+            // negate with saturation so that Long.MIN_VALUE maps to Long.MAX_VALUE instead of overflowing
+            return stringPositionFromEnd(string, substring, -max(instance, -Long.MAX_VALUE));
         }
         return stringPositionFromStart(string, substring, instance);
     }
@@ -474,7 +473,8 @@ public final class StringFunctions
         checkCondition(index > 0, INVALID_FUNCTION_ARGUMENT, "Index must be greater than zero");
         // Empty delimiter? Then every character will be a split
         if (delimiter.length() == 0) {
-            int startCodePoint = toIntExact(index);
+            // index may exceed Integer.MAX_VALUE; saturate instead of overflowing, an out-of-range index is handled below
+            int startCodePoint = Ints.saturatedCast(index);
 
             int indexStart = offsetOfCodePoint(string, startCodePoint - 1);
             if (indexStart < 0) {
