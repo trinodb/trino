@@ -4787,29 +4787,27 @@ public abstract class BaseConnectorTest
 
     @Test
     public void testRenameTableToUnqualifiedPreservesSchema()
-            throws Exception
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA) && hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_RENAME_TABLE));
 
         String sourceSchemaName = "test_source_schema_" + randomNameSuffix();
-        assertUpdate(createSchemaSql(sourceSchemaName));
-
         String tableName = "test_rename_unqualified_name_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + sourceSchemaName + "." + tableName + " AS SELECT 123 x", 1);
-
         String renamedTable = "test_rename_unqualified_name_new_" + randomNameSuffix();
-        try {
-            assertUpdate("ALTER TABLE " + sourceSchemaName + "." + tableName + " RENAME TO " + renamedTable);
-        }
-        catch (Throwable e) {
-            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + tableName)) {
-                throw e;
-            }
-        }
-        assertQuery("SELECT x FROM " + sourceSchemaName + "." + renamedTable, "VALUES 123");
 
-        assertUpdate("DROP TABLE " + sourceSchemaName + "." + renamedTable);
-        assertUpdate("DROP SCHEMA " + sourceSchemaName);
+        try {
+            assertUpdate(createSchemaSql(sourceSchemaName));
+            assertUpdate("CREATE TABLE " + sourceSchemaName + "." + tableName + " AS SELECT 123 x", 1);
+            assertUpdate("ALTER TABLE " + sourceSchemaName + "." + tableName + " RENAME TO " + renamedTable);
+            assertQuery("SELECT x FROM " + sourceSchemaName + "." + renamedTable, "VALUES 123");
+
+            assertUpdate("DROP TABLE " + sourceSchemaName + "." + renamedTable);
+            assertUpdate("DROP SCHEMA " + sourceSchemaName);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + sourceSchemaName + "." + tableName);
+            assertUpdate("DROP TABLE IF EXISTS " + sourceSchemaName + "." + renamedTable);
+            assertUpdate("DROP SCHEMA IF EXISTS " + sourceSchemaName);
+        }
     }
 
     @Test
