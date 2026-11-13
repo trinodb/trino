@@ -234,11 +234,6 @@ class AggregationAnalyzer
      */
     private class Visitor
     {
-        public Boolean process(Node node)
-        {
-            return process(node, null);
-        }
-
         private Boolean dispatch(Node root, Void context)
         {
             return switch (root) {

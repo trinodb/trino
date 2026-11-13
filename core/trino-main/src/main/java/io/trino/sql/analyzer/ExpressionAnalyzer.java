@@ -782,11 +782,6 @@ public class ExpressionAnalyzer
 
     private class Visitor
     {
-        public Type process(Node node)
-        {
-            return process(node, null);
-        }
-
         private Type dispatch(Node root, Context context)
         {
             return switch (root) {

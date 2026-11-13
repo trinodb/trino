@@ -117,11 +117,6 @@ public final class SqlRoutinePlanner
 
     private class StatementVisitor
     {
-        public IrStatement process(Node node)
-        {
-            return process(node, null);
-        }
-
         public IrStatement process(Node root, Context context)
         {
             return switch (root) {
