@@ -4289,18 +4289,28 @@ public abstract class BaseConnectorTest
                 .orElse(65536 + 5);
 
         String validTableName = baseTableName + "z".repeat(maxLength - baseTableName.length());
-        assertUpdate("CREATE TABLE " + validTableName + " (a bigint)");
-        assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isTrue();
-        assertUpdate("DROP TABLE " + validTableName);
+        try {
+            assertUpdate("CREATE TABLE " + validTableName + " (a bigint)");
+            assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isTrue();
+            assertUpdate("DROP TABLE " + validTableName);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + validTableName);
+        }
 
         if (maxTableNameLength().isEmpty()) {
             return;
         }
 
         String invalidTableName = validTableName + "z";
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + invalidTableName + " (a bigint)"))
-                .satisfies(this::verifyTableNameLengthFailurePermissible);
-        assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isFalse();
+        try {
+            assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + invalidTableName + " (a bigint)"))
+                    .satisfies(this::verifyTableNameLengthFailurePermissible);
+            assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + invalidTableName);
+        }
     }
 
     @Test
