@@ -15,6 +15,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Alert, Box, CircularProgress, Grid, Typography } from '@mui/material'
 import { ReactFlow, type Edge, type Node, useNodesState, useEdgesState, type Viewport } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { queryPlanApi, QueryPlan } from '../api/webapp/api.ts'
+import { ApiResponse } from '../api/base.ts'
+import { Texts } from '../constant.ts'
 import { QueryProgressBar } from './QueryProgressBar'
 import { nodeTypes, getLayoutedPlanFlowElements, getViewportFocusedOnNode } from './flow/layout'
 import { HelpMessage } from './flow/HelpMessage'
@@ -25,6 +28,8 @@ import { useQueryStatus } from './QueryStatusContext'
 export const QueryLivePlan = () => {
     const { queryStatusInfo, loading, error } = useQueryStatus()
 
+    const [queryPlan, setQueryPlan] = useState<QueryPlan>({})
+    const [queryPlanError, setQueryPlanError] = useState<string | null>(null)
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
     const [layoutDirection, setLayoutDirection] = useState<LayoutDirectionType>('BT')
@@ -32,9 +37,59 @@ export const QueryLivePlan = () => {
 
     const containerRef = useRef<HTMLDivElement>(null)
 
+    const queryId = queryStatusInfo?.queryId
+    // The plan of a stage does not change, so the plan is fetched again only when the stages do
+    const stageIds = queryStatusInfo?.stages?.stages
+        .filter((stage) => stage.plan)
+        .map((stage) => stage.stageId)
+        .join(',')
+
+    useEffect(() => {
+        setQueryPlan({})
+        setQueryPlanError(null)
+        setNodes([])
+        setEdges([])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [queryId])
+
+    useEffect(() => {
+        if (!queryId || !stageIds) {
+            return
+        }
+
+        let cancelled = false
+
+        const fetchPlan = () => {
+            if (cancelled) {
+                return
+            }
+            queryPlanApi(queryId).then((apiResponse: ApiResponse<QueryPlan>) => {
+                if (cancelled) {
+                    return
+                }
+                if (apiResponse.status === 200 && apiResponse.data) {
+                    setQueryPlan(apiResponse.data)
+                    setQueryPlanError(null)
+                    return
+                }
+                setQueryPlanError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
+                // asking again does not help when the query cannot be viewed or is gone
+                if (apiResponse.status !== 403 && apiResponse.status !== 410) {
+                    setTimeout(fetchPlan, 3000)
+                }
+            })
+        }
+
+        fetchPlan()
+
+        return () => {
+            cancelled = true
+        }
+    }, [queryId, stageIds])
+
     useEffect(() => {
         if (queryStatusInfo?.stages) {
-            const flowElements = getPlanFlowElements(queryStatusInfo.stages, layoutDirection)
+            const flowElements = getPlanFlowElements(queryStatusInfo.stages, queryPlan, layoutDirection)
             const layoutedElements = getLayoutedPlanFlowElements(flowElements.nodes, flowElements.edges, {
                 direction: layoutDirection,
             })
@@ -43,7 +98,7 @@ export const QueryLivePlan = () => {
             setEdges(layoutedElements.edges)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [queryStatusInfo, layoutDirection])
+    }, [queryStatusInfo, queryPlan, layoutDirection])
 
     const focusViewportToFirstStage = () => {
         const viewportTarget = getViewportFocusedOnNode(nodes, {
@@ -59,6 +114,7 @@ export const QueryLivePlan = () => {
         <>
             {loading && <CircularProgress />}
             {error && <Alert severity="error">{error}</Alert>}
+            {!error && queryPlanError && <Alert severity="error">{queryPlanError}</Alert>}
 
             {!loading && !error && queryStatusInfo && (
                 <Grid container spacing={0}>

@@ -43,11 +43,15 @@ type StageNodeInfo = {
 }
 
 class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
-    static getStages(queryInfo: any): Map<string, StageNodeInfo> {
+    static getStages(queryInfo: any, queryPlan: QueryPlan): Map<string, StageNodeInfo> {
         const stages: Map<string, StageNodeInfo> = new Map()
         queryInfo.stages.stages.forEach(function (stageInfo) {
+            const planNodes = queryPlan[stageInfo.stageId]
+            if (!planNodes) {
+                return
+            }
             const nodes = new Map<any, PlanNodeProps>()
-            StageStatistics.flattenNode(stageInfo.plan.root, JSON.parse(stageInfo.plan.jsonRepresentation), nodes)
+            planNodes.forEach((node) => nodes.set(node.id, node))
             stages.set(stageInfo.plan.id, {
                 stageId: stageInfo.stageId,
                 id: stageInfo.plan.id,
@@ -59,20 +63,6 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
             })
         })
         return stages
-    }
-
-    static flattenNode(rootNodeInfo: any, node: any, result: Map<any, PlanNodeProps>) {
-        result.set(node.id, {
-            id: node.id,
-            name: node['name'],
-            descriptor: node['descriptor'],
-            details: node['details'],
-            sources: node.children.map((node) => node.id),
-        })
-
-        node.children.forEach(function (child) {
-            StageStatistics.flattenNode(rootNodeInfo, child, result)
-        })
     }
 
     render(): any {
@@ -115,6 +105,8 @@ type PlanNodeProps = {
     details: string[],
     sources: string[],
 }
+// Plan nodes of each stage, keyed by the stage id
+type QueryPlan = { [stageId: string]: PlanNodeProps[] }
 type PlanNodeState = {}
 
 class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
@@ -161,6 +153,7 @@ type LivePlanState = {
     ended: boolean,
 
     query: ?any,
+    queryPlan: QueryPlan,
 
     graph: any,
     svg: any,
@@ -169,6 +162,7 @@ type LivePlanState = {
 
 export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
     timeoutId: TimeoutID
+    queryPlanUnavailable: boolean = false
 
     constructor(props: LivePlanProps) {
         super(props)
@@ -177,6 +171,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
             ended: false,
 
             query: null,
+            queryPlan: {},
 
             graph: initializeGraph(),
             svg: null,
@@ -189,6 +184,12 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         // stop refreshing when query finishes or fails
         if (this.state.query === null || !this.state.ended) {
             this.timeoutId = setTimeout(this.refreshLoop.bind(this), 1000)
+        } else if (!this.queryPlanUnavailable && !this.hasQueryPlan(this.state.query)) {
+            // the query does not change anymore, so only its plan is requested again
+            this.timeoutId = setTimeout(
+                () => this.refreshQueryPlan(this.state.query).then(() => this.resetTimer()),
+                1000
+            )
         }
     }
 
@@ -203,14 +204,42 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                     initialized: true,
                     ended: query.finalQueryInfo,
                 })
-                this.resetTimer()
+                return this.refreshQueryPlan(query)
             })
+            .then(() => this.resetTimer())
             .catch(() => {
                 this.setState({
                     initialized: true,
                 })
                 this.resetTimer()
             })
+    }
+
+    // the plan of a stage does not change, so the plan is requested only when it does not cover all the stages
+    refreshQueryPlan(query: any): Promise<void> {
+        if (this.queryPlanUnavailable || this.hasQueryPlan(query)) {
+            return Promise.resolve()
+        }
+        return fetch('/ui/api/query/' + this.props.queryId + '/plan')
+            .then((response) => {
+                // asking again does not help when the query cannot be viewed or is gone
+                this.queryPlanUnavailable = response.status === 403 || response.status === 410
+                if (!response.ok) {
+                    throw new Error(response.statusText)
+                }
+                return response.json()
+            })
+            .then((queryPlan) => this.setState({ queryPlan: queryPlan }))
+            .catch(() => {
+                // the plan is requested again with the next refresh
+            })
+    }
+
+    hasQueryPlan(query: any): boolean {
+        const queryPlan = this.state.queryPlan
+        return (
+            !query.stages || query.stages.stages.every((stageInfo) => !stageInfo.plan || stageInfo.stageId in queryPlan)
+        )
     }
 
     static handleStageClick(stageCssId: string) {
@@ -304,7 +333,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         }
 
         const graph = this.state.graph
-        const stages = StageStatistics.getStages(this.state.query)
+        const stages = StageStatistics.getStages(this.state.query, this.state.queryPlan)
         stages.forEach((stage) => {
             this.updateD3Stage(stage, graph, stages)
         })

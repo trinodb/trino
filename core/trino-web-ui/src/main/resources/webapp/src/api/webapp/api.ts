@@ -255,9 +255,19 @@ export interface QueryStageNodeInfo {
 
 export interface QueryStagePlan {
     id: string
-    jsonRepresentation: string
     root: QueryStageNodeInfo
 }
+
+export interface QueryPlanNode {
+    id: string
+    name: string
+    descriptor: Record<string, string>
+    details: string[]
+    sources: string[]
+}
+
+// Plan nodes of each stage, keyed by the stage id
+export type QueryPlan = Record<string, QueryPlanNode[]>
 
 export interface QueryStageOperatorSummary {
     pipelineId: number
@@ -407,6 +417,10 @@ export async function queryApi(): Promise<ApiResponse<QueryInfo[]>> {
 
 export async function queryStatusApi(queryId: string, pruned: boolean = false): Promise<ApiResponse<QueryStatusInfo>> {
     return await api.get<QueryStatusInfo>(`/ui/api/query/${queryId}${pruned ? '?pruned=true' : ''}`)
+}
+
+export async function queryPlanApi(queryId: string): Promise<ApiResponse<QueryPlan>> {
+    return await api.get<QueryPlan>(`/ui/api/query/${queryId}/plan`)
 }
 
 export async function killQueryApi(queryId: string): Promise<ApiResponse<void>> {
