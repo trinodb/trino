@@ -122,7 +122,7 @@ public class PinotConfig
         return this;
     }
 
-    @MinDuration("1ms")
+    @MinDuration("30s")
     @NotNull
     public Duration getInstanceConfigRefreshInterval()
     {
