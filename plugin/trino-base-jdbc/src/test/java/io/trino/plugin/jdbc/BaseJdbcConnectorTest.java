@@ -428,7 +428,7 @@ public abstract class BaseJdbcConnectorTest
                     table);
             verifyMultipleDistinctPushdown(
                     withPreAggregate,
-                    node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))),
+                    node(AggregationNode.class, project(node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class))))))),
                     supportsPushdownWithVarcharInequality,
                     supportsCountDistinctPushdown,
                     supportsSumDistinctPushdown,
@@ -568,7 +568,7 @@ public abstract class BaseJdbcConnectorTest
                 node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
         verifyDistinctAggregationPushdown(
                 withPreAggregate,
-                node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))));
+                node(AggregationNode.class, project(node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class))))))));
     }
 
     private void verifyDistinctAggregationPushdown(Session session, PlanMatchPattern multiDistinctOtherwiseExpected)
@@ -717,7 +717,7 @@ public abstract class BaseJdbcConnectorTest
                         withPreAggregate,
                         "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(),
                         hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
-                        node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))));
+                        node(AggregationNode.class, project(node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class))))))));
             }
         }
     }

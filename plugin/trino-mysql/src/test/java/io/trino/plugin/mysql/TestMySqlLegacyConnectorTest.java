@@ -140,7 +140,7 @@ public class TestMySqlLegacyConnectorTest
 
             assertThat(query(withPreAggregate, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
                     .matches("VALUES (BIGINT '7', BIGINT '7')")
-                    .isNotFullyPushedDown(node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))));
+                    .isNotFullyPushedDown(node(AggregationNode.class, project(node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class))))))));
         }
     }
 
