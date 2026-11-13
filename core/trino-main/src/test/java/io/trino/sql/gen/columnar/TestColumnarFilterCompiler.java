@@ -15,6 +15,8 @@ package io.trino.sql.gen.columnar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.TestingCatalogFunction;
+import io.trino.metadata.TestingCatalogFunction.BindingCountingSession;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -24,6 +26,7 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -62,6 +65,26 @@ public class TestColumnarFilterCompiler
     private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
     private static final Expression FILTER = comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 2L));
+
+    @Test
+    public void testCatalogFunctionReadsItsOwnCatalogSessionProperty()
+    {
+        TestingFunctionResolution functionResolution = TestingCatalogFunction.functionResolution();
+        Expression filter = new Call(TestingCatalogFunction.EXCEEDS_MULTIPLIER, ImmutableList.of(new Reference(BIGINT, "$col_0")));
+
+        ColumnarFilter columnarFilter = functionResolution.getColumnarFilterCompiler()
+                .generateFilter(CHAR_VARCHAR_COERCION, filter, ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0))
+                .orElseThrow()
+                .get();
+
+        SourcePage page = columnarFilter.getInputChannels().getInputChannels(SourcePage.create(new Page(createLongSequenceBlock(0, 5))));
+        int[] output = new int[5];
+        BindingCountingSession session = new BindingCountingSession(TestingCatalogFunction.session());
+        // value > 3 holds only for value 4
+        assertThat(columnarFilter.filterPositionsRange(session, output, 0, 5, page)).isEqualTo(1);
+        // the session is bound once for the page
+        assertThat(session.getBindings()).isEqualTo(1);
+    }
 
     @Test
     public void testCache()
