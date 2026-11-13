@@ -42,6 +42,7 @@ import static io.trino.server.TestQueryResource.runToCompletion;
 import static io.trino.server.TestQueryResource.startQuery;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -146,6 +147,30 @@ class TestUiQueryResource
     }
 
     @Test
+    void testQueryPlanOfPrunedQuery()
+            throws Exception
+    {
+        // with no history kept, the info of a finished query is pruned by the background task within a second
+        try (TestingTrinoServer prunedServer = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.of(
+                        "web-ui.authentication.type", "fixed",
+                        "web-ui.user", "test-user",
+                        "query.max-history", "0"))
+                .build()) {
+            prunedServer.installPlugin(new TpchPlugin());
+            prunedServer.createCatalog("tpch", "tpch");
+
+            String queryId = runToCompletion(client, prunedServer, "SELECT * FROM tpch.tiny.nation");
+
+            assertEventually(() -> assertThat(prunedServer.getDispatchManager().getFullQueryInfo(new QueryId(queryId)).orElseThrow()
+                    .getStages().orElseThrow()
+                    .getStages())
+                    .allSatisfy(stage -> assertThat(stage.plan()).isNull()));
+            assertThat(queryPlan(prunedServer, queryId)).isEmpty();
+        }
+    }
+
+    @Test
     void testQueryPlanAccessDenied()
     {
         String queryId = runToCompletion(client, server, "SELECT * FROM tpch.tiny.nation");
@@ -168,6 +193,11 @@ class TestUiQueryResource
     }
 
     private Map<String, List<FlattenedPlanNode>> queryPlan(String queryId)
+    {
+        return queryPlan(server, queryId);
+    }
+
+    private Map<String, List<FlattenedPlanNode>> queryPlan(TestingTrinoServer server, String queryId)
     {
         Request request = prepareGet()
                 .setUri(server.getBaseUrl().resolve("/ui/api/query/" + queryId + "/plan"))

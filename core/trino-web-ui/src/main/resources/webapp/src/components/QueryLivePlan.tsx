@@ -124,7 +124,7 @@ export const QueryLivePlan = () => {
                                 <QueryProgressBar queryInfoBase={queryStatusInfo} />
                             </Box>
 
-                            {queryStatusInfo?.stages ? (
+                            {queryStatusInfo?.stages && !queryStatusInfo.pruned ? (
                                 <Grid container spacing={3}>
                                     <Grid size={{ xs: 12, md: 12 }}>
                                         <Box sx={{ pt: 2 }}>
@@ -164,7 +164,9 @@ export const QueryLivePlan = () => {
                                 <>
                                     <Box sx={{ width: '100%', mt: 1 }}>
                                         <Alert severity="info">
-                                            Live plan will appear automatically when query starts running.
+                                            {queryStatusInfo.pruned
+                                                ? 'Live plan is no longer available for this query.'
+                                                : 'Live plan will appear automatically when query starts running.'}
                                         </Alert>
                                     </Box>
                                 </>
