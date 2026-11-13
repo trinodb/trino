@@ -42,7 +42,7 @@ SELECT CAST(x AS varchar COLLATE unicode) = CAST(y AS varchar COLLATE unicode_ci
 SELECT CAST(x AS varchar COLLATE unicode) = CAST(y AS varchar COLLATE unicode_ci) COLLATE unicode_ci FROM t;   -- compares under unicode_ci
 ```
 
-Combining values, as in `CASE`, `COALESCE`, or `ARRAY[...]`, combines their
+Combining values, as in `CASE`, `COALESCE`, `UNION`, or `ARRAY[...]`, combines their
 collations the same way, and strings of different implicit collations combine into a
 value with derivation none. Such a value can be returned or stored, but comparing,
 sorting, or grouping it is an error until `COLLATE` chooses a collation.

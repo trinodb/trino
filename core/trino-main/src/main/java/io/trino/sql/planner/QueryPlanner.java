@@ -53,6 +53,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.RelationPlanner.PatternRecognitionComponents;
@@ -599,7 +600,7 @@ class QueryPlanner
             Map<NodeRef<FunctionCall>, Symbol> perGroup = new LinkedHashMap<>();
             Map<NodeRef<FunctionCall>, Symbol> groupPredicates = predicateSymbols.get(NodeRef.of(valueGroup));
             for (FunctionCall function : aggregateCalls) {
-                Symbol output = symbolAllocator.newSymbol(function.getName().toString(), analysis.getType(function));
+                Symbol output = symbolAllocator.newSymbol(function.getName().toString(), resultType(function));
                 Aggregation aggregation = new Aggregation(
                         analysis.getResolvedFunction(function).orElseThrow(),
                         argumentsInSignatureOrder(function).stream()
@@ -644,7 +645,19 @@ class QueryPlanner
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 groupingSets.getGroupIdSymbol());
-        subPlan = new PlanBuilder(subPlan.getTranslations(), aggregationNode);
+        // relabel string results whose analyzed type has their arguments' collation
+        Map<Symbol, Symbol> relabeledSymbols = new LinkedHashMap<>();
+        Map<Symbol, io.trino.sql.tree.Expression> calls = new LinkedHashMap<>();
+        aggregateSymbolsByGroup.values().forEach(perGroup -> perGroup.forEach((function, symbol) -> calls.put(symbol, function.getNode())));
+        PlanNode relabeled = relabelCollations(aggregationNode, calls, (_, _) -> {});
+        if (relabeled != aggregationNode) {
+            for (Map.Entry<Symbol, io.trino.sql.ir.Expression> assignment : ((ProjectNode) relabeled).getAssignments().entrySet()) {
+                if (assignment.getValue() instanceof Cast cast && cast.expression() instanceof Reference reference) {
+                    relabeledSymbols.put(Symbol.from(reference), assignment.getKey());
+                }
+            }
+        }
+        subPlan = new PlanBuilder(subPlan.getTranslations(), relabeled);
 
         // Subqueries in the non-aggregate part of a slot are rejected during analysis, and the ones
         // inside aggregate calls were planned with the inputs; nothing more to plan here.
@@ -668,7 +681,8 @@ class QueryPlanner
             Map<NodeRef<FunctionCall>, Symbol> perGroupSymbols = aggregateSymbolsByGroup.get(valueGroup);
             ImmutableMap.Builder<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings = ImmutableMap.builder();
             for (FunctionCall function : aggregateCalls) {
-                mappings.put(scopeAwareKey(function, analysis, subPlan.getScope()), perGroupSymbols.get(NodeRef.of(function)));
+                Symbol symbol = perGroupSymbols.get(NodeRef.of(function));
+                mappings.put(scopeAwareKey(function, analysis, subPlan.getScope()), relabeledSymbols.getOrDefault(symbol, symbol));
             }
             TranslationMap groupTranslations = subPlan.getTranslations().withAdditionalMappings(mappings.buildKeepingLast());
 

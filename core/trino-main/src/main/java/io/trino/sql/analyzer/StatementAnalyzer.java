@@ -120,6 +120,9 @@ import io.trino.sql.analyzer.Analysis.SourceColumn;
 import io.trino.sql.analyzer.Analysis.TableArgumentAnalysis;
 import io.trino.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
 import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
+import io.trino.sql.analyzer.CollationSemantics.Collated;
+import io.trino.sql.analyzer.CollationSemantics.CollationShape;
+import io.trino.sql.analyzer.CollationSemantics.Derivation;
 import io.trino.sql.analyzer.ExpressionAnalyzer.ParametersTypeAndAnalysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer.TypeAndAnalysis;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
@@ -239,6 +242,7 @@ import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.Rollback;
+import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SecurityCharacteristic;
@@ -448,6 +452,7 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -1527,20 +1532,28 @@ class StatementAnalyzer
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
                 analysis.recordSubqueries(node, expressionAnalysis);
                 Type expressionType = expressionAnalysis.getType(expression);
+                // each output has the collation shape of the element, field, key, or value it takes
+                CollationShape expressionShape = expressionShape(expression, expressionType);
                 if (expressionType instanceof ArrayType arrayType) {
                     Type elementType = arrayType.getElementType();
+                    CollationShape elementShape = expressionShape instanceof CollationShape.ArrayShape(CollationShape element) ? element : CollationShapes.implicit(elementType);
                     if (elementType instanceof RowType rowType) {
-                        rowType.getFields().stream()
-                                .map(field -> Field.newUnqualified(field.getName(), field.getType()))
-                                .forEach(expressionOutputs::add);
+                        List<CollationShape> fieldShapes = elementShape instanceof CollationShape.RowShape(List<CollationShape> fields) && fields.size() == rowType.getFields().size()
+                                ? fields
+                                : rowType.getFieldTypes().stream().map(CollationShapes::implicit).collect(toImmutableList());
+                        for (int i = 0; i < rowType.getFields().size(); i++) {
+                            RowType.Field field = rowType.getFields().get(i);
+                            expressionOutputs.add(unnestField(field.getName(), field.getType(), fieldShapes.get(i)));
+                        }
                     }
                     else {
-                        expressionOutputs.add(Field.newUnqualified(Optional.empty(), elementType));
+                        expressionOutputs.add(unnestField(Optional.empty(), elementType, elementShape));
                     }
                 }
                 else if (expressionType instanceof MapType mapType) {
-                    expressionOutputs.add(Field.newUnqualified(Optional.empty(), mapType.getKeyType()));
-                    expressionOutputs.add(Field.newUnqualified(Optional.empty(), mapType.getValueType()));
+                    boolean shaped = expressionShape instanceof CollationShape.MapShape;
+                    expressionOutputs.add(unnestField(Optional.empty(), mapType.getKeyType(), shaped ? ((CollationShape.MapShape) expressionShape).key() : CollationShapes.implicit(mapType.getKeyType())));
+                    expressionOutputs.add(unnestField(Optional.empty(), mapType.getValueType(), shaped ? ((CollationShape.MapShape) expressionShape).value() : CollationShapes.implicit(mapType.getValueType())));
                 }
                 else {
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
@@ -1561,6 +1574,14 @@ class StatementAnalyzer
             analysis.setUnnest(node, new UnnestAnalysis(mappings.buildOrThrow(), ordinalityField));
 
             return createAndAssignScope(node, scope, outputFields.build());
+        }
+
+        private static Field unnestField(Optional<String> name, Type type, CollationShape shape)
+        {
+            return Field.newUnqualified(name, type)
+                    .rebuild()
+                    .collation(fieldCollation(Optional.of(shape), type))
+                    .build();
         }
 
         private Scope visitLateral(Lateral node, Optional<Scope> scope)
@@ -2476,14 +2497,17 @@ class StatementAnalyzer
                     Field inputField = queryDescriptor.getFieldByIndex(i);
                     if (!inputField.isHidden()) {
                         Field field = Field.newQualified(
-                                QualifiedName.of(table.getName().getSuffix()),
-                                Optional.of(aliases.next().getValue()),
-                                inputField.getType(),
-                                false,
-                                inputField.getOriginTable(),
-                                inputField.getOriginBranch(),
-                                inputField.getOriginColumnName(),
-                                inputField.isAliased());
+                                        QualifiedName.of(table.getName().getSuffix()),
+                                        Optional.of(aliases.next().getValue()),
+                                        inputField.getType(),
+                                        false,
+                                        inputField.getOriginTable(),
+                                        inputField.getOriginBranch(),
+                                        inputField.getOriginColumnName(),
+                                        inputField.isAliased())
+                                .rebuild()
+                                .collation(inputField.getCollation())
+                                .build();
                         fieldBuilder.add(field);
                         analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
                     }
@@ -2496,14 +2520,17 @@ class StatementAnalyzer
                     Field inputField = queryDescriptor.getFieldByIndex(i);
                     if (!inputField.isHidden()) {
                         Field field = Field.newQualified(
-                                QualifiedName.of(table.getName().getSuffix()),
-                                inputField.getName(),
-                                inputField.getType(),
-                                false,
-                                inputField.getOriginTable(),
-                                inputField.getOriginBranch(),
-                                inputField.getOriginColumnName(),
-                                inputField.isAliased());
+                                        QualifiedName.of(table.getName().getSuffix()),
+                                        inputField.getName(),
+                                        inputField.getType(),
+                                        false,
+                                        inputField.getOriginTable(),
+                                        inputField.getOriginBranch(),
+                                        inputField.getOriginColumnName(),
+                                        inputField.isAliased())
+                                .rebuild()
+                                .collation(inputField.getCollation())
+                                .build();
                         fieldBuilder.add(field);
                         analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
                     }
@@ -3124,8 +3151,31 @@ class StatementAnalyzer
                 for (int i = 0; i < relation.getPivotColumns().size(); i++) {
                     Expression value = valueGroup.getValues().get(i);
                     analyzePivotValue(value, inputScope);
-                    Type pivotColumnType = analysis.getType(relation.getPivotColumns().get(i));
+                    Expression pivotColumn = relation.getPivotColumns().get(i);
+                    Type pivotColumnType = analysis.getType(pivotColumn);
                     Type valueType = analysis.getType(value);
+                    // the value is compared with the column, under the collation determined from the two
+                    CollationShape columnShape = expressionShape(pivotColumn, pivotColumnType);
+                    CollationShape valueShape = expressionShape(value, valueType);
+                    if (!CollationShapes.isTrivial(columnShape, pivotColumnType) || !CollationShapes.isTrivial(valueShape, valueType)) {
+                        CollationShape determined;
+                        try {
+                            determined = CollationSemantics.determineShapes(ImmutableList.of(columnShape, valueShape));
+                        }
+                        catch (CollationSemantics.CollationConflictException e) {
+                            throw semanticException(COLLATION_MISMATCH, value, "Collations %s of pivot column and value conflict; use COLLATE to choose a collation", e.collations());
+                        }
+                        Type relabeledColumn = CollationShapes.applyTo(pivotColumnType, determined, plannerContext.getTypeManager());
+                        if (relabeledColumn != pivotColumnType) {
+                            analysis.addCoercion(pivotColumn, relabeledColumn);
+                            pivotColumnType = relabeledColumn;
+                        }
+                        Type relabeledValue = CollationShapes.applyTo(valueType, determined, plannerContext.getTypeManager());
+                        if (relabeledValue != valueType) {
+                            analysis.addCoercion(value, relabeledValue);
+                            valueType = relabeledValue;
+                        }
+                    }
                     Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(valueType, pivotColumnType);
                     if (commonSuperType.isEmpty() || !commonSuperType.get().isComparable()) {
                         throw semanticException(
@@ -3233,6 +3283,14 @@ class StatementAnalyzer
                     }
                 }
             }
+        }
+
+        // the shape of an analyzed expression's strings: its recorded derivations, or the implicit ones of its type
+        private CollationShape expressionShape(Expression expression, Type type)
+        {
+            return analysis.getExplicitCollation(expression)
+                    .or(() -> analysis.getFieldCollation(expression))
+                    .orElseGet(() -> CollationShapes.implicit(type));
         }
 
         private void analyzePivotValue(Expression value, Scope inputScope)
@@ -3514,9 +3572,13 @@ class StatementAnalyzer
             }
 
             String setOperationName = node.getClass().getSimpleName().toUpperCase(ENGLISH);
+            List<Optional<CollationShape>> outputCollations = combineFieldCollations(node, childrenTypes);
             Type[] outputFieldTypes = childrenTypes.get(0).getVisibleFields().stream()
                     .map(Field::getType)
                     .toArray(Type[]::new);
+            for (int i = 0; i < outputFieldTypes.length && i < outputCollations.size(); i++) {
+                outputFieldTypes[i] = withCollation(outputFieldTypes[i], outputCollations.get(i));
+            }
             for (RelationType relationType : childrenTypes) {
                 int outputFieldSize = outputFieldTypes.length;
                 int descFieldSize = relationType.getVisibleFields().size();
@@ -3530,7 +3592,7 @@ class StatementAnalyzer
                             descFieldSize);
                 }
                 for (int i = 0; i < descFieldSize; i++) {
-                    Type descFieldType = relationType.getFieldByIndex(i).getType();
+                    Type descFieldType = withCollation(relationType.getFieldByIndex(i).getType(), outputCollations.get(i));
                     Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(outputFieldTypes[i], descFieldType);
                     if (commonSuperType.isEmpty()) {
                         throw semanticException(
@@ -3547,6 +3609,19 @@ class StatementAnalyzer
             }
 
             if (node instanceof Intersect || node instanceof Except || (node instanceof Union && node.isDistinct())) {
+                for (int i = 0; i < outputCollations.size(); i++) {
+                    Optional<Collated> none = outputCollations.get(i).flatMap(CollationShape::firstNone);
+                    if (none.isPresent()) {
+                        throw semanticException(
+                                COLLATION_MISMATCH,
+                                node,
+                                "Collations %s of column %d conflict in %s%s; use COLLATE to choose a collation",
+                                none.get().conflicting(),
+                                i + 1,
+                                setOperationName,
+                                node instanceof Union ? " DISTINCT" : "");
+                    }
+                }
                 for (Type type : outputFieldTypes) {
                     if (!type.isComparable()) {
                         throw semanticException(
@@ -3566,6 +3641,7 @@ class StatementAnalyzer
                 Field oldField = firstDescriptor.getFieldByIndex(i);
                 outputDescriptorFields[i] = oldField.rebuild()
                         .type(outputFieldTypes[i])
+                        .collation(fieldCollation(outputCollations.get(i), outputFieldTypes[i]))
                         .build();
 
                 int index = i; // Variable used in Lambda should be final
@@ -3590,6 +3666,72 @@ class StatementAnalyzer
                 }
             }
             return createAndAssignScope(node, scope, outputDescriptorFields);
+        }
+
+        /// Combines the collations of the strings in corresponding columns of relations, per the
+        /// result of data type combinations. A field without a recorded shape has the implicit
+        /// collations of its type. Empty for columns whose strings need no relabeling.
+        private List<Optional<CollationShape>> combineFieldCollations(Node node, List<RelationType> relations)
+        {
+            int columns = relations.getFirst().getVisibleFields().size();
+            if (relations.stream().anyMatch(relation -> relation.getVisibleFields().size() != columns)) {
+                // mismatched widths are reported by the caller
+                return nCopies(columns, Optional.empty());
+            }
+            ImmutableList.Builder<Optional<CollationShape>> collations = ImmutableList.builder();
+            for (int i = 0; i < columns; i++) {
+                List<CollationShape> operands = new ArrayList<>();
+                List<Type> types = new ArrayList<>();
+                for (RelationType relation : relations) {
+                    Field field = relation.getFieldByIndex(i);
+                    operands.add(field.getCollation().orElseGet(() -> CollationShapes.implicit(field.getType())));
+                    types.add(field.getType());
+                }
+                collations.add(combineColumn(node, operands, types));
+            }
+            return collations.build();
+        }
+
+        private Optional<CollationShape> combineColumn(Node node, List<CollationShape> operands, List<Type> types)
+        {
+            boolean trivial = true;
+            for (int i = 0; i < operands.size(); i++) {
+                trivial &= CollationShapes.isTrivial(operands.get(i), types.get(i)) && !hasCoercibleString(operands.get(i));
+            }
+            if (trivial) {
+                return Optional.empty();
+            }
+            try {
+                CollationShape combined = CollationSemantics.combineShapes(operands);
+                return combined == CollationShape.Opaque.OPAQUE ? Optional.empty() : Optional.of(combined);
+            }
+            catch (CollationSemantics.CollationConflictException e) {
+                throw semanticException(COLLATION_MISMATCH, node, "Explicit collations %s conflict", e.collations());
+            }
+        }
+
+        private static boolean hasCoercibleString(CollationShape shape)
+        {
+            return switch (shape) {
+                case CollationShape.Leaf(Collated collated) -> collated.derivation() == Derivation.COERCIBLE;
+                case CollationShape.ArrayShape(CollationShape element) -> hasCoercibleString(element);
+                case CollationShape.MapShape(CollationShape key, CollationShape value) -> hasCoercibleString(key) || hasCoercibleString(value);
+                case CollationShape.RowShape(List<CollationShape> fields) -> fields.stream().anyMatch(Visitor::hasCoercibleString);
+                case CollationShape.Opaque _ -> false;
+            };
+        }
+
+        private Type withCollation(Type type, Optional<CollationShape> shape)
+        {
+            return shape.map(value -> CollationShapes.applyTo(type, value, plannerContext.getTypeManager())).orElse(type);
+        }
+
+        // the shape a relation field records: as a field, an explicit collation is implicit, and a
+        // field whose strings all have the implicit collations of its type records nothing
+        private static Optional<CollationShape> fieldCollation(Optional<CollationShape> shape, Type type)
+        {
+            return shape.map(CollationShape::asField)
+                    .filter(value -> !value.equals(CollationShapes.implicit(type)));
         }
 
         private static Map<String, Integer> buildNameToIndex(SetOperation node, RelationType relationType)
@@ -4201,19 +4343,38 @@ class StatementAnalyzer
                 ResolvedField rightField = right.tryResolveField(column)
                         .orElseThrow(() -> semanticException(COLUMN_NOT_FOUND, column, "Column '%s' is missing from right side of join", column.getValue()));
 
+                // the key columns are compared, so their strings are compared under the determined collations
+                Type leftType = leftField.getType();
+                Type rightType = rightField.getType();
+                CollationShape leftShape = leftField.getField().getCollation().orElseGet(() -> CollationShapes.implicit(leftField.getType()));
+                CollationShape rightShape = rightField.getField().getCollation().orElseGet(() -> CollationShapes.implicit(rightField.getType()));
+                if (!CollationShapes.isTrivial(leftShape, leftType) || !CollationShapes.isTrivial(rightShape, rightType)) {
+                    CollationShape determined;
+                    try {
+                        determined = CollationSemantics.determineShapes(ImmutableList.of(leftShape, rightShape));
+                    }
+                    catch (CollationSemantics.CollationConflictException e) {
+                        throw semanticException(COLLATION_MISMATCH, column, "Collations %s of column '%s' conflict in USING; use COLLATE to choose a collation", e.collations(), column.getValue());
+                    }
+                    leftType = CollationShapes.applyTo(leftType, determined, plannerContext.getTypeManager());
+                    rightType = CollationShapes.applyTo(rightType, determined, plannerContext.getTypeManager());
+                }
+
                 // ensure a comparison operator exists for the given types (applying coercions if necessary)
                 try {
-                    metadata.resolveOperator(charVarcharCoercion, OperatorType.EQUAL, ImmutableList.of(
-                            leftField.getType(), rightField.getType()));
+                    metadata.resolveOperator(charVarcharCoercion, OperatorType.EQUAL, ImmutableList.of(leftType, rightType));
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, column, e, "%s", e.getMessage());
                 }
 
-                Optional<Type> type = typeCoercion.getCommonSuperType(leftField.getType(), rightField.getType());
-                analysis.addTypes(ImmutableMap.of(NodeRef.of(column), type.orElseThrow()));
+                Type leftKeyType = leftType;
+                Type rightKeyType = rightType;
+                Type type = typeCoercion.getCommonSuperType(leftType, rightType)
+                        .orElseThrow(() -> semanticException(TYPE_MISMATCH, column, "Column '%s' has incompatible types in USING: %s, %s", column.getValue(), leftKeyType, rightKeyType));
+                analysis.addTypes(ImmutableMap.of(NodeRef.of(column), type));
 
-                joinFields.add(Field.newUnqualified(column.getValue(), type.get()));
+                joinFields.add(Field.newUnqualified(column.getValue(), type));
 
                 leftJoinFields.add(leftField.getRelationFieldIndex());
                 rightJoinFields.add(rightField.getRelationFieldIndex());
@@ -4354,7 +4515,7 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, subqueries.getFirst(), "Subqueries are not supported in VALUES");
             }
 
-            List<RowType> rowTypes = node.getRows().stream()
+            List<RowType> analyzedRowTypes = node.getRows().stream()
                     .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
                     .map(type -> {
                         if (type instanceof RowType rowType) {
@@ -4364,7 +4525,11 @@ class StatementAnalyzer
                     })
                     .collect(toImmutableList());
 
-            int fieldCount = rowTypes.getFirst().getFields().size();
+            int fieldCount = analyzedRowTypes.getFirst().getFields().size();
+            List<Optional<CollationShape>> columnCollations = combineValuesCollations(node, analyzedRowTypes, fieldCount);
+            List<RowType> rowTypes = analyzedRowTypes.stream()
+                    .map(rowType -> withCollations(rowType, columnCollations))
+                    .collect(toImmutableList());
             RowType commonSuperType = rowTypes.getFirst();
             for (RowType rowType : rowTypes) {
                 // check field count consistency for rows
@@ -4403,11 +4568,71 @@ class StatementAnalyzer
                 }
             }
 
-            List<Field> fields = commonSuperType.getFields().stream()
-                    .map(field -> Field.newUnqualified(field.getName(), field.getType()))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<Field> fields = ImmutableList.builder();
+            for (int i = 0; i < commonSuperType.getFields().size(); i++) {
+                RowType.Field field = commonSuperType.getFields().get(i);
+                fields.add(Field.newUnqualified(field.getName(), field.getType())
+                        .rebuild()
+                        .collation(i < columnCollations.size() ? fieldCollation(columnCollations.get(i), field.getType()) : Optional.empty())
+                        .build());
+            }
 
-            return createAndAssignScope(node, scope, fields);
+            return createAndAssignScope(node, scope, fields.build());
+        }
+
+        /// Combines the collations of each column of VALUES rows. A row is a single value or a row
+        /// constructor; a row of any other form contributes the collation of its type.
+        private List<Optional<CollationShape>> combineValuesCollations(Values node, List<RowType> rowTypes, int fieldCount)
+        {
+            if (rowTypes.stream().anyMatch(rowType -> rowType.getFields().size() != fieldCount)) {
+                // mismatched sizes are reported by the caller
+                return nCopies(fieldCount, Optional.empty());
+            }
+            ImmutableList.Builder<Optional<CollationShape>> collations = ImmutableList.builder();
+            for (int column = 0; column < fieldCount; column++) {
+                int i = column;
+                List<CollationShape> operands = new ArrayList<>();
+                List<Type> types = new ArrayList<>();
+                for (Expression row : node.getRows()) {
+                    Optional<Expression> value = valuesColumn(row, i, fieldCount);
+                    Type type = value.map(analysis::getType)
+                            .orElseGet(() -> ((RowType) analysis.getType(row)).getFields().get(i).getType());
+                    // an explicit collation of a value takes part in combining the column
+                    operands.add(value.flatMap(analysis::getExplicitCollation)
+                            .or(() -> value.flatMap(analysis::getFieldCollation))
+                            .orElseGet(() -> CollationShapes.implicit(type)));
+                    types.add(type);
+                }
+                collations.add(combineColumn(node, operands, types));
+            }
+            return collations.build();
+        }
+
+        private static Optional<Expression> valuesColumn(Expression row, int index, int fieldCount)
+        {
+            if (row instanceof Row rowConstructor) {
+                return Optional.of(rowConstructor.getFields().get(index).getExpression());
+            }
+            if (fieldCount == 1) {
+                return Optional.of(row);
+            }
+            return Optional.empty();
+        }
+
+        private RowType withCollations(RowType rowType, List<Optional<CollationShape>> collations)
+        {
+            if (collations.stream().allMatch(Optional::isEmpty)) {
+                return rowType;
+            }
+            if (rowType.getFields().size() != collations.size()) {
+                return rowType;
+            }
+            ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
+            for (int i = 0; i < rowType.getFields().size(); i++) {
+                RowType.Field field = rowType.getFields().get(i);
+                fields.add(new RowType.Field(field.getName(), withCollation(field.getType(), collations.get(i))));
+            }
+            return RowType.from(fields.build());
         }
 
         private Scope visitJsonTable(JsonTable node, Optional<Scope> scope)
@@ -5087,7 +5312,10 @@ class StatementAnalyzer
                             name = field.getName();
                         }
 
-                        Field newField = Field.newUnqualified(name, field.getType(), field.getOriginTable(), field.getOriginBranch(), field.getOriginColumnName(), false);
+                        Field newField = Field.newUnqualified(name, field.getType(), field.getOriginTable(), field.getOriginBranch(), field.getOriginColumnName(), false)
+                                .rebuild()
+                                .collation(field.getCollation())
+                                .build();
                         analysis.addSourceColumns(newField, analysis.getSourceColumns(field));
                         outputFields.add(newField);
                     }
@@ -5123,7 +5351,10 @@ class StatementAnalyzer
                         }
                     }
 
-                    Field newField = Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originBranch, originColumn, column.getAlias().isPresent()); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    Field newField = Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originBranch, originColumn, column.getAlias().isPresent()) // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                            .rebuild()
+                            .collation(analysis.getFieldCollation(expression))
+                            .build();
                     if (originTable.isPresent()) {
                         analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.orElseThrow())));
                     }
@@ -5335,6 +5566,12 @@ class StatementAnalyzer
                 Type type = field.getType();
                 if (node.getSelect().isDistinct() && !type.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", type);
+                }
+                if (node.getSelect().isDistinct()) {
+                    Optional<Collated> none = field.getCollation().flatMap(CollationShape::firstNone);
+                    if (none.isPresent()) {
+                        throw semanticException(COLLATION_MISMATCH, node.getSelect(), "Collations %s of column %s conflict in DISTINCT; use COLLATE to choose a collation", none.get().conflicting(), field.getName().orElse(String.valueOf(i + 1)));
+                    }
                 }
             }
             analysis.setSelectAllResultFields(allColumns, itemOutputFieldBuilder.build());

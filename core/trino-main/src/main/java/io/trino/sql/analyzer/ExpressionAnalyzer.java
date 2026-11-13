@@ -232,6 +232,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -420,6 +421,8 @@ public class ExpressionAnalyzer
     // the shapes of the values each lambda's parameters receive
     private final Map<NodeRef<LambdaExpression>, List<CollationShape>> lambdaArgumentShapes = new LinkedHashMap<>();
     private final Map<NodeRef<LambdaArgumentDeclaration>, CollationShape> lambdaParameterShapes = new LinkedHashMap<>();
+    // the shapes of the columns of subqueries
+    private final Map<NodeRef<SubqueryExpression>, List<CollationShape>> scalarSubqueryShapes = new LinkedHashMap<>();
 
     private static final Set<OperatorType> COMPARISON_OPERATORS = ImmutableSet.of(
             OperatorType.EQUAL,
@@ -587,6 +590,24 @@ public class ExpressionAnalyzer
     public Map<NodeRef<Expression>, Type> getExpressionCoercions()
     {
         return unmodifiableMap(expressionCoercions);
+    }
+
+    /// The shapes of expressions whose strings' derivations are not implicit from their type,
+    /// other than explicit ones: a string computed only from literals is coercible, and one
+    /// combining different implicit collations has derivation none. As a relation field, an
+    /// explicitly collated string is implicit.
+    public Map<NodeRef<Expression>, CollationShape> getFieldCollations()
+    {
+        return collationDerivations.entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().asField()));
+    }
+
+    /// The shapes of expressions that contain an explicitly collated string.
+    public Map<NodeRef<Expression>, CollationShape> getExplicitCollations()
+    {
+        return collationDerivations.entrySet().stream()
+                .filter(entry -> !entry.getValue().equals(entry.getValue().asField()))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     /// The expressions with a string that has no collation because it combines different implicit
@@ -1062,6 +1083,9 @@ public class ExpressionAnalyzer
             ResolvedField previous = columnReferences.put(NodeRef.of(node), resolvedField);
             checkState(previous == null, "%s already known to refer to %s", node, previous);
 
+            // a field computed only from literals stays coercible, and one combining implicit
+            // collations keeps derivation none
+            field.getCollation().ifPresent(shape -> collationDerivations.put(NodeRef.of(node), shape));
             return setExpressionType(node, field.getType());
         }
 
@@ -4507,8 +4531,16 @@ public class ExpressionAnalyzer
             Type type = analyzeSubquery(node, context);
 
             // the implied type of a scalar subquery is that of the unique field in the single-column row
+            List<CollationShape> fieldShapes = scalarSubqueryShapes.getOrDefault(NodeRef.of(node), ImmutableList.of());
             if (type instanceof RowType rowType && rowType.getFields().size() == 1) {
                 type = rowType.getFieldTypes().getFirst();
+                if (fieldShapes.size() == 1) {
+                    // a scalar subquery has the derivation of its column: a literal stays coercible
+                    recordShape(node, fieldShapes.getFirst(), type);
+                }
+            }
+            else if (fieldShapes.size() == ((RowType) type).getFields().size()) {
+                recordShape(node, new RowShape(fieldShapes), type);
             }
 
             setExpressionType(node, type);
@@ -4582,6 +4614,9 @@ public class ExpressionAnalyzer
             }
 
             sourceFields.addAll(queryScope.getRelationType().getVisibleFields());
+            scalarSubqueryShapes.put(NodeRef.of(node), queryScope.getRelationType().getVisibleFields().stream()
+                    .map(field -> field.getCollation().orElseGet(() -> CollationShapes.implicit(field.getType())))
+                    .collect(toImmutableList()));
             return RowType.from(fields.build());
         }
 
@@ -6067,6 +6102,8 @@ public class ExpressionAnalyzer
                 analyzer.getSortKeyCoercionsForFrameBoundComparison());
         analysis.addNullIfComparisonTypes(analyzer.getNullIfComparisonTypes());
         analysis.addUncollatedExpressions(analyzer.getUncollatedExpressions());
+        analysis.addFieldCollations(analyzer.getFieldCollations());
+        analysis.addExplicitCollations(analyzer.getExplicitCollations());
         analysis.addFrameBoundCalculations(analyzer.getFrameBoundCalculations());
         analyzer.getResolvedFunctions().forEach((key, value) -> analysis.addResolvedFunction(key.getNode(), value, session.getUser()));
         analyzer.getMethodCallReceivers().forEach((key, value) -> analysis.addMethodCallReceiver(key.getNode(), value));

@@ -215,20 +215,159 @@ public class TestCollateExpression
     }
 
     @Test
-    public void testRelationsDoNotCombineCollations()
+    public void testSetOperations()
     {
-        // Set operations and VALUES rows combine column types without the collation rules, so
-        // collated and uncollated columns do not combine and the query fails rather than mixing
-        // collations
-        assertThat(assertions.query("SELECT x FROM (SELECT 'a' COLLATE unicode UNION ALL SELECT 'b') t(x)"))
-                .failure().hasErrorCode(TYPE_MISMATCH);
-        assertThat(assertions.query("SELECT x FROM (VALUES 'a' COLLATE unicode, 'b') t(x)"))
-                .failure().hasErrorCode(TYPE_MISMATCH);
-        assertThat(assertions.query("SELECT x FROM (SELECT CAST('a' AS varchar COLLATE unicode) UNION SELECT CAST('a' AS varchar COLLATE unicode_ci)) t(x)"))
-                .failure().hasErrorCode(TYPE_MISMATCH);
-        // relations of one collation combine
-        assertThat(assertions.query("SELECT COLLATION FOR (x) FROM (SELECT 'a' COLLATE unicode UNION ALL SELECT 'b' COLLATE unicode) t(x)"))
+        // a literal column takes the collation of the corresponding column
+        assertThat(assertions.query("SELECT COLLATION FOR (x) FROM (SELECT 'a' COLLATE unicode UNION ALL SELECT 'b') t(x)"))
                 .matches("VALUES varchar 'unicode', varchar 'unicode'");
+        assertThat(assertions.query("SELECT COLLATION FOR (x) FROM (SELECT 'b' UNION ALL SELECT CAST('a' AS varchar COLLATE unicode_ci)) t(x)"))
+                .matches("VALUES varchar 'unicode_ci', varchar 'unicode_ci'");
+        // and the column is compared under it
+        assertThat(assertions.query("SELECT count(*) FROM (SELECT CAST('Alice' AS varchar COLLATE unicode_ci) UNION SELECT 'ALICE') t(x)"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(assertions.query("SELECT count(*), COLLATION FOR (arbitrary(x)) FROM (SELECT 'Alice' COLLATE unicode_ci INTERSECT SELECT 'ALICE') t(x)"))
+                .matches("VALUES (BIGINT '1', varchar 'unicode_ci')");
+        // a literal stays coercible through a subquery
+        assertThat(assertions.query("SELECT COLLATION FOR (x) FROM (SELECT * FROM (SELECT 'b') s(y) UNION ALL SELECT 'a' COLLATE unicode) t(x)"))
+                .matches("VALUES varchar 'unicode', varchar 'unicode'");
+
+        // different implicit collations combine without a collation, valid until compared
+        String mixed = "(SELECT CAST('a' AS varchar COLLATE unicode) UNION ALL SELECT CAST('b' AS varchar COLLATE unicode_ci)) t(x)";
+        assertThat(assertions.query("SELECT CAST(x AS varchar) FROM " + mixed))
+                .matches("VALUES varchar 'a', varchar 'b'");
+        assertThat(assertions.query("SELECT x FROM %s WHERE x = 'a'".formatted(mixed)))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+        assertThat(assertions.query("SELECT x FROM %s ORDER BY x".formatted(mixed)))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+        assertThat(assertions.query("SELECT x COLLATE unicode FROM %s ORDER BY 1".formatted(mixed)))
+                .ordered()
+                .matches("VALUES CAST('a' AS varchar COLLATE unicode), CAST('b' AS varchar COLLATE unicode)");
+        // operations that compare rows need a collation
+        for (String operation : new String[] {"UNION", "UNION DISTINCT", "INTERSECT", "EXCEPT"}) {
+            assertThat(assertions.query("SELECT CAST('a' AS varchar COLLATE unicode) %s SELECT CAST('b' AS varchar COLLATE unicode_ci)".formatted(operation)))
+                    .failure().hasErrorCode(COLLATION_MISMATCH);
+        }
+        // as relation columns, explicitly collated values are implicit, so they combine without a collation
+        assertThat(assertions.query("SELECT CAST(x AS varchar) FROM (SELECT 'a' COLLATE unicode UNION ALL SELECT 'b' COLLATE unicode_ci) t(x)"))
+                .matches("VALUES varchar 'a', varchar 'b'");
+        assertThat(assertions.query("SELECT x FROM (SELECT 'a' COLLATE unicode UNION ALL SELECT 'b' COLLATE unicode_ci) t(x) WHERE x = 'a'"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+    }
+
+    @Test
+    public void testRelationsKeepDerivations()
+    {
+        // a literal column stays coercible through a CTE, a join, and a lateral relation
+        assertThat(assertions.query("WITH c(y) AS (SELECT 'b') SELECT COLLATION FOR (x) FROM (SELECT y FROM c UNION ALL SELECT 'a' COLLATE unicode) t(x)"))
+                .matches("VALUES varchar 'unicode', varchar 'unicode'");
+        assertThat(assertions.query("SELECT COLLATION FOR (x) FROM (SELECT l.y FROM (SELECT 'b') l(y) CROSS JOIN (SELECT 1) r(z) UNION ALL SELECT 'a' COLLATE unicode) t(x)"))
+                .matches("VALUES varchar 'unicode', varchar 'unicode'");
+        // a column alias list of a WITH query keeps the derivation of each column
+        assertThat(assertions.query("WITH c(y) AS (SELECT 'b'), d AS (SELECT 'e' z) SELECT COLLATION FOR (x) FROM (SELECT y FROM c UNION ALL SELECT z FROM d UNION ALL SELECT 'a' COLLATE unicode) t(x)"))
+                .matches("VALUES varchar 'unicode', varchar 'unicode', varchar 'unicode'");
+        // a collated column keeps its collation through them
+        assertThat(assertions.query("WITH c(y) AS (SELECT 'b' COLLATE unicode) SELECT COLLATION FOR (y), y = 'B' FROM c"))
+                .matches("VALUES (varchar 'unicode', false)");
+        assertThat(assertions.query("WITH c(y) AS (SELECT 'b' COLLATE unicode_ci) SELECT count(*) FROM c JOIN (VALUES 'B') v(z) ON c.y = v.z"))
+                .matches("VALUES BIGINT '1'");
+    }
+
+    @Test
+    public void testJoinsAndSubqueries()
+    {
+        // join criteria compare columns of the joined relations under the determined collation
+        assertThat(assertions.query("SELECT count(*) FROM (SELECT CAST('a' AS varchar COLLATE unicode_ci) x) l JOIN (SELECT 'A' y) r ON l.x = r.y"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(assertions.query("SELECT count(*) FROM (SELECT CAST('a' AS varchar COLLATE unicode) x) l JOIN (SELECT CAST('a' AS varchar COLLATE unicode_ci) y) r ON l.x = r.y"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+        assertThat(assertions.query("SELECT 'ALICE' COLLATE unicode_ci IN (SELECT 'alice' COLLATE unicode_ci)"))
+                .matches("VALUES true");
+        // USING compares the key columns under the determined collation
+        assertThat(assertions.query("SELECT k FROM (SELECT CAST('A' AS varchar COLLATE unicode_ci) k) l JOIN (SELECT 'a' k) r USING (k)"))
+                .matches("VALUES CAST('A' AS varchar COLLATE unicode_ci)");
+        assertThat(assertions.query("SELECT COLLATION FOR (k) FROM (SELECT CAST('A' AS varchar COLLATE unicode_ci) k) l JOIN (SELECT 'a' k) r USING (k)"))
+                .matches("VALUES varchar 'unicode_ci'");
+        assertThat(assertions.query("SELECT * FROM (SELECT CAST('a' AS varchar COLLATE unicode) k) l JOIN (SELECT CAST('a' AS varchar COLLATE unicode_ci) k) r USING (k)"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+        // a scalar subquery has the derivation of its column, so a literal yields
+        assertThat(assertions.query("SELECT CAST('X' AS varchar COLLATE unicode_ci) = (SELECT 'x')"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT (SELECT 'A') = CAST('a' AS varchar COLLATE unicode_ci)"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT (SELECT CASE WHEN true THEN CAST('a' AS varchar COLLATE unicode) ELSE CAST('b' AS varchar COLLATE unicode_ci) END) = 'A'"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+    }
+
+    @Test
+    public void testPivot()
+    {
+        // a pivot value is compared with the pivot column under the determined collation
+        String input = "(SELECT CAST(k AS varchar COLLATE unicode_ci) k, v FROM (VALUES ('A', 1), ('a', 2), ('b', 3)) t(k, v))";
+        assertThat(assertions.query("SELECT * FROM %s PIVOT (sum(v) FOR k IN ('a' AS a, 'B' AS b))".formatted(input)))
+                .matches("VALUES (BIGINT '3', BIGINT '3')");
+        assertThat(assertions.query("SELECT * FROM (SELECT CASE WHEN true THEN CAST('a' AS varchar COLLATE unicode) ELSE CAST('b' AS varchar COLLATE unicode_ci) END k, 1 v) PIVOT (sum(v) FOR k IN ('a' AS a))"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+        // a string aggregate in a pivot keeps its argument's collation
+        assertThat(assertions.query("SELECT x = 'A' FROM (SELECT CAST(k AS varchar COLLATE unicode_ci) k, v FROM (VALUES ('a', 'x')) t(k, v)) PIVOT (listagg(k, ',') WITHIN GROUP (ORDER BY k) FOR v IN ('x' AS x))"))
+                .matches("VALUES true");
+    }
+
+    @Test
+    public void testUnnest()
+    {
+        // an unnested element, field, key, or value has its collation
+        String none = "(SELECT ARRAY[CASE WHEN rand() >= 0 THEN CAST('a' AS varchar COLLATE unicode) ELSE CAST('b' AS varchar COLLATE unicode_ci) END] a)";
+        for (String query : new String[] {
+                "SELECT x FROM %s CROSS JOIN UNNEST(a) t(x) ORDER BY x".formatted(none),
+                "SELECT x FROM %s CROSS JOIN UNNEST(a) t(x) GROUP BY x".formatted(none),
+                "SELECT x = 'A' FROM %s CROSS JOIN UNNEST(a) t(x)".formatted(none),
+        }) {
+            assertThat(assertions.query(query)).as(query)
+                    .failure().hasErrorCode(COLLATION_MISMATCH);
+        }
+        assertThat(assertions.query("SELECT x = 'A' FROM UNNEST(ARRAY[CAST('a' AS varchar COLLATE unicode_ci)]) t(x)"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT COLLATION FOR (k), COLLATION FOR (v) FROM UNNEST(map(ARRAY[CAST('k' AS varchar COLLATE unicode_ci)], ARRAY[CAST('v' AS varchar COLLATE unicode)])) t(k, v)"))
+                .matches("VALUES (varchar 'unicode_ci', varchar 'unicode')");
+        assertThat(assertions.query("SELECT f = 'A' FROM UNNEST(ARRAY[ROW(CAST('a' AS varchar COLLATE unicode_ci))]) t(f)"))
+                .matches("VALUES true");
+    }
+
+    @Test
+    public void testCompositeColumns()
+    {
+        // a composite relation column keeps the derivations of its strings
+        assertThat(assertions.query("SELECT r = ROW(CAST('A' AS varchar COLLATE unicode_ci)) FROM (SELECT ROW('a')) t(r)"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT r[1] = 'A' FROM (SELECT ROW(CASE WHEN true THEN CAST('a' AS varchar COLLATE unicode) ELSE CAST('b' AS varchar COLLATE unicode_ci) END)) t(r)"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+        assertThat(assertions.query("SELECT ARRAY[CAST('a' AS varchar COLLATE unicode)] UNION SELECT ARRAY[CAST('b' AS varchar COLLATE unicode_ci)]"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+        assertThat(assertions.query("SELECT ARRAY[CAST('a' AS varchar COLLATE unicode)] UNION ALL SELECT ARRAY[CAST('b' AS varchar COLLATE unicode_ci)]"))
+                .matches("VALUES ARRAY[varchar 'a'], ARRAY[varchar 'b']");
+        // SELECT DISTINCT * compares every column
+        assertThat(assertions.query("SELECT DISTINCT * FROM (SELECT CASE WHEN true THEN CAST('a' AS varchar COLLATE unicode) ELSE CAST('b' AS varchar COLLATE unicode_ci) END x)"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+        assertThat(assertions.query("SELECT count(*) FROM (SELECT DISTINCT * FROM (SELECT CAST('a' AS varchar COLLATE unicode_ci) x UNION ALL SELECT 'A'))"))
+                .matches("VALUES BIGINT '1'");
+    }
+
+    @Test
+    public void testValues()
+    {
+        assertThat(assertions.query("SELECT COLLATION FOR (x) FROM (VALUES 'a' COLLATE unicode, 'b') t(x)"))
+                .matches("VALUES varchar 'unicode', varchar 'unicode'");
+        assertThat(assertions.query("SELECT COLLATION FOR (y) FROM (VALUES (1, 'a'), (2, 'b' COLLATE unicode)) t(x, y)"))
+                .matches("VALUES varchar 'unicode', varchar 'unicode'");
+        assertThat(assertions.query("SELECT count(*) FROM (VALUES CAST('Alice' AS varchar COLLATE unicode_ci), 'ALICE') t(x) WHERE x = 'alice'"))
+                .matches("VALUES BIGINT '2'");
+        // an uncollated VALUES column of literals stays coercible
+        assertThat(assertions.query("SELECT COLLATION FOR (x) FROM (SELECT x FROM (VALUES 'a', 'b') v(x) UNION ALL SELECT 'c' COLLATE unicode) t(x)"))
+                .matches("VALUES varchar 'unicode', varchar 'unicode', varchar 'unicode'");
+        assertThat(assertions.query("SELECT x FROM (VALUES 'a' COLLATE unicode, 'b' COLLATE unicode_ci) t(x)"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+        assertThat(assertions.query("SELECT x FROM (VALUES CAST('a' AS varchar COLLATE unicode), CAST('b' AS varchar COLLATE unicode_ci)) t(x) ORDER BY x"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
     }
 
     @Test
