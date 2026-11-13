@@ -277,6 +277,11 @@ public class TestMemoryConnectorTest
                         noJoinReordering(joinDistributionType),
                         "SELECT CAST(p.name AS varchar) FROM %s p WHERE p.name IN (SELECT name FROM %s)".formatted(probe.getName(), build.getName()),
                         "VALUES 'Alice', 'ALICE'");
+                // an uncollated subquery column is compared under the value's collation
+                assertQuery(
+                        noJoinReordering(joinDistributionType),
+                        "SELECT CAST(p.name AS varchar) FROM %s p WHERE p.name IN (SELECT 'aLiCe')".formatted(probe.getName()),
+                        "VALUES 'Alice', 'ALICE'");
             }
             // grouping compares collation keys rather than strings
             assertThat((String) computeScalar("EXPLAIN SELECT name, count(*) FROM %s GROUP BY name".formatted(probe.getName())))

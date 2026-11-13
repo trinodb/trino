@@ -3563,7 +3563,7 @@ public class ExpressionAnalyzer
             return types.build();
         }
 
-        private TrinoException collationMismatch(Expression anchor, CollationConflictException e)
+        private TrinoException collationMismatch(Node anchor, CollationConflictException e)
         {
             if (e.derivation() == Derivation.EXPLICIT) {
                 return semanticException(COLLATION_MISMATCH, anchor, "Explicit collations %s conflict", e.collations());
@@ -4517,7 +4517,7 @@ public class ExpressionAnalyzer
             }
             else if (valueList instanceof SubqueryExpression subqueryExpression) {
                 subqueryInPredicates.add(new OperandAndPredicate(value, predicate));
-                analyzePredicateWithSubquery(predicate, process(value, context), subqueryExpression, context);
+                analyzePredicateWithSubquery(predicate, value, process(value, context), subqueryExpression, context);
             }
             else {
                 throw new IllegalArgumentException("Unexpected value list type for InPredicate: " + valueList.getClass().getName());
@@ -4558,7 +4558,7 @@ public class ExpressionAnalyzer
         /**
          * @return the common supertype between the value type and subquery type
          */
-        private Type analyzePredicateWithSubquery(Predicate predicate, Type declaredValueType, SubqueryExpression subquery, Context context)
+        private Type analyzePredicateWithSubquery(Predicate predicate, Expression value, Type declaredValueType, SubqueryExpression subquery, Context context)
         {
             Type valueRowType = declaredValueType;
             if (!(declaredValueType instanceof RowType) && !(declaredValueType instanceof UnknownType)) {
@@ -4568,7 +4568,30 @@ public class ExpressionAnalyzer
             Type subqueryType = analyzeSubquery(subquery, context);
             setExpressionType(subquery, subqueryType);
 
-            Optional<Type> commonType = typeCoercion.getCommonSuperType(valueRowType, subqueryType);
+            // The value is compared with each row of the subquery, so the strings at each position
+            // of the two are compared under the collation determined from them
+            Type comparedValueType = valueRowType;
+            Type comparedSubqueryType = subqueryType;
+            if (valueRowType instanceof RowType valueRow && subqueryType instanceof RowType subqueryRow && valueRow.getFields().size() == subqueryRow.getFields().size()) {
+                CollationShape valueShape = declaredValueType instanceof RowType ? shape(value) : new RowShape(ImmutableList.of(shape(value)));
+                List<CollationShape> subqueryColumns = scalarSubqueryShapes.getOrDefault(NodeRef.of(subquery), ImmutableList.of());
+                CollationShape subqueryShape = subqueryColumns.size() == subqueryRow.getFields().size()
+                        ? new RowShape(subqueryColumns).asField()
+                        : CollationShapes.implicit(subqueryRow);
+                if (!CollationShapes.isTrivial(valueShape, valueRow) || !CollationShapes.isTrivial(subqueryShape, subqueryRow)) {
+                    CollationShape determined;
+                    try {
+                        determined = CollationSemantics.determineShapes(ImmutableList.of(valueShape, subqueryShape));
+                    }
+                    catch (CollationConflictException e) {
+                        throw collationMismatch(predicate, e);
+                    }
+                    comparedValueType = CollationShapes.applyTo(valueRow, determined, plannerContext.getTypeManager());
+                    comparedSubqueryType = CollationShapes.applyTo(subqueryRow, determined, plannerContext.getTypeManager());
+                }
+            }
+
+            Optional<Type> commonType = typeCoercion.getCommonSuperType(comparedValueType, comparedSubqueryType);
 
             if (commonType.isEmpty()) {
                 throw semanticException(TYPE_MISMATCH, predicate, "Value expression and result of subquery must be of the same type: %s vs %s", valueRowType, subqueryType);
@@ -4686,7 +4709,7 @@ public class ExpressionAnalyzer
             quantifiedComparisons.add(new OperandAndPredicate(value, predicate));
 
             Type declaredValueType = process(value, context);
-            Type comparisonType = analyzePredicateWithSubquery(predicate, declaredValueType, (SubqueryExpression) predicate.getSubquery(), context);
+            Type comparisonType = analyzePredicateWithSubquery(predicate, value, declaredValueType, (SubqueryExpression) predicate.getSubquery(), context);
 
             switch (predicate.getOperator()) {
                 case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> {
@@ -4709,7 +4732,7 @@ public class ExpressionAnalyzer
             matchPredicates.add(new OperandAndPredicate(value, predicate));
 
             Type declaredValueType = process(value, context);
-            Type comparisonType = analyzePredicateWithSubquery(predicate, declaredValueType, (SubqueryExpression) predicate.getSubquery(), context);
+            Type comparisonType = analyzePredicateWithSubquery(predicate, value, declaredValueType, (SubqueryExpression) predicate.getSubquery(), context);
 
             if (!comparisonType.isComparable()) {
                 throw semanticException(TYPE_MISMATCH, anchor, "Type [%s] must be comparable in order to be used in MATCH predicate", comparisonType);

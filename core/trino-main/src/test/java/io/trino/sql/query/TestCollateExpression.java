@@ -302,6 +302,34 @@ public class TestCollateExpression
                 .failure().hasErrorCode(COLLATION_MISMATCH);
         assertThat(assertions.query("SELECT 'ALICE' COLLATE unicode_ci IN (SELECT 'alice' COLLATE unicode_ci)"))
                 .matches("VALUES true");
+        // a subquery's rows are compared with the value under the determined collation
+        assertThat(assertions.query("SELECT 'ALICE' COLLATE unicode_ci IN (SELECT 'alice')"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT 'ALICE' IN (SELECT 'alice' COLLATE unicode_ci)"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT 'ALICE' IN (SELECT 'alice')"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT CAST('ALICE' AS varchar COLLATE unicode_ci) IN (SELECT x FROM (VALUES 'alice', 'bob') t(x))"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT count(*) FROM (VALUES 'Alice', 'ALICE', 'carol') v(x) WHERE x COLLATE unicode_ci IN (SELECT 'alice')"))
+                .matches("VALUES BIGINT '2'");
+        assertThat(assertions.query("SELECT count(*) FROM (VALUES 'Alice', 'ALICE', 'carol') v(x) WHERE x COLLATE unicode_ci NOT IN (SELECT 'alice')"))
+                .matches("VALUES BIGINT '1'");
+        // quantified comparisons and rows of several columns
+        assertThat(assertions.query("SELECT 'ALICE' COLLATE unicode_ci = ANY (SELECT 'alice')"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT 'b' COLLATE unicode_ci > ALL (SELECT x FROM (VALUES 'A', 'a') t(x))"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT ROW(1, 'ALICE' COLLATE unicode_ci) IN (SELECT 1, 'alice')"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT ROW(1, 'ALICE' COLLATE unicode_ci) MATCH (VALUES (1, 'alice'))"))
+                .matches("VALUES true");
+        // collations that cannot be determined
+        assertThat(assertions.query("SELECT CAST('a' AS varchar COLLATE unicode) IN (SELECT CAST('a' AS varchar COLLATE unicode_ci))"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
+        // as a subquery column, an explicitly collated value is implicit, so the value's explicit collation wins
+        assertThat(assertions.query("SELECT 'A' COLLATE unicode_ci IN (SELECT 'a' COLLATE unicode)"))
+                .matches("VALUES true");
         // USING compares the key columns under the determined collation
         assertThat(assertions.query("SELECT k FROM (SELECT CAST('A' AS varchar COLLATE unicode_ci) k) l JOIN (SELECT 'a' k) r USING (k)"))
                 .matches("VALUES CAST('A' AS varchar COLLATE unicode_ci)");
@@ -579,6 +607,18 @@ public class TestCollateExpression
                 .matches("VALUES (true, varchar 'unicode_ci')");
         assertThat(assertions.query("SELECT DISTINCT max(x) OVER () = 'B' FROM %s".formatted(values)))
                 .matches("VALUES true");
+    }
+
+    @Test
+    public void testCompositeSubqueries()
+    {
+        // the strings inside composite values are compared with a subquery's under the determined collations
+        assertThat(assertions.query("SELECT ARRAY['A'] IN (SELECT ARRAY[CAST('a' AS varchar COLLATE unicode_ci)])"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT ROW(1, ARRAY['A']) IN (SELECT 1, ARRAY[CAST('a' AS varchar COLLATE unicode_ci)])"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT ARRAY[CAST('a' AS varchar COLLATE unicode)] IN (SELECT ARRAY[CAST('a' AS varchar COLLATE unicode_ci)])"))
+                .failure().hasErrorCode(COLLATION_MISMATCH);
     }
 
     @Test
