@@ -379,6 +379,7 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(createTimeType(6), new LocalTime(LOCATION, 6));
 
         assertInvalidValueExpression(INTEGER, new LocalTime(LOCATION), "line 1:1: 'localtime' is not a valid INTEGER literal");
+        assertInvalidDefaultColumnValue(createTimeType(0), new LocalTime(LOCATION, 3), "Value too large");
     }
 
     @Test
@@ -402,7 +403,7 @@ final class TestColumnDefaultOptions
         assertInvalidValueExpression(createVarcharType(127), CURRENT_USER, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
         assertInvalidValueExpression(createCharType(127), CURRENT_USER, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
 
-        assertInvalidValueExpression(INTEGER, CURRENT_USER, "line 1:1: 'CURRENT_USER' is not a valid INTEGER literal");
+        assertInvalidValueExpression(INTEGER, CURRENT_USER, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires a character string column");
     }
 
     @Test
@@ -415,7 +416,7 @@ final class TestColumnDefaultOptions
         assertInvalidValueExpression(createVarcharType(127), CURRENT_CATALOG, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
         assertInvalidValueExpression(createCharType(127), CURRENT_CATALOG, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
 
-        assertInvalidValueExpression(INTEGER, CURRENT_CATALOG, "line 1:1: 'CURRENT_CATALOG' is not a valid INTEGER literal");
+        assertInvalidValueExpression(INTEGER, CURRENT_CATALOG, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires a character string column");
     }
 
     @Test
@@ -428,7 +429,7 @@ final class TestColumnDefaultOptions
         assertInvalidValueExpression(createVarcharType(127), CURRENT_SCHEMA, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
         assertInvalidValueExpression(createCharType(127), CURRENT_SCHEMA, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
 
-        assertInvalidValueExpression(INTEGER, CURRENT_SCHEMA, "line 1:1: 'CURRENT_SCHEMA' is not a valid INTEGER literal");
+        assertInvalidValueExpression(INTEGER, CURRENT_SCHEMA, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires a character string column");
     }
 
     @Test
@@ -441,7 +442,7 @@ final class TestColumnDefaultOptions
         assertInvalidValueExpression(createVarcharType(1030), CURRENT_PATH, "CURRENT_PATH requires at least 1031 length");
         assertInvalidValueExpression(createCharType(1030), CURRENT_PATH, "CURRENT_PATH requires at least 1031 length");
 
-        assertInvalidValueExpression(INTEGER, CURRENT_PATH, "line 1:1: 'CURRENT_PATH' is not a valid INTEGER literal");
+        assertInvalidValueExpression(INTEGER, CURRENT_PATH, "CURRENT_PATH requires a character string column");
     }
 
     private void assertDefaultColumnValue(Type columnType, Expression expression)
