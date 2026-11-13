@@ -16,6 +16,8 @@
     <properties>
         <!-- TODO enable @GuardedBy checks in trino-main -->
         <trino.error-prone.guarded-by>WARN</trino.error-prone.guarded-by>
+        <!-- Arrow spooling encoding: arrow-memory-core reflects into java.nio -->
+        <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default} --add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
     </properties>
 
     <dependencies>
@@ -326,6 +328,16 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-memory-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-vector</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
         </dependency>
@@ -381,6 +393,13 @@
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <!-- TODO: replace with arrow-memory-ffm once https://github.com/apache/arrow-java/pull/1334 is released -->
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-memory-unsafe</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
