@@ -303,7 +303,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         this.stageEstimationForEagerParentEnabled = isFaultTolerantExecutionStageEstimationForEagerParentEnabled(queryStateMachine.getSession());
 
-        stageRegistry = new StageRegistry(queryStateMachine, originalPlan);
+        stageRegistry = new StageRegistry(queryStateMachine, metadata, originalPlan);
     }
 
     @Override
@@ -457,13 +457,17 @@ public class EventDrivenFaultTolerantQueryScheduler
     private static class StageRegistry
     {
         private final QueryStateMachine queryStateMachine;
+        private final Metadata metadata;
         private final AtomicReference<SubPlan> plan;
         private final Map<StageId, SqlStage> stages = new ConcurrentHashMap<>();
+        private final Map<PlanFragmentId, Map<PlanNodeId, TableInfo>> tables = new ConcurrentHashMap<>();
 
-        public StageRegistry(QueryStateMachine queryStateMachine, SubPlan plan)
+        public StageRegistry(QueryStateMachine queryStateMachine, Metadata metadata, SubPlan plan)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
-            this.plan = new AtomicReference<>(requireNonNull(plan, "plan is null"));
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            collectTables(requireNonNull(plan, "plan is null"));
+            this.plan = new AtomicReference<>(plan);
         }
 
         public void add(SqlStage stage)
@@ -473,7 +477,23 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public void updatePlan(SubPlan plan)
         {
-            this.plan.set(requireNonNull(plan, "plan is null"));
+            // tables are collected before the plan is published, as stages which are not created yet are reported with them
+            collectTables(requireNonNull(plan, "plan is null"));
+            this.plan.set(plan);
+        }
+
+        public Map<PlanNodeId, TableInfo> getTables(PlanFragmentId fragmentId)
+        {
+            Map<PlanNodeId, TableInfo> fragmentTables = tables.get(fragmentId);
+            checkArgument(fragmentTables != null, "Tables are not collected for fragment %s", fragmentId);
+            return fragmentTables;
+        }
+
+        private void collectTables(SubPlan plan)
+        {
+            for (PlanFragment fragment : plan.getAllFragments()) {
+                tables.computeIfAbsent(fragment.getId(), _ -> TableInfo.extract(queryStateMachine.getSession(), metadata, fragment));
+            }
         }
 
         public StagesInfo getStages()
@@ -503,7 +523,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                     stageInfo = StageInfo.createInitial(
                             queryStateMachine.getQueryId(),
                             queryStateMachine.getQueryState().isDone() ? ABORTED : PLANNED,
-                            fragments.get(fragmentId));
+                            fragments.get(fragmentId),
+                            getTables(fragmentId));
                 }
                 reportedStageInfos.put(fragmentId, stageInfo);
             });
@@ -1461,7 +1482,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         metadata,
                         stageId,
                         fragment,
-                        TableInfo.extract(session, metadata, fragment),
+                        stageRegistry.getTables(fragment.getId()),
                         remoteTaskFactory,
                         session,
                         summarizeTaskInfo,
