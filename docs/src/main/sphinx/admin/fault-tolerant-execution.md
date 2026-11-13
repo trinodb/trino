@@ -419,6 +419,14 @@ the property may be configured for:
     store spooling data.
   -
   - Any
+* - `exchange.commit-manifest-enabled`
+  - Record data file paths and sizes in the committed marker file. Source handle
+    discovery reads this manifest directly instead of listing exchange files.
+    Cleanup deletes known files directly; attempts without a cached manifest
+    still require recursive cleanup. Configure the same value on the coordinator
+    and all workers.
+  - `false`
+  - AWS S3, local filesystem, HDFS
 * - `exchange.max-page-storage-size`
   - Max storage size of a page written to a sink, including the page itself
     and its size.

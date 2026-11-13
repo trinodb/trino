@@ -46,6 +46,7 @@ public class FileSystemExchangeConfig
     private int maxOutputPartitionCount = 50;
     private int exchangeFileListingParallelism = 50;
     private DataSize exchangeSourceHandleTargetDataSize = DataSize.of(256, MEGABYTE);
+    private boolean commitManifestEnabled;
 
     @NotNull
     @NotEmpty(message = "At least one base directory needs to be configured")
@@ -191,6 +192,19 @@ public class FileSystemExchangeConfig
     public FileSystemExchangeConfig setExchangeSourceHandleTargetDataSize(DataSize exchangeSourceHandleTargetDataSize)
     {
         this.exchangeSourceHandleTargetDataSize = exchangeSourceHandleTargetDataSize;
+        return this;
+    }
+
+    public boolean isCommitManifestEnabled()
+    {
+        return commitManifestEnabled;
+    }
+
+    @Config("exchange.commit-manifest-enabled")
+    @ConfigDescription("Write a commit manifest containing written file paths and sizes, avoiding an expensive directory listing when resolving exchange source handles")
+    public FileSystemExchangeConfig setCommitManifestEnabled(boolean commitManifestEnabled)
+    {
+        this.commitManifestEnabled = commitManifestEnabled;
         return this;
     }
 }

@@ -47,12 +47,17 @@ public class FileSystemExchangeModule
 
         binder.bind(FileSystemExchangeManager.class).in(Scopes.SINGLETON);
 
-        List<URI> baseDirectories = buildConfigObject(FileSystemExchangeConfig.class).getBaseDirectories();
+        FileSystemExchangeConfig config = buildConfigObject(FileSystemExchangeConfig.class);
+        List<URI> baseDirectories = config.getBaseDirectories();
         if (baseDirectories.stream().map(URI::getScheme).distinct().count() != 1) {
             binder.addError(new TrinoException(CONFIGURATION_INVALID, "Multiple schemes in exchange base directories"));
             return;
         }
         String scheme = baseDirectories.get(0).getScheme();
+        if (config.isCommitManifestEnabled() && ImmutableSet.of("gs", "abfs", "abfss").contains(scheme)) {
+            binder.addError(new TrinoException(NOT_SUPPORTED, "Commit manifests are not supported for exchange spooling storage scheme %s".formatted(scheme)));
+            return;
+        }
         if (scheme == null || scheme.equals("file")) {
             binder.bind(FileSystemExchangeStorage.class).to(LocalFileSystemExchangeStorage.class).in(Scopes.SINGLETON);
         }
