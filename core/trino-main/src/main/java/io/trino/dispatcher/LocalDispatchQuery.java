@@ -325,6 +325,12 @@ public class LocalDispatchQuery
         stateMachine.addStateChangeListener(stateChangeListener);
     }
 
+    @Override
+    public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
+    }
+
     private Optional<QueryExecution> tryGetQueryExecution()
     {
         try {

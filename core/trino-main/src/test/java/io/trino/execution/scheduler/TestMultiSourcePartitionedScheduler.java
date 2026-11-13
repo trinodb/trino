@@ -99,6 +99,7 @@ import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QU
 import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
 import static io.trino.execution.scheduler.StageExecution.State.PLANNED;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING;
+import static io.trino.execution.scheduler.faulttolerant.EventDrivenFaultTolerantQueryScheduler.NO_FINAL_TASK_INFO_CHECK_INTERVAL;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
@@ -638,7 +639,8 @@ public class TestMultiSourcePartitionedScheduler
                 outputBuffers.buildOrThrow(),
                 TaskLifecycleListener.NO_OP,
                 TestingInternalNodeManager.createDefault(),
-                queryExecutor,
+                scheduledExecutor,
+                NO_FINAL_TASK_INFO_CHECK_INTERVAL,
                 Optional.of(new int[] {0}),
                 OptionalInt.empty(),
                 0);

@@ -125,6 +125,12 @@ public class FailedDispatchQuery
     }
 
     @Override
+    public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        executor.execute(() -> stateChangeListener.stateChanged(fullQueryInfo));
+    }
+
+    @Override
     public void startWaitingForResources() {}
 
     @Override

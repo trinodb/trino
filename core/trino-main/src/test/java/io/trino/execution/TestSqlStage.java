@@ -79,6 +79,10 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.SqlStage.createSqlStage;
+import static io.trino.execution.StageState.FAILED;
+import static io.trino.execution.TaskState.ABORTED;
+import static io.trino.execution.TaskState.CANCELING;
+import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static io.trino.execution.TaskTestUtils.SPLIT;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
@@ -280,20 +284,91 @@ public class TestSqlStage
         stage.finish();
     }
 
-    private void createTestTask(SqlStage stage, int partition)
+    @Test
+    public void testFinishContinuesPastTaskWhoseCancelThrows()
+    {
+        SqlStage stage = createStage();
+        MockRemoteTaskFactory.MockRemoteTask first = createTestTask(stage, 0);
+        MockRemoteTaskFactory.MockRemoteTask failing = createTestTask(stage, 1);
+        MockRemoteTaskFactory.MockRemoteTask last = createTestTask(stage, 2);
+        failing.failTerminationWith(new RuntimeException("cancel failed"));
+
+        // one task's cancel throws; a mock task stays CANCELING until its splits are cleared
+        stage.finish();
+
+        assertThat(first.getTaskStatus().state()).isEqualTo(CANCELING);
+        assertThat(last.getTaskStatus().state()).isEqualTo(CANCELING);
+        assertThat(failing.getTaskStatus().state()).isEqualTo(RUNNING);
+    }
+
+    @Test
+    public void testAbortContinuesPastTaskWhoseAbortThrows()
+    {
+        SqlStage stage = createStage();
+        MockRemoteTaskFactory.MockRemoteTask first = createTestTask(stage, 0);
+        MockRemoteTaskFactory.MockRemoteTask failing = createTestTask(stage, 1);
+        MockRemoteTaskFactory.MockRemoteTask last = createTestTask(stage, 2);
+        failing.failTerminationWith(new RuntimeException("abort failed"));
+
+        // one task's abort throws
+        stage.abort();
+
+        assertThat(first.getTaskStatus().state()).isEqualTo(ABORTED);
+        assertThat(last.getTaskStatus().state()).isEqualTo(ABORTED);
+        assertThat(failing.getTaskStatus().state()).isEqualTo(RUNNING);
+    }
+
+    @Test
+    public void testFailContinuesPastTaskWhoseAbortThrows()
+    {
+        SqlStage stage = createStage();
+        MockRemoteTaskFactory.MockRemoteTask first = createTestTask(stage, 0);
+        MockRemoteTaskFactory.MockRemoteTask failing = createTestTask(stage, 1);
+        MockRemoteTaskFactory.MockRemoteTask last = createTestTask(stage, 2);
+        failing.failTerminationWith(new RuntimeException("abort failed"));
+
+        // one task's abort throws
+        stage.fail(new RuntimeException("stage failed"));
+
+        assertThat(stage.getState()).isEqualTo(FAILED);
+        assertThat(first.getTaskStatus().state()).isEqualTo(ABORTED);
+        assertThat(last.getTaskStatus().state()).isEqualTo(ABORTED);
+        assertThat(failing.getTaskStatus().state()).isEqualTo(RUNNING);
+    }
+
+    private SqlStage createStage()
+    {
+        return createSqlStage(
+                dummyMetadata(),
+                new StageId(new QueryId("query"), 0),
+                createScanPlanFragment(),
+                ImmutableMap.of(),
+                new MockRemoteTaskFactory(executor, scheduledExecutor),
+                TEST_SESSION,
+                true,
+                new NodeTaskMap(new FinalizerService()),
+                executor,
+                noopTracer(),
+                Span.getInvalid(),
+                new SplitSchedulerStats(),
+                (_, _) -> OptionalInt.empty());
+    }
+
+    private MockRemoteTaskFactory.MockRemoteTask createTestTask(SqlStage stage, int partition)
     {
         InternalNode node = new InternalNode("node" + partition, URI.create("http://node/" + partition), NodeVersion.UNKNOWN, false);
-        stage.createTask(
-                node,
-                partition,
-                0,
-                Optional.empty(),
-                OptionalInt.empty(),
-                PipelinedOutputBuffers.createInitial(ARBITRARY),
-                ImmutableListMultimap.of(TABLE_SCAN_NODE_ID, SPLIT.split()),
-                ImmutableSet.of(),
-                Optional.empty(),
-                false);
+        return (MockRemoteTaskFactory.MockRemoteTask) stage.createTask(
+                        node,
+                        partition,
+                        0,
+                        Optional.empty(),
+                        OptionalInt.empty(),
+                        PipelinedOutputBuffers.createInitial(ARBITRARY),
+                        ImmutableListMultimap.of(TABLE_SCAN_NODE_ID, SPLIT.split()),
+                        ImmutableSet.of(),
+                        Optional.empty(),
+                        false)
+                .orElseThrow();
     }
 
     private void testFinalStageInfoInternal()

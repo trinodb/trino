@@ -312,6 +312,31 @@ public class EventDrivenFaultTolerantQueryScheduler
         checkState(!started, "already started");
         started = true;
 
+        // when query is done, attempt to transition query to "final query info ready".
+        // Registered before the isDone check so a query already done fires it at once
+        queryStateMachine.addStateChangeListener(state -> {
+            if (!state.isDone()) {
+                return;
+            }
+            Scheduler scheduler;
+            synchronized (this) {
+                scheduler = this.scheduler;
+                this.scheduler = null;
+            }
+            try {
+                if (scheduler != null) {
+                    scheduler.abort();
+                }
+            }
+            catch (RuntimeException e) {
+                // the query is done; whatever failed here must not keep the final query info from being published
+                log.error(e, "Error ending the stages of query %s", queryStateMachine.getQueryId());
+            }
+            finally {
+                publishFinalQueryInfo();
+            }
+        });
+
         if (queryStateMachine.isDone()) {
             return;
         }
@@ -323,23 +348,18 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
         });
 
-        // when query is done, attempt to transition query to "final query info ready"
-        queryStateMachine.addStateChangeListener(state -> {
-            if (!state.isDone()) {
-                return;
-            }
-            Scheduler scheduler;
-            synchronized (this) {
-                scheduler = this.scheduler;
-                this.scheduler = null;
-            }
-            if (scheduler != null) {
-                scheduler.abort();
-            }
-            queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStages()));
-        });
-
         startAttempt();
+    }
+
+    // An error while building the query info is logged and the publication is retried by the next final stage info
+    private void publishFinalQueryInfo()
+    {
+        try {
+            queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStages()));
+        }
+        catch (RuntimeException e) {
+            log.error(e, "Error updating the query info of query %s", queryStateMachine.getQueryId());
+        }
     }
 
     private synchronized void startAttempt()
