@@ -4187,9 +4187,14 @@ public abstract class BaseConnectorTest
                 .orElse(65536 + 5);
 
         String validSchemaName = baseSchemaName + "z".repeat(maxLength - baseSchemaName.length());
-        assertUpdate(createSchemaSql(validSchemaName));
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(validSchemaName);
-        assertUpdate("DROP SCHEMA " + validSchemaName);
+        try {
+            assertUpdate(createSchemaSql(validSchemaName));
+            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(validSchemaName);
+            assertUpdate("DROP SCHEMA " + validSchemaName);
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + validSchemaName);
+        }
 
         if (maxSchemaNameLength().isEmpty()) {
             return;
