@@ -88,6 +88,21 @@ public class TestStaticTokenAwareMetastoreClientFactory
     }
 
     @Test
+    public void testHttpMetastoreFallback()
+            throws TException
+    {
+        String defaultUri = "https://default/metastore";
+        String fallbackUri = "https://fallback:8443/metastore";
+        StaticMetastoreConfig config = new StaticMetastoreConfig().setMetastoreUris(ImmutableList.of(defaultUri, fallbackUri));
+
+        TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(config, ImmutableMap.of(defaultUri, Optional.empty(), fallbackUri, Optional.of(FALLBACK_CLIENT)));
+        assertEqualHiveClient(clientFactory.createMetastoreClient(Optional.empty()), FALLBACK_CLIENT);
+
+        // URIs without a port are reported by host only
+        assertCreateClientFails(createMetastoreClientFactory(config, ImmutableMap.of()), "Failed connecting to Hive metastore: [default, fallback:8443]");
+    }
+
+    @Test
     public void testFallbackHiveMetastoreWithHiveUser()
             throws TException
     {
