@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.inject.Inject;
 import io.trino.FeaturesConfig;
+import io.trino.FullConnectorSession;
 import io.trino.cache.NonEvictableCache;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
@@ -47,6 +48,7 @@ import java.lang.invoke.MethodType;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.primitives.Primitives.wrap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
@@ -61,10 +63,15 @@ import static java.util.Objects.requireNonNull;
 public class FunctionManager
 {
     private static final boolean ASSERTIONS_ENABLED = FunctionManager.class.desiredAssertionStatus();
+    private static final MethodHandle CHECK_CONNECTOR_SESSION_BOUND;
     private static final MethodHandle NEVER_FAILS_VIOLATED;
 
     static {
         try {
+            CHECK_CONNECTOR_SESSION_BOUND = MethodHandles.lookup().findStatic(
+                    FunctionManager.class,
+                    "checkConnectorSessionBound",
+                    MethodType.methodType(ConnectorSession.class, CatalogHandle.class, ConnectorSession.class));
             NEVER_FAILS_VIOLATED = MethodHandles.lookup().findStatic(
                     FunctionManager.class,
                     "neverFailsViolated",
@@ -130,10 +137,45 @@ public class FunctionManager
         }
 
         verifyMethodHandleSignature(resolvedFunction.signature(), scalarFunctionImplementation, invocationConvention);
+        if (ASSERTIONS_ENABLED && isConnectorFunction(resolvedFunction)) {
+            scalarFunctionImplementation = verifyConnectorSessionBound(resolvedFunction.catalogHandle(), scalarFunctionImplementation);
+        }
         if (ASSERTIONS_ENABLED && resolvedFunction.neverFails()) {
             scalarFunctionImplementation = reportIfNeverFailsViolated(resolvedFunction, scalarFunctionImplementation);
         }
         return scalarFunctionImplementation;
+    }
+
+    /**
+     * Whether the function runs connector code, which reads catalog session properties from a session bound to its own catalog.
+     */
+    public static boolean isConnectorFunction(ResolvedFunction resolvedFunction)
+    {
+        return !resolvedFunction.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE) && !isTrinoSqlLanguageFunction(resolvedFunction.functionId());
+    }
+
+    private static ScalarFunctionImplementation verifyConnectorSessionBound(CatalogHandle catalogHandle, ScalarFunctionImplementation scalarFunctionImplementation)
+    {
+        MethodHandle target = scalarFunctionImplementation.getMethodHandle();
+        MethodHandle checkSession = MethodHandles.insertArguments(CHECK_CONNECTOR_SESSION_BOUND, 0, catalogHandle);
+        for (int parameterIndex = 0; parameterIndex < target.type().parameterCount(); parameterIndex++) {
+            if (target.type().parameterType(parameterIndex).equals(ConnectorSession.class)) {
+                target = MethodHandles.filterArguments(target, parameterIndex, checkSession);
+            }
+        }
+        return withMethodHandle(scalarFunctionImplementation, target);
+    }
+
+    private static ConnectorSession checkConnectorSessionBound(CatalogHandle catalogHandle, ConnectorSession connectorSession)
+    {
+        if (connectorSession instanceof FullConnectorSession fullConnectorSession) {
+            checkState(
+                    catalogHandle.equals(fullConnectorSession.getCatalogHandle()),
+                    "ConnectorSession is bound to %s, but the function is from %s",
+                    fullConnectorSession.getCatalogHandle(),
+                    catalogHandle);
+        }
+        return connectorSession;
     }
 
     private static ScalarFunctionImplementation reportIfNeverFailsViolated(ResolvedFunction resolvedFunction, ScalarFunctionImplementation scalarFunctionImplementation)
@@ -144,8 +186,13 @@ public class FunctionManager
         MethodHandle throwViolation = MethodHandles.filterArguments(thrower, 0, constructViolation);
         MethodHandle wrapped = MethodHandles.catchException(target, Throwable.class, throwViolation);
 
+        return withMethodHandle(scalarFunctionImplementation, wrapped);
+    }
+
+    private static ScalarFunctionImplementation withMethodHandle(ScalarFunctionImplementation scalarFunctionImplementation, MethodHandle methodHandle)
+    {
         return ScalarFunctionImplementation.builder()
-                .methodHandle(wrapped)
+                .methodHandle(methodHandle)
                 .instanceFactory(scalarFunctionImplementation.getInstanceFactory())
                 .lambdaInterfaces(scalarFunctionImplementation.getLambdaInterfaces())
                 .build();

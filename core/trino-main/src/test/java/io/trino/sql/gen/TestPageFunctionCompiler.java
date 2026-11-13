@@ -25,6 +25,8 @@ import io.trino.json.JsonItems;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.metadata.TestingCatalogFunction;
+import io.trino.metadata.TestingCatalogFunction.BindingCountingSession;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.TestingSourcePage;
 import io.trino.operator.project.PageFilter;
@@ -41,6 +43,7 @@ import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -95,6 +98,7 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
+import static io.trino.operator.scalar.SessionFunctions.CURRENT_USER_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -132,6 +136,67 @@ public class TestPageFunctionCompiler
             FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
             new Reference(BIGINT, "$col_0"),
             new Constant(BIGINT, 10L));
+
+    @Test
+    public void testCatalogFunctionReadsItsOwnCatalogSessionProperty()
+    {
+        TestingFunctionResolution functionResolution = TestingCatalogFunction.functionResolution();
+        PageProjection projection = functionResolution.getPageFunctionCompiler()
+                .compileProjection(
+                        new Call(TestingCatalogFunction.MULTIPLY, ImmutableList.of(new Reference(BIGINT, "$col_0"))),
+                        ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0),
+                        SQL_STANDARD,
+                        Optional.empty())
+                .get();
+
+        BindingCountingSession session = new BindingCountingSession(TestingCatalogFunction.session());
+        Page page = new Page(createLongsBlock(1L, 2L, 3L));
+        Block result = project(projection, session, page, SelectedPositions.positionsRange(0, 3));
+        assertBlockValues(result, 3L, 6L, 9L);
+        // the session is bound once for the page
+        assertThat(session.getBindings()).isEqualTo(1);
+    }
+
+    @Test
+    public void testBuiltInFunctionDoesNotBindSession()
+    {
+        TestingFunctionResolution functionResolution = TestingCatalogFunction.functionResolution();
+        PageProjection projection = functionResolution.getPageFunctionCompiler()
+                .compileProjection(
+                        call(functionResolution.resolveFunction(CURRENT_USER_FUNCTION_NAME, ImmutableList.of())),
+                        ImmutableMap.of(),
+                        SQL_STANDARD,
+                        Optional.empty())
+                .get();
+
+        BindingCountingSession session = new BindingCountingSession(TestingCatalogFunction.session());
+        Block result = project(projection, session, new Page(3), SelectedPositions.positionsRange(0, 3));
+        assertThat(result.getPositionCount()).isEqualTo(3);
+        assertThat(session.getBindings()).isEqualTo(0);
+    }
+
+    @Test
+    public void testCatalogFunctionInLambdaReadsItsOwnCatalogSessionProperty()
+    {
+        TestingFunctionResolution functionResolution = TestingCatalogFunction.functionResolution();
+        ArrayType arrayType = new ArrayType(BIGINT);
+        ResolvedFunction transform = functionResolution.resolveFunction(ARRAY_TRANSFORM_NAME, fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BIGINT)));
+        PageProjection projection = functionResolution.getPageFunctionCompiler()
+                .compileProjection(
+                        call(transform,
+                                new Reference(arrayType, "$col_0"),
+                                new Lambda(
+                                        ImmutableList.of(new Symbol(BIGINT, "x")),
+                                        new Call(TestingCatalogFunction.MULTIPLY, ImmutableList.of(new Reference(BIGINT, "x"))))),
+                        ImmutableMap.of(new Symbol(arrayType, "$col_0"), 0),
+                        SQL_STANDARD,
+                        Optional.empty())
+                .get();
+
+        Page page = createSingleArrayPage(arrayType, 1, 2, 3);
+        Block result = project(projection, TestingCatalogFunction.session().toConnectorSession(), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(arrayType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(3L, 6L, 9L));
+    }
 
     @Test
     public void testFailureDoesNotCorruptFutureResults()
@@ -718,9 +783,14 @@ public class TestPageFunctionCompiler
 
     private Block project(PageProjection projection, Page page, SelectedPositions selectedPositions)
     {
+        return project(projection, SESSION, page, selectedPositions);
+    }
+
+    private Block project(PageProjection projection, ConnectorSession session, Page page, SelectedPositions selectedPositions)
+    {
         SourcePage sourcePage = SourcePage.create(page);
         SourcePage inputPage = projection.getInputChannels().getInputChannels(sourcePage);
-        return projection.project(SESSION, inputPage, selectedPositions);
+        return projection.project(session, inputPage, selectedPositions);
     }
 
     private static Page createPageWithBlockAtChannel2(Block block)
