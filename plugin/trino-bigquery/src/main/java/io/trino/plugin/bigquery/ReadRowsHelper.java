@@ -13,11 +13,13 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.api.gax.rpc.ServerStream;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import io.airlift.log.Logger;
 
+import java.io.Closeable;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -38,39 +40,40 @@ public class ReadRowsHelper
         this.maxReadRowsRetries = maxReadRowsRetries;
     }
 
-    public Iterator<ReadRowsResponse> readRows()
+    ReadRowsIterator readRows()
     {
-        Iterator<ReadRowsResponse> serverResponses = fetchResponses(0);
-        return new ReadRowsIterator(this, serverResponses);
+        return new ReadRowsIterator(this, fetchResponses(0));
     }
 
     // In order to enable testing
-    protected Iterator<ReadRowsResponse> fetchResponses(long offset)
+    protected ServerStream<ReadRowsResponse> fetchResponses(long offset)
     {
         log.debug("Reading rows from %s offset %s", streamName, offset);
         return client.readRowsCallable()
                 .call(ReadRowsRequest.newBuilder()
                         .setReadStream(streamName)
                         .setOffset(offset)
-                        .build())
-                .iterator();
+                        .build());
     }
 
     // Ported from https://github.com/GoogleCloudDataproc/spark-bigquery-connector/pull/150
-    private static class ReadRowsIterator
-            implements Iterator<ReadRowsResponse>
+    static final class ReadRowsIterator
+            implements Iterator<ReadRowsResponse>, Closeable
     {
         private final ReadRowsHelper helper;
         private long nextOffset;
+        private volatile ServerStream<ReadRowsResponse> serverStream;
         private Iterator<ReadRowsResponse> serverResponses;
         private int retries;
+        private volatile boolean closed;
 
         public ReadRowsIterator(
                 ReadRowsHelper helper,
-                Iterator<ReadRowsResponse> serverResponses)
+                ServerStream<ReadRowsResponse> serverStream)
         {
             this.helper = helper;
-            this.serverResponses = serverResponses;
+            this.serverStream = serverStream;
+            this.serverResponses = serverStream.iterator();
         }
 
         @Override
@@ -93,7 +96,11 @@ public class ReadRowsHelper
                     // if relevant, retry the read, from the last read position
                     if (BigQueryUtil.isRetryable(e) && retries < helper.maxReadRowsRetries) {
                         log.debug("Request failed, retrying: %s", e);
-                        serverResponses = helper.fetchResponses(nextOffset);
+                        serverStream = helper.fetchResponses(nextOffset);
+                        serverResponses = serverStream.iterator();
+                        if (closed) {
+                            serverStream.cancel();
+                        }
                         retries++;
                     }
                     else {
@@ -105,6 +112,14 @@ public class ReadRowsHelper
             while (serverResponses.hasNext());
 
             throw new NoSuchElementException("No more server responses");
+        }
+
+        @Override
+        public void close()
+        {
+            closed = true;
+            // Closing the client does not cancel in-flight calls, which keep holding read connection quota
+            serverStream.cancel();
         }
     }
 }

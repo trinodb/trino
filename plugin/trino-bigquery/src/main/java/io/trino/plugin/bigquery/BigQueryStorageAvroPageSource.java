@@ -101,7 +101,7 @@ public class BigQueryStorageAvroPageSource
     private final AtomicLong readTimeNanos = new AtomicLong();
     private final PageBuilder pageBuilder;
     private final MemoryContext memoryContext;
-    private final Iterator<ReadRowsResponse> responses;
+    private final ReadRowsHelper.ReadRowsIterator responses;
 
     private CompletableFuture<ReadRowsResponse> nextResponse;
     private boolean finished;
@@ -339,6 +339,7 @@ public class BigQueryStorageAvroPageSource
     @Override
     public void close()
     {
+        responses.close();
         nextResponse.cancel(true);
         bigQueryReadClient.close();
     }

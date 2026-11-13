@@ -31,7 +31,6 @@ import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -57,7 +56,7 @@ public class BigQueryStorageArrowPageSource
     private final BigQuerySplit split;
     private final PageBuilder pageBuilder;
     private final MemoryContext memoryContext;
-    private final Iterator<ReadRowsResponse> responses;
+    private final ReadRowsHelper.ReadRowsIterator responses;
 
     private CompletableFuture<ReadRowsResponse> nextResponse;
     private boolean finished;
@@ -142,8 +141,9 @@ public class BigQueryStorageArrowPageSource
     @Override
     public void close()
     {
-        bigQueryArrowToPageConverter.close();
+        responses.close();
         nextResponse.cancel(true);
+        bigQueryArrowToPageConverter.close();
         bigQueryReadClient.close();
     }
 
