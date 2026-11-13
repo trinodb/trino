@@ -320,6 +320,11 @@ public class TestQueryResource
 
     private String runToCompletion(String sql)
     {
+        return runToCompletion(client, server, sql);
+    }
+
+    public static String runToCompletion(HttpClient client, TestingTrinoServer server, String sql)
+    {
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
         Request request = preparePost()
                 .setHeader(REQUEST_USER_HEADER, "user")
@@ -338,6 +343,11 @@ public class TestQueryResource
     }
 
     private String startQuery(String sql)
+    {
+        return startQuery(client, server, sql);
+    }
+
+    public static String startQuery(HttpClient client, TestingTrinoServer server, String sql)
     {
         URI uri = uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build();
         Request request = preparePost()
