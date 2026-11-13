@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-/// Grouping and joining collated strings, against the same query under the default collation.
+/// Grouping and sorting collated strings, against the same query under the default collation.
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(value = 1, jvmArgsAppend = {"-Xmx6g", "--add-modules=jdk.incubator.vector", "--sun-misc-unsafe-memory-access=allow", "--enable-native-access=ALL-UNNAMED", "-Duser.timezone=America/Bahia_Banderas"})
@@ -52,7 +52,7 @@ public class BenchmarkCollatedQueries
     @Param({"unicode_ci", "ucs_basic"})
     private String collation;
 
-    @Param({"group", "join"})
+    @Param({"group", "sort"})
     private String query;
 
     private QueryRunner queryRunner;
@@ -71,7 +71,8 @@ public class BenchmarkCollatedQueries
         String keys = KEYS.formatted(collation);
         sql = switch (query) {
             case "group" -> "SELECT count(*) FROM (SELECT k, count(*) FROM (%s) GROUP BY k)".formatted(keys);
-            case "join" -> "SELECT count(*) FROM (%s) a JOIN (%s) b ON a.k = b.k".formatted(keys, keys);
+            // a complete sort, which a window over all rows requires
+            case "sort" -> "SELECT max(r) FROM (SELECT row_number() OVER (ORDER BY k) r FROM (%s))".formatted(keys);
             default -> throw new IllegalArgumentException(query);
         };
     }

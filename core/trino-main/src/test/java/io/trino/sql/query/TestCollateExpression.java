@@ -19,7 +19,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
+import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.COLLATION_MISMATCH;
@@ -28,6 +32,10 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.collation.CollationRegistry.collationRegistry;
+import static java.util.Comparator.comparing;
+import static java.util.Comparator.naturalOrder;
+import static java.util.Comparator.nullsFirst;
+import static java.util.Comparator.nullsLast;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -690,6 +698,66 @@ public class TestCollateExpression
     {
         String sql = query.formatted(relation);
         assertThat(assertions.query(sql)).as(sql).matches("VALUES bigint '%s'".formatted(expected));
+    }
+
+    @Test
+    public void testCollationKeysPreserveOrder()
+    {
+        // sorting and partitioning by collation keys order and partition rows as the collation
+        // orders and compares the strings
+        List<String> strings = Arrays.asList("Zoë", "zoe", "Ångström", "angstrom", "Müller", "Mutter", "mull", "Ä", "a", "z", "Straße", "strasse", null, "résumé", "resume");
+        String values = IntStream.range(0, strings.size())
+                .mapToObj(i -> "(%s, %s)".formatted(i + 1, strings.get(i) == null ? "NULL" : "'%s'".formatted(strings.get(i))))
+                .collect(joining(", ", "(VALUES ", ") v(id, x)"));
+        for (String collation : new String[] {"unicode_ci", "unicode"}) {
+            CollationComparison comparison = collationRegistry().comparison(collationRegistry().getCollation(collation));
+            Comparator<String> byCollation = (left, right) -> comparison.compare(utf8Slice(left), utf8Slice(right));
+            Comparator<Integer> byString = comparing(id -> strings.get(id - 1), nullsLast(byCollation));
+            Comparator<Integer> ascending = byString.thenComparing(naturalOrder());
+            Comparator<Integer> descending = comparing((Integer id) -> strings.get(id - 1), nullsFirst(byCollation.reversed())).thenComparing(naturalOrder());
+            List<Integer> ids = IntStream.rangeClosed(1, strings.size()).boxed().toList();
+            List<Integer> sorted = ids.stream().sorted(ascending).toList();
+            // the rows in each row's partition, in id order
+            Function<Integer, List<Integer>> peers = id -> ids.stream()
+                    .filter(other -> byString.compare(id, other) == 0)
+                    .toList();
+            List<Integer> firstPeers = ids.stream().filter(id -> peers.apply(id).getFirst().equals(id)).toList();
+
+            String keyed = "(SELECT id, x COLLATE %s k FROM %s)".formatted(collation, values);
+            assertOrdered("SELECT id FROM %s t ORDER BY k, id", keyed, rows(sorted));
+            assertOrdered("SELECT id FROM %s t ORDER BY k DESC NULLS FIRST, id", keyed, rows(ids.stream().sorted(descending).toList()));
+            assertOrdered("SELECT id FROM %s t ORDER BY k, id LIMIT 5", keyed, rows(sorted.subList(0, 5)));
+            assertOrdered(
+                    "SELECT id, row_number() OVER (ORDER BY k, id) FROM %s t ORDER BY id",
+                    keyed,
+                    rows(ids.stream().map(id -> "(%s, bigint '%s')".formatted(id, sorted.indexOf(id) + 1)).toList()));
+            assertOrdered(
+                    "SELECT id, rank() OVER (PARTITION BY k ORDER BY id) FROM %s t ORDER BY id",
+                    keyed,
+                    rows(ids.stream().map(id -> "(%s, bigint '%s')".formatted(id, peers.apply(id).indexOf(id) + 1)).toList()));
+            assertOrdered("SELECT id FROM (SELECT id, row_number() OVER (PARTITION BY k ORDER BY id) r FROM %s t) WHERE r = 1 ORDER BY id", keyed, rows(firstPeers));
+            // an unordered row number partitions without sorting
+            long largestPartition = ids.stream().mapToLong(id -> peers.apply(id).size()).max().orElseThrow();
+            assertOrdered(
+                    "SELECT count(*), max(r) FROM (SELECT row_number() OVER (PARTITION BY k) r FROM %s t)",
+                    keyed,
+                    "VALUES (bigint '%s', bigint '%s')".formatted(strings.size(), largestPartition));
+            assertOrdered(
+                    "SELECT count(*) FROM (SELECT row_number() OVER (PARTITION BY k) r FROM %s t) WHERE r <= 1",
+                    keyed,
+                    "VALUES bigint '%s'".formatted(firstPeers.size()));
+        }
+    }
+
+    private void assertOrdered(String query, String relation, String expected)
+    {
+        String sql = query.formatted(relation);
+        assertThat(assertions.query(sql)).as(sql).ordered().matches(expected);
+    }
+
+    private static String rows(List<?> rows)
+    {
+        return rows.stream().map(Object::toString).collect(joining(", ", "VALUES ", ""));
     }
 
     @Test

@@ -233,6 +233,7 @@ import io.trino.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import io.trino.sql.planner.iterative.rule.SimplifyExpressions;
 import io.trino.sql.planner.iterative.rule.SimplifyFilterPredicate;
 import io.trino.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
+import io.trino.sql.planner.iterative.rule.SortByCollationKey;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedDistinctAggregationWithProjection;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedDistinctAggregationWithoutProjection;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedGlobalAggregationWithProjection;
@@ -838,6 +839,9 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
+                        // they match only a sort that is not partial and a TopN that is not split, so they
+                        // rewrite a TopN before CreatePartialTopN splits it
+                        .addAll(new SortByCollationKey(metadata).rules())
                         .add(new CreatePartialTopN())
                         .add(new PushTopNThroughProject())
                         .add(new PushTopNThroughOuterJoin())
