@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.ApplicationConfigurationException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
@@ -25,6 +26,8 @@ import java.nio.file.Files;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakePlugin
@@ -104,6 +107,21 @@ public class TestDeltaLakePlugin
                 new TestingConnectorContext()))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
+    }
+
+    @Test
+    public void testLakehouseMetastoreIsNotSupported()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "lakehouse",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("The Lakehouse runtime catalog is not supported by the Delta Lake connector")
+                .rootCause()
+                .isInstanceOfSatisfying(TrinoException.class, exception -> assertThat(exception.getErrorCode()).isEqualTo(NOT_SUPPORTED.toErrorCode()));
     }
 
     @Test
