@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -150,14 +151,36 @@ public class KafkaRecordSet
         @Override
         public boolean advanceNextPosition()
         {
-            if (records.hasNext()) {
-                return nextRow(records.next());
+            while (true) {
+                if (records.hasNext()) {
+                    return nextRow(records.next());
+                }
+
+                long position = kafkaConsumer.position(topicPartition);
+                if (position >= split.getMessagesRange().end()) {
+                    return false;
+                }
+
+                records = kafkaConsumer.poll(Duration.ofMillis(CONSUMER_POLL_TIMEOUT)).iterator();
+                if (records.hasNext()) {
+                    continue;
+                }
+
+                // A split's end offset is derived from the partition end offset at planning time.
+                // If the log was truncated or the topic re-created since then, the offsets up to
+                // the split end may never exist. Complete the split once the consumer is caught up
+                // with the partition's current end offset instead of polling forever.
+                if (kafkaConsumer.position(topicPartition) >= partitionEndOffset()) {
+                    return false;
+                }
             }
-            if (kafkaConsumer.position(topicPartition) >= split.getMessagesRange().end()) {
-                return false;
-            }
-            records = kafkaConsumer.poll(Duration.ofMillis(CONSUMER_POLL_TIMEOUT)).iterator();
-            return advanceNextPosition();
+        }
+
+        private long partitionEndOffset()
+        {
+            Long endOffset = kafkaConsumer.endOffsets(ImmutableList.of(topicPartition)).get(topicPartition);
+            checkState(endOffset != null, "No end offset for %s", topicPartition);
+            return endOffset;
         }
 
         private boolean nextRow(ConsumerRecord<byte[], byte[]> message)
