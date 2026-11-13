@@ -1300,190 +1300,197 @@ public abstract class BaseConnectorTest
         String catalog = getSession().getCatalog().orElseThrow();
         String schema = getSession().getSchema().orElseThrow();
         String otherSchema = "other_schema" + randomNameSuffix();
-        assertUpdate(createSchemaSql(otherSchema));
-
         QualifiedObjectName view = new QualifiedObjectName(catalog, schema, "test_materialized_view_" + randomNameSuffix());
         QualifiedObjectName otherView = new QualifiedObjectName(catalog, otherSchema, "test_materialized_view_" + randomNameSuffix());
         QualifiedObjectName viewWithComment = new QualifiedObjectName(catalog, schema, "test_materialized_view_with_comment_" + randomNameSuffix());
 
-        createTestingMaterializedView(view, Optional.empty());
-        createTestingMaterializedView(otherView, Optional.of("sarcastic comment"));
-        createTestingMaterializedView(viewWithComment, Optional.of("mv_comment"));
+        assertUpdate(createSchemaSql(otherSchema));
+        try {
+            createTestingMaterializedView(view, Optional.empty());
+            createTestingMaterializedView(otherView, Optional.of("sarcastic comment"));
+            createTestingMaterializedView(viewWithComment, Optional.of("mv_comment"));
 
-        // verify comment
-        assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewWithComment)).contains("COMMENT 'mv_comment'");
-        assertThat(query(
-                "SELECT table_name, comment FROM system.metadata.table_comments " +
-                        "WHERE catalog_name = '" + view.catalogName() + "' AND " +
-                        "schema_name = '" + view.schemaName() + "'"))
-                .skippingTypesCheck()
-                .containsAll("VALUES ('" + view.objectName() + "', null), ('" + viewWithComment.objectName() + "', 'mv_comment')");
+            // verify comment
+            assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewWithComment)).contains("COMMENT 'mv_comment'");
+            assertThat(query(
+                    "SELECT table_name, comment FROM system.metadata.table_comments " +
+                            "WHERE catalog_name = '" + view.catalogName() + "' AND " +
+                            "schema_name = '" + view.schemaName() + "'"))
+                    .skippingTypesCheck()
+                    .containsAll("VALUES ('" + view.objectName() + "', null), ('" + viewWithComment.objectName() + "', 'mv_comment')");
 
-        // reading
-        assertThat(query("SELECT * FROM " + view))
-                .skippingTypesCheck()
-                .matches("SELECT * FROM nation");
-        assertThat(query("SELECT * FROM " + viewWithComment))
-                .skippingTypesCheck()
-                .matches("SELECT * FROM nation");
+            // reading
+            assertThat(query("SELECT * FROM " + view))
+                    .skippingTypesCheck()
+                    .matches("SELECT * FROM nation");
+            assertThat(query("SELECT * FROM " + viewWithComment))
+                    .skippingTypesCheck()
+                    .matches("SELECT * FROM nation");
 
-        // table listing
-        assertThat(query("SHOW TABLES"))
-                .skippingTypesCheck()
-                .containsAll("VALUES '" + view.objectName() + "'");
-        // information_schema.tables without table_name filter so that ConnectorMetadata.listViews is exercised
-        assertThat(query(
-                "SELECT table_name, table_type FROM information_schema.tables " +
-                        "WHERE table_schema = '" + view.schemaName() + "'"))
-                .skippingTypesCheck()
-                .containsAll("VALUES ('" + view.objectName() + "', 'BASE TABLE')");
-        // information_schema.tables with table_name filter
-        assertQuery(
-                "SELECT table_name, table_type FROM information_schema.tables " +
-                        "WHERE table_schema = '" + view.schemaName() + "' and table_name = '" + view.objectName() + "'",
-                "VALUES ('" + view.objectName() + "', 'BASE TABLE')");
+            // table listing
+            assertThat(query("SHOW TABLES"))
+                    .skippingTypesCheck()
+                    .containsAll("VALUES '" + view.objectName() + "'");
+            // information_schema.tables without table_name filter so that ConnectorMetadata.listViews is exercised
+            assertThat(query(
+                    "SELECT table_name, table_type FROM information_schema.tables " +
+                            "WHERE table_schema = '" + view.schemaName() + "'"))
+                    .skippingTypesCheck()
+                    .containsAll("VALUES ('" + view.objectName() + "', 'BASE TABLE')");
+            // information_schema.tables with table_name filter
+            assertQuery(
+                    "SELECT table_name, table_type FROM information_schema.tables " +
+                            "WHERE table_schema = '" + view.schemaName() + "' and table_name = '" + view.objectName() + "'",
+                    "VALUES ('" + view.objectName() + "', 'BASE TABLE')");
 
-        // system.jdbc.tables without filter
-        assertThat(query("SELECT table_schem, table_name, table_type FROM system.jdbc.tables"))
-                .skippingTypesCheck()
-                .containsAll("VALUES ('" + view.schemaName() + "', '" + view.objectName() + "', 'TABLE')");
+            // system.jdbc.tables without filter
+            assertThat(query("SELECT table_schem, table_name, table_type FROM system.jdbc.tables"))
+                    .skippingTypesCheck()
+                    .containsAll("VALUES ('" + view.schemaName() + "', '" + view.objectName() + "', 'TABLE')");
 
-        // system.jdbc.tables with table prefix filter
-        assertQuery(
-                "SELECT table_schem, table_name, table_type " +
-                        "FROM system.jdbc.tables " +
-                        "WHERE table_cat = '" + view.catalogName() + "' AND " +
-                        "table_schem = '" + view.schemaName() + "' AND " +
-                        "table_name = '" + view.objectName() + "'",
-                "VALUES ('" + view.schemaName() + "', '" + view.objectName() + "', 'TABLE')");
+            // system.jdbc.tables with table prefix filter
+            assertQuery(
+                    "SELECT table_schem, table_name, table_type " +
+                            "FROM system.jdbc.tables " +
+                            "WHERE table_cat = '" + view.catalogName() + "' AND " +
+                            "table_schem = '" + view.schemaName() + "' AND " +
+                            "table_name = '" + view.objectName() + "'",
+                    "VALUES ('" + view.schemaName() + "', '" + view.objectName() + "', 'TABLE')");
 
-        // column listing
-        assertThat(query("SHOW COLUMNS FROM " + view.objectName()))
-                .result()
-                .projected("Column") // column types can very between connectors
-                .skippingTypesCheck()
-                .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
+            // column listing
+            assertThat(query("SHOW COLUMNS FROM " + view.objectName()))
+                    .result()
+                    .projected("Column") // column types can very between connectors
+                    .skippingTypesCheck()
+                    .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
 
-        assertThat(query("DESCRIBE " + view.objectName()))
-                .result()
-                .projected("Column") // column types can very between connectors
-                .skippingTypesCheck()
-                .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
+            assertThat(query("DESCRIBE " + view.objectName()))
+                    .result()
+                    .projected("Column") // column types can very between connectors
+                    .skippingTypesCheck()
+                    .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
 
-        // information_schema.columns without table_name filter
-        assertThat(query(
-                "SELECT table_name, column_name " +
-                        "FROM information_schema.columns " +
-                        "WHERE table_schema = '" + view.schemaName() + "'"))
-                .skippingTypesCheck()
-                .containsAll(
-                        "SELECT * FROM (VALUES '" + view.objectName() + "') " +
-                                "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
+            // information_schema.columns without table_name filter
+            assertThat(query(
+                    "SELECT table_name, column_name " +
+                            "FROM information_schema.columns " +
+                            "WHERE table_schema = '" + view.schemaName() + "'"))
+                    .skippingTypesCheck()
+                    .containsAll(
+                            "SELECT * FROM (VALUES '" + view.objectName() + "') " +
+                                    "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
-        // information_schema.columns with table_name filter
-        assertThat(query(
-                "SELECT table_name, column_name " +
-                        "FROM information_schema.columns " +
-                        "WHERE table_schema = '" + view.schemaName() + "' and table_name = '" + view.objectName() + "'"))
-                .skippingTypesCheck()
-                .containsAll(
-                        "SELECT * FROM (VALUES '" + view.objectName() + "') " +
-                                "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
+            // information_schema.columns with table_name filter
+            assertThat(query(
+                    "SELECT table_name, column_name " +
+                            "FROM information_schema.columns " +
+                            "WHERE table_schema = '" + view.schemaName() + "' and table_name = '" + view.objectName() + "'"))
+                    .skippingTypesCheck()
+                    .containsAll(
+                            "SELECT * FROM (VALUES '" + view.objectName() + "') " +
+                                    "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
-        // view-specific listings
-        assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + view.schemaName() + "'").getOnlyColumnAsSet())
-                .doesNotContain(view.objectName());
-        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + view.schemaName() + "' AND table_name = '" + view.objectName() + "'"))
-                .returnsEmptyResult();
+            // view-specific listings
+            assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + view.schemaName() + "'").getOnlyColumnAsSet())
+                    .doesNotContain(view.objectName());
+            assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + view.schemaName() + "' AND table_name = '" + view.objectName() + "'"))
+                    .returnsEmptyResult();
 
-        // materialized view-specific listings
-        assertThat(query("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalog + "' AND schema_name = '" + view.schemaName() + "'"))
-                .containsAll("VALUES VARCHAR '" + view.objectName() + "'");
+            // materialized view-specific listings
+            assertThat(query("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalog + "' AND schema_name = '" + view.schemaName() + "'"))
+                    .containsAll("VALUES VARCHAR '" + view.objectName() + "'");
 
-        // system.jdbc.columns without filter
-        assertThat(query("SELECT table_schem, table_name, column_name FROM system.jdbc.columns"))
-                .skippingTypesCheck()
-                .containsAll(
-                        "SELECT * FROM (VALUES ('" + view.schemaName() + "', '" + view.objectName() + "')) " +
-                                "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
+            // system.jdbc.columns without filter
+            assertThat(query("SELECT table_schem, table_name, column_name FROM system.jdbc.columns"))
+                    .skippingTypesCheck()
+                    .containsAll(
+                            "SELECT * FROM (VALUES ('" + view.schemaName() + "', '" + view.objectName() + "')) " +
+                                    "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
-        // system.jdbc.columns with schema filter
-        assertThat(query(
-                "SELECT table_schem, table_name, column_name " +
-                        "FROM system.jdbc.columns " +
-                        "WHERE table_schem LIKE '%" + view.schemaName() + "%'"))
-                .skippingTypesCheck()
-                .containsAll(
-                        "SELECT * FROM (VALUES ('" + view.schemaName() + "', '" + view.objectName() + "')) " +
-                                "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
+            // system.jdbc.columns with schema filter
+            assertThat(query(
+                    "SELECT table_schem, table_name, column_name " +
+                            "FROM system.jdbc.columns " +
+                            "WHERE table_schem LIKE '%" + view.schemaName() + "%'"))
+                    .skippingTypesCheck()
+                    .containsAll(
+                            "SELECT * FROM (VALUES ('" + view.schemaName() + "', '" + view.objectName() + "')) " +
+                                    "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
-        // system.jdbc.columns with table filter
-        assertThat(query(
-                "SELECT table_schem, table_name, column_name " +
-                        "FROM system.jdbc.columns " +
-                        "WHERE table_name LIKE '%" + view.objectName() + "%'"))
-                .skippingTypesCheck()
-                .containsAll(
-                        "SELECT * FROM (VALUES ('" + view.schemaName() + "', '" + view.objectName() + "')) " +
-                                "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
+            // system.jdbc.columns with table filter
+            assertThat(query(
+                    "SELECT table_schem, table_name, column_name " +
+                            "FROM system.jdbc.columns " +
+                            "WHERE table_name LIKE '%" + view.objectName() + "%'"))
+                    .skippingTypesCheck()
+                    .containsAll(
+                            "SELECT * FROM (VALUES ('" + view.schemaName() + "', '" + view.objectName() + "')) " +
+                                    "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
-        // details
-        assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + view.objectName())))
-                .matches("(?s)" +
-                        "CREATE MATERIALIZED VIEW \\Q" + view + "\\E" +
-                        ".* AS\n" +
-                        "SELECT \\*\n" +
-                        "FROM\n" +
-                        "  nation");
+            // details
+            assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + view.objectName())))
+                    .matches("(?s)" +
+                            "CREATE MATERIALIZED VIEW \\Q" + view + "\\E" +
+                            ".* AS\n" +
+                            "SELECT \\*\n" +
+                            "FROM\n" +
+                            "  nation");
 
-        // we only want to test filtering materialized views in different schemas,
-        // `viewWithComment` is in the same schema as `view` so it is not needed
-        assertUpdate("DROP MATERIALIZED VIEW " + viewWithComment);
+            // we only want to test filtering materialized views in different schemas,
+            // `viewWithComment` is in the same schema as `view` so it is not needed
+            assertUpdate("DROP MATERIALIZED VIEW " + viewWithComment);
 
-        // test filtering materialized views in system metadata table
-        assertThat(query(listMaterializedViewsSql("catalog_name = '" + view.catalogName() + "'")))
-                .skippingTypesCheck()
-                .containsAll(getTestingMaterializedViewsResultRows(view, otherView));
+            // test filtering materialized views in system metadata table
+            assertThat(query(listMaterializedViewsSql("catalog_name = '" + view.catalogName() + "'")))
+                    .skippingTypesCheck()
+                    .containsAll(getTestingMaterializedViewsResultRows(view, otherView));
 
-        assertThat(query(
-                listMaterializedViewsSql(
-                        "catalog_name = '" + otherView.catalogName() + "'",
-                        "schema_name = '" + otherView.schemaName() + "'")))
-                .skippingTypesCheck()
-                .containsAll(getTestingMaterializedViewsResultRow(otherView, "sarcastic comment"));
+            assertThat(query(
+                    listMaterializedViewsSql(
+                            "catalog_name = '" + otherView.catalogName() + "'",
+                            "schema_name = '" + otherView.schemaName() + "'")))
+                    .skippingTypesCheck()
+                    .containsAll(getTestingMaterializedViewsResultRow(otherView, "sarcastic comment"));
 
-        assertThat(query(
-                listMaterializedViewsSql(
-                        "catalog_name = '" + view.catalogName() + "'",
-                        "schema_name = '" + view.schemaName() + "'",
-                        "name = '" + view.objectName() + "'")))
-                .skippingTypesCheck()
-                .containsAll(getTestingMaterializedViewsResultRow(view, ""));
+            assertThat(query(
+                    listMaterializedViewsSql(
+                            "catalog_name = '" + view.catalogName() + "'",
+                            "schema_name = '" + view.schemaName() + "'",
+                            "name = '" + view.objectName() + "'")))
+                    .skippingTypesCheck()
+                    .containsAll(getTestingMaterializedViewsResultRow(view, ""));
 
-        assertThat(query(
-                listMaterializedViewsSql("schema_name LIKE '%" + view.schemaName() + "%'")))
-                .skippingTypesCheck()
-                .containsAll(getTestingMaterializedViewsResultRow(view, ""));
+            assertThat(query(
+                    listMaterializedViewsSql("schema_name LIKE '%" + view.schemaName() + "%'")))
+                    .skippingTypesCheck()
+                    .containsAll(getTestingMaterializedViewsResultRow(view, ""));
 
-        assertThat(query(
-                listMaterializedViewsSql("name LIKE '%" + view.objectName() + "%'")))
-                .skippingTypesCheck()
-                .containsAll(getTestingMaterializedViewsResultRow(view, ""));
+            assertThat(query(
+                    listMaterializedViewsSql("name LIKE '%" + view.objectName() + "%'")))
+                    .skippingTypesCheck()
+                    .containsAll(getTestingMaterializedViewsResultRow(view, ""));
 
-        // verify write in transaction
-        if (!hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES)) {
-            assertThatThrownBy(() -> inTransaction(session -> computeActual(session, "REFRESH MATERIALIZED VIEW " + view)))
-                    .hasMessageMatching("Catalog only supports writes using autocommit: \\w+");
+            // verify write in transaction
+            if (!hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES)) {
+                assertThatThrownBy(() -> inTransaction(session -> computeActual(session, "REFRESH MATERIALIZED VIEW " + view)))
+                        .hasMessageMatching("Catalog only supports writes using autocommit: \\w+");
+            }
+
+            assertUpdate("DROP MATERIALIZED VIEW " + view);
+            assertUpdate("DROP MATERIALIZED VIEW " + otherView);
+
+            assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + view.objectName() + "'"));
+            assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + otherView.objectName() + "'"));
+            assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + viewWithComment.objectName() + "'"));
+
+            assertUpdate("DROP SCHEMA " + otherSchema);
         }
-
-        assertUpdate("DROP MATERIALIZED VIEW " + view);
-        assertUpdate("DROP MATERIALIZED VIEW " + otherView);
-
-        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + view.objectName() + "'"));
-        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + otherView.objectName() + "'"));
-        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + viewWithComment.objectName() + "'"));
-
-        assertUpdate("DROP SCHEMA " + otherSchema);
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + otherView);
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + viewWithComment);
+            assertUpdate("DROP SCHEMA IF EXISTS " + otherSchema);
+        }
     }
 
     @Test
