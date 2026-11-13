@@ -87,12 +87,6 @@ public class RedshiftParquetPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return parquetReader.getMemoryContext().getBytes();
-    }
-
-    @Override
     public void close()
     {
         if (closed) {
