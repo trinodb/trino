@@ -13,17 +13,22 @@
  */
 package io.trino.sql.query;
 
+import io.trino.spi.type.CollationComparison;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.List;
+
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.COLLATION_MISMATCH;
 import static io.trino.spi.StandardErrorCode.COLLATION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.collation.CollationRegistry.collationRegistry;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -596,6 +601,55 @@ public class TestCollateExpression
         // an explicit collation makes the key orderable
         assertThat(assertions.query("SELECT x FROM (VALUES 1) t(x) ORDER BY (%s) COLLATE unicode".formatted(uncollated)))
                 .matches("VALUES 1");
+    }
+
+    @Test
+    public void testCollationKeyFunction()
+    {
+        // the hidden key function computes the key of its argument's collation, and accepts only strings
+        assertThat(assertions.query("SELECT \"$collation_key\"('a' COLLATE unicode_ci) = \"$collation_key\"('A' COLLATE unicode_ci)"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT \"$collation_key\"('a') = \"$collation_key\"('A')"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT \"$collation_key\"(1)"))
+                .failure().hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testCollationKeysPreserveResults()
+    {
+        // grouping and joining by collation keys forms the groups and matches that comparing the
+        // strings under the collation forms
+        List<String> strings = List.of("Alice", "ALICE", "alice", "Bob", "BOB", "Ærøskøbing", "ærøskøbing", "Strasse", "STRASSE");
+        String values = strings.stream().map("'%s'"::formatted).collect(joining(", ", "(VALUES ", ") v(x)"));
+        for (String collation : new String[] {"ucs_basic", "unicode", "unicode_ci"}) {
+            CollationComparison comparison = collationRegistry().comparison(collationRegistry().getCollation(collation));
+            long groups = 0;
+            long matches = 0;
+            for (int i = 0; i < strings.size(); i++) {
+                boolean first = true;
+                for (int j = 0; j < strings.size(); j++) {
+                    if (comparison.equal(utf8Slice(strings.get(i)), utf8Slice(strings.get(j)))) {
+                        matches++;
+                        first &= j >= i;
+                    }
+                }
+                groups += first ? 1 : 0;
+            }
+            String keyed = "(SELECT x COLLATE %s k, x FROM %s)".formatted(collation, values);
+            assertCount("SELECT count(*) FROM (SELECT k FROM %s t GROUP BY k)", keyed, groups);
+            assertCount("SELECT count(*) FROM (SELECT DISTINCT k FROM %s t)", keyed, groups);
+            assertCount("SELECT count(DISTINCT k) FROM %s t", keyed, groups);
+            assertCount("SELECT count(*) FROM %1$s a JOIN %1$s b ON a.k = b.k", keyed, matches);
+            // the strings are distinct, so every match but a string's match with itself pairs different strings
+            assertCount("SELECT count(*) FROM (SELECT a.x, b.x FROM %1$s a JOIN %1$s b ON a.k = b.k WHERE a.x <> b.x)", keyed, matches - strings.size());
+        }
+    }
+
+    private void assertCount(String query, String relation, long expected)
+    {
+        String sql = query.formatted(relation);
+        assertThat(assertions.query(sql)).as(sql).matches("VALUES bigint '%s'".formatted(expected));
     }
 
     @Test

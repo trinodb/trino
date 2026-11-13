@@ -278,6 +278,10 @@ public class TestMemoryConnectorTest
                         "SELECT CAST(p.name AS varchar) FROM %s p WHERE p.name IN (SELECT name FROM %s)".formatted(probe.getName(), build.getName()),
                         "VALUES 'Alice', 'ALICE'");
             }
+            // grouping compares collation keys rather than strings
+            assertThat((String) computeScalar("EXPLAIN SELECT name, count(*) FROM %s GROUP BY name".formatted(probe.getName())))
+                    .contains("$collation_key")
+                    .contains("any_value");
             // no dynamic filter is planned on a collated key, while one is on an uncollated key
             assertThat((String) computeScalar("EXPLAIN SELECT p.name FROM %s p JOIN %s b ON p.name = b.name".formatted(probe.getName(), build.getName())))
                     .doesNotContain("dynamicFilters");

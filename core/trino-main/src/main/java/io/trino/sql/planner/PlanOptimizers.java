@@ -55,6 +55,7 @@ import io.trino.sql.planner.iterative.rule.ExtractDereferencesFromFilterAboveSca
 import io.trino.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.trino.sql.planner.iterative.rule.GatherPartialTopN;
+import io.trino.sql.planner.iterative.rule.GroupByCollationKey;
 import io.trino.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import io.trino.sql.planner.iterative.rule.ImplementExceptAll;
 import io.trino.sql.planner.iterative.rule.ImplementExceptDistinctAsUnion;
@@ -702,7 +703,9 @@ public class PlanOptimizers
                                 new OptimizeMixedDistinctAggregations(plannerContext, taskCountEstimator), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
                                 // It also is run before MultipleDistinctAggregationToMarkDistinct to take precedence f enabled
                                 new ImplementFilteredAggregations(), // DistinctAggregationToGroupBy will add filters if fired
-                                new MultipleDistinctAggregationToMarkDistinct(taskCountEstimator, metadata))), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
+                                new MultipleDistinctAggregationToMarkDistinct(taskCountEstimator, metadata), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
+                                // Run this after the distinct aggregation rewrites, which turn DISTINCT into grouping
+                                new GroupByCollationKey(metadata))),
                 new IterativeOptimizer(
                         "Phase3",
                         plannerContext,
