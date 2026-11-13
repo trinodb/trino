@@ -3413,6 +3413,64 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArrayIsSorted()
+    {
+        assertThat(assertions.function("array_is_sorted", "CAST(ARRAY[] AS ARRAY(INTEGER))"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[1]"))
+                .isEqualTo(true);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[1, 2, 2, 3]"))
+                .isEqualTo(true);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[3, 3, 3]"))
+                .isEqualTo(true);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[1, 3, 2]"))
+                .isEqualTo(false);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[4, 3, 2]"))
+                .isEqualTo(false);
+        assertThat(assertions.function("array_is_sorted", "ARRAY['a', 'a', 'c']"))
+                .isEqualTo(true);
+        assertThat(assertions.function("array_is_sorted", "ARRAY['a', 'c', 'b']"))
+                .isEqualTo(false);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[FALSE, TRUE]"))
+                .isEqualTo(true);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[TRUE, FALSE]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("array_is_sorted", "ARRAY[1, NULL, NULL]"))
+                .isEqualTo(true);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[NULL, 1]"))
+                .isEqualTo(false);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[1, NULL, 2]"))
+                .isEqualTo(false);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[CAST(NULL AS INTEGER), CAST(NULL AS INTEGER)]"))
+                .isEqualTo(true);
+        assertThat(assertions.function("array_is_sorted", "CAST(NULL AS ARRAY(INTEGER))"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("array_is_sorted", "ARRAY[1.0, NaN()]"))
+                .isEqualTo(true);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[NaN(), 1.0]"))
+                .isEqualTo(false);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[NaN(), NaN()]"))
+                .isEqualTo(true);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[1.0, NaN(), NULL]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("array_is_sorted", "ARRAY[ARRAY[1, 2], ARRAY[1, 3]]"))
+                .isEqualTo(true);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[ARRAY[1, 3], ARRAY[1, 2]]"))
+                .isEqualTo(false);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[ROW(1, 2), ROW(1, NULL)]"))
+                .isEqualTo(true);
+        assertThat(assertions.function("array_is_sorted", "ARRAY[ROW(1, NULL), ROW(1, 2)]"))
+                .isEqualTo(false);
+
+        assertTrinoExceptionThrownBy(assertions.function("array_is_sorted", "ARRAY[color('red'), color('blue')]")::evaluate)
+                .hasErrorCode(FUNCTION_NOT_FOUND);
+    }
+
+    @Test
     public void testSort()
     {
         assertThat(assertions.function("array_sort", "ARRAY[2, 3, 4, 1]"))

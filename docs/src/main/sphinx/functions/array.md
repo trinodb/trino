@@ -129,6 +129,20 @@ SELECT array_histogram(ARRAY[NULL, NULL]);
 ```
 :::
 
+:::{function} array_is_sorted(x) -> boolean
+Returns whether array `x` is sorted in ascending order, using the same ordering as {func}`array_sort`.
+Elements must be orderable. Duplicate elements are allowed, but null elements must appear at the end.
+Returns `true` for an empty array.
+
+```
+SELECT array_is_sorted(ARRAY[1, 2, 2, 3]);
+-- true
+
+SELECT array_is_sorted(ARRAY[1, 3, 2]);
+-- false
+```
+:::
+
 :::{function} array_join(x, delimiter) -> varchar
 Concatenates the elements of the given array using the delimiter.
 Null elements are omitted in the result.
