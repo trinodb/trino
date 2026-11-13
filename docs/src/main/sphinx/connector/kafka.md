@@ -96,6 +96,7 @@ The following configuration properties are available:
 | `kafka.buffer-size`                                   | Kafka read buffer size.                                                                                                                                                                                                     |
 | `kafka.hide-internal-columns`                         | Controls whether internal columns are part of the table schema or not.                                                                                                                                                      |
 | `kafka.internal-column-prefix`                        | Prefix for internal columns, defaults to `_`                                                                                                                                                                                |
+| `kafka.key-partition-pushdown.enabled`                | Enable partition pruning based on `_key` predicates; defaults to `true`.                                                                                                                                                    |
 | `kafka.messages-per-split`                            | Number of messages that are processed by each Trino split; defaults to `100000`.                                                                                                                                            |
 | `kafka.protobuf-any-support-enabled`                  | Enable support for encoding Protobuf `any` types to `JSON` by setting the property to `true`, defaults to `false`.                                                                                                          |
 | `kafka.timestamp-upper-bound-force-push-down-enabled` | Controls if upper bound timestamp pushdown is enabled for topics using `CreateTime` mode.                                                                                                                                   |
@@ -150,6 +151,16 @@ enabled via `kafka.timestamp-upper-bound-force-push-down-enabled` config propert
 or `timestamp_upper_bound_force_push_down_enabled` session property.
 
 This property is optional; the default is `false`.
+
+### `kafka.key-partition-pushdown.enabled`
+
+Enables partition pruning for predicates on the `_key` column. The connector
+maps keys to partitions using Kafka's default partitioner. Partition pruning is
+enabled by default. Disable this property if messages in the topic were produced
+with a custom partitioner or with an explicitly selected partition. Otherwise,
+queries may omit matching rows.
+
+This property is optional; the default is `true`.
 
 ### `kafka.hide-internal-columns`
 
