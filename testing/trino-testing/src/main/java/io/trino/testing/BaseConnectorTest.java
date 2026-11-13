@@ -4416,30 +4416,34 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN));
 
         String tableName = "test_long_column" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
-
         String baseColumnName = "col";
         int maxLength = maxColumnNameLength()
                 // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
                 .orElse(65536 + 5);
-
         String validTargetColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + validTargetColumnName + " int");
-        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
-        assertQuery("SELECT x FROM " + tableName, "VALUES 123");
-        assertUpdate("DROP TABLE " + tableName);
 
-        if (maxColumnNameLength().isEmpty()) {
-            return;
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + validTargetColumnName + " int");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
+            assertQuery("SELECT x FROM " + tableName, "VALUES 123");
+            assertUpdate("DROP TABLE " + tableName);
+
+            if (maxColumnNameLength().isEmpty()) {
+                return;
+            }
+
+            assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
+            String invalidTargetColumnName = validTargetColumnName + "z";
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + invalidTargetColumnName + " int"))
+                    .satisfies(this::verifyColumnNameLengthFailurePermissible);
+            assertQuery("SELECT x FROM " + tableName, "VALUES 123");
+
+            assertUpdate("DROP TABLE " + tableName);
         }
-
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
-        String invalidTargetColumnName = validTargetColumnName + "z";
-        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + invalidTargetColumnName + " int"))
-                .satisfies(this::verifyColumnNameLengthFailurePermissible);
-        assertQuery("SELECT x FROM " + tableName, "VALUES 123");
-
-        assertUpdate("DROP TABLE " + tableName);
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test
