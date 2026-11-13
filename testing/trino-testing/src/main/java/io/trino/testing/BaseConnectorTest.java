@@ -4383,9 +4383,14 @@ public abstract class BaseConnectorTest
                 .orElse(65536 + 5);
 
         String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
-        assertUpdate("CREATE TABLE " + tableNameWithValidColumnLength + " (" + validColumnName + " bigint)");
-        assertThat(columnExists(tableNameWithValidColumnLength, validColumnName)).isTrue();
-        assertUpdate("DROP TABLE " + tableNameWithValidColumnLength);
+        try {
+            assertUpdate("CREATE TABLE " + tableNameWithValidColumnLength + " (" + validColumnName + " bigint)");
+            assertThat(columnExists(tableNameWithValidColumnLength, validColumnName)).isTrue();
+            assertUpdate("DROP TABLE " + tableNameWithValidColumnLength);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableNameWithValidColumnLength);
+        }
 
         if (maxColumnNameLength().isEmpty()) {
             return;
@@ -4393,9 +4398,14 @@ public abstract class BaseConnectorTest
 
         String tableNameWithInvalidColumnLength = "test_long_column" + randomNameSuffix();
         String invalidColumnName = validColumnName + "z";
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableNameWithInvalidColumnLength + " (" + invalidColumnName + " bigint)"))
-                .satisfies(this::verifyColumnNameLengthFailurePermissible);
-        assertThat(getQueryRunner().tableExists(getSession(), tableNameWithInvalidColumnLength)).isFalse();
+        try {
+            assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableNameWithInvalidColumnLength + " (" + invalidColumnName + " bigint)"))
+                    .satisfies(this::verifyColumnNameLengthFailurePermissible);
+            assertThat(getQueryRunner().tableExists(getSession(), tableNameWithInvalidColumnLength)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableNameWithInvalidColumnLength);
+        }
     }
 
     // TODO: Add test for CREATE TABLE AS SELECT with long column name
