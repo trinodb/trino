@@ -25,6 +25,7 @@ import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.BaseTestSqlTaskManager.MockDirectExchangeClientSupplier;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.metadata.LanguageFunctionProvider.LanguageFunctionData;
 import io.trino.metadata.Split;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.NullSafeHashCompiler;
@@ -34,6 +35,7 @@ import io.trino.operator.index.IndexManager;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
 import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
 import io.trino.spi.NodeVersion;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;
@@ -44,6 +46,7 @@ import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.PartitionFunctionProvider;
@@ -56,6 +59,8 @@ import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.routine.ir.IrReturn;
+import io.trino.sql.routine.ir.IrRoutine;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSplit;
 import io.trino.type.BlockTypeOperators;
@@ -73,6 +78,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 
 public final class TaskTestUtils
 {
@@ -110,6 +116,24 @@ public final class TaskTestUtils
             ImmutableList.of(),
             ImmutableMap.of(),
             Optional.empty());
+
+    public static final FunctionId LANGUAGE_FUNCTION_ID = new FunctionId("language_function");
+
+    public static final PlanFragment PLAN_FRAGMENT_WITH_LANGUAGE_FUNCTION = new PlanFragment(
+            PLAN_FRAGMENT.getId(),
+            PLAN_FRAGMENT.getRoot(),
+            PLAN_FRAGMENT.getSymbols(),
+            PLAN_FRAGMENT.getPartitioning(),
+            PLAN_FRAGMENT.getPartitionCount(),
+            PLAN_FRAGMENT.getPartitionedSources(),
+            PLAN_FRAGMENT.getOutputPartitioningScheme(),
+            PLAN_FRAGMENT.getOutputSkewedBucketCount(),
+            PLAN_FRAGMENT.getStatsAndCosts(),
+            PLAN_FRAGMENT.getActiveCatalogs(),
+            ImmutableMap.of(LANGUAGE_FUNCTION_ID, LanguageFunctionData.ofIrRoutine(
+                    new IrRoutine(BIGINT, ImmutableList.of(), new IrReturn(new Constant(BIGINT, 1L))),
+                    SQL_STANDARD)),
+            PLAN_FRAGMENT.getJsonRepresentation());
 
     public static final DynamicFilterId DYNAMIC_FILTER_SOURCE_ID = new DynamicFilterId("filter");
 
