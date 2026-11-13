@@ -12,9 +12,17 @@
  * limitations under the License.
  */
 import { MarkerType, type Edge, type Node } from '@xyflow/react'
-import { QueryStage, QueryStages, QueryStageNodeInfo, QueryStageOperatorSummary, QueryTask } from '../../api/webapp/api'
+import {
+    QueryPlan,
+    QueryPlanNode,
+    QueryStage,
+    QueryStages,
+    QueryStageNodeInfo,
+    QueryStageOperatorSummary,
+    QueryTask,
+} from '../../api/webapp/api'
 import { formatRows, parseAndFormatDataSize } from '../../utils/utils'
-import { IFlowElements, IPlanFragmentNodeInfo, IPlanNodeProps, LayoutDirectionType } from './types'
+import { IFlowElements, IPlanFragmentNodeInfo, LayoutDirectionType } from './types'
 
 // Constants for ID generation
 const ID_PREFIXES = {
@@ -83,7 +91,7 @@ export const createPlanFragmentNode = (
     },
 })
 
-export const createChildNode = (stageId: string, key: string, node: IPlanNodeProps, index: number): Node => {
+export const createChildNode = (stageId: string, key: string, node: QueryPlanNode, index: number): Node => {
     const remoteSources = parseRemoteSources(node.descriptor?.['sourceFragmentIds'])
     return {
         id: IdGenerator.node(key),
@@ -139,30 +147,19 @@ export const createStageOperatorNode = (
     extent: 'parent',
 })
 
-export const flattenNode = (
-    rootNodeInfo: QueryStageNodeInfo,
-    node: IPlanNodeProps,
-    result: Map<string, IPlanNodeProps>
-) => {
-    result.set(node.id, {
-        id: node.id,
-        name: node.name,
-        descriptor: node.descriptor,
-        details: node.details,
-        sources: node.children.map((child: IPlanNodeProps) => child.id),
-        children: node.children,
-    })
-    if (node.children) {
-        node.children.forEach((child: IPlanNodeProps) => flattenNode(rootNodeInfo, child, result))
-    }
-}
-
-export const getPlanFragmentsNodeInfo = (queryStages: QueryStages): Map<string, IPlanFragmentNodeInfo> => {
+export const getPlanFragmentsNodeInfo = (
+    queryStages: QueryStages,
+    queryPlan: QueryPlan
+): Map<string, IPlanFragmentNodeInfo> => {
     const planFragments: Map<string, IPlanFragmentNodeInfo> = new Map()
 
     queryStages.stages.forEach((queryStage: QueryStage) => {
-        const nodes: Map<string, IPlanNodeProps> = new Map()
-        flattenNode(queryStage.plan.root, JSON.parse(queryStage.plan.jsonRepresentation), nodes)
+        // a stage is not drawn until its plan is fetched
+        const planNodes = queryPlan[queryStage.stageId]
+        if (!planNodes) {
+            return
+        }
+        const nodes: Map<string, QueryPlanNode> = new Map(planNodes.map((node: QueryPlanNode) => [node.id, node]))
 
         planFragments.set(queryStage.plan.id, {
             stageId: queryStage.stageId,
@@ -177,8 +174,12 @@ export const getPlanFragmentsNodeInfo = (queryStages: QueryStages): Map<string, 
     return planFragments
 }
 
-export const getPlanFlowElements = (queryStages: QueryStages, layoutDirection: LayoutDirectionType): IFlowElements => {
-    const stages: Map<string, IPlanFragmentNodeInfo> = getPlanFragmentsNodeInfo(queryStages)
+export const getPlanFlowElements = (
+    queryStages: QueryStages,
+    queryPlan: QueryPlan,
+    layoutDirection: LayoutDirectionType
+): IFlowElements => {
+    const stages: Map<string, IPlanFragmentNodeInfo> = getPlanFragmentsNodeInfo(queryStages, queryPlan)
 
     const nodes: Node[] = Array.from(stages).flatMap(([key, planFragmentNodeInfo]) => {
         const stageId: string = IdGenerator.stage(key)
@@ -199,14 +200,16 @@ export const getPlanFlowElements = (queryStages: QueryStages, layoutDirection: L
             )
 
             const remoteSources = parseRemoteSources(node.descriptor?.['sourceFragmentIds'])
-            const remoteSourceEdges: Edge[] = remoteSources.map((sourceKey) =>
-                createEdge(IdGenerator.stage(sourceKey), targetNodeId, {
-                    isAnimated: true,
-                    hasArrow: false,
-                    label: `${parseAndFormatDataSize(planFragmentNodeInfo.stageStats.outputDataSize)} / ${formatRows(planFragmentNodeInfo.stageStats.outputPositions)}`,
-                    remoteEdge: { targetStageId: stageId },
-                })
-            )
+            const remoteSourceEdges: Edge[] = remoteSources
+                .filter((sourceKey) => stages.has(sourceKey))
+                .map((sourceKey) =>
+                    createEdge(IdGenerator.stage(sourceKey), targetNodeId, {
+                        isAnimated: true,
+                        hasArrow: false,
+                        label: `${parseAndFormatDataSize(planFragmentNodeInfo.stageStats.outputDataSize)} / ${formatRows(planFragmentNodeInfo.stageStats.outputPositions)}`,
+                        remoteEdge: { targetStageId: stageId },
+                    })
+                )
 
             return [...sourceEdges, ...remoteSourceEdges]
         })
