@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
  * LEFT - does return input completed with NULL values when subquery relation is empty
  */
 @Immutable
-public class CorrelatedJoinNode
+public final class CorrelatedJoinNode
         extends PlanNode
 {
     private final PlanNode input;

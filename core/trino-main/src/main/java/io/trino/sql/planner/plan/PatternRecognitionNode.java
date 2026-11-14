@@ -44,7 +44,7 @@ import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class PatternRecognitionNode
+public final class PatternRecognitionNode
         extends PlanNode
 {
     private final PlanNode source;

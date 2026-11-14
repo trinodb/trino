@@ -2009,7 +2009,7 @@ public class LocalExecutionPlanner
                 return node.getSource().accept(this, context);
             }
 
-            throw new UnsupportedOperationException("not yet implemented: " + node);
+            throw new UnsupportedOperationException("not yet implemented: " + node.getId());
         }
 
         @Override

@@ -24,7 +24,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class AssignUniqueId
+public final class AssignUniqueId
         extends PlanNode
 {
     private final PlanNode source;

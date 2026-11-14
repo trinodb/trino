@@ -22,9 +22,9 @@ import io.trino.cost.StatsProvider;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Plan;
-import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.GroupReference;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.stream.Stream;

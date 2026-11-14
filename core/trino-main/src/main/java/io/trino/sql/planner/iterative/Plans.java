@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.planner.plan.GroupReference;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 
