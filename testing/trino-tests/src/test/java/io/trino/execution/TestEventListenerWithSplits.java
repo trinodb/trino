@@ -32,6 +32,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -90,6 +91,13 @@ public class TestEventListenerWithSplits
         queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
 
         return queryRunner;
+    }
+
+    @AfterEach
+    public void assertNoDuplicateEvents()
+            throws InterruptedException
+    {
+        queries.assertNoDuplicateEvents();
     }
 
     private String getResourceFilePath(String fileName)

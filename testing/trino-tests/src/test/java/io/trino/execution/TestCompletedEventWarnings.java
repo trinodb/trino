@@ -26,6 +26,7 @@ import io.trino.testing.TestingWarningCollector;
 import io.trino.testing.TestingWarningCollectorConfig;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -75,6 +76,13 @@ public class TestCompletedEventWarnings
             closer.close();
         }
         closer = null;
+    }
+
+    @AfterEach
+    public void assertNoDuplicateEvents()
+            throws InterruptedException
+    {
+        queries.assertNoDuplicateEvents();
     }
 
     @Test

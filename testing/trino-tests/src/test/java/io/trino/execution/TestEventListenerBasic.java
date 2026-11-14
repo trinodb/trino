@@ -67,6 +67,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
@@ -106,6 +107,7 @@ import static java.lang.Double.NaN;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -315,6 +317,13 @@ public class TestEventListenerBasic
         return queryRunner;
     }
 
+    @AfterEach
+    public void assertNoDuplicateEvents()
+            throws InterruptedException
+    {
+        queries.assertNoDuplicateEvents();
+    }
+
     private String getResourceFilePath(String fileName)
     {
         try {
@@ -329,6 +338,37 @@ public class TestEventListenerBasic
             throws Exception
     {
         return queries.runQueryAndWaitForEvents(sql, getSession());
+    }
+
+    @Test
+    public void testDuplicateEvents()
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents("SELECT 1").getQueryEvents();
+        QueryCreatedEvent createdEvent = queryEvents.getQueryCreatedEvent();
+        QueryCompletedEvent completedEvent = queryEvents.getQueryCompletedEvent();
+
+        EventsCollector eventsCollector = new EventsCollector();
+        eventsCollector.addQueryCreated(createdEvent);
+        eventsCollector.addQueryCompleted(completedEvent);
+        QueryEvents collectedEvents = eventsCollector.getQueryEvents(new QueryId(createdEvent.getMetadata().getQueryId()));
+        assertThat(collectedEvents.getQueryCreatedEvent()).isSameAs(createdEvent);
+        assertThat(collectedEvents.getQueryCompletedEvent()).isSameAs(completedEvent);
+        eventsCollector.checkFailure();
+
+        eventsCollector.addQueryCreated(createdEvent);
+        eventsCollector.addQueryCompleted(completedEvent);
+        assertThatThrownBy(eventsCollector::checkFailure)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Event collection failed")
+                .hasSuppressedException(new RuntimeException("QueryCreateEvent already set"))
+                .hasSuppressedException(new RuntimeException("QueryCompletedEvent already set"));
+        assertThatThrownBy(collectedEvents::getQueryCreatedEvent)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Event collection failed");
+        assertThatThrownBy(collectedEvents::getQueryCompletedEvent)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Event collection failed");
     }
 
     @Test
@@ -1454,20 +1494,20 @@ public class TestEventListenerBasic
             throws Exception
     {
         assertLineage(
-                format("SELECT orderpriority AS test_varchar, orderkey AS test_bigint FROM orders %s SELECT clerk, custkey FROM sf1.orders", setOperator),
-                ImmutableSet.of("tpch.tiny.orders", "tpch.sf1.orders"),
+                format("SELECT orderpriority AS test_varchar, orderkey AS test_bigint FROM orders %s SELECT clerk, custkey FROM \"sf0.001\".orders", setOperator),
+                ImmutableSet.of("tpch.tiny.orders", "tpch.sf0.001.orders"),
                 new OutputColumnMetadata(
                         "test_varchar",
                         VARCHAR_TYPE,
                         ImmutableSet.of(
                                 new ColumnDetail("tpch", "tiny", "orders", "orderpriority"),
-                                new ColumnDetail("tpch", "sf1", "orders", "clerk"))),
+                                new ColumnDetail("tpch", "sf0.001", "orders", "clerk"))),
                 new OutputColumnMetadata(
                         "test_bigint",
                         BIGINT_TYPE,
                         ImmutableSet.of(
                                 new ColumnDetail("tpch", "tiny", "orders", "orderkey"),
-                                new ColumnDetail("tpch", "sf1", "orders", "custkey"))));
+                                new ColumnDetail("tpch", "sf0.001", "orders", "custkey"))));
     }
 
     @Test

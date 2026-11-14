@@ -87,11 +87,15 @@ class EventsAwaitingQueries
         QueryEvents queryEvents = eventsCollector.getQueryEvents(queryId);
         queryEvents.waitForQueryCompletion(new Duration(30, SECONDS));
 
-        // Sleep some more so extraneous, unexpected events can be recorded too.
-        // This is not rock solid but improves effectiveness on detecting duplicate events.
-        SECONDS.sleep(1);
-
         return new MaterializedResultWithEvents(result, queryEvents);
+    }
+
+    void assertNoDuplicateEvents()
+            throws InterruptedException
+    {
+        // Share the grace period across all queries in a test so unexpected events can still be recorded.
+        SECONDS.sleep(1);
+        eventsCollector.checkFailure();
     }
 
     public static class MaterializedResultWithEvents
