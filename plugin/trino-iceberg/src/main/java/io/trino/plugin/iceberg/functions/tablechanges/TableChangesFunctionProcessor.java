@@ -30,6 +30,8 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -37,6 +39,7 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.mapping.NameMappingParser;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -47,6 +50,8 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_ORDINAL_ID
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TIMESTAMP_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TYPE_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_VERSION_ID;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionBlockValues;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValueTypes;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -77,7 +82,8 @@ public class TableChangesFunctionProcessor
             TableChangesFunctionHandle functionHandle,
             Optional<ConnectorTableCredentials> tableCredentials,
             TableChangesSplit split,
-            IcebergPageSourceProvider icebergPageSourceProvider)
+            IcebergPageSourceProvider icebergPageSourceProvider,
+            TypeManager typeManager)
     {
         requireNonNull(session, "session is null");
         requireNonNull(functionHandle, "functionHandle is null");
@@ -85,9 +91,11 @@ public class TableChangesFunctionProcessor
         verify(tableCredentials.isPresent(), "tableCredentials is empty");
         requireNonNull(split, "split is null");
         requireNonNull(icebergPageSourceProvider, "icebergPageSourceProvider is null");
+        requireNonNull(typeManager, "typeManager is null");
 
         Schema tableSchema = SchemaParser.fromJson(functionHandle.tableSchemaJson());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(tableSchema, split.partitionSpecJson());
+        List<Type> partitionValueTypes = getPartitionValueTypes(partitionSpec, typeManager);
 
         int delegateColumnIndex = 0;
         int[] delegateColumnMap = new int[functionHandle.columns().size()];
@@ -126,7 +134,8 @@ public class TableChangesFunctionProcessor
                 functionHandle.columns(),
                 tableSchema,
                 partitionSpec,
-                PartitionData.fromJson(split.partitionDataJson(), partitionSpec),
+                partitionValueTypes,
+                getPartitionBlockValues(partitionSpec, partitionValueTypes, PartitionData.fromJson(split.partitionDataJson(), partitionSpec)),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
                 TupleDomain.all(),

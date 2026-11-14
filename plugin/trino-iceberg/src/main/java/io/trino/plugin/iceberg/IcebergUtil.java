@@ -37,6 +37,7 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.util.DefaultLocationProvider;
 import io.trino.plugin.iceberg.util.ObjectStoreLocationProvider;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
@@ -210,6 +211,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static java.lang.Boolean.parseBoolean;
@@ -894,6 +896,78 @@ public final class IcebergUtil
             values.put(fieldId, convertIcebergValueToTrino(type, partition.get(index, type.typeId().javaClass())));
         }
         return values;
+    }
+
+    /**
+     * Trino types of the partition fields of a spec, in field order.
+     */
+    public static List<Type> getPartitionValueTypes(PartitionSpec spec, TypeManager typeManager)
+    {
+        return spec.partitionType().fields().stream()
+                .map(field -> toTrinoType(field.type(), typeManager))
+                .collect(toImmutableList());
+    }
+
+    /**
+     * Partition values of a file as single-value blocks of the given types.
+     */
+    public static List<Block> getPartitionBlockValues(PartitionSpec spec, List<Type> types, StructLike partition)
+    {
+        Map<Integer, Object> values = getPartitionFieldValues(spec, partition);
+        List<PartitionField> fields = spec.fields();
+        ImmutableList.Builder<Block> blocks = ImmutableList.builderWithExpectedSize(fields.size());
+        for (int index = 0; index < fields.size(); index++) {
+            blocks.add(writeNativeValue(types.get(index), values.get(fields.get(index).fieldId())));
+        }
+        return blocks.build();
+    }
+
+    /**
+     * Partition values of a split keyed by partition field id, read from its typed blocks.
+     */
+    public static Map<Integer, Object> getPartitionFieldValues(PartitionSpec spec, List<Type> types, List<Block> blocks)
+    {
+        List<PartitionField> fields = spec.fields();
+        Map<Integer, Object> values = new HashMap<>(fields.size());
+        for (int index = 0; index < fields.size(); index++) {
+            values.put(fields.get(index).fieldId(), readNativeValue(types.get(index), blocks.get(index), 0));
+        }
+        return values;
+    }
+
+    /**
+     * Values of the identity partition columns of a split keyed by source column id, read from its
+     * typed blocks and converted to the column types of the schema being read.
+     */
+    public static Map<Integer, NullableValue> getIdentityPartitionValues(PartitionSpec spec, List<Type> types, List<Block> blocks, Schema schema, TypeManager typeManager)
+    {
+        ImmutableMap.Builder<Integer, NullableValue> values = ImmutableMap.builder();
+        getIdentityPartitions(spec).forEach((field, index) -> {
+            Type type = types.get(index);
+            Type columnType = toTrinoType(schema.findType(field.sourceId()), typeManager);
+            values.put(field.sourceId(), new NullableValue(columnType, coercePartitionValue(type, readNativeValue(type, blocks.get(index), 0), columnType)));
+        });
+        return values.buildOrThrow();
+    }
+
+    /**
+     * Converts a partition value typed by the current schema to the type of the column in the
+     * snapshot being read. They differ after a type promotion, which Iceberg allows from int to
+     * long, float to double and to a wider decimal precision.
+     */
+    private static Object coercePartitionValue(Type type, Object nativeValue, Type columnType)
+    {
+        if (nativeValue == null || type.equals(columnType)) {
+            return nativeValue;
+        }
+        if (type.equals(DOUBLE) && columnType.equals(REAL)) {
+            return (long) floatToRawIntBits((float) (double) nativeValue);
+        }
+        if (type instanceof DecimalType from && columnType instanceof DecimalType to && from.getScale() == to.getScale() && from.getPrecision() >= to.getPrecision()) {
+            return from.isShort() == to.isShort() ? nativeValue : ((Int128) nativeValue).toLongExact();
+        }
+        checkArgument(type.equals(BIGINT) && columnType.equals(INTEGER), "Cannot read partition value of type %s as %s", type, columnType);
+        return nativeValue;
     }
 
     /**
