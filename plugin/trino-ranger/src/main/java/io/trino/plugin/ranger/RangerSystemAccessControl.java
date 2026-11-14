@@ -58,6 +58,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -143,6 +144,8 @@ public class RangerSystemAccessControl
 
     private final RangerBasePlugin rangerPlugin;
     private final RangerTrinoEventListener eventListener = new RangerTrinoEventListener();
+    private final Optional<String> extraCredentialsGroupsKey;
+    private final String extraCredentialsGroupsSeparator;
 
     @Inject
     public RangerSystemAccessControl(RangerConfig config)
@@ -164,6 +167,9 @@ public class RangerSystemAccessControl
         rangerPlugin = new RangerBasePlugin(pluginConfig);
         rangerPlugin.init();
         rangerPlugin.setResultProcessor(new RangerDefaultAuditHandler());
+
+        extraCredentialsGroupsKey = config.getExtraCredentialsGroupsKey();
+        extraCredentialsGroupsSeparator = config.getExtraCredentialsGroupsSeparator();
     }
 
     @Override
@@ -972,16 +978,33 @@ public class RangerSystemAccessControl
         return result.isRowFilterEnabled();
     }
 
+    Set<String> getEffectiveGroups(Identity identity)
+    {
+        if (extraCredentialsGroupsKey.isEmpty()) {
+            return identity.getGroups();
+        }
+        String credentialValue = identity.getExtraCredentials().get(extraCredentialsGroupsKey.get());
+        if (credentialValue == null || credentialValue.isBlank()) {
+            return identity.getGroups();
+        }
+        Set<String> combined = new HashSet<>(identity.getGroups());
+        Arrays.stream(credentialValue.split(Pattern.quote(extraCredentialsGroupsSeparator)))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .forEach(combined::add);
+        return combined;
+    }
+
     private RangerTrinoAccessRequest createAccessRequest(RangerTrinoResource resource, SystemSecurityContext context, RangerTrinoAccessType accessType, String action)
     {
-        Set<String> userGroups = context.getIdentity().getGroups();
+        Set<String> userGroups = getEffectiveGroups(context.getIdentity());
 
         return new RangerTrinoAccessRequest(resource, context.getIdentity().getUser(), userGroups, getQueryTime(context), getClientAddress(context), getClientType(context), getQueryText(context), accessType, action);
     }
 
     private RangerTrinoAccessRequest createAccessRequest(RangerTrinoResource resource, Identity identity, QueryId queryId, RangerTrinoAccessType accessType, String action)
     {
-        Set<String> userGroups = identity.getGroups();
+        Set<String> userGroups = getEffectiveGroups(identity);
 
         return new RangerTrinoAccessRequest(resource, identity.getUser(), userGroups, getQueryTime(queryId), getClientAddress(queryId), getClientType(queryId), getQueryText(queryId), accessType, action);
     }
