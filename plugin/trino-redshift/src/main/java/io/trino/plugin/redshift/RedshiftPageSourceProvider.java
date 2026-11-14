@@ -39,7 +39,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.MemoryContext;
-import io.trino.spi.connector.MemoryUsageReportingPageSource;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
@@ -50,7 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.memory.context.AggregatedMemoryContext.newAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
@@ -96,15 +95,15 @@ public class RedshiftPageSourceProvider
         TrinoInputFile inputFile = fileSystem.newInputFile(location, redshiftUnloadSplit.length());
         ParquetReader parquetReader;
         try {
-            parquetReader = parquetReader(inputFile, columns);
+            parquetReader = parquetReader(inputFile, columns, memoryContext);
         }
         catch (IOException e) {
             throw new TrinoException(REDSHIFT_PARQUET_CURSOR_ERROR, format("Failed to open Parquet file: %s", path), e);
         }
-        return new MemoryUsageReportingPageSource(new RedshiftParquetPageSource(parquetReader), memoryContext);
+        return new RedshiftParquetPageSource(parquetReader);
     }
 
-    private ParquetReader parquetReader(TrinoInputFile inputFile, List<ColumnHandle> columns)
+    private ParquetReader parquetReader(TrinoInputFile inputFile, List<ColumnHandle> columns, MemoryContext memoryContext)
             throws IOException
     {
         ParquetReaderOptions options = ParquetReaderOptions.defaultOptions();
@@ -128,7 +127,7 @@ public class RedshiftPageSourceProvider
                 rowGroupInfoBuilder.build(),
                 dataSource,
                 timeZone,
-                newSimpleAggregatedMemoryContext(),
+                newAggregatedMemoryContext(memoryContext),
                 options,
                 RedshiftParquetPageSource::handleException,
                 Optional.empty(),
