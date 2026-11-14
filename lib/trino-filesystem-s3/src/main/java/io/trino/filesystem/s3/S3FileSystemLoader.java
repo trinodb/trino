@@ -44,10 +44,10 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.auth.scheme.S3AuthSchemeProvider;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -79,7 +79,7 @@ final class S3FileSystemLoader
     private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("s3-upload-%s"));
     private final ExecutorService dnsRefreshExecutor = newCachedThreadPool(daemonThreadsNamed("s3-dns-refresh-%s"));
     private final Map<Optional<S3SecurityMappingResult>, S3Client> clients = new ConcurrentHashMap<>();
-    private final Map<Optional<S3SecurityMappingResult>, S3Presigner> preSigners = new ConcurrentHashMap<>();
+    private final Map<Optional<S3SecurityMappingResult>, S3GetObjectPresigner> preSigners = new ConcurrentHashMap<>();
 
     @Inject
     public S3FileSystemLoader(S3SecurityMappingProvider mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
@@ -140,7 +140,7 @@ final class S3FileSystemLoader
         Optional<S3SecurityMappingResult> mapping = mappingProvider.orElseThrow().getMapping(identity, location);
 
         S3Client client = clients.computeIfAbsent(mapping, _ -> clientFactory.create(mapping));
-        S3Presigner preSigner = preSigners.computeIfAbsent(mapping, _ -> createS3PreSigner(presignerSettings, client));
+        S3GetObjectPresigner preSigner = preSigners.computeIfAbsent(mapping, _ -> createS3PreSigner(presignerSettings, client));
 
         if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
             checkState(mapping.get().sseCustomerKey().isEmpty(), "Both SSE-C and KMS-managed keys cannot be used at the same time");
@@ -158,6 +158,7 @@ final class S3FileSystemLoader
     public void destroy()
     {
         try (httpClient) {
+            preSigners.values().forEach(S3GetObjectPresigner::close);
             uploadExecutor.shutdownNow();
         }
         finally {
@@ -199,6 +200,8 @@ final class S3FileSystemLoader
         Optional<String> stsEndpoint = Optional.ofNullable(config.getStsEndpoint());
         Optional<String> stsRegion = Optional.ofNullable(config.getStsRegion()).or(() -> staticRegion);
         Optional<S3AuthSchemeProvider> authSchemeProvider = config.getSignerType().map(S3FileSystemLoader::createAuthSchemeProvider);
+        // The session duration is only applied together with presigned URI lifetime validation, which needs to know it
+        Optional<Duration> roleSessionDuration = config.isPresignedUriLifetimeValidationEnabled() ? Optional.of(config.getRoleSessionDuration().toJavaTime()) : Optional.empty();
 
         return mapping -> {
             Optional<AwsCredentialsProvider> credentialsProvider = mapping
@@ -227,17 +230,22 @@ final class S3FileSystemLoader
 
             switch (authType) {
                 case ANONYMOUS -> s3.credentialsProvider(AnonymousCredentialsProvider.create());
-                case WEB_IDENTITY -> s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
-                        .asyncCredentialUpdateEnabled(true)
-                        .build());
+                case WEB_IDENTITY -> {
+                    WebIdentityTokenFileCredentialsProvider.Builder webIdentity = WebIdentityTokenFileCredentialsProvider.builder()
+                            .asyncCredentialUpdateEnabled(true);
+                    roleSessionDuration.ifPresent(webIdentity::roleSessionDuration);
+                    s3.credentialsProvider(webIdentity.build());
+                }
                 case IAM_ROLE, DEFAULT -> {
                     // A security mapping may supply a per-request IAM role even when the static auth type is DEFAULT.
                     if (iamRole.isPresent()) {
                         s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
-                                .refreshRequest(request -> request
-                                        .roleArn(iamRole.get())
-                                        .roleSessionName(roleSessionName)
-                                        .externalId(externalId))
+                                .refreshRequest(request -> {
+                                    request.roleArn(iamRole.get())
+                                            .roleSessionName(roleSessionName)
+                                            .externalId(externalId);
+                                    roleSessionDuration.ifPresent(duration -> request.durationSeconds(toIntExact(duration.toSeconds())));
+                                })
                                 .stsClient(createStsClient(stsEndpoint, stsRegion, credentialsProvider))
                                 .asyncCredentialUpdateEnabled(true)
                                 .build());
