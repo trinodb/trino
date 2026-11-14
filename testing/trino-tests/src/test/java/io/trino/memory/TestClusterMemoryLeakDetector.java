@@ -117,6 +117,7 @@ public class TestClusterMemoryLeakDetector
                 null,
                 null,
                 Optional.empty(),
-                RetryPolicy.NONE);
+                RetryPolicy.NONE,
+                null);
     }
 }

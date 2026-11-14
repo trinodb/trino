@@ -80,6 +80,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -205,6 +206,7 @@ public class QueryStateMachine
     private Supplier<DynamicFiltersStats> dynamicFiltersStatsSupplier = () -> DynamicFiltersStats.EMPTY;
     private final Object dynamicFiltersStatsSupplierLock = new Object();
 
+    private AtomicReference<Supplier<OptionalInt>> queuePositionSupplier = new AtomicReference<>(OptionalInt::empty);
     private final AtomicBoolean committed = new AtomicBoolean();
     private final AtomicBoolean consumed = new AtomicBoolean();
 
@@ -538,6 +540,16 @@ public class QueryStateMachine
         }
     }
 
+    @Nullable
+    private Integer getQueuePosition()
+    {
+        if (queryState.get() != QUEUED) {
+            return null;
+        }
+        int position = queuePositionSupplier.get().get().orElse(0);
+        return position > 0 ? position : null;
+    }
+
     public BasicQueryInfo getBasicQueryInfo(Optional<BasicStageStats> rootStage)
     {
         // Query state must be captured first in order to provide a
@@ -571,7 +583,8 @@ public class QueryStateMachine
                 errorCode == null ? null : errorCode.getType(),
                 errorCode,
                 queryType,
-                getRetryPolicy(session));
+                getRetryPolicy(session),
+                getQueuePosition());
     }
 
     @VisibleForTesting
@@ -730,6 +743,7 @@ public class QueryStateMachine
                 Optional.of(resourceGroup),
                 queryType,
                 getRetryPolicy(session),
+                getQueuePosition(),
                 false,
                 version);
     }
@@ -1104,6 +1118,11 @@ public class QueryStateMachine
         synchronized (dynamicFiltersStatsSupplierLock) {
             this.dynamicFiltersStatsSupplier = requireNonNull(dynamicFiltersStatsSupplier, "dynamicFiltersStatsSupplier is null");
         }
+    }
+
+    public void setQueuePositionSupplier(Supplier<OptionalInt> queuePositionSupplier)
+    {
+        this.queuePositionSupplier.set(requireNonNull(queuePositionSupplier, "queuePositionSupplier is null"));
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -1565,6 +1584,7 @@ public class QueryStateMachine
                 queryInfo.getResourceGroupId(),
                 queryInfo.getQueryType(),
                 queryInfo.getRetryPolicy(),
+                queryInfo.getQueuePosition(),
                 true,
                 version);
     }
