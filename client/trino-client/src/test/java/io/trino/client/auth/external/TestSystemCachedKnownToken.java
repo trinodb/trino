@@ -26,6 +26,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 import static java.nio.file.attribute.PosixFilePermission.OWNER_READ;
 import static java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
@@ -160,6 +161,20 @@ final class TestSystemCachedKnownToken
 
         assertThat(Files.getPosixFilePermissions(tempDir.resolve(".token")))
                 .containsExactlyInAnyOrder(OWNER_READ, OWNER_WRITE);
+    }
+
+    @Test
+    void testSetupTokenLeavesNoTemporaryFiles(@TempDir Path tempDir)
+            throws IOException
+    {
+        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
+
+        knownToken.setupToken(() -> Optional.of(new Token("new-token")));
+
+        assertThat(Files.readString(tempDir.resolve(".token"))).isEqualTo("new-token");
+        try (Stream<Path> files = Files.list(tempDir)) {
+            assertThat(files).containsExactly(tempDir.resolve(".token"));
+        }
     }
 
     @Test
