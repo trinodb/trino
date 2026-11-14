@@ -13,6 +13,7 @@
  */
 package io.trino.geospatial.epsg;
 
+import io.trino.epsg.EpsgCatalog;
 import org.apache.sis.io.wkt.Convention;
 import org.apache.sis.io.wkt.WKTFormat;
 import org.apache.sis.metadata.iso.citation.Citations;
@@ -27,9 +28,11 @@ import org.opengis.referencing.operation.CoordinateOperationAuthorityFactory;
 import org.opengis.referencing.operation.OperationMethod;
 import org.opengis.util.FactoryException;
 
+import java.io.IOException;
 import java.text.ParseException;
 import java.time.ZoneId;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -62,15 +65,15 @@ final class EpsgAuthorityFactory
         boolean includeCrs = CoordinateReferenceSystem.class.isAssignableFrom(type) || type.isAssignableFrom(CoordinateReferenceSystem.class);
         boolean includeOperations = CoordinateOperation.class.isAssignableFrom(type) || type.isAssignableFrom(CoordinateOperation.class);
         if (includeCrs && includeOperations) {
-            Set<String> codes = new LinkedHashSet<>(catalog.crsCodes());
-            codes.addAll(catalog.operationCodes());
+            Set<String> codes = new LinkedHashSet<>(stringCodes(catalog.crsCodes()));
+            codes.addAll(stringCodes(catalog.operationCodes()));
             return codes;
         }
         if (includeCrs) {
-            return catalog.crsCodes();
+            return stringCodes(catalog.crsCodes());
         }
         if (includeOperations) {
-            return catalog.operationCodes();
+            return stringCodes(catalog.operationCodes());
         }
         return Set.of();
     }
@@ -132,7 +135,7 @@ final class EpsgAuthorityFactory
     public Set<CoordinateOperation> createFromCoordinateReferenceSystemCodes(String sourceCRS, String targetCRS)
             throws FactoryException
     {
-        int[] operationCodes = catalog.getOperationCodes(parseCode(sourceCRS), parseCode(targetCRS));
+        List<Integer> operationCodes = catalog.operationCodes(parseCode(sourceCRS), parseCode(targetCRS));
         Set<CoordinateOperation> operations = new LinkedHashSet<>();
         for (int operationCode : operationCodes) {
             operations.add(createCoordinateOperation(Integer.toString(operationCode)));
@@ -143,9 +146,9 @@ final class EpsgAuthorityFactory
     private CoordinateReferenceSystem parseCoordinateReferenceSystem(int code)
     {
         try {
-            return (CoordinateReferenceSystem) wktFormat().parseObject(catalog.getCrsWkt(code));
+            return (CoordinateReferenceSystem) wktFormat().parseObject(catalog.crsWkt(code).orElseThrow());
         }
-        catch (ParseException e) {
+        catch (ParseException | IOException e) {
             throw new EpsgException("Failed to parse EPSG CRS " + code, e);
         }
     }
@@ -153,9 +156,9 @@ final class EpsgAuthorityFactory
     private CoordinateOperation parseCoordinateOperation(int code)
     {
         try {
-            return (CoordinateOperation) wktFormat().parseObject(catalog.getOperationWkt(code));
+            return (CoordinateOperation) wktFormat().parseObject(catalog.operationWkt(code).orElseThrow());
         }
-        catch (ParseException e) {
+        catch (ParseException | IOException e) {
             throw new EpsgException("Failed to parse EPSG coordinate operation " + code, e);
         }
     }
@@ -165,6 +168,15 @@ final class EpsgAuthorityFactory
         WKTFormat format = new WKTFormat(Locale.ROOT, (ZoneId) null);
         format.setConvention(Convention.WKT2_2019);
         return format;
+    }
+
+    private static Set<String> stringCodes(Set<Integer> codes)
+    {
+        Set<String> result = new LinkedHashSet<>();
+        for (int code : codes) {
+            result.add(Integer.toString(code));
+        }
+        return result;
     }
 
     private static int parseCode(String code)

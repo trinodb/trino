@@ -17,6 +17,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.cache.NonEvictableLoadingCache;
+import io.trino.epsg.EpsgCatalog;
 import org.apache.sis.referencing.CRS;
 import org.apache.sis.referencing.crs.AbstractCRS;
 import org.apache.sis.referencing.cs.AxesConvention;
@@ -27,6 +28,7 @@ import org.opengis.referencing.operation.CoordinateOperation;
 import org.opengis.referencing.operation.MathTransform;
 import org.opengis.util.FactoryException;
 
+import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
@@ -35,13 +37,23 @@ public final class EpsgCoordinateTransforms
 {
     static final long TRANSFORM_CACHE_MAXIMUM_SIZE = 1000;
 
-    private static final EpsgAuthorityFactory AUTHORITY_FACTORY = new EpsgAuthorityFactory(EpsgCatalog.loadDefault());
+    private static final EpsgAuthorityFactory AUTHORITY_FACTORY = loadAuthorityFactory();
     private static final NonEvictableLoadingCache<TransformKey, MathTransform> TRANSFORMS = buildNonEvictableCache(
             CacheBuilder.newBuilder()
                     .maximumSize(TRANSFORM_CACHE_MAXIMUM_SIZE),
             CacheLoader.from(EpsgCoordinateTransforms::loadTransform));
 
     private EpsgCoordinateTransforms() {}
+
+    private static EpsgAuthorityFactory loadAuthorityFactory()
+    {
+        try {
+            return new EpsgAuthorityFactory(EpsgCatalog.loadDefault());
+        }
+        catch (IOException e) {
+            throw new EpsgException("Failed to read EPSG catalog", e);
+        }
+    }
 
     public static MathTransform transform(int sourceSrid, int targetSrid)
             throws FactoryException

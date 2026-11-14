@@ -24,13 +24,13 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>aircompressor-v3</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-cache</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-cache</artifactId>
+            <groupId>io.trino.epsg</groupId>
+            <artifactId>epsg-catalog</artifactId>
         </dependency>
 
         <dependency>
@@ -73,63 +73,4 @@
         </dependency>
     </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <dependencies>
-                    <dependency>
-                        <groupId>io.trino</groupId>
-                        <artifactId>trino-geospatial-epsg-generator</artifactId>
-                        <version>${project.version}</version>
-                    </dependency>
-                </dependencies>
-                <executions>
-                    <execution>
-                        <id>generate-epsg-catalog</id>
-                        <goals>
-                            <goal>java</goal>
-                        </goals>
-                        <phase>generate-resources</phase>
-                        <configuration>
-                            <executableDependency>
-                                <groupId>io.trino</groupId>
-                                <artifactId>trino-geospatial-epsg-generator</artifactId>
-                            </executableDependency>
-                            <includePluginDependencies>true</includePluginDependencies>
-                            <includeProjectDependencies>false</includeProjectDependencies>
-                            <classpathScope>runtime</classpathScope>
-                            <mainClass>io.trino.geospatial.epsg.generator.GenerateEpsgCatalog</mainClass>
-                            <arguments>
-                                <argument>${project.build.directory}/generated-resources/epsg</argument>
-                                <argument>${dep.sis.version}</argument>
-                            </arguments>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>build-helper-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>add-generated-epsg-catalog</id>
-                        <goals>
-                            <goal>add-resource</goal>
-                        </goals>
-                        <phase>generate-resources</phase>
-                        <configuration>
-                            <resources>
-                                <resource>
-                                    <directory>${project.build.directory}/generated-resources/epsg</directory>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
 </project>

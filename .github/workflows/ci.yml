@@ -206,6 +206,7 @@ jobs:
         # Daemon GC pauses of over 3s were observed on CI. The client's default 3s keep-alive timeout then
         # reports the daemon as crashed and fails the build, so allow 60s.
         run: |
+          .github/bin/install-epsg-catalog.sh -Dmaven.repo.local="${RUNNER_TEMP}/mvnd-repository"
           mvnd ${MAVEN_ARGS} -B -V install -DskipTests -Dmaven.repo.local="${RUNNER_TEMP}/mvnd-repository" -Dmvnd.maxHeapSize=4g -Dmvnd.maxLostKeepAlive=600 -pl '!:trino-docs'
       - name: Cancel merge queue workflow
         if: ${{ failure() && github.event_name == 'merge_group' }}
