@@ -21,6 +21,7 @@ import io.trino.parquet.writer.valuewriter.BooleanValueWriter;
 import io.trino.parquet.writer.valuewriter.DoubleValueWriter;
 import io.trino.parquet.writer.valuewriter.FixedLenByteArrayLongDecimalValueWriter;
 import io.trino.parquet.writer.valuewriter.FixedLenByteArrayShortDecimalValueWriter;
+import io.trino.parquet.writer.valuewriter.GeometryValueWriter;
 import io.trino.parquet.writer.valuewriter.Int32ShortDecimalValueWriter;
 import io.trino.parquet.writer.valuewriter.Int96TimestampValueWriter;
 import io.trino.parquet.writer.valuewriter.IntegerValueWriter;
@@ -173,6 +174,9 @@ final class ParquetWriters
         }
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
             // Binary writer is suitable also for char data, as UTF-8 encoding is used on both sides.
+            if (type instanceof VarbinaryType && parquetType.getLogicalTypeAnnotation() instanceof LogicalTypeAnnotation.GeometryLogicalTypeAnnotation) {
+                return new GeometryValueWriter(valuesWriter, parquetType);
+            }
             return new BinaryValueWriter(valuesWriter, parquetType);
         }
         if (type instanceof UuidType) {
