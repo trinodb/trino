@@ -14,6 +14,7 @@
 package io.trino.cli;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.ClientResourceEstimate;
@@ -28,6 +29,7 @@ import java.lang.reflect.Modifier;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -44,7 +46,7 @@ public class TestClientOptions
         Console console = createConsole();
         ClientOptions options = console.clientOptions;
         assertThat(options.krb5ServicePrincipalPattern).isEqualTo(Optional.of("${SERVICE}@${HOST}"));
-        ClientSession session = options.toClientSession(options.getTrinoUri());
+        ClientSession session = toClientSession(options);
         assertThat(session.getServer().toString()).isEqualTo("http://localhost:8080");
         assertThat(session.getSource()).isEqualTo("trino-cli");
         assertThat(session.getTimeZone()).isEqualTo(ZoneId.systemDefault());
@@ -54,7 +56,7 @@ public class TestClientOptions
     public void testSource()
     {
         Console console = createConsole("--source=test");
-        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getSource()).isEqualTo("test");
     }
 
@@ -62,7 +64,7 @@ public class TestClientOptions
     public void testTraceToken()
     {
         Console console = createConsole("--trace-token", "test token");
-        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getTraceToken()).isEqualTo(Optional.of("test token"));
     }
 
@@ -70,7 +72,7 @@ public class TestClientOptions
     public void testServerHostOnly()
     {
         Console console = createConsole("--server=test");
-        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getServer().toString()).isEqualTo("http://test:80");
     }
 
@@ -78,7 +80,7 @@ public class TestClientOptions
     public void testServerHostPort()
     {
         Console console = createConsole("--server=test:8888");
-        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getServer().toString()).isEqualTo("http://test:8888");
     }
 
@@ -86,7 +88,7 @@ public class TestClientOptions
     public void testServerHttpUri()
     {
         Console console = createConsole("--server=http://test/foo");
-        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getServer().toString()).isEqualTo("http://test:80");
         assertThat(session.getCatalog()).isEqualTo(Optional.of("foo"));
     }
@@ -95,7 +97,7 @@ public class TestClientOptions
     public void testServerTrinoUri()
     {
         Console console = createConsole("--server=trino://test/foo");
-        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getServer().toString()).isEqualTo("http://test:80");
         assertThat(session.getCatalog()).isEqualTo(Optional.of("foo"));
     }
@@ -104,7 +106,7 @@ public class TestClientOptions
     public void testServerHttpsUri()
     {
         Console console = createConsole("--server=https://test/foo");
-        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getServer().toString()).isEqualTo("https://test:443");
         assertThat(session.getCatalog()).isEqualTo(Optional.of("foo"));
     }
@@ -113,7 +115,7 @@ public class TestClientOptions
     public void testServer443Port()
     {
         Console console = createConsole("--server=test:443");
-        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getServer().toString()).isEqualTo("https://test:443");
     }
 
@@ -121,7 +123,7 @@ public class TestClientOptions
     public void testServerHttpsHostPort()
     {
         Console console = createConsole("--server=https://test:443");
-        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getServer().toString()).isEqualTo("https://test:443");
     }
 
@@ -129,7 +131,7 @@ public class TestClientOptions
     public void testServerHttpWithPort443()
     {
         Console console = createConsole("--server=http://test:443");
-        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getServer().toString()).isEqualTo("http://test:443");
     }
 
@@ -138,7 +140,7 @@ public class TestClientOptions
     {
         assertThatThrownBy(() -> {
             Console console = createConsole("--server=x:y");
-            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+            toClientSession(console.clientOptions);
         })
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Unparseable port number: x:y");
@@ -149,7 +151,7 @@ public class TestClientOptions
     {
         assertThatThrownBy(() -> {
             Console console = createConsole("--server=trino://server.example:80", "trino://server.example:80");
-            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+            toClientSession(console.clientOptions);
         })
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Using both the URL parameter and the --server option is not allowed");
@@ -160,22 +162,21 @@ public class TestClientOptions
     {
         assertThatThrownBy(() -> {
             Console console = createConsole("--path=name.name.name");
-            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+            toClientSession(console.clientOptions);
         })
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Connection property 'path' has invalid syntax, should be [catalog].[schema] or [schema]");
 
         Console console = createConsole("--path=catalog.schema");
-        TrinoUri trinoUri = console.clientOptions.getTrinoUri();
-        assertThat(trinoUri.getPath()).hasValue(ImmutableList.of("catalog.schema"));
-        assertThat(console.clientOptions.toClientSession(trinoUri).getPath()).isEqualTo(ImmutableList.of("catalog.schema"));
+        assertThat(toTrinoUri(console.clientOptions).getPath()).hasValue(ImmutableList.of("catalog.schema"));
+        assertThat(toClientSession(console.clientOptions).getPath()).isEqualTo(ImmutableList.of("catalog.schema"));
     }
 
     @Test
     public void testURLHostOnly()
     {
         Console console = createConsole("test");
-        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getServer().toString()).isEqualTo("http://test:80");
     }
 
@@ -183,12 +184,103 @@ public class TestClientOptions
     public void testURLParams()
     {
         Console console = createConsole("trino://server.example:8080/my-catalog/my-schema?source=my-client");
-        TrinoUri uri = console.clientOptions.getTrinoUri();
-        ClientSession session = console.clientOptions.toClientSession(uri);
+        ClientSession session = toClientSession(console.clientOptions);
         assertThat(session.getServer().toString()).isEqualTo("http://server.example:8080");
         assertThat(session.getCatalog()).isEqualTo(Optional.of("my-catalog"));
         assertThat(session.getSchema()).isEqualTo(Optional.of("my-schema"));
-        assertThat(uri.getSource()).isEqualTo(Optional.of("my-client"));
+        assertThat(session.getSource()).isEqualTo("my-client");
+    }
+
+    @Test
+    public void testTrinoJdbcUrl()
+    {
+        Console console = createConsole("jdbc:trino://server.example:8080/my-catalog/my-schema?source=my-client");
+        ClientSession session = toClientSession(console.clientOptions);
+        assertThat(session.getServer().toString()).isEqualTo("http://server.example:8080");
+        assertThat(session.getCatalog()).isEqualTo(Optional.of("my-catalog"));
+        assertThat(session.getSchema()).isEqualTo(Optional.of("my-schema"));
+        assertThat(session.getSource()).isEqualTo("my-client");
+        assertThat(console.clientOptions.createConnectionFactory(ImmutableMap.of())).isInstanceOf(TrinoConnectionFactory.class);
+    }
+
+    @Test
+    public void testNonTrinoJdbcUrl()
+    {
+        Console console = createConsole("--catalog=test", "jdbc:h2:mem:test");
+        assertThat(console.clientOptions.createConnectionFactory(ImmutableMap.of("catalog", "--catalog")))
+                .isInstanceOf(DriverConnectionFactory.class);
+
+        assertThatThrownBy(() -> createConsole("--session=a=b", "jdbc:h2:mem:test").clientOptions.createConnectionFactory(ImmutableMap.of("sessionProperties", "--session")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Option '--session' is only supported when connecting to Trino");
+
+        assertThatThrownBy(() -> createConsole("--server=jdbc:h2:mem:test", "jdbc:h2:mem:test").clientOptions.createConnectionFactory(ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Using both the URL parameter and the --server option is not allowed");
+    }
+
+    @Test
+    public void testExplicitConnectionProperties()
+    {
+        ClientSession session = toClientSession(createConsole("--connection-property", "source=other", "--connection-property", "clientInfo=info").clientOptions);
+        assertThat(session.getSource()).isEqualTo("other");
+        assertThat(session.getClientInfo()).isEqualTo("info");
+
+        ClientOptions options = createConsole("--source=mine", "--connection-property", "source=other").clientOptions;
+        assertThatThrownBy(() -> options.toTrinoConnectionProperties(ImmutableMap.of("source", "--source")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Connection property 'source' cannot be set with the --connection-property option when option '--source' is set");
+
+        assertThatThrownBy(() -> createConsole("--connection-property", "password=secret").clientOptions.toTrinoConnectionProperties(ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("Connection property 'password' cannot be set with the --connection-property option");
+    }
+
+    @Test
+    public void testDriverOptions()
+    {
+        assertThat(createConsole("--driver-class=org.h2.Driver", "jdbc:h2:mem:test").clientOptions.createConnectionFactory(ImmutableMap.of()))
+                .isInstanceOf(DriverConnectionFactory.class);
+
+        assertThatThrownBy(() -> createConsole("--driver-class=org.example.Missing", "jdbc:h2:mem:test").clientOptions.createConnectionFactory(ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("Cannot load JDBC driver class org.example.Missing");
+
+        assertThatThrownBy(() -> createConsole("--driver-path=/no/such/driver.jar", "jdbc:h2:mem:test").clientOptions.createConnectionFactory(ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Driver path does not exist: /no/such/driver.jar");
+
+        assertThatThrownBy(() -> createConsole("jdbc:unknown://localhost").clientOptions.createConnectionFactory(ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No JDBC driver found for URL jdbc:unknown://localhost, use the --driver-path option to load it");
+
+        assertThatThrownBy(() -> createConsole("--driver-class=org.h2.Driver", "trino://localhost:8080").clientOptions.createConnectionFactory(ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Options '--driver-path' and '--driver-class' can only be used with JDBC URLs of databases other than Trino");
+    }
+
+    @Test
+    public void testConnectionProperties()
+    {
+        ClientOptions options = createConsole("--server=http://test:443", "--external-authentication").clientOptions;
+        Properties properties = options.toTrinoConnectionProperties(ImmutableMap.of());
+        assertThat(properties.getProperty("SSL")).isEqualTo("false");
+        assertThat(properties.getProperty("source")).isEqualTo("trino-cli");
+        assertThat(properties.getProperty("externalAuthenticationTokenCache")).isEqualTo("MEMORY");
+    }
+
+    @Test
+    public void testURLPropertiesSetByOptions()
+    {
+        ClientOptions options = createConsole("--catalog=other", "trino://server.example:8080/my-catalog").clientOptions;
+        assertThatThrownBy(() -> options.toTrinoJdbcUrl(ImmutableMap.of("catalog", "--catalog")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Connection property 'catalog' cannot be set in the URL when option '--catalog' is set");
+
+        ClientOptions sourceOptions = createConsole("--source=other", "trino://server.example:8080?source=my-client").clientOptions;
+        assertThatThrownBy(() -> sourceOptions.toTrinoJdbcUrl(ImmutableMap.of("source", "--source")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Connection property 'source' cannot be set in the URL when option '--source' is set");
     }
 
     @Test
@@ -196,7 +288,7 @@ public class TestClientOptions
     {
         assertThatThrownBy(() -> {
             Console console = createConsole("trino://server.example:80?password=invalid");
-            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+            toClientSession(console.clientOptions);
         })
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageMatching("Setting the password in the URL parameter is not allowed.*");
@@ -234,6 +326,7 @@ public class TestClientOptions
         assertThat(options.resourceEstimates).isEqualTo(ImmutableList.of(
                 new ClientResourceEstimate("resource1", "1B"),
                 new ClientResourceEstimate("resource2", "2.2h")));
+        assertThat(toClientSession(options).getResourceEstimates()).isEqualTo(ImmutableMap.of("resource1", "1B", "resource2", "2.2h"));
     }
 
     @Test
@@ -255,9 +348,8 @@ public class TestClientOptions
                 new ClientOptions.ExtraHeader("X-Trino-Routing-Group", "foo"),
                 new ClientOptions.ExtraHeader("x-foo", "bar")));
 
-        assertThatThrownBy(() -> createConsole("--extra-header", "X-Trino-User=Forbidden"))
-                .hasCauseInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Header 'X-Trino-User' is a protocol header and cannot be set as an extra header");
+        assertThatThrownBy(() -> toClientSession(createConsole("--extra-header", "X-Trino-User=Forbidden").clientOptions))
+                .hasMessageContaining("Connection property extraHeaders cannot override any of the Trino protocol headers");
     }
 
     @Test
@@ -285,7 +377,7 @@ public class TestClientOptions
         ClientOptions options = console.clientOptions;
         assertThat(options.timeZone).isEqualTo(ZoneId.of("Europe/Vilnius"));
 
-        ClientSession session = options.toClientSession(options.getTrinoUri());
+        ClientSession session = toClientSession(options);
         assertThat(session.getTimeZone()).isEqualTo(ZoneId.of("Europe/Vilnius"));
     }
 
@@ -297,10 +389,10 @@ public class TestClientOptions
         ClientOptions options = console.clientOptions;
         assertThat(options.clientRequestTimeout).isEqualTo(Duration.succinctDuration(17, SECONDS));
 
-        ClientSession session = options.toClientSession(options.getTrinoUri());
+        ClientSession session = toClientSession(options);
         assertThat(session.getClientRequestTimeout()).isEqualTo(Duration.succinctDuration(17, SECONDS));
 
-        assertThatThrownBy(() -> createConsole("--client-request-timeout=17s", "trino://localhost:8080?timeout=30s").clientOptions.getTrinoUri())
+        assertThatThrownBy(() -> toClientSession(createConsole("--client-request-timeout=17s", "trino://localhost:8080?timeout=30s").clientOptions))
                 .hasMessageContaining("Connection property timeout is passed both by URL and properties");
     }
 
@@ -312,7 +404,7 @@ public class TestClientOptions
         ClientOptions options = console.clientOptions;
         assertThat(options.disableCompression).isTrue();
 
-        ClientSession session = options.toClientSession(options.getTrinoUri());
+        ClientSession session = toClientSession(options);
         assertThat(session.isCompressionDisabled()).isTrue();
     }
 
@@ -361,7 +453,7 @@ public class TestClientOptions
     {
         assertThatThrownBy(() -> {
             Console console = createConsole("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.foo=bar");
-            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+            toClientSession(console.clientOptions);
         })
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Multiple entries with same key: test.token.foo=bar and test.token.foo=foo");
@@ -400,10 +492,27 @@ public class TestClientOptions
             case "theme":
             case "maxBufferedRows":
             case "maxQueuedRows":
+            case "driverPaths":
+            case "driverClass":
+            case "connectionProperties":
                 return true;
         }
 
         return false;
+    }
+
+    private static ClientSession toClientSession(ClientOptions options)
+    {
+        return toTrinoUri(options)
+                .toClientSessionBuilder()
+                .build();
+    }
+
+    // interprets the driver URL and properties the same way the Trino JDBC driver does
+    private static TrinoUri toTrinoUri(ClientOptions options)
+    {
+        String url = options.toTrinoJdbcUrl(ImmutableMap.of());
+        return TrinoUri.create(url.substring("jdbc:".length()), options.toTrinoConnectionProperties(ImmutableMap.of()));
     }
 
     private static Console createConsole(String... args)

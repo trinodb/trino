@@ -236,6 +236,10 @@ may not be specified using both methods.
     list of key-value pairs. For example, `abc:xyz;example.foo:bar` sets the
     system property `abc` to the value `xyz` and the `foo` property for catalog
     `example` to the value `bar`.
+* - `resourceEstimates`
+  - Estimates of the resources used by the queries, specified as a list of
+    key-value pairs. The keys are `EXECUTION_TIME`, `CPU_TIME`, and
+    `PEAK_MEMORY`. For example, `EXECUTION_TIME:10m;PEAK_MEMORY:2GB`.
 * - `extraHeaders`
   - HTTP headers to add to the authenticated HTTP requests, specified as a
     list of key-value pairs. For example, `X-Trino-Foo:xyz;X-Trino-Bar:bar` 
@@ -302,6 +306,30 @@ may not be specified using both methods.
   - Defaults to `false`. If set to `true`, connectivity and credentials are validated 
     when the connection is created, and when `java.sql.Connection.isValid(int)` is called.
 :::
+
+## Rows returned by updates
+
+Some statements that modify data or tables return rows in addition to the
+update count. For example, [](/sql/explain-analyze) of an `INSERT` returns the
+query plan, and table procedures like `ALTER TABLE ... EXECUTE optimize` return
+metrics. `execute()` returns `false` for these statements, and
+`getUpdateCount()` returns the update count, like for any other update. The rows
+are the next result, available after calling `getMoreResults()`. After that
+call, `getUpdateCount()` returns `-1`. Keeping the current result open with
+`getMoreResults(Statement.KEEP_CURRENT_RESULT)` is not supported.
+
+```java
+try (Statement statement = connection.createStatement()) {
+    statement.execute("EXPLAIN ANALYZE INSERT INTO orders SELECT * FROM new_orders");
+    if (statement.getMoreResults()) {
+        try (ResultSet resultSet = statement.getResultSet()) {
+            while (resultSet.next()) {
+                System.out.println(resultSet.getString(1));
+            }
+        }
+    }
+}
+```
 
 (jdbc-spooling-protocol)=
 ## Spooling protocol

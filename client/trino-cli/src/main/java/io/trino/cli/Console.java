@@ -14,7 +14,6 @@
 package io.trino.cli;
 
 import com.google.common.base.CharMatcher;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.OutputFormat;
@@ -22,10 +21,6 @@ import io.trino.cli.ClientOptions.PropertyMapping;
 import io.trino.cli.Trino.VersionProvider;
 import io.trino.cli.lexer.StatementSplitter;
 import io.trino.cli.lexer.StatementSplitter.Statement;
-import io.trino.client.ClientSelectedRole;
-import io.trino.client.ClientSession;
-import io.trino.client.uri.PropertyName;
-import io.trino.client.uri.TrinoUri;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.History;
 import org.jline.reader.UserInterruptException;
@@ -42,9 +37,8 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.AbstractMap;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -66,7 +60,6 @@ import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static io.trino.cli.TerminalUtils.terminalEncoding;
 import static io.trino.cli.Trino.formatCliErrorMessage;
 import static io.trino.cli.lexer.StatementSplitter.isEmptyStatement;
-import static io.trino.client.ClientSession.stripTransactionId;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -111,7 +104,7 @@ public class Console
     {
         CommandLine.ParseResult parseResult = spec.commandLine().getParseResult();
 
-        Map<PropertyName, String> restrictedOptions = spec.options().stream()
+        Map<String, String> restrictedOptions = spec.options().stream()
                 .filter(parseResult::hasMatchedOption)
                 .map(option -> getMapping(option.userObject())
                         .map(value -> new AbstractMap.SimpleEntry<>(value, option.longestName())))
@@ -119,8 +112,7 @@ public class Console
                 .map(Optional::get)
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        TrinoUri uri = clientOptions.getTrinoUri(restrictedOptions);
-        ClientSession session = clientOptions.toClientSession(uri);
+        ConnectionFactory connectionFactory = clientOptions.createConnectionFactory(restrictedOptions);
         boolean hasQuery = clientOptions.execute != null;
         boolean isFromFile = !isNullOrEmpty(clientOptions.file);
 
@@ -173,13 +165,7 @@ public class Console
 
         Theme theme = clientOptions.theme.resolve(isRealTerminal(), noColorRequested());
 
-        try (QueryRunner queryRunner = new QueryRunner(
-                theme,
-                uri,
-                session,
-                clientOptions.debug,
-                clientOptions.maxQueuedRows,
-                clientOptions.maxBufferedRows)) {
+        try (QueryRunner queryRunner = createQueryRunner(theme, connectionFactory)) {
             if (hasQuery) {
                 return executeCommand(
                         queryRunner,
@@ -211,6 +197,22 @@ public class Console
         }
     }
 
+    private QueryRunner createQueryRunner(Theme theme, ConnectionFactory connectionFactory)
+    {
+        try {
+            return new QueryRunner(
+                    theme,
+                    connectionFactory,
+                    clientOptions.debug,
+                    clientOptions.maxQueuedRows,
+                    clientOptions.maxBufferedRows);
+        }
+        catch (SQLException e) {
+            connectionFactory.close();
+            throw new RuntimeException("Error connecting: " + e.getMessage(), e);
+        }
+    }
+
     // Honor the https://no-color.org/ convention: any non-empty NO_COLOR disables color.
     private static boolean noColorRequested()
     {
@@ -218,7 +220,7 @@ public class Console
         return value != null && !value.isEmpty();
     }
 
-    private static Optional<PropertyName> getMapping(Object userObject)
+    private static Optional<String> getMapping(Object userObject)
     {
         if (userObject instanceof Field) {
             return Optional.ofNullable(((Field) userObject).getAnnotation(PropertyMapping.class))
@@ -247,7 +249,7 @@ public class Console
             while (!exiting.get()) {
                 // setup prompt
                 String prompt = PROMPT_NAME;
-                Optional<String> schema = queryRunner.getSession().getSchema();
+                Optional<String> schema = queryRunner.getSchema();
                 prompt += schema.map(value -> ":" + value.replace("%", "%%"))
                         .orElse("");
                 String commandPrompt = prompt + "> ";
@@ -305,8 +307,9 @@ public class Console
                         currentOutputFormat = OutputFormat.VERTICAL;
                     }
 
-                    process(queryRunner, split.statement(), currentOutputFormat, tableNameCompleter::populateCache, pager, progress, decimalDataSize, reader.getTerminal(), System.out, System.out);
+                    process(queryRunner, split.statement(), currentOutputFormat, pager, progress, decimalDataSize, reader.getTerminal(), System.out, System.out);
                 }
+                tableNameCompleter.populateCache();
 
                 // replace remaining with trailing partial statement
                 remaining = whitespace().trimTrailingFrom(splitter.getPartialStatement());
@@ -330,7 +333,7 @@ public class Console
         StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
-                if (!process(queryRunner, split.statement(), outputFormat, () -> {}, Optional.of(""), showProgress, decimalDataSize, getTerminal(), System.out, System.err)) {
+                if (!process(queryRunner, split.statement(), outputFormat, Optional.of(""), showProgress, decimalDataSize, getTerminal(), System.out, System.err)) {
                     if (!ignoreErrors) {
                         return false;
                     }
@@ -352,7 +355,6 @@ public class Console
             QueryRunner queryRunner,
             String sql,
             OutputFormat outputFormat,
-            Runnable schemaChanged,
             Optional<String> pager,
             boolean showProgress,
             boolean decimalDataSize,
@@ -364,8 +366,8 @@ public class Console
         try {
             finalSql = preprocessQuery(
                     terminal,
-                    queryRunner.getSession().getCatalog(),
-                    queryRunner.getSession().getSchema(),
+                    queryRunner::getCatalog,
+                    queryRunner::getSchema,
                     sql);
         }
         catch (QueryPreprocessorException e) {
@@ -377,85 +379,9 @@ public class Console
         }
 
         try (Query query = queryRunner.startQuery(finalSql)) {
-            boolean success = query.renderOutput(terminal, out, errorChannel, outputFormat, pager, showProgress, decimalDataSize);
-
-            ClientSession session = queryRunner.getSession();
-
-            // update catalog and schema if present
-            if (query.getSetCatalog().isPresent() || query.getSetSchema().isPresent()) {
-                ClientSession.Builder builder = ClientSession.builder(session);
-                query.getSetCatalog().ifPresent(builder::catalog);
-                query.getSetSchema().ifPresent(builder::schema);
-                session = builder.build();
-            }
-
-            // update transaction ID if necessary
-            if (query.isClearTransactionId()) {
-                session = stripTransactionId(session);
-            }
-
-            ClientSession.Builder builder = ClientSession.builder(session);
-
-            if (query.getStartedTransactionId() != null) {
-                builder = builder.transactionId(query.getStartedTransactionId());
-            }
-
-            // update path if present
-            if (query.getSetPath().isPresent()) {
-                builder = builder.path(query.getSetPath().get());
-            }
-
-            // update authorization user if present
-            if (query.getSetAuthorizationUser().isPresent()) {
-                builder = builder.authorizationUser(query.getSetAuthorizationUser());
-                builder = builder.roles(ImmutableMap.of());
-            }
-
-            // update session originalRoles
-            if (!query.getSetOriginalRoles().isEmpty()) {
-                Set<ClientSelectedRole> originalRoles = new HashSet<>(session.getOriginalRoles());
-                originalRoles.addAll(query.getSetOriginalRoles());
-                builder = builder.originalRoles(originalRoles);
-            }
-
-            if (query.isResetAuthorizationUser()) {
-                builder = builder.authorizationUser(Optional.empty());
-                builder = builder.roles(ImmutableMap.of());
-            }
-
-            // update session properties if present
-            if (!query.getSetSessionProperties().isEmpty() || !query.getResetSessionProperties().isEmpty()) {
-                Map<String, String> sessionProperties = new HashMap<>(session.getProperties());
-                sessionProperties.putAll(query.getSetSessionProperties());
-                sessionProperties.keySet().removeAll(query.getResetSessionProperties());
-                builder = builder.properties(sessionProperties);
-            }
-
-            // update session roles
-            if (!query.getSetRoles().isEmpty()) {
-                Map<String, ClientSelectedRole> roles = new HashMap<>(session.getRoles());
-                roles.putAll(query.getSetRoles());
-                builder = builder.roles(roles);
-            }
-
-            // update prepared statements if present
-            if (!query.getAddedPreparedStatements().isEmpty() || !query.getDeallocatedPreparedStatements().isEmpty()) {
-                Map<String, String> preparedStatements = new HashMap<>(session.getPreparedStatements());
-                preparedStatements.putAll(query.getAddedPreparedStatements());
-                preparedStatements.keySet().removeAll(query.getDeallocatedPreparedStatements());
-                builder = builder.preparedStatements(preparedStatements);
-            }
-
-            session = builder.build();
-            queryRunner.setSession(session);
-
-            if (query.getSetCatalog().isPresent() || query.getSetSchema().isPresent()) {
-                schemaChanged.run();
-            }
-
-            return success;
+            return query.renderOutput(terminal, out, errorChannel, outputFormat, pager, showProgress, decimalDataSize);
         }
-        catch (RuntimeException e) {
+        catch (SQLException | RuntimeException e) {
             System.err.println(formatCliErrorMessage(e, queryRunner.theme(), queryRunner.isDebug()));
             return false;
         }

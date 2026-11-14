@@ -13,24 +13,13 @@
  */
 package io.trino.cli;
 
-import com.google.common.collect.ImmutableSet;
-import io.trino.client.Column;
-
 import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.client.ClientStandardTypes.BIGINT;
-import static io.trino.client.ClientStandardTypes.DECIMAL;
-import static io.trino.client.ClientStandardTypes.DOUBLE;
-import static io.trino.client.ClientStandardTypes.INTEGER;
-import static io.trino.client.ClientStandardTypes.REAL;
-import static io.trino.client.ClientStandardTypes.SMALLINT;
-import static io.trino.client.ClientStandardTypes.TINYINT;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static org.jline.utils.AttributedString.stripAnsi;
@@ -39,7 +28,6 @@ import static org.jline.utils.WCWidth.wcwidth;
 public class MarkdownTablePrinter
         implements OutputPrinter
 {
-    private static final Set<String> NUMERIC_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, DECIMAL);
     private static final Pattern SPECIAL_CHARS = Pattern.compile("([\\\\`*_{}\\[\\]<>()#+!|])");
     private final List<String> fieldNames;
     private final List<Align> alignments;
@@ -55,8 +43,7 @@ public class MarkdownTablePrinter
                 .map(MarkdownTablePrinter::formatValue)
                 .collect(toImmutableList());
         this.alignments = columns.stream()
-                .map(Column::getTypeSignature)
-                .map(signature -> NUMERIC_TYPES.contains(signature.getRawType()) ? Align.RIGHT : Align.LEFT)
+                .map(column -> column.isNumeric() ? Align.RIGHT : Align.LEFT)
                 .collect(toImmutableList());
         this.writer = requireNonNull(writer, "writer is null");
     }

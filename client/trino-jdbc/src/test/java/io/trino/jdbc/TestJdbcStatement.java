@@ -30,7 +30,10 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
@@ -157,6 +160,121 @@ public class TestJdbcStatement
             assertThat(listQueryErrorCodes(sql))
                     .allMatch(errorCode -> "TRANSACTION_ALREADY_ABORTED".equals(errorCode) || "USER_CANCELED".equals(errorCode))
                     .hasSize(1);
+        }
+    }
+
+    @Test
+    public void testExplainAnalyzeOfUpdate()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                TrinoStatement trinoStatement = statement.unwrap(TrinoStatement.class);
+                statement.execute("CREATE TABLE blackhole.default.explain_analyze_update (x bigint)");
+
+                // the update count is followed by the query plan
+                assertThat(statement.execute("EXPLAIN ANALYZE INSERT INTO blackhole.default.explain_analyze_update VALUES 1")).isFalse();
+                assertThat(trinoStatement.getUpdateType()).isEqualTo("INSERT");
+                assertThat(statement.getUpdateCount()).isEqualTo(0);
+                assertThat(trinoStatement.getReportedUpdateCount()).isEmpty();
+                assertThat(statement.getMoreResults()).isTrue();
+                try (ResultSet resultSet = statement.getResultSet()) {
+                    assertThat(resultSet.getStatement()).isSameAs(statement);
+                    assertThat(resultSet.getMetaData().getColumnName(1)).isEqualTo("Query Plan");
+                    assertThat(resultSet.next()).isTrue();
+                    assertThat(resultSet.getString(1)).contains("Fragment");
+                    assertThat(resultSet.next()).isFalse();
+                }
+                assertThat(statement.getMoreResults()).isFalse();
+                assertThat(statement.getUpdateCount()).isEqualTo(-1);
+
+                assertThat(statement.execute("INSERT INTO blackhole.default.explain_analyze_update VALUES 1, 2")).isFalse();
+                assertThat(trinoStatement.getUpdateType()).isEqualTo("INSERT");
+                assertThat(statement.getUpdateCount()).isEqualTo(2);
+                assertThat(statement.getMoreResults()).isFalse();
+            }
+            finally {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE IF EXISTS blackhole.default.explain_analyze_update");
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testReportedUpdateCount()
+            throws Exception
+    {
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement()) {
+            TrinoStatement trinoStatement = statement.unwrap(TrinoStatement.class);
+
+            assertThat(statement.execute("CREATE TABLE blackhole.default.reported_update_count (x bigint)")).isFalse();
+            assertThat(trinoStatement.getUpdateType()).isEqualTo("CREATE TABLE");
+            assertThat(statement.getLargeUpdateCount()).isEqualTo(0);
+            assertThat(trinoStatement.getReportedUpdateCount()).isEmpty();
+
+            assertThat(statement.execute("INSERT INTO blackhole.default.reported_update_count VALUES 1, 2")).isFalse();
+            assertThat(trinoStatement.getUpdateType()).isEqualTo("INSERT");
+            assertThat(trinoStatement.getReportedUpdateCount()).hasValue(2);
+
+            assertThat(statement.execute("SELECT 1")).isTrue();
+            assertThat(trinoStatement.getReportedUpdateCount()).isEmpty();
+
+            statement.execute("DROP TABLE blackhole.default.reported_update_count");
+        }
+    }
+
+    @Test
+    public void testFailureDetails()
+            throws Exception
+    {
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement()) {
+            assertThatThrownBy(() -> statement.execute("SELECT 1\nFROM blackhole.default.no_such_table"))
+                    .isInstanceOfSatisfying(TrinoSqlException.class, exception -> {
+                        assertThat(exception.getQueryId()).isNotEmpty();
+                        assertThat(exception.getMessage()).isEqualTo(format("Query failed (#%s): %s", exception.getQueryId(), exception.getErrorMessage()));
+                        assertThat(exception.getErrorMessage()).contains("no_such_table");
+                        assertThat(exception.getErrorLocation()).hasValueSatisfying(location -> {
+                            assertThat(location.getLineNumber()).isEqualTo(2);
+                            assertThat(location.getColumnNumber()).isEqualTo(6);
+                        });
+                    });
+        }
+    }
+
+    @Test
+    public void testRawObject()
+            throws Exception
+    {
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery("SELECT " +
+                        "TIMESTAMP '2020-01-02 03:04:05', " +
+                        "TIMESTAMP '2020-01-02 03:04:05.123456789123 UTC', " +
+                        "DECIMAL '0.0000000001', " +
+                        "ARRAY[TIME '01:02:03.456'], " +
+                        "MAP(ARRAY['b', 'a'], ARRAY[DATE '2020-01-02', NULL]), " +
+                        "CAST(ROW(1, X'0102') AS ROW(id bigint, payload varbinary)), " +
+                        "CAST(JSON '{\"b\":1.50,\"a\":[1,true,null]}' AS variant)")) {
+            TrinoResultSet trinoResultSet = resultSet.unwrap(TrinoResultSet.class);
+            assertThat(resultSet.next()).isTrue();
+
+            assertThat(trinoResultSet.getRawObject(1)).isEqualTo("2020-01-02 03:04:05");
+            assertThat(trinoResultSet.getRawObject(2)).isEqualTo("2020-01-02 03:04:05.123456789123 UTC");
+            assertThat(trinoResultSet.getRawObject(3)).isEqualTo("0.0000000001");
+            assertThat(trinoResultSet.getRawObject(4)).isEqualTo(ImmutableList.of("01:02:03.456"));
+            Map<String, String> expectedMap = new HashMap<>();
+            expectedMap.put("a", null);
+            expectedMap.put("b", "2020-01-02");
+            assertThat(trinoResultSet.getRawObject(5)).isEqualTo(expectedMap);
+            assertThat(trinoResultSet.getRawObject(6)).isInstanceOfSatisfying(Row.class, row -> {
+                assertThat(row.getFields()).extracting(RowField::getName).containsExactly(Optional.of("id"), Optional.of("payload"));
+                assertThat(row.getFields().get(0).getValue()).isEqualTo(1L);
+                assertThat(row.getFields().get(1).getValue()).isEqualTo(new byte[] {1, 2});
+            });
+            assertThat(trinoResultSet.getRawObject(7)).isEqualTo("{\"a\":[1,true,null],\"b\":1.5}");
         }
     }
 

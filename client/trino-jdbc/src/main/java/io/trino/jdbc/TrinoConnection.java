@@ -134,6 +134,7 @@ public class TrinoConnection
     private final boolean assumeLiteralNamesInMetadataCallsForNonConformingClients;
     private final boolean assumeLiteralUnderscoreInMetadataCallsForNonConformingClients;
     private final Map<String, String> extraCredentials;
+    private final Map<String, String> resourceEstimates;
     private final Optional<String> applicationNamePrefix;
     private final Optional<String> source;
     private final Map<ClientInfoProperty, String> clientInfo = new ConcurrentHashMap<>();
@@ -157,11 +158,13 @@ public class TrinoConnection
         this.httpUri = uri.getHttpUri();
         uri.getSchema().ifPresent(schema::set);
         uri.getCatalog().ifPresent(catalog::set);
+        uri.getPath().ifPresent(path::set);
         this.user = uri.getUser();
         this.sessionUser.set(uri.getSessionUser());
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.source = uri.getSource();
         this.extraCredentials = uri.getExtraCredentials();
+        this.resourceEstimates = uri.getResourceEstimates();
         this.compressionDisabled = uri.isCompressionDisabled();
         this.encoding = uri.getEncoding();
         this.assumeLiteralNamesInMetadataCallsForNonConformingClients = uri.isAssumeLiteralNamesInMetadataCallsForNonConformingClients();
@@ -923,6 +926,7 @@ public class TrinoConnection
                 .preparedStatements(ImmutableMap.copyOf(preparedStatements))
                 .roles(ImmutableMap.copyOf(roles))
                 .credentials(extraCredentials)
+                .resourceEstimates(resourceEstimates)
                 .transactionId(transactionId.get())
                 .clientRequestTimeout(timeout)
                 .compressionDisabled(compressionDisabled)

@@ -13,9 +13,12 @@
  */
 package io.trino.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.trino.client.ClientException;
+import io.trino.client.ClientStandardTypes;
+import io.trino.client.Column;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
 
@@ -25,8 +28,10 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -47,9 +52,12 @@ public class TrinoStatement
     private final AtomicReference<TrinoConnection> connection;
     private final Consumer<TrinoStatement> onClose;
     private final AtomicReference<StatementClient> executingClient = new AtomicReference<>();
-    private final AtomicReference<TrinoResultSet> currentResult = new AtomicReference<>();
+    private final AtomicReference<ResultSet> currentResult = new AtomicReference<>();
+    // rows returned by an update, which are the next result after the update count
+    private final AtomicReference<ResultSet> updateRowsResult = new AtomicReference<>();
     private final AtomicReference<WarningsManager> currentWarningsManager = new AtomicReference<>();
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
+    private final AtomicReference<OptionalLong> currentReportedUpdateCount = new AtomicReference<>(OptionalLong.empty());
     private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
     private final AtomicReference<Consumer<QueryStats>> progressCallback = new AtomicReference<>();
 
@@ -281,16 +289,25 @@ public class TrinoStatement
                 return true;
             }
 
-            // this is an update, not a query
+            // this is an update, not a query, but it can still return rows, like EXPLAIN ANALYZE of an INSERT,
+            // or the metrics of a table procedure
+            ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
             while (resultSet.next()) {
-                // ignore rows
+                rows.add(resultSet.currentRow());
             }
 
             connection().updateSession(client);
 
-            currentUpdateCount.set(client.finalStatusInfo().getUpdateCount().orElse(0));
-            currentUpdateType.set(client.finalStatusInfo().getUpdateType());
-            warningsManager.addWarnings(client.finalStatusInfo().getWarnings());
+            QueryStatusInfo finalStatusInfo = client.finalStatusInfo();
+            currentUpdateType.set(finalStatusInfo.getUpdateType());
+            warningsManager.addWarnings(finalStatusInfo.getWarnings());
+            List<List<Object>> updateRows = rows.build();
+            if (!updateRows.isEmpty() && !isUpdateCountResult(finalStatusInfo.getColumns(), updateRows)) {
+                updateRowsResult.set(new InMemoryTrinoResultSet(this, finalStatusInfo.getColumns(), updateRows));
+            }
+            OptionalLong reportedUpdateCount = finalStatusInfo.getUpdateCount();
+            currentReportedUpdateCount.set(reportedUpdateCount);
+            currentUpdateCount.set(reportedUpdateCount.orElse(0));
             return false;
         }
         catch (ClientException e) {
@@ -312,10 +329,24 @@ public class TrinoStatement
         }
     }
 
+    // The server returns the update count as a single bigint value, which is null when the count is unknown,
+    // and servers before version 398 return a "result" column with a single true value for statements without output
+    private static boolean isUpdateCountResult(List<Column> columns, List<List<Object>> rows)
+    {
+        if (columns.size() != 1 || rows.size() != 1) {
+            return false;
+        }
+        Column column = columns.get(0);
+        String type = column.getTypeSignature().getRawType();
+        return type.equals(ClientStandardTypes.BIGINT) || (type.equals(ClientStandardTypes.BOOLEAN) && column.getName().equals("result"));
+    }
+
     private void clearCurrentResults()
     {
         currentResult.set(null);
+        updateRowsResult.set(null);
         currentUpdateCount.set(-1);
+        currentReportedUpdateCount.set(OptionalLong.empty());
         currentUpdateType.set(null);
         currentWarningsManager.set(null);
     }
@@ -441,19 +472,25 @@ public class TrinoStatement
     {
         checkOpen();
 
-        currentUpdateCount.set(-1);
-        currentUpdateType.set(null);
-
-        if (current == CLOSE_CURRENT_RESULT) {
-            closeResultSet();
-            return false;
+        if (current == KEEP_CURRENT_RESULT) {
+            throw new SQLFeatureNotSupportedException("Multiple open results not supported");
         }
-
-        if (current != KEEP_CURRENT_RESULT && current != CLOSE_ALL_RESULTS) {
+        if (current != CLOSE_CURRENT_RESULT && current != CLOSE_ALL_RESULTS) {
             throw new SQLException("Invalid argument: " + current);
         }
 
-        throw new SQLFeatureNotSupportedException("Multiple open results not supported");
+        currentUpdateCount.set(-1);
+        currentReportedUpdateCount.set(OptionalLong.empty());
+        currentUpdateType.set(null);
+
+        // there is at most one open result, so closing all of them closes the current one
+        closeResultSet();
+        ResultSet next = updateRowsResult.getAndSet(null);
+        if (next == null) {
+            return false;
+        }
+        currentResult.set(next);
+        return true;
     }
 
     @Override
@@ -614,6 +651,18 @@ public class TrinoStatement
         return currentUpdateType.get();
     }
 
+    /**
+     * Returns the row count reported by the server for the last update statement.
+     * Unlike {@link #getLargeUpdateCount()}, this is empty for statements that do not
+     * report a row count, like most DDL statements, instead of zero.
+     */
+    public OptionalLong getReportedUpdateCount()
+            throws SQLException
+    {
+        checkOpen();
+        return currentReportedUpdateCount.get();
+    }
+
     public void partialCancel()
             throws SQLException
     {
@@ -624,9 +673,9 @@ public class TrinoStatement
             client.cancelLeafStage();
         }
         else {
-            TrinoResultSet resultSet = currentResult.get();
-            if (resultSet != null) {
-                resultSet.partialCancel();
+            ResultSet resultSet = currentResult.get();
+            if (resultSet instanceof TrinoResultSet) {
+                ((TrinoResultSet) resultSet).partialCancel();
             }
         }
     }

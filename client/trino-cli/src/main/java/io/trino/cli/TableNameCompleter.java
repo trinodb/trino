@@ -18,7 +18,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import io.trino.client.StatementClient;
+import io.trino.jdbc.TrinoConnection;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.jline.reader.Candidate;
 import org.jline.reader.Completer;
@@ -26,12 +26,16 @@ import org.jline.reader.LineReader;
 import org.jline.reader.ParsedLine;
 
 import java.io.Closeable;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.cache.CacheLoader.asyncReloading;
-import static java.lang.String.format;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -45,8 +49,9 @@ public class TableNameCompleter
             new ThreadFactoryBuilder().setNameFormat("completer-%s").setDaemon(true).build());
 
     private final QueryRunner queryRunner;
-    private final LoadingCache<String, List<String>> tableCache;
-    private final LoadingCache<String, List<String>> functionCache;
+    private final LoadingCache<CatalogSchema, List<String>> tableCache;
+    private final LoadingCache<CatalogSchema, List<String>> functionCache;
+    private Optional<CatalogSchema> populatedCatalogSchema = Optional.empty();
 
     public TableNameCompleter(QueryRunner queryRunner)
     {
@@ -69,37 +74,90 @@ public class TableNameCompleter
         return cacheBuilder.build(cacheLoader);
     }
 
-    private List<String> listTables(String schemaName)
+    private List<String> listTables(CatalogSchema catalogSchema)
     {
-        return queryMetadata(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName));
+        return queryMetadata(connection -> {
+            DatabaseMetaData metadata = connection.getMetaData();
+            try (ResultSet tables = metadata.getTables(catalogSchema.catalog.orElse(null), escapeLikePattern(catalogSchema.schema, metadata.getSearchStringEscape()), null, null)) {
+                return readColumn(tables, "TABLE_NAME");
+            }
+        });
     }
 
-    @SuppressWarnings("unused")
-    private List<String> listFunctions(String schemaName)
+    private List<String> listFunctions(CatalogSchema catalogSchema)
     {
-        return queryMetadata("SHOW FUNCTIONS");
-    }
-
-    private List<String> queryMetadata(String query)
-    {
-        ImmutableList.Builder<String> cache = ImmutableList.builder();
-        try (StatementClient client = queryRunner.startInternalQuery(query)) {
-            while (client.isRunning() && !Thread.currentThread().isInterrupted()) {
-                for (List<Object> row : client.currentRows()) {
-                    cache.add((String) row.get(0));
+        return queryMetadata(connection -> {
+            if (connection.isWrapperFor(TrinoConnection.class)) {
+                // the Trino driver does not implement DatabaseMetaData.getFunctions()
+                try (Statement statement = connection.createStatement();
+                        ResultSet functions = statement.executeQuery("SHOW FUNCTIONS")) {
+                    return readColumn(functions, 1);
                 }
-                client.advance();
+            }
+            DatabaseMetaData metadata = connection.getMetaData();
+            try (ResultSet functions = metadata.getFunctions(catalogSchema.catalog.orElse(null), escapeLikePattern(catalogSchema.schema, metadata.getSearchStringEscape()), null)) {
+                return readColumn(functions, "FUNCTION_NAME");
+            }
+        });
+    }
+
+    private List<String> queryMetadata(QueryRunner.MetadataAction<List<String>> action)
+    {
+        try {
+            return queryRunner.withMetadataConnection(action);
+        }
+        catch (SQLException | RuntimeException | AbstractMethodError e) {
+            // auto-completion is best effort, and not all drivers support every metadata call
+            return ImmutableList.of();
+        }
+    }
+
+    private static List<String> readColumn(ResultSet resultSet, String columnLabel)
+            throws SQLException
+    {
+        return readColumn(resultSet, resultSet.findColumn(columnLabel));
+    }
+
+    private static List<String> readColumn(ResultSet resultSet, int column)
+            throws SQLException
+    {
+        ImmutableList.Builder<String> values = ImmutableList.builder();
+        while (resultSet.next() && !Thread.currentThread().isInterrupted()) {
+            String value = resultSet.getString(column);
+            if (value != null) {
+                values.add(value);
             }
         }
-        return cache.build();
+        return values.build();
+    }
+
+    private static String escapeLikePattern(String name, String escape)
+    {
+        if (escape == null || escape.isEmpty()) {
+            return name;
+        }
+        return name.replace(escape, escape + escape)
+                .replace("_", escape + "_")
+                .replace("%", escape + "%");
     }
 
     public void populateCache()
     {
-        queryRunner.getSession().getSchema().ifPresent(schemaName -> executor.execute(() -> {
-            functionCache.refresh(schemaName);
-            tableCache.refresh(schemaName);
-        }));
+        Optional<CatalogSchema> catalogSchema = currentCatalogSchema();
+        if (catalogSchema.isEmpty() || catalogSchema.equals(populatedCatalogSchema)) {
+            return;
+        }
+        populatedCatalogSchema = catalogSchema;
+        executor.execute(() -> {
+            functionCache.refresh(catalogSchema.get());
+            tableCache.refresh(catalogSchema.get());
+        });
+    }
+
+    private Optional<CatalogSchema> currentCatalogSchema()
+    {
+        return queryRunner.getSchema()
+                .map(schema -> new CatalogSchema(queryRunner.getCatalog(), schema));
     }
 
     @Override
@@ -108,13 +166,13 @@ public class TableNameCompleter
         String buffer = line.word().substring(0, line.wordCursor());
         int blankPos = findLastBlank(buffer);
         String prefix = buffer.substring(blankPos + 1);
-        Optional<String> schemaName = queryRunner.getSession().getSchema();
+        Optional<CatalogSchema> catalogSchema = currentCatalogSchema();
 
-        if (schemaName.isEmpty()) {
+        if (catalogSchema.isEmpty()) {
             return;
         }
-        List<String> functionNames = functionCache.getIfPresent(schemaName.get());
-        List<String> tableNames = tableCache.getIfPresent(schemaName.get());
+        List<String> functionNames = functionCache.getIfPresent(catalogSchema.get());
+        List<String> tableNames = tableCache.getIfPresent(catalogSchema.get());
 
         if (functionNames != null) {
             for (String name : filterResults(functionNames, prefix)) {
@@ -153,5 +211,36 @@ public class TableNameCompleter
     public void close()
     {
         executor.shutdownNow();
+    }
+
+    private static final class CatalogSchema
+    {
+        private final Optional<String> catalog;
+        private final String schema;
+
+        public CatalogSchema(Optional<String> catalog, String schema)
+        {
+            this.catalog = requireNonNull(catalog, "catalog is null");
+            this.schema = requireNonNull(schema, "schema is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            CatalogSchema other = (CatalogSchema) o;
+            return catalog.equals(other.catalog) && schema.equals(other.schema);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(catalog, schema);
+        }
     }
 }
