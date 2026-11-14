@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -74,6 +75,7 @@ public class ExpressionCompiler
                 .collect(toImmutableList());
 
         Optional<Supplier<PageFilter>> finalFilterFunctionSupplier = filterFunctionSupplier;
+        AtomicInteger learnedBatchSize = new AtomicInteger(initialBatchSize.orElse(1));
         return dynamicFilter -> {
             Optional<FilterEvaluator> filterEvaluator = columnarFilterEvaluatorSupplier.map(Supplier::get);
             if (filterEvaluator.isEmpty()) {
@@ -86,7 +88,7 @@ public class ExpressionCompiler
                     .collect(toImmutableList());
             Optional<Supplier<FilterEvaluator>> dynamicFilterSupplier = dynamicPageFilter
                     .map(pageFilter -> () -> pageFilter.createDynamicPageFilterEvaluator(columnarFilterCompiler, dynamicFilter).get());
-            return new PageProcessor(filterEvaluator, dynamicFilterSupplier, pageProjections, initialBatchSize);
+            return new PageProcessor(filterEvaluator, dynamicFilterSupplier, pageProjections, learnedBatchSize);
         };
     }
 

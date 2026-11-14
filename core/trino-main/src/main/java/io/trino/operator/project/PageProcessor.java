@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.ObjLongConsumer;
 import java.util.function.Supplier;
@@ -64,12 +65,22 @@ public class PageProcessor
     private final List<PageProjection> projections;
     // identity projections return a subset of the input page and cannot expand output size
     private final boolean identityProjections;
+    // Shared by every processor compiled from the same expressions, so a new operator instance (one per split for
+    // a table scan) starts from the batch size its predecessors converged to instead of ramping up from one row,
+    // which otherwise emits a run of tiny pages that the downstream MergePages has to copy again.
+    private final AtomicInteger learnedBatchSize;
 
     private FilterEvaluator dynamicFilterEvaluator;
     private int projectBatchSize;
 
     public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<Supplier<FilterEvaluator>> dynamicFilterSupplier, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
     {
+        this(filterEvaluator, dynamicFilterSupplier, projections, new AtomicInteger(initialBatchSize.orElse(1)));
+    }
+
+    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<Supplier<FilterEvaluator>> dynamicFilterSupplier, List<? extends PageProjection> projections, AtomicInteger learnedBatchSize)
+    {
+        this.learnedBatchSize = requireNonNull(learnedBatchSize, "learnedBatchSize is null");
         this.filterEvaluator = requireNonNull(filterEvaluator, "filterEvaluator is null");
         this.dynamicFilterSupplier = requireNonNull(dynamicFilterSupplier, "dynamicFilterSupplier is null");
         this.identityProjections = !projections.isEmpty() && projections.stream().allMatch(InputPageProjection.class::isInstance);
@@ -86,7 +97,7 @@ public class PageProcessor
             this.projectBatchSize = MAX_BATCH_SIZE;
         }
         else {
-            this.projectBatchSize = initialBatchSize.orElse(1);
+            this.projectBatchSize = learnedBatchSize.get();
         }
     }
 
@@ -213,6 +224,7 @@ public class PageProcessor
                     // the page buffer filled up, so halve the batch size and retry
                     verify(batchSize > 1);
                     projectBatchSize = projectBatchSize / 2;
+                    learnedBatchSize.set(projectBatchSize);
                     continue;
                 }
 
@@ -253,11 +265,13 @@ public class PageProcessor
             // if we produced a large page, halve the batch size for the next call
             if (positionCount > 1 && pageSize > MAX_PAGE_SIZE_IN_BYTES) {
                 projectBatchSize = projectBatchSize / 2;
+                learnedBatchSize.set(projectBatchSize);
             }
 
             // if we produced a small page, double the batch size for the next call
             if (pageSize < MIN_PAGE_SIZE_IN_BYTES && projectBatchSize < MAX_BATCH_SIZE) {
                 projectBatchSize = projectBatchSize * 2;
+                learnedBatchSize.set(projectBatchSize);
             }
         }
 
