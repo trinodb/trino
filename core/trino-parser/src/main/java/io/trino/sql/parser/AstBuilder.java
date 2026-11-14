@@ -2452,11 +2452,11 @@ class AstBuilder
         if (context.predicate() != null) {
             return new Predicated(
                     getLocation(context.predicate()),
-                    (Expression) visit(context.valueExpression),
+                    (Expression) visit(context.valueExpression()),
                     (Predicate) visit(context.predicate()));
         }
 
-        return visit(context.valueExpression);
+        return visit(context.valueExpression());
     }
 
     @Override
