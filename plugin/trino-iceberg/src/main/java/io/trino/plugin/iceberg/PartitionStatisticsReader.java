@@ -357,7 +357,7 @@ public final class PartitionStatisticsReader
         return Optional.of(new CachedPartitionStatistics(partitionType, rows.build(), estimatedBytes));
     }
 
-    private static CloseableIterable<StructLike> readRecords(InputFile inputFile, Schema schema, TypeManager typeManager)
+    static CloseableIterable<StructLike> readRecords(InputFile inputFile, Schema schema, TypeManager typeManager)
     {
         return switch (FileFormat.fromFileName(inputFile.location())) {
             case AVRO -> Avro.read(inputFile).project(schema).createResolvingReader(InternalReader::create).build();

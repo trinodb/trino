@@ -40,6 +40,7 @@ import io.trino.plugin.iceberg.IcebergSplitManager;
 import io.trino.plugin.iceberg.IcebergTableProperties;
 import io.trino.plugin.iceberg.IcebergTransactionManager;
 import io.trino.plugin.iceberg.PartitionStatisticsReader;
+import io.trino.plugin.iceberg.PartitionStatisticsWriter;
 import io.trino.plugin.iceberg.TableStatisticsReader;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
@@ -51,7 +52,9 @@ import io.trino.plugin.iceberg.encryption.IcebergEncryptionModule;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.procedure.AddFilesTableFromTableProcedure;
 import io.trino.plugin.iceberg.procedure.AddFilesTableProcedure;
+import io.trino.plugin.iceberg.procedure.ComputePartitionStatsTableProcedure;
 import io.trino.plugin.iceberg.procedure.DropExtendedStatsTableProcedure;
+import io.trino.plugin.iceberg.procedure.DropPartitionStatsTableProcedure;
 import io.trino.plugin.iceberg.procedure.ExpireSnapshotsTableProcedure;
 import io.trino.plugin.iceberg.procedure.OptimizeManifestsTableProcedure;
 import io.trino.plugin.iceberg.procedure.RegisterTableProcedure;
@@ -91,6 +94,7 @@ public class LakehouseIcebergModule
         binder.bind(IcebergFileWriterFactory.class).in(Scopes.SINGLETON);
         binder.bind(TableStatisticsReader.class).in(Scopes.SINGLETON);
         binder.bind(PartitionStatisticsReader.class).in(Scopes.SINGLETON);
+        binder.bind(PartitionStatisticsWriter.class).in(Scopes.SINGLETON);
         binder.bind(TableStatisticsWriter.class).in(Scopes.SINGLETON);
         binder.bind(IcebergFileSystemFactory.class).to(DefaultIcebergFileSystemFactory.class).in(Scopes.SINGLETON);
 
@@ -108,6 +112,8 @@ public class LakehouseIcebergModule
         tableProcedures.addBinding(ICEBERG).toProvider(OptimizeTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding(ICEBERG).toProvider(OptimizeManifestsTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding(ICEBERG).toProvider(DropExtendedStatsTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(DropPartitionStatsTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(ComputePartitionStatsTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding(ICEBERG).toProvider(RollbackToSnapshotTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding(ICEBERG).toProvider(ExpireSnapshotsTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding(ICEBERG).toProvider(RemoveOrphanFilesTableProcedure.class).in(Scopes.SINGLETON);

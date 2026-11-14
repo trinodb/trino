@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -56,7 +57,9 @@ import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesFromTableHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesHandle;
+import io.trino.plugin.iceberg.procedure.IcebergComputePartitionStatsHandle;
 import io.trino.plugin.iceberg.procedure.IcebergDropExtendedStatsHandle;
+import io.trino.plugin.iceberg.procedure.IcebergDropPartitionStatsHandle;
 import io.trino.plugin.iceberg.procedure.IcebergExpireSnapshotsHandle;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeManifestsHandle;
@@ -176,6 +179,8 @@ import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.PartitionStatisticsFile;
+import org.apache.iceberg.Partitioning;
 import org.apache.iceberg.PendingUpdate;
 import org.apache.iceberg.ReplaceSortOrder;
 import org.apache.iceberg.RewriteFiles;
@@ -195,6 +200,7 @@ import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.UpdatePartitionSpec;
+import org.apache.iceberg.UpdatePartitionStatistics;
 import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.UpdateSchema;
 import org.apache.iceberg.UpdateStatistics;
@@ -219,6 +225,7 @@ import org.apache.iceberg.types.Types.LongType;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.StructType;
+import org.apache.iceberg.util.SnapshotUtil;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -408,7 +415,9 @@ import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.ADD_FILES;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.ADD_FILES_FROM_TABLE;
+import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.COMPUTE_PARTITION_STATS;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.DROP_EXTENDED_STATS;
+import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.DROP_PARTITION_STATS;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_SNAPSHOTS;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE_MANIFESTS;
@@ -543,7 +552,9 @@ public class IcebergMetadata
             OPTIMIZE_MANIFESTS,
             EXPIRE_SNAPSHOTS,
             REMOVE_ORPHAN_FILES,
-            DROP_EXTENDED_STATS);
+            DROP_EXTENDED_STATS,
+            DROP_PARTITION_STATS,
+            COMPUTE_PARTITION_STATS);
 
     private final CatalogName catalogName;
     private final TypeManager typeManager;
@@ -553,6 +564,7 @@ public class IcebergMetadata
     private final ApiCallStats fileSystemStats = new ApiCallStats();
     private final TableStatisticsReader tableStatisticsReader;
     private final TableStatisticsWriter tableStatisticsWriter;
+    private final PartitionStatisticsWriter partitionStatisticsWriter;
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
     private final OrcReaderOptions orcReaderOptions;
@@ -585,6 +597,7 @@ public class IcebergMetadata
             IcebergFileSystemFactory fileSystemFactory,
             TableStatisticsReader tableStatisticsReader,
             TableStatisticsWriter tableStatisticsWriter,
+            PartitionStatisticsWriter partitionStatisticsWriter,
             DeletionVectorWriter deletionVectorWriter,
             Optional<HiveMetastoreFactory> metastoreFactory,
             boolean addFilesProcedureEnabled,
@@ -606,6 +619,7 @@ public class IcebergMetadata
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.tableStatisticsReader = requireNonNull(tableStatisticsReader, "tableStatisticsReader is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
+        this.partitionStatisticsWriter = requireNonNull(partitionStatisticsWriter, "partitionStatisticsWriter is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.addFilesProcedureEnabled = addFilesProcedureEnabled;
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
@@ -1956,6 +1970,8 @@ public class IcebergMetadata
             case OPTIMIZE -> getTableHandleForOptimize(tableHandle, icebergTable, executeProperties);
             case OPTIMIZE_MANIFESTS -> getTableHandleForOptimizeManifests(session, tableHandle);
             case DROP_EXTENDED_STATS -> getTableHandleForDropExtendedStats(session, tableHandle);
+            case DROP_PARTITION_STATS -> getTableHandleForDropPartitionStats(session, tableHandle);
+            case COMPUTE_PARTITION_STATS -> getTableHandleForComputePartitionStats(session, tableHandle, executeProperties);
             case ROLLBACK_TO_SNAPSHOT -> getTableHandleForRollbackToSnapshot(session, tableHandle, executeProperties);
             case EXPIRE_SNAPSHOTS -> getTableHandleForExpireSnapshots(session, tableHandle, executeProperties);
             case REMOVE_ORPHAN_FILES -> getTableHandleForRemoveOrphanFiles(session, tableHandle, executeProperties);
@@ -2033,6 +2049,40 @@ public class IcebergMetadata
                 tableHandle.getSchemaTableName(),
                 DROP_EXTENDED_STATS,
                 new IcebergDropExtendedStatsHandle(),
+                icebergTable.location()));
+    }
+
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForDropPartitionStats(ConnectorSession session, IcebergTableHandle tableHandle)
+    {
+        Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+
+        return Optional.of(new IcebergTableExecuteHandle(
+                tableHandle.getSchemaTableName(),
+                DROP_PARTITION_STATS,
+                new IcebergDropPartitionStatsHandle(),
+                icebergTable.location()));
+    }
+
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForComputePartitionStats(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
+    {
+        Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+        if (!Partitioning.isPartitioned(icebergTable)) {
+            throw new TrinoException(NOT_SUPPORTED, "Table is not partitioned");
+        }
+        // partition statistics files are written in the table's file format, and ORC is not supported
+        if (getFileFormat(icebergTable) == ORC) {
+            throw new TrinoException(NOT_SUPPORTED, "Partition statistics are not supported for tables with the ORC file format");
+        }
+        Long requestedSnapshotId = (Long) executeProperties.get("snapshot_id");
+        OptionalLong snapshotId = requestedSnapshotId == null ? OptionalLong.empty() : OptionalLong.of(requestedSnapshotId);
+        if (snapshotId.isPresent()) {
+            checkProcedureArgument(icebergTable.snapshot(snapshotId.orElseThrow()) != null, "Snapshot not found: %s", snapshotId.orElseThrow());
+        }
+
+        return Optional.of(new IcebergTableExecuteHandle(
+                tableHandle.getSchemaTableName(),
+                COMPUTE_PARTITION_STATS,
+                new IcebergComputePartitionStatsHandle(snapshotId),
                 icebergTable.location()));
     }
 
@@ -2212,6 +2262,8 @@ public class IcebergMetadata
             case OPTIMIZE -> getColumnHandlesForOptimize(icebergTableHandle);
             case OPTIMIZE_MANIFESTS,
                  DROP_EXTENDED_STATS,
+                 DROP_PARTITION_STATS,
+                 COMPUTE_PARTITION_STATS,
                  ROLLBACK_TO_SNAPSHOT,
                  EXPIRE_SNAPSHOTS,
                  REMOVE_ORPHAN_FILES,
@@ -2241,6 +2293,8 @@ public class IcebergMetadata
             case OPTIMIZE -> getLayoutForOptimize(session, executeHandle);
             case OPTIMIZE_MANIFESTS,
                  DROP_EXTENDED_STATS,
+                 DROP_PARTITION_STATS,
+                 COMPUTE_PARTITION_STATS,
                  ROLLBACK_TO_SNAPSHOT,
                  EXPIRE_SNAPSHOTS,
                  REMOVE_ORPHAN_FILES,
@@ -2272,6 +2326,8 @@ public class IcebergMetadata
             case OPTIMIZE -> beginOptimize(session, executeHandle, table);
             case OPTIMIZE_MANIFESTS,
                  DROP_EXTENDED_STATS,
+                 DROP_PARTITION_STATS,
+                 COMPUTE_PARTITION_STATS,
                  ROLLBACK_TO_SNAPSHOT,
                  EXPIRE_SNAPSHOTS,
                  REMOVE_ORPHAN_FILES,
@@ -2311,6 +2367,8 @@ public class IcebergMetadata
             case OPTIMIZE -> finishOptimize(session, executeHandle, fragments, splitSourceInfo);
             case OPTIMIZE_MANIFESTS,
                  DROP_EXTENDED_STATS,
+                 DROP_PARTITION_STATS,
+                 COMPUTE_PARTITION_STATS,
                  ROLLBACK_TO_SNAPSHOT,
                  EXPIRE_SNAPSHOTS,
                  REMOVE_ORPHAN_FILES,
@@ -2442,6 +2500,8 @@ public class IcebergMetadata
         return switch (executeHandle.procedureId()) {
             case OPTIMIZE_MANIFESTS -> executeOptimizeManifests(session, executeHandle);
             case DROP_EXTENDED_STATS -> executeDropExtendedStats(session, executeHandle);
+            case DROP_PARTITION_STATS -> executeDropPartitionStats(session, executeHandle);
+            case COMPUTE_PARTITION_STATS -> executeComputePartitionStats(session, executeHandle);
             case ROLLBACK_TO_SNAPSHOT -> {
                 executeRollbackToSnapshot(session, executeHandle);
                 yield ImmutableMap.of();
@@ -2471,6 +2531,81 @@ public class IcebergMetadata
         return optimizeManifests(icebergTable, icebergScanExecutor);
     }
 
+    private Map<String, Long> executeComputePartitionStats(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
+    {
+        checkArgument(executeHandle.procedureHandle() instanceof IcebergComputePartitionStatsHandle, "Unexpected procedure handle %s", executeHandle.procedureHandle());
+        OptionalLong requestedSnapshotId = ((IcebergComputePartitionStatsHandle) executeHandle.procedureHandle()).snapshotId();
+
+        try {
+            // Compute on the loaded table. The commit below uses a separate transaction, opened only after the file is written
+            BaseTable table = catalog.loadTable(session, executeHandle.schemaTableName());
+            if (requestedSnapshotId.isEmpty() && table.currentSnapshot() == null) {
+                return ImmutableMap.of();
+            }
+            long snapshotId = requestedSnapshotId.orElseGet(() -> table.currentSnapshot().snapshotId());
+            if (table.partitionStatisticsFiles().stream().anyMatch(file -> file.snapshotId() == snapshotId)) {
+                // written by an earlier run or by another engine, in any format
+                return ImmutableMap.of();
+            }
+
+            // continue from the file of the latest ancestor that has a readable one, else compute in full
+            Optional<PartitionStatisticsFile> base = Optional.empty();
+            for (Snapshot ancestor : SnapshotUtil.ancestorsOf(snapshotId, table::snapshot)) {
+                base = table.partitionStatisticsFiles().stream()
+                        .filter(file -> file.snapshotId() == ancestor.snapshotId())
+                        .filter(PartitionStatisticsReader::isReadable)
+                        .findFirst();
+                if (base.isPresent()) {
+                    break;
+                }
+            }
+
+            Optional<PartitionStatisticsFile> file = writePartitionStatistics(table, snapshotId, base);
+            if (file.isEmpty()) {
+                // no partitions in the snapshot, so no file was written
+                return ImmutableMap.of();
+            }
+            try {
+                Transaction transaction = catalog.newTransaction(table);
+                commitUpdate(transaction.updatePartitionStatistics().setPartitionStatistics(file.orElseThrow()), "compute partition stats");
+                commitTransaction(transaction, "compute partition stats");
+            }
+            catch (RuntimeException e) {
+                // Delete the file only when the commit is known to have failed. Otherwise, for example after a timeout,
+                // the file may be registered, so it stays and remove_orphan_files reclaims it if it is not
+                if (Throwables.getCausalChain(e).stream().anyMatch(cause -> cause instanceof CommitFailedException || cause instanceof ValidationException)) {
+                    try {
+                        table.io().deleteFile(file.orElseThrow().path());
+                    }
+                    catch (RuntimeException deleteFailure) {
+                        e.addSuppressed(deleteFailure);
+                    }
+                }
+                throw e;
+            }
+            return ImmutableMap.of();
+        }
+        catch (NotFoundException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, e);
+        }
+    }
+
+    private Optional<PartitionStatisticsFile> writePartitionStatistics(BaseTable table, long snapshotId, Optional<PartitionStatisticsFile> base)
+    {
+        try {
+            try {
+                return partitionStatisticsWriter.write(table, snapshotId, base);
+            }
+            catch (PartitionStatisticsComputation.UnreadableBaseException e) {
+                log.warn(e, "Cannot continue from partition statistics file %s, computing partition statistics of snapshot %s in full", base.orElseThrow().path(), snapshotId);
+                return partitionStatisticsWriter.write(table, snapshotId, Optional.empty());
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to write partition statistics file: " + e.getMessage(), e);
+        }
+    }
+
     private Map<String, Long> executeDropExtendedStats(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
     {
         checkArgument(executeHandle.procedureHandle() instanceof IcebergDropExtendedStatsHandle, "Unexpected procedure handle %s", executeHandle.procedureHandle());
@@ -2485,6 +2620,26 @@ public class IcebergMetadata
             commitUpdate(updateStatistics, "drop extended stats");
             commitTransaction(transaction, "drop extended stats");
             return ImmutableMap.of("removed_statistics_count", (long) statisticsFiles.size());
+        }
+        catch (NotFoundException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, e);
+        }
+    }
+
+    private Map<String, Long> executeDropPartitionStats(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
+    {
+        checkArgument(executeHandle.procedureHandle() instanceof IcebergDropPartitionStatsHandle, "Unexpected procedure handle %s", executeHandle.procedureHandle());
+
+        try {
+            Transaction transaction = catalog.newTransaction(catalog.loadTable(session, executeHandle.schemaTableName()));
+            UpdatePartitionStatistics updatePartitionStatistics = transaction.updatePartitionStatistics();
+            List<PartitionStatisticsFile> partitionStatisticsFiles = transaction.table().partitionStatisticsFiles();
+            for (PartitionStatisticsFile partitionStatisticsFile : partitionStatisticsFiles) {
+                updatePartitionStatistics.removePartitionStatistics(partitionStatisticsFile.snapshotId());
+            }
+            commitUpdate(updatePartitionStatistics, "drop partition stats");
+            commitTransaction(transaction, "drop partition stats");
+            return ImmutableMap.of("removed_partition_statistics_count", (long) partitionStatisticsFiles.size());
         }
         catch (NotFoundException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, e);
