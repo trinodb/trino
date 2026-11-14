@@ -24,7 +24,8 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
-import io.trino.plugin.resourcegroups.db.H2ResourceGroupsDao;
+import io.trino.plugin.resourcegroups.db.TestingResourceGroupsDao;
+import io.trino.plugin.resourcegroups.db.TestingResourceGroupsDatabase;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.ResourceGroupInfo;
 import io.trino.spi.QueryId;
@@ -52,16 +53,15 @@ import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.execution.TestQueues.createResourceGroupId;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.adhocSession;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.createQueryRunner;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.dashboardSession;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.getDao;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.getDbConfigUrl;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.getSelectors;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.rejectingSession;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.waitForCompleteQueryCount;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.waitForRunningQueryCount;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.TEST_ENVIRONMENT;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.adhocSession;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.createDatabase;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.createQueryRunner;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.dashboardSession;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.getSelectors;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.rejectingSession;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.waitForCompleteQueryCount;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.waitForRunningQueryCount;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static io.trino.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static io.trino.spi.StandardErrorCode.QUERY_QUEUE_FULL;
@@ -79,15 +79,15 @@ public class TestQueuesDb
     // Copy of TestQueues with tests for db reconfiguration of resource groups
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
     private QueryRunner queryRunner;
-    private H2ResourceGroupsDao dao;
+    private TestingResourceGroupsDao dao;
 
     @BeforeEach
     public void setup()
             throws Exception
     {
-        String dbConfigUrl = getDbConfigUrl();
-        dao = getDao(dbConfigUrl);
-        queryRunner = createQueryRunner(dbConfigUrl, dao);
+        TestingResourceGroupsDatabase database = createDatabase();
+        dao = database.getDao();
+        queryRunner = createQueryRunner(database);
     }
 
     @AfterEach

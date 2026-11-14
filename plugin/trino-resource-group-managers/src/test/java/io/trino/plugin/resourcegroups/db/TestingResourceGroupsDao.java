@@ -16,7 +16,7 @@ package io.trino.plugin.resourcegroups.db;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
-public interface H2ResourceGroupsDao
+public interface TestingResourceGroupsDao
         extends ResourceGroupsDao
 {
     @SqlUpdate("INSERT INTO resource_groups_global_properties\n" +

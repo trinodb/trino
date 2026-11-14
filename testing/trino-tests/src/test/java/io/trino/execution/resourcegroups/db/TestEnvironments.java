@@ -13,7 +13,7 @@
  */
 package io.trino.execution.resourcegroups.db;
 
-import io.trino.plugin.resourcegroups.db.H2ResourceGroupsDao;
+import io.trino.plugin.resourcegroups.db.TestingResourceGroupsDatabase;
 import io.trino.spi.QueryId;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -24,12 +24,11 @@ import static io.trino.execution.QueryRunnerUtil.createQuery;
 import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT_2;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.adhocSession;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.createQueryRunner;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.getDao;
-import static io.trino.execution.resourcegroups.db.H2TestUtil.getDbConfigUrl;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.TEST_ENVIRONMENT;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.TEST_ENVIRONMENT_2;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.adhocSession;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.createDatabase;
+import static io.trino.execution.resourcegroups.db.DbResourceGroupTestUtil.createQueryRunner;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @Execution(SAME_THREAD) // run single threaded to avoid creating multiple query runners at once
@@ -42,9 +41,8 @@ public class TestEnvironments
     public void testEnvironment1()
             throws Exception
     {
-        String dbConfigUrl = getDbConfigUrl();
-        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        try (QueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT)) {
+        TestingResourceGroupsDatabase database = createDatabase();
+        try (QueryRunner runner = createQueryRunner(database, TEST_ENVIRONMENT)) {
             QueryId firstQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
             waitForQueryState(runner, firstQuery, RUNNING);
             QueryId secondQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
@@ -57,9 +55,8 @@ public class TestEnvironments
     public void testEnvironment2()
             throws Exception
     {
-        String dbConfigUrl = getDbConfigUrl();
-        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        try (QueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT_2)) {
+        TestingResourceGroupsDatabase database = createDatabase();
+        try (QueryRunner runner = createQueryRunner(database, TEST_ENVIRONMENT_2)) {
             QueryId firstQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
             waitForQueryState(runner, firstQuery, RUNNING);
             QueryId secondQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
