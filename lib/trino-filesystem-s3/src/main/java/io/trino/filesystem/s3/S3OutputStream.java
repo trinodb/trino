@@ -322,7 +322,7 @@ final class S3OutputStream
     {
         if (uploadId.isEmpty()) {
             CreateMultipartUploadRequest request = CreateMultipartUploadRequest.builder()
-                    .overrideConfiguration(context::applyCredentialProviderOverride)
+                    .overrideConfiguration(context::applyRequestOverrides)
                     .acl(cannedAcl)
                     .requestPayer(requestPayer)
                     .bucket(location.bucket())
@@ -342,7 +342,7 @@ final class S3OutputStream
 
         currentPartNumber++;
         UploadPartRequest request = UploadPartRequest.builder()
-                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .overrideConfiguration(context::applyRequestOverrides)
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
@@ -380,7 +380,7 @@ final class S3OutputStream
     private void finishUpload(String uploadId)
     {
         CompleteMultipartUploadRequest request = CompleteMultipartUploadRequest.builder()
-                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .overrideConfiguration(context::applyRequestOverrides)
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
@@ -399,7 +399,7 @@ final class S3OutputStream
     private void abortUpload()
     {
         uploadId.map(id -> AbortMultipartUploadRequest.builder()
-                        .overrideConfiguration(context::applyCredentialProviderOverride)
+                        .overrideConfiguration(context::applyRequestOverrides)
                         .requestPayer(requestPayer)
                         .bucket(location.bucket())
                         .key(location.key())
@@ -436,7 +436,7 @@ final class S3OutputStream
             throws IOException
     {
         PutObjectRequest request = PutObjectRequest.builder()
-                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .overrideConfiguration(context::applyRequestOverrides)
                 .acl(getCannedAcl(context.cannedAcl()))
                 .requestPayer(context.requestPayer())
                 .bucket(location.bucket())

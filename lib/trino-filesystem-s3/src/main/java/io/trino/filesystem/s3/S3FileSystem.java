@@ -145,7 +145,7 @@ final class S3FileSystem
         location.verifyValidFileLocation();
         S3Location s3Location = new S3Location(location);
         DeleteObjectRequest request = DeleteObjectRequest.builder()
-                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .overrideConfiguration(context::applyRequestOverrides)
                 .requestPayer(requestPayer)
                 .key(s3Location.key())
                 .bucket(s3Location.bucket())
@@ -200,7 +200,7 @@ final class S3FileSystem
                         .toList();
 
                 DeleteObjectsRequest request = DeleteObjectsRequest.builder()
-                        .overrideConfiguration(context::applyCredentialProviderOverride)
+                        .overrideConfiguration(context::applyRequestOverrides)
                         .requestPayer(requestPayer)
                         .bucket(bucket)
                         .checksumAlgorithm(toChecksumAlgorithm(context.checksumAlgorithm()))
@@ -330,9 +330,12 @@ final class S3FileSystem
         S3Location s3Location = new S3Location(location);
 
         verify(key.isEmpty() || context.s3SseContext().sseType() == NONE, "Encryption key cannot be used with SSE configuration");
+        if (context.remoteSigningEnabled()) {
+            return Optional.empty();
+        }
 
         GetObjectRequest request = GetObjectRequest.builder()
-                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .overrideConfiguration(context::applyRequestOverrides)
                 .requestPayer(requestPayer)
                 .key(s3Location.key())
                 .bucket(s3Location.bucket())
@@ -396,7 +399,7 @@ final class S3FileSystem
     private ListObjectsV2Request.Builder listObjectsRequest(S3Location location, String keyPrefix)
     {
         return ListObjectsV2Request.builder()
-                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .overrideConfiguration(context::applyRequestOverrides)
                 // Restore status will only be added to the response if requested
                 .optionalObjectAttributes(OptionalObjectAttributes.RESTORE_STATUS)
                 .requestPayer(requestPayer)

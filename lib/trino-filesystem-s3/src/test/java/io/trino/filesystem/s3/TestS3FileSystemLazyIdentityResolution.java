@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -111,7 +112,7 @@ final class TestS3FileSystemLazyIdentityResolution
         S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
                 .setConfigFile(new File(getResource("io/trino/filesystem/s3/security-mapping-with-fallback-to-cluster-default.json").toURI()));
         S3SecurityMappingProvider mappingProvider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
-        S3FileSystemLoader loader = new S3FileSystemLoader(mappingProvider, OpenTelemetry.noop(), fileSystemConfig(), new S3FileSystemStats());
+        S3FileSystemLoader loader = new S3FileSystemLoader(mappingProvider, OpenTelemetry.noop(), fileSystemConfig(), new S3FileSystemStats(), Optional.empty());
         AtomicInteger invocationCount = new AtomicInteger();
         Supplier<ConnectorIdentity> identitySupplier = () -> {
             invocationCount.incrementAndGet();
