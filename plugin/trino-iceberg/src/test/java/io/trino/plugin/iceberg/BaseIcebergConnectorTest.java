@@ -3017,6 +3017,31 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testDayTransformTimestampWithTimeZoneBeforeEpoch()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_day_transform_timestamp_tz_before_epoch",
+                "(d timestamp(6) with time zone, id integer) WITH (partitioning = ARRAY['day(d)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES " +
+                    "(TIMESTAMP '1969-12-30 12:00:00.000000 UTC', 1), " +
+                    "(TIMESTAMP '1969-12-31 12:00:00.000000 UTC', 2), " +
+                    "(TIMESTAMP '1970-01-01 12:00:00.000000 UTC', 3), " +
+                    "(NULL, 4)", 4);
+
+            // Iceberg's inclusive time projection can include the following partition for timestamps before the epoch.
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE year(d) = 1969"))
+                    .isNotFullyPushedDown(FilterNode.class)
+                    .matches("VALUES 1, 2");
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE date(d) = DATE '1969-12-31'"))
+                    .isNotFullyPushedDown(FilterNode.class)
+                    .matches("VALUES 2");
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE d < TIMESTAMP '1970-01-01 00:00:00.000000 UTC'"))
+                    .isNotFullyPushedDown(FilterNode.class)
+                    .matches("VALUES 1, 2");
+        }
+    }
+
+    @Test
     public void testDayTransformTimestampWithTimeZone()
     {
         assertUpdate("CREATE TABLE test_day_transform_timestamptz (d timestamp(6) with time zone, b integer) WITH (partitioning = ARRAY['day(d)'])");
