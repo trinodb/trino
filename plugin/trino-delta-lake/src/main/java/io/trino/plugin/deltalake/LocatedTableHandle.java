@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.plugin.deltalake.metastore.DeltaTableType;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -22,7 +23,12 @@ public interface LocatedTableHandle
 {
     SchemaTableName schemaTableName();
 
-    boolean managed();
+    DeltaTableType tableType();
+
+    default boolean managed()
+    {
+        return tableType().isManaged();
+    }
 
     String location();
 

@@ -70,6 +70,7 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
+import static io.trino.plugin.deltalake.metastore.DeltaTableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.clamp;
@@ -92,7 +93,7 @@ public class TestDeltaLakeSplitManager
     private static final DeltaLakeTableHandle tableHandle = new DeltaLakeTableHandle(
             "schema",
             "table",
-            true,
+            MANAGED_TABLE,
             TABLE_PATH,
             metadataEntry,
             new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
@@ -106,7 +107,7 @@ public class TestDeltaLakeSplitManager
     private static final DeltaLakeTableHandle optimizeTableHandle = new DeltaLakeTableHandle(
             "schema",
             "table",
-            true,
+            MANAGED_TABLE,
             TABLE_PATH,
             metadataEntry,
             new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
