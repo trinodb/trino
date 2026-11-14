@@ -14,6 +14,7 @@
 package io.trino.client.auth.external;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 
@@ -119,22 +120,20 @@ class SystemCachedKnownToken
             throw new UncheckedIOException("Failed to create lock file " + lockFile, e);
         }
 
-        try {
-            // Clear token before obtaining new one, as it might fail leaving old invalid token.
-            Files.deleteIfExists(tokenFile);
-            Optional<Token> token = tokenSource.get();
-            token.ifPresent(this::writeTokenToFile);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to update token file " + tokenFile, e);
-        }
-        finally {
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> Files.deleteIfExists(lockFile));
             try {
-                Files.deleteIfExists(lockFile);
+                // Clear token before obtaining new one, as it might fail leaving old invalid token.
+                Files.deleteIfExists(tokenFile);
+                Optional<Token> token = tokenSource.get();
+                token.ifPresent(this::writeTokenToFile);
             }
             catch (IOException e) {
-                throw new UncheckedIOException("Failed to delete lock file " + lockFile, e);
+                throw new UncheckedIOException("Failed to update token file " + tokenFile, e);
             }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to delete lock file " + lockFile, e);
         }
     }
 
