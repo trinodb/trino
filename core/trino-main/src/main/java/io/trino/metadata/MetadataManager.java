@@ -886,12 +886,15 @@ public final class MetadataManager
     @Override
     public void dropCatalog(Session session, CatalogName catalog, boolean cascade)
     {
-        // there is a potential race condition here, TODO: https://github.com/trinodb/trino/issues/26927
-        boolean systemSecurityManagement = catalogManager.getCatalog(catalog)
+        // The decision whether the dropped catalog was system managed has to be made based on the
+        // catalog that was actually removed. Reading it beforehand races with a concurrent
+        // DROP + CREATE of a catalog with the same name: the replacement could be dropped here,
+        // and catalogDropped would never be called for it (or would be called for the wrong catalog).
+        Optional<Catalog> droppedCatalog = catalogManager.dropCatalog(catalog, cascade);
+        boolean systemSecurityManagement = droppedCatalog
                 .filter(foundCatalog -> foundCatalog.getCatalogStatus() == OPERATIONAL)
                 .flatMap(Catalog::getSecurityManagement)
                 .orElse(CONNECTOR) == SYSTEM;
-        catalogManager.dropCatalog(catalog, cascade);
         if (systemSecurityManagement) {
             systemSecurityMetadata.catalogDropped(session, catalog);
         }
