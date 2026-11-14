@@ -16,6 +16,7 @@ package io.trino.plugin.pinot;
 import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.plugin.pinot.client.InstanceInfo;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
@@ -106,11 +107,14 @@ public class PinotSplitManager
 
             Map<String, List<String>> hostToSegmentsMap = routingTable.get(routingTableName);
             hostToSegmentsMap.forEach((host, segments) -> {
+                // Resolve the server here, once per server per query, and ship the result with every split so
+                // that no worker has to call the controller for it
+                InstanceInfo instanceInfo = pinotClient.resolveInstanceInfo(host);
                 int numSegmentsInThisSplit = Math.min(segments.size(), segmentsPerSplitConfigured);
                 // segments is already shuffled
                 Iterables.partition(segments, numSegmentsInThisSplit).forEach(
                         segmentsForThisSplit -> splits.add(
-                                createSegmentSplit(tableNameSuffix, segmentsForThisSplit, host, timePredicate)));
+                                createSegmentSplit(tableNameSuffix, segmentsForThisSplit, host, instanceInfo, timePredicate)));
             });
         }
     }

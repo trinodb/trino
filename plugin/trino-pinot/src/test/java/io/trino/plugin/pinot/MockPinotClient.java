@@ -25,6 +25,7 @@ import io.trino.plugin.pinot.auth.PinotBrokerAuthenticationProvider;
 import io.trino.plugin.pinot.auth.PinotControllerAuthenticationProvider;
 import io.trino.plugin.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import io.trino.plugin.pinot.client.IdentityPinotHostMapper;
+import io.trino.plugin.pinot.client.InstanceInfo;
 import io.trino.plugin.pinot.client.PinotClient;
 import org.apache.pinot.spi.data.Schema;
 
@@ -36,6 +37,7 @@ import java.util.Optional;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.plugin.pinot.MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC;
 import static io.trino.plugin.pinot.MetadataUtil.BROKER_RESPONSE_NATIVE_JSON_CODEC;
+import static io.trino.plugin.pinot.MetadataUtil.INSTANCE_INFO_JSON_CODEC;
 import static io.trino.plugin.pinot.MetadataUtil.TABLES_JSON_CODEC;
 import static io.trino.plugin.pinot.MetadataUtil.TEST_TABLE;
 import static io.trino.plugin.pinot.MetadataUtil.TIME_BOUNDARY_JSON_CODEC;
@@ -62,13 +64,17 @@ public class MockPinotClient
     public MockPinotClient(PinotConfig pinotConfig, Map<String, Schema> metadata, String response)
     {
         super(pinotConfig,
-                new IdentityPinotHostMapper(),
+                // This client never resolves a server instance, so the host mapper never calls back into it
+                new IdentityPinotHostMapper(() -> {
+                    throw new UnsupportedOperationException();
+                }),
                 new TestingHttpClient(_ -> null),
                 newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-testing")),
                 TABLES_JSON_CODEC,
                 BROKERS_FOR_TABLE_JSON_CODEC,
                 TIME_BOUNDARY_JSON_CODEC,
                 BROKER_RESPONSE_NATIVE_JSON_CODEC,
+                INSTANCE_INFO_JSON_CODEC,
                 PinotControllerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()),
                 PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()));
         this.metadata = metadata;
@@ -102,6 +108,12 @@ public class MockPinotClient
                         .map(key -> new AbstractMap.SimpleEntry<>(key.toLowerCase(ENGLISH), key))
                         .collect(toList()))
                 .build();
+    }
+
+    @Override
+    public InstanceInfo resolveInstanceInfo(String instanceId)
+    {
+        return new InstanceInfo(instanceId, instanceId + ".pinot.svc.cluster.local", 8098, 8090);
     }
 
     @Override
