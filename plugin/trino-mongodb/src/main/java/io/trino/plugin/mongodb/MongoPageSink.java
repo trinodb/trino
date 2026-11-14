@@ -87,6 +87,7 @@ public class MongoPageSink
     private final String implicitPrefix;
     private final Optional<String> pageSinkIdColumnName;
     private final ConnectorPageSinkId pageSinkId;
+    private final boolean insertOrdered;
 
     public MongoPageSink(
             MongoSession mongoSession,
@@ -94,7 +95,8 @@ public class MongoPageSink
             List<MongoColumnHandle> columns,
             String implicitPrefix,
             Optional<String> pageSinkIdColumnName,
-            ConnectorPageSinkId pageSinkId)
+            ConnectorPageSinkId pageSinkId,
+            boolean insertOrdered)
     {
         this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
         this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
@@ -102,6 +104,7 @@ public class MongoPageSink
         this.implicitPrefix = requireNonNull(implicitPrefix, "implicitPrefix is null");
         this.pageSinkIdColumnName = requireNonNull(pageSinkIdColumnName, "pageSinkIdColumnName is null");
         this.pageSinkId = requireNonNull(pageSinkId, "pageSinkId is null");
+        this.insertOrdered = insertOrdered;
     }
 
     @Override
@@ -121,7 +124,7 @@ public class MongoPageSink
             batch.add(doc);
         }
 
-        collection.insertMany(batch, new InsertManyOptions().ordered(true));
+        collection.insertMany(batch, new InsertManyOptions().ordered(insertOrdered));
         return NOT_BLOCKED;
     }
 

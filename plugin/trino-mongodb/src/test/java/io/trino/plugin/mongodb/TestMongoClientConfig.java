@@ -28,6 +28,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class TestMongoClientConfig
 {
     @Test
+    @SuppressWarnings("deprecation")
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(MongoClientConfig.class)
@@ -48,10 +49,12 @@ public class TestMongoClientConfig
                 .setImplicitRowFieldPrefix("_pos")
                 .setProjectionPushdownEnabled(true)
                 .setAllowLocalScheduling(false)
+                .setInsertOrdered(false)
                 .setDynamicFilteringWaitTimeout(new Duration(5, SECONDS)));
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     public void testExplicitPropertyMappings()
             throws Exception
     {
@@ -73,6 +76,7 @@ public class TestMongoClientConfig
                 .put("mongodb.implicit-row-field-prefix", "_prefix")
                 .put("mongodb.projection-pushdown-enabled", "false")
                 .put("mongodb.allow-local-scheduling", "true")
+                .put("mongodb.insert-ordered", "true")
                 .put("mongodb.dynamic-filtering.wait-timeout", "2ms")
                 .buildOrThrow();
 
@@ -94,6 +98,7 @@ public class TestMongoClientConfig
                 .setImplicitRowFieldPrefix("_prefix")
                 .setProjectionPushdownEnabled(false)
                 .setAllowLocalScheduling(true)
+                .setInsertOrdered(true)
                 .setDynamicFilteringWaitTimeout(new Duration(2, MILLISECONDS));
 
         assertFullMapping(properties, expected);
