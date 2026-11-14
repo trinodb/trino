@@ -34,6 +34,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -46,12 +47,14 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.base.expression.ConnectorExpressions.and;
 import static io.trino.plugin.base.expression.ConnectorExpressions.extractConjuncts;
 import static io.trino.plugin.base.expression.ConnectorExpressions.extractDisjuncts;
+import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.BETWEEN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IDENTICAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.IN_PREDICATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
@@ -80,6 +83,20 @@ import static java.util.Objects.requireNonNull;
  */
 public final class UtcConstraintExtractor
 {
+    // A compared date or year (year() returns bigint) can lie beyond what TIMESTAMP WITH TIME ZONE holds. Its
+    // representation limits epoch millis to 52 bits (DateTimeEncoding), about 71 thousand years either side of 1970.
+    // Building a range outside it would throw or overflow epoch millis, so such a comparison is left in the remaining
+    // expression.
+    private static final long MAX_PACKED_EPOCH_MILLIS = (1L << 51) - 1;
+    // Days whose start and the start of the next day both fit
+    private static final long MIN_UNWRAPPABLE_EPOCH_DAY = -(MAX_PACKED_EPOCH_MILLIS / MILLISECONDS_PER_DAY);
+    private static final long MAX_UNWRAPPABLE_EPOCH_DAY = MAX_PACKED_EPOCH_MILLIS / MILLISECONDS_PER_DAY - 1;
+    // Years whose first day and the first day of the next year both fit
+    private static final int MIN_UNWRAPPABLE_YEAR = LocalDate.ofEpochDay(MIN_UNWRAPPABLE_EPOCH_DAY).getYear() + 1;
+    private static final int MAX_UNWRAPPABLE_YEAR = LocalDate.ofEpochDay(MAX_UNWRAPPABLE_EPOCH_DAY + 1).getYear() - 1;
+    // Whole seconds that fit, for date_trunc period bounds
+    private static final long MAX_UNWRAPPABLE_EPOCH_SECOND = MAX_PACKED_EPOCH_MILLIS / MILLISECONDS_PER_SECOND;
+
     private UtcConstraintExtractor() {}
 
     public static ExtractionResult extractTupleDomain(Constraint constraint)
@@ -159,6 +176,27 @@ public final class UtcConstraintExtractor
                 return Optional.of(low.get().intersect(high.get()));
             }
             return Optional.empty();
+        }
+
+        if (IN_PREDICATE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2 &&
+                call.getArguments().get(1) instanceof Call valueList &&
+                ARRAY_CONSTRUCTOR_FUNCTION_NAME.equals(valueList.getFunctionName()) &&
+                !valueList.getArguments().isEmpty()) {
+            // value IN (c1, ..., cn) <=> value = c1 OR ... OR value = cn. Decompose and reuse the comparison
+            // handling below, like BETWEEN above. The engine leaves the list alone when it cannot unwrap the value
+            // itself, e.g. CAST(timestamp_tz AS date), so without this an IN prunes nothing even though each of
+            // its equalities would.
+            ConnectorExpression value = call.getArguments().get(0);
+            ImmutableList.Builder<TupleDomain<ColumnHandle>> itemDomains = ImmutableList.builder();
+            for (ConnectorExpression item : valueList.getArguments()) {
+                Optional<TupleDomain<ColumnHandle>> itemDomain = toTupleDomain(new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, item)), assignments);
+                if (itemDomain.isEmpty()) {
+                    // If any item can't be converted (e.g. a null or a non-constant item), we can't handle the entire IN
+                    return Optional.empty();
+                }
+                itemDomains.add(itemDomain.get());
+            }
+            return TupleDomain.strictUnion(itemDomains.build());
         }
 
         if (call.getArguments().size() == 2) {
@@ -272,6 +310,9 @@ public final class UtcConstraintExtractor
     {
         // Verify no overflow. Date values must be in integer range.
         verify(date <= Integer.MAX_VALUE, "Date value out of range: %s", date);
+        if (date < MIN_UNWRAPPABLE_EPOCH_DAY || date > MAX_UNWRAPPABLE_EPOCH_DAY) {
+            return Optional.empty();
+        }
 
         Object startOfDate;
         Object startOfNextDate;
@@ -292,8 +333,11 @@ public final class UtcConstraintExtractor
     {
         checkArgument(constant.getValue() != null, "Unexpected constant: %s", constant);
 
-        int year = toIntExact((Long) constant.getValue());
-        ZonedDateTime periodStart = ZonedDateTime.of(year, 1, 1, 0, 0, 0, 0, UTC);
+        long year = (Long) constant.getValue();
+        if (year < MIN_UNWRAPPABLE_YEAR || year > MAX_UNWRAPPABLE_YEAR) {
+            return Optional.empty();
+        }
+        ZonedDateTime periodStart = ZonedDateTime.of(toIntExact(year), 1, 1, 0, 0, 0, 0, UTC);
         ZonedDateTime periodEnd = periodStart.plusYears(1);
 
         Object start;
@@ -373,6 +417,13 @@ public final class UtcConstraintExtractor
         return Optional.empty();
     }
 
+    private static boolean isUnwrappablePeriodBound(ZonedDateTime periodBound)
+    {
+        // Period bounds are whole seconds, so their epoch millis are the epoch second times 1000
+        long epochSecond = periodBound.toEpochSecond();
+        return epochSecond >= -MAX_UNWRAPPABLE_EPOCH_SECOND && epochSecond <= MAX_UNWRAPPABLE_EPOCH_SECOND;
+    }
+
     private static Optional<Domain> unwrapDateTruncInComparison(String unit, FunctionName functionName, Constant constant)
     {
         Type type = constant.getType();
@@ -426,6 +477,11 @@ public final class UtcConstraintExtractor
             default -> {
                 return Optional.empty();
             }
+        }
+        // As for dates and years, give up on a period that runs past what TIMESTAMP WITH TIME ZONE holds, e.g. when the
+        // constant is in the last period, the next period starts after the largest value
+        if (!isUnwrappablePeriodBound(periodStart) || !isUnwrappablePeriodBound(nextPeriodStart)) {
+            return Optional.empty();
         }
         boolean constantAtPeriodStart = dateTime.equals(periodStart);
 

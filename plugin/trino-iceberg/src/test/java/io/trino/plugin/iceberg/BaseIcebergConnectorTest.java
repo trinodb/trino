@@ -3139,18 +3139,35 @@ public abstract class BaseIcebergConnectorTest
         // date()
         assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE date(d) = DATE '2015-05-15'"))
                 .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE date(d) IN (DATE '2015-05-15', DATE '2020-02-21')"))
+                .isFullyPushedDown();
+        // A date outside the timestamp range leaves the predicate as a residual filter.
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE date(d) IN (DATE '2015-05-15', DATE '100000-01-01')"))
+                .isNotFullyPushedDown(FilterNode.class);
 
         // year()
         assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE year(d) = 2015"))
                 .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE year(d) IN (2015, 2020)"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE year(d) IN (1969, 2015)"))
+                .isNotFullyPushedDown(FilterNode.class);
+        // Constructing this year's range would overflow epoch milliseconds.
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE year(d) IN (2015, 584556074)"))
+                .isNotFullyPushedDown(FilterNode.class);
 
         // date_trunc
         assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE date_trunc('day', d) = TIMESTAMP '2015-05-15 00:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE date_trunc('day', d) IN (TIMESTAMP '2015-05-15 00:00:00.000000 UTC', TIMESTAMP '2020-02-21 00:00:00.000000 UTC')"))
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE date_trunc('month', d) = TIMESTAMP '2015-05-01 00:00:00.000000 UTC'"))
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE date_trunc('year', d) = TIMESTAMP '2015-01-01 00:00:00.000000 UTC'"))
                 .isFullyPushedDown();
+        // The next period starts after the largest timestamp with time zone.
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE date_trunc('year', d) IN (TIMESTAMP '2015-01-01 00:00:00.000000 UTC', TIMESTAMP '73326-01-01 00:00:00.000000 UTC')"))
+                .isNotFullyPushedDown(FilterNode.class);
 
         assertUpdate("DROP TABLE test_day_transform_timestamptz");
     }
@@ -3918,6 +3935,15 @@ public abstract class BaseIcebergConnectorTest
         // year()
         assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz WHERE year(d) = 2020"))
                 .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz WHERE year(d) IN (2020, 2021)"))
+                .isFullyPushedDown();
+        // These years fit in Trino timestamps, but their boundaries do not fit in Iceberg's nanosecond representation.
+        assertThat(query("SELECT b FROM test_year_transform_ts_nano_tz WHERE year(d) IN (2020, 10000)"))
+                .isNotFullyPushedDown(FilterNode.class)
+                .matches("VALUES 1, 2");
+        assertThat(query("SELECT b FROM test_year_transform_ts_nano_tz WHERE year(d) IN (2020, -10000)"))
+                .isNotFullyPushedDown(FilterNode.class)
+                .matches("VALUES 1, 2");
 
         // date_trunc
         assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz WHERE date_trunc('year', d) = TIMESTAMP '2020-01-01 00:00:00.000000 UTC'"))
