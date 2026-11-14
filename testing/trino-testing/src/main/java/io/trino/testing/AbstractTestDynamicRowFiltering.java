@@ -27,6 +27,7 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -119,6 +120,28 @@ public abstract class AbstractTestDynamicRowFiltering
                             "SELECT a.* FROM customer a INNER JOIN customer b ON a.mktsegment = b.mktsegment AND a.custkey = b.custkey) c" +
                             " INNER JOIN nation on c.nationkey = nation.nationkey AND  nation.name IN ('ALGERIA')",
                     joinDistributionType);
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testIsNotDistinctFromStructuralValuesWithNulls()
+    {
+        // structural values containing nulls or NaN are not equal to themselves, but IS NOT DISTINCT FROM matches them
+        try (TestTable table = newTrinoTable(
+                "test_not_distinct_structural",
+                "(id integer, r row(x integer), a array(integer), m map(integer, integer), d array(double))",
+                ImmutableList.of(
+                        "1, ROW(1), ARRAY[1], MAP(ARRAY[1], ARRAY[1]), ARRAY[1e0]",
+                        "2, ROW(NULL), ARRAY[NULL], MAP(ARRAY[1], ARRAY[NULL]), ARRAY[nan()]",
+                        "3, ROW(NULL), ARRAY[NULL], MAP(ARRAY[1], ARRAY[NULL]), ARRAY[nan()]"))) {
+            for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+                Session session = dynamicRowFiltering(joinDistributionType);
+                for (String column : ImmutableList.of("r", "a", "m", "d")) {
+                    assertThat(query(session, "SELECT count(*) FROM %s WHERE %s IS NOT DISTINCT FROM (SELECT %s FROM %s WHERE id = 3)".formatted(table.getName(), column, column, table.getName())))
+                            .matches("VALUES BIGINT '2'");
+                }
+            }
         }
     }
 
