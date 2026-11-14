@@ -745,10 +745,9 @@ public class BigQueryMetadata
             List<String> columnNames,
             Collection<Slice> fragments)
     {
-        Closer closer = Closer.create();
-        closer.register(() -> bigQueryClientFactory.create(session).dropTable(tempTable.toTableId()));
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> bigQueryClientFactory.create(session).dropTable(tempTable.toTableId()));
 
-        try {
             BigQueryClient client = bigQueryClientFactory.create(session);
 
             RemoteTableName pageSinkTable = new RemoteTableName(
@@ -775,13 +774,8 @@ public class BigQueryMetadata
 
             client.executeUpdate(session, QueryJobConfiguration.of(insertSql));
         }
-        finally {
-            try {
-                closer.close();
-            }
-            catch (IOException e) {
-                throw new TrinoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, e);
-            }
+        catch (IOException e) {
+            throw new TrinoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, e);
         }
 
         return Optional.empty();
