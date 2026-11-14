@@ -13,9 +13,12 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.function.ColumnarScalar;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SelectedPositions;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
@@ -25,6 +28,15 @@ import io.trino.spi.type.StandardTypes;
 public final class MapCardinalityFunction
 {
     private MapCardinalityFunction() {}
+
+    @ColumnarScalar
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType(StandardTypes.BIGINT)
+    public static Block mapCardinalityColumnar(SelectedPositions selectedPositions, @SqlType("map(K,V)") Block mapColumn)
+    {
+        return CardinalityBlockProjection.project(selectedPositions, mapColumn);
+    }
 
     @TypeParameter("K")
     @TypeParameter("V")

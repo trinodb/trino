@@ -19,10 +19,12 @@ import io.airlift.slice.InvalidUtf8Exception;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.trino.operator.scalar.TrimBlockProjection.Trim;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.function.ColumnarScalar;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
@@ -30,6 +32,7 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SelectedPositions;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Chars;
@@ -122,6 +125,25 @@ public final class StringFunctions
     public static long spaceTrimmedLength(@SqlType("varchar") Slice slice)
     {
         return countCodePoints(slice, 0, byteCountWithoutTrailingSpace(slice, 0, slice.length()));
+    }
+
+    @ColumnarScalar
+    @ScalarFunction("replace")
+    @LiteralParameters({"x", "y"})
+    @SqlType("varchar(x)")
+    public static Block replaceColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column, @SqlType("varchar(y)") Block search)
+    {
+        return ReplaceBlockProjection.project(selectedPositions, column, search, null);
+    }
+
+    @ColumnarScalar
+    @ScalarFunction("replace")
+    @LiteralParameters({"x", "y", "z", "u"})
+    @Constraint(variable = "u", expression = "min(2147483647, x + z * (x + 1))")
+    @SqlType("varchar(u)")
+    public static Block replaceColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column, @SqlType("varchar(y)") Block search, @SqlType("varchar(z)") Block replace)
+    {
+        return ReplaceBlockProjection.project(selectedPositions, column, search, replace);
     }
 
     @Description("Greedily removes occurrences of a pattern in a string")
@@ -285,6 +307,24 @@ public final class StringFunctions
         while (foundInstances < instance);
 
         return countCodePoints(string, 0, index + 1);
+    }
+
+    @ColumnarScalar
+    @ScalarFunction(value = "substring", alias = "substr")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block substringColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column, @SqlType(StandardTypes.BIGINT) Block start)
+    {
+        return SubstringBlockProjection.project(selectedPositions, column, start, null);
+    }
+
+    @ColumnarScalar
+    @ScalarFunction(value = "substring", alias = "substr")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block substringColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column, @SqlType(StandardTypes.BIGINT) Block start, @SqlType(StandardTypes.BIGINT) Block length)
+    {
+        return SubstringBlockProjection.project(selectedPositions, column, start, length);
     }
 
     @Description("Suffix starting at given index")
@@ -464,6 +504,15 @@ public final class StringFunctions
         return parts.build();
     }
 
+    @ColumnarScalar
+    @ScalarFunction("split_part")
+    @LiteralParameters({"x", "y"})
+    @SqlType("varchar(x)")
+    public static Block splitPartColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column, @SqlType("varchar(y)") Block delimiter, @SqlType(StandardTypes.BIGINT) Block index)
+    {
+        return SplitPartBlockProjection.project(selectedPositions, column, delimiter, index);
+    }
+
     @SqlNullable
     @Description("Splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
@@ -514,6 +563,15 @@ public final class StringFunctions
         return null;
     }
 
+    @ColumnarScalar
+    @ScalarFunction("ltrim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block leftTrimColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column)
+    {
+        return TrimBlockProjection.project(selectedPositions, column, Trim.LEFT);
+    }
+
     @Description("Removes whitespace from the beginning of a string")
     @ScalarFunction(value = "ltrim", neverFails = true)
     @LiteralParameters("x")
@@ -533,6 +591,15 @@ public final class StringFunctions
         return SliceUtf8.leftTrim(slice);
     }
 
+    @ColumnarScalar
+    @ScalarFunction("rtrim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block rightTrimColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column)
+    {
+        return TrimBlockProjection.project(selectedPositions, column, Trim.RIGHT);
+    }
+
     @Description("Removes whitespace from the end of a string")
     @ScalarFunction(value = "rtrim", neverFails = true)
     @LiteralParameters("x")
@@ -550,6 +617,15 @@ public final class StringFunctions
     public static Slice charRightTrim(@SqlType("char(x)") Slice slice)
     {
         return rightTrim(slice);
+    }
+
+    @ColumnarScalar
+    @ScalarFunction("trim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block trimColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column)
+    {
+        return TrimBlockProjection.project(selectedPositions, column, Trim.BOTH);
     }
 
     @Description("Removes whitespace from the beginning and end of a string")
@@ -669,6 +745,15 @@ public final class StringFunctions
         return codePoints;
     }
 
+    @ColumnarScalar
+    @ScalarFunction("lower")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block lowerColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column)
+    {
+        return CaseConversionBlockProjection.toLowerCase(selectedPositions, column);
+    }
+
     @Description("Converts the string to lower case")
     @ScalarFunction(neverFails = true)
     @LiteralParameters("x")
@@ -685,6 +770,15 @@ public final class StringFunctions
     public static Slice charLower(@SqlType("char(x)") Slice slice)
     {
         return lower(slice);
+    }
+
+    @ColumnarScalar
+    @ScalarFunction("upper")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Block upperColumnar(SelectedPositions selectedPositions, @SqlType("varchar(x)") Block column)
+    {
+        return CaseConversionBlockProjection.toUpperCase(selectedPositions, column);
     }
 
     @Description("Converts the string to upper case")

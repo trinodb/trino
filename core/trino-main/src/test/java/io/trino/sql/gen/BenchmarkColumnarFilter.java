@@ -190,6 +190,7 @@ public class BenchmarkColumnarFilter
                         getCharVarcharCoercion(TEST_SESSION),
                         columnarEvaluationEnabled,
                         true,
+                        true,
                         Optional.of(filterProvider.getExpression(type)),
                         Optional.empty(),
                         ImmutableList.of(new Reference(type, COL_0)),

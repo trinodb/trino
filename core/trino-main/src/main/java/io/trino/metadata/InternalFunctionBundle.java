@@ -26,6 +26,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ColumnarScalarFunction;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -177,6 +178,19 @@ public class InternalFunctionBundle
             throw new RuntimeException(e.getCause());
         }
         return specializedSqlScalarFunction.getScalarFunctionImplementation(invocationConvention);
+    }
+
+    @Override
+    public Optional<ColumnarScalarFunction> getColumnarScalarFunction(
+            FunctionId functionId,
+            BoundSignature boundSignature,
+            FunctionDependencies functionDependencies)
+    {
+        SqlFunction function = getSqlFunction(functionId);
+        if (function instanceof SqlScalarFunction scalarFunction) {
+            return scalarFunction.getColumnarScalarFunction(boundSignature, functionDependencies);
+        }
+        return Optional.empty();
     }
 
     private SpecializedSqlScalarFunction specializeScalarFunction(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)

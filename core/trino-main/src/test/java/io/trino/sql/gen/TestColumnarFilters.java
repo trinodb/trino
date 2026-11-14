@@ -712,6 +712,7 @@ public class TestColumnarFilters
                         CHAR_VARCHAR_COERCION,
                         columnarEvaluationEnabled,
                         filterReorderingEnabled,
+                        true,
                         Optional.of(filter),
                         Optional.empty(),
                         ImmutableList.of(new Reference(BIGINT, COL_ROW_NUM)),

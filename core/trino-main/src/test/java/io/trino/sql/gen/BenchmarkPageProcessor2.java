@@ -122,7 +122,7 @@ public class BenchmarkPageProcessor2
 
         inputPage = createPage(types, dictionaryBlocks);
         pageProcessor = new ExpressionCompiler(pageFunctionCompiler, columnarFilterCompiler)
-                .compilePageProcessor(getCharVarcharCoercion(TEST_SESSION), true, true, Optional.of(getFilter(type)), Optional.empty(), projections, sourceLayout, Optional.empty(), OptionalInt.empty())
+                .compilePageProcessor(getCharVarcharCoercion(TEST_SESSION), true, true, true, Optional.of(getFilter(type)), Optional.empty(), projections, sourceLayout, Optional.empty(), OptionalInt.empty())
                 .apply(DynamicFilter.EMPTY);
     }
 

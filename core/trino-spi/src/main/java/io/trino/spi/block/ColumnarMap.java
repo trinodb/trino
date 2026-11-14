@@ -13,6 +13,10 @@
  */
 package io.trino.spi.block;
 
+import java.util.Optional;
+
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.set;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnarMap
@@ -155,5 +159,34 @@ public class ColumnarMap
     public Block getValuesBlock()
     {
         return valuesBlock;
+    }
+
+    /**
+     * Returns an array block with the nulls and the entry ranges of the maps over the given elements,
+     * which must have one position for each entry of the maps, such as the keys or the values.
+     */
+    public Block toArrayBlock(Block elements)
+    {
+        int positionCount = getPositionCount();
+        // the arrays of a map block that starts at its first entry have the offsets and nulls of the maps
+        if (nullCheckBlock instanceof MapBlock mapBlock && offsetsOffset == 0 && offsets[0] == 0) {
+            return ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(mapBlock.getRawValueIsValid()), offsets, elements);
+        }
+
+        // null maps have no entries, so the offsets of the entries are the offsets of the arrays
+        int[] arrayOffsets = new int[positionCount + 1];
+        for (int position = 0; position <= positionCount; position++) {
+            arrayOffsets[position] = getOffset(position);
+        }
+        long[] valueIsValid = null;
+        if (mayHaveNull()) {
+            valueIsValid = allocateWords(positionCount, false);
+            for (int position = 0; position < positionCount; position++) {
+                if (!isNull(position)) {
+                    set(valueIsValid, 0, position);
+                }
+            }
+        }
+        return ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(valueIsValid), arrayOffsets, elements);
     }
 }

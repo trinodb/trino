@@ -17,7 +17,11 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -26,6 +30,10 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.StandardTypes;
+import io.trino.sql.gen.ColumnarProjectionAssertions;
+import io.trino.sql.gen.ColumnarProjectionAssertions.Input;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,6 +41,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.List;
+import java.util.function.IntFunction;
+import java.util.function.IntPredicate;
+import java.util.function.IntToLongFunction;
+
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
@@ -40,9 +54,12 @@ import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.gen.ColumnarProjectionAssertions.dictionaryOverRegion;
+import static io.trino.sql.gen.ColumnarProjectionAssertions.region;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.util.Collections.nCopies;
@@ -55,6 +72,11 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestStringFunctions
 {
     private QueryAssertions assertions;
+
+    private static final ColumnarProjectionAssertions COLUMNAR = new ColumnarProjectionAssertions(new TestingFunctionResolution());
+    private static final int POSITION_COUNT = 40;
+    // positions with invalid arguments for the functions that can fail
+    private static final IntPredicate INVALID = position -> position % 3 == 1;
 
     @BeforeAll
     public void init()
@@ -2715,5 +2737,238 @@ public class TestStringFunctions
         assertThat(assertions.function("soundex", "'x123'"))
                 .hasType(createVarcharType(4))
                 .isEqualTo("X000");
+    }
+
+    @Test
+    public void testColumnarConcat()
+    {
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("concat", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice(" - ")), new Reference(VARCHAR, "other")),
+                new Input("input", VARCHAR, varcharBlock(position -> position % 7 == 3)),
+                new Input("other", VARCHAR, varcharBlock(position -> position % 5 == 1)));
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("concat", new Reference(VARBINARY, "input"), new Reference(VARBINARY, "other")),
+                new Input("input", VARBINARY, varcharBlock(_ -> false)),
+                new Input("other", VARBINARY, varcharBlock(position -> position % 5 == 1)));
+        // the values are read through a region, and through a dictionary whose ids start past its first id
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function(
+                        "concat",
+                        new Constant(VARCHAR, utf8Slice("<")),
+                        new Reference(VARCHAR, "input"),
+                        new Reference(VARCHAR, "other"),
+                        new Constant(VARCHAR, utf8Slice(">"))),
+                new Input("input", VARCHAR, region(VARCHAR, varcharBlock(position -> position % 7 == 3))),
+                new Input("other", VARCHAR, dictionaryOverRegion(VARCHAR, varcharBlock(position -> position % 5 == 1))));
+        // a null constant makes every result null
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("concat", new Reference(VARCHAR, "input"), new Constant(VARCHAR, null)),
+                new Input("input", VARCHAR, varcharBlock(position -> position % 7 == 3)));
+        // concat fails when the result is too large
+        String large = "x".repeat(600_000);
+        COLUMNAR.assertEquivalentForValidPositions(
+                COLUMNAR.function("concat", new Reference(VARCHAR, "input"), new Reference(VARCHAR, "other")),
+                INVALID,
+                new Input("input", VARCHAR, varcharBlock(_ -> false, position -> INVALID.test(position) ? large : "value-" + position)),
+                new Input("other", VARCHAR, varcharBlock(_ -> false, position -> INVALID.test(position) ? large : "other-" + position)));
+    }
+
+    private static Block varcharBlock(IntPredicate isNull)
+    {
+        // every fourth value is empty
+        return varcharBlock(isNull, position -> position % 4 == 0 ? "" : "value-" + position);
+    }
+
+    private static Block varcharBlock(IntPredicate isNull, IntFunction<String> value)
+    {
+        return sliceBlock(isNull, position -> utf8Slice(value.apply(position)));
+    }
+
+    @Test
+    public void testColumnarSubstring()
+    {
+        Block input = varcharBlock(position -> position % 7 == 3, position -> switch (position % 3) {
+            case 0 -> "Żółw-value-" + position;
+            case 1 -> "";
+            default -> "value-" + position;
+        });
+        for (Block values : ImmutableList.of(input, region(VARCHAR, input), unicodeBlock())) {
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function("substr", new Reference(VARCHAR, "input"), new Constant(BIGINT, 3L)),
+                    new Input("input", VARCHAR, values));
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function("substring", new Reference(VARCHAR, "input"), new Constant(BIGINT, -4L), new Constant(BIGINT, 2L)),
+                    new Input("input", VARCHAR, values));
+        }
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("substr", new Reference(VARCHAR, "input"), new Reference(BIGINT, "start"), new Reference(BIGINT, "length")),
+                new Input("input", VARCHAR, input),
+                new Input("start", BIGINT, longBlock(position -> position % 11 == 2, position -> (position % 9) - 4)),
+                new Input("length", BIGINT, longBlock(position -> position % 13 == 7, position -> (position % 5) - 1)));
+    }
+
+    private static Block sliceBlock(IntPredicate isNull, IntFunction<Slice> value)
+    {
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            if (isNull.test(position)) {
+                builder.appendNull();
+            }
+            else {
+                VARCHAR.writeSlice(builder, value.apply(position));
+            }
+        }
+        return builder.build();
+    }
+
+    private static Block unicodeBlock()
+    {
+        // the Deseret letters are supplementary code points, and the bytes are not valid UTF-8
+        return sliceBlock(position -> position % 7 == 3, position -> switch (position % 3) {
+            case 0 -> utf8Slice("\uD801\uDC28\uD801\uDC00-Ab-" + position);
+            case 1 -> Slices.wrappedBuffer((byte) 'A', (byte) 0xFF, (byte) ' ', (byte) 'b', (byte) 0xC3);
+            default -> utf8Slice(" Ascii-" + position + " ");
+        });
+    }
+
+    private static Block longBlock(IntPredicate isNull, IntToLongFunction value)
+    {
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            if (isNull.test(position)) {
+                builder.appendNull();
+            }
+            else {
+                BIGINT.writeLong(builder, value.applyAsLong(position));
+            }
+        }
+        return builder.build();
+    }
+
+    @Test
+    public void testColumnarCaseConversion()
+    {
+        List<Block> inputs = ImmutableList.of(
+                varcharBlock(position -> position % 7 == 3, position -> position % 3 == 0 ? "lower-" + position : "Mixed-Case-" + position),
+                varcharBlock(position -> position % 7 == 3, position -> "lower-" + position),
+                varcharBlock(position -> position % 7 == 3, position -> "UPPER-" + position),
+                varcharBlock(_ -> false, position -> switch (position % 4) {
+                    case 0 -> "Żółw-Ab-" + position;
+                    // the case of the Kelvin sign, the dotless i, and the long s converts to an ASCII letter
+                    case 1 -> "\u212A\u0131\u017F-Ab-" + position;
+                    default -> "ascii-Ab-" + position;
+                }),
+                // the first value that is not ASCII follows values with letters to convert
+                varcharBlock(position -> position % 7 == 3, position -> position == 25 ? "Żółw-Ab" : "Ascii-Ab-" + position),
+                region(VARCHAR, varcharBlock(position -> position % 7 == 3, position -> position % 3 == 0 ? "Żółw-Ab-" + position : "Ascii-Ab-" + position)),
+                unicodeBlock());
+        for (String function : ImmutableList.of("lower", "upper")) {
+            for (Block input : inputs) {
+                COLUMNAR.assertEquivalent(
+                        COLUMNAR.function(function, new Reference(VARCHAR, "input")),
+                        new Input("input", VARCHAR, input));
+            }
+        }
+    }
+
+    @Test
+    public void testColumnarTrim()
+    {
+        List<Block> inputs = ImmutableList.of(
+                varcharBlock(position -> position % 7 == 3, position -> switch (position % 5) {
+                    case 0 -> "  value-" + position + " ";
+                    case 1 -> "";
+                    case 2 -> "   ";
+                    // an em space is whitespace that is not ASCII
+                    case 3 -> "\u2003value-" + position + "\u2003";
+                    default -> "value-" + position;
+                }),
+                varcharBlock(position -> position % 7 == 3, position -> "value-" + position),
+                region(VARCHAR, varcharBlock(position -> position % 7 == 3, position -> position % 2 == 0 ? " value-" + position + " " : "value-" + position)),
+                unicodeBlock());
+        for (String function : ImmutableList.of("trim", "ltrim", "rtrim")) {
+            for (Block input : inputs) {
+                COLUMNAR.assertEquivalent(
+                        COLUMNAR.function(function, new Reference(VARCHAR, "input")),
+                        new Input("input", VARCHAR, input));
+            }
+        }
+    }
+
+    @Test
+    public void testColumnarSplitPart()
+    {
+        Block input = varcharBlock(position -> position % 7 == 3, position -> switch (position % 4) {
+            case 0 -> "a,b,c-" + position;
+            case 1 -> "";
+            case 2 -> "Żółw,," + position;
+            default -> "no delimiter " + position;
+        });
+        for (long index : new long[] {1, 2, 3}) {
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function("split_part", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice(",")), new Constant(BIGINT, index)),
+                    new Input("input", VARCHAR, input));
+        }
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("split_part", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice(",")), new Constant(BIGINT, 2L)),
+                new Input("input", VARCHAR, region(VARCHAR, input)));
+        // a null constant makes every result null
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("split_part", new Reference(VARCHAR, "input"), new Constant(VARCHAR, null), new Constant(BIGINT, 1L)),
+                new Input("input", VARCHAR, input));
+        // an empty delimiter splits every character
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("split_part", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("")), new Constant(BIGINT, 2L)),
+                new Input("input", VARCHAR, input));
+        // split_part fails for an index that is not positive
+        COLUMNAR.assertEquivalentForValidPositions(
+                COLUMNAR.function("split_part", new Reference(VARCHAR, "input"), new Reference(VARCHAR, "delimiter"), new Reference(BIGINT, "index")),
+                INVALID,
+                new Input("input", VARCHAR, input),
+                new Input("delimiter", VARCHAR, varcharBlock(position -> position % 11 == 5, position -> position % 2 == 0 ? "," : "-")),
+                new Input("index", BIGINT, longBlock(position -> position % 13 == 6, position -> INVALID.test(position) ? (position % 2) - 1 : (position % 3) + 1)));
+    }
+
+    @Test
+    public void testColumnarReplace()
+    {
+        // the search string matches at the end of a value, in adjacent matches, and as the whole value
+        Block input = varcharBlock(position -> position % 7 == 3, position -> switch (position % 6) {
+            case 0 -> "a-b-c-" + position;
+            case 1 -> "";
+            case 2 -> "Żółw-" + position;
+            case 3 -> "--" + position + "--";
+            case 4 -> "-";
+            default -> "no match " + position;
+        });
+        // the values of the second input do not contain the search string, so replace returns its input
+        for (Block values : ImmutableList.of(input, varcharBlock(position -> position % 7 == 3, position -> "value " + position))) {
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("-"))),
+                    new Input("input", VARCHAR, values));
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("-")), new Constant(VARCHAR, utf8Slice("_+_"))),
+                    new Input("input", VARCHAR, values));
+        }
+        // an empty search string inserts the replacement around every character
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("")), new Constant(VARCHAR, utf8Slice("."))),
+                new Input("input", VARCHAR, input));
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Reference(VARCHAR, "search"), new Reference(VARCHAR, "replacement")),
+                new Input("input", VARCHAR, input),
+                new Input("search", VARCHAR, varcharBlock(position -> position % 11 == 5, position -> switch (position % 3) {
+                    case 0 -> "-";
+                    case 1 -> "ół";
+                    default -> "w";
+                })),
+                new Input("replacement", VARCHAR, varcharBlock(position -> position % 13 == 6, position -> "<" + position + ">")));
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("-")), new Constant(VARCHAR, utf8Slice("+"))),
+                new Input("input", VARCHAR, region(VARCHAR, input)));
+        // a null constant makes every result null
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("replace", new Reference(VARCHAR, "input"), new Constant(VARCHAR, utf8Slice("-")), new Constant(VARCHAR, null)),
+                new Input("input", VARCHAR, input));
     }
 }

@@ -209,6 +209,9 @@ public class TestRowBlock
         assertPositionValue(offsetAppendedBlock, 0, largerTestRows[1]);
         assertPositionValue(offsetAppendedBlock, 1, largerTestRows[2]);
         assertThat(offsetAppendedBlock.isNull(2)).isTrue();
+        for (Block fieldBlock : offsetAppendedBlock.getFieldBlocks()) {
+            assertThat(fieldBlock.isNull(2)).isTrue();
+        }
     }
 
     @Test

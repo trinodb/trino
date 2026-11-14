@@ -196,6 +196,7 @@ public class BenchmarkColumnarFilterParquetData
                         getCharVarcharCoercion(TEST_SESSION),
                         columnarEvaluationEnabled,
                         true,
+                        true,
                         Optional.of(filterExpression),
                         Optional.empty(),
                         ImmutableList.of(EXTENDED_PRICE),

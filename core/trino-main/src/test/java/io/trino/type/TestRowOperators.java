@@ -21,7 +21,10 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.trino.json.Json;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.CombineHashFunction;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -30,6 +33,11 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
+import io.trino.sql.gen.ColumnarProjectionAssertions;
+import io.trino.sql.gen.ColumnarProjectionAssertions.Input;
+import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -42,8 +50,12 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.block.BlockAssertions.createArrayBigintBlock;
+import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -87,6 +99,11 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestRowOperators
 {
     private QueryAssertions assertions;
+
+    private static final ColumnarProjectionAssertions COLUMNAR = new ColumnarProjectionAssertions(new TestingFunctionResolution());
+    private static final int POSITION_COUNT = 40;
+    private static final RowType BIGINT_VARCHAR_ROW = RowType.anonymous(ImmutableList.of(BIGINT, VARCHAR));
+    private static final ArrayType BIGINT_ARRAY = new ArrayType(BIGINT);
 
     @BeforeAll
     public void init()
@@ -1263,5 +1280,47 @@ public class TestRowOperators
                     .binding("b", base))
                     .isEqualTo(greaterOrInequalityOperators.contains(operator));
         }
+    }
+
+    @Test
+    public void testColumnarFieldReference()
+    {
+        COLUMNAR.assertEquivalent(
+                new FieldReference(new Reference(BIGINT_VARCHAR_ROW, "input"), 1),
+                new Input("input", BIGINT_VARCHAR_ROW, rowBlock()));
+    }
+
+    @Test
+    public void testColumnarRowConstructor()
+    {
+        COLUMNAR.assertEquivalent(
+                new Row(ImmutableList.of(new Reference(BIGINT_ARRAY, "input"), new Reference(BIGINT, "value"))),
+                new Input("input", BIGINT_ARRAY, createArrayBigintBlock(IntStream.range(0, POSITION_COUNT)
+                        .mapToObj(position -> position % 7 == 3 ? null : LongStream.range(0, position % 4).boxed().toList())
+                        .toList())),
+                new Input("value", BIGINT, createLongSequenceBlock(0, POSITION_COUNT)));
+    }
+
+    private static Block rowBlock()
+    {
+        // every seventh row is null, and the second field of every fourth row is null
+        RowBlockBuilder builder = BIGINT_VARCHAR_ROW.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            if (position % 7 == 3) {
+                builder.appendNull();
+                continue;
+            }
+            int value = position;
+            builder.buildEntry(fields -> {
+                BIGINT.writeLong(fields.get(0), value);
+                if (value % 4 == 1) {
+                    fields.get(1).appendNull();
+                }
+                else {
+                    VARCHAR.writeString(fields.get(1), "value-" + value);
+                }
+            });
+        }
+        return builder.build();
     }
 }
