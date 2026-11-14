@@ -18,6 +18,7 @@ import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -39,6 +40,30 @@ public class TestTypeRegistry
         assertThatThrownBy(() -> typeRegistry.getType(new TypeDescriptor("not_a_real_type")))
                 .isInstanceOf(TypeNotFoundException.class)
                 .hasMessage("Unknown type: not_a_real_type");
+    }
+
+    @Test
+    public void testFromSqlTypeNonexistentType()
+    {
+        assertThatThrownBy(() -> typeRegistry.fromSqlType("not_a_real_type"))
+                .isInstanceOf(TypeNotFoundException.class)
+                .hasMessage("Unknown type: not_a_real_type");
+        assertThatThrownBy(() -> typeRegistry.fromPersistedSqlType("not_a_real_type"))
+                .isInstanceOf(TypeNotFoundException.class)
+                .hasMessage("Unknown type: not_a_real_type");
+    }
+
+    @Test
+    public void testFromSqlTypeUnparsableType()
+    {
+        assertThatThrownBy(() -> typeRegistry.fromSqlType("array("))
+                .isInstanceOf(TypeNotFoundException.class)
+                .hasMessage("Unknown type: array(")
+                .hasCauseInstanceOf(ParsingException.class);
+        assertThatThrownBy(() -> typeRegistry.fromPersistedSqlType("array("))
+                .isInstanceOf(TypeNotFoundException.class)
+                .hasMessage("Unknown type: array(")
+                .hasCauseInstanceOf(ParsingException.class);
     }
 
     @Test

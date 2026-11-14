@@ -74,6 +74,7 @@ import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -1782,6 +1783,10 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testInvalidType()
     {
         assertQueryFails("SELECT CAST(null AS array(foo))", "\\Qline 1:8: Unknown type: array(foo)\\E");
+        assertThat(query("SELECT bigint '123', bigimt '123'"))
+                .failure()
+                .hasErrorCode(TYPE_NOT_FOUND)
+                .hasMessage("line 1:22: Unknown type: bigimt");
     }
 
     @Test
