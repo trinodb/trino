@@ -4293,6 +4293,11 @@ public class DeltaLakeMetadata
         if (updatedAddFileEntries.isEmpty()) {
             return;
         }
+
+        // Rewritten entries drop fields of writer features Trino does not support
+        checkWriteAllowed(session, tableHandle);
+        checkWriteSupported(tableHandle);
+
         try {
             long createdTime = Instant.now().toEpochMilli();
             long readVersion = tableHandle.getReadVersion();

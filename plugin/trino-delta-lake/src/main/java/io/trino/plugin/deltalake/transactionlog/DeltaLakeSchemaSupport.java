@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Enums;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +46,8 @@ import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 
+import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.AbstractMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -57,6 +60,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -66,6 +70,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.APPEND_ONLY_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.CHANGE_DATA_FEED_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.CHECK_CONSTRAINTS_FEATURE_NAME;
@@ -96,7 +101,10 @@ import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.parseBoolean;
+import static java.lang.Math.addExact;
 import static java.lang.String.format;
+import static java.math.RoundingMode.DOWN;
+import static java.time.temporal.ChronoUnit.MICROS;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -116,6 +124,17 @@ public final class DeltaLakeSchemaSupport
     public static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
     // https://github.com/delta-io/delta/blob/master/docs/source/delta-uniform.md
     private static final String UNIVERSAL_FORMAT_CONFIGURATION_KEY = "delta.universalFormat.enabledFormats";
+    public static final String DELETED_FILE_RETENTION_DURATION_CONFIGURATION_KEY = "delta.deletedFileRetentionDuration";
+    private static final Map<String, Duration> INTERVAL_UNITS = ImmutableMap.<String, Duration>builder()
+            .put("week", Duration.ofDays(7))
+            .put("day", Duration.ofDays(1))
+            .put("hour", Duration.ofHours(1))
+            .put("minute", Duration.ofMinutes(1))
+            .put("second", Duration.ofSeconds(1))
+            .put("millisecond", Duration.ofMillis(1))
+            .put("microsecond", Duration.of(1, MICROS))
+            .buildOrThrow();
+    private static final Pattern INTERVAL_AMOUNT_PATTERN = Pattern.compile("[+-]?(\\d+(\\.\\d*)?|\\.\\d+)");
 
     public enum ColumnMappingMode
     {
@@ -198,6 +217,56 @@ public final class DeltaLakeSchemaSupport
     {
         String formats = metadataEntry.getConfiguration().get(UNIVERSAL_FORMAT_CONFIGURATION_KEY);
         return formats == null ? ImmutableList.of() : SPLITTER.splitToList(formats);
+    }
+
+    public static Optional<Duration> getDeletedFileRetentionDuration(MetadataEntry metadataEntry)
+    {
+        String value = metadataEntry.getConfiguration().get(DELETED_FILE_RETENTION_DURATION_CONFIGURATION_KEY);
+        if (value == null) {
+            return Optional.empty();
+        }
+        return Optional.of(parseIntervalDuration(value)
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_TABLE, "Invalid value for table property %s: %s".formatted(DELETED_FILE_RETENTION_DURATION_CONFIGURATION_KEY, value))));
+    }
+
+    // Parses the interval syntax Delta Lake uses for duration table properties, such as "interval 1 week". Simplified version of Delta kernel's IntervalParserUtils.
+    // Returns empty when a value cannot be parsed.
+    // https://github.com/delta-io/delta/blob/master/kernel/kernel-api/src/main/java/io/delta/kernel/internal/util/IntervalParserUtils.java
+    static Optional<Duration> parseIntervalDuration(String value)
+    {
+        List<String> tokens = Splitter.on(CharMatcher.whitespace()).omitEmptyStrings().splitToList(value.toLowerCase(ENGLISH));
+        if (!tokens.isEmpty() && tokens.getFirst().equals("interval")) {
+            tokens = tokens.subList(1, tokens.size());
+        }
+        if (tokens.isEmpty() || tokens.size() % 2 != 0) {
+            return Optional.empty();
+        }
+
+        long micros = 0;
+        try {
+            for (int i = 0; i < tokens.size(); i += 2) {
+                String amountText = tokens.get(i);
+                String unitName = tokens.get(i + 1);
+                unitName = unitName.endsWith("s") ? unitName.substring(0, unitName.length() - 1) : unitName;
+                Duration unit = INTERVAL_UNITS.get(unitName);
+                if (unit == null || !INTERVAL_AMOUNT_PATTERN.matcher(amountText).matches()) {
+                    return Optional.empty();
+                }
+
+                BigDecimal amount = new BigDecimal(amountText);
+                // Like Delta Lake, only seconds may have a fractional part
+                if (amount.scale() > 0 && !unitName.equals("second")) {
+                    return Optional.empty();
+                }
+                micros = addExact(micros, amount.multiply(BigDecimal.valueOf(unit.toNanos() / 1000)).setScale(0, DOWN).longValueExact());
+            }
+        }
+        // Return empty on NumberFormatException (if BigDecimal fails to parse) or ArithmeticException (if addExact overflows)
+        // so callers can handle parsing failures as needed.
+        catch (NumberFormatException | ArithmeticException e) {
+            return Optional.empty();
+        }
+        return Optional.of(Duration.of(micros, MICROS));
     }
 
     public static ColumnMappingMode getColumnMappingMode(MetadataEntry metadata, ProtocolEntry protocolEntry)
