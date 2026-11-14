@@ -144,6 +144,12 @@ public class InCodeGenerator
         MethodHandle hashCodeMethodHandle = generatorContext.getScalarFunctionImplementation(resolvedHashCodeFunction, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
         MethodHandle indeterminateMethodHandle = generatorContext.getScalarFunctionImplementation(resolvedIsIndeterminate, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
 
+        // Allocate before generating the IN-list items: an item's code must not reuse these slots
+        Scope scope = generatorContext.getScope();
+        Variable value = scope.getOrCreateTempVariable(javaType);
+        Variable expression = scope.getOrCreateTempVariable(int.class);
+        Variable caseWasNull = scope.getOrCreateTempVariable(boolean.class);
+
         ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
         ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
@@ -181,11 +187,7 @@ public class InCodeGenerator
 
         LabelNode defaultLabel = new LabelNode("default");
 
-        Scope scope = generatorContext.getScope();
-        Variable value = scope.getOrCreateTempVariable(javaType);
-
         BytecodeNode switchBlock;
-        Variable expression = scope.getOrCreateTempVariable(int.class);
         SwitchBuilder switchBuilder = new SwitchBuilder().expression(expression);
 
         switch (switchGenerationCase) {
@@ -208,13 +210,13 @@ public class InCodeGenerator
                     Collection<BytecodeNode> testValues = bucket.getValue();
                     BytecodeBlock caseBlock = buildInCase(
                             generatorContext,
-                            scope,
                             resolvedEqualsFunction,
                             match,
                             defaultLabel,
                             value,
                             testValues,
                             false,
+                            caseWasNull,
                             resolvedIsIndeterminate);
                     switchBuilder.addCase(bucket.getKey(), caseBlock);
                 }
@@ -250,13 +252,13 @@ public class InCodeGenerator
 
         BytecodeBlock defaultCaseBlock = buildInCase(
                 generatorContext,
-                scope,
                 resolvedEqualsFunction,
                 match,
                 noMatch,
                 value,
                 defaultBucket.build(),
                 true,
+                caseWasNull,
                 resolvedIsIndeterminate)
                 .setDescription("default");
 
@@ -286,6 +288,7 @@ public class InCodeGenerator
 
         block.visitLabel(end);
 
+        scope.releaseTempVariableForReuse(caseWasNull);
         scope.releaseTempVariableForReuse(expression);
         scope.releaseTempVariableForReuse(value);
 
@@ -299,20 +302,15 @@ public class InCodeGenerator
 
     private static BytecodeBlock buildInCase(
             BytecodeGeneratorContext generatorContext,
-            Scope scope,
             ResolvedFunction equals,
             LabelNode matchLabel,
             LabelNode noMatchLabel,
             Variable value,
             Collection<BytecodeNode> testValues,
             boolean checkForNulls,
+            Variable caseWasNull, // with checkForNulls, set to true the first time a null in `testValues` is encountered
             ResolvedFunction isIndeterminateFunction)
     {
-        Variable caseWasNull = null; // caseWasNull is set to true the first time a null in `testValues` is encountered
-        if (checkForNulls) {
-            caseWasNull = scope.getOrCreateTempVariable(boolean.class);
-        }
-
         BytecodeBlock caseBlock = new BytecodeBlock();
 
         if (checkForNulls) {
@@ -371,10 +369,6 @@ public class InCodeGenerator
             elseLabel = testLabel;
         }
         caseBlock.append(elseNode);
-
-        if (checkForNulls) {
-            scope.releaseTempVariableForReuse(caseWasNull);
-        }
         return caseBlock;
     }
 

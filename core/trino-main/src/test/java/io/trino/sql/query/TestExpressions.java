@@ -96,6 +96,43 @@ public class TestExpressions
     }
 
     @Test
+    public void testInWithSimpleCaseInValueList()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT
+                    x,
+                    1 IN (CASE x WHEN 0 THEN 2 ELSE 3 END, 4),
+                    6 IN (x, CASE x WHEN 0 THEN 2 ELSE 3 END),
+                    5 IN (x + 5, CASE x WHEN 0 THEN 2 ELSE 3 END)
+                FROM UNNEST(ARRAY[NULL, 0, 5]) t(x)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (NULL, false, NULL, NULL),
+                            (0, false, false, true),
+                            (5, false, false, false)
+                        """);
+
+        assertThat(assertions.query(
+                """
+                SELECT
+                    x,
+                    BIGINT '1' IN (CASE x WHEN 0 THEN BIGINT '2' ELSE BIGINT '3' END, BIGINT '4'),
+                    BIGINT '6' IN (x, CASE x WHEN 0 THEN BIGINT '2' ELSE BIGINT '3' END)
+                FROM UNNEST(ARRAY[NULL, BIGINT '0', BIGINT '5']) t(x)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (NULL, false, NULL),
+                            (BIGINT '0', false, false),
+                            (BIGINT '5', false, false)
+                        """);
+    }
+
+    @Test
     public void testInShortCircuit()
     {
         // Because of the failing in-list item 5 / 0, the in-predicate cannot be simplified.
