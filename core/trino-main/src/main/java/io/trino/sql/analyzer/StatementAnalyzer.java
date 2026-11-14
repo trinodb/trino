@@ -419,6 +419,7 @@ import static io.trino.sql.analyzer.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeJsonQueryExpression;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeJsonValueExpression;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
+import static io.trino.sql.analyzer.ExpressionAnalyzer.validateDefaultExpression;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
@@ -2434,10 +2435,11 @@ class StatementAnalyzer
                         throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, extractLocation(table), format("Invalid default column value for '%s.%s': %s", table.getName(), columnMetadata.getName(), e.getErrorMessage()), e);
                     }
 
-                    if (!(expression instanceof Literal)) {
-                        throw new TrinoException(NOT_SUPPORTED, extractLocation(table), format("Default column value supports only literals '%s.%s': %s", table.getName(), columnMetadata.getName(), expression), null);
+                    validateDefaultExpression(expression, columnMetadata.getType());
+                    Type expressionType = analyzeExpression(expression, scope).getType(expression);
+                    if (!(expression instanceof Literal) && !typeCoercion.isStoreAssignable(expressionType, columnMetadata.getType())) {
+                        throw semanticException(INVALID_DEFAULT_COLUMN_VALUE, table, "Default value of '%s.%s' has type %s, which is not assignable to %s", table.getName(), columnMetadata.getName(), expressionType, columnMetadata.getType());
                     }
-                    analyzeExpression(expression, scope);
                     analysis.addDefaultColumnValue(table, columnHandle, expression);
                 });
             }
