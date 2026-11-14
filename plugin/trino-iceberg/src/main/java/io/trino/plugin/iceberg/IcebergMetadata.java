@@ -1727,7 +1727,6 @@ public class IcebergMetadata
         validateNotModifyingOldSnapshot(table, icebergTable);
         validateTableForTrino(icebergTable, getCurrentSnapshotId(icebergTable));
         validateNotEncryptedForWrite(icebergTable);
-        validateNoUnknownTypeForWrite(icebergTable);
         setWriteTable(icebergTable);
 
         return newWritableTableHandle(table.getSchemaTableName(), icebergTable);
@@ -2291,7 +2290,6 @@ public class IcebergMetadata
 
         validateNotModifyingOldSnapshot(table, icebergTable);
         validateNotEncryptedForWrite(icebergTable);
-        validateNoUnknownTypeForWrite(icebergTable);
 
         verifyTableVersionForExecute(OPTIMIZE, OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION, icebergTable);
         setWriteTable(icebergTable);
@@ -2646,7 +2644,6 @@ public class IcebergMetadata
         IcebergAddFilesHandle addFilesHandle = (IcebergAddFilesHandle) executeHandle.procedureHandle();
         Table table = catalog.loadTable(session, executeHandle.schemaTableName());
         validateNotEncryptedForWrite(table);
-        validateNoUnknownTypeForWrite(table);
         TrinoFileSystem fileSystem = createFileSystem(session, IcebergTableCredentials.forFileIO(table.io()));
         long addedDataFiles = addFiles(
                 session,
@@ -2667,7 +2664,6 @@ public class IcebergMetadata
         IcebergAddFilesFromTableHandle addFilesHandle = (IcebergAddFilesFromTableHandle) executeHandle.procedureHandle();
         Table table = catalog.loadTable(session, executeHandle.schemaTableName());
         validateNotEncryptedForWrite(table);
-        validateNoUnknownTypeForWrite(table);
         TrinoFileSystem fileSystem = createFileSystem(session, IcebergTableCredentials.forFileIO(table.io()));
         long addedDataFiles = addFilesFromTable(
                 session,
@@ -3519,7 +3515,6 @@ public class IcebergMetadata
         BaseTable icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         validateNotModifyingOldSnapshot(table, icebergTable);
         validateNotEncryptedForWrite(icebergTable);
-        validateNoUnknownTypeForWrite(icebergTable);
         setWriteTable(icebergTable);
 
         IcebergWritableTableHandle insertHandle = newWritableTableHandle(table.getSchemaTableName(), icebergTable);
@@ -3546,21 +3541,6 @@ public class IcebergMetadata
     {
         if (table.getSnapshotId().isPresent() && (table.getSnapshotId().orElseThrow() != icebergTable.currentSnapshot().snapshotId())) {
             throw new TrinoException(NOT_SUPPORTED, "Modifying old snapshot is not supported in Iceberg");
-        }
-    }
-
-    private static void validateNoUnknownTypeForWrite(Table table)
-    {
-        validateNoUnknownTypeForWrite(table.schema());
-    }
-
-    private static void validateNoUnknownTypeForWrite(Schema schema)
-    {
-        // TODO https://github.com/trinodb/trino/issues/31580 Support writing to Iceberg tables with unknown type columns
-        boolean hasUnknownType = TypeUtil.indexById(schema.asStruct()).values().stream()
-                .anyMatch(field -> field.type().typeId() == Type.TypeID.UNKNOWN);
-        if (hasUnknownType) {
-            throw new TrinoException(NOT_SUPPORTED, "Writing to Iceberg tables with unknown type columns is not supported");
         }
     }
 
@@ -4247,7 +4227,6 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         BaseTable icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         validateNotEncryptedForWrite(icebergTable);
-        validateNoUnknownTypeForWrite(icebergTable);
         setWriteTable(icebergTable);
 
         Optional<String> dependencies = Optional.ofNullable(icebergTable.currentSnapshot())
