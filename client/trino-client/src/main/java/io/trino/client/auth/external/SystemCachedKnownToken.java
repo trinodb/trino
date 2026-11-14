@@ -13,7 +13,6 @@
  */
 package io.trino.client.auth.external;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
@@ -23,12 +22,14 @@ import java.io.UncheckedIOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static java.nio.file.attribute.PosixFilePermission.OWNER_READ;
-import static java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
 
@@ -139,12 +140,26 @@ class SystemCachedKnownToken
 
     private void writeTokenToFile(Token token)
     {
-        try {
-            Files.writeString(tokenFile, token.token());
-            Files.setPosixFilePermissions(tokenFile, ImmutableSet.of(OWNER_READ, OWNER_WRITE));
+        // Write to a temporary file, created readable only by the owner, then rename it,
+        // so that a concurrent reader never sees a partially written token
+        try (Closer closer = Closer.create()) {
+            Path temporaryFile = Files.createTempFile(trinoDir, ".token", ".tmp", ownerOnlyAttributes());
+            // no-op once the file is renamed
+            closer.register(() -> Files.deleteIfExists(temporaryFile));
+            Files.writeString(temporaryFile, token.token());
+            Files.move(temporaryFile, tokenFile, ATOMIC_MOVE, REPLACE_EXISTING);
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to write token to " + tokenFile, e);
         }
+    }
+
+    private FileAttribute<?>[] ownerOnlyAttributes()
+    {
+        // POSIX permissions are not supported on Windows, where the file inherits the user-private ACL of the home directory
+        if (!trinoDir.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+            return new FileAttribute<?>[0];
+        }
+        return new FileAttribute<?>[] {PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))};
     }
 }
