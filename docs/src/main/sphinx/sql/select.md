@@ -232,6 +232,8 @@ due to implementation choices, in addition to `WITH` clause limitations:
   allowed in the step relation
 - recursion depth is fixed, defaults to `10`, and doesn't depend on the actual
   query results
+- non-deterministic functions, such as {func}`random`, and `TABLESAMPLE` are
+  not allowed in the base or step relation
 
 You can adjust the recursion depth with the {doc}`session property
 </sql/set-session>` `max_recursion_depth`. When changing the value consider

@@ -2917,6 +2917,160 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testWithRecursiveNonDeterministic()
+    {
+        // base relation
+        assertFails(
+                """
+                WITH RECURSIVE t(n, v) AS (
+                    SELECT 0, CAST(floor(random() * 100000) AS bigint)
+                    UNION ALL
+                    SELECT n + 1, v + 1 FROM t WHERE n < 3)
+                SELECT v FROM t
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 2:26: non-deterministic function in recursive query");
+
+        // step relation select list
+        assertFails(
+                """
+                WITH RECURSIVE t(n) AS (
+                    SELECT 1
+                    UNION ALL
+                    SELECT n + CAST(random() * 2 AS integer) FROM t WHERE n < 6)
+                SELECT * FROM t
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 4:21: non-deterministic function in recursive query");
+
+        // step relation filter
+        assertFails(
+                """
+                WITH RECURSIVE t(n) AS (
+                    SELECT 1
+                    UNION ALL
+                    SELECT n + 1 FROM t WHERE n < 6 AND random() < 0.5)
+                SELECT * FROM t
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 4:41: non-deterministic function in recursive query");
+
+        // scalar subquery
+        assertFails(
+                """
+                WITH RECURSIVE t(n) AS (
+                    SELECT 1
+                    UNION ALL
+                    SELECT n + (SELECT CAST(random() * 2 AS integer)) FROM t WHERE n < 6)
+                SELECT * FROM t
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 4:29: non-deterministic function in recursive query");
+
+        // lateral join condition
+        assertFails(
+                """
+                WITH RECURSIVE t(n) AS (
+                    SELECT a FROM t1 JOIN LATERAL (SELECT 1) u(x) ON random() < 0.5
+                    UNION ALL
+                    SELECT n + 1 FROM t WHERE n < 6)
+                SELECT * FROM t
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 2:54: non-deterministic function in recursive query");
+
+        // view
+        assertFails(
+                """
+                WITH RECURSIVE t(n) AS (
+                    SELECT a FROM v6
+                    UNION ALL
+                    SELECT n + 1 FROM t WHERE n < 6)
+                SELECT * FROM t
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 2:19: non-deterministic function in recursive query");
+
+        // preceding WITH query
+        assertFails(
+                """
+                WITH RECURSIVE r(x) AS (SELECT random()), t(n) AS (
+                    SELECT x FROM r
+                    UNION ALL
+                    SELECT n + 1 FROM t WHERE n < 6)
+                SELECT * FROM t
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 2:19: non-deterministic function in recursive query");
+
+        assertFails(
+                """
+                WITH RECURSIVE t(n, u) AS (
+                    SELECT 1, uuid()
+                    UNION ALL
+                    SELECT n + 1, u FROM t WHERE n < 6)
+                SELECT * FROM t
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 2:15: non-deterministic function in recursive query");
+
+        assertFails(
+                """
+                WITH RECURSIVE t(n) AS (
+                    SELECT a FROM t1 TABLESAMPLE BERNOULLI (50)
+                    UNION ALL
+                    SELECT n + 1 FROM t WHERE n < 6)
+                SELECT * FROM t
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 2:19: TABLESAMPLE in recursive query");
+
+        assertFails(
+                """
+                WITH RECURSIVE t(n) AS (
+                    SELECT 1
+                    UNION ALL
+                    SELECT n + 1 FROM t, t1 TABLESAMPLE BERNOULLI (50) WHERE n < 6)
+                SELECT * FROM t
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 4:26: TABLESAMPLE in recursive query");
+
+        analyze(
+                """
+                WITH RECURSIVE t(n) AS (
+                    SELECT abs(-1)
+                    UNION ALL
+                    SELECT abs(n) + 1 FROM t WHERE n < 6)
+                SELECT * FROM t
+                """);
+        analyze(
+                """
+                WITH RECURSIVE t(n) AS (
+                    SELECT 1
+                    UNION ALL
+                    SELECT try(n + 1) FROM t WHERE n < 6)
+                SELECT * FROM t
+                """);
+        analyze(
+                """
+                WITH RECURSIVE t(n, ts) AS (
+                    SELECT 1, now()
+                    UNION ALL
+                    SELECT n + 1, current_timestamp FROM t WHERE n < 6)
+                SELECT * FROM t
+                """);
+        analyze(
+                """
+                WITH RECURSIVE t(n) AS (
+                    SELECT a FROM v1
+                    UNION ALL
+                    SELECT n + 1 FROM t WHERE n < 6)
+                SELECT * FROM t
+                """);
+    }
+
+    @Test
     public void testIllegalClausesInRecursiveTerm()
     {
         // recursive reference in inner source of outer join
@@ -8765,6 +8919,17 @@ public class TestAnalyzer
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, ImmutableMap.of(), FAIL));
+
+        // valid view with a non-deterministic column
+        ViewDefinition viewData6 = new ViewDefinition(
+                "select random() a",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", DOUBLE.getTypeId(), Optional.empty())),
+                Optional.of("comment"),
+                Optional.of(Identity.ofUser("user")),
+                ImmutableList.of());
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v6"), viewData6, ImmutableMap.of(), FAIL));
 
         // stale view (different column type)
         ViewDefinition viewData2 = new ViewDefinition(
