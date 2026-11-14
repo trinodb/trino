@@ -80,6 +80,7 @@ import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePosition
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -164,6 +165,15 @@ public abstract class BaseTestSqlTaskManager
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.FINISHED);
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.FINISHED);
+
+            assertThat(taskInfo.stats().totalCpuTime().roundTo(NANOSECONDS)).isPositive();
+            long operatorCpuNanos = taskInfo.stats().pipelines().stream()
+                    .flatMap(pipeline -> pipeline.getOperatorSummaries().stream())
+                    .mapToLong(operator -> operator.getAddInputCpu().roundTo(NANOSECONDS)
+                            + operator.getGetOutputCpu().roundTo(NANOSECONDS)
+                            + operator.getFinishCpu().roundTo(NANOSECONDS))
+                    .sum();
+            assertThat(operatorCpuNanos).isPositive();
         }
     }
 

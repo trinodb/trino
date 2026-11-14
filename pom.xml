@@ -179,8 +179,12 @@
             -XX:+UnlockDiagnosticVMOptions
             ${extraJavaVectorArgs}
             --sun-misc-unsafe-memory-access=allow
+            <!-- # vthreadtime loads a native library to measure virtual thread CPU time -->
+            --enable-native-access=ALL-UNNAMED
             <!-- # Disable superfluous bootstrap logging in tests -->
             -Dairlift.quiet=true
+            <!-- # Test servers in one JVM share its carriers. 32 fits seven servers with 4 worker threads each -->
+            -Djdk.virtualThreadScheduler.parallelism=32
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
@@ -647,6 +651,12 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>units</artifactId>
                 <version>1.13</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>vthreadtime</artifactId>
+                <version>1.2</version>
             </dependency>
 
             <dependency>
