@@ -40,5 +40,25 @@ public class IcebergManifestUtils
         return CloseableIterable.transform(manifestReader.liveEntries(), entry -> new FileEntryWithMetadata(entry.file(), entry.snapshotId()));
     }
 
+    /**
+     * All entries of a manifest, including deleted ones, with the columns needed to collect statistics. The file of an
+     * entry is only valid until the next entry is read.
+     */
+    public static <F extends ContentFile<F>> CloseableIterable<FileEntryWithStatus> allEntries(ManifestReader<F> reader)
+    {
+        return CloseableIterable.combine(
+                CloseableIterable.transform(reader.entries(), entry -> new FileEntryWithStatus(entry.file(), entry.snapshotId(), EntryStatus.valueOf(entry.status().name()))),
+                reader);
+    }
+
     public record FileEntryWithMetadata(ContentFile<?> file, long snapshotId) {}
+
+    public enum EntryStatus
+    {
+        EXISTING,
+        ADDED,
+        DELETED,
+    }
+
+    public record FileEntryWithStatus(ContentFile<?> file, Long snapshotId, EntryStatus status) {}
 }

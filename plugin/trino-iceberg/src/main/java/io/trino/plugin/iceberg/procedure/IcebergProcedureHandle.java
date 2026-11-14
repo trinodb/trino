@@ -21,6 +21,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = IcebergDropExtendedStatsHandle.class, name = "drop_extended_stats"),
+        @JsonSubTypes.Type(value = IcebergDropPartitionStatsHandle.class, name = "drop_partition_stats"),
+        @JsonSubTypes.Type(value = IcebergComputePartitionStatsHandle.class, name = "compute_partition_stats"),
         @JsonSubTypes.Type(value = IcebergRollbackToSnapshotHandle.class, name = "rollback_to_snapshot"),
         @JsonSubTypes.Type(value = IcebergExpireSnapshotsHandle.class, name = "expire_snapshots"),
         @JsonSubTypes.Type(value = IcebergOptimizeHandle.class, name = "optimize"),
