@@ -19,8 +19,8 @@ import dev.failsafe.RetryPolicy;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Optional;
@@ -34,9 +34,9 @@ import static java.util.Objects.requireNonNull;
 /**
  * This KnownToken instance persists the token to ~/.trino/.token on the filesystem,
  * allowing it to be reused across separate CLI invocations.
- * A lock file (~/.trino/.token.lck) is used to coordinate token acquisition
- * across processes — its atomic creation acts as a cross-process tryLock.
- * The implementation is similar to MemoryCachedKnownToken, but with LOCK_FILE acting as a Lock
+ * A lock on ~/.trino/.token.lock coordinates token acquisition across processes.
+ * The operating system releases it when the process holding it exits.
+ * The implementation is similar to MemoryCachedKnownToken, but with the file lock acting as a Lock
  */
 class SystemCachedKnownToken
         implements KnownToken
@@ -44,13 +44,17 @@ class SystemCachedKnownToken
     private static final Path DEFAULT_TRINO_DIR = Path.of(System.getProperty("user.home"), ".trino");
     // duration for the user to authenticate within IDP. It involves clicking and typing from a real person within a browser, so should be counted in minutes.
     private static final Duration DEFAULT_LOCK_MAX_WAIT = Duration.ofMinutes(10);
+    // getToken in other processes briefly takes a shared lock to check the lock, which must not be mistaken for a login in progress
+    private static final Duration DEFAULT_LOCK_ACQUIRE_TIMEOUT = Duration.ofMillis(500);
 
     public static final SystemCachedKnownToken INSTANCE = new SystemCachedKnownToken(DEFAULT_TRINO_DIR);
 
     private final Path trinoDir;
     private final Path tokenFile;
     private final Path lockFile;
+    private final InterProcessLock lock;
     private final Duration lockMaxWait;
+    private final Duration lockAcquireTimeout;
 
     SystemCachedKnownToken(Path trinoDir)
     {
@@ -59,42 +63,37 @@ class SystemCachedKnownToken
 
     SystemCachedKnownToken(Path trinoDir, Duration lockMaxWait)
     {
+        this(trinoDir, lockMaxWait, DEFAULT_LOCK_ACQUIRE_TIMEOUT);
+    }
+
+    SystemCachedKnownToken(Path trinoDir, Duration lockMaxWait, Duration lockAcquireTimeout)
+    {
         this.trinoDir = requireNonNull(trinoDir, "trinoDir is null");
         this.tokenFile = trinoDir.resolve(".token");
-        this.lockFile = trinoDir.resolve(".token.lck");
+        this.lockFile = trinoDir.resolve(".token.lock");
+        this.lock = new InterProcessLock(lockFile);
         this.lockMaxWait = requireNonNull(lockMaxWait, "lockMaxWait is null");
+        this.lockAcquireTimeout = requireNonNull(lockAcquireTimeout, "lockAcquireTimeout is null");
     }
 
     @Override
     public Optional<Token> getToken()
     {
-        // Wait while lock file exists, mimicking readLock blocking while writeLock is held
-        boolean lockFileExists = Failsafe.with(RetryPolicy.<Boolean>builder()
+        // Wait while the lock is held, mimicking readLock blocking while writeLock is held
+        boolean locked = Failsafe.with(RetryPolicy.<Boolean>builder()
                         .handleResultIf(Boolean.TRUE::equals)
+                        .abortOn(UncheckedIOException.class)
                         .withMaxAttempts(-1)
                         .withDelay(100, 1000, MILLIS)
                         .withMaxDuration(lockMaxWait)
                         .build())
-                .get(() -> Files.exists(lockFile));
-        if (lockFileExists) {
-            throw new IllegalStateException("Lock file " + lockFile + " for System Cached token still exists after waiting " + lockMaxWait + ". " +
-                    "It may be created by another concurrent authentication, which is still in progress. " +
-                    "If it's not a case and another transaction was abandoned - please remove the lock file manually and retry authentication.");
+                .get(lock::isLocked);
+        if (locked) {
+            throw new IllegalStateException("Lock file " + lockFile + " for System Cached token is still locked after waiting " + lockMaxWait + ". " +
+                    "Another authentication is still in progress.");
         }
 
-        if (!Files.exists(tokenFile)) {
-            return Optional.empty();
-        }
-        try {
-            String content = Files.readString(tokenFile).trim();
-            if (content.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(new Token(content));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to read token from " + tokenFile, e);
-        }
+        return readTokenFile().map(Token::new);
     }
 
     @Override
@@ -107,19 +106,17 @@ class SystemCachedKnownToken
             throw new UncheckedIOException("Failed to create directory " + trinoDir, e);
         }
 
-        // Atomically create the lock file. If it already exists, another process
-        // is obtaining a token — skip, just like MemoryCachedKnownToken's tryLock.
-        try {
-            Files.createFile(lockFile);
-        }
-        catch (FileAlreadyExistsException e) {
+        // If another connection or process is obtaining a token, skip, just like MemoryCachedKnownToken's tryLock
+        Optional<String> tokenBeforeLock = readTokenFile();
+        if (!lock.tryLock(lockAcquireTimeout)) {
             return;
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to create lock file " + lockFile, e);
         }
 
         try {
+            // The token changed while waiting for the lock, so another connection or process already tried to obtain a new one
+            if (!readTokenFile().equals(tokenBeforeLock)) {
+                return;
+            }
             // Clear token before obtaining new one, as it might fail leaving old invalid token.
             Files.deleteIfExists(tokenFile);
             Optional<Token> token = tokenSource.get();
@@ -129,12 +126,25 @@ class SystemCachedKnownToken
             throw new UncheckedIOException("Failed to update token file " + tokenFile, e);
         }
         finally {
-            try {
-                Files.deleteIfExists(lockFile);
+            lock.unlock();
+        }
+    }
+
+    private Optional<String> readTokenFile()
+    {
+        try {
+            String content = Files.readString(tokenFile).trim();
+            if (content.isEmpty()) {
+                return Optional.empty();
             }
-            catch (IOException e) {
-                throw new UncheckedIOException("Failed to delete lock file " + lockFile, e);
-            }
+            return Optional.of(content);
+        }
+        catch (NoSuchFileException e) {
+            // Another connection or process may delete it at any time
+            return Optional.empty();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to read token from " + tokenFile, e);
         }
     }
 
