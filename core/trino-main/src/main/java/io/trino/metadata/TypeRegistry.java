@@ -45,7 +45,6 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -197,32 +196,28 @@ public final class TypeRegistry
     public Type fromSqlType(String sqlType)
     {
         try {
-            return sqlTypeCache.get(sqlType, () -> getType(toTypeDescriptor(SQL_PARSER.createType(sqlType))));
+            return uncheckedCacheGet(sqlTypeCache, sqlType, () -> getType(toTypeDescriptor(SQL_PARSER.createType(sqlType))));
         }
-        catch (ParsingException e) {
-            throw new TypeNotFoundException(sqlType, e);
-        }
-        catch (ExecutionException e) {
+        catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof ParsingException parsingException) {
                 throw new TypeNotFoundException(sqlType, parsingException);
             }
-            throw new RuntimeException("Could not get type from cache", e);
+            throwIfUnchecked(e.getCause());
+            throw new RuntimeException(e.getCause());
         }
     }
 
     public Type fromPersistedSqlType(String sqlType)
     {
         try {
-            return persistedSqlTypeCache.get(sqlType, () -> getType(toPersistedTypeDescriptor(SQL_PARSER.createType(sqlType))));
+            return uncheckedCacheGet(persistedSqlTypeCache, sqlType, () -> getType(toPersistedTypeDescriptor(SQL_PARSER.createType(sqlType))));
         }
-        catch (ParsingException e) {
-            throw new TypeNotFoundException(sqlType, e);
-        }
-        catch (ExecutionException e) {
+        catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof ParsingException parsingException) {
                 throw new TypeNotFoundException(sqlType, parsingException);
             }
-            throw new RuntimeException("Could not get type from cache", e);
+            throwIfUnchecked(e.getCause());
+            throw new RuntimeException(e.getCause());
         }
     }
 
