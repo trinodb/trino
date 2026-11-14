@@ -87,7 +87,7 @@ public class JsonPrinter
 
     @SuppressModernizer
     // JsonFactoryBuilder usage is intentional as we don't want to bring additional dependency on plugin-toolkit module
-    private static JsonFactory jsonFactory()
+    static JsonFactory jsonFactory()
     {
         return new JsonFactoryBuilder()
                 .streamReadConstraints(StreamReadConstraints.builder()

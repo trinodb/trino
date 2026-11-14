@@ -537,6 +537,7 @@ Press {kbd}`→` to accept the suggestion and replace the current command line
 buffer. Press {kbd}`Ctrl+→` ({kbd}`Option+→` on Mac) to accept only the next
 keyword. Continue typing to reject the suggestion.
 
+(cli-configuration-file)=
 ## Configuration file
 
 The CLI can read default values for all options from a file. It uses the first
@@ -588,6 +589,18 @@ mode:
 
 * - Option
   - Description
+* - `--agent`, `--no-agent`
+  - Turn [agent mode](cli-agent-mode) on or off. By default it is turned on
+    when an AI agent is detected.
+* - `--agent-max-bytes=<bytes>`
+  - Maximum size of the rows that agent mode prints in full. Defaults to
+    `10000`. A value of `0` or less means unlimited.
+* - `--agent-max-cell-width=<characters>`
+  - Maximum width of a value in agent mode. Defaults to `500`. A value of `0` or
+    less means unlimited.
+* - `--agent-max-rows=<rows>`
+  - Maximum number of rows that agent mode prints in full. Defaults to `1000`. A
+    value of `0` or less means unlimited.
 * - `--execute=<execute>`
   - Execute specified statements and exit.
 * - `-f`, `--file=<file>`
@@ -666,6 +679,121 @@ Query 20200707_170726_00030_2iup9 failed: line 1:25: Column 'region' cannot be r
 SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
 ```
 
+(cli-agent-mode)=
+## Agent mode
+
+Agent mode prepares the CLI for programs, such as AI agents, that run queries in
+batch mode and read the output through a pipe. It limits the size of the output,
+so that a large result does not fill the context of the program, and reports
+errors in a format that is simple to parse. Agent mode does not change
+interactive use, and it does not change the exit status of the CLI.
+
+Agent mode is turned on in one of the following ways, listed in order of
+precedence:
+
+* The `--agent` option turns it on, and `--no-agent` turns it off.
+* The `TRINO_AGENT_MODE` environment variable turns it on with the value `1`
+  and off with `0`.
+* The CLI turns it on when all of the following conditions are met:
+  * One of the environment variables `AGENT`, `AI_AGENT`, `CLAUDECODE`,
+    `CODEX_CI`, `CODEX_SANDBOX`, `CODEX_THREAD_ID`, `COPILOT_CLI`,
+    `CURSOR_AGENT`, `GEMINI_CLI`, `GROK_AGENT`, `MUSE_SESSION_ID`, or
+    `MUSE_THREAD_ID` is set.
+  * The standard output of the CLI is not a terminal. It can be a pipe or a
+    file, as agents often write the output of a command to a file.
+  * No output format is set with `--output-format` on the command line. An
+    `output-format` in the [configuration file](cli-configuration-file) does
+    not stop detection, and agent mode then uses the `AGENT` format instead. To
+    turn agent mode off for good, set `agent=false` in the configuration file.
+
+When agent mode is turned on because an agent is detected, the CLI prints a
+notice to the standard error that explains how to turn it off.
+
+:::{warning}
+A script that an agent runs inherits the environment of the agent. If the
+script writes the output of the CLI to a file or reads it through a pipe, for
+example with `> result.csv` or `| gzip > result.csv.gz`, the output is shortened
+in agent mode while the exit status is still `0`. Set `--output-format` or
+`--no-agent`, or the environment variable `TRINO_AGENT_MODE=0`, in scripts that
+need the complete result.
+:::
+
+In agent mode, the CLI behaves as follows:
+
+* The default output format is `AGENT`, which prints a compact Markdown table.
+  The type of each column is part of the header. Set `--output-format` to
+  another format on the command line to keep the other agent mode behavior with
+  that format. The limits that follow apply only to the `AGENT` format.
+
+  ```text
+  |nationkey:bigint|name:varchar|regionkey:bigint|
+  |---|---|---|
+  |0|ALGERIA|0|
+  |1|ARGENTINA|1|
+  |2|BRAZIL|1|
+  ```
+
+* A result with up to 1000 rows and 10000 bytes, including the header, is
+  printed in full. A larger result is cut to the first and last 20 rows with a
+  marker such as `…(+1460 rows)` between them. When `--agent-max-rows` is below
+  40, the printed rows are split evenly between the start and the end, with the
+  extra row at the start. The byte limit can cut the output to fewer rows, but
+  the first row is printed even when it alone is over the limit. Values and
+  column headers longer than 500 characters are cut and end with a marker such
+  as `…(+4500 chars)`.
+  Use the `--agent-max-rows`, `--agent-max-bytes`, and `--agent-max-cell-width`
+  options to change the limits. A value of `0` removes a limit. When both the
+  row and the byte limit are removed, the rows are printed while they are read
+  and not kept in memory.
+* In values, the characters `\`, `|`, carriage return and line feed are written
+  as `\\`, `\|`, `\r` and `\n`, so that a line break can be told from the text
+  `\n`.
+* A result of one column and one row with a value that has line breaks, such as
+  the plan from `EXPLAIN` or the statement from `SHOW CREATE TABLE`, is printed
+  as that text and not as a table. The text is not escaped and the cell width
+  does not apply, and the byte limit cuts it with a marker such as
+  `…(+4500 chars)`.
+* The CLI cancels the query after it has read 100000 rows past the point where
+  the output was cut. The footer then states `at least` the number of rows read,
+  and the exit status is `0`. A query that runs in a transaction is not
+  cancelled, because that fails the transaction. Its remaining rows are read
+  and counted, and the footer has the number of rows.
+* A result of a query that failed or was cancelled has the footer
+  `(incomplete: 10 rows received before the query ended)` and no hash, and the
+  error is reported.
+* A result with no rows, with 10 or more rows, or that was cut ends with a footer
+  that has the number of rows and a hash of the complete result. A result with
+  fewer rows ends with a blank line, which separates the tables of statements
+  that run in one command. The footer of a cut result names the options that
+  print every row, only for the limits that the result went over. The hash does
+  not depend on the order of the rows. It covers the column names and types and
+  the rows that are not printed, so a program can use it to check whether two
+  results are the same. It distinguishes a `NULL` value from the text `'NULL'`,
+  but it compares values inside arrays, maps, and rows as they are printed.
+
+  ```text
+  (1500 rows, showing the first 20 and last 20, --agent-max-rows 0 --agent-max-bytes 0 for all, hash: a7553ab5cf51bd45)
+  ```
+
+* Errors are printed to the standard error as one line of JSON. A query failure
+  has the query ID, the error name, type and code, the SQL state, the message,
+  and the location of the error in the query. Other errors, such as a server
+  that is not reachable, only have a message. Warnings are not changed. Errors
+  in the command line options, such as an unknown option, are reported before
+  agent mode is known and keep their regular text message.
+
+  ```json
+  {"type":"error","query_id":"20200707_170726_00030_2iup9","error_name":"COLUMN_NOT_FOUND","error_type":"USER_ERROR","error_code":47,"sql_state":"42000","message":"line 1:25: Column 'region' cannot be resolved","location":{"line":1,"column":25}}
+  ```
+
+* Instead of the progress bar, the CLI prints a line to the standard error
+  every 5 seconds while a query runs. The `--progress` option replaces these
+  lines with the regular progress output of the CLI.
+
+  ```text
+  progress: query_id=20200707_170726_00030_2iup9 state=RUNNING progress=42% elapsed=12s rows=1234567 bytes=34567890
+  ```
+
 (cli-spooling-protocol)=
 ## Spooling protocol
 
@@ -718,6 +846,10 @@ and `CSV` in non-interactive mode.
     and `VERTICAL` otherwise.
 * - `MARKDOWN`
   - Output emitted as a Markdown table.
+* - `AGENT`
+  - Output emitted as a compact Markdown table with the column types in the
+    header, limited in size, with a footer for large results. This is the
+    default in [agent mode](cli-agent-mode).
 * - `NULL`
   - Suppresses normal query results. This can be useful during development to
     test a query's shell return code or to see whether it results in error

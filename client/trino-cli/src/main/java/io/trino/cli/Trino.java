@@ -66,8 +66,12 @@ public final class Trino
                 .registerConverter(Duration.class, Duration::valueOf)
                 .setResourceBundle(new TrinoResourceBundle())
                 .setExecutionExceptionHandler((e, cmd, parseResult) -> {
+                    if (cmd.getCommand() instanceof Console && ((Console) cmd.getCommand()).reportsAgentErrors()) {
+                        cmd.getErr().println(AgentErrors.exception(e));
+                        return 1;
+                    }
                     // The theme is not resolved this early (e.g. for option parsing errors), so fall back to DARK.
-                    System.err.println(formatCliErrorMessage(e, Theme.DARK, parseResult.hasMatchedOption(DEBUG_OPTION_NAME)));
+                    cmd.getErr().println(formatCliErrorMessage(e, Theme.DARK, parseResult.hasMatchedOption(DEBUG_OPTION_NAME)));
                     return 1;
                 });
 
