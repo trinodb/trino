@@ -645,7 +645,12 @@ public final class DeltaLakeSchemaSupport
     private static String getInvariantsWriterFeature(JsonNode node)
     {
         JsonNode invariants = node.get("metadata").get("delta.invariants");
-        return invariants == null ? null : invariants.asText();
+        if (invariants == null) {
+            return null;
+        }
+
+        String expression = invariants.asText();
+        return expression.startsWith("{") ? extractInvariantsExpression(expression) : expression;
     }
 
     @Nullable

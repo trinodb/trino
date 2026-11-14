@@ -4682,12 +4682,16 @@ public class TestDeltaLakeConnectorTest
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN ts TIMESTAMP");
 
-            // CDF is enabled in this table. 'delta.feature.changeDataFeed' must be added when updating the table to versions supporting table features
+            // Features implied by writer version 4 must be added when updating the table to versions supporting table features
             assertThat(getTableProperties(table.getName()))
                     .containsExactlyInAnyOrderEntriesOf(ImmutableMap.<String, String>builder()
                             .put("delta.enableChangeDataFeed", "true")
                             .put("delta.enableDeletionVectors", "false")
+                            .put("delta.feature.appendOnly", "supported")
+                            .put("delta.feature.invariants", "supported")
+                            .put("delta.feature.checkConstraints", "supported")
                             .put("delta.feature.changeDataFeed", "supported")
+                            .put("delta.feature.generatedColumns", "supported")
                             .put("delta.feature.timestampNtz", "supported")
                             .put("delta.minReaderVersion", "3")
                             .put("delta.minWriterVersion", "7")

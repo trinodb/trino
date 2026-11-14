@@ -29,6 +29,7 @@ public final class DeltaLakeTableFeatures
     public static final String CHECK_CONSTRAINTS_FEATURE_NAME = "checkConstraints";
     public static final String COLUMN_MAPPING_FEATURE_NAME = "columnMapping";
     public static final String DELETION_VECTORS_FEATURE_NAME = "deletionVectors";
+    public static final String GENERATED_COLUMNS_FEATURE_NAME = "generatedColumns";
     public static final String ICEBERG_COMPATIBILITY_V1_FEATURE_NAME = "icebergCompatV1";
     public static final String ICEBERG_COMPATIBILITY_V2_FEATURE_NAME = "icebergCompatV2";
     public static final String IDENTITY_COLUMNS_FEATURE_NAME = "identityColumns";
@@ -59,6 +60,8 @@ public final class DeltaLakeTableFeatures
             .add(CHECK_CONSTRAINTS_FEATURE_NAME)
             .add(CHANGE_DATA_FEED_FEATURE_NAME)
             .add(COLUMN_MAPPING_FEATURE_NAME)
+            .add(GENERATED_COLUMNS_FEATURE_NAME)
+            .add(IDENTITY_COLUMNS_FEATURE_NAME)
             .add(TIMESTAMP_NTZ_FEATURE_NAME)
             .add(VACUUM_PROTOCOL_CHECK_FEATURE_NAME)
             .build();

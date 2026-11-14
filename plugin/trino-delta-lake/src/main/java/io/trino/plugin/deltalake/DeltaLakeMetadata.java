@@ -212,7 +212,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
-import static com.google.common.primitives.Ints.max;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.filesystem.Locations.areDirectoryLocationsEquivalent;
@@ -2236,6 +2235,9 @@ public class DeltaLakeMetadata
         checkUnsupportedWriterFeatures(protocolEntry);
 
         checkSupportedWriterVersion(table);
+        if (!getGeneratedColumnExpressions(metadataEntry).isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop column from table with generated columns");
+        }
         ColumnMappingMode columnMappingMode = getColumnMappingMode(metadataEntry, protocolEntry);
         if (columnMappingMode != ColumnMappingMode.NAME && columnMappingMode != ColumnMappingMode.ID) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot drop column from table using column mapping mode " + columnMappingMode);
@@ -2321,6 +2323,9 @@ public class DeltaLakeMetadata
         checkSupportedWriterVersion(table);
         if (changeDataFeedEnabled(table.getMetadataEntry(), protocolEntry).orElse(false)) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot rename column when change data feed is enabled");
+        }
+        if (!getGeneratedColumnExpressions(table.getMetadataEntry()).isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot rename column in table with generated columns");
         }
 
         MetadataEntry metadataEntry = table.getMetadataEntry();
@@ -3582,12 +3587,14 @@ public class DeltaLakeMetadata
         if (!unsupportedProperties.isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "The following properties cannot be updated: " + String.join(", ", unsupportedProperties));
         }
+        checkSupportedWriterVersion(handle);
+        checkUnsupportedWriterFeatures(handle.getProtocolEntry());
 
         ProtocolEntry currentProtocolEntry = handle.getProtocolEntry();
+        ProtocolEntry.Builder protocolEntryBuilder = ProtocolEntry.builder(currentProtocolEntry);
 
         long createdTime = Instant.now().toEpochMilli();
 
-        int requiredWriterVersion = currentProtocolEntry.minWriterVersion();
         Map<String, String> configuration = new HashMap<>(handle.getMetadataEntry().getConfiguration());
         boolean metadataUpdated = false;
         if (properties.containsKey(CHANGE_DATA_FEED_ENABLED_PROPERTY)) {
@@ -3599,7 +3606,7 @@ public class DeltaLakeMetadata
                 if (!conflicts.isEmpty()) {
                     throw new TrinoException(NOT_SUPPORTED, "Unable to enable change data feed because table contains %s columns".formatted(conflicts));
                 }
-                requiredWriterVersion = max(requiredWriterVersion, CDF_SUPPORTED_WRITER_VERSION);
+                protocolEntryBuilder.enableChangeDataFeed();
             }
             configuration.put(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY, String.valueOf(changeDataFeedEnabled));
             metadataUpdated = true;
@@ -3617,10 +3624,8 @@ public class DeltaLakeMetadata
         long readVersion = handle.getReadVersion();
         long commitVersion = readVersion + 1;
 
-        Optional<ProtocolEntry> protocolEntry = Optional.empty();
-        if (requiredWriterVersion != currentProtocolEntry.minWriterVersion()) {
-            protocolEntry = Optional.of(new ProtocolEntry(currentProtocolEntry.minReaderVersion(), requiredWriterVersion, currentProtocolEntry.readerFeatures(), currentProtocolEntry.writerFeatures()));
-        }
+        ProtocolEntry newProtocolEntry = protocolEntryBuilder.build();
+        Optional<ProtocolEntry> protocolEntry = newProtocolEntry.equals(currentProtocolEntry) ? Optional.empty() : Optional.of(newProtocolEntry);
 
         try {
             TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.createWriter(session, handle, getTableCredentials(handle.toCredentialsHandle()));
