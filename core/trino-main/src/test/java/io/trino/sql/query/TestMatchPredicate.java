@@ -201,6 +201,29 @@ public class TestMatchPredicate
     }
 
     @Test
+    public void testFieldsCompareAsCommonType()
+    {
+        // each side is compared as the fields' common type, as for IN, so a value wider than the
+        // subquery's column is not narrowed to it
+        assertThat(assertions.query("SELECT ROW(BIGINT '3000000000') MATCH (SELECT 1)"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT ROW(BIGINT '3000000000') MATCH UNIQUE (SELECT 1)"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT ROW(BIGINT '3000000000') MATCH FULL (SELECT 1)"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT x MATCH (SELECT y FROM (VALUES 1, 2) t(y)) FROM (VALUES BIGINT '1', BIGINT '4294967297') s(x)"))
+                .matches("VALUES true, false");
+        // a longer string is not truncated to the subquery column's length
+        assertThat(assertions.query("SELECT ROW('abc') MATCH (SELECT CAST('a' AS varchar(1)))"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT ROW(1, 'abc') MATCH (SELECT 1, CAST('a' AS varchar(1)))"))
+                .matches("VALUES false");
+        // a narrower value is widened, as before
+        assertThat(assertions.query("SELECT ROW(1) MATCH (SELECT BIGINT '1')"))
+                .matches("VALUES true");
+    }
+
+    @Test
     public void testMatchInExtendedCaseWhen()
     {
         // SQL:2023 F262 extended CASE WHEN with a MATCH predicate fragment. The case operand

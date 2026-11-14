@@ -20,6 +20,7 @@ import com.google.common.graph.Traverser;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -536,36 +537,24 @@ class SubqueryPlanner
                 valueFields.size(),
                 subqueryFields.size());
 
-        // If value-field types differ from subquery-field types, cast the value side to match.
-        boolean needsCoercion = false;
-        for (int i = 0; i < valueFields.size(); i++) {
-            if (!valueFields.get(i).type().equals(subqueryFields.get(i).type())) {
-                needsCoercion = true;
-                break;
-            }
-        }
-        if (needsCoercion) {
-            Assignments.Builder assignments = Assignments.builder()
-                    .putIdentities(subPlan.getRoot().getOutputSymbols());
-            ImmutableList.Builder<Symbol> coerced = ImmutableList.builderWithExpectedSize(valueFields.size());
-            for (int i = 0; i < valueFields.size(); i++) {
-                Symbol original = valueFields.get(i);
-                Type targetType = subqueryFields.get(i).type();
-                if (original.type().equals(targetType)) {
-                    coerced.add(original);
-                }
-                else {
-                    Symbol castSymbol = symbolAllocator.newSymbol("cast", targetType);
-                    assignments.put(castSymbol, cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), original.toSymbolReference(), targetType));
-                    coerced.add(castSymbol);
-                }
-            }
-            subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build()));
-            valueFields = coerced.build();
-        }
+        // Compare both sides as the analyzed comparison type. Casting one side to the other's type
+        // could narrow a value, as a bigint value compared with an integer subquery field.
+        Analysis.PredicateCoercions predicateCoercions = analysis.getPredicateCoercions(predicate);
+        Type comparisonType = predicateCoercions.getValueCoercion().orElse(predicateCoercions.getValueType());
+        List<Type> comparisonFieldTypes = comparisonType instanceof RowType rowType
+                ? rowType.getFieldTypes()
+                : ImmutableList.of(comparisonType);
+        checkState(comparisonFieldTypes.size() == valueFields.size(), "MATCH comparison type %s does not have %s fields", comparisonType, valueFields.size());
+
+        CoercedFields coercedValue = coerceFields(subPlan.getRoot(), valueFields, comparisonFieldTypes);
+        subPlan = subPlan.withNewRoot(coercedValue.root());
+        valueFields = coercedValue.fields();
+        CoercedFields coercedSubquery = coerceFields(relationPlan.getRoot(), subqueryFields, comparisonFieldTypes);
+        PlanNode subqueryRoot = coercedSubquery.root();
+        subqueryFields = coercedSubquery.fields();
 
         Expression innerFilter = buildRowMatchFilter(plannerContext.getMetadata(), session, predicate.getType(), valueFields, subqueryFields);
-        PlanNode filteredSubquery = new FilterNode(idAllocator.getNextId(), relationPlan.getRoot(), innerFilter);
+        PlanNode filteredSubquery = new FilterNode(idAllocator.getNextId(), subqueryRoot, innerFilter);
 
         Symbol indicatorSymbol;
         PlanNode withIndicator;
@@ -646,6 +635,31 @@ class SubqueryPlanner
             }
         }
         return fields.build();
+    }
+
+    private record CoercedFields(PlanNode root, List<Symbol> fields) {}
+
+    // casts the fields to the given types, projecting the casts over the node when any is needed
+    private CoercedFields coerceFields(PlanNode node, List<Symbol> fields, List<Type> types)
+    {
+        Assignments.Builder assignments = Assignments.builder().putIdentities(node.getOutputSymbols());
+        ImmutableList.Builder<Symbol> coerced = ImmutableList.builderWithExpectedSize(fields.size());
+        boolean changed = false;
+        for (int i = 0; i < fields.size(); i++) {
+            Symbol field = fields.get(i);
+            if (field.type().equals(types.get(i))) {
+                coerced.add(field);
+                continue;
+            }
+            Symbol castSymbol = symbolAllocator.newSymbol("cast", types.get(i));
+            assignments.put(castSymbol, cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), field.toSymbolReference(), types.get(i)));
+            coerced.add(castSymbol);
+            changed = true;
+        }
+        if (!changed) {
+            return new CoercedFields(node, fields);
+        }
+        return new CoercedFields(new ProjectNode(idAllocator.getNextId(), node, assignments.build()), coerced.build());
     }
 
     private static Expression buildRowMatchFilter(Metadata metadata, Session session, MatchPredicate.Type type, List<Symbol> valueFields, List<Symbol> subqueryFields)
