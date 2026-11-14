@@ -72,6 +72,33 @@ segments.
 Activate support for using JSON encoding with LZ4 compression for spooled
 segments.
 
+### `protocol.spooling.encoding.arrow.enabled`
+
+- **Type:** [](prop-type-boolean)
+- **Default value:** `false`
+
+Activate support for using uncompressed [Apache Arrow](https://arrow.apache.org/)
+IPC stream encoding for spooled segments. Each segment is a single Arrow IPC
+stream. Queries that return types without an equivalent Arrow type, such as
+`TIME WITH TIME ZONE`, `IPADDRESS`, or timestamps with precision greater than 9,
+fail with this encoding.
+
+### `protocol.spooling.encoding.arrow+zstd.enabled`
+
+- **Type:** [](prop-type-boolean)
+- **Default value:** `false`
+
+Activate support for using Arrow encoding with Zstandard compression for
+spooled segments.
+
+### `protocol.spooling.encoding.arrow+lz4.enabled`
+
+- **Type:** [](prop-type-boolean)
+- **Default value:** `false`
+
+Activate support for using Arrow encoding with LZ4 compression for spooled
+segments.
+
 ### `protocol.spooling.encoding.compression.threshold`
 
 - **Type:** [](prop-type-data-size)
