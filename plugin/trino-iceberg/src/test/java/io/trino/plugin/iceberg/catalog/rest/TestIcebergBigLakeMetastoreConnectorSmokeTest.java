@@ -300,25 +300,4 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
 
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
-
-    @Test
-    @Override // TODO https://github.com/trinodb/trino/issues/30261
-    public void testCreateOrReplaceTable()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override // TODO https://github.com/trinodb/trino/issues/30261
-    public void testCreateOrReplaceWithTableChangesFunction()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override // TODO https://github.com/trinodb/trino/issues/30261
-    public void testCreateOrReplaceTableChangeColumnNamesAndTypes()
-    {
-        abort("skipped");
-    }
 }
