@@ -15,6 +15,7 @@ package io.trino.spi.connector;
 
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -33,6 +34,15 @@ public interface SystemTable
     Distribution getDistribution();
 
     ConnectorTableMetadata getTableMetadata();
+
+    /**
+     * Returns the underlying table reads of this system table, if any.
+     * The handles must belong to the same connector and cover all reads performed by this table.
+     */
+    default List<ConnectorTableHandle> getSourceTableHandles()
+    {
+        return List.of();
+    }
 
     /**
      * Create a cursor for the data in this table.
