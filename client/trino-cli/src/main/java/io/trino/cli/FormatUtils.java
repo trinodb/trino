@@ -185,7 +185,7 @@ public final class FormatUtils
         int minutes = totalSeconds / 60;
         int seconds = totalSeconds % 60;
 
-        return format("%s:%02d", minutes, seconds);
+        return format(ENGLISH, "%s:%02d", minutes, seconds);
     }
 
     public static String formatFinalTime(Duration duration)
