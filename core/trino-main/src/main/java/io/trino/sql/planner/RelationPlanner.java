@@ -166,6 +166,7 @@ import jakarta.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -173,6 +174,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -227,7 +229,9 @@ import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.PatternSearchMode.Mode.INITIAL;
 import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
 import static io.trino.type.JsonType.JSON;
+import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 
 class RelationPlanner
 {
@@ -1083,7 +1087,9 @@ class RelationPlanner
                 //  t JOIN u ON t.x = (...) get's planned on the t side
                 //  t JOIN u ON t.x = (...) get's planned on the u side
                 //  t JOIN u ON t.x + u.x = (...) get's planned on an arbitrary side
-                if (dependencies.stream().allMatch(left::canResolve)) {
+                RelationType side = dependencies.stream().allMatch(left::canResolve) ? left : right;
+                verifySubqueryPredicateOperandsResolvable(type, complexExpression, side, subqueries);
+                if (side == left) {
                     leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, complexExpression, subqueries);
                 }
                 else {
@@ -1134,6 +1140,19 @@ class RelationPlanner
         }
 
         return new RelationPlan(root, scope, outputSymbols, outerContext);
+    }
+
+    private void verifySubqueryPredicateOperandsResolvable(Join.Type type, io.trino.sql.tree.Expression expression, RelationType side, Analysis.SubqueryAnalysis subqueries)
+    {
+        Set<Node> nodes = AstUtils.preOrder(expression).collect(toCollection(() -> newSetFromMap(new IdentityHashMap<>())));
+        Stream.of(subqueries.getInPredicates(), subqueries.getQuantifiedComparisons(), subqueries.getMatchPredicates())
+                .flatMap(List::stream)
+                .filter(predicate -> nodes.contains(predicate.predicate()))
+                .filter(predicate -> !NamesExtractor.extractNamesNoSubqueries(predicate.operand(), analysis.getColumnReferences()).stream().allMatch(side::canResolve))
+                .findFirst()
+                .ifPresent(predicate -> {
+                    throw semanticException(NOT_SUPPORTED, predicate.operand(), "Subquery predicate in %s JOIN criteria involving both sides of the join is not supported", type.name());
+                });
     }
 
     private Expression translateComparison(ComparisonPredicate.Operator operator, Symbol left, Symbol right)
