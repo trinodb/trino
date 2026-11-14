@@ -160,6 +160,43 @@ public class TestJdbcStatement
         }
     }
 
+    @Test
+    public void testExplainAnalyzeOfUpdate()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                TrinoStatement trinoStatement = statement.unwrap(TrinoStatement.class);
+                statement.execute("CREATE TABLE blackhole.default.explain_analyze_update (x bigint)");
+
+                // the update count is followed by the query plan
+                assertThat(statement.execute("EXPLAIN ANALYZE INSERT INTO blackhole.default.explain_analyze_update VALUES 1")).isFalse();
+                assertThat(trinoStatement.getUpdateType()).isEqualTo("INSERT");
+                assertThat(statement.getUpdateCount()).isEqualTo(0);
+                assertThat(statement.getMoreResults()).isTrue();
+                try (ResultSet resultSet = statement.getResultSet()) {
+                    assertThat(resultSet.getStatement()).isSameAs(statement);
+                    assertThat(resultSet.getMetaData().getColumnName(1)).isEqualTo("Query Plan");
+                    assertThat(resultSet.next()).isTrue();
+                    assertThat(resultSet.getString(1)).contains("Fragment");
+                    assertThat(resultSet.next()).isFalse();
+                }
+                assertThat(statement.getMoreResults()).isFalse();
+                assertThat(statement.getUpdateCount()).isEqualTo(-1);
+
+                assertThat(statement.execute("INSERT INTO blackhole.default.explain_analyze_update VALUES 1, 2")).isFalse();
+                assertThat(trinoStatement.getUpdateType()).isEqualTo("INSERT");
+                assertThat(statement.getUpdateCount()).isEqualTo(2);
+                assertThat(statement.getMoreResults()).isFalse();
+            }
+            finally {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE IF EXISTS blackhole.default.explain_analyze_update");
+                }
+            }
+        }
+    }
+
     private Connection createConnection()
             throws SQLException
     {

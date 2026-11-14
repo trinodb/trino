@@ -21,8 +21,10 @@ import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
 
 import java.sql.SQLException;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
@@ -53,6 +55,10 @@ public class AsyncResultIterator
     // Each permit represents a row of data (or that the underlying iterator is exhausted).
     private final Semaphore semaphore = new Semaphore(0);
     private final Future<?> future;
+    // Rows taken from the queue in one batch, to avoid synchronizing with the background thread for every row
+    private final Queue<List<Object>> batch = new ArrayDeque<>(BATCH_SIZE);
+    // set after taking the permit released when the background thread stopped producing rows
+    private boolean rowsExhausted;
 
     private volatile boolean cancelled;
     private volatile boolean finished;
@@ -146,28 +152,47 @@ public class AsyncResultIterator
     @Override
     protected List<Object> computeNext()
     {
+        if (batch.isEmpty() && !rowsExhausted) {
+            takeBatch();
+        }
+        List<Object> row = batch.poll();
+        if (row != null) {
+            return row;
+        }
+        // If we got here and the batch is empty the background thread is done.
+        // Wait for the Future to be marked done and check its status.
+        try {
+            future.get();
+        }
+        catch (InterruptedException e) {
+            handleInterrupt(e);
+        }
+        catch (ExecutionException e) {
+            throwIfUnchecked(e.getCause());
+            throw new RuntimeException(e.getCause());
+        }
+        return endOfData();
+    }
+
+    private void takeBatch()
+    {
+        int permits = 1;
         try {
             semaphore.acquire();
         }
         catch (InterruptedException e) {
             handleInterrupt(e);
         }
-        if (rowQueue.isEmpty()) {
-            // If we got here and the queue is empty the thread fetching from the underlying iterator is done.
-            // Wait for Future to marked done and check status.
-            try {
-                future.get();
-            }
-            catch (InterruptedException e) {
-                handleInterrupt(e);
-            }
-            catch (ExecutionException e) {
-                throwIfUnchecked(e.getCause());
-                throw new RuntimeException(e.getCause());
-            }
-            return endOfData();
+        // only this thread acquires permits, so the available ones cannot disappear
+        int available = Math.min(semaphore.availablePermits(), BATCH_SIZE - 1);
+        if (available > 0 && semaphore.tryAcquire(available)) {
+            permits += available;
         }
-        return rowQueue.poll();
+        int rows = rowQueue.drainTo(batch, permits);
+        // every permit is a row, except the one released when the background thread stopped producing rows
+        if (rows < permits) {
+            rowsExhausted = true;
+        }
     }
 
     private void handleInterrupt(InterruptedException e)

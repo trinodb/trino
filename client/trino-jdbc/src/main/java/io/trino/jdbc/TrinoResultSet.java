@@ -37,8 +37,8 @@ public class TrinoResultSet
     private final StatementClient client;
     private final String queryId;
 
-    @GuardedBy("this")
-    private boolean closed;
+    // written while holding the lock, but read without it, because every column access checks it
+    private volatile boolean closed;
     @GuardedBy("this")
     private boolean closeStatementOnClose;
 
@@ -46,7 +46,7 @@ public class TrinoResultSet
             throws SQLException
     {
         requireNonNull(client, "client is null");
-        List<Column> columns = getColumns(client, progressCallback);
+        List<Column> columns = getColumns(client, progressCallback, warningsManager);
         return new TrinoResultSet(statement, client, columns, maxRows, progressCallback, warningsManager);
     }
 
@@ -110,7 +110,7 @@ public class TrinoResultSet
     }
 
     @Override
-    public synchronized boolean isClosed()
+    public boolean isClosed()
             throws SQLException
     {
         return closed;
@@ -121,12 +121,13 @@ public class TrinoResultSet
         client.cancelLeafStage();
     }
 
-    private static List<Column> getColumns(StatementClient client, Consumer<QueryStats> progressCallback)
+    private static List<Column> getColumns(StatementClient client, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         while (client.isRunning()) {
             QueryStatusInfo results = client.currentStatusInfo();
             progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
+            warningsManager.addWarnings(results.getWarnings());
             List<Column> columns = results.getColumns();
             if (columns != null) {
                 return columns;
