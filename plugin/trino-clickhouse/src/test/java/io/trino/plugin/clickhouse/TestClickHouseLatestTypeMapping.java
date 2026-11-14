@@ -14,8 +14,12 @@
 package io.trino.plugin.clickhouse;
 
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
+
+import java.time.ZoneId;
 
 import static io.trino.plugin.clickhouse.TestingClickHouseServer.CLICKHOUSE_LATEST_IMAGE;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestClickHouseLatestTypeMapping
         extends BaseClickHouseTypeMapping
@@ -26,5 +30,19 @@ public class TestClickHouseLatestTypeMapping
     {
         clickhouseServer = closeAfterClass(new TestingClickHouseServer(CLICKHOUSE_LATEST_IMAGE));
         return ClickHouseQueryRunner.builder(clickhouseServer).build();
+    }
+
+    @Test
+    public void testClickHouseDateTime64WithServerTimeZone()
+            throws Exception
+    {
+        try (TestingClickHouseServer server = new TestingClickHouseServer(CLICKHOUSE_LATEST_IMAGE, ZoneId.of("Asia/Kathmandu"));
+                QueryRunner queryRunner = ClickHouseQueryRunner.builder(server)
+                        .addConnectorProperty("clickhouse.map-string-as-varchar", "true")
+                        .build()) {
+            assertThat(queryRunner.execute("SELECT * FROM TABLE(system.query(query => 'SELECT timezone()'))").getOnlyValue())
+                    .isEqualTo("Asia/Kathmandu");
+            testClickHouseDateTime64(queryRunner, server::execute, ZoneId.of("Asia/Kathmandu"));
+        }
     }
 }
