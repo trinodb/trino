@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.Immutable;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -29,6 +30,9 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.trino.operator.OperatorContext.CPU_TIME_DISTRIBUTION;
+import static io.trino.operator.OperatorContext.INPUT_ROWS_DISTRIBUTION;
+import static io.trino.operator.OperatorContext.SCHEDULED_TIME_DISTRIBUTION;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -625,10 +629,10 @@ public class OperatorStats
 
     public OperatorStats summarize()
     {
-        if (info == null || info.isFinal()) {
-            return this;
+        OperatorInfo summarizedInfo = null;
+        if (info != null && info.isFinal()) {
+            summarizedInfo = info;
         }
-        OperatorInfo info = null;
         return new OperatorStats(
                 stageId,
                 pipelineId,
@@ -654,7 +658,7 @@ public class OperatorStats
                 outputDataSize,
                 outputPositions,
                 dynamicFilterSplitsProcessed,
-                metrics,
+                summarizeMetrics(),
                 connectorMetrics,
                 pipelineMetrics,
                 physicalWrittenDataSize,
@@ -668,7 +672,25 @@ public class OperatorStats
                 peakRevocableMemoryReservation,
                 spilledDataSize,
                 blockedReason,
-                info);
+                summarizedInfo);
+    }
+
+    private Metrics summarizeMetrics()
+    {
+        return new Metrics(Maps.filterKeys(metrics.getMetrics(), this::isSummarizedMetric));
+    }
+
+    // Per-driver time distributions are omitted from summarized operator stats
+    private boolean isSummarizedMetric(String key)
+    {
+        if (key.equals(CPU_TIME_DISTRIBUTION) || key.equals(SCHEDULED_TIME_DISTRIBUTION)) {
+            return false;
+        }
+        // Input rows distribution is kept for table scans only
+        if (key.equals(INPUT_ROWS_DISTRIBUTION)) {
+            return sourceId.isPresent();
+        }
+        return true;
     }
 
     public OperatorStats withPipelineMetrics(Metrics pipelineMetrics)

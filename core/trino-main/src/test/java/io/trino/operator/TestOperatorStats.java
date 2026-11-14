@@ -25,8 +25,13 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.operator.OperatorContext.CPU_TIME_DISTRIBUTION;
+import static io.trino.operator.OperatorContext.INPUT_ROWS_DISTRIBUTION;
+import static io.trino.operator.OperatorContext.SCHEDULED_TIME_DISTRIBUTION;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -141,6 +146,40 @@ public class TestOperatorStats
         OperatorStats actual = codec.fromJson(json);
 
         assertExpectedOperatorStats(actual);
+    }
+
+    @Test
+    public void testSummarizeOmitsDriverDistributions()
+    {
+        ScheduledExecutorService scheduledExecutor = newSingleThreadScheduledExecutor();
+        try {
+            OperatorStats operatorStats = TestingOperatorContext.create(scheduledExecutor).getOperatorStats();
+            assertThat(operatorStats.getMetrics().getMetrics())
+                    .containsKeys(INPUT_ROWS_DISTRIBUTION, CPU_TIME_DISTRIBUTION, SCHEDULED_TIME_DISTRIBUTION);
+            assertThat(operatorStats.summarize().getMetrics().getMetrics())
+                    .doesNotContainKeys(INPUT_ROWS_DISTRIBUTION, CPU_TIME_DISTRIBUTION, SCHEDULED_TIME_DISTRIBUTION)
+                    .containsKeys("CPU and scheduled time usage over time");
+        }
+        finally {
+            scheduledExecutor.shutdownNow();
+        }
+    }
+
+    @Test
+    public void testSummarizeKeepsInputRowsDistributionForTableScan()
+    {
+        ScheduledExecutorService scheduledExecutor = newSingleThreadScheduledExecutor();
+        try {
+            OperatorStats operatorStats = TestingOperatorContext.createDriverContext(scheduledExecutor)
+                    .addOperatorContext(1, new PlanNodeId("test"), Optional.of(new PlanNodeId("source")), "operator type")
+                    .getOperatorStats();
+            assertThat(operatorStats.summarize().getMetrics().getMetrics())
+                    .doesNotContainKeys(CPU_TIME_DISTRIBUTION, SCHEDULED_TIME_DISTRIBUTION)
+                    .containsKeys(INPUT_ROWS_DISTRIBUTION);
+        }
+        finally {
+            scheduledExecutor.shutdownNow();
+        }
     }
 
     public static void assertExpectedOperatorStats(OperatorStats actual)
