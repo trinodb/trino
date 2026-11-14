@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
@@ -211,6 +212,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -1699,25 +1701,32 @@ public class ExpressionAnalyzer
                         case String value when value.equalsIgnoreCase("TIME") -> processTimeLiteral(node);
                         case String value when value.equalsIgnoreCase("TIMESTAMP") -> processTimestampLiteral(node);
                         default -> {
-                            Type type = uncheckedCacheGet(varcharCastableTypeCache, node.getType(), () -> {
-                                Type resolvedType;
-                                try {
-                                    resolvedType = plannerContext.getTypeManager().fromSqlType(node.getType());
-                                }
-                                catch (TypeNotFoundException e) {
-                                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", node.getType());
-                                }
-
-                                if (!JSON.equals(resolvedType)) {
+                            Type type;
+                            try {
+                                type = uncheckedCacheGet(varcharCastableTypeCache, node.getType(), () -> {
+                                    Type resolvedType;
                                     try {
-                                        plannerContext.getMetadata().getCoercion(charVarcharCoercion, VARCHAR, resolvedType);
+                                        resolvedType = plannerContext.getTypeManager().fromSqlType(node.getType());
                                     }
-                                    catch (IllegalArgumentException e) {
-                                        throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", resolvedType);
+                                    catch (TypeNotFoundException e) {
+                                        throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", node.getType());
                                     }
-                                }
-                                return resolvedType;
-                            });
+
+                                    if (!JSON.equals(resolvedType)) {
+                                        try {
+                                            plannerContext.getMetadata().getCoercion(charVarcharCoercion, VARCHAR, resolvedType);
+                                        }
+                                        catch (IllegalArgumentException e) {
+                                            throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", resolvedType);
+                                        }
+                                    }
+                                    return resolvedType;
+                                });
+                            }
+                            catch (UncheckedExecutionException e) {
+                                throwIfUnchecked(e.getCause());
+                                throw new RuntimeException(e.getCause());
+                            }
                             try {
                                 literalInterpreter.evaluate(node, type);
                             }
