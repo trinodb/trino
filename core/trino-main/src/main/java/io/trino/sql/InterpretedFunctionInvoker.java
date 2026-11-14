@@ -14,6 +14,7 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.FullConnectorSession;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ConnectorSession;
@@ -31,6 +32,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.metadata.FunctionManager.isConnectorFunction;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -77,7 +79,7 @@ public class InterpretedFunctionInvoker
 
         // add session
         if (method.type().parameterCount() > actualArguments.size() && method.type().parameterType(actualArguments.size()) == ConnectorSession.class) {
-            actualArguments.add(session);
+            actualArguments.add(isConnectorFunction(function) ? FullConnectorSession.toConnectorSession(session, function.catalogHandle()) : session);
         }
 
         int lambdaArgumentIndex = 0;

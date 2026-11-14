@@ -60,10 +60,12 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.add;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
+import static io.trino.metadata.FunctionManager.isConnectorFunction;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.sql.gen.BytecodeUtils.bindConnectorSession;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadBindingHandle;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
@@ -132,6 +134,14 @@ public class CallColumnarFilterGenerator
         return classDefinition;
     }
 
+    // The filter methods run once per page, so a connector function's session is rebound at method entry
+    private void rebindSessionToCatalog(CallSiteBinder callSiteBinder, Parameter session, BytecodeBlock body)
+    {
+        if (isConnectorFunction(function)) {
+            body.append(session.set(bindConnectorSession(callSiteBinder, function.catalogHandle(), session)));
+        }
+    }
+
     private void generateFilterRangeMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder)
     {
         Parameter session = arg("session", ConnectorSession.class);
@@ -147,6 +157,8 @@ public class CallColumnarFilterGenerator
                 ImmutableList.of(session, outputPositions, offset, size, page));
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
+
+        rebindSessionToCatalog(callSiteBinder, session, body);
 
         declareBlockVariables(arguments, layout, page, scope, body);
 
@@ -215,6 +227,8 @@ public class CallColumnarFilterGenerator
                 ImmutableList.of(session, outputPositions, activePositions, offset, size, page));
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
+
+        rebindSessionToCatalog(callSiteBinder, session, body);
 
         declareBlockVariables(arguments, layout, page, scope, body);
 

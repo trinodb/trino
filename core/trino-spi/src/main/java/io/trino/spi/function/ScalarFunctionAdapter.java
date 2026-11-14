@@ -20,6 +20,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.type.Type;
@@ -28,6 +29,7 @@ import io.trino.spi.type.TypeOperators;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.invoke.WrongMethodTypeException;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -215,6 +217,8 @@ public final class ScalarFunctionAdapter
             throw new IllegalArgumentException("Instance method cannot be adapted to no instance");
         }
 
+        methodHandle = methodHandle.asType(getCanonicalMethodType(methodHandle.type(), returnType, actualArgumentTypes, actualConvention));
+
         // adapt return first, since return-null-on-null parameter convention must know if the return type is nullable
         methodHandle = adaptReturn(methodHandle, returnType, actualConvention.getReturnConvention(), expectedConvention.getReturnConvention());
 
@@ -242,6 +246,66 @@ public final class ScalarFunctionAdapter
             parameterIndex += expectedArgumentConvention.getParameterCount();
         }
         return methodHandle;
+    }
+
+    private static MethodType getCanonicalMethodType(
+            MethodType methodType,
+            Type returnType,
+            List<Type> argumentTypes,
+            InvocationConvention convention)
+    {
+        int parameterIndex = convention.supportsInstanceFactory() ? 1 : 0;
+        if (convention.supportsSession()) {
+            methodType = methodType.changeParameterType(parameterIndex++, ConnectorSession.class);
+        }
+
+        for (int argumentIndex = 0; argumentIndex < argumentTypes.size(); argumentIndex++) {
+            InvocationArgumentConvention argumentConvention = convention.getArgumentConvention(argumentIndex);
+            Type argumentType = argumentTypes.get(argumentIndex);
+            switch (argumentConvention) {
+                case NEVER_NULL -> methodType = canonicalParameterType(methodType, parameterIndex, argumentType.getJavaType());
+                case BOXED_NULLABLE -> methodType = canonicalParameterType(methodType, parameterIndex, wrap(argumentType.getJavaType()));
+                case NULL_FLAG -> methodType = canonicalParameterType(methodType, parameterIndex, argumentType.getJavaType())
+                        .changeParameterType(parameterIndex + 1, boolean.class);
+                case VALUE_BLOCK_POSITION, VALUE_BLOCK_POSITION_NOT_NULL -> methodType = methodType.changeParameterType(parameterIndex, ValueBlock.class);
+                case BLOCK_POSITION, BLOCK_POSITION_NOT_NULL, FLAT, IN_OUT, FUNCTION -> {}
+            }
+            parameterIndex += argumentConvention.getParameterCount();
+        }
+
+        // asType would invent a null for a void return or drop a returned value, so those stay as declared
+        return switch (convention.getReturnConvention()) {
+            case FAIL_ON_NULL, DEFAULT_ON_NULL -> methodType.returnType().isPrimitive()
+                    ? methodType
+                    : canonicalReturnType(methodType, returnType.getJavaType());
+            case NULLABLE_RETURN -> methodType.returnType() == void.class
+                    ? methodType
+                    : canonicalReturnType(methodType, wrap(returnType.getJavaType()));
+            case BLOCK_BUILDER, FLAT_RETURN -> methodType;
+        };
+    }
+
+    private static MethodType canonicalParameterType(MethodType methodType, int parameterIndex, Class<?> canonicalType)
+    {
+        Class<?> declaredType = methodType.parameterType(parameterIndex);
+        // asType widens primitives and casts unrelated references, which would hide a mismatch until a row is processed
+        boolean compatible = declaredType.isPrimitive()
+                ? declaredType == canonicalType
+                : declaredType.isAssignableFrom(wrap(canonicalType));
+        if (!compatible) {
+            throw new WrongMethodTypeException("Cannot convert %s to %s".formatted(canonicalType.getSimpleName(), declaredType.getSimpleName()));
+        }
+        return methodType.changeParameterType(parameterIndex, canonicalType);
+    }
+
+    private static MethodType canonicalReturnType(MethodType methodType, Class<?> canonicalType)
+    {
+        Class<?> declaredType = methodType.returnType();
+        // the cast is only safe when one type is assignable from the other
+        if (!declaredType.isPrimitive() && !declaredType.isAssignableFrom(wrap(canonicalType)) && !wrap(canonicalType).isAssignableFrom(declaredType)) {
+            throw new WrongMethodTypeException("Cannot convert %s to %s".formatted(declaredType.getSimpleName(), canonicalType.getSimpleName()));
+        }
+        return methodType.changeReturnType(canonicalType);
     }
 
     private static MethodHandle adaptReturn(
@@ -301,11 +365,6 @@ public final class ScalarFunctionAdapter
             InvocationArgumentConvention expectedArgumentConvention,
             InvocationReturnConvention returnConvention)
     {
-        // For value block, cast specialized parameter to ValueBlock
-        if ((actualArgumentConvention == VALUE_BLOCK_POSITION || actualArgumentConvention == VALUE_BLOCK_POSITION_NOT_NULL) && methodHandle.type().parameterType(parameterIndex) != ValueBlock.class) {
-            methodHandle = methodHandle.asType(methodHandle.type().changeParameterType(parameterIndex, ValueBlock.class));
-        }
-
         if (actualArgumentConvention == expectedArgumentConvention) {
             return methodHandle;
         }
