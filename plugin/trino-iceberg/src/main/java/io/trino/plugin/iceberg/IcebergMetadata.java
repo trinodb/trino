@@ -565,6 +565,7 @@ public class IcebergMetadata
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
     private final IcebergTableCredentialsProvider tableCredentialsProvider;
     private final DeletionVectorWriter deletionVectorWriter;
+    private final Optional<TableCommitLocks> commitLocks;
     private final ConnectorExpressionEvaluator evaluator;
 
     // Staged creation of a new table. The catalog may stage it remotely, so it is kept from beginCreateTable until
@@ -584,6 +585,7 @@ public class IcebergMetadata
             TableStatisticsReader tableStatisticsReader,
             TableStatisticsWriter tableStatisticsWriter,
             DeletionVectorWriter deletionVectorWriter,
+            Optional<TableCommitLocks> commitLocks,
             Optional<HiveMetastoreFactory> metastoreFactory,
             boolean addFilesProcedureEnabled,
             OrcReaderOptions orcReaderOptions,
@@ -614,6 +616,7 @@ public class IcebergMetadata
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
         this.icebergFileDeleteExecutor = requireNonNull(icebergFileDeleteExecutor, "icebergFileDeleteExecutor is null");
         this.deletionVectorWriter = requireNonNull(deletionVectorWriter, "deletionVectorWriter is null");
+        this.commitLocks = requireNonNull(commitLocks, "commitLocks is null");
         this.materializedViewRefreshMaxSnapshotsToExpire = materializedViewRefreshMaxSnapshotsToExpire;
         this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
         this.tableCredentialsProvider = new IcebergTableCredentialsProvider(catalog);
@@ -2420,10 +2423,10 @@ public class IcebergMetadata
         }
     }
 
-    private static void commitTransaction(Transaction transaction, String operation)
+    private void commitTransaction(Transaction transaction, String operation)
     {
         try {
-            transaction.commitTransaction();
+            runCommit(transaction.table(), transaction::commitTransaction);
         }
         catch (CommitFailedException e) {
             throw new TrinoException(TRANSACTION_CONFLICT, format("Failed to commit the transaction during %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
@@ -2431,6 +2434,11 @@ public class IcebergMetadata
         catch (UncheckedIOException | ValidationException | CommitStateUnknownException | RESTException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit the transaction during %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
         }
+    }
+
+    private void runCommit(Table table, Runnable commit)
+    {
+        commitLocks.ifPresentOrElse(locks -> locks.runWithLock(table, commit), commit);
     }
 
     @Override
@@ -3842,7 +3850,7 @@ public class IcebergMetadata
         DeleteFiles deleteFiles = icebergTable.newDelete()
                 .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
                 .scanManifestsWith(icebergScanExecutor);
-        commitUpdate(deleteFiles, session, "delete");
+        runCommit(icebergTable, () -> commitUpdate(deleteFiles, session, "delete"));
 
         Map<String, String> summary = icebergTable.currentSnapshot().summary();
         String deletedRowsStr = summary.get(DELETED_RECORDS_PROP);
@@ -3864,7 +3872,7 @@ public class IcebergMetadata
         DeleteFiles deleteFiles = icebergTable.newDelete()
                 .deleteFromRowFilter(alwaysTrue())
                 .scanManifestsWith(icebergScanExecutor);
-        commitUpdate(deleteFiles, session, "truncate");
+        runCommit(icebergTable, () -> commitUpdate(deleteFiles, session, "truncate"));
     }
 
     public void rollback()
