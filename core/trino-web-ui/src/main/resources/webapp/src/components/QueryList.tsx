@@ -11,10 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
     Alert,
     Box,
+    Button,
+    ButtonBase,
     Checkbox,
     CircularProgress,
     Divider,
@@ -25,14 +28,34 @@ import {
     MenuItem,
     Select,
     Stack,
+    Switch,
     Typography,
+    useMediaQuery,
 } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { DebouncedTextField } from './DebouncedTextField.tsx'
 import { QueryListItem } from './QueryListItem.tsx'
+import { useAuth } from './AuthContext'
+import { KillQueryDialog } from './KillQueryDialog.tsx'
+import { useSnackbar } from './SnackbarContext.ts'
 import { ApiResponse } from '../api/base.ts'
-import { Texts } from '../constant.ts'
+import { APP_BAR_HEIGHT, Texts } from '../constant.ts'
 import { QueryInfo, queryApi } from '../api/webapp/api.ts'
-import { getHumanReadableState, parseDataSize, parseDuration } from '../utils/utils.ts'
+import { useClusterStatsStore } from '../store'
+import { updateQueryCpuShares } from '../utils/queryCpuShare.ts'
+import { pollCoordinator } from '../utils/poll.ts'
+import {
+    getCompactStatusRank,
+    getHumanReadableState,
+    isKillable,
+    parseDataSize,
+    parseDuration,
+} from '../utils/utils.ts'
+import { COMPACT_QUERY_GRID_SX, COMPACT_TABLE_CONTENT_SX, COMPACT_TABLE_SCROLLER_SX } from './compactQueryGrid.ts'
+
+// Query list: one request at a time, at most this often (the response lists every query the coordinator remembers)
+const QUERY_LIST_INTERVAL_MS = 1_500
 
 const STATE_TYPE = {
     RUNNING: (queryInfo: QueryInfo) =>
@@ -75,9 +98,96 @@ const SORT_TYPE = {
     ELAPSED: (queryInfo: QueryInfo) => parseDuration(queryInfo.queryStats.elapsedTime),
     EXECUTION: (queryInfo: QueryInfo) => parseDuration(queryInfo.queryStats.executionTime),
     CPU: (queryInfo: QueryInfo) => parseDuration(queryInfo.queryStats.totalCpuTime),
+    // Queries without a current rate (done, or just appeared) sort as 0
+    CPU_CURRENT: (queryInfo: QueryInfo) => queryInfo.cpuShare ?? 0,
     CUMULATIVE_MEMORY: (queryInfo: QueryInfo) => queryInfo.queryStats.cumulativeUserMemory,
     CURRENT_MEMORY: (queryInfo: QueryInfo) => parseDataSize(queryInfo.queryStats.userMemoryReservation),
+    TOTAL_MEMORY: (queryInfo: QueryInfo) => parseDataSize(queryInfo.queryStats.totalMemoryReservation),
+    PEAK_MEMORY: (queryInfo: QueryInfo) => parseDataSize(queryInfo.queryStats.peakTotalMemoryReservation),
+    USER: (queryInfo: QueryInfo) => queryInfo.sessionUser,
+    STATUS: (queryInfo: QueryInfo) => getCompactStatusRank(queryInfo),
+    FINISHED_SPLITS: (queryInfo: QueryInfo) => queryInfo.queryStats.completedDrivers,
+    RUNNING_SPLITS: (queryInfo: QueryInfo) => queryInfo.queryStats.runningDrivers,
+    QUEUED_SPLITS: (queryInfo: QueryInfo) => queryInfo.queryStats.queuedDrivers,
 } as const
+
+// Header cells of the compact list, in column order; null is a separator column, a string is a group label whose
+// column stays empty in the rows
+const COMPACT_HEADER_COLUMNS: ({ sortType: keyof typeof SORT_TYPE; label: string; title?: string } | string | null)[] =
+    [
+        { sortType: 'CREATED', label: 'Created' },
+        { sortType: 'ELAPSED', label: 'Wall', title: 'Total wall time, including queued time' },
+        { sortType: 'STATUS', label: 'Status' },
+        { sortType: 'USER', label: 'User' },
+        null,
+        { sortType: 'TOTAL_MEMORY', label: 'Mem', title: 'Current total reserved memory' },
+        { sortType: 'PEAK_MEMORY', label: 'Peak Mem', title: 'Peak total memory' },
+        { sortType: 'CPU', label: 'CPU', title: 'CPU time' },
+        {
+            sortType: 'CPU_CURRENT',
+            label: 'CPU Current',
+            title: 'Share of all cluster cores this query is using now (last 10 s)',
+        },
+        'Splits',
+        { sortType: 'FINISHED_SPLITS', label: 'Finished', title: 'Finished splits' },
+        { sortType: 'RUNNING_SPLITS', label: 'Running', title: 'Running splits' },
+        { sortType: 'QUEUED_SPLITS', label: 'Queued', title: 'Queued splits' },
+    ]
+
+// Header columns reachable with ←/→ when the header has keyboard focus, in display order
+const SORTABLE_COLUMNS = COMPACT_HEADER_COLUMNS.flatMap((column) =>
+    column && typeof column === 'object' ? [column.sortType] : []
+)
+
+// Column headers of the compact rows: same grid, click a column to sort by it
+const CompactQueryHeader = (props: {
+    sortType: keyof typeof SORT_TYPE
+    sortOrder: keyof typeof SORT_ORDER
+    onSort: (sortType: keyof typeof SORT_TYPE) => void
+    // Column reached with the keyboard (↑ from the first query), outlined until the user moves back down
+    keyboardColumn: keyof typeof SORT_TYPE | null
+}) => (
+    <Box sx={{ ...COMPACT_QUERY_GRID_SX, py: 0.5, color: 'text.secondary', fontWeight: 500 }}>
+        {COMPACT_HEADER_COLUMNS.map((column, index) =>
+            column && typeof column === 'object' ? (
+                <ButtonBase
+                    key={column.sortType}
+                    id={`compact-header-${column.sortType}`}
+                    disableRipple
+                    title={column.title}
+                    onClick={() => props.onSort(column.sortType)}
+                    aria-sort={
+                        props.sortType === column.sortType
+                            ? props.sortOrder === 'ASCENDING'
+                                ? 'ascending'
+                                : 'descending'
+                            : undefined
+                    }
+                    sx={{
+                        justifyContent: 'flex-start',
+                        font: 'inherit',
+                        color: props.sortType === column.sortType ? 'text.primary' : 'inherit',
+                        borderRadius: 0.5,
+                        outline: props.keyboardColumn === column.sortType ? 2 : 0,
+                        outlineColor: 'primary.main',
+                        outlineOffset: 1,
+                        '&:hover': { color: 'text.primary' },
+                    }}
+                >
+                    {column.label}
+                    {/* ↕ marks every sortable column; the active one shows its direction */}
+                    <Box component="span" sx={{ ml: 0.5, opacity: props.sortType === column.sortType ? 1 : 0.5 }}>
+                        {props.sortType === column.sortType ? (props.sortOrder === 'ASCENDING' ? '▲' : '▼') : '↕'}
+                    </Box>
+                </ButtonBase>
+            ) : (
+                <Box key={index} component="span">
+                    {column}
+                </Box>
+            )
+        )}
+    </Box>
+)
 
 const SORT_ORDER = {
     ASCENDING: (value: string | number) => value,
@@ -105,6 +215,9 @@ function useLocalStorageState<
 }
 
 export const QueryList = () => {
+    // Below lg the filters wrap under the search bar, so they hide behind a "Search filters" toggle
+    const filtersFitOnSearchLine = useMediaQuery(useTheme().breakpoints.up('lg'))
+    const [filtersOpen, setFiltersOpen] = useState(false)
     const [allQueries, setAllQueries] = useState<QueryInfo[]>([])
     const [displayedQueries, setDisplayedQueries] = useState<QueryInfo[]>([])
     const [searchString, setSearchString] = useLocalStorageState('searchString', '' as string)
@@ -117,25 +230,45 @@ export const QueryList = () => {
         'INSUFFICIENT_RESOURCES',
         'EXTERNAL',
     ] as (keyof typeof ERROR_TYPE)[])
-    const [sortType, setSortType] = useLocalStorageState('sortType', 'PROGRESS' as keyof typeof SORT_TYPE)
-    const [sortOrder, setSortOrder] = useLocalStorageState('sortOrder', 'DESCENDING' as keyof typeof SORT_ORDER)
+    // Default: oldest submitted first. The keys carry a suffix so browsers that stored the previous default
+    // (progress, descending) pick up the new one once; later choices persist as before.
+    const [sortType, setSortType] = useLocalStorageState('sortTypeV2', 'CREATED' as keyof typeof SORT_TYPE)
+    const [sortOrder, setSortOrder] = useLocalStorageState('sortOrderV2', 'ASCENDING' as keyof typeof SORT_ORDER)
     const [reorderInterval, setReorderInterval] = useLocalStorageState('reorderInterval', 5000 as number)
     const [maxQueries, setMaxQueries] = useLocalStorageState('maxQueries', 100 as number)
     const [lastReorder, setLastReorder] = useState<number>(Date.now())
     const [loading, setLoading] = useState<boolean>(true)
     const [error, setError] = useState<string | null>(null)
+    // Deliberately not persisted: every page load starts with all queries
+    const [onlyMyQueries, setOnlyMyQueries] = useState(false)
+    const username = useAuth().authInfo?.username
+    const headerScrollRef = useRef<HTMLDivElement>(null)
+    const rowsScrollRef = useRef<HTMLDivElement>(null)
+    const navigate = useNavigate()
+    const { showSnackbar } = useSnackbar()
+    // Query highlighted by keyboard navigation, and the query the kill dialog asks about. Returning from a query page
+    // with Esc passes that query's id, so it starts selected (it shows only if the query is still listed).
+    const location = useLocation()
+    const [selectedQueryId, setSelectedQueryId] = useState<string | null>(
+        (location.state as { selectedQueryId?: string } | null)?.selectedQueryId ?? null
+    )
+    // Scroll the returned-to query into view once it first appears in the list
+    const scrollToSelectedRef = useRef(selectedQueryId !== null)
+    const [killTarget, setKillTarget] = useState<QueryInfo | null>(null)
+    // Index into SORTABLE_COLUMNS while the column header has keyboard focus (↑ from the first query), else null
+    const [headerColumn, setHeaderColumn] = useState<number | null>(null)
 
     useEffect(() => {
-        let timeoutId: number
-        const runLoop = () => {
-            getQueryListStatus()
-            timeoutId = setTimeout(runLoop, 1000)
+        // Each filter change restarts the loop; a request still in flight from the previous loop is ignored.
+        // One request at a time, at most every QUERY_LIST_INTERVAL_MS, none while the tab is hidden.
+        let active = true
+        const stop = pollCoordinator(() => getQueryListStatus(() => active), QUERY_LIST_INTERVAL_MS)
+        return () => {
+            active = false
+            stop()
         }
-        runLoop()
-
-        return () => clearTimeout(timeoutId)
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchString, stateFilters, errorTypeFilters, sortType, sortOrder, reorderInterval, maxQueries])
+    }, [searchString, stateFilters, errorTypeFilters, sortType, sortOrder, reorderInterval, maxQueries, onlyMyQueries])
 
     const sortQueries = (
         incomingQueries: QueryInfo[],
@@ -149,6 +282,10 @@ export const QueryList = () => {
             if (typeof valueA === 'number' && typeof valueB === 'number') {
                 // @ts-expect-error TODO fix it without using any
                 return SORT_ORDER[incomingSortOrder](valueA) - SORT_ORDER[incomingSortOrder](valueB)
+            }
+            if (typeof valueA === 'string' && typeof valueB === 'string') {
+                const comparison = valueA.localeCompare(valueB)
+                return incomingSortOrder === 'ASCENDING' ? comparison : -comparison
             }
 
             return 0
@@ -171,12 +308,14 @@ export const QueryList = () => {
         incomingQueries: QueryInfo[],
         incomingStateFilters: (keyof typeof STATE_TYPE)[],
         incomingErrorTypeFilters: (keyof typeof ERROR_TYPE)[],
-        incomingSearchString: string
+        incomingSearchString: string,
+        incomingOnlyMyQueries: boolean = onlyMyQueries
     ) => {
         const stateFilteredQueries = incomingQueries.filter(
             (query) =>
-                incomingStateFilters.some((filter) => STATE_TYPE[filter](query)) ||
-                incomingErrorTypeFilters.some((filter) => ERROR_TYPE[filter](query))
+                (!incomingOnlyMyQueries || query.sessionUser === username) &&
+                (incomingStateFilters.some((filter) => STATE_TYPE[filter](query)) ||
+                    incomingErrorTypeFilters.some((filter) => ERROR_TYPE[filter](query)))
         )
 
         return incomingSearchString === ''
@@ -197,12 +336,19 @@ export const QueryList = () => {
               })
     }
 
-    const getQueryListStatus = () => {
+    // isCurrent: false once the filters that started this request have changed; its response is then stale
+    // (filtered with the old settings) and must not overwrite the list the new settings already produced
+    const getQueryListStatus = (isCurrent: () => boolean) => {
         setError(null)
-        queryApi().then((apiResponse: ApiResponse<QueryInfo[]>) => {
+        return queryApi().then((apiResponse: ApiResponse<QueryInfo[]>) => {
+            if (!isCurrent()) {
+                return
+            }
             setLoading(false)
             if (apiResponse.status === 200 && apiResponse.data) {
                 const queriesList = apiResponse.data
+                // Derived from this same response and the app bar's stats poll: no extra requests
+                updateQueryCpuShares(queriesList, useClusterStatsStore.getState().history.lastAvailableProcessors)
 
                 const queryMap = queriesList.reduce((map: Record<string, QueryInfo>, queryInfo: QueryInfo) => {
                     map[queryInfo.queryId] = queryInfo
@@ -262,6 +408,20 @@ export const QueryList = () => {
                 },
             },
         },
+    }
+
+    const toggleOnlyMyQueries = () => {
+        const nextOnlyMyQueries = !onlyMyQueries
+        const newDisplayedQueries = filterQueries(
+            allQueries,
+            stateFilters,
+            errorTypeFilters,
+            searchString,
+            nextOnlyMyQueries
+        )
+        sortAndLimitQueries(newDisplayedQueries, sortType, sortOrder, maxQueries)
+        setOnlyMyQueries(nextOnlyMyQueries)
+        setDisplayedQueries(newDisplayedQueries)
     }
 
     const renderSearchStringTextField = () => {
@@ -344,40 +504,21 @@ export const QueryList = () => {
         )
     }
 
-    const renderSortTypeSelectItem = (newSortType: keyof typeof SORT_TYPE, text: string) => {
-        const handleClick = () => {
-            setTimeout(() => {
-                const newDisplayedQueries = filterQueries(allQueries, stateFilters, errorTypeFilters, searchString)
-                sortAndLimitQueries(newDisplayedQueries, newSortType, sortOrder, maxQueries)
-
-                setSortType(newSortType)
-                setDisplayedQueries(newDisplayedQueries)
-            })
-        }
-
-        return (
-            <MenuItem value={newSortType} onClick={handleClick}>
-                {text}
-            </MenuItem>
-        )
-    }
-
-    const renderSortOrderSelectItem = (newSortOrder: keyof typeof SORT_ORDER, text: string) => {
-        const handleClick = () => {
-            setTimeout(() => {
-                const newDisplayedQueries = filterQueries(allQueries, stateFilters, errorTypeFilters, searchString)
-                sortAndLimitQueries(newDisplayedQueries, sortType, newSortOrder, maxQueries)
-
-                setSortOrder(newSortOrder)
-                setDisplayedQueries(newDisplayedQueries)
-            })
-        }
-
-        return (
-            <MenuItem value={newSortOrder} onClick={handleClick}>
-                {text}
-            </MenuItem>
-        )
+    // Header click: same column flips the order; a new column starts descending (A→Z for the user column)
+    const sortByColumn = (newSortType: keyof typeof SORT_TYPE) => {
+        const newSortOrder: keyof typeof SORT_ORDER =
+            newSortType === sortType
+                ? sortOrder === 'ASCENDING'
+                    ? 'DESCENDING'
+                    : 'ASCENDING'
+                : newSortType === 'USER'
+                  ? 'ASCENDING'
+                  : 'DESCENDING'
+        const newDisplayedQueries = filterQueries(allQueries, stateFilters, errorTypeFilters, searchString)
+        sortAndLimitQueries(newDisplayedQueries, newSortType, newSortOrder, maxQueries)
+        setSortType(newSortType)
+        setSortOrder(newSortOrder)
+        setDisplayedQueries(newDisplayedQueries)
     }
 
     const renderReorderIntervalSelectItem = (newReorderInterval: number, text: string) => {
@@ -410,6 +551,114 @@ export const QueryList = () => {
         )
     }
 
+    // Keyboard: ↑/↓ select a query, Enter opens it, Backspace asks to kill it (Enter confirms, Esc cancels in the
+    // dialog). ↑ from the first query moves into the column header: ←/→ pick a column, Enter or Space sorts by it,
+    // ↓ goes back to the queries. Ignored while typing in a field or while the kill dialog is open.
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement
+            // The dialog's own Enter/Escape reach window after it already handled them (and may have closed)
+            if (
+                killTarget !== null ||
+                event.defaultPrevented ||
+                target.closest('[role="dialog"]') ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.altKey ||
+                target.isContentEditable ||
+                ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+            ) {
+                return
+            }
+            if (headerColumn !== null) {
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                    event.preventDefault()
+                    const next = Math.min(
+                        SORTABLE_COLUMNS.length - 1,
+                        Math.max(0, headerColumn + (event.key === 'ArrowRight' ? 1 : -1))
+                    )
+                    setHeaderColumn(next)
+                    // Bring the column into view; the header follows the rows' sideways scroll, so scroll those
+                    const cell = document.getElementById(`compact-header-${SORTABLE_COLUMNS[next]}`)
+                    if (cell && headerScrollRef.current && rowsScrollRef.current) {
+                        cell.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+                        rowsScrollRef.current.scrollLeft = headerScrollRef.current.scrollLeft
+                    }
+                } else if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    sortByColumn(SORTABLE_COLUMNS[headerColumn])
+                } else if (event.key === 'ArrowDown' && displayedQueries.length > 0) {
+                    event.preventDefault()
+                    setHeaderColumn(null)
+                    setSelectedQueryId(displayedQueries[0].queryId)
+                    document
+                        .getElementById(`query-list-item-${displayedQueries[0].queryId}`)
+                        ?.scrollIntoView({ block: 'nearest' })
+                }
+                return
+            }
+            const index = displayedQueries.findIndex((query) => query.queryId === selectedQueryId)
+            const selected = index === -1 ? null : displayedQueries[index]
+            // ↑ from the first query, or before anything is selected (e.g. right after loading), goes to the header
+            if (event.key === 'ArrowUp' && index <= 0 && displayedQueries.length > 0) {
+                event.preventDefault()
+                setSelectedQueryId(null)
+                setHeaderColumn(Math.max(0, SORTABLE_COLUMNS.indexOf(sortType)))
+            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                if (displayedQueries.length === 0) {
+                    return
+                }
+                event.preventDefault()
+                const next =
+                    index === -1
+                        ? 0
+                        : Math.min(
+                              displayedQueries.length - 1,
+                              Math.max(0, index + (event.key === 'ArrowDown' ? 1 : -1))
+                          )
+                const nextId = displayedQueries[next].queryId
+                setSelectedQueryId(nextId)
+                document.getElementById(`query-list-item-${nextId}`)?.scrollIntoView({ block: 'nearest' })
+            } else if (event.key === 'Enter' && selected) {
+                event.preventDefault()
+                if (event.shiftKey) {
+                    // Shift+Enter: new tab, like shift-clicking a link (the app routes on the URL hash)
+                    window.open(`${window.location.href.split('#')[0]}#/queries/${selected.queryId}`, '_blank')
+                } else {
+                    navigate(`/queries/${selected.queryId}`)
+                }
+            } else if (event.key === 'Backspace' && selected) {
+                event.preventDefault()
+                if (isKillable(selected)) {
+                    setKillTarget(selected)
+                } else {
+                    showSnackbar(Texts.QueryList.Actions.AlreadyDone, 'info')
+                }
+            }
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+        // No dependency list: the handler reads most of this component's state and the sort helpers, so it is
+        // re-attached after every render (the list re-renders about once a second; attaching is cheap)
+    })
+
+    // After the first load, bring the query we returned from into view (if it is still listed)
+    useEffect(() => {
+        if (!scrollToSelectedRef.current || loading) {
+            return
+        }
+        scrollToSelectedRef.current = false
+        document.getElementById(`query-list-item-${selectedQueryId}`)?.scrollIntoView({ block: 'center' })
+    }, [loading, displayedQueries, selectedQueryId])
+
+    // The browser keeps history state across a page refresh; drop the returned-to query once read so a refresh
+    // starts with nothing selected
+    useEffect(() => {
+        if (location.state) {
+            navigate(location.pathname, { replace: true, state: null })
+        }
+    }, [location.state, location.pathname, navigate])
+
     if (loading || error) {
         return (
             <Box
@@ -428,13 +677,92 @@ export const QueryList = () => {
         )
     }
 
+    const renderQuery = (queryInfo: QueryInfo) => (
+        <Box
+            key={queryInfo.queryId}
+            id={`query-list-item-${queryInfo.queryId}`}
+            sx={{
+                // Keeps a keyboard-selected query clear of the app bar and the sticky table header
+                scrollMarginTop: APP_BAR_HEIGHT + 48,
+                outline: queryInfo.queryId === selectedQueryId ? 2 : 0,
+                outlineColor: 'primary.main',
+                outlineOffset: -2,
+                borderRadius: 1,
+            }}
+        >
+            <QueryListItem queryInfo={queryInfo} onKill={setKillTarget} />
+            <Divider sx={{ mb: 1 }} />
+        </Box>
+    )
+
     return (
         <>
             <Grid spacing={2} sx={{ py: 2, justifyContent: 'space-between', alignItems: 'center' }} container>
                 <Grid size={{ xs: 12, lg: 4 }}>
-                    <Box>{renderSearchStringTextField()}</Box>
+                    {/* Wraps on very narrow screens instead of pushing the buttons off-screen */}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                        {/* All (o  ) Mine: the switch toggles, and clicking a label picks that side */}
+                        <Stack
+                            direction="row"
+                            sx={{
+                                flexShrink: 0,
+                                alignItems: 'center',
+                                fontSize: 14,
+                                opacity: username ? 1 : 0.5,
+                            }}
+                            title={username ? `${Texts.QueryList.Filter.MyQueries}: ${username}` : undefined}
+                        >
+                            <Box
+                                component="span"
+                                onClick={() => username && onlyMyQueries && toggleOnlyMyQueries()}
+                                sx={{
+                                    cursor: username ? 'pointer' : 'default',
+                                    color: onlyMyQueries ? 'text.secondary' : 'text.primary',
+                                    fontWeight: onlyMyQueries ? 400 : 500,
+                                }}
+                            >
+                                {Texts.QueryList.Filter.AllQueries}
+                            </Box>
+                            <Switch
+                                size="small"
+                                disableRipple
+                                checked={onlyMyQueries}
+                                onChange={() => toggleOnlyMyQueries()}
+                                disabled={!username}
+                                slotProps={{ input: { 'aria-label': Texts.QueryList.Filter.MyQueries } }}
+                            />
+                            <Box
+                                component="span"
+                                onClick={() => username && !onlyMyQueries && toggleOnlyMyQueries()}
+                                sx={{
+                                    cursor: username ? 'pointer' : 'default',
+                                    color: onlyMyQueries ? 'text.primary' : 'text.secondary',
+                                    fontWeight: onlyMyQueries ? 500 : 400,
+                                }}
+                            >
+                                {Texts.QueryList.Filter.MyQueries}
+                            </Box>
+                        </Stack>
+                        <Box sx={{ flex: '1 1 120px', minWidth: 0 }}>{renderSearchStringTextField()}</Box>
+                        {!filtersFitOnSearchLine && (
+                            <Button
+                                variant="outlined"
+                                onClick={() => setFiltersOpen((open) => !open)}
+                                aria-expanded={filtersOpen}
+                                aria-controls="query-list-filters"
+                                endIcon={<ExpandMoreIcon sx={{ transform: filtersOpen ? 'rotate(180deg)' : 'none' }} />}
+                                sx={{ flexShrink: 0, whiteSpace: 'nowrap', height: 35, textTransform: 'none' }}
+                            >
+                                {Texts.QueryList.Filter.SearchFilters}
+                            </Button>
+                        )}
+                    </Box>
                 </Grid>
-                <Grid size={{ xs: 12, lg: 8 }}>
+                <Grid
+                    size={{ xs: 12, lg: 8 }}
+                    id="query-list-filters"
+                    sx={{ display: filtersFitOnSearchLine || filtersOpen ? undefined : 'none' }}
+                >
                     <Stack
                         direction={{ xs: 'column', md: 'row' }}
                         sx={{
@@ -460,35 +788,6 @@ export const QueryList = () => {
                                 {renderErrorTypeSelectItem('EXTERNAL', 'External')}
                                 {renderErrorTypeSelectItem('INSUFFICIENT_RESOURCES', 'Insufficient resources')}
                                 {renderErrorTypeSelectItem('USER_ERROR', 'User error')}
-                            </Select>
-                        </FormControl>
-                        <FormControl size="small" fullWidth>
-                            <InputLabel sx={smallFormControlSx}>{Texts.QueryList.Filter.SortBy}</InputLabel>
-                            <Select
-                                label={Texts.QueryList.Filter.SortBy}
-                                sx={smallFormControlSx}
-                                MenuProps={smallDropdownMenuPropsSx}
-                                value={sortType}
-                            >
-                                {renderSortTypeSelectItem('PROGRESS', 'Progress')}
-                                {renderSortTypeSelectItem('CREATED', 'Creation time')}
-                                {renderSortTypeSelectItem('ELAPSED', 'Elapsed time')}
-                                {renderSortTypeSelectItem('CPU', 'CPU time')}
-                                {renderSortTypeSelectItem('EXECUTION', 'Execution time')}
-                                {renderSortTypeSelectItem('CURRENT_MEMORY', 'Current memory')}
-                                {renderSortTypeSelectItem('CUMULATIVE_MEMORY', 'Cumulative user memory')}
-                            </Select>
-                        </FormControl>
-                        <FormControl size="small" fullWidth>
-                            <InputLabel sx={smallFormControlSx}>{Texts.QueryList.Filter.Ordering}</InputLabel>
-                            <Select
-                                label={Texts.QueryList.Filter.Ordering}
-                                sx={smallFormControlSx}
-                                MenuProps={smallDropdownMenuPropsSx}
-                                value={sortOrder}
-                            >
-                                {renderSortOrderSelectItem('ASCENDING', 'Ascending')}
-                                {renderSortOrderSelectItem('DESCENDING', 'Descending')}
                             </Select>
                         </FormControl>
                         <FormControl size="small" fullWidth>
@@ -525,20 +824,50 @@ export const QueryList = () => {
                     </Stack>
                 </Grid>
             </Grid>
-            <Stack direction="column">
-                {displayedQueries.length > 0 ? (
-                    displayedQueries.map((queryInfo: QueryInfo) => (
-                        <Box key={queryInfo.queryId}>
-                            <QueryListItem queryInfo={queryInfo} />
-                            <Divider sx={{ mb: 1 }} />
+            {displayedQueries.length > 0 ? (
+                <>
+                    {/* The header sticks under the app bar. It sits outside the row scroller (a sideways scroller
+                        would also capture vertical stickiness), so it follows the rows' horizontal scroll in code */}
+                    <Box
+                        sx={{
+                            position: 'sticky',
+                            top: APP_BAR_HEIGHT,
+                            zIndex: 1,
+                            bgcolor: 'background.default',
+                            borderBottom: 1,
+                            borderColor: 'divider',
+                            mb: 0.5,
+                        }}
+                    >
+                        <Box ref={headerScrollRef} sx={{ overflowX: 'hidden' }}>
+                            <Box sx={COMPACT_TABLE_CONTENT_SX}>
+                                <CompactQueryHeader
+                                    sortType={sortType}
+                                    sortOrder={sortOrder}
+                                    onSort={sortByColumn}
+                                    keyboardColumn={headerColumn === null ? null : SORTABLE_COLUMNS[headerColumn]}
+                                />
+                            </Box>
                         </Box>
-                    ))
-                ) : (
-                    <Typography>
-                        {allQueries.length === 0 ? Texts.QueryList.NoQueries : Texts.QueryList.NoMatchedFilterQueries}
-                    </Typography>
-                )}
-            </Stack>
+                    </Box>
+                    <Box
+                        ref={rowsScrollRef}
+                        sx={COMPACT_TABLE_SCROLLER_SX}
+                        onScroll={(event) => {
+                            if (headerScrollRef.current) {
+                                headerScrollRef.current.scrollLeft = event.currentTarget.scrollLeft
+                            }
+                        }}
+                    >
+                        <Box sx={COMPACT_TABLE_CONTENT_SX}>{displayedQueries.map(renderQuery)}</Box>
+                    </Box>
+                </>
+            ) : (
+                <Typography>
+                    {allQueries.length === 0 ? Texts.QueryList.NoQueries : Texts.QueryList.NoMatchedFilterQueries}
+                </Typography>
+            )}
+            <KillQueryDialog queryInfo={killTarget} onClose={() => setKillTarget(null)} />
         </>
     )
 }
