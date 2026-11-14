@@ -4013,6 +4013,25 @@ class StatementAnalyzer
                         analysis.addCoercion(expression, targetType);
                     }
                 }
+
+                if (operation.isNotMatchedBySource()) {
+                    // The source fields follow the target fields in the join scope
+                    int targetFieldCount = targetTableScope.getRelationType().getAllFieldCount();
+                    List<Expression> clauseExpressions = Stream.concat(operation.getExpression().stream(), setExpressions.stream()).collect(toImmutableList());
+                    // SELECT s.* in a subquery expands to source column references that are not part of the AST
+                    Stream<Expression> expandedSelectExpressions = clauseExpressions.stream()
+                            .flatMap(expression -> preOrder(expression))
+                            .filter(QuerySpecification.class::isInstance)
+                            .flatMap(query -> analysis.getSelectExpressions(query).stream())
+                            .map(SelectExpression::getExpression);
+                    Stream.concat(clauseExpressions.stream(), expandedSelectExpressions)
+                            .flatMap(expression -> getReferencesToScope(expression, analysis, joinScope))
+                            .filter(reference -> analysis.getResolvedField(reference).getRelationFieldIndex() >= targetFieldCount)
+                            .findFirst()
+                            .ifPresent(reference -> {
+                                throw semanticException(INVALID_COLUMN_REFERENCE, reference, "Reference to source column '%s' not allowed in WHEN NOT MATCHED BY SOURCE clause", reference);
+                            });
+                }
             }
 
             List<OutputColumn> updatedColumns = allColumnHandles.keySet().stream()

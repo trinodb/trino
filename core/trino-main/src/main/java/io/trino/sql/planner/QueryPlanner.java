@@ -52,6 +52,7 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
@@ -898,7 +899,7 @@ class QueryPlanner
                     idAllocator.getNextId(),
                     subPlanBuilder.getRoot(),
                     assignments.build()));
-            subPlanBuilder = addCheckConstraints(constraints, subPlanBuilder);
+            subPlanBuilder = addCheckConstraints(constraints, subPlanBuilder, TRUE);
         }
 
         // Build the page, containing:
@@ -933,7 +934,7 @@ class QueryPlanner
         return createMergePipeline(table, relationPlan, projectNode, rowIdSymbol, mergeRowSymbol);
     }
 
-    private PlanBuilder addCheckConstraints(List<io.trino.sql.tree.Expression> constraints, PlanBuilder subPlanBuilder)
+    private PlanBuilder addCheckConstraints(List<io.trino.sql.tree.Expression> constraints, PlanBuilder subPlanBuilder, Expression condition)
     {
         PlanBuilder constraintBuilder = subPlanBuilder.appendProjections(constraints, symbolAllocator, idAllocator);
 
@@ -947,7 +948,8 @@ class QueryPlanner
                     TRUE,
                     new Cast(failFunction(plannerContext.getMetadata(), getCharVarcharCoercion(session), CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), BOOLEAN));
 
-            predicates.add(predicate);
+            // Rows that do not satisfy the condition are not checked
+            predicates.add(ifExpression(condition, predicate, TRUE));
         }
 
         return subPlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), constraintBuilder.getRoot(), and(predicates)));
@@ -995,8 +997,16 @@ class QueryPlanner
                 source.getFieldMappings(),
                 outerContext);
 
+        // Target rows without a matching source row are only needed by WHEN NOT MATCHED BY SOURCE cases,
+        // and source rows without a matching target row are only needed by WHEN NOT MATCHED cases
+        boolean hasNotMatchedBySourceCase = merge.getMergeCases().stream().anyMatch(MergeCase::isNotMatchedBySource);
+        Join.Type joinType = Join.Type.RIGHT;
+        if (hasNotMatchedBySourceCase) {
+            joinType = merge.getMergeCases().stream().anyMatch(MergeInsert.class::isInstance) ? Join.Type.FULL : Join.Type.LEFT;
+        }
+
         RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
-                .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, sourcePlanWithUniqueId, analysis.getSubqueries(merge)); // TODO: ir
+                .planJoin(merge.getPredicate(), joinType, mergeAnalysis.getJoinScope(), planWithPresentColumn, sourcePlanWithUniqueId, analysis.getSubqueries(merge)); // TODO: ir
 
         PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
 
@@ -1020,7 +1030,6 @@ class QueryPlanner
             }
 
             ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
-            Assignments.Builder assignments = Assignments.builder();
             List<ColumnHandle> mergeCaseSetColumns = mergeCaseColumnsHandles.get(caseNumber);
             for (ColumnHandle dataColumnHandle : mergeAnalysis.getDataColumnHandles()) {
                 int index = mergeCaseSetColumns.indexOf(dataColumnHandle);
@@ -1037,7 +1046,6 @@ class QueryPlanner
                         rewritten = new Coalesce(rewritten, new Cast(failFunction(metadata, getCharVarcharCoercion(session), CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), columnSchema.getType()));
                     }
                     rowBuilder.add(rewritten);
-                    assignments.put(field, rewritten);
                 }
                 else {
                     Expression expression = field.toSymbolReference();
@@ -1055,7 +1063,6 @@ class QueryPlanner
                     }
 
                     rowBuilder.add(expression);
-                    assignments.put(field, expression);
                 }
             }
 
@@ -1074,6 +1081,13 @@ class QueryPlanner
             if (mergeCase instanceof MergeInsert) {
                 condition = new IsNull(presentColumn.toSymbolReference());
             }
+            else if (mergeCase.isNotMatchedBySource()) {
+                // The source unique id is null only for target rows without a matching source row
+                condition = new IsNull(sourceUniqueIdSymbol.toSymbolReference());
+            }
+            else if (hasNotMatchedBySourceCase) {
+                condition = and(condition, not(metadata, getCharVarcharCoercion(session), new IsNull(sourceUniqueIdSymbol.toSymbolReference())));
+            }
 
             if (casePredicate.isPresent()) {
                 condition = and(
@@ -1082,20 +1096,6 @@ class QueryPlanner
             }
 
             whenClauses.add(new WhenClause(condition, new Row(rowBuilder.build())));
-
-            List<io.trino.sql.tree.Expression> constraints = analysis.getCheckConstraints(mergeAnalysis.getTargetTable());
-            if (!constraints.isEmpty()) {
-                assignments.putIdentity(targetUniqueIdSymbol);
-                assignments.putIdentity(sourceUniqueIdSymbol);
-                assignments.putIdentity(presentColumn);
-                assignments.putIdentity(rowIdSymbol);
-                assignments.putIdentities(sourcePlanWithUniqueId.getFieldMappings());
-                subPlan = subPlan.withNewRoot(new ProjectNode(
-                        idAllocator.getNextId(),
-                        subPlan.getRoot(),
-                        assignments.build()));
-                subPlan = addCheckConstraints(constraints, subPlan.withScope(targetTablePlan.getScope(), targetTablePlan.getFieldMappings()));
-            }
         }
 
         Expression caseExpression = new Case(
@@ -1120,6 +1120,12 @@ class QueryPlanner
             projectionAssignmentsBuilder.putIdentity(symbol);
         }
 
+        // The check constraints are evaluated over the target table columns, including the hidden ones
+        List<io.trino.sql.tree.Expression> constraints = analysis.getCheckConstraints(mergeAnalysis.getTargetTable());
+        if (!constraints.isEmpty()) {
+            projectionAssignmentsBuilder.putIdentities(targetTablePlan.getFieldMappings());
+        }
+
         // Assigns a unique id to each joined row
         // The target table unique_id for matches, and the source table unique_id for non-matches
         // Avoid the scenario where unique_id values become null after right join due to unmatched rows.
@@ -1136,12 +1142,35 @@ class QueryPlanner
                 subPlan.getRoot(),
                 projectionAssignmentsBuilder.build());
 
+        // Check the constraints against the column values written by the INSERT and UPDATE cases
+        PlanNode mergeRowPlan = subPlanProject;
+        if (!constraints.isEmpty()) {
+            Assignments.Builder assignments = Assignments.builder()
+                    .putIdentities(subPlanProject.getOutputSymbols());
+            List<Symbol> fieldMappings = new ArrayList<>(targetTablePlan.getFieldMappings());
+            List<ColumnHandle> dataColumnHandles = mergeAnalysis.getDataColumnHandles();
+            for (int index = 0; index < dataColumnHandles.size(); index++) {
+                int fieldNumber = mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandles.get(index));
+                Symbol value = symbolAllocator.newSymbol(fieldMappings.get(fieldNumber));
+                assignments.put(value, new FieldReference(mergeRowSymbol.toSymbolReference(), index));
+                fieldMappings.set(fieldNumber, value);
+            }
+            // The operation number follows the data columns and the present field in the merge row
+            Expression operation = new FieldReference(mergeRowSymbol.toSymbolReference(), dataColumnHandles.size() + 1);
+            mergeRowPlan = addCheckConstraints(
+                    constraints,
+                    subPlan.withScope(targetTablePlan.getScope(), fieldMappings)
+                            .withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlanProject, assignments.build())),
+                    new In(operation, ImmutableList.of(new Constant(TINYINT, (long) INSERT_OPERATION_NUMBER), new Constant(TINYINT, (long) UPDATE_OPERATION_NUMBER))))
+                    .getRoot();
+        }
+
         // Now add a column for the case_number, gotten from the merge_row
         ProjectNode project = new ProjectNode(
                 idAllocator.getNextId(),
-                subPlanProject,
+                mergeRowPlan,
                 Assignments.builder()
-                        .putIdentities(subPlanProject.getOutputSymbols())
+                        .putIdentities(mergeRowPlan.getOutputSymbols())
                         .put(caseNumberSymbol, new FieldReference(mergeRowSymbol.toSymbolReference(), mergeAnalysis.getMergeRowType().getFields().size() - 1))
                         .build());
 

@@ -1362,7 +1362,7 @@ public final class SqlFormatter
 
         private void visitMergeInsert(MergeInsert node, Integer indent)
         {
-            appendMergeCaseWhen(false, node.getExpression());
+            appendMergeCaseWhen(node);
             append(indent + 1, "THEN INSERT ");
 
             if (!node.getColumns().isEmpty()) {
@@ -1379,7 +1379,7 @@ public final class SqlFormatter
 
         private void visitMergeUpdate(MergeUpdate node, Integer indent)
         {
-            appendMergeCaseWhen(true, node.getExpression());
+            appendMergeCaseWhen(node);
             append(indent + 1, "THEN UPDATE SET");
 
             boolean first = true;
@@ -1395,14 +1395,22 @@ public final class SqlFormatter
 
         private void visitMergeDelete(MergeDelete node, Integer indent)
         {
-            appendMergeCaseWhen(true, node.getExpression());
+            appendMergeCaseWhen(node);
             append(indent + 1, "THEN DELETE");
         }
 
-        private void appendMergeCaseWhen(boolean matched, Optional<Expression> expression)
+        private void appendMergeCaseWhen(MergeCase mergeCase)
         {
-            builder.append(matched ? "WHEN MATCHED" : "WHEN NOT MATCHED");
-            expression.ifPresent(value -> builder
+            if (mergeCase instanceof MergeInsert) {
+                builder.append("WHEN NOT MATCHED");
+            }
+            else if (mergeCase.isNotMatchedBySource()) {
+                builder.append("WHEN NOT MATCHED BY SOURCE");
+            }
+            else {
+                builder.append("WHEN MATCHED");
+            }
+            mergeCase.getExpression().ifPresent(value -> builder
                     .append(" AND ")
                     .append(formatExpression(value)));
             builder.append("\n");
