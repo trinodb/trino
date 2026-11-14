@@ -1,0 +1,42 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.session.db;
+
+import org.jdbi.v3.core.Handle;
+import org.testcontainers.containers.JdbcDatabaseContainer;
+
+public class TestDbSessionPropertyManagerPostgresql
+        extends BaseTestDbSessionPropertyManager
+{
+    @Override
+    protected JdbcDatabaseContainer<?> startContainer()
+    {
+        JdbcDatabaseContainer<?> container = new TestingPostgreSqlContainer();
+        container.start();
+        return container;
+    }
+
+    @Override
+    protected void lockSessionSpecs(Handle handle)
+    {
+        handle.begin();
+        handle.execute("LOCK TABLE session_specs IN ACCESS EXCLUSIVE MODE");
+    }
+
+    @Override
+    protected void unlockSessionSpecs(Handle handle)
+    {
+        handle.rollback();
+    }
+}
