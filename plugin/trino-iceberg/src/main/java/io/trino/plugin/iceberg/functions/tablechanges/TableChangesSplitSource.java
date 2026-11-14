@@ -15,9 +15,9 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.common.io.Closer;
 import io.trino.plugin.iceberg.IcebergFileFormat;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.IcebergSplitSource;
 import io.trino.plugin.iceberg.PartitionData;
+import io.trino.plugin.iceberg.encryption.ParquetFileDecryptionData;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSplit;

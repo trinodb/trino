@@ -59,7 +59,6 @@ import io.trino.plugin.hive.TransformConnectorPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.delete.CallerDrainedExecutor;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
@@ -67,7 +66,9 @@ import io.trino.plugin.iceberg.delete.DeleteManager.DeleteLoadContext;
 import io.trino.plugin.iceberg.delete.DeleteManager.SerializedDeletionVector;
 import io.trino.plugin.iceberg.delete.DeletePageSourceProvider;
 import io.trino.plugin.iceberg.delete.DeletionVector;
+import io.trino.plugin.iceberg.encryption.DeletionVectorDecryptionData;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.plugin.iceberg.system.files.FilesTablePageSource;
@@ -118,10 +119,13 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.avro.AvroSchemaUtil;
+import org.apache.iceberg.encryption.AesGcmInputFile;
 import org.apache.iceberg.encryption.EncryptingFileIO;
 import org.apache.iceberg.encryption.EncryptionManager;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.IOUtil;
 import org.apache.iceberg.io.InputFile;
+import org.apache.iceberg.io.SeekableInputStream;
 import org.apache.iceberg.mapping.MappedField;
 import org.apache.iceberg.mapping.MappedFields;
 import org.apache.iceberg.mapping.NameMapping;
@@ -141,6 +145,7 @@ import org.apache.parquet.schema.PrimitiveType;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -169,6 +174,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.geospatial.serde.JtsGeometrySerde.OGC_CRS84_SRID;
 import static io.trino.geospatial.serde.JtsGeometrySerde.wkbToEwkb;
 import static io.trino.memory.context.AggregatedMemoryContext.newAggregatedMemoryContext;
@@ -242,6 +248,7 @@ import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
+import static org.apache.iceberg.encryption.Ciphers.GCM_STREAM_MAGIC_STRING;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class IcebergPageSourceProvider
@@ -483,7 +490,7 @@ public class IcebergPageSourceProvider
                             readerPageSourceWithRowPositions.startRowPosition(),
                             readerPageSourceWithRowPositions.endRowPosition(),
                             new DeleteLoadContext(
-                                    deleteFile -> readDeletionVector(fileSystem, deleteFile, memoryContext),
+                                    deleteFile -> readDeletionVector(fileSystem, deleteFile, memoryContext, arePlaintextFilesAllowedForEncryptedTables(session)),
                                     deletePageSourceProvider(session, fileSystem, memoryContext::newAggregatedMemoryContext),
                                     // Equality delete loads are shared across splits and can outlive the split that started them,
                                     // so the page source is accounted to providerMemoryContext rather than the split's memoryContext
@@ -602,13 +609,42 @@ public class IcebergPageSourceProvider
         return requiredColumns.build();
     }
 
-    private static SerializedDeletionVector readDeletionVector(TrinoFileSystem fileSystem, DeleteFile delete, AggregatedMemoryContext memoryContext)
+    private static SerializedDeletionVector readDeletionVector(TrinoFileSystem fileSystem, DeleteFile delete, AggregatedMemoryContext memoryContext, boolean plaintextFilesAllowed)
     {
         verify(delete.isDeletionVector(), "Not a deletion vector: %s", delete);
         TrinoInputFile trinoInputFile = fileSystem.newInputFile(Location.of(delete.path()), delete.fileSizeInBytes());
         Slice slice;
-        try (TrinoInput trinoInput = trinoInputFile.newInput()) {
-            slice = trinoInput.readFully(delete.contentOffset().orElseThrow(), toIntExact(delete.contentSizeInBytes().orElseThrow()));
+        try {
+            long contentOffset = delete.contentOffset().orElseThrow();
+            int contentSize = toIntExact(delete.contentSizeInBytes().orElseThrow());
+            Optional<DeletionVectorDecryptionData> decryptionData = delete.fileDecryptionData().map(DeletionVectorDecryptionData.class::cast);
+            if (decryptionData.isPresent() && (!plaintextFilesAllowed || isAesGcmStream(trinoInputFile))) {
+                // Encrypted Puffin files are AES-GCM streams, and the content offset refers to the
+                // decrypted stream
+                AesGcmInputFile inputFile = new AesGcmInputFile(
+                        new ForwardingInputFile(trinoInputFile),
+                        decryptionData.get().fileEncryptionKey(),
+                        decryptionData.get().fileAadPrefix(),
+                        decryptionData.get().fileLength());
+                try (SeekableInputStream inputStream = inputFile.newStream()) {
+                    inputStream.seek(contentOffset);
+                    byte[] content = new byte[contentSize];
+                    IOUtil.readFully(inputStream, content, 0, contentSize);
+                    slice = wrappedBuffer(content);
+                }
+                catch (RuntimeException e) {
+                    // Iceberg reports a failed AES-GCM tag check as a RuntimeException
+                    if (e.getCause() instanceof GeneralSecurityException) {
+                        throw new TrinoException(ICEBERG_BAD_DATA, "Failed to decrypt deletion vector file: " + delete.path(), e);
+                    }
+                    throw e;
+                }
+            }
+            else {
+                try (TrinoInput trinoInput = trinoInputFile.newInput()) {
+                    slice = trinoInput.readFully(contentOffset, contentSize);
+                }
+            }
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "Failed to read deletion vector file: " + delete.path(), e);
@@ -617,6 +653,19 @@ public class IcebergPageSourceProvider
         LocalMemoryContext readBufferMemoryContext = memoryContext.newLocalMemoryContext(DeletionVector.class.getSimpleName());
         readBufferMemoryContext.setBytes(slice.length());
         return new SerializedDeletionVector(slice, readBufferMemoryContext::close);
+    }
+
+    /**
+     * Checks for the magic that starts an AES-GCM stream, which tells an encrypted Puffin file
+     * from a plaintext one.
+     */
+    private static boolean isAesGcmStream(TrinoInputFile inputFile)
+            throws IOException
+    {
+        Slice magic = utf8Slice(GCM_STREAM_MAGIC_STRING);
+        try (TrinoInput trinoInput = inputFile.newInput()) {
+            return trinoInput.readFully(0, magic.length()).equals(magic);
+        }
     }
 
     private DeletePageSourceProvider deletePageSourceProvider(ConnectorSession session, TrinoFileSystem fileSystem, Supplier<AggregatedMemoryContext> memoryContext)
@@ -651,7 +700,7 @@ public class IcebergPageSourceProvider
                 OptionalLong.empty(),
                 OptionalLong.empty(),
                 memoryContext,
-                createParquetFileDecryptionProperties(delete.parquetFileDecryptionData(), arePlaintextFilesAllowedForEncryptedTables(session)))
+                createParquetFileDecryptionProperties(delete.fileDecryptionData().map(ParquetFileDecryptionData.class::cast), arePlaintextFilesAllowedForEncryptedTables(session)))
                 .pageSource();
     }
 
