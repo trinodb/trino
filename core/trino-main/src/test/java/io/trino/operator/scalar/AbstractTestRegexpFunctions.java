@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.scalar.ConstantSpecializationAssertions.Typed;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
@@ -31,9 +33,15 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Collections;
+import java.util.Set;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.operator.scalar.ConstantSpecializationAssertions.varchar;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -80,6 +88,17 @@ public abstract class AbstractTestRegexpFunctions
                 (byte) 0x41, 0x41, (byte) 0xED, (byte) 0xA0, (byte) 0x80, 0x41, 0x41,
                 0x41, 0x41, (byte) 0xED, (byte) 0xBF, (byte) 0xBF, 0x41, 0x41, 0x41,
         });
+    }
+
+    @Test
+    public void testLambdaReplaceWithConstantPattern()
+    {
+        assertThat(assertions.expression("regexp_replace(a, '(.*)', x -> x[1])")
+                .binding("a", "'value'"))
+                .hasType(createUnboundedVarcharType())
+                .isEqualTo("value");
+        assertThat(assertions.query("SELECT a FROM (VALUES CAST('value' AS varchar(5))) t(a) WHERE regexp_replace(a, '(.*)', x -> x[1]) IS NOT NULL"))
+                .matches("VALUES CAST('value' AS varchar(5))");
     }
 
     @Test
@@ -936,5 +955,26 @@ public abstract class AbstractTestRegexpFunctions
 
         assertThat(assertions.function("regexp_position", "'natasha, 9102, miss you'", "'\\s'", "10", "2"))
                 .isEqualTo(20);
+    }
+
+    @Test
+    public void testConstantPatternParity()
+    {
+        ConstantSpecializationAssertions parity = new ConstantSpecializationAssertions(new TestingFunctionResolution(assertions.getQueryRunner()));
+        Typed source = varchar("ab12 cd345 ef6");
+        for (Typed pattern : new Typed[] {varchar("(\\d)(\\d)?"), new Typed(createCharType(12), utf8Slice("(\\d)(\\d)?"))}) {
+            parity.assertParity("regexp_like", Set.of(1), source, pattern);
+            parity.assertParity("regexp_count", Set.of(1), source, pattern);
+            parity.assertParity("regexp_split", Set.of(1), source, pattern);
+            parity.assertParity("regexp_extract", Set.of(1), source, pattern);
+            parity.assertParity("regexp_extract", Set.of(1), source, pattern, new Typed(BIGINT, 1L));
+            parity.assertParity("regexp_extract_all", Set.of(1), source, pattern);
+            parity.assertParity("regexp_extract_all", Set.of(1), source, pattern, new Typed(BIGINT, 2L));
+            parity.assertParity("regexp_position", Set.of(1), source, pattern);
+            parity.assertParity("regexp_position", Set.of(1), source, pattern, new Typed(INTEGER, 4L));
+            parity.assertParity("regexp_position", Set.of(1), source, pattern, new Typed(INTEGER, 1L), new Typed(INTEGER, 2L));
+            parity.assertParity("regexp_replace", Set.of(1), source, pattern);
+            parity.assertParity("regexp_replace", Set.of(1), source, pattern, varchar("<$1>"));
+        }
     }
 }

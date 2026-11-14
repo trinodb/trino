@@ -29,12 +29,14 @@ import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ConstantSpecializedImplementation;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.ScalarFunctionSpecializationContext;
 import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.type.Type;
@@ -45,6 +47,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -52,6 +55,8 @@ import static com.google.common.primitives.Primitives.wrap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.LanguageFunctionManager.isTrinoSqlLanguageFunction;
+import static io.trino.operator.scalar.ConstantPositions.remainingConvention;
+import static io.trino.operator.scalar.ConstantPositions.remainingSignature;
 import static io.trino.spi.NodeVersion.UNKNOWN;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static java.lang.String.format;
@@ -112,6 +117,32 @@ public class FunctionManager
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new RuntimeException(e.getCause());
         }
+    }
+
+    public Optional<ConstantSpecializedImplementation> getConstantSpecializedScalarFunctionImplementation(
+            ResolvedFunction resolvedFunction,
+            ScalarFunctionSpecializationContext specializationContext)
+    {
+        if (isTrinoSqlLanguageFunction(resolvedFunction.functionId())) {
+            return Optional.empty();
+        }
+
+        FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
+        Optional<ConstantSpecializedImplementation> specializedImplementation = getFunctionProvider(resolvedFunction).getConstantSpecializedScalarFunctionImplementation(
+                resolvedFunction.functionId(),
+                resolvedFunction.signature(),
+                functionDependencies,
+                specializationContext);
+
+        return specializedImplementation.map(implementation -> {
+            verifyConstantSpecializedImplementation(resolvedFunction.signature(), specializationContext, implementation);
+            if (ASSERTIONS_ENABLED && resolvedFunction.neverFails()) {
+                return new ConstantSpecializedImplementation(
+                        reportIfNeverFailsViolated(resolvedFunction, implementation.implementation()),
+                        implementation.constantPositions());
+            }
+            return implementation;
+        });
     }
 
     private ScalarFunctionImplementation getScalarFunctionImplementationInternal(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
@@ -361,6 +392,39 @@ public class FunctionManager
             }
             default -> throw new UnsupportedOperationException("Unknown return convention: " + convention.getReturnConvention());
         }
+    }
+
+    private static void verifyConstantSpecializedImplementation(
+            BoundSignature boundSignature,
+            ScalarFunctionSpecializationContext specializationContext,
+            ConstantSpecializedImplementation specializedImplementation)
+    {
+        checkArgument(boundSignature.getArgumentTypes().size() == specializationContext.constantArguments().size(),
+                "Expected %s constant arguments, but got %s",
+                boundSignature.getArgumentTypes().size(),
+                specializationContext.constantArguments().size());
+
+        for (int argumentIndex = 0; argumentIndex < boundSignature.getArgumentTypes().size(); argumentIndex++) {
+            int index = argumentIndex;
+            specializationContext.constantArguments().get(argumentIndex).ifPresent(constant ->
+                    checkArgument(constant.getType().equals(boundSignature.getArgumentType(index)),
+                            "Expected constant argument %s to have type %s, but got %s",
+                            index,
+                            boundSignature.getArgumentType(index),
+                            constant.getType()));
+        }
+
+        for (int argumentIndex : specializedImplementation.constantPositions()) {
+            checkArgument(argumentIndex >= 0 && argumentIndex < boundSignature.getArgumentTypes().size(), "Invalid consumed argument index: %s", argumentIndex);
+            checkArgument(specializationContext.constantArguments().get(argumentIndex).isPresent(), "Consumed argument %s is not constant", argumentIndex);
+        }
+
+        MethodHandle instanceFactory = specializedImplementation.implementation().getInstanceFactory().orElseThrow();
+        checkArgument(instanceFactory.type().parameterCount() == 0, "Constant specialized instance factory must not have parameters: %s", instanceFactory.type());
+
+        BoundSignature remainingSignature = remainingSignature(boundSignature, specializedImplementation.constantPositions());
+        InvocationConvention remainingConvention = remainingConvention(specializationContext.invocationConvention(), specializedImplementation.constantPositions());
+        verifyMethodHandleSignature(remainingSignature, specializedImplementation.implementation(), remainingConvention);
     }
 
     @FormatMethod

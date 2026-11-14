@@ -30,6 +30,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.project.InputChannels;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.function.ConstantSpecializedImplementation;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
@@ -47,6 +48,7 @@ import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -67,6 +69,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadBindingHandle;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
+import static io.trino.sql.gen.BytecodeUtils.selectConstantSpecialization;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.createClassInstance;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.declareBlockVariables;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateBlockMayHaveNull;
@@ -122,17 +125,22 @@ public class CallColumnarFilterGenerator
                 type(ColumnarFilter.class));
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
+        SelectedImplementation selectedImplementation = getScalarFunctionImplementation(functionManager, function, arguments);
+        if (!selectedImplementation.constantPositions().isEmpty()) {
+            // constants are bound into the instance factory, so the generated class can not be shared across different constant values
+            callSiteBinder.markValueDependent();
+        }
 
         FieldDefinition inputChannelsField = generateGetInputChannels(classDefinition);
 
-        generateFilterRangeMethod(classDefinition, callSiteBinder, cachedInstanceBinder);
-        generateFilterListMethod(classDefinition, callSiteBinder, cachedInstanceBinder);
+        generateFilterRangeMethod(classDefinition, callSiteBinder, cachedInstanceBinder, selectedImplementation);
+        generateFilterListMethod(classDefinition, callSiteBinder, cachedInstanceBinder, selectedImplementation);
 
         generateConstructor(classDefinition, cachedInstanceBinder, inputChannelsField);
         return classDefinition;
     }
 
-    private void generateFilterRangeMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder)
+    private void generateFilterRangeMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, SelectedImplementation selectedImplementation)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter outputPositions = arg("outputPositions", int[].class);
@@ -177,7 +185,7 @@ public class CallColumnarFilterGenerator
                 .body(new IfStatement()
                         .condition(generateBlockPositionNotNull(arguments, layout, functionNullability.getArgumentNullable(), scope, position))
                         .ifTrue(new BytecodeBlock()
-                                .append(generateFullInvocation(functionManager, instance, callSiteBinder, function, arguments, layout, scope, position)
+                                .append(generateFullInvocation(instance, callSiteBinder, function, arguments, layout, scope, position, selectedImplementation)
                                         .putVariable(result))
                                 .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount)))));
 
@@ -192,14 +200,14 @@ public class CallColumnarFilterGenerator
                 .condition(lessThan(position, add(offset, size)))
                 .update(position.increment())
                 .body(new BytecodeBlock()
-                        .append(generateFullInvocation(functionManager, instance, callSiteBinder, function, arguments, layout, scope, position)
+                        .append(generateFullInvocation(instance, callSiteBinder, function, arguments, layout, scope, position, selectedImplementation)
                                 .putVariable(result))
                         .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount))));
 
         body.append(outputPositionsCount.ret());
     }
 
-    private void generateFilterListMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder)
+    private void generateFilterListMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, SelectedImplementation selectedImplementation)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter outputPositions = arg("outputPositions", int[].class);
@@ -249,7 +257,7 @@ public class CallColumnarFilterGenerator
                         .append(new IfStatement()
                                 .condition(generateBlockPositionNotNull(arguments, layout, functionNullability.getArgumentNullable(), scope, position))
                                 .ifTrue(new BytecodeBlock()
-                                        .append(generateFullInvocation(functionManager, instance, callSiteBinder, function, arguments, layout, scope, position)
+                                        .append(generateFullInvocation(instance, callSiteBinder, function, arguments, layout, scope, position, selectedImplementation)
                                                 .putVariable(result))
                                         .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount))))));
 
@@ -266,7 +274,7 @@ public class CallColumnarFilterGenerator
                 .update(index.increment())
                 .body(new BytecodeBlock()
                         .append(position.set(activePositions.getElement(index)))
-                        .append(generateFullInvocation(functionManager, instance, callSiteBinder, function, arguments, layout, scope, position)
+                        .append(generateFullInvocation(instance, callSiteBinder, function, arguments, layout, scope, position, selectedImplementation)
                                 .putVariable(result))
                         .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount))));
 
@@ -274,20 +282,20 @@ public class CallColumnarFilterGenerator
     }
 
     private static BytecodeBlock generateFullInvocation(
-            FunctionManager functionManager,
             Function<MethodHandle, BytecodeNode> instanceFactory,
             CallSiteBinder binder,
             ResolvedFunction function,
             List<Expression> arguments,
             Map<Symbol, Integer> layout,
             Scope scope,
-            BytecodeExpression position)
+            BytecodeExpression position,
+            SelectedImplementation selectedImplementation)
     {
         String functionName = function.signature().getName().functionName();
         BytecodeBlock block = new BytecodeBlock()
                 .setDescription("invoke " + functionName);
 
-        ScalarFunctionImplementation implementation = getScalarFunctionImplementation(functionManager, function, arguments);
+        ScalarFunctionImplementation implementation = selectedImplementation.implementation();
 
         Binding binding = binder.bind(implementation.getMethodHandle());
 
@@ -315,7 +323,11 @@ public class CallColumnarFilterGenerator
             }
             currentParameterIndex++;
         }
-        for (Expression argumentExpression : arguments) {
+        for (int index = 0; index < arguments.size(); index++) {
+            if (selectedImplementation.constantPositions().contains(index)) {
+                continue;
+            }
+            Expression argumentExpression = arguments.get(index);
             if (argumentExpression instanceof Reference reference) {
                 Integer channel = layout.get(Symbol.from(reference));
                 checkState(channel != null, "Reference not in layout: %s", reference.name());
@@ -337,7 +349,7 @@ public class CallColumnarFilterGenerator
         return block;
     }
 
-    private static ScalarFunctionImplementation getScalarFunctionImplementation(FunctionManager functionManager, ResolvedFunction resolvedFunction, List<Expression> arguments)
+    private static SelectedImplementation getScalarFunctionImplementation(FunctionManager functionManager, ResolvedFunction resolvedFunction, List<Expression> arguments)
     {
         ImmutableList.Builder<InvocationConvention.InvocationArgumentConvention> builder = ImmutableList.builderWithExpectedSize(arguments.size());
         for (Expression argumentExpression : arguments) {
@@ -357,8 +369,16 @@ public class CallColumnarFilterGenerator
                 resolvedFunction.functionNullability().isReturnNullable() ? DEFAULT_ON_NULL : FAIL_ON_NULL,
                 true,
                 true);
-        return functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention);
+
+        Optional<ConstantSpecializedImplementation> constantSpecialization = selectConstantSpecialization(resolvedFunction, functionManager, arguments, invocationConvention);
+        if (constantSpecialization.isPresent()) {
+            ConstantSpecializedImplementation specialization = constantSpecialization.orElseThrow();
+            return new SelectedImplementation(specialization.implementation(), specialization.constantPositions());
+        }
+        return new SelectedImplementation(functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention), Set.of());
     }
+
+    private record SelectedImplementation(ScalarFunctionImplementation implementation, Set<Integer> constantPositions) {}
 
     private static BytecodeNode generateInputReference(BytecodeExpression block, BytecodeExpression position)
     {

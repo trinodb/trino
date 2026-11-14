@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import io.airlift.slice.Slice;
 import io.trino.FeaturesConfig;
 import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.operator.aggregation.ApproximateCountDistinctAggregation;
@@ -149,8 +150,6 @@ import io.trino.operator.scalar.HmacFunctions;
 import io.trino.operator.scalar.HyperLogLogFunctions;
 import io.trino.operator.scalar.IpAddressFunctions;
 import io.trino.operator.scalar.JoniRegexpCasts;
-import io.trino.operator.scalar.JoniRegexpFunctions;
-import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.JsonFunctions;
 import io.trino.operator.scalar.JsonOperators;
 import io.trino.operator.scalar.JsonScalarFunction;
@@ -168,7 +167,7 @@ import io.trino.operator.scalar.MathFunctions;
 import io.trino.operator.scalar.MultimapFromEntriesFunction;
 import io.trino.operator.scalar.QuantileDigestFunctions;
 import io.trino.operator.scalar.Re2JRegexpFunctions;
-import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
+import io.trino.operator.scalar.Regexp;
 import io.trino.operator.scalar.RepeatFunction;
 import io.trino.operator.scalar.SequenceFunction;
 import io.trino.operator.scalar.SessionFunctions;
@@ -291,6 +290,8 @@ import io.trino.type.setdigest.MergeSetDigestAggregation;
 import io.trino.type.setdigest.SetDigestFunctions;
 import io.trino.type.setdigest.SetDigestOperators;
 
+import java.util.function.Function;
+
 import static io.trino.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
 import static io.trino.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static io.trino.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
@@ -331,8 +332,7 @@ import static io.trino.operator.scalar.MapToVariantCast.MAP_TO_VARIANT;
 import static io.trino.operator.scalar.MapTransformValuesFunction.MAP_TRANSFORM_VALUES_FUNCTION;
 import static io.trino.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCTION;
 import static io.trino.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
-import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
-import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
+import static io.trino.operator.scalar.RegexpFunctions.regexpFunctions;
 import static io.trino.operator.scalar.RowFieldsFunction.ROW_FIELDS_FUNCTION;
 import static io.trino.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
@@ -474,9 +474,17 @@ public final class SystemFunctionBundle
                 .scalar(SequenceFunction.SequenceDateDayToSecond.class)
                 .scalars(SessionFunctions.class)
                 .scalars(StringFunctions.class)
+                .scalar(StringFunctions.Normalize.class)
+                .scalar(StringFunctions.FromUtf8WithReplacement.class)
+                .scalar(StringFunctions.FromUtf8WithCodePoint.class)
+                .scalar(StringFunctions.Translate.class)
                 .scalars(VarcharMethods.class)
+                .scalar(VarcharMethods.Translate.class)
+                .scalar(VarcharMethods.FromUtf8WithReplacement.class)
+                .scalar(VarcharMethods.FromUtf8WithCodePoint.class)
                 .scalars(CharMethods.class)
                 .scalars(WordStemFunction.class)
+                .scalar(WordStemFunction.WithLanguage.class)
                 .scalar(SplitToMapFunction.class)
                 .scalar(SplitToMultimapFunction.class)
                 .scalars(VarbinaryFunctions.class)
@@ -497,6 +505,11 @@ public final class SystemFunctionBundle
                 .scalars(DateTimeFunctions.class)
                 .scalar(DateTimeFunctions.ToMilliseconds.class)
                 .scalar(DateTimeFunctions.FromUnixtimeNanosDecimal.class)
+                .scalar(DateTimeFunctions.ParseDateTime.class)
+                .scalar(DateTimeFunctions.DateParse.class)
+                .scalar(DateTimeFunctions.DateTrunc.class)
+                .scalar(DateTimeFunctions.DateAdd.class)
+                .scalar(DateTimeFunctions.DateDiff.class)
                 .scalars(JsonFunctions.class)
                 .scalars(JsonInputFunctions.class)
                 .scalars(JsonOutputFunctions.class)
@@ -550,7 +563,6 @@ public final class SystemFunctionBundle
                 .scalars(CombineHashFunction.class)
                 .scalars(JsonOperators.class)
                 .scalars(FailureFunction.class)
-                .scalars(JoniRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
                 .scalars(CharToVarcharCast.class)
                 .scalars(LuhnCheckFunction.class)
@@ -655,8 +667,6 @@ public final class SystemFunctionBundle
                 .functions(intervalNumericCasts())
                 .functions(intervalDayTimeOperators())
                 .functions(intervalYearMonthOperators())
-                .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
-                .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .aggregates(DecimalAverageAggregation.class)
                 .aggregates(DecimalSumAggregation.class)
                 .function(DECIMAL_MOD_FUNCTION)
@@ -817,16 +827,11 @@ public final class SystemFunctionBundle
                 .scalar(io.trino.operator.scalar.timetz.AtTimeZoneWithOffset.class)
                 .scalar(CurrentTime.class);
 
-        switch (featuresConfig.getRegexLibrary()) {
-            case JONI -> {
-                builder.scalars(JoniRegexpFunctions.class);
-                builder.scalar(JoniRegexpReplaceLambdaFunction.class);
-            }
-            case RE2J -> {
-                builder.scalars(Re2JRegexpFunctions.class);
-                builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
-            }
-        }
+        Function<Slice, Regexp> regexpCompiler = switch (featuresConfig.getRegexLibrary()) {
+            case JONI -> JoniRegexpCasts::joniRegexp;
+            case RE2J -> pattern -> Re2JRegexpFunctions.compile(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries(), pattern);
+        };
+        builder.functions(regexpFunctions(regexpCompiler).toArray(new SqlFunction[0]));
 
         return builder.build();
     }

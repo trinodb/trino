@@ -31,14 +31,18 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ConstantSpecializedImplementation;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.ScalarFunctionSpecializationContext;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.InputReferenceCompiler.InputReferenceNode;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
@@ -47,6 +51,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -63,6 +68,8 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantClassDataAt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.trino.operator.scalar.ConstantPositions.remainingConvention;
+import static io.trino.operator.scalar.ConstantPositions.removeConstants;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -242,20 +249,88 @@ public final class BytecodeUtils
             ResolvedFunction resolvedFunction,
             FunctionManager functionManager,
             Function<MethodHandle, BytecodeNode> instanceFactory,
+            List<Expression> expressions,
             List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
             CallSiteBinder binder)
     {
+        verify(expressions.size() == argumentCompilers.size());
+        FunctionNullability functionNullability = resolvedFunction.functionNullability();
+        List<Boolean> argumentIsFunctionType = resolvedFunction.signature().getArgumentTypes().stream()
+                .map(FunctionType.class::isInstance)
+                .collect(toImmutableList());
+
+        InvocationArguments invocationArguments = createInvocationArguments(functionNullability, argumentIsFunctionType, argumentCompilers);
+        InvocationConvention invocationConvention = new InvocationConvention(
+                invocationArguments.argumentConventions(),
+                functionNullability.isReturnNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
+                true,
+                true);
+
+        Optional<ConstantSpecializedImplementation> constantSpecialization = selectConstantSpecialization(
+                resolvedFunction,
+                functionManager,
+                expressions,
+                invocationConvention);
+        if (constantSpecialization.isEmpty()) {
+            return generateFullInvocation(
+                    scope,
+                    resolvedFunction.signature().getName().functionName(),
+                    functionNullability,
+                    invocationConvention,
+                    functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention),
+                    instanceFactory,
+                    argumentCompilers,
+                    invocationArguments.arguments(),
+                    binder);
+        }
+
+        // constants are bound into the instance factory, so the generated class can not be shared across different constant values
+        binder.markValueDependent();
+        ConstantSpecializedImplementation specialization = constantSpecialization.orElseThrow();
+        Set<Integer> constantPositions = specialization.constantPositions();
+        List<Boolean> remainingArgumentNullability = removeConstants(functionNullability.getArgumentNullable(), constantPositions);
+        List<Function<Optional<Class<?>>, BytecodeNode>> remainingArgumentCompilers = removeConstants(argumentCompilers, constantPositions);
+        List<BytecodeNode> remainingArguments = removeConstants(invocationArguments.arguments(), constantPositions);
+
         return generateFullInvocation(
                 scope,
                 resolvedFunction.signature().getName().functionName(),
-                resolvedFunction.functionNullability(),
-                resolvedFunction.signature().getArgumentTypes().stream()
-                        .map(FunctionType.class::isInstance)
-                        .collect(toImmutableList()),
-                invocationConvention -> functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention),
+                new FunctionNullability(functionNullability.isReturnNullable(), remainingArgumentNullability),
+                remainingConvention(invocationConvention, constantPositions),
+                specialization.implementation(),
                 instanceFactory,
-                argumentCompilers,
+                remainingArgumentCompilers,
+                remainingArguments,
                 binder);
+    }
+
+    public static Optional<ConstantSpecializedImplementation> selectConstantSpecialization(
+            ResolvedFunction resolvedFunction,
+            FunctionManager functionManager,
+            List<Expression> expressions,
+            InvocationConvention invocationConvention)
+    {
+        ImmutableList.Builder<Optional<io.trino.spi.expression.Constant>> constantArguments = ImmutableList.builderWithExpectedSize(expressions.size());
+        boolean hasConstant = false;
+        for (int index = 0; index < expressions.size(); index++) {
+            Expression expression = expressions.get(index);
+            if (expression instanceof Constant constant) {
+                if (constant.value() == null && !resolvedFunction.functionNullability().isArgumentNullable(index)) {
+                    return Optional.empty();
+                }
+                hasConstant = true;
+                constantArguments.add(Optional.of(new io.trino.spi.expression.Constant(constant.value(), constant.type())));
+            }
+            else {
+                constantArguments.add(Optional.empty());
+            }
+        }
+        if (!hasConstant) {
+            return Optional.empty();
+        }
+        return functionManager.getConstantSpecializedScalarFunctionImplementation(
+                resolvedFunction,
+                new ScalarFunctionSpecializationContext(invocationConvention, constantArguments.build()));
     }
 
     private static BytecodeNode generateFullInvocation(
@@ -267,6 +342,33 @@ public final class BytecodeUtils
             Function<MethodHandle, BytecodeNode> instanceFactory,
             List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
             CallSiteBinder binder)
+    {
+        verify(argumentIsFunctionType.size() == argumentCompilers.size());
+        InvocationArguments invocationArguments = createInvocationArguments(functionNullability, argumentIsFunctionType, argumentCompilers);
+
+        InvocationConvention invocationConvention = new InvocationConvention(
+                invocationArguments.argumentConventions(),
+                functionNullability.isReturnNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
+                true,
+                true);
+        ScalarFunctionImplementation implementation = functionImplementationProvider.apply(invocationConvention);
+
+        return generateFullInvocation(
+                scope,
+                functionName,
+                functionNullability,
+                invocationConvention,
+                implementation,
+                instanceFactory,
+                argumentCompilers,
+                invocationArguments.arguments(),
+                binder);
+    }
+
+    private static InvocationArguments createInvocationArguments(
+            FunctionNullability functionNullability,
+            List<Boolean> argumentIsFunctionType,
+            List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers)
     {
         verify(argumentIsFunctionType.size() == argumentCompilers.size());
         List<InvocationArgumentConvention> argumentConventions = new ArrayList<>();
@@ -282,14 +384,20 @@ public final class BytecodeUtils
                 arguments.add(argument);
             }
         }
+        return new InvocationArguments(List.copyOf(argumentConventions), Collections.unmodifiableList(arguments));
+    }
 
-        InvocationConvention invocationConvention = new InvocationConvention(
-                argumentConventions,
-                functionNullability.isReturnNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
-                true,
-                true);
-        ScalarFunctionImplementation implementation = functionImplementationProvider.apply(invocationConvention);
-
+    private static BytecodeNode generateFullInvocation(
+            Scope scope,
+            String functionName,
+            FunctionNullability functionNullability,
+            InvocationConvention invocationConvention,
+            ScalarFunctionImplementation implementation,
+            Function<MethodHandle, BytecodeNode> instanceFactory,
+            List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
+            List<BytecodeNode> arguments,
+            CallSiteBinder binder)
+    {
         Binding binding = binder.bind(implementation.getMethodHandle());
 
         LabelNode end = new LabelNode("end");
@@ -400,6 +508,8 @@ public final class BytecodeUtils
 
         return block;
     }
+
+    private record InvocationArguments(List<InvocationArgumentConvention> argumentConventions, List<BytecodeNode> arguments) {}
 
     private static InvocationArgumentConvention getPreferredArgumentConvention(BytecodeNode argument, int argumentCount, boolean nullable)
     {

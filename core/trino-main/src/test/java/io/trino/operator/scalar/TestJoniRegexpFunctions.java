@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.operator.scalar.JoniRegexpFunctions.regexpCount;
@@ -82,17 +83,17 @@ public class TestJoniRegexpFunctions
         assertThat(regexpCount(shifted, regex))
                 .describedAs("regexpCount %s", context)
                 .isEqualTo(regexpCount(plain, regex));
-        assertThat(regexpPosition(shifted, regex))
+        assertThat(regexpPosition(shifted, regex, 1, 1))
                 .describedAs("regexpPosition %s", context)
-                .isEqualTo(regexpPosition(plain, regex));
-        assertThat(regexpExtract(shifted, regex))
+                .isEqualTo(regexpPosition(plain, regex, 1, 1));
+        assertThat(regexpExtract(shifted, regex, 0))
                 .describedAs("regexpExtract %s", context)
-                .isEqualTo(regexpExtract(plain, regex));
+                .isEqualTo(regexpExtract(plain, regex, 0));
         assertThat(regexpReplace(shifted, regex, utf8Slice("<$0>")))
                 .describedAs("regexpReplace %s", context)
                 .isEqualTo(regexpReplace(plain, regex, utf8Slice("<$0>")));
         assertBlockEquals(regexpSplit(shifted, regex), regexpSplit(plain, regex), "regexpSplit " + context);
-        assertBlockEquals(regexpExtractAll(shifted, regex), regexpExtractAll(plain, regex), "regexpExtractAll " + context);
+        assertBlockEquals(regexpExtractAll(shifted, regex, 0), regexpExtractAll(plain, regex, 0), "regexpExtractAll " + context);
     }
 
     private static void assertBlockEquals(Block actual, Block expected, String context)
@@ -128,7 +129,7 @@ public class TestJoniRegexpFunctions
         String source = Resources.toString(Resources.getResource("regularExpressionExtraLongSource.txt"), UTF_8);
         String pattern = "\\((.*,)+(.*\\))";
         // Test the interruptible version of `Matcher#search` by "REGEXP_REPLACE"
-        testJoniRegexpFunctionsInterruptible(() -> regexpReplace(utf8Slice(source), joniRegexp(utf8Slice(pattern))));
+        testJoniRegexpFunctionsInterruptible(() -> regexpReplace(utf8Slice(source), joniRegexp(utf8Slice(pattern)), EMPTY_SLICE));
     }
 
     private static void testJoniRegexpFunctionsInterruptible(Runnable joniRegexpRunnable)

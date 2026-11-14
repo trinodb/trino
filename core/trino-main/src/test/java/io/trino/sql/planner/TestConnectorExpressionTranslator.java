@@ -65,7 +65,6 @@ import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
-import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
@@ -115,7 +114,6 @@ import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
@@ -647,9 +645,6 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslateRegularExpression()
     {
-        // Regular expression types (JoniRegexpType, Re2JRegexpType) are considered implementation detail of the engine
-        // and are not exposed to connectors within ConnectorExpression. Instead, they are replaced with a varchar pattern.
-
         TransactionManager transactionManager = new TestingTransactionManager();
         Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         transaction(transactionManager, metadata, new AllowAllAccessControl())
@@ -657,7 +652,7 @@ public class TestConnectorExpressionTranslator
                 .execute(TEST_SESSION, transactionSession -> {
                     Call input = BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(transactionSession))
                             .setName("regexp_like").addArgument(VARCHAR_TYPE, new Reference(VARCHAR_TYPE, "varchar_symbol_1"))
-                            .addArgument(new Constant(JONI_REGEXP, joniRegexp(utf8Slice("a+"))))
+                            .addArgument(createVarcharType(2), new Constant(createVarcharType(2), utf8Slice("a+")))
                             .build();
                     io.trino.spi.expression.Call translated = new io.trino.spi.expression.Call(
                             BOOLEAN,
@@ -665,14 +660,9 @@ public class TestConnectorExpressionTranslator
                             List.of(
                                     new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                     new io.trino.spi.expression.Constant(utf8Slice("a+"), createVarcharType(2))));
-                    Call translatedBack = BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(transactionSession))
-                            .setName("regexp_like").addArgument(VARCHAR_TYPE, new Reference(VARCHAR_TYPE, "varchar_symbol_1"))
-                            // Note: The result is not an optimized expression
-                            .addArgument(JONI_REGEXP, new Cast(new Constant(createVarcharType(2), utf8Slice("a+")), JONI_REGEXP))
-                            .build();
 
                     assertTranslationToConnectorExpression(transactionSession, input, translated);
-                    assertTranslationFromConnectorExpression(transactionSession, translated, translatedBack);
+                    assertTranslationFromConnectorExpression(transactionSession, translated, input);
                 });
     }
 

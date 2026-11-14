@@ -26,6 +26,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ConstantSpecializedImplementation;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -34,6 +35,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.ScalarFunctionSpecializationContext;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunction;
@@ -165,9 +167,24 @@ public class InternalFunctionBundle
             FunctionDependencies functionDependencies,
             InvocationConvention invocationConvention)
     {
-        SpecializedSqlScalarFunction specializedSqlScalarFunction;
+        return getSpecializedScalarFunction(functionId, boundSignature, functionDependencies).getScalarFunctionImplementation(invocationConvention);
+    }
+
+    @Override
+    public Optional<ConstantSpecializedImplementation> getConstantSpecializedScalarFunctionImplementation(
+            FunctionId functionId,
+            BoundSignature boundSignature,
+            FunctionDependencies functionDependencies,
+            ScalarFunctionSpecializationContext specializationContext)
+    {
+        return getSpecializedScalarFunction(functionId, boundSignature, functionDependencies)
+                .getConstantSpecializedScalarFunctionImplementation(specializationContext);
+    }
+
+    private SpecializedSqlScalarFunction getSpecializedScalarFunction(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    {
         try {
-            specializedSqlScalarFunction = uncheckedCacheGet(
+            return uncheckedCacheGet(
                     specializedScalarCache,
                     new FunctionKey(functionId, boundSignature),
                     () -> specializeScalarFunction(functionId, boundSignature, functionDependencies));
@@ -176,7 +193,6 @@ public class InternalFunctionBundle
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new RuntimeException(e.getCause());
         }
-        return specializedSqlScalarFunction.getScalarFunctionImplementation(invocationConvention);
     }
 
     private SpecializedSqlScalarFunction specializeScalarFunction(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)

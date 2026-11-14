@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.scalar.ConstantSpecializationAssertions.Typed;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -26,6 +28,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,6 +36,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.Set;
+
+import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.operator.scalar.ConstantSpecializationAssertions.varchar;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
@@ -2715,5 +2722,15 @@ public class TestStringFunctions
         assertThat(assertions.function("soundex", "'x123'"))
                 .hasType(createVarcharType(4))
                 .isEqualTo("X000");
+    }
+
+    @Test
+    public void testConstantSpecializationParity()
+    {
+        ConstantSpecializationAssertions parity = new ConstantSpecializationAssertions(new TestingFunctionResolution(assertions.getQueryRunner()));
+        parity.assertParity("translate", Set.of(1, 2), varchar("abcda"), varchar("a"), varchar("z"));
+        parity.assertParity("normalize", Set.of(1), varchar("café"), varchar("NFC"));
+        parity.assertParity("from_utf8", Set.of(1), new Typed(VarbinaryType.VARBINARY, wrappedBuffer((byte) 0x58, (byte) 0xBF)), varchar("#"));
+        parity.assertParity("from_utf8", Set.of(1), new Typed(VarbinaryType.VARBINARY, wrappedBuffer((byte) 0x58, (byte) 0xBF)), new Typed(BIGINT, 35L));
     }
 }

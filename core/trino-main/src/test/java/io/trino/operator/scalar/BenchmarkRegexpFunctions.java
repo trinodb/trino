@@ -75,7 +75,7 @@ public class BenchmarkRegexpFunctions
     @Benchmark
     public Slice benchmarkExtractJoni(DotStarAroundData data)
     {
-        return JoniRegexpFunctions.regexpExtract(data.getSource(), data.getJoniPattern());
+        return JoniRegexpFunctions.regexpExtract(data.getSource(), data.getJoniPattern(), 0);
     }
 
     @State(Thread)
