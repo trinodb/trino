@@ -24,9 +24,12 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.JoinNode;
 import org.junit.jupiter.api.Test;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
@@ -48,6 +51,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.dynamicFilter;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPredicatePushdown
         extends AbstractPredicatePushdownTest
@@ -116,6 +120,33 @@ public class TestPredicatePushdown
                                                         filter(
                                                                 comparison(EQUAL, new Constant(createVarcharType(5), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(5), "u_v"), createVarcharType(5))),
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
+    }
+
+    @Test
+    public void testIsNotDistinctFromJoinUsesEquiCriteria()
+    {
+        // IS NOT DISTINCT FROM between the join sides plans as equi-join keys (a NULL indicator and
+        // a NULL-replaced value), so the join is a hash join rather than a nested loop
+        JoinNode join = onlyJoin(plan("SELECT 1 FROM orders o1 JOIN orders o2 ON o1.orderkey IS NOT DISTINCT FROM o2.orderkey"));
+        assertThat(join.getCriteria()).hasSize(2);
+
+        join = onlyJoin(plan("SELECT 1 FROM orders o1 LEFT JOIN orders o2 ON o1.clerk IS NOT DISTINCT FROM o2.clerk AND o1.orderkey < o2.orderkey"));
+        assertThat(join.getCriteria()).hasSize(2);
+
+        // planning is stable: a later pass reuses the keys instead of adding more
+        join = onlyJoin(plan("SELECT 1 FROM orders o1 JOIN orders o2 ON o1.orderkey IS NOT DISTINCT FROM o2.orderkey AND o1.custkey IS NOT DISTINCT FROM o2.custkey"));
+        assertThat(join.getCriteria()).hasSize(4);
+
+        // equality differs from IS NOT DISTINCT FROM for NaN and signed zero, so floating-point
+        // keys stay in the join filter
+        join = onlyJoin(plan("SELECT 1 FROM orders o1 LEFT JOIN orders o2 ON o1.totalprice IS NOT DISTINCT FROM o2.totalprice"));
+        assertThat(join.getCriteria()).isEmpty();
+        assertThat(join.getFilter()).isPresent();
+    }
+
+    private static JoinNode onlyJoin(Plan plan)
+    {
+        return (JoinNode) getOnlyElement(PlanNodeSearcher.searchFrom(plan.getRoot()).whereIsInstanceOfAny(JoinNode.class).findAll());
     }
 
     @Test

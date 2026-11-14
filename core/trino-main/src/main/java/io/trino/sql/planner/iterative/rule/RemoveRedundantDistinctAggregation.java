@@ -65,7 +65,12 @@ public class RemoveRedundantDistinctAggregation
     {
         Lookup lookup = context.getLookup();
         if (isDistinctOverGroupingKeys(lookup.resolve(aggregationNode.getSource()), lookup, new HashSet<>(aggregationNode.getGroupingKeys()))) {
-            return Result.ofPlanNode(aggregationNode.getSource());
+            PlanNode source = aggregationNode.getSource();
+            if (source.getOutputSymbols().equals(aggregationNode.getOutputSymbols())) {
+                return Result.ofPlanNode(source);
+            }
+            // the source can produce more columns than the distinct's keys
+            return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), source, Assignments.identity(aggregationNode.getOutputSymbols())));
         }
         else {
             return Result.empty();
