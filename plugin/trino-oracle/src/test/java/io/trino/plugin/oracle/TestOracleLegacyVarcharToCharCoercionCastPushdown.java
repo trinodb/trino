@@ -47,6 +47,7 @@ public class TestOracleLegacyVarcharToCharCoercionCastPushdown
                 .addConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("jdbc-types-mapped-to-varchar", "interval year(2) to month, timestamp(6) with local time zone")
                         .put("join-pushdown.enabled", "true")
+                        .put("join-pushdown.strategy", "EAGER")
                         .buildOrThrow())
                 .addExtraProperty("deprecated.legacy-varchar-to-char-coercion", "true")
                 .build();
