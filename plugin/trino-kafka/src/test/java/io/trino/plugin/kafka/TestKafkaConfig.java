@@ -41,6 +41,7 @@ public class TestKafkaConfig
                 .setTableDescriptionSupplier(FileTableDescriptionSupplier.NAME)
                 .setHideInternalColumns(true)
                 .setMessagesPerSplit(100_000)
+                .setKeyPartitionPushdownEnabled(false)
                 .setTimestampUpperBoundPushDownEnabled(false)
                 .setResourceConfigFiles(List.of())
                 .setInternalFieldPrefix("_"));
@@ -60,6 +61,7 @@ public class TestKafkaConfig
                 .put("kafka.buffer-size", "1MB")
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.messages-per-split", "1")
+                .put("kafka.key-partition-pushdown-enabled", "true")
                 .put("kafka.timestamp-upper-bound-force-push-down-enabled", "true")
                 .put("kafka.config.resources", resource1.toString() + "," + resource2.toString())
                 .put("kafka.internal-column-prefix", "the_most_unexpected_prefix_")
@@ -72,6 +74,7 @@ public class TestKafkaConfig
                 .setKafkaBufferSize("1MB")
                 .setHideInternalColumns(false)
                 .setMessagesPerSplit(1)
+                .setKeyPartitionPushdownEnabled(true)
                 .setTimestampUpperBoundPushDownEnabled(true)
                 .setResourceConfigFiles(ImmutableList.of(resource1.toString(), resource2.toString()))
                 .setInternalFieldPrefix("the_most_unexpected_prefix_");
