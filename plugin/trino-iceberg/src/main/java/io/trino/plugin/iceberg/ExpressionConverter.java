@@ -134,7 +134,7 @@ public final class ExpressionConverter
         return and(conjuncts);
     }
 
-    private static Expression toIcebergExpression(String columnName, Type type, Domain domain)
+    static Expression toIcebergExpression(String columnName, Type type, Domain domain)
     {
         if (domain.isAll()) {
             return alwaysTrue();

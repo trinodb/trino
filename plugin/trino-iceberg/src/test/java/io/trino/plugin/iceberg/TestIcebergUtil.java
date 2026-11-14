@@ -14,26 +14,206 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.Type;
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.StaticTableOperations;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.inmemory.InMemoryFileIO;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
+import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
+import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.parseVersion;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampFromNanos;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromNanos;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.groups.Tuple.tuple;
 
 public class TestIcebergUtil
 {
+    @Test
+    public void testCanEnforceTimestampConstraintWithDayTransform()
+    {
+        Schema schema = new Schema(NestedField.optional(1, "ts", Types.TimestampType.withZone()));
+        PartitionSpec spec = PartitionSpec.builderFor(schema).day("ts").build();
+        Domain negativeYear = timestampYearDomain(1969);
+        Domain positiveYear = timestampYearDomain(2015);
+
+        // Iceberg's inclusive projection includes the next partition for negative timestamps.
+        assertThat(canEnforceTimestampConstraint(spec, negativeYear)).isFalse();
+        assertThat(canEnforceTimestampConstraint(spec, positiveYear)).isTrue();
+        assertThat(canEnforceTimestampConstraint(spec, Domain.union(List.of(negativeYear, positiveYear)))).isFalse();
+    }
+
+    @Test
+    public void testCanEnforceTimestampConstraintWithIdentityAndDayTransforms()
+    {
+        Schema schema = new Schema(NestedField.optional(1, "ts", Types.TimestampType.withZone()));
+        for (PartitionSpec spec : List.of(
+                PartitionSpec.builderFor(schema).identity("ts").day("ts").build(),
+                PartitionSpec.builderFor(schema).day("ts").identity("ts").build())) {
+            assertThat(canEnforceTimestampConstraint(spec, timestampYearDomain(1969))).isTrue();
+            assertThat(canEnforceTimestampConstraint(spec, timestampYearDomain(2015))).isTrue();
+        }
+    }
+
+    @Test
+    public void testCanEnforceNullConstraintWithBucketAndDayTransforms()
+    {
+        Schema schema = new Schema(NestedField.optional(1, "ts", Types.TimestampType.withZone()));
+        for (PartitionSpec spec : List.of(
+                PartitionSpec.builderFor(schema).bucket("ts", 16).day("ts").build(),
+                PartitionSpec.builderFor(schema).day("ts").bucket("ts", 16).build())) {
+            assertThat(canEnforceTimestampConstraint(spec, Domain.onlyNull(TIMESTAMP_TZ_MICROS))).isTrue();
+            assertThat(canEnforceTimestampConstraint(spec, Domain.notNull(TIMESTAMP_TZ_MICROS))).isTrue();
+        }
+    }
+
+    @Test
+    public void testCanEnforceTimestampConstraintAfterColumnRename()
+    {
+        Schema schema = new Schema(NestedField.optional(1, "ts", Types.TimestampType.withZone()));
+        PartitionSpec spec = PartitionSpec.builderFor(schema).day("ts").build();
+        TableMetadata metadata = TableMetadata.newTableMetadata(
+                schema, spec, SortOrder.unsorted(), "memory:///test_table", ImmutableMap.of());
+        metadata = metadata.updateSchema(new Schema(NestedField.optional(1, "renamed_ts", Types.TimestampType.withZone())));
+
+        // A time travel query still uses the column name from the snapshot's schema.
+        for (String columnName : List.of("ts", "renamed_ts")) {
+            assertThat(canEnforceTimestampConstraint(metadata, columnName, timestampYearDomain(1969))).isFalse();
+            assertThat(canEnforceTimestampConstraint(metadata, columnName, timestampYearDomain(2015))).isTrue();
+        }
+    }
+
+    @Test
+    public void testCanEnforceTimestampConstraintAfterColumnDrop()
+    {
+        Schema schema = new Schema(
+                NestedField.optional(1, "ts", Types.TimestampType.withZone()),
+                NestedField.optional(2, "id", Types.LongType.get()));
+        PartitionSpec spec = PartitionSpec.builderFor(schema).day("ts").build();
+        TableMetadata metadata = TableMetadata.newTableMetadata(
+                schema, spec, SortOrder.unsorted(), "memory:///test_table", ImmutableMap.of());
+        int historicalSpecId = metadata.defaultSpecId();
+        metadata = metadata.updatePartitionSpec(PartitionSpec.unpartitioned());
+        metadata = metadata.updateSchema(new Schema(NestedField.optional(2, "id", Types.LongType.get())));
+
+        assertThat(canEnforceTimestampConstraint(metadata, "ts", timestampYearDomain(2015), ImmutableSet.of(historicalSpecId))).isFalse();
+    }
+
+    @Test
+    public void testCanEnforceNanoTimestampConstraintAtRangeBoundaries()
+    {
+        assertCanEnforceNanoTimestampConstraintAtRangeBoundaries(
+                TIMESTAMP_NANOS,
+                Types.TimestampNanoType.withoutZone(),
+                timestampFromNanos(Long.MIN_VALUE),
+                timestampFromNanos(Long.MAX_VALUE));
+        assertCanEnforceNanoTimestampConstraintAtRangeBoundaries(
+                TIMESTAMP_TZ_NANOS,
+                Types.TimestampNanoType.withZone(),
+                timestampTzFromNanos(Long.MIN_VALUE),
+                timestampTzFromNanos(Long.MAX_VALUE));
+    }
+
+    private static void assertCanEnforceNanoTimestampConstraintAtRangeBoundaries(
+            Type type,
+            org.apache.iceberg.types.Type icebergType,
+            Object minimum,
+            Object maximum)
+    {
+        Schema schema = new Schema(NestedField.optional(1, "ts", icebergType));
+        PartitionSpec spec = PartitionSpec.builderFor(schema).day("ts").build();
+        Object belowMinimum = type.getPreviousValue(minimum).orElseThrow();
+        Object aboveMaximum = type.getNextValue(maximum).orElseThrow();
+        for (Range range : List.of(
+                Range.greaterThanOrEqual(type, belowMinimum),
+                Range.lessThanOrEqual(type, aboveMaximum),
+                // The bounds fit, but the adjacent values used to check partition alignment do not.
+                Range.greaterThanOrEqual(type, minimum),
+                Range.lessThanOrEqual(type, maximum))) {
+            assertThat(canEnforceTimestampConstraint(spec, Domain.create(ValueSet.ofRanges(range), false))).isFalse();
+        }
+        assertThat(canEnforceTimestampConstraint(spec, timestampYearDomain(type, 2015))).isTrue();
+        assertThat(canEnforceTimestampConstraint(spec, timestampYearDomain(type, 10_000))).isFalse();
+    }
+
+    private static boolean canEnforceTimestampConstraint(PartitionSpec spec, Domain domain)
+    {
+        TableMetadata metadata = TableMetadata.newTableMetadata(
+                spec.schema(), spec, SortOrder.unsorted(), "memory:///test_table", ImmutableMap.of(FORMAT_VERSION, "3"));
+        return canEnforceTimestampConstraint(metadata, "ts", domain);
+    }
+
+    private static boolean canEnforceTimestampConstraint(TableMetadata metadata, String columnName, Domain domain)
+    {
+        return canEnforceTimestampConstraint(metadata, columnName, domain, ImmutableSet.of(metadata.defaultSpecId()));
+    }
+
+    private static boolean canEnforceTimestampConstraint(TableMetadata metadata, String columnName, Domain domain, Set<Integer> partitionSpecIds)
+    {
+        try (InMemoryFileIO fileIO = new InMemoryFileIO()) {
+            Table table = new BaseTable(new StaticTableOperations(metadata, fileIO), "test_table");
+            IcebergColumnHandle column = IcebergColumnHandle.optional(primitiveColumnIdentity(1, columnName))
+                    .columnType(domain.getType())
+                    .build();
+            return canEnforceColumnConstraintInSpecs(
+                    TESTING_TYPE_MANAGER.getTypeOperators(), table, partitionSpecIds, column, domain);
+        }
+    }
+
+    private static Domain timestampYearDomain(int year)
+    {
+        return timestampYearDomain(TIMESTAMP_TZ_MICROS, year);
+    }
+
+    private static Domain timestampYearDomain(Type type, int year)
+    {
+        long startMillis = LocalDate.of(year, 1, 1).toEpochDay() * MILLISECONDS_PER_DAY;
+        long endMillis = LocalDate.of(year + 1, 1, 1).toEpochDay() * MILLISECONDS_PER_DAY;
+        Object start;
+        Object end;
+        if (type.equals(TIMESTAMP_NANOS)) {
+            start = new LongTimestamp(startMillis * MICROSECONDS_PER_MILLISECOND, 0);
+            end = new LongTimestamp(endMillis * MICROSECONDS_PER_MILLISECOND, 0);
+        }
+        else {
+            start = LongTimestampWithTimeZone.fromEpochMillisAndFraction(startMillis, 0, UTC_KEY);
+            end = LongTimestampWithTimeZone.fromEpochMillisAndFraction(endMillis, 0, UTC_KEY);
+        }
+        return Domain.create(ValueSet.ofRanges(Range.range(type, start, true, end, false)), false);
+    }
+
     @Test
     public void testParseVersion()
     {
