@@ -51,8 +51,11 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.sql.gen.columnar.AndFilterEvaluator;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
+import io.trino.sql.gen.columnar.ColumnarFilterEvaluator;
 import io.trino.sql.gen.columnar.FilterEvaluator;
+import io.trino.sql.gen.columnar.PageBoundsFilterEvaluator;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -391,6 +394,82 @@ public class TestColumnarFilters
                 new Reference(INTEGER, COL_INT_C));
         assertThatColumnarFilterEvaluationIsSupported(betweenFilter);
         verifyFilter(inputPages, betweenFilter);
+    }
+
+    @ParameterizedTest
+    @MethodSource("inputProviders")
+    public void testSameColumnRange(NullsProvider nullsProvider, boolean dictionaryEncoded)
+    {
+        List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
+
+        // constant <= col AND col < constant is one kernel over the column, not two filters
+        Expression rangeFilter = and(
+                comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, CONSTANT - 5), new Reference(INTEGER, COL_INT_A)),
+                comparison(LESS_THAN, new Reference(INTEGER, COL_INT_A), new Constant(INTEGER, CONSTANT + 5)));
+        assertThatColumnarFilterEvaluationIsSupported(rangeFilter);
+        // a single evaluator, not a conjunction; it is also decided by page bounds, which do not apply to floating point
+        assertThat(createFilterEvaluator(rangeFilter)).isInstanceOf(PageBoundsFilterEvaluator.class);
+        verifyFilter(inputPages, rangeFilter);
+
+        // greater-than forms are canonicalized to the same shape
+        rangeFilter = and(
+                comparison(GREATER_THAN, new Reference(DOUBLE, COL_DOUBLE), new Constant(DOUBLE, (double) CONSTANT - 5)),
+                comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, COL_DOUBLE), new Constant(DOUBLE, (double) CONSTANT + 5)));
+        assertThatColumnarFilterEvaluationIsSupported(rangeFilter);
+        assertThat(createFilterEvaluator(rangeFilter)).isInstanceOf(ColumnarFilterEvaluator.class);
+        verifyFilter(inputPages, rangeFilter);
+
+        // the upper bound may come first
+        rangeFilter = and(
+                comparison(LESS_THAN, new Reference(INTEGER, COL_INT_A), new Constant(INTEGER, CONSTANT + 5)),
+                comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, COL_INT_A), new Constant(INTEGER, CONSTANT - 5)));
+        assertThatColumnarFilterEvaluationIsSupported(rangeFilter);
+        assertThat(createFilterEvaluator(rangeFilter)).isInstanceOf(PageBoundsFilterEvaluator.class);
+        verifyFilter(inputPages, rangeFilter);
+
+        // slice comparisons are not fused: the second comparison costs more than the pass it would save
+        Expression varcharRangeFilter = and(
+                comparison(GREATER_THAN_OR_EQUAL, new Reference(VARCHAR, COL_STRING), new Constant(VARCHAR, Slices.utf8Slice("3"))),
+                comparison(LESS_THAN, new Reference(VARCHAR, COL_STRING), new Constant(VARCHAR, Slices.utf8Slice("9"))));
+        assertThatColumnarFilterEvaluationIsSupported(varcharRangeFilter);
+        assertThat(createFilterEvaluator(varcharRangeFilter)).isInstanceOf(AndFilterEvaluator.class);
+        verifyFilter(inputPages, varcharRangeFilter);
+
+        // inside a wider conjunction the pair is fused and the other terms keep their own kernels
+        Expression mixedFilter = and(
+                comparison(LESS_THAN, new Reference(INTEGER, COL_INT_B), new Constant(INTEGER, CONSTANT)),
+                comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, CONSTANT - 5), new Reference(INTEGER, COL_INT_A)),
+                comparison(EQUAL, new Reference(INTEGER, COL_INT_C), new Constant(INTEGER, CONSTANT)),
+                comparison(LESS_THAN, new Reference(INTEGER, COL_INT_A), new Constant(INTEGER, CONSTANT + 5)));
+        assertThatColumnarFilterEvaluationIsSupported(mixedFilter);
+        assertThat(createFilterEvaluator(mixedFilter)).isInstanceOf(AndFilterEvaluator.class);
+        verifyFilter(inputPages, mixedFilter);
+
+        // two bounds in the same direction are not a range
+        Expression sameDirectionFilter = and(
+                comparison(LESS_THAN, new Reference(INTEGER, COL_INT_A), new Constant(INTEGER, CONSTANT + 5)),
+                comparison(LESS_THAN, new Reference(INTEGER, COL_INT_A), new Constant(INTEGER, CONSTANT + 10)));
+        assertThatColumnarFilterEvaluationIsSupported(sameDirectionFilter);
+        assertThat(createFilterEvaluator(sameDirectionFilter)).isInstanceOf(AndFilterEvaluator.class);
+        verifyFilter(inputPages, sameDirectionFilter);
+
+        // bounds on different columns are not a range
+        Expression differentColumnsFilter = and(
+                comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, CONSTANT - 5), new Reference(INTEGER, COL_INT_A)),
+                comparison(LESS_THAN, new Reference(INTEGER, COL_INT_B), new Constant(INTEGER, CONSTANT + 5)));
+        assertThatColumnarFilterEvaluationIsSupported(differentColumnsFilter);
+        assertThat(createFilterEvaluator(differentColumnsFilter)).isInstanceOf(AndFilterEvaluator.class);
+        verifyFilter(inputPages, differentColumnsFilter);
+    }
+
+    private static FilterEvaluator createFilterEvaluator(Expression filter)
+    {
+        return createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, filter, LAYOUT, COMPILER, true, false).orElseThrow().get();
+    }
+
+    private static Expression and(Expression... terms)
+    {
+        return new Logical(Logical.Operator.AND, ImmutableList.copyOf(terms));
     }
 
     @ParameterizedTest

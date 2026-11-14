@@ -6104,13 +6104,15 @@ public abstract class BaseIcebergConnectorTest
                 withoutPredicatePushdown(getSession()),
                 query);
 
-        DataSize withPushdownDataSize = getOperatorStats(resultWithPredicatePushdown.queryId()).getInputDataSize();
-        DataSize withoutPushdownDataSize = getOperatorStats(resultWithoutPredicatePushdown.queryId()).getInputDataSize();
+        // Positions are compared rather than data size, because without pushdown the engine skips loading
+        // the columns of a row group that the page value bounds prove to have no matching rows
+        long withPushdownPositions = getOperatorStats(resultWithPredicatePushdown.queryId()).getInputPositions();
+        long withoutPushdownPositions = getOperatorStats(resultWithoutPredicatePushdown.queryId()).getInputPositions();
         if (supportsPushdown) {
-            assertThat(withPushdownDataSize).isLessThan(withoutPushdownDataSize);
+            assertThat(withPushdownPositions).isLessThan(withoutPushdownPositions);
         }
         else {
-            assertThat(withPushdownDataSize).isEqualTo(withoutPushdownDataSize);
+            assertThat(withPushdownPositions).isEqualTo(withoutPushdownPositions);
         }
     }
 

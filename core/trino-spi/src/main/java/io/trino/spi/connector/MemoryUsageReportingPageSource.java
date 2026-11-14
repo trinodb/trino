@@ -16,8 +16,10 @@ package io.trino.spi.connector;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.metrics.Metrics;
+import io.trino.spi.predicate.Domain;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.ObjLongConsumer;
@@ -137,6 +139,12 @@ public final class MemoryUsageReportingPageSource
         public int getChannelCount()
         {
             return sourcePage.getChannelCount();
+        }
+
+        @Override
+        public Optional<Domain> getValueBounds(int channel)
+        {
+            return sourcePage.getValueBounds(channel);
         }
 
         @Override
