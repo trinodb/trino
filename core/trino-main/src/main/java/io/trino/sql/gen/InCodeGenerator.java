@@ -144,13 +144,11 @@ public class InCodeGenerator
         MethodHandle hashCodeMethodHandle = generatorContext.getScalarFunctionImplementation(resolvedHashCodeFunction, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
         MethodHandle indeterminateMethodHandle = generatorContext.getScalarFunctionImplementation(resolvedIsIndeterminate, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
 
-        ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
-        ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
+        ImmutableListMultimap.Builder<Integer, Expression> hashBucketsBuilder = ImmutableListMultimap.builder();
+        ImmutableList.Builder<Expression> defaultBucket = ImmutableList.builder();
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
 
         for (Expression testValue : testExpressions) {
-            BytecodeNode testBytecode = generatorContext.generate(testValue);
-
             if (isDeterminateConstant(testValue, indeterminateMethodHandle)) {
                 Constant constant = (Constant) testValue;
                 Object object = constant.value();
@@ -159,7 +157,7 @@ public class InCodeGenerator
                     case HASH_SWITCH -> {
                         try {
                             int hashCode = Long.hashCode((Long) hashCodeMethodHandle.invoke(object));
-                            hashBucketsBuilder.put(hashCode, testBytecode);
+                            hashBucketsBuilder.put(hashCode, testValue);
                         }
                         catch (Throwable throwable) {
                             throw new IllegalArgumentException("Error processing IN statement: error calculating hash code for " + object, throwable);
@@ -169,10 +167,10 @@ public class InCodeGenerator
                 }
             }
             else {
-                defaultBucket.add(testBytecode);
+                defaultBucket.add(testValue);
             }
         }
-        ImmutableListMultimap<Integer, BytecodeNode> hashBuckets = hashBucketsBuilder.build();
+        ImmutableListMultimap<Integer, Expression> hashBuckets = hashBucketsBuilder.build();
         Set<Object> constantValues = constantValuesBuilder.build();
 
         LabelNode end = new LabelNode("end");
@@ -204,8 +202,8 @@ public class InCodeGenerator
                         .append(switchBuilder.build());
             }
             case HASH_SWITCH -> {
-                for (Entry<Integer, Collection<BytecodeNode>> bucket : hashBuckets.asMap().entrySet()) {
-                    Collection<BytecodeNode> testValues = bucket.getValue();
+                for (Entry<Integer, Collection<Expression>> bucket : hashBuckets.asMap().entrySet()) {
+                    Collection<Expression> testValues = bucket.getValue();
                     BytecodeBlock caseBlock = buildInCase(
                             generatorContext,
                             scope,
@@ -304,7 +302,7 @@ public class InCodeGenerator
             LabelNode matchLabel,
             LabelNode noMatchLabel,
             Variable value,
-            Collection<BytecodeNode> testValues,
+            Collection<Expression> testValues,
             boolean checkForNulls,
             ResolvedFunction isIndeterminateFunction)
     {
@@ -343,11 +341,11 @@ public class InCodeGenerator
         elseBlock.gotoLabel(noMatchLabel);
 
         BytecodeNode elseNode = elseBlock;
-        for (BytecodeNode testNode : testValues) {
+        for (Expression testValue : testValues) {
             LabelNode testLabel = new LabelNode("test");
             IfStatement test = new IfStatement();
 
-            BytecodeNode equalsCall = generatorContext.generateCall(equals, ImmutableList.of(value, testNode));
+            BytecodeNode equalsCall = generatorContext.generateCall(equals, ImmutableList.of(value, generatorContext.generate(testValue)));
 
             test.condition()
                     .visitLabel(testLabel)

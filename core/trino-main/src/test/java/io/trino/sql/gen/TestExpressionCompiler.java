@@ -1929,6 +1929,44 @@ public class TestExpressionCompiler
     }
 
     @Test
+    public void testInWithCase()
+    {
+        for (String suffix : List.of("4", "BIGINT '2147483648'", "4, 5, 6, 7, 8, 9, 10")) {
+            for (String operand : List.of("0", "CAST(NULL AS INTEGER)")) {
+                assertThat(assertions.expression("1 IN (CASE x WHEN 0 THEN 2 ELSE 3 END, %s)".formatted(suffix))
+                        .binding("x", operand))
+                        .isEqualTo(false);
+            }
+        }
+    }
+
+    @Test
+    public void testInWithMultipleComputedValues()
+    {
+        for (String values : List.of("x, CASE x WHEN 0 THEN 2 ELSE 3 END", "CASE x WHEN 0 THEN 2 ELSE 3 END, x")) {
+            assertThat(assertions.expression("1 IN (%s)".formatted(values))
+                    .binding("x", "0"))
+                    .isEqualTo(false);
+            assertThat(assertions.expression("2 IN (%s)".formatted(values))
+                    .binding("x", "0"))
+                    .isEqualTo(true);
+        }
+    }
+
+    @Test
+    public void testInWithCaseAndNull()
+    {
+        for (String values : List.of("NULL, CASE x WHEN 0 THEN 2 ELSE 3 END", "CASE x WHEN 0 THEN 2 ELSE 3 END, NULL")) {
+            assertThat(assertions.expression("1 IN (%s)".formatted(values))
+                    .binding("x", "0"))
+                    .isNull(BOOLEAN);
+            assertThat(assertions.expression("2 IN (%s)".formatted(values))
+                    .binding("x", "0"))
+                    .isEqualTo(true);
+        }
+    }
+
+    @Test
     public void testIn()
     {
         for (Boolean value : booleanValues) {
