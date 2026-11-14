@@ -659,7 +659,7 @@ public abstract class BaseTrinoCatalogTest
                         false,
                         false);
                 closer.register(() -> catalog.dropMaterializedView(SESSION, materializedView));
-                allTables.add(new TableInfo(materializedView, TRINO_MATERIALIZED_VIEW));
+                allTables.add(new TableInfo(materializedView, getMaterializedViewType()));
             }
             catch (TrinoException e) {
                 assertThat(e.getErrorCode()).isEqualTo(NOT_SUPPORTED.toErrorCode());
@@ -688,6 +688,11 @@ public abstract class BaseTrinoCatalogTest
     protected ExtendedRelationType getViewType()
     {
         return TRINO_VIEW;
+    }
+
+    protected ExtendedRelationType getMaterializedViewType()
+    {
+        return TRINO_MATERIALIZED_VIEW;
     }
 
     protected void createMaterializedView(

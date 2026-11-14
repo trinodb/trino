@@ -44,6 +44,7 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -51,6 +52,7 @@ import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.MaterializedViewDependencies;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
@@ -663,6 +665,30 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorViewHandle materializedViewHandle,
+            ConnectorTableHandle storageTableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceRelations,
+            RetryMode retryMode,
+            RefreshType refreshType)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, sourceTableHandles, sourceViewHandles, hasForeignSourceRelations, retryMode, refreshType);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorViewHandle> getViewHandle(ConnectorSession session, SchemaTableName viewName)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getViewHandle(session, viewName);
+        }
+    }
+
+    @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions, boolean hasNonDeterministicFunctions)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
@@ -671,6 +697,25 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Deprecated
+    @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorViewHandle materializedViewHandle,
+            ConnectorTableHandle storageTableHandle,
+            ConnectorInsertTableHandle insertHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceRelations,
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.finishRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceViewHandles, hasForeignSourceRelations, hasSourceTableFunctions, hasNonDeterministicFunctions);
+        }
+    }
+
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
@@ -1245,6 +1290,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getMaterializedViewFreshness(session, name, considerGracePeriod);
+        }
+    }
+
+    @Override
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean considerGracePeriod, MaterializedViewDependencies dependencies)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getMaterializedViewFreshness(session, name, considerGracePeriod, dependencies);
         }
     }
 

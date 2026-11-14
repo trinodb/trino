@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.apache.iceberg.Snapshot;
@@ -27,23 +26,10 @@ import java.util.Set;
 
 public final class IcebergMaterializedViewSummary
 {
-    // Snapshot summary properties tracking the tables/functions a materialized view depends on, and its snapshot ids.
-    public static final String DEPENDS_ON_TABLES = "dependsOnTables";
-    public static final String DEPENDS_ON_TABLE_FUNCTIONS = "dependsOnTableFunctions";
-    public static final String DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS = "dependsOnNonDeterministicFunctions";
-    // Value should be ISO-8601 formatted time instant
-    public static final String TRINO_QUERY_START_TIME = "trino-query-start-time";
-
-    private static final List<String> DEPENDENCY_SUMMARY_PROPERTIES = ImmutableList.of(
-            DEPENDS_ON_TABLES,
-            DEPENDS_ON_TABLE_FUNCTIONS,
-            DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS,
-            TRINO_QUERY_START_TIME);
-
     private IcebergMaterializedViewSummary() {}
 
     /**
-     * Carries forward the materialized view dependency summary properties onto the given snapshot update.
+     * Carries forward the given materialized view dependency summary properties onto the given snapshot update.
      * Maintenance operations that commit a new snapshot on a materialized view storage table (OPTIMIZE,
      * optimize_manifests) would otherwise drop these properties, which would break freshness computation and
      * demote the next incremental refresh to a full refresh. This is a no-op for ordinary tables, which do not
@@ -55,23 +41,25 @@ public final class IcebergMaterializedViewSummary
      * {@code REFRESH MATERIALIZED VIEW}, cannot cause a stale summary to be carried onto the new snapshot: the
      * validator reruns on every commit retry and always sees the parent the commit is about to attach to.
      */
-    public static void carryForwardMaterializedViewDependencies(SnapshotUpdate<?> snapshotUpdate)
+    public static void carryForwardMaterializedViewDependencies(SnapshotUpdate<?> snapshotUpdate, List<String> properties)
     {
-        snapshotUpdate.validateWith(new DependencySummaryAncestryValidator(snapshotUpdate));
+        snapshotUpdate.validateWith(new DependencySummaryAncestryValidator(snapshotUpdate, properties));
     }
 
     private static final class DependencySummaryAncestryValidator
             implements SnapshotAncestryValidator
     {
         private final SnapshotUpdate<?> snapshotUpdate;
+        private final List<String> properties;
         // Properties set by a previous validation attempt (a previous commit retry). SnapshotUpdate.set cannot
         // unset a property, so if the parent snapshot seen on a later attempt no longer carries one of these,
         // committing would resurrect the stale value instead of dropping it.
         private final Set<String> propertiesSetSoFar = new HashSet<>();
 
-        private DependencySummaryAncestryValidator(SnapshotUpdate<?> snapshotUpdate)
+        private DependencySummaryAncestryValidator(SnapshotUpdate<?> snapshotUpdate, List<String> properties)
         {
             this.snapshotUpdate = snapshotUpdate;
+            this.properties = properties;
         }
 
         @Override
@@ -87,7 +75,7 @@ public final class IcebergMaterializedViewSummary
             else {
                 summary = parent.summary();
             }
-            for (String key : DEPENDENCY_SUMMARY_PROPERTIES) {
+            for (String key : properties) {
                 String value = summary.get(key);
                 if (value != null) {
                     snapshotUpdate.set(key, value);
