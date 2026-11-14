@@ -1176,10 +1176,9 @@ public abstract class BaseJdbcClient
                 handle.getTemporaryTableName().orElseThrow());
 
         // We conditionally create more than the one table, so keep a list of the tables that need to be dropped.
-        Closer closer = Closer.create();
-        closer.register(() -> dropTable(session, temporaryTable, true));
-
-        try (Connection connection = getConnection(session, handle)) {
+        try (Closer closer = Closer.create();
+                Connection connection = getConnection(session, handle)) {
+            closer.register(() -> dropTable(session, temporaryTable, true));
             verify(connection.getAutoCommit());
             String columns = handle.getColumnNames().stream()
                     .map(this::quoted)
@@ -1204,16 +1203,8 @@ public abstract class BaseJdbcClient
 
             execute(session, connection, insertSql);
         }
-        catch (SQLException e) {
+        catch (SQLException | IOException e) {
             throw new TrinoException(JDBC_ERROR, e);
-        }
-        finally {
-            try {
-                closer.close();
-            }
-            catch (IOException e) {
-                throw new TrinoException(JDBC_ERROR, e);
-            }
         }
     }
 
