@@ -122,28 +122,19 @@ public class Console
         TrinoUri uri = clientOptions.getTrinoUri(restrictedOptions);
         ClientSession session = clientOptions.toClientSession(uri);
         boolean hasQuery = clientOptions.execute != null;
-        boolean isFromFile = !isNullOrEmpty(clientOptions.file);
+        boolean isFromFiles = !clientOptions.files.isEmpty();
 
         String query = clientOptions.execute;
         if (hasQuery) {
             query += ";";
         }
 
-        if (isFromFile) {
-            if (hasQuery) {
-                throw new RuntimeException("both --execute and --file specified");
-            }
-            try {
-                query = asCharSource(new File(clientOptions.file), UTF_8).read();
-                hasQuery = true;
-            }
-            catch (IOException e) {
-                throw new RuntimeException(format("Error reading from file %s: %s", clientOptions.file, e.getMessage()));
-            }
+        if (isFromFiles && hasQuery) {
+            throw new RuntimeException("both --execute and --file specified");
         }
 
         // Read queries from stdin
-        if (!hasQuery && !isRealTerminal()) {
+        if (!hasQuery && !isFromFiles && !isRealTerminal()) {
             try {
                 if (System.in.available() > 0) {
                     query = new String(System.in.readAllBytes(), terminalEncoding()) + ";";
@@ -180,6 +171,49 @@ public class Console
                 clientOptions.debug,
                 clientOptions.maxQueuedRows,
                 clientOptions.maxBufferedRows)) {
+            // Run query from each file sequentially
+            if (isFromFiles) {
+                boolean overallSuccess = true;
+                for (String file : clientOptions.files) {
+                    if (exiting.get()) {
+                        break;
+                    }
+
+                    String fileQuery;
+                    try {
+                        fileQuery = asCharSource(new File(file), UTF_8).read();
+                    }
+                    catch (IOException e) {
+                        String message = format("Error reading from file '%s': %s", file, e.getMessage());
+                        if (!clientOptions.ignoreErrors) {
+                            throw new RuntimeException(message, e);
+                        }
+                        System.err.println(message);
+                        overallSuccess = false;
+                        continue;
+                    }
+
+                    boolean success = executeCommand(
+                            queryRunner,
+                            exiting,
+                            fileQuery,
+                            clientOptions.outputFormat,
+                            clientOptions.ignoreErrors,
+                            clientOptions.progress.orElse(false),
+                            clientOptions.decimalDataSize);
+
+                    if (!success) {
+                        if (clientOptions.ignoreErrors) {
+                            overallSuccess = false;
+                        }
+                        else {
+                            return false;
+                        }
+                    }
+                }
+                return overallSuccess;
+            }
+
             if (hasQuery) {
                 return executeCommand(
                         queryRunner,
