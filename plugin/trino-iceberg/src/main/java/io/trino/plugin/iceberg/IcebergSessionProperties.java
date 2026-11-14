@@ -95,6 +95,8 @@ public final class IcebergSessionProperties
     private static final String PARQUET_WRITER_DELTA_LENGTH_BYTE_ARRAY_ENCODING_ENABLED = "parquet_writer_delta_length_byte_array_encoding_enabled";
     public static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
+    private static final String PARTITION_STATISTICS_ENABLED = "partition_statistics_enabled";
+    private static final String PARTITION_STATISTICS_MIN_DATA_FILES = "partition_statistics_min_data_files";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String IDLE_WRITER_MIN_FILE_SIZE = "idle_writer_min_file_size";
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE = "collect_extended_statistics_on_write";
@@ -317,6 +319,21 @@ public final class IcebergSessionProperties
                         STATISTICS_ENABLED,
                         "Expose table statistics",
                         icebergConfig.isTableStatisticsEnabled(),
+                        false))
+                .add(booleanProperty(
+                        PARTITION_STATISTICS_ENABLED,
+                        "Use partition statistics files and the snapshot summary for row count estimates instead of reading the metadata of every data file",
+                        icebergConfig.isPartitionStatisticsEnabled(),
+                        false))
+                .add(integerProperty(
+                        PARTITION_STATISTICS_MIN_DATA_FILES,
+                        "Minimum number of data files a scan would otherwise read metadata for before partition statistics are used; 0 means always",
+                        icebergConfig.getPartitionStatisticsMinDataFiles(),
+                        value -> {
+                            if (value < 0) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be at least 0: %s", PARTITION_STATISTICS_MIN_DATA_FILES, value));
+                            }
+                        },
                         false))
                 .add(booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,
@@ -588,6 +605,16 @@ public final class IcebergSessionProperties
     public static boolean isStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(STATISTICS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPartitionStatisticsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARTITION_STATISTICS_ENABLED, Boolean.class);
+    }
+
+    public static int getPartitionStatisticsMinDataFiles(ConnectorSession session)
+    {
+        return session.getProperty(PARTITION_STATISTICS_MIN_DATA_FILES, Integer.class);
     }
 
     public static boolean isCollectExtendedStatisticsOnWrite(ConnectorSession session)
