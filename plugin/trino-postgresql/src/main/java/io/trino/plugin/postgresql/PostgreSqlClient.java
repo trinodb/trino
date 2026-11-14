@@ -1010,23 +1010,15 @@ public class PostgreSqlClient
     @Override
     public void finishMerge(ConnectorSession session, JdbcMergeTableHandle handle, Set<Long> pageSinkIds)
     {
-        Closer closer = Closer.create();
-        try (Connection connection = connectionFactory.openConnection(session)) {
+        try (Closer closer = Closer.create();
+                Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             RemoteTableName pageSinkIdsTable = constructPageSinkIdsTable(session, connection, handle.getOutputTableHandle(), pageSinkIds, closer);
 
             doFinishMerge(session, connection, handle, pageSinkIdsTable, closer);
         }
-        catch (SQLException e) {
+        catch (SQLException | IOException e) {
             throw new TrinoException(JDBC_ERROR, e);
-        }
-        finally {
-            try {
-                closer.close();
-            }
-            catch (IOException e) {
-                throw new TrinoException(JDBC_ERROR, e);
-            }
         }
     }
 
