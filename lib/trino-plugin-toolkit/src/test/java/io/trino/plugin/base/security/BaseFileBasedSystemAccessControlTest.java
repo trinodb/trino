@@ -161,11 +161,11 @@ public abstract class BaseFileBasedSystemAccessControlTest
         sleep(2);
 
         assertThatThrownBy(() -> accessControl.checkCanCreateView(alice, aliceView))
-                .hasMessageContaining("Failed to convert JSON tree node");
+                .hasMessageContaining("Unrecognized property");
 
         // test if file based cached control was not cached somewhere
         assertThatThrownBy(() -> accessControl.checkCanCreateView(alice, aliceView))
-                .hasMessageContaining("Failed to convert JSON tree node");
+                .hasMessageContaining("Unrecognized property");
 
         Files.copy(getResourcePath("file-based-system-catalog.json"), configFile, REPLACE_EXISTING);
         sleep(2);
@@ -2022,7 +2022,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     public void parseUnknownRules()
     {
         assertThatThrownBy(() -> newFileBasedSystemAccessControl("file-based-system-security-config-file-with-unknown-rules.json"))
-                .hasMessageContaining("Failed to convert JSON tree node");
+                .hasMessageContaining("Unrecognized property");
     }
 
     @Test

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.json.Json;
@@ -26,6 +25,8 @@ import io.trino.spi.type.Type;
 import io.trino.type.JsonType;
 import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.ObjectMapper;
 
 import java.lang.reflect.Proxy;
 import java.net.URL;
@@ -60,7 +61,7 @@ public class TestJsonColumnMapping
                         ImmutableList.class,
                         DateTimeZone.class,
                         ObjectMapper.class,
-                        ObjectMapper.class.getSuperclass())
+                        JsonParser.class)
                 .map(type -> type.getProtectionDomain().getCodeSource().getLocation())
                 .toList();
         try (PluginClassLoader loader = PluginManager.createClassLoader("json-mapping-test", classPath)) {

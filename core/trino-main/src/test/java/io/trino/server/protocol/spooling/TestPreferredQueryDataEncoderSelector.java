@@ -13,12 +13,12 @@
  */
 package io.trino.server.protocol.spooling;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.trino.server.protocol.spooling.QueryDataEncoder.EncoderSelector;
 import io.trino.server.protocol.spooling.encoding.JsonQueryDataEncoder;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 import java.util.Set;

@@ -14,10 +14,6 @@
 package io.trino.plugin.httpquery;
 
 import com.fasterxml.jackson.annotation.JsonFilter;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectWriter;
-import com.fasterxml.jackson.databind.ser.FilterProvider;
-import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.FutureCallback;
@@ -36,6 +32,9 @@ import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import jakarta.annotation.PreDestroy;
+import tools.jackson.databind.ObjectWriter;
+import tools.jackson.databind.ser.FilterProvider;
+import tools.jackson.databind.ser.std.SimpleFilterProvider;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -43,7 +42,6 @@ import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter.serializeAllExcept;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.MediaType.JSON_UTF_8;
@@ -53,6 +51,7 @@ import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerat
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static tools.jackson.databind.ser.std.SimpleBeanPropertyFilter.serializeAllExcept;
 
 /**
  * Implement an EventListener that send events, serialized as JSON, to a ingest server.
@@ -97,7 +96,9 @@ public class HttpEventListener
         FilterProvider filter = new SimpleFilterProvider().addFilter("property-name-filter", serializeAllExcept(config.getExcludedFields()));
         this.writer = new JsonMapperProvider()
                 .get()
+                .rebuild()
                 .addMixIn(Object.class, PropertyFilterMixIn.class)
+                .build()
                 .writer(filter);
         this.logCreated = config.getLogCreated();
         this.logCompleted = config.getLogCompleted();
@@ -145,12 +146,7 @@ public class HttpEventListener
 
     private BodyGenerator eventBodyGenerator(Object event)
     {
-        try {
-            return createStaticBodyGenerator(writer.writeValueAsBytes(event));
-        }
-        catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
+        return createStaticBodyGenerator(writer.writeValueAsBytes(event));
     }
 
     private void sendLog(BodyGenerator eventBodyGenerator, String queryId)

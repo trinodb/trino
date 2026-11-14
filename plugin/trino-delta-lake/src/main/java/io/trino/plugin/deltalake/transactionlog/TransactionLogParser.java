@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import dev.failsafe.Failsafe;
+import dev.failsafe.Fallback;
 import dev.failsafe.RetryPolicy;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
@@ -36,6 +33,10 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
+import tools.jackson.core.exc.JacksonIOException;
+import tools.jackson.core.exc.StreamReadException;
+import tools.jackson.databind.DatabindException;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -270,20 +271,24 @@ public final class TransactionLogParser
 
     public static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
     {
-        return Failsafe.with(RetryPolicy.builder()
-                        .withMaxRetries(5)
-                        .withDelay(Duration.ofSeconds(1))
-                        .onRetry(event -> {
-                            // The _last_checkpoint file is malformed, it's probably in the middle of a rewrite (file rewrites on Azure are NOT atomic)
-                            // Retry several times with a short delay, and if that fails, fall back to manually finding latest checkpoint.
-                            log.debug(event.getLastException(), "Failure when accessing last checkpoint information, will be retried");
-                        })
-                        .build())
+        return Failsafe.with(
+                        Fallback.<Optional<LastCheckpoint>>builder(Optional.empty())
+                                .handle(StreamReadException.class, DatabindException.class)
+                                .onFailedAttempt(event -> log.warn(event.getLastException(), "Malformed last checkpoint file in %s, falling back to manual checkpoint discovery", tableLocation))
+                                .build(),
+                        RetryPolicy.<Optional<LastCheckpoint>>builder()
+                                .withMaxRetries(5)
+                                .withDelay(Duration.ofSeconds(1))
+                                .onRetry(event -> {
+                                    // The _last_checkpoint file is malformed, it's probably in the middle of a rewrite (file rewrites on Azure are NOT atomic)
+                                    // Retry several times with a short delay, and if that fails, fall back to manually finding latest checkpoint.
+                                    log.debug(event.getLastException(), "Failure when accessing last checkpoint information, will be retried");
+                                })
+                                .build())
                 .get(() -> tryReadLastCheckpoint(fileSystem, tableLocation));
     }
 
     private static Optional<LastCheckpoint> tryReadLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
-            throws JsonParseException, JsonMappingException
     {
         Location checkpointPath = Location.of(getTransactionLogDir(tableLocation)).appendPath(LAST_CHECKPOINT_FILENAME);
         TrinoInputFile inputFile = fileSystem.newInputFile(checkpointPath);
@@ -291,11 +296,7 @@ public final class TransactionLogParser
             // Note: there apparently is 8K buffering applied and _last_checkpoint should be much smaller.
             return Optional.of(JsonUtils.parseJson(JSON_MAPPER, lastCheckpointInput, LastCheckpoint.class));
         }
-        catch (JsonParseException | JsonMappingException e) {
-            // The _last_checkpoint file is malformed, it's probably in the middle of a rewrite (file rewrites on Azure are NOT atomic)
-            throw e;
-        }
-        catch (IOException | UncheckedIOException e) {
+        catch (IOException | UncheckedIOException | JacksonIOException e) {
             // _last_checkpoint file was not found, we need to find latest checkpoint manually
             // ideally, we'd detect the condition by catching FileNotFoundException, but some file system implementations
             // will throw different exceptions if the checkpoint is not found
@@ -362,13 +363,20 @@ public final class TransactionLogParser
         try (InputStream checksumInput = inputFile.newStream()) {
             return Optional.of(JsonUtils.parseJson(JSON_MAPPER, checksumInput, DeltaLakeVersionChecksum.class));
         }
-        catch (IllegalArgumentException e) {
-            // JsonUtils throws IllegalArgumentException for trailing content after the JSON object
+        catch (StreamReadException | DatabindException e) {
+            // Checksum files are optional; malformed checksum files fall back to scanning the Delta log
             return Optional.empty();
         }
+        catch (JacksonIOException e) {
+            // Checksum files are optional; missing checksum files fall back to scanning the Delta log
+            if (isFileNotFoundException(e)) {
+                return Optional.empty();
+            }
+            throw e.getCause();
+        }
         catch (IOException | UncheckedIOException e) {
-            // Checksum files are optional; missing or malformed checksum files fall back to scanning the Delta log
-            if (isFileNotFoundException(e) || Throwables.getCausalChain(e).stream().anyMatch(JsonProcessingException.class::isInstance)) {
+            // Checksum files are optional; missing checksum files fall back to scanning the Delta log
+            if (isFileNotFoundException(e)) {
                 return Optional.empty();
             }
             throw e;

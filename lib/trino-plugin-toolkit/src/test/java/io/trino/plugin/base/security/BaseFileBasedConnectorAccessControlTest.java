@@ -795,7 +795,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     public void testInvalidRules()
     {
         assertThatThrownBy(() -> createAccessControl("invalid.json"))
-                .hasMessageContaining("Failed to convert JSON tree node");
+                .hasMessageContaining("Unrecognized property");
     }
 
     @Test

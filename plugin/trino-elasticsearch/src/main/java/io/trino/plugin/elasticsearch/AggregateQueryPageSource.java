@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
 import io.trino.plugin.elasticsearch.client.AggregationSearchResult;
@@ -25,6 +24,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
+import tools.jackson.databind.JsonNode;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -164,7 +164,7 @@ public class AggregateQueryPageSource
             result.put(entry.getKey(), switch (value.getNodeType()) {
                 case NULL -> null;
                 case NUMBER -> value.numberValue();
-                case STRING -> value.textValue();
+                case STRING -> value.stringValue();
                 case BOOLEAN -> value.booleanValue();
                 default -> throw new IllegalStateException("Unexpected composite aggregation key: " + value);
             });
@@ -218,7 +218,7 @@ public class AggregateQueryPageSource
         if (statsValue.path("count").asLong() == 0) {
             return null;
         }
-        return statsValue.path("sum").asDouble();
+        return toDouble(statsValue.path("sum"));
     }
 
     static Double extractSingleValue(JsonNode singleValue)
@@ -226,6 +226,15 @@ public class AggregateQueryPageSource
         if (singleValue.isNull()) {
             return null;
         }
-        return singleValue.asDouble();
+        return toDouble(singleValue);
+    }
+
+    // Jackson 3 asDouble() rejects string nodes such as "Infinity" and "NaN"
+    private static double toDouble(JsonNode node)
+    {
+        if (node.isString()) {
+            return Double.parseDouble(node.stringValue());
+        }
+        return node.asDouble();
     }
 }

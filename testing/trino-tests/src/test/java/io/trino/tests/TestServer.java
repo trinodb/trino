@@ -13,29 +13,25 @@
  */
 package io.trino.tests;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
-import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.JsonMapperProvider;
-import io.trino.client.QueryDataJacksonModule;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.client.ResultRowsDecoder;
+import io.trino.client.TrinoJsonCodec;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.BasicQueryInfo;
+import io.trino.server.TrinoJsonResponseHandler.TrinoJsonResponse;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.TimeZoneNotSupportedException;
@@ -62,7 +58,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HeaderNames.LOCATION;
 import static io.airlift.http.client.HeaderNames.X_FORWARDED_HOST;
@@ -80,6 +75,7 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ClientCapabilities.PATH;
 import static io.trino.client.ClientCapabilities.SESSION_AUTHORIZATION;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static io.trino.server.TrinoJsonResponseHandler.createFullTrinoJsonResponseHandler;
 import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -99,12 +95,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestServer
 {
-    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider()
-            .withModules(Set.of(new QueryDataJacksonModule()))
-            .get();
-
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(JSON_MAPPER)
-            .jsonCodec(QueryResults.class);
+    private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = TrinoJsonCodec.jsonCodec(QueryResults.class);
 
     private TestingTrinoServer server;
     private HttpClient client;
@@ -143,7 +134,7 @@ public class TestServer
                 .setHeader(HeaderName.of(TRINO_HEADERS.requestSchema()), "schema")
                 .setHeader(HeaderName.of(TRINO_HEADERS.requestPath()), "path")
                 .setHeader(HeaderName.of(TRINO_HEADERS.requestTimeZone()), invalidTimeZone))
-                .map(JsonResponse::getValue)
+                .map(TrinoJsonResponse::value)
                 .peek(result -> checkState((result.getError() == null) != (result.getNextUri() == null)))
                 .collect(last());
 
@@ -165,7 +156,7 @@ public class TestServer
                 .setHeader(HeaderName.of(TRINO_HEADERS.requestCatalog()), "catalog")
                 .setHeader(HeaderName.of(TRINO_HEADERS.requestSchema()), "schema")
                 .setHeader(HeaderName.of(TRINO_HEADERS.requestPath()), "path"))
-                .map(JsonResponse::getValue)
+                .map(TrinoJsonResponse::value)
                 .collect(toImmutableList());
 
         QueryResults first = queryResults.getFirst();
@@ -214,7 +205,7 @@ public class TestServer
                 .addHeader(HeaderName.of(TRINO_HEADERS.requestSession()), QUERY_MAX_MEMORY + "=1GB")
                 .addHeader(HeaderName.of(TRINO_HEADERS.requestSession()), JOIN_DISTRIBUTION_TYPE + "=partitioned," + MAX_HASH_PARTITION_COUNT + " = 43")
                 .addHeader(HeaderName.of(TRINO_HEADERS.requestPreparedStatement()), "foo=select * from bar"))
-                .map(JsonResponse::getValue)
+                .map(TrinoJsonResponse::value)
                 .peek(result -> assertThat(result.getError()).isNull())
                 .peek(results -> {
                     if (results.getData() != null) {
@@ -251,10 +242,10 @@ public class TestServer
     @Test
     public void testTransactionSupport()
     {
-        JsonResponse<QueryResults> queryResults = postQuery(request -> request
+        TrinoJsonResponse<QueryResults> queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8))
                 .setHeader(HeaderName.of(TRINO_HEADERS.requestTransactionId()), "none"))
-                .peek(result -> assertThat(result.getValue().getError()).isNull())
+                .peek(result -> assertThat(result.value().getError()).isNull())
                 .collect(last());
         assertThat(queryResults.getHeader(HeaderName.of(TRINO_HEADERS.responseStartedTransactionId()))).isNotNull();
     }
@@ -263,7 +254,7 @@ public class TestServer
     public void testNoTransactionSupport()
     {
         QueryResults queryResults = postQuery(request -> request.setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8)))
-                .map(JsonResponse::getValue)
+                .map(TrinoJsonResponse::value)
                 .filter(result -> result.getError() != null)
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Error expected"));
@@ -352,7 +343,7 @@ public class TestServer
     {
         QueryResults queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator(query, UTF_8)))
-                .map(JsonResponse::getValue)
+                .map(TrinoJsonResponse::value)
                 .filter(result -> result.getError() != null)
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Error expected"));
@@ -418,14 +409,14 @@ public class TestServer
                 .hasValue("https://my-load-balancer.local/ui/");
     }
 
-    private Stream<JsonResponse<QueryResults>> postQuery(Function<Request.Builder, Request.Builder> requestConfigurer)
+    private Stream<TrinoJsonResponse<QueryResults>> postQuery(Function<Request.Builder, Request.Builder> requestConfigurer)
     {
         Request.Builder request = preparePost()
                 .setUri(uriFor("/v1/statement"))
                 .setHeader(HeaderName.of(TRINO_HEADERS.requestUser()), "user")
                 .setHeader(HeaderName.of(TRINO_HEADERS.requestSource()), "source");
         request = requestConfigurer.apply(request);
-        JsonResponse<QueryResults> queryResults = client.execute(request.build(), createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
+        TrinoJsonResponse<QueryResults> queryResults = client.execute(request.build(), createFullTrinoJsonResponseHandler(QUERY_RESULTS_CODEC));
         return Streams.stream(new QueryResultsIterator(client, queryResults));
     }
 
@@ -443,24 +434,24 @@ public class TestServer
     }
 
     private static class QueryResultsIterator
-            extends AbstractSequentialIterator<JsonResponse<QueryResults>>
+            extends AbstractSequentialIterator<TrinoJsonResponse<QueryResults>>
     {
         private final HttpClient client;
 
-        QueryResultsIterator(HttpClient client, JsonResponse<QueryResults> firstResults)
+        QueryResultsIterator(HttpClient client, TrinoJsonResponse<QueryResults> firstResults)
         {
             super(requireNonNull(firstResults, "firstResults is null"));
             this.client = requireNonNull(client, "client is null");
         }
 
         @Override
-        protected JsonResponse<QueryResults> computeNext(JsonResponse<QueryResults> previous)
+        protected TrinoJsonResponse<QueryResults> computeNext(TrinoJsonResponse<QueryResults> previous)
         {
-            if (previous.getValue().getNextUri() == null) {
+            if (previous.value().getNextUri() == null) {
                 return null;
             }
 
-            return client.execute(prepareGet().setUri(previous.getValue().getNextUri()).build(), createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
+            return client.execute(prepareGet().setUri(previous.value().getNextUri()).build(), createFullTrinoJsonResponseHandler(QUERY_RESULTS_CODEC));
         }
     }
 }

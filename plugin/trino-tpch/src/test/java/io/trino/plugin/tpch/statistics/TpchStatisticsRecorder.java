@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.tpch.statistics;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.tpch.TpchColumn;
@@ -43,7 +42,7 @@ public class TpchStatisticsRecorder
 
     static void main()
     {
-        TpchStatisticsRecorder tool = new TpchStatisticsRecorder(new TableStatisticsRecorder(), new TableStatisticsDataRepository(createJsonMapper()));
+        TpchStatisticsRecorder tool = new TpchStatisticsRecorder(new TableStatisticsRecorder(), new TableStatisticsDataRepository(new JsonMapperProvider().get()));
 
         SUPPORTED_SCHEMAS.forEach(schemaName -> {
             TpchTable.getTables()
@@ -60,11 +59,6 @@ public class TpchStatisticsRecorder
     {
         this.tableStatisticsRecorder = tableStatisticsRecorder;
         this.tableStatisticsDataRepository = tableStatisticsDataRepository;
-    }
-
-    private static JsonMapper createJsonMapper()
-    {
-        return new JsonMapperProvider().get();
     }
 
     private <E extends TpchEntity> void computeAndOutputStatsFor(String schemaName, TpchTable<E> table)

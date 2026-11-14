@@ -351,6 +351,18 @@ public class TestJsonQueryFunction
     }
 
     @Test
+    public void testEmptyOnErrorAsVarbinary()
+    {
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'strict $[100]' RETURNING varbinary EMPTY ARRAY ON ERROR)"))
+                .matches("VALUES X'" + base16().encode("[]".getBytes(UTF_8)) + "'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'strict $[100]' RETURNING varbinary EMPTY OBJECT ON ERROR)"))
+                .matches("VALUES X'" + base16().encode("{}".getBytes(UTF_8)) + "'");
+    }
+
+    @Test
     public void testOutput()
     {
         // default returned type is varchar, and default formatting is FORMAT JSON

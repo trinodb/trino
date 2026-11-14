@@ -13,10 +13,10 @@
  */
 package io.trino.type;
 
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Inject;
 import io.trino.spi.type.TypeDescriptor;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.deser.std.FromStringDeserializer;
 
 public final class TypeDescriptorDeserializer
         extends FromStringDeserializer<TypeDescriptor>

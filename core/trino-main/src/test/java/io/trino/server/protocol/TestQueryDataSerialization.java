@@ -13,8 +13,6 @@
  */
 package io.trino.server.protocol;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -32,6 +30,9 @@ import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
 import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.net.URI;
 import java.util.List;
@@ -199,6 +200,56 @@ public class TestQueryDataSerialization
     }
 
     @Test
+    public void testServerSerializationMatchesClientSerialization()
+    {
+        List<QueryData> queryDataList = ImmutableList.of(
+                TypedQueryData.of(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L))),
+                new EncodedQueryData("json", ImmutableMap.of("decryptionKey", "secret"), ImmutableList.of(inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12)))),
+                EncodedQueryData.builder("json")
+                        .withSegments(List.of(
+                                inlined("super".getBytes(UTF_8), dataAttributes(0, 100, 5)),
+                                spooled(
+                                        URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/1"),
+                                        URI.create("http://localhost:8080/v1/ack/20160128_214710_00012_rk68b/segments/1"),
+                                        dataAttributes(100, 100, 1024),
+                                        headers())))
+                        .withAttributes(DataAttributes.builder().set(SCHEMA, "serializedSchema").build())
+                        .build());
+
+        for (QueryData queryData : queryDataList) {
+            assertThat(withoutNulls(SERVER_MAPPER.readTree(serialize(queryData))))
+                    .isEqualTo(withoutNulls(SERVER_MAPPER.readTree(serializeWithClientCodec(queryData))));
+        }
+
+        // null data is omitted by both
+        assertThat(serializeWithClientCodec(null)).doesNotContain("\"data\"");
+        assertThat(serializeWithClientCodec(QueryData.NULL)).doesNotContain("\"data\"");
+    }
+
+    @Test
+    public void testUnsupportedQueryData()
+    {
+        QueryData unsupported = new QueryData()
+        {
+            @Override
+            public boolean isNull()
+            {
+                return false;
+            }
+
+            @Override
+            public long getRowsCount()
+            {
+                return 1;
+            }
+        };
+
+        assertThatThrownBy(() -> serialize(unsupported))
+                .rootCause()
+                .hasMessageContaining("Unsupported QueryData implementation");
+    }
+
+    @Test
     public void testEncodedQueryDataToString()
     {
         EncodedQueryData inlineQueryData = new EncodedQueryData("json", ImmutableMap.of("decryption_key", "secret"), ImmutableList.of(inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
@@ -217,7 +268,21 @@ public class TestQueryDataSerialization
         testSerializationRoundTrip(queryData, expectedDataRepresentation);
         assertEquals(deserialize(serialize(queryData)), queryData);
 
-        assertThat(serialize(deserialize(serialize(queryData)))).isEqualToIgnoringWhitespace(queryResultsJson(expectedDataRepresentation));
+        // The client codec also writes null fields, so compare the whole payload without them
+        assertThat(withoutNulls(SERVER_MAPPER.readTree(serializeWithClientCodec(deserialize(serialize(queryData))))))
+                .isEqualTo(withoutNulls(SERVER_MAPPER.readTree(queryResultsJson(expectedDataRepresentation))));
+    }
+
+    private static JsonNode withoutNulls(JsonNode node)
+    {
+        if (node instanceof ObjectNode objectNode) {
+            objectNode.remove(objectNode.properties().stream()
+                    .filter(property -> property.getValue().isNull())
+                    .map(Map.Entry::getKey)
+                    .toList());
+        }
+        node.forEach(TestQueryDataSerialization::withoutNulls);
+        return node;
     }
 
     private void testSerializationRoundTrip(QueryData queryData, String expectedDataRepresentation)
@@ -302,14 +367,25 @@ public class TestQueryDataSerialization
         try {
             return CLIENT_CODEC.fromJson(serialized).getData();
         }
-        catch (JsonProcessingException e) {
+        catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     private static String serialize(QueryData data)
     {
-        return SERVER_CODEC.toJson(new QueryResults(
+        return SERVER_CODEC.toJson(queryResults(data));
+    }
+
+    // Data parsed by the client is backed by Jackson 2 structures, so it has to be written by the client codec
+    private static String serializeWithClientCodec(QueryData data)
+    {
+        return CLIENT_CODEC.toJson(queryResults(data));
+    }
+
+    private static QueryResults queryResults(QueryData data)
+    {
+        return new QueryResults(
                 "20160128_214710_00012_rk68b",
                 URI.create("http://coordinator/query.html?20160128_214710_00012_rk68b"),
                 null,
@@ -324,7 +400,7 @@ public class TestQueryDataSerialization
                 null,
                 ImmutableList.of(),
                 null,
-                OptionalLong.empty()));
+                OptionalLong.empty());
     }
 
     private DataAttributes dataAttributes(long currentOffset, long rowCount, int byteSize)

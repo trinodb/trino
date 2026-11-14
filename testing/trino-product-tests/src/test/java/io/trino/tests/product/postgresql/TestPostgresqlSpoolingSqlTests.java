@@ -13,12 +13,12 @@
  */
 package io.trino.tests.product.postgresql;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.trino.testing.containers.environment.ProductTest;
 import io.trino.testing.containers.environment.RequiresEnvironment;
 import io.trino.tests.product.TestGroup;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.net.URI;
@@ -57,13 +57,13 @@ class TestPostgresqlSpoolingSqlTests
                     .header("X-Trino-Query-Data-Encoding", "json")
                     .POST(BodyPublishers.ofString("SELECT * FROM postgresql.public.workers_psql")));
             while (!results.has("data")) {
-                results = send(client, HttpRequest.newBuilder(URI.create(results.required("nextUri").asText())));
+                results = send(client, HttpRequest.newBuilder(URI.create(results.required("nextUri").asString())));
             }
             JsonNode data = results.get("data");
-            assertThat(data.path("encoding").asText()).isEqualTo("json");
+            assertThat(data.path("encoding").asString()).isEqualTo("json");
             assertThat(data.path("segments"))
                     .isNotEmpty()
-                    .allSatisfy(segment -> assertThat(segment.path("type").asText()).isEqualTo("spooled"));
+                    .allSatisfy(segment -> assertThat(segment.path("type").asString()).isEqualTo("spooled"));
         }
         assertThat(env.listSpooledSegments()).isNotEmpty();
     }

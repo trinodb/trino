@@ -13,12 +13,12 @@
  */
 package io.trino.sql.planner;
 
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.KeyDeserializer;
 import com.google.common.base.CharMatcher;
 import com.google.inject.Inject;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.KeyDeserializer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.parseInt;

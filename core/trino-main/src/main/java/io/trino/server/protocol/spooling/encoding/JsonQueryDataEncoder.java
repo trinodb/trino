@@ -13,9 +13,6 @@
  */
 package io.trino.server.protocol.spooling.encoding;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.io.CountingOutputStream;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -26,6 +23,8 @@ import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncodingConfig;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -47,9 +46,9 @@ public class JsonQueryDataEncoder
     private static final String ENCODING = "json";
     private TypeEncoder[] typeEncoders;
     private int[] sourcePageChannels;
-    private final JsonFactory factory;
+    private final JsonMapper mapper;
 
-    public JsonQueryDataEncoder(Session session, List<OutputColumn> columns, JsonFactory factory)
+    public JsonQueryDataEncoder(Session session, List<OutputColumn> columns, JsonMapper mapper)
     {
         this.typeEncoders = createTypeEncoders(session, requireNonNull(columns, "columns is null")
                 .stream()
@@ -58,7 +57,7 @@ public class JsonQueryDataEncoder
         this.sourcePageChannels = requireNonNull(columns, "columns is null").stream()
                 .mapToInt(OutputColumn::sourcePageChannel)
                 .toArray();
-        this.factory = requireNonNull(factory, "factory is null");
+        this.mapper = requireNonNull(mapper, "mapper is null");
     }
 
     @Override
@@ -66,7 +65,7 @@ public class JsonQueryDataEncoder
             throws IOException
     {
         verify(!closed, "JsonQueryDataEncoder is already closed");
-        try (CountingOutputStream wrapper = new CountingOutputStream(output); JsonGenerator generator = factory.createGenerator(wrapper)) {
+        try (CountingOutputStream wrapper = new CountingOutputStream(output); JsonGenerator generator = mapper.createGenerator(wrapper)) {
             writePagesToJsonGenerator(e -> { throw e; }, generator, typeEncoders, sourcePageChannels, pages);
             return DataAttributes.builder()
                     .set(SEGMENT_SIZE, toIntExact(wrapper.getCount()))
@@ -98,18 +97,18 @@ public class JsonQueryDataEncoder
     public static class Factory
             implements QueryDataEncoder.Factory
     {
-        protected final JsonFactory factory;
+        protected final JsonMapper mapper;
 
         @Inject
         public Factory(JsonMapper mapper)
         {
-            this.factory = mapper.getFactory();
+            this.mapper = requireNonNull(mapper, "mapper is null");
         }
 
         @Override
         public QueryDataEncoder create(Session session, List<OutputColumn> columns)
         {
-            return new JsonQueryDataEncoder(session, columns, factory);
+            return new JsonQueryDataEncoder(session, columns, mapper);
         }
 
         @Override

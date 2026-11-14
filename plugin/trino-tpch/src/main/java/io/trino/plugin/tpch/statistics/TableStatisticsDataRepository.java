@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.tpch.statistics;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.io.Resources;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchTable;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.File;
 import java.io.IOException;

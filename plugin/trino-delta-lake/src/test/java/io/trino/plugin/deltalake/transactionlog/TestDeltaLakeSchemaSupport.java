@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -23,6 +21,7 @@ import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeTable;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -32,8 +31,10 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
@@ -48,6 +49,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorSupported;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
@@ -71,8 +73,10 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeSchemaSupport
 {
@@ -157,7 +161,6 @@ public class TestDeltaLakeSchemaSupport
 
     @Test
     public void testSerializeStatisticsAsJson()
-            throws JsonProcessingException
     {
         assertThat(serializeStatsAsJson(
                 new DeltaLakeJsonFileStatistics(
@@ -170,7 +173,6 @@ public class TestDeltaLakeSchemaSupport
 
     @Test
     public void testSerializeStatisticsWithNullValuesAsJson()
-            throws JsonProcessingException
     {
         Map<String, Object> minValues = new HashMap<>();
         Map<String, Object> maxValues = new HashMap<>();
@@ -236,38 +238,40 @@ public class TestDeltaLakeSchemaSupport
                 REGULAR,
                 Optional.empty());
 
-        URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/nested_schema.json");
-        JsonMapper jsonMapper = new JsonMapper();
+        try (InputStream expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/nested_schema.json").openStream()) {
+            JsonMapper objectMapper = new JsonMapper();
 
-        List<DeltaLakeColumnHandle> columnHandles = ImmutableList.of(arrayColumn, structColumn, mapColumn);
-        DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
-        for (DeltaLakeColumnHandle column : columnHandles) {
-            deltaTable.addColumn(column.columnName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.baseType()), true, Optional.empty(), ImmutableMap.of());
+            List<DeltaLakeColumnHandle> columnHandles = ImmutableList.of(arrayColumn, structColumn, mapColumn);
+            DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
+            for (DeltaLakeColumnHandle column : columnHandles) {
+                deltaTable.addColumn(column.columnName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.baseType()), true, Optional.empty(), ImmutableMap.of());
+            }
+
+            String jsonEncoding = serializeSchemaAsJson(deltaTable.build());
+            assertThat(objectMapper.readTree(jsonEncoding)).isEqualTo(objectMapper.readTree(expected));
         }
-
-        String jsonEncoding = serializeSchemaAsJson(deltaTable.build());
-        assertThat(jsonMapper.readTree(jsonEncoding)).isEqualTo(jsonMapper.readTree(expected));
     }
 
     @Test
     public void testRoundTripComplexSchema()
-            throws IOException, URISyntaxException
+            throws IOException
     {
-        URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/complex_schema.json");
-        String json = Files.readString(Path.of(expected.toURI()));
+        try (InputStream expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/complex_schema.json").openStream()) {
+            String json = new String(expected.readAllBytes(), UTF_8);
 
-        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, TESTING_TYPE_MANAGER, ColumnMappingMode.NONE, List.of()).stream()
-                .map(DeltaLakeColumnMetadata::columnMetadata)
-                .collect(toImmutableList());
+            List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, TESTING_TYPE_MANAGER, ColumnMappingMode.NONE, List.of()).stream()
+                    .map(DeltaLakeColumnMetadata::columnMetadata)
+                    .collect(toImmutableList());
 
-        DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
-        for (ColumnMetadata column : schema) {
-            deltaTable.addColumn(column.getName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getType()), true, Optional.empty(), ImmutableMap.of());
+            DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
+            for (ColumnMetadata column : schema) {
+                deltaTable.addColumn(column.getName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getType()), true, Optional.empty(), ImmutableMap.of());
+            }
+
+            JsonMapper jsonMapper = new JsonMapper();
+            String jsonEncoding = serializeSchemaAsJson(deltaTable.build());
+            assertThat(jsonMapper.readTree(jsonEncoding)).isEqualTo(jsonMapper.readTree(json));
         }
-
-        JsonMapper jsonMapper = new JsonMapper();
-        String jsonEncoding = serializeSchemaAsJson(deltaTable.build());
-        assertThat(jsonMapper.readTree(jsonEncoding)).isEqualTo(jsonMapper.readTree(expected));
     }
 
     @Test
@@ -330,8 +334,22 @@ public class TestDeltaLakeSchemaSupport
         assertThat(isDeletionVectorSupported(withFeature)).isTrue();
     }
 
+    @Test
+    public void testInvalidSchemaFailsWithTrinoException()
+    {
+        // asString() on an object node fails with a Jackson exception that has no usable source location
+        MetadataEntry invalid = metadataEntry("{\"fields\":[{\"name\":{\"nested\":1}}]}", ImmutableMap.of());
+        assertThatThrownBy(() -> DeltaLakeSchemaSupport.getExactColumnNames(invalid))
+                .isInstanceOfSatisfying(TrinoException.class, e -> assertThat(e.getErrorCode()).isEqualTo(DELTA_LAKE_INVALID_SCHEMA.toErrorCode()));
+    }
+
     private static MetadataEntry metadataEntry(Map<String, String> configuration)
     {
-        return new MetadataEntry("id", "name", "description", new MetadataEntry.Format("parquet", ImmutableMap.of()), "{}", ImmutableList.of(), configuration, 0);
+        return metadataEntry("{}", configuration);
+    }
+
+    private static MetadataEntry metadataEntry(String schemaString, Map<String, String> configuration)
+    {
+        return new MetadataEntry("id", "name", "description", new MetadataEntry.Format("parquet", ImmutableMap.of()), schemaString, ImmutableList.of(), configuration, 0);
     }
 }

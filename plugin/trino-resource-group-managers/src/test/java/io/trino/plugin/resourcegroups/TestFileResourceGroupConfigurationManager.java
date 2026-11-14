@@ -67,6 +67,14 @@ public class TestFileResourceGroupConfigurationManager
     }
 
     @Test
+    public void testNullForPrimitiveProperty()
+    {
+        ManagerSpec spec = parseManagerSpec("resource_groups_config_null_primitive.json");
+        assertThat(spec.getRootGroups()).singleElement()
+                .satisfies(group -> assertThat(group.getMaxQueued()).isEqualTo(0));
+    }
+
+    @Test
     public void testQueryTypeConfiguration()
     {
         FileResourceGroupConfigurationManager manager = parse("resource_groups_config_query_type.json");

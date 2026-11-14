@@ -13,8 +13,6 @@
  */
 package io.trino.type;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonParser;
 import io.trino.json.JsonItems;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -23,6 +21,8 @@ import io.trino.spi.type.Type;
 import io.trino.util.JsonUtil.BlockBuilderAppender;
 import io.trino.util.JsonUtil.StreamingBlockBuilderAppender;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.exc.StreamReadException;
 
 import java.io.IOException;
 import java.util.List;
@@ -42,14 +42,14 @@ class TestJsonStreamingCasts
     {
         for (String input : List.of("[1e400]", "[0." + "0".repeat(20000) + "1]", "\uFEFF[1]", "\0[\0001\0]")) {
             assertThatThrownBy(() -> stream(new ArrayType(DOUBLE), input))
-                    .isInstanceOf(JsonParseException.class);
+                    .isInstanceOf(StreamReadException.class);
         }
         assertThatThrownBy(() -> stream(new ArrayType(VARCHAR), "[\"\\ud800\"]"))
-                .isInstanceOf(JsonParseException.class)
+                .isInstanceOf(StreamReadException.class)
                 .hasMessageContaining("unpaired surrogate");
         // Jackson rejects unpaired surrogates in field names itself
         assertThatThrownBy(() -> stream(mapType(VARCHAR, DOUBLE), "{\"\\udc00\":1}"))
-                .isInstanceOf(JsonParseException.class)
+                .isInstanceOf(StreamReadException.class)
                 .hasMessageContaining("surrogate");
     }
 

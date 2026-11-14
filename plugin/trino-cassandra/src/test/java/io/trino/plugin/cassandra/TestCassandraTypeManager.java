@@ -14,11 +14,11 @@
 package io.trino.plugin.cassandra;
 
 import com.datastax.oss.driver.api.core.type.DataTypes;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 

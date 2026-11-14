@@ -13,20 +13,6 @@
  */
 package io.trino.jsonpath;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.BigIntegerNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.DecimalNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.FloatNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.ShortNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Shorts;
@@ -50,6 +36,20 @@ import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.BigIntegerNode;
+import tools.jackson.databind.node.BooleanNode;
+import tools.jackson.databind.node.DecimalNode;
+import tools.jackson.databind.node.DoubleNode;
+import tools.jackson.databind.node.FloatNode;
+import tools.jackson.databind.node.IntNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.LongNode;
+import tools.jackson.databind.node.NullNode;
+import tools.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.node.ShortNode;
+import tools.jackson.databind.node.StringNode;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -159,10 +159,10 @@ public class TestJsonPathEvaluator
             .put("empty_sequence_parameter", EMPTY_SEQUENCE_PARAMETER)
             .put("null_parameter", NullNode.instance)
             .put("json_number_parameter", IntNode.valueOf(-6))
-            .put("json_text_parameter", TextNode.valueOf("JSON text"))
+            .put("json_text_parameter", StringNode.valueOf("JSON text"))
             .put("json_boolean_parameter", BooleanNode.FALSE)
-            .put("json_array_parameter", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("element"), DoubleNode.valueOf(7e0), NullNode.instance)))
-            .put("json_object_parameter", new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("bound_value"), "key2", NullNode.instance)))
+            .put("json_array_parameter", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("element"), DoubleNode.valueOf(7e0), NullNode.instance)))
+            .put("json_object_parameter", new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("bound_value"), "key2", NullNode.instance)))
             .buildOrThrow();
 
     private static final List<String> PARAMETERS_ORDER = ImmutableList.copyOf(PARAMETERS.keySet());
@@ -242,7 +242,7 @@ public class TestJsonPathEvaluator
         assertThat(pathResult(
                 new ArrayNode(JsonNodeFactory.instance),
                 path(true, jsonVariable("json_object_parameter"))))
-                .isEqualTo(singletonSequence(new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("bound_value"), "key2", NullNode.instance))));
+                .isEqualTo(singletonSequence(new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("bound_value"), "key2", NullNode.instance))));
 
         // variables of type IrNamedJsonVariable can only take JSON objects. SQL values are handled by IrNamedValueVariable
         assertThatThrownBy(() -> evaluate(
@@ -493,46 +493,46 @@ public class TestJsonPathEvaluator
     {
         // wildcard accessor
         assertThat(pathResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(DoubleNode.valueOf(-1e0), BooleanNode.TRUE, TextNode.valueOf("some_text"))),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(DoubleNode.valueOf(-1e0), BooleanNode.TRUE, StringNode.valueOf("some_text"))),
                 path(true, wildcardArrayAccessor(contextVariable()))))
-                .isEqualTo(sequence(DoubleNode.valueOf(-1e0), BooleanNode.TRUE, TextNode.valueOf("some_text")));
+                .isEqualTo(sequence(DoubleNode.valueOf(-1e0), BooleanNode.TRUE, StringNode.valueOf("some_text")));
 
         assertThat(pathResult(
                 IntNode.valueOf(-5),
                 path(true, wildcardArrayAccessor(jsonVariable("json_array_parameter")))))
-                .isEqualTo(sequence(TextNode.valueOf("element"), DoubleNode.valueOf(7e0), NullNode.instance));
+                .isEqualTo(sequence(StringNode.valueOf("element"), DoubleNode.valueOf(7e0), NullNode.instance));
 
         // single element subscript
         assertThat(pathResult(
                 IntNode.valueOf(-5),
                 path(true, arrayAccessor(jsonVariable("json_array_parameter"), at(literal(DOUBLE, 0e0))))))
-                .isEqualTo(singletonSequence(TextNode.valueOf("element")));
+                .isEqualTo(singletonSequence(StringNode.valueOf("element")));
 
         // range subscript
         assertThat(pathResult(
                 IntNode.valueOf(-5),
                 path(true, arrayAccessor(jsonVariable("json_array_parameter"), range(literal(DOUBLE, 0e0), literal(INTEGER, 1L))))))
-                .isEqualTo(sequence(TextNode.valueOf("element"), DoubleNode.valueOf(7e0)));
+                .isEqualTo(sequence(StringNode.valueOf("element"), DoubleNode.valueOf(7e0)));
 
         // multiple overlapping subscripts
         assertThat(pathResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("first"), TextNode.valueOf("second"), TextNode.valueOf("third"), TextNode.valueOf("fourth"), TextNode.valueOf("fifth"))),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("first"), StringNode.valueOf("second"), StringNode.valueOf("third"), StringNode.valueOf("fourth"), StringNode.valueOf("fifth"))),
                 path(true, arrayAccessor(
                         contextVariable(),
                         range(literal(INTEGER, 3L), literal(INTEGER, 4L)),
                         range(literal(INTEGER, 1L), literal(INTEGER, 2L)),
                         at(literal(INTEGER, 0L))))))
-                .isEqualTo(sequence(TextNode.valueOf("fourth"), TextNode.valueOf("fifth"), TextNode.valueOf("second"), TextNode.valueOf("third"), TextNode.valueOf("first")));
+                .isEqualTo(sequence(StringNode.valueOf("fourth"), StringNode.valueOf("fifth"), StringNode.valueOf("second"), StringNode.valueOf("third"), StringNode.valueOf("first")));
 
         // multiple input arrays
         assertThat(pathResult(
                 new ArrayNode(
                         JsonNodeFactory.instance,
                         ImmutableList.of(
-                                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("first"), TextNode.valueOf("second"), TextNode.valueOf("third"))),
+                                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("first"), StringNode.valueOf("second"), StringNode.valueOf("third"))),
                                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(1), IntNode.valueOf(2), IntNode.valueOf(3))))),
                 path(true, arrayAccessor(wildcardArrayAccessor(contextVariable()), range(literal(INTEGER, 1L), literal(INTEGER, 2L))))))
-                .isEqualTo(sequence(TextNode.valueOf("second"), TextNode.valueOf("third"), IntNode.valueOf(2), IntNode.valueOf(3)));
+                .isEqualTo(sequence(StringNode.valueOf("second"), StringNode.valueOf("third"), IntNode.valueOf(2), IntNode.valueOf(3)));
 
         // usage of last variable
         assertThat(pathResult(
@@ -561,37 +561,37 @@ public class TestJsonPathEvaluator
 
         // subscript out of bounds (lax mode)
         assertThat(pathResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("first"), TextNode.valueOf("second"), TextNode.valueOf("third"), TextNode.valueOf("fourth"), TextNode.valueOf("fifth"))),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("first"), StringNode.valueOf("second"), StringNode.valueOf("third"), StringNode.valueOf("fourth"), StringNode.valueOf("fifth"))),
                 path(true, arrayAccessor(contextVariable(), at(literal(INTEGER, 100L))))))
                 .isEqualTo(emptySequence());
 
         assertThat(pathResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("first"), TextNode.valueOf("second"), TextNode.valueOf("third"), TextNode.valueOf("fourth"), TextNode.valueOf("fifth"))),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("first"), StringNode.valueOf("second"), StringNode.valueOf("third"), StringNode.valueOf("fourth"), StringNode.valueOf("fifth"))),
                 path(true, arrayAccessor(contextVariable(), range(literal(INTEGER, 3L), literal(INTEGER, 100L))))))
-                .isEqualTo(sequence(TextNode.valueOf("fourth"), TextNode.valueOf("fifth")));
+                .isEqualTo(sequence(StringNode.valueOf("fourth"), StringNode.valueOf("fifth")));
 
         // incorrect subscript: from > to (lax mode)
         assertThat(pathResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("first"), TextNode.valueOf("second"), TextNode.valueOf("third"), TextNode.valueOf("fourth"), TextNode.valueOf("fifth"))),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("first"), StringNode.valueOf("second"), StringNode.valueOf("third"), StringNode.valueOf("fourth"), StringNode.valueOf("fifth"))),
                 path(true, arrayAccessor(contextVariable(), range(literal(INTEGER, 3L), literal(INTEGER, 2L))))))
                 .isEqualTo(emptySequence());
 
         // subscript out of bounds (strict mode)
         assertThatThrownBy(() -> evaluate(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("first"), TextNode.valueOf("second"), TextNode.valueOf("third"), TextNode.valueOf("fourth"), TextNode.valueOf("fifth"))),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("first"), StringNode.valueOf("second"), StringNode.valueOf("third"), StringNode.valueOf("fourth"), StringNode.valueOf("fifth"))),
                 path(false, arrayAccessor(contextVariable(), at(literal(INTEGER, 100L))))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [100, 100] for array of size 5");
 
         assertThatThrownBy(() -> evaluate(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("first"), TextNode.valueOf("second"), TextNode.valueOf("third"), TextNode.valueOf("fourth"), TextNode.valueOf("fifth"))),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("first"), StringNode.valueOf("second"), StringNode.valueOf("third"), StringNode.valueOf("fourth"), StringNode.valueOf("fifth"))),
                 path(false, arrayAccessor(contextVariable(), range(literal(INTEGER, 3L), literal(INTEGER, 100L))))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [3, 100] for array of size 5");
 
         // incorrect subscript: from > to (strict mode)
         assertThatThrownBy(() -> evaluate(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("first"), TextNode.valueOf("second"), TextNode.valueOf("third"), TextNode.valueOf("fourth"), TextNode.valueOf("fifth"))),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("first"), StringNode.valueOf("second"), StringNode.valueOf("third"), StringNode.valueOf("fourth"), StringNode.valueOf("fifth"))),
                 path(false, arrayAccessor(contextVariable(), range(literal(INTEGER, 3L), literal(INTEGER, 2L))))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [3, 2] for array of size 5");
@@ -654,43 +654,43 @@ public class TestJsonPathEvaluator
         // Without a template, the shape of the value determines the resulting type.
         // text item: DATE shape
         assertThat(pathResult(
-                TextNode.valueOf("2024-01-02"),
+                StringNode.valueOf("2024-01-02"),
                 path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
                 .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02")))));
 
         // text item: TIME shape
         assertThat(pathResult(
-                TextNode.valueOf("12:34:56.789"),
+                StringNode.valueOf("12:34:56.789"),
                 path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
                 .isEqualTo(singletonSequence(new TypedValue(createTimeType(3), parseTime("12:34:56.789"))));
 
         // text item: TIME WITH TIME ZONE shape
         assertThat(pathResult(
-                TextNode.valueOf("12:34:56.789+05:30"),
+                StringNode.valueOf("12:34:56.789+05:30"),
                 path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
                 .isEqualTo(singletonSequence(TypedValue.fromValueAsObject(createTimeWithTimeZoneType(3), parseTimeWithTimeZone(3, "12:34:56.789 +05:30"))));
 
         // text item: TIMESTAMP shape
         assertThat(pathResult(
-                TextNode.valueOf("2024-01-02 12:34:56.789"),
+                StringNode.valueOf("2024-01-02 12:34:56.789"),
                 path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
                 .isEqualTo(singletonSequence(TypedValue.fromValueAsObject(createTimestampType(3), parseTimestamp(3, "2024-01-02 12:34:56.789"))));
 
         // text item: TIMESTAMP WITH TIME ZONE shape
         assertThat(pathResult(
-                TextNode.valueOf("2024-01-02 12:34:56.789 +05:30"),
+                StringNode.valueOf("2024-01-02 12:34:56.789 +05:30"),
                 path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
                 .isEqualTo(singletonSequence(TypedValue.fromValueAsObject(createTimestampWithTimeZoneType(3), parseTimestampWithTimeZone(3, "2024-01-02 12:34:56.789 +05:30"))));
 
         // the precision of the resulting type follows the number of fractional digits in the value
         assertThat(pathResult(
-                TextNode.valueOf("12:34:56"),
+                StringNode.valueOf("12:34:56"),
                 path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
                 .isEqualTo(singletonSequence(new TypedValue(createTimeType(0), parseTime("12:34:56"))));
 
         // multiple inputs -- array is automatically unwrapped in lax mode
         assertThat(pathResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("2024-01-02"), TextNode.valueOf("2024-01-03"))),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("2024-01-02"), StringNode.valueOf("2024-01-03"))),
                 path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
                 .isEqualTo(sequence(
                         new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02"))),
@@ -698,14 +698,14 @@ public class TestJsonPathEvaluator
 
         // in strict mode the array is not unwrapped, so it is not a text item
         assertThatThrownBy(() -> evaluate(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("2024-01-02"))),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("2024-01-02"))),
                 path(false, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: ARRAY");
 
         // a value that does not match any of the recognized shapes fails as a path evaluation error
         assertThatThrownBy(() -> evaluate(
-                TextNode.valueOf("not a datetime"),
+                StringNode.valueOf("not a datetime"),
                 path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasRootCauseMessage("Invalid TIMESTAMP 'not a datetime'");
@@ -733,30 +733,30 @@ public class TestJsonPathEvaluator
         // With a template, the template determines the resulting type, and the value must match it
         // exactly -- a shape that would be recognized without a template is not accepted.
         assertThat(pathResult(
-                TextNode.valueOf("01/02/2024"),
+                StringNode.valueOf("01/02/2024"),
                 path(true, datetimeMethod("MM/DD/YYYY"))))
                 .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02")))));
 
         assertThat(pathResult(
-                TextNode.valueOf("2024-01-02 12:34:56.789"),
+                StringNode.valueOf("2024-01-02 12:34:56.789"),
                 path(true, datetimeMethod("YYYY-MM-DD HH24:MI:SS.FF3"))))
                 .isEqualTo(singletonSequence(TypedValue.fromValueAsObject(createTimestampType(3), parseTimestamp(3, "2024-01-02 12:34:56.789"))));
 
         // the template, not the value, fixes the precision of the resulting type
         assertThat(pathResult(
-                TextNode.valueOf("12:34:56.789"),
+                StringNode.valueOf("12:34:56.789"),
                 path(true, datetimeMethod("HH24:MI:SS.FF6"))))
                 .isEqualTo(singletonSequence(new TypedValue(createTimeType(6), parseTime("12:34:56.789"))));
 
         // a template that specifies only the low-order year digits completes the year
         assertThat(pathResult(
-                TextNode.valueOf("24-01-02"),
+                StringNode.valueOf("24-01-02"),
                 path(true, datetimeMethod("RR-MM-DD"))))
                 .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02")))));
 
         // multiple inputs -- array is automatically unwrapped in lax mode
         assertThat(pathResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("01/02/2024"), TextNode.valueOf("01/03/2024"))),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("01/02/2024"), StringNode.valueOf("01/03/2024"))),
                 path(true, datetimeMethod("MM/DD/YYYY"))))
                 .isEqualTo(sequence(
                         new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02"))),
@@ -764,14 +764,14 @@ public class TestJsonPathEvaluator
 
         // the value does not match the template
         assertThatThrownBy(() -> evaluate(
-                TextNode.valueOf("2024-01-02"),
+                StringNode.valueOf("2024-01-02"),
                 path(true, datetimeMethod("MM/DD/YYYY"))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasRootCauseMessage("expected literal '/' at position 2");
 
         // the value carries a field that the template does not accept
         assertThatThrownBy(() -> evaluate(
-                TextNode.valueOf("13/02/2024"),
+                StringNode.valueOf("13/02/2024"),
                 path(true, datetimeMethod("MM/DD/YYYY"))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasRootCauseInstanceOf(DateTimeException.class);
@@ -800,7 +800,7 @@ public class TestJsonPathEvaluator
 
         // array
         assertThat(pathResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(BooleanNode.TRUE, TextNode.valueOf("foo"))),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(BooleanNode.TRUE, StringNode.valueOf("foo"))),
                 path(true, descendantMemberAccessor(contextVariable(), "key1"))))
                 .isEqualTo(emptySequence());
 
@@ -824,7 +824,7 @@ public class TestJsonPathEvaluator
                                 "key2", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(
                                         NullNode.instance,
                                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                                "key3", TextNode.valueOf("foo"),
+                                                "key3", StringNode.valueOf("foo"),
                                                 "key1", BooleanNode.FALSE)))))))),
                 path(true, descendantMemberAccessor(contextVariable(), "key1"))))
                 .isEqualTo(sequence(
@@ -879,12 +879,12 @@ public class TestJsonPathEvaluator
                 .isEqualTo(singletonSequence(new TypedValue(DOUBLE, -6e0)));
 
         assertThat(pathResult(
-                TextNode.valueOf("123"),
+                StringNode.valueOf("123"),
                 path(true, toDouble(contextVariable()))))
                 .isEqualTo(singletonSequence(new TypedValue(DOUBLE, 123e0)));
 
         assertThat(pathResult(
-                TextNode.valueOf("-12.3e5"),
+                StringNode.valueOf("-12.3e5"),
                 path(true, toDouble(contextVariable()))))
                 .isEqualTo(singletonSequence(new TypedValue(DOUBLE, -12.3e5)));
 
@@ -950,15 +950,15 @@ public class TestJsonPathEvaluator
     public void testKeyValueMethod()
     {
         assertThat(pathResult(
-                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("bound_value"), "key2", NullNode.instance)),
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("bound_value"), "key2", NullNode.instance)),
                 path(true, keyValue(contextVariable()))))
                 .isEqualTo(sequence(
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("key1"),
-                                "value", TextNode.valueOf("bound_value"),
+                                "name", StringNode.valueOf("key1"),
+                                "value", StringNode.valueOf("bound_value"),
                                 "id", IntNode.valueOf(0))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("key2"),
+                                "name", StringNode.valueOf("key2"),
                                 "value", NullNode.instance,
                                 "id", IntNode.valueOf(0)))));
 
@@ -967,11 +967,11 @@ public class TestJsonPathEvaluator
                 path(true, keyValue(jsonVariable("json_object_parameter")))))
                 .isEqualTo(sequence(
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("key1"),
-                                "value", TextNode.valueOf("bound_value"),
+                                "name", StringNode.valueOf("key1"),
+                                "value", StringNode.valueOf("bound_value"),
                                 "id", IntNode.valueOf(0))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("key2"),
+                                "name", StringNode.valueOf("key2"),
                                 "value", NullNode.instance,
                                 "id", IntNode.valueOf(0)))));
 
@@ -980,24 +980,24 @@ public class TestJsonPathEvaluator
                 new ArrayNode(
                         JsonNodeFactory.instance,
                         ImmutableList.of(
-                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("first"), "key2", BooleanNode.TRUE)),
+                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("first"), "key2", BooleanNode.TRUE)),
                                 new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key3", IntNode.valueOf(1), "key4", NullNode.instance)))),
                 path(true, keyValue(wildcardArrayAccessor(contextVariable())))))
                 .isEqualTo(sequence(
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("key1"),
-                                "value", TextNode.valueOf("first"),
+                                "name", StringNode.valueOf("key1"),
+                                "value", StringNode.valueOf("first"),
                                 "id", IntNode.valueOf(0))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("key2"),
+                                "name", StringNode.valueOf("key2"),
                                 "value", BooleanNode.TRUE,
                                 "id", IntNode.valueOf(0))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("key3"),
+                                "name", StringNode.valueOf("key3"),
                                 "value", IntNode.valueOf(1),
                                 "id", IntNode.valueOf(1))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("key4"),
+                                "name", StringNode.valueOf("key4"),
                                 "value", NullNode.instance,
                                 "id", IntNode.valueOf(1)))));
 
@@ -1006,24 +1006,24 @@ public class TestJsonPathEvaluator
                 new ArrayNode(
                         JsonNodeFactory.instance,
                         ImmutableList.of(
-                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("first"), "key2", BooleanNode.TRUE)),
+                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("first"), "key2", BooleanNode.TRUE)),
                                 new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key3", IntNode.valueOf(1), "key4", NullNode.instance)))),
                 path(true, keyValue(wildcardArrayAccessor(contextVariable())))))
                 .isEqualTo(sequence(
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("key1"),
-                                "value", TextNode.valueOf("first"),
+                                "name", StringNode.valueOf("key1"),
+                                "value", StringNode.valueOf("first"),
                                 "id", IntNode.valueOf(0))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("key2"),
+                                "name", StringNode.valueOf("key2"),
                                 "value", BooleanNode.TRUE,
                                 "id", IntNode.valueOf(0))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("key3"),
+                                "name", StringNode.valueOf("key3"),
                                 "value", IntNode.valueOf(1),
                                 "id", IntNode.valueOf(1))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("key4"),
+                                "name", StringNode.valueOf("key4"),
                                 "value", NullNode.instance,
                                 "id", IntNode.valueOf(1)))));
 
@@ -1032,47 +1032,47 @@ public class TestJsonPathEvaluator
                 new ArrayNode(
                         JsonNodeFactory.instance,
                         ImmutableList.of(
-                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("first"), "key2", BooleanNode.TRUE)),
+                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("first"), "key2", BooleanNode.TRUE)),
                                 new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key3", IntNode.valueOf(42))))),
                 path(true, keyValue(keyValue(wildcardArrayAccessor(contextVariable()))))))
                 .isEqualTo(sequence(
                         // key1
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("name"),
-                                "value", TextNode.valueOf("key1"),
+                                "name", StringNode.valueOf("name"),
+                                "value", StringNode.valueOf("key1"),
                                 "id", IntNode.valueOf(2))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("value"),
-                                "value", TextNode.valueOf("first"),
+                                "name", StringNode.valueOf("value"),
+                                "value", StringNode.valueOf("first"),
                                 "id", IntNode.valueOf(2))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("id"),
+                                "name", StringNode.valueOf("id"),
                                 "value", IntNode.valueOf(0),
                                 "id", IntNode.valueOf(2))),
                         // key2
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("name"),
-                                "value", TextNode.valueOf("key2"),
+                                "name", StringNode.valueOf("name"),
+                                "value", StringNode.valueOf("key2"),
                                 "id", IntNode.valueOf(3))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("value"),
+                                "name", StringNode.valueOf("value"),
                                 "value", BooleanNode.TRUE,
                                 "id", IntNode.valueOf(3))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("id"),
+                                "name", StringNode.valueOf("id"),
                                 "value", IntNode.valueOf(0),
                                 "id", IntNode.valueOf(3))),
                         // key3
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("name"),
-                                "value", TextNode.valueOf("key3"),
+                                "name", StringNode.valueOf("name"),
+                                "value", StringNode.valueOf("key3"),
                                 "id", IntNode.valueOf(4))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("value"),
+                                "name", StringNode.valueOf("value"),
                                 "value", IntNode.valueOf(42),
                                 "id", IntNode.valueOf(4))),
                         new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("id"),
+                                "name", StringNode.valueOf("id"),
                                 "value", IntNode.valueOf(1),
                                 "id", IntNode.valueOf(4)))));
 
@@ -1089,21 +1089,21 @@ public class TestJsonPathEvaluator
     {
         // wildcard accessor
         assertThat(pathResult(
-                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("bound_value"), "key2", NullNode.instance)),
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("bound_value"), "key2", NullNode.instance)),
                 path(true, wildcardMemberAccessor(contextVariable()))))
-                .isEqualTo(sequence(TextNode.valueOf("bound_value"), NullNode.instance));
+                .isEqualTo(sequence(StringNode.valueOf("bound_value"), NullNode.instance));
 
         assertThat(pathResult(
                 IntNode.valueOf(-5),
                 path(true, memberAccessor(jsonVariable("json_object_parameter"), "key1"))))
-                .isEqualTo(singletonSequence(TextNode.valueOf("bound_value")));
+                .isEqualTo(singletonSequence(StringNode.valueOf("bound_value")));
 
         // multiple input objects
         assertThat(pathResult(
                 new ArrayNode(
                         JsonNodeFactory.instance,
                         ImmutableList.of(
-                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("first"), "key2", BooleanNode.TRUE)),
+                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("first"), "key2", BooleanNode.TRUE)),
                                 new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", IntNode.valueOf(1), "key2", NullNode.instance)))),
                 path(true, memberAccessor(wildcardArrayAccessor(contextVariable()), "key2"))))
                 .isEqualTo(sequence(BooleanNode.TRUE, NullNode.instance));
@@ -1113,20 +1113,20 @@ public class TestJsonPathEvaluator
                 new ArrayNode(
                         JsonNodeFactory.instance,
                         ImmutableList.of(
-                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("first"), "key2", BooleanNode.TRUE)),
+                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("first"), "key2", BooleanNode.TRUE)),
                                 new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", IntNode.valueOf(1), "key2", NullNode.instance)))),
                 path(true, memberAccessor(contextVariable(), "key2"))))
                 .isEqualTo(sequence(BooleanNode.TRUE, NullNode.instance));
 
         // key not found -- structural error is suppressed in lax mode
         assertThat(pathResult(
-                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("bound_value"), "key2", NullNode.instance)),
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("bound_value"), "key2", NullNode.instance)),
                 path(true, memberAccessor(contextVariable(), "wrong_key"))))
                 .isEqualTo(emptySequence());
 
         // key not found -- strict mode
         assertThatThrownBy(() -> evaluate(
-                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("bound_value"), "key2", NullNode.instance)),
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("bound_value"), "key2", NullNode.instance)),
                 path(false, memberAccessor(contextVariable(), "wrong_key"))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: structural error: missing member 'wrong_key' in JSON object");
@@ -1136,7 +1136,7 @@ public class TestJsonPathEvaluator
                 new ArrayNode(
                         JsonNodeFactory.instance,
                         ImmutableList.of(
-                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("first"), "key2", BooleanNode.TRUE)),
+                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("first"), "key2", BooleanNode.TRUE)),
                                 new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key3", IntNode.valueOf(1), "key4", NullNode.instance)))),
                 path(true, memberAccessor(wildcardArrayAccessor(contextVariable()), "key2"))))
                 .isEqualTo(singletonSequence(BooleanNode.TRUE));
@@ -1146,7 +1146,7 @@ public class TestJsonPathEvaluator
                 new ArrayNode(
                         JsonNodeFactory.instance,
                         ImmutableList.of(
-                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("first"), "key2", BooleanNode.TRUE)),
+                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", StringNode.valueOf("first"), "key2", BooleanNode.TRUE)),
                                 new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key3", IntNode.valueOf(1), "key4", NullNode.instance)))),
                 path(false, memberAccessor(wildcardArrayAccessor(contextVariable()), "key2"))))
                 .isInstanceOf(PathEvaluationException.class)
@@ -1306,7 +1306,7 @@ public class TestJsonPathEvaluator
         // uncomparable items -> result unknown
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 false,
                 lessThan(contextVariable(), currentItem())))
                 .isEqualTo(null);
@@ -1409,7 +1409,7 @@ public class TestJsonPathEvaluator
         // error while evaluating nested path (floor method called on a text value) -> result unknown
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 lessThan(contextVariable(), floor(currentItem()))))
                 .isEqualTo(null);
@@ -1489,7 +1489,7 @@ public class TestJsonPathEvaluator
     {
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 conjunction(
                         equal(literal(BIGINT, 1L), literal(BIGINT, 1L)), // true
@@ -1498,7 +1498,7 @@ public class TestJsonPathEvaluator
 
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 conjunction(
                         equal(literal(BIGINT, 1L), literal(BIGINT, 1L)), // true
@@ -1507,7 +1507,7 @@ public class TestJsonPathEvaluator
 
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 conjunction(
                         equal(literal(BIGINT, 1L), literal(BOOLEAN, false)), // unknown
@@ -1520,7 +1520,7 @@ public class TestJsonPathEvaluator
     {
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 disjunction(
                         equal(literal(BIGINT, 1L), literal(BIGINT, 2L)), // false
@@ -1529,7 +1529,7 @@ public class TestJsonPathEvaluator
 
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 disjunction(
                         equal(literal(BIGINT, 1L), literal(BIGINT, 2L)), // false
@@ -1538,7 +1538,7 @@ public class TestJsonPathEvaluator
 
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 disjunction(
                         equal(literal(BIGINT, 1L), literal(BIGINT, 2L)), // false
@@ -1551,7 +1551,7 @@ public class TestJsonPathEvaluator
     {
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 exists(contextVariable())))
                 .isEqualTo(TRUE);
@@ -1559,7 +1559,7 @@ public class TestJsonPathEvaluator
         // member accessor with non-existent key returns empty sequence in lax mode
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 exists(memberAccessor(jsonVariable("json_object_parameter"), "wrong_key"))))
                 .isEqualTo(FALSE);
@@ -1567,7 +1567,7 @@ public class TestJsonPathEvaluator
         // member accessor with non-existent key returns error in strict mode
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 false,
                 exists(memberAccessor(jsonVariable("json_object_parameter"), "wrong_key"))))
                 .isEqualTo(null);
@@ -1603,21 +1603,21 @@ public class TestJsonPathEvaluator
     {
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 negation(equal(literal(BIGINT, 1L), literal(BIGINT, 1L)))))
                 .isEqualTo(FALSE);
 
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 negation(notEqual(literal(BIGINT, 1L), literal(BIGINT, 1L)))))
                 .isEqualTo(TRUE);
 
         assertThat(predicateResult(
                 DoubleNode.valueOf(1e0),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 negation(equal(literal(BIGINT, 1L), literal(BOOLEAN, false)))))
                 .isEqualTo(null);
@@ -1627,38 +1627,38 @@ public class TestJsonPathEvaluator
     public void testStartsWithPredicate()
     {
         assertThat(predicateResult(
-                TextNode.valueOf("abcde"),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abcde"),
+                StringNode.valueOf("abc"),
                 true,
                 startsWith(contextVariable(), currentItem())))
                 .isEqualTo(TRUE);
 
         assertThat(predicateResult(
-                TextNode.valueOf("abcde"),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abcde"),
+                StringNode.valueOf("abc"),
                 true,
                 startsWith(jsonVariable("json_text_parameter"), literal(createCharType(4), utf8Slice("JSON")))))
                 .isEqualTo(TRUE);
 
         assertThat(predicateResult(
-                TextNode.valueOf("abcde"),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abcde"),
+                StringNode.valueOf("abc"),
                 true,
                 startsWith(literal(VARCHAR, utf8Slice("XYZ")), variable("string_parameter"))))
                 .isEqualTo(FALSE);
 
         // multiple inputs - returning true if any match is found
         assertThat(predicateResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("aBC"), TextNode.valueOf("abc"), TextNode.valueOf("Abc"))),
-                TextNode.valueOf("abc"),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("aBC"), StringNode.valueOf("abc"), StringNode.valueOf("Abc"))),
+                StringNode.valueOf("abc"),
                 true,
                 startsWith(wildcardArrayAccessor(contextVariable()), literal(createVarcharType(1), utf8Slice("A")))))
                 .isEqualTo(TRUE);
 
         // multiple inputs - returning true if any match is found. array is automatically unwrapped in lax mode
         assertThat(predicateResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("aBC"), TextNode.valueOf("abc"), TextNode.valueOf("Abc"))),
-                TextNode.valueOf("abc"),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("aBC"), StringNode.valueOf("abc"), StringNode.valueOf("Abc"))),
+                StringNode.valueOf("abc"),
                 true,
                 startsWith(contextVariable(), literal(createVarcharType(1), utf8Slice("A")))))
                 .isEqualTo(TRUE);
@@ -1666,64 +1666,64 @@ public class TestJsonPathEvaluator
         // SQL:2023 §9.46: ERR and FOUND are independent — an uncomparable item later in the
         // sequence still surfaces as UNKNOWN even after a match.
         assertThat(predicateResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("Abc"), NullNode.instance)),
-                TextNode.valueOf("abc"),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("Abc"), NullNode.instance)),
+                StringNode.valueOf("abc"),
                 true,
                 startsWith(contextVariable(), literal(createVarcharType(1), utf8Slice("A")))))
                 .isEqualTo(null);
 
         // strict mode: same — uncomparable item surfaces as UNKNOWN.
         assertThat(predicateResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("Abc"), NullNode.instance)),
-                TextNode.valueOf("abc"),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("Abc"), NullNode.instance)),
+                StringNode.valueOf("abc"),
                 false,
                 startsWith(contextVariable(), literal(createVarcharType(1), utf8Slice("A")))))
                 .isEqualTo(null);
 
         // lax mode: unknown is returned because the uncomparable item is before the matching item
         assertThat(predicateResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, TextNode.valueOf("Abc"))),
-                TextNode.valueOf("abc"),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, StringNode.valueOf("Abc"))),
+                StringNode.valueOf("abc"),
                 true,
                 startsWith(contextVariable(), literal(createVarcharType(1), utf8Slice("A")))))
                 .isEqualTo(null);
 
         // error while evaluating the first operand (floor method called on a text value) -> result unknown
         assertThat(predicateResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, TextNode.valueOf("Abc"))),
-                TextNode.valueOf("abc"),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, StringNode.valueOf("Abc"))),
+                StringNode.valueOf("abc"),
                 true,
                 startsWith(floor(literal(VARCHAR, utf8Slice("x"))), literal(VARCHAR, utf8Slice("A")))))
                 .isEqualTo(null);
 
         // error while evaluating the second operand (floor method called on a text value) -> result unknown
         assertThat(predicateResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, TextNode.valueOf("Abc"))),
-                TextNode.valueOf("abc"),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, StringNode.valueOf("Abc"))),
+                StringNode.valueOf("abc"),
                 true,
                 startsWith(literal(VARCHAR, utf8Slice("x")), floor(literal(VARCHAR, utf8Slice("A"))))))
                 .isEqualTo(null);
 
         // the second operand returns multiple items -> result unknown
         assertThat(predicateResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("A"), TextNode.valueOf("B"))),
-                TextNode.valueOf("abc"),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("A"), StringNode.valueOf("B"))),
+                StringNode.valueOf("abc"),
                 true,
                 startsWith(literal(VARCHAR, utf8Slice("x")), wildcardArrayAccessor(contextVariable()))))
                 .isEqualTo(null);
 
         // the second operand is not text -> result unknown
         assertThat(predicateResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, TextNode.valueOf("Abc"))),
-                TextNode.valueOf("abc"),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, StringNode.valueOf("Abc"))),
+                StringNode.valueOf("abc"),
                 true,
                 startsWith(literal(VARCHAR, utf8Slice("x")), literal(BIGINT, 1L))))
                 .isEqualTo(null);
 
         // the first operand returns empty sequence -> result false
         assertThat(predicateResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, TextNode.valueOf("Abc"))),
-                TextNode.valueOf("abc"),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, StringNode.valueOf("Abc"))),
+                StringNode.valueOf("abc"),
                 true,
                 startsWith(arrayAccessor(contextVariable(), at(literal(BIGINT, 100L))), literal(VARCHAR, utf8Slice("A")))))
                 .isEqualTo(FALSE);
@@ -1734,16 +1734,16 @@ public class TestJsonPathEvaluator
     {
         // simple match
         assertThat(predicateResult(
-                TextNode.valueOf("abcde"),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abcde"),
+                StringNode.valueOf("abc"),
                 true,
                 likeRegex(contextVariable(), "^abc")))
                 .isEqualTo(TRUE);
 
         // input is automatically unwrapped in lax mode
         assertThat(predicateResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("abc"), TextNode.valueOf("xyz"))),
-                TextNode.valueOf("abc"),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("abc"), StringNode.valueOf("xyz"))),
+                StringNode.valueOf("abc"),
                 true,
                 likeRegex(contextVariable(), "z$")))
                 .isEqualTo(TRUE);
@@ -1751,15 +1751,15 @@ public class TestJsonPathEvaluator
         // non-text input -> unknown
         assertThat(predicateResult(
                 IntNode.valueOf(7),
-                TextNode.valueOf("abc"),
+                StringNode.valueOf("abc"),
                 true,
                 likeRegex(contextVariable(), "^abc")))
                 .isEqualTo(null);
 
         // empty input sequence (subscript out-of-bounds in lax mode) -> FALSE per §9.46 GR F.V
         assertThat(predicateResult(
-                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("abc"), TextNode.valueOf("xyz"))),
-                TextNode.valueOf("abc"),
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(StringNode.valueOf("abc"), StringNode.valueOf("xyz"))),
+                StringNode.valueOf("abc"),
                 true,
                 likeRegex(arrayAccessor(contextVariable(), at(literal(BIGINT, 100L))), "^abc")))
                 .isEqualTo(FALSE);
@@ -1862,9 +1862,9 @@ public class TestJsonPathEvaluator
         TypedValue value = json.materializeScalar();
         return switch (json.scalarType()) {
             case BOOLEAN -> BooleanNode.valueOf(value.getBooleanValue());
-            case VARCHAR -> TextNode.valueOf(((Slice) value.getObjectValue()).toStringUtf8());
+            case VARCHAR -> StringNode.valueOf(((Slice) value.getObjectValue()).toStringUtf8());
             // JSON has no datetime type: a datetime item renders as the canonical SQL literal.
-            case DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE -> TextNode.valueOf(JsonItemEncoding.datetimeText(value));
+            case DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE -> StringNode.valueOf(JsonItemEncoding.datetimeText(value));
             case BIGINT -> LongNode.valueOf(value.getLongValue());
             case INTEGER -> IntNode.valueOf(toIntExact(value.getLongValue()));
             case SMALLINT, TINYINT -> ShortNode.valueOf(Shorts.checkedCast(value.getLongValue()));
@@ -1892,8 +1892,8 @@ public class TestJsonPathEvaluator
                             ? BigIntegerNode.valueOf(decimal.toBigInteger())
                             : DecimalNode.valueOf(decimal);
                     // NaN / Infinity have no JSON number form; emit as JSON strings to preserve the value.
-                    case TrinoNumber.NotANumber _ -> TextNode.valueOf("NaN");
-                    case TrinoNumber.Infinity(boolean negative) -> TextNode.valueOf(negative ? "-Infinity" : "+Infinity");
+                    case TrinoNumber.NotANumber _ -> StringNode.valueOf("NaN");
+                    case TrinoNumber.Infinity(boolean negative) -> StringNode.valueOf(negative ? "-Infinity" : "+Infinity");
                 };
             }
         };

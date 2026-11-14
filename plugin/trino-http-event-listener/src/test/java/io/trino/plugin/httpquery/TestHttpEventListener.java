@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.httpquery;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -42,6 +39,8 @@ import okhttp3.Handshake;
 import okhttp3.TlsVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -266,8 +265,8 @@ final class TestHttpEventListener
         assertThat(event.has("createTime")).isFalse();
         assertThat(event.get("metadata").has("query")).isFalse();
         assertThat(event.get("context").has("principal")).isFalse();
-        assertThat(event.get("metadata").get("queryId").asText()).isEqualTo("queryId");
-        assertThat(event.get("context").get("user").asText()).isEqualTo("user");
+        assertThat(event.get("metadata").get("queryId").asString()).isEqualTo("queryId");
+        assertThat(event.get("context").get("user").asString()).isEqualTo("user");
     }
 
     @Test
@@ -288,8 +287,8 @@ final class TestHttpEventListener
         assertThat(event.get("metadata").has("query")).isFalse();
         assertThat(event.get("context").has("principal")).isFalse();
         assertThat(event.get("statistics").has("wallTime")).isFalse();
-        assertThat(event.get("metadata").get("queryId").asText()).isEqualTo("queryId");
-        assertThat(event.get("context").get("user").asText()).isEqualTo("user");
+        assertThat(event.get("metadata").get("queryId").asString()).isEqualTo("queryId");
+        assertThat(event.get("context").get("user").asString()).isEqualTo("user");
         assertThat(event.get("statistics").has("cpuTime")).isTrue();
     }
 
@@ -465,13 +464,11 @@ final class TestHttpEventListener
     }
 
     private static void checkRequest(RecordedRequest recordedRequest, String eventJson)
-            throws JsonProcessingException
     {
         checkRequest(recordedRequest, ImmutableMap.of(), eventJson);
     }
 
     private static void checkRequest(RecordedRequest recordedRequest, Map<String, String> customHeaders, String eventJson)
-            throws JsonProcessingException
     {
         assertThat(recordedRequest)
                 .describedAs("No request sent when logging is enabled")
@@ -495,7 +492,6 @@ final class TestHttpEventListener
     }
 
     private static JsonNode requestBody(RecordedRequest recordedRequest)
-            throws JsonProcessingException
     {
         assertThat(recordedRequest)
                 .describedAs("No request sent when logging is enabled")

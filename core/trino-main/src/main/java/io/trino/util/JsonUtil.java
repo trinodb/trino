@@ -13,10 +13,6 @@
  */
 package io.trino.util;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -70,6 +66,12 @@ import io.trino.type.NumberOperators;
 import io.trino.type.RealOperators;
 import io.trino.type.UnknownType;
 import io.trino.type.VarcharOperators;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.ObjectReadContext;
+import tools.jackson.core.ObjectWriteContext;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -132,16 +134,16 @@ public final class JsonUtil
         // is still valid for small inputs.
         if (json.length() < STRING_READER_LENGTH_LIMIT) {
             // java.io.Reader is more performant than InputStreamReader for small inputs
-            return mapper.createParser(Reader.of(json.toStringUtf8()));
+            return mapper.tokenStreamFactory().createParser(ObjectReadContext.empty(), Reader.of(json.toStringUtf8()));
         }
 
-        return mapper.createParser(new InputStreamReader(json.getInput(), UTF_8));
+        return mapper.tokenStreamFactory().createParser(ObjectReadContext.empty(), new InputStreamReader(json.getInput(), UTF_8));
     }
 
     public static JsonGenerator createJsonGenerator(JsonMapper mapper, SliceOutput output)
             throws IOException
     {
-        return mapper.createGenerator((OutputStream) output);
+        return mapper.tokenStreamFactory().createGenerator(ObjectWriteContext.empty(), (OutputStream) output);
     }
 
     public static String truncateIfNecessaryForErrorMessage(Slice json)
@@ -816,7 +818,7 @@ public final class JsonUtil
                 throws IOException
         {
             JsonToken token = parser.currentToken();
-            if ((token == JsonToken.VALUE_NUMBER_FLOAT || token == JsonToken.VALUE_NUMBER_INT) && parser.getTextLength() <= MAX_PRECISION + 2) {
+            if ((token == JsonToken.VALUE_NUMBER_FLOAT || token == JsonToken.VALUE_NUMBER_INT) && parser.getStringLength() <= MAX_PRECISION + 2) {
                 double value = parser.getDoubleValue();
                 if (!Double.isFinite(value) || Double.doubleToRawLongBits(value) == Double.doubleToRawLongBits(-0.0)) {
                     valueAppender.append(JsonItems.parseItem(parser), blockBuilder);

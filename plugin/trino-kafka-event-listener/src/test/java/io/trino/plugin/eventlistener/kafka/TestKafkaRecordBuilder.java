@@ -14,8 +14,6 @@
 
 package io.trino.plugin.eventlistener.kafka;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.plugin.eventlistener.kafka.metadata.EnvMetadataProvider;
@@ -23,8 +21,9 @@ import io.trino.plugin.eventlistener.kafka.metadata.MetadataProvider;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 
@@ -46,7 +45,6 @@ final class TestKafkaRecordBuilder
 
     @Test
     void testBuildKafkaRecord()
-            throws IOException
     {
         KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", EXCLUDED_FIELDS, TEST_PROVIDER);
         QueryCompletedEvent queryCompletedEvent = TestUtils.queryCompletedEvent;
@@ -62,7 +60,6 @@ final class TestKafkaRecordBuilder
 
     @Test
     void testBuildKafkaRecordWithExclusions()
-            throws IOException
     {
         Set<String> exclude = Sets.union(EXCLUDED_FIELDS, Set.of("query", "principal", "analysisTime", "writtenBytes"));
         KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", exclude, TEST_PROVIDER);
@@ -83,7 +80,6 @@ final class TestKafkaRecordBuilder
 
     @Test
     void testBuildKafkaRecordWithMetadata()
-            throws IOException
     {
         Set<String> exclude = Sets.union(EXCLUDED_FIELDS, Set.of("context", "payload", "analysisTime"));
         KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", exclude, TEST_PROVIDER);

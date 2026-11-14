@@ -15,8 +15,6 @@ package io.trino.plugin.pinot.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -57,7 +55,14 @@ import io.trino.spi.connector.TableNotFoundException;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.ResultTable;
 import org.apache.pinot.spi.data.Schema;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.module.SimpleModule;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -152,10 +157,7 @@ public class PinotClient
         this.brokersForTableJsonCodec = requireNonNull(brokersForTableJsonCodec, "brokersForTableJsonCodec is null");
         this.timeBoundaryJsonCodec = requireNonNull(timeBoundaryJsonCodec, "timeBoundaryJsonCodec is null");
         this.tablesJsonCodec = requireNonNull(tablesJsonCodec, "tablesJsonCodec is null");
-        this.schemaJsonCodec = new JsonCodecFactory(JsonMapper.builder()
-                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                .build())
-                .jsonCodec(Schema.class);
+        this.schemaJsonCodec = createSchemaJsonCodec();
         this.brokerResponseCodec = requireNonNull(brokerResponseCodec, "brokerResponseCodec is null");
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
         this.scheme = config.isTlsEnabled() ? "https" : "http";
@@ -174,6 +176,32 @@ public class PinotClient
         this.controllerAuthenticationProvider = controllerAuthenticationProvider;
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
         brokerHostAndPort = config.getBrokerUrl();
+    }
+
+    @VisibleForTesting
+    static JsonCodec<Schema> createSchemaJsonCodec()
+    {
+        SimpleModule module = new SimpleModule();
+        module.addDeserializer(Schema.class, new PinotSchemaDeserializer());
+        return new JsonCodecFactory(JsonMapper.builder().addModule(module).build()).jsonCodec(Schema.class);
+    }
+
+    /**
+     * Pinot's Schema is built on Jackson 2 (e.g. it holds com.fasterxml JsonNode), so let Pinot parse it.
+     */
+    private static class PinotSchemaDeserializer
+            extends ValueDeserializer<Schema>
+    {
+        @Override
+        public Schema deserialize(JsonParser parser, DeserializationContext context)
+        {
+            try {
+                return Schema.fromString(context.readTree(parser).toString());
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
     }
 
     public static void addJsonBinders(JsonCodecBinder jsonCodecBinder)

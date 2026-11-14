@@ -13,53 +13,42 @@
  */
 package io.trino.metadata;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
-import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.Version;
-import com.fasterxml.jackson.databind.DatabindContext;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
-import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
-import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
-import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
-import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer;
-import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeSerializer;
-import com.fasterxml.jackson.databind.jsontype.impl.TypeIdResolverBase;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.module.SimpleSerializers;
-import com.fasterxml.jackson.databind.ser.BasicSerializerFactory;
-import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
-import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
-import com.fasterxml.jackson.databind.ser.SerializerFactory;
-import com.fasterxml.jackson.databind.ser.std.StdSerializer;
-import com.fasterxml.jackson.databind.type.TypeFactory;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.ImmutableList;
-import io.trino.cache.NonEvictableCache;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.Version;
+import tools.jackson.databind.BeanDescription;
+import tools.jackson.databind.BeanProperty;
+import tools.jackson.databind.DatabindContext;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.SerializationConfig;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueSerializer;
+import tools.jackson.databind.deser.std.StdDeserializer;
+import tools.jackson.databind.jsonFormatVisitors.JsonFormatVisitorWrapper;
+import tools.jackson.databind.jsontype.TypeDeserializer;
+import tools.jackson.databind.jsontype.TypeIdResolver;
+import tools.jackson.databind.jsontype.TypeSerializer;
+import tools.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer;
+import tools.jackson.databind.jsontype.impl.AsPropertyTypeSerializer;
+import tools.jackson.databind.jsontype.impl.TypeIdResolverBase;
+import tools.jackson.databind.module.SimpleModule;
+import tools.jackson.databind.ser.ValueSerializerModifier;
+import tools.jackson.databind.type.TypeFactory;
+import tools.jackson.databind.util.NameTransformer;
 
-import java.io.IOException;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTypedJacksonModule<T>
         extends SimpleModule
 {
-    private static final String TYPE_PROPERTY = "@type";
+    private static final TypeFactory TYPE_FACTORY = TypeFactory.createDefaultInstance();
 
-    private final Class<T> baseClass;
-    private final TypeIdResolver typeResolver;
+    private static final String TYPE_PROPERTY = "@type";
 
     protected AbstractTypedJacksonModule(
             Class<T> baseClass,
@@ -68,22 +57,11 @@ public abstract class AbstractTypedJacksonModule<T>
     {
         super(baseClass.getSimpleName() + "Module", Version.unknownVersion());
 
-        this.baseClass = baseClass;
-        typeResolver = new InternalTypeResolver(nameResolver, classResolver);
+        TypeIdResolver typeResolver = new InternalTypeResolver(nameResolver, classResolver);
 
+        // Wrap the mapper-built bean serializers so the mapper's modifiers (e.g. Blackbird) still apply
+        setSerializerModifier(new TypeIdSerializerModifier(baseClass, new AsPropertyTypeSerializer(typeResolver, null, TYPE_PROPERTY, null)));
         addDeserializer(baseClass, new InternalTypeDeserializer<>(baseClass, typeResolver));
-    }
-
-    @Override
-    public void setupModule(SetupContext context)
-    {
-        super.setupModule(context);
-        // Each mapper gets its own serializer, which builds and caches bean serializers with that mapper's modifiers
-        // A mapper made with ObjectMapper.copy() shares this serializer, so it uses the original mapper's modifiers
-        ObjectMapper mapper = context.getOwner();
-        SimpleSerializers serializers = new SimpleSerializers();
-        serializers.addSerializer(baseClass, new InternalTypeSerializer<>(baseClass, typeResolver, mapper));
-        context.addSerializers(serializers);
     }
 
     private static class InternalTypeDeserializer<T>
@@ -95,81 +73,114 @@ public abstract class AbstractTypedJacksonModule<T>
         {
             super(baseClass);
             this.typeDeserializer = new AsPropertyTypeDeserializer(
-                    TypeFactory.defaultInstance().constructType(baseClass),
+                    TYPE_FACTORY.constructType(baseClass),
                     typeIdResolver,
                     TYPE_PROPERTY,
                     false,
                     null,
-                    As.PROPERTY,
+                    JsonTypeInfo.As.PROPERTY,
                     true);
         }
 
         @SuppressWarnings("unchecked")
         @Override
         public T deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
-                throws IOException
         {
             return (T) typeDeserializer.deserializeTypedFromAny(jsonParser, deserializationContext);
         }
     }
 
-    private static class InternalTypeSerializer<T>
-            extends StdSerializer<T>
+    private static class TypeIdSerializerModifier
+            extends ValueSerializerModifier
     {
+        private final Class<?> baseClass;
         private final TypeSerializer typeSerializer;
-        private final NonEvictableCache<Class<?>, JsonSerializer<T>> serializerCache = buildNonEvictableCache(CacheBuilder.newBuilder());
-        private final ObjectMapper mapper;
 
-        public InternalTypeSerializer(Class<T> baseClass, TypeIdResolver typeIdResolver, ObjectMapper mapper)
+        public TypeIdSerializerModifier(Class<?> baseClass, TypeSerializer typeSerializer)
         {
-            super(baseClass);
-            this.typeSerializer = new AsPropertyTypeSerializer(typeIdResolver, null, TYPE_PROPERTY);
-            this.mapper = requireNonNull(mapper, "mapper is null");
+            this.baseClass = requireNonNull(baseClass, "baseClass is null");
+            this.typeSerializer = requireNonNull(typeSerializer, "typeSerializer is null");
         }
 
         @Override
-        public void serialize(T value, JsonGenerator generator, SerializerProvider provider)
-                throws IOException
+        public ValueSerializer<?> modifySerializer(SerializationConfig config, BeanDescription.Supplier beanDescription, ValueSerializer<?> serializer)
         {
-            if (value == null) {
-                provider.defaultSerializeNull(generator);
-                return;
+            if (baseClass.isAssignableFrom(beanDescription.getBeanClass())) {
+                return new TypeIdSerializer(serializer, typeSerializer);
             }
-
-            try {
-                Class<?> type = value.getClass();
-                JsonSerializer<T> serializer = serializerCache.get(type, () -> createSerializer(provider, type));
-                serializer.serializeWithType(value, generator, provider, typeSerializer);
-            }
-            catch (ExecutionException e) {
-                Throwable cause = e.getCause();
-                if (cause != null) {
-                    throwIfInstanceOf(cause, IOException.class);
-                }
-                throw new RuntimeException(e);
-            }
+            return serializer;
         }
+    }
+
+    private static class TypeIdSerializer
+            extends ValueSerializer<Object>
+    {
+        private final ValueSerializer<Object> delegate;
+        private final TypeSerializer typeSerializer;
 
         @SuppressWarnings("unchecked")
-        private JsonSerializer<T> createSerializer(SerializerProvider provider, Class<?> type)
-                throws JsonMappingException
+        public TypeIdSerializer(ValueSerializer<?> delegate, TypeSerializer typeSerializer)
         {
-            JavaType javaType = provider.constructType(type);
-            return (JsonSerializer<T>) serializerFactory().createSerializer(provider, javaType);
+            this.delegate = (ValueSerializer<Object>) requireNonNull(delegate, "delegate is null");
+            this.typeSerializer = requireNonNull(typeSerializer, "typeSerializer is null");
         }
 
-        // The mapper's factory maps every subtype of the base class to this serializer, so only its
-        // modifiers, such as Blackbird property accessors, are reused on a plain bean serializer factory
-        private SerializerFactory serializerFactory()
+        @Override
+        public void serialize(Object value, JsonGenerator generator, SerializationContext context)
         {
-            SerializerFactory factory = BeanSerializerFactory.instance;
-            if (mapper.getSerializerFactory() instanceof BasicSerializerFactory configured) {
-                // Each added modifier goes first, so adding them in reverse keeps the mapper's order
-                for (BeanSerializerModifier modifier : ImmutableList.copyOf(configured.getFactoryConfig().serializerModifiers()).reverse()) {
-                    factory = factory.withSerializerModifier(modifier);
-                }
+            delegate.serializeWithType(value, generator, context, typeSerializer);
+        }
+
+        @Override
+        public void serializeWithType(Object value, JsonGenerator generator, SerializationContext context, TypeSerializer ignored)
+        {
+            serialize(value, generator, context);
+        }
+
+        @Override
+        public void resolve(SerializationContext context)
+        {
+            delegate.resolve(context);
+        }
+
+        @Override
+        public ValueSerializer<?> createContextual(SerializationContext context, BeanProperty property)
+        {
+            ValueSerializer<?> contextual = delegate.createContextual(context, property);
+            if (contextual == delegate) {
+                return this;
             }
-            return factory;
+            return new TypeIdSerializer(contextual, typeSerializer);
+        }
+
+        @Override
+        public Class<?> handledType()
+        {
+            return delegate.handledType();
+        }
+
+        @Override
+        public boolean usesObjectId()
+        {
+            return delegate.usesObjectId();
+        }
+
+        @Override
+        public boolean isEmpty(SerializationContext context, Object value)
+        {
+            return delegate.isEmpty(context, value);
+        }
+
+        @Override
+        public ValueSerializer<Object> unwrappingSerializer(NameTransformer unwrapper)
+        {
+            return delegate.unwrappingSerializer(unwrapper);
+        }
+
+        @Override
+        public void acceptJsonFormatVisitor(JsonFormatVisitorWrapper visitor, JavaType type)
+        {
+            delegate.acceptJsonFormatVisitor(visitor, type);
         }
     }
 
@@ -186,13 +197,13 @@ public abstract class AbstractTypedJacksonModule<T>
         }
 
         @Override
-        public String idFromValue(Object value)
+        public String idFromValue(DatabindContext context, Object value)
         {
-            return idFromValueAndType(value, value.getClass());
+            return idFromValueAndType(context, value, value.getClass());
         }
 
         @Override
-        public String idFromValueAndType(Object value, Class<?> suggestedType)
+        public String idFromValueAndType(DatabindContext context, Object value, Class<?> suggestedType)
         {
             requireNonNull(value, "value is null");
             String type = nameResolver.apply(value);
@@ -210,9 +221,9 @@ public abstract class AbstractTypedJacksonModule<T>
         }
 
         @Override
-        public Id getMechanism()
+        public JsonTypeInfo.Id getMechanism()
         {
-            return Id.NAME;
+            return JsonTypeInfo.Id.NAME;
         }
     }
 }

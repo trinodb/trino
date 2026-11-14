@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
+import tools.jackson.databind.JsonNode;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.addIndexFilter;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;

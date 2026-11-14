@@ -84,11 +84,11 @@ public class PluginManager
             // ser/deser packages, which also hold the Blackbird BeanSerializerModifier/BeanDeserializerModifier: those
             // extend (plugin-local) databind types, so sharing them breaks any plugin that itself installs Blackbird
             // (its setupModule fails with a VerifyError). Keeping databind/core plugin-local preserves Jackson isolation.
-            .add("com.fasterxml.jackson.module.blackbird.ser.ToBooleanFunction")
-            .add("com.fasterxml.jackson.module.blackbird.deser.ObjBooleanConsumer")
-            .add("com.fasterxml.jackson.module.blackbird.deser.BBDeserializerModifier$ObjIntBiFunction")
-            .add("com.fasterxml.jackson.module.blackbird.deser.BBDeserializerModifier$ObjLongBiFunction")
-            .add("com.fasterxml.jackson.module.blackbird.deser.BBDeserializerModifier$ObjBooleanBiFunction")
+            .add("tools.jackson.module.blackbird.ser.ToBooleanFunction")
+            .add("tools.jackson.module.blackbird.deser.ObjBooleanConsumer")
+            .add("tools.jackson.module.blackbird.deser.BBDeserializerModifier$ObjIntBiFunction")
+            .add("tools.jackson.module.blackbird.deser.BBDeserializerModifier$ObjLongBiFunction")
+            .add("tools.jackson.module.blackbird.deser.BBDeserializerModifier$ObjBooleanBiFunction")
             .add("io.airlift.slice.")
             .add("io.opentelemetry.api.")
             .add("io.opentelemetry.context.")
