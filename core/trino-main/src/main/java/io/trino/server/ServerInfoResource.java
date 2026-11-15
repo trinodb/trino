@@ -16,6 +16,8 @@ package io.trino.server;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.trino.connector.CatalogManagerConfig;
+import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.node.NodeState;
 import io.trino.server.security.ResourceSecurity;
@@ -52,6 +54,7 @@ public class ServerInfoResource
     private final StartupStatus startupStatus;
     private final Optional<QueryIdGenerator> queryIdGenerator;
     private final long startTime = System.nanoTime();
+    private final CatalogMangerKind catalogManagement;
 
     @Inject
     public ServerInfoResource(
@@ -60,7 +63,8 @@ public class ServerInfoResource
             ServerConfig serverConfig,
             NodeStateManager nodeStateManager,
             StartupStatus startupStatus,
-            Optional<QueryIdGenerator> queryIdGenerator)
+            Optional<QueryIdGenerator> queryIdGenerator,
+            CatalogManagerConfig catalogManagerConfig)
     {
         this.nodeId = nodeInfo.getNodeId();
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
@@ -69,6 +73,7 @@ public class ServerInfoResource
         this.nodeStateManager = requireNonNull(nodeStateManager, "nodeStateManager is null");
         this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
+        this.catalogManagement = catalogManagerConfig.getCatalogMangerKind();
     }
 
     @ResourceSecurity(PUBLIC)
@@ -85,7 +90,8 @@ public class ServerInfoResource
                 coordinator,
                 queryIdGenerator.map(QueryIdGenerator::getCoordinatorId),
                 starting,
-                nanosSince(startTime));
+                nanosSince(startTime),
+                Optional.of(catalogManagement));
     }
 
     @ResourceSecurity(MANAGEMENT_WRITE)

@@ -22,6 +22,7 @@ import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.json.JsonCodec;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
+import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.server.ServerInfo;
 import io.trino.spi.NodeVersion;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,8 @@ import java.util.stream.Stream;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
+import static io.trino.connector.CatalogManagerConfig.CatalogMangerKind.DYNAMIC;
+import static io.trino.connector.CatalogManagerConfig.CatalogMangerKind.STATIC;
 import static io.trino.node.NodeState.ACTIVE;
 import static io.trino.node.NodeState.INACTIVE;
 import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
@@ -74,19 +77,25 @@ class TestCoordinatorNodeManager
         invalidNodes = ImmutableSet.of(
                 new InternalNode("bad_version_unknown", URI.create("https://192.0.7.1"), NodeVersion.UNKNOWN, false),
                 new InternalNode("bad_version_2", URI.create("https://192.0.7.2"), new NodeVersion("2"), false),
-                new InternalNode("bad_environment", URI.create("https://192.0.7.3"), expectedVersion, false));
+                new InternalNode("bad_environment", URI.create("https://192.0.7.3"), expectedVersion, false),
+                new InternalNode("bad_catalog_management", URI.create("https://192.0.7.4"), expectedVersion, false),
+                new InternalNode("missing_catalog_management", URI.create("https://192.0.7.5"), expectedVersion, false));
 
         ImmutableMap.Builder<String, ServerInfo> hostsBuilder = ImmutableMap.builder();
         for (InternalNode activeNode : activeNodes) {
-            hostsBuilder.put(activeNode.getInternalUri().getHost(), toServerInfo(activeNode, ACTIVE, EXPECTED_ENVIRONMENT));
+            hostsBuilder.put(activeNode.getInternalUri().getHost(), toServerInfo(activeNode, ACTIVE, EXPECTED_ENVIRONMENT, Optional.of(STATIC)));
         }
         for (InternalNode inactiveNode : inactiveNodes) {
-            hostsBuilder.put(inactiveNode.getInternalUri().getHost(), toServerInfo(inactiveNode, INACTIVE, EXPECTED_ENVIRONMENT));
+            hostsBuilder.put(inactiveNode.getInternalUri().getHost(), toServerInfo(inactiveNode, INACTIVE, EXPECTED_ENVIRONMENT, Optional.of(STATIC)));
         }
         for (InternalNode invalidNode : invalidNodes) {
-            hostsBuilder.put(
-                    invalidNode.getInternalUri().getHost(),
-                    toServerInfo(invalidNode, INACTIVE, invalidNode.getNodeVersion().equals(expectedVersion) ? "bad_environment" : EXPECTED_ENVIRONMENT));
+            ServerInfo serverInfo = switch (invalidNode.getNodeIdentifier()) {
+                case "bad_environment" -> toServerInfo(invalidNode, ACTIVE, "bad_environment", Optional.of(STATIC));
+                case "bad_catalog_management" -> toServerInfo(invalidNode, ACTIVE, EXPECTED_ENVIRONMENT, Optional.of(DYNAMIC));
+                case "missing_catalog_management" -> toServerInfo(invalidNode, ACTIVE, EXPECTED_ENVIRONMENT, Optional.empty());
+                default -> toServerInfo(invalidNode, ACTIVE, EXPECTED_ENVIRONMENT, Optional.of(STATIC));
+            };
+            hostsBuilder.put(invalidNode.getInternalUri().getHost(), serverInfo);
         }
         Map<String, ServerInfo> allHosts = hostsBuilder.buildOrThrow();
 
@@ -110,6 +119,7 @@ class TestCoordinatorNodeManager
                 copy(currentNode),
                 () -> ACTIVE,
                 EXPECTED_ENVIRONMENT,
+                STATIC,
                 testHttpClient,
                 new TestingTicker());
         try {
@@ -156,6 +166,7 @@ class TestCoordinatorNodeManager
                 copy(currentNode),
                 () -> ACTIVE,
                 EXPECTED_ENVIRONMENT,
+                STATIC,
                 testHttpClient,
                 new TestingTicker());
         try {
@@ -180,6 +191,7 @@ class TestCoordinatorNodeManager
                 copy(currentNode),
                 () -> ACTIVE,
                 EXPECTED_ENVIRONMENT,
+                STATIC,
                 testHttpClient,
                 testingTicker);
         try {
@@ -258,7 +270,7 @@ class TestCoordinatorNodeManager
                 node.isCoordinator());
     }
 
-    private static ServerInfo toServerInfo(InternalNode inactiveNode, NodeState nodeState, String environment)
+    private static ServerInfo toServerInfo(InternalNode inactiveNode, NodeState nodeState, String environment, Optional<CatalogMangerKind> catalogManagement)
     {
         return new ServerInfo(
                 inactiveNode.getNodeIdentifier(),
@@ -268,6 +280,7 @@ class TestCoordinatorNodeManager
                 inactiveNode.isCoordinator(),
                 Optional.empty(),
                 false,
-                Duration.ZERO);
+                Duration.ZERO,
+                catalogManagement);
     }
 }

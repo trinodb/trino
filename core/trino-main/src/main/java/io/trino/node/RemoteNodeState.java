@@ -24,6 +24,7 @@ import io.airlift.http.client.HttpClient.HttpResponseFuture;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.server.ServerInfo;
 import io.trino.spi.NodeVersion;
 
@@ -61,6 +62,7 @@ public class RemoteNodeState
     private final URI serverUri;
     private final String expectedNodeEnvironment;
     private final NodeVersion expectedNodeVersion;
+    private final CatalogMangerKind expectedCatalogManagement;
     private final HttpClient httpClient;
     private final URI infoUri;
     private final Ticker ticker;
@@ -72,11 +74,12 @@ public class RemoteNodeState
     private final AtomicLong lastUpdateNanos;
     private final AtomicLong lastWarningLogged;
 
-    public RemoteNodeState(URI serverUri, String expectedNodeEnvironment, NodeVersion expectedNodeVersion, HttpClient httpClient, Ticker ticker)
+    public RemoteNodeState(URI serverUri, String expectedNodeEnvironment, NodeVersion expectedNodeVersion, CatalogMangerKind expectedCatalogManagement, HttpClient httpClient, Ticker ticker)
     {
         this.serverUri = requireNonNull(serverUri, "serverUri is null");
         this.expectedNodeEnvironment = requireNonNull(expectedNodeEnvironment, "expectedNodeEnvironment is null");
         this.expectedNodeVersion = requireNonNull(expectedNodeVersion, "expectedNodeVersion is null");
+        this.expectedCatalogManagement = requireNonNull(expectedCatalogManagement, "expectedCatalogManagement is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.infoUri = uriBuilderFrom(serverUri).appendPath("/v1/info").build();
         this.ticker = requireNonNull(ticker, "ticker is null");
@@ -138,7 +141,7 @@ public class RemoteNodeState
                         else {
                             ServerInfo serverInfo = result.getValue();
 
-                            // Set state to INVALID if the node is not in the expected environment or version
+                            // Set state to INVALID if the node is not in the expected environment, version or catalog management
                             // This prevents the node from being visible outside the node manager
                             if (!serverInfo.environment().equals(expectedNodeEnvironment)) {
                                 logWarning("Node environment mismatch: expected %s, got %s", expectedNodeEnvironment, serverInfo.environment());
@@ -146,6 +149,14 @@ public class RemoteNodeState
                             }
                             else if (!serverInfo.nodeVersion().equals(expectedNodeVersion)) {
                                 logWarning("Node version mismatch: expected %s, got %s", expectedNodeVersion, serverInfo.nodeVersion());
+                                nodeState = INVALID;
+                            }
+                            else if (!serverInfo.catalogManagement().equals(Optional.of(expectedCatalogManagement))) {
+                                logWarning(
+                                        "Node %s catalog management mismatch: expected %s, got %s. Set catalog.management on the node to the same value as on the coordinator",
+                                        serverUri,
+                                        expectedCatalogManagement,
+                                        serverInfo.catalogManagement().map(CatalogMangerKind::name).orElse("unknown"));
                                 nodeState = INVALID;
                             }
                             else {

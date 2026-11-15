@@ -25,6 +25,8 @@ import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.trino.connector.CatalogManagerConfig;
+import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.server.NodeStateManager.CurrentNodeState;
 import io.trino.spi.HostAddress;
 import jakarta.annotation.PostConstruct;
@@ -61,6 +63,7 @@ public final class CoordinatorNodeManager
     private final Supplier<NodeState> currentNodeState;
     private final NodeInventory nodeInventory;
     private final String expectedNodeEnvironment;
+    private final CatalogMangerKind expectedCatalogManagement;
     private final ConcurrentHashMap<URI, RemoteNodeState> nodeStates = new ConcurrentHashMap<>();
     private final HttpClient httpClient;
     private final ScheduledExecutorService nodeStateUpdateExecutor;
@@ -86,12 +89,14 @@ public final class CoordinatorNodeManager
             NodeInfo nodeInfo,
             InternalNode currentNode,
             CurrentNodeState currentNodeState,
+            CatalogManagerConfig catalogManagerConfig,
             @ForNodeManager HttpClient httpClient)
     {
         this(nodeInventory,
                 currentNode,
                 currentNodeState,
                 nodeInfo.getEnvironment(),
+                catalogManagerConfig.getCatalogMangerKind(),
                 httpClient,
                 Ticker.systemTicker());
     }
@@ -102,6 +107,7 @@ public final class CoordinatorNodeManager
             InternalNode currentNode,
             Supplier<NodeState> currentNodeState,
             String expectedNodeEnvironment,
+            CatalogMangerKind expectedCatalogManagement,
             HttpClient httpClient,
             Ticker ticker)
     {
@@ -109,6 +115,7 @@ public final class CoordinatorNodeManager
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.currentNodeState = requireNonNull(currentNodeState, "currentNodeState is null");
         this.expectedNodeEnvironment = requireNonNull(expectedNodeEnvironment, "expectedNodeEnvironment is null");
+        this.expectedCatalogManagement = requireNonNull(expectedCatalogManagement, "expectedCatalogManagement is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("node-state-poller-%s"));
         this.nodeStateEventExecutor = newCachedThreadPool(daemonThreadsNamed("node-state-events-%s"));
@@ -155,6 +162,7 @@ public final class CoordinatorNodeManager
                             uri,
                             expectedNodeEnvironment,
                             currentNode.getNodeVersion(),
+                            expectedCatalogManagement,
                             httpClient,
                             ticker));
             remoteNodeState.setSeen();

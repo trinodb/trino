@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import io.airlift.units.Duration;
+import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.node.NodeState;
 import io.trino.spi.NodeVersion;
 
@@ -29,7 +30,8 @@ public record ServerInfo(
         boolean coordinator,
         Optional<String> coordinatorId,
         boolean starting,
-        Duration uptime)
+        Duration uptime,
+        Optional<CatalogMangerKind> catalogManagement)
 {
     public ServerInfo
     {
@@ -39,5 +41,6 @@ public record ServerInfo(
         requireNonNull(environment, "environment is null");
         requireNonNull(coordinatorId, "coordinatorId is null");
         requireNonNull(uptime, "uptime is null");
+        requireNonNull(catalogManagement, "catalogManagement is null");
     }
 }

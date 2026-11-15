@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.connector.CatalogManagerConfig.CatalogMangerKind.DYNAMIC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestServerInfoSerialization
@@ -32,8 +33,33 @@ public class TestServerInfoSerialization
     @Test
     void testServerInfoSerialization()
     {
-        io.trino.server.ServerInfo serverServerInfo = new io.trino.server.ServerInfo("some-node-id", NodeState.ACTIVE, new io.trino.spi.NodeVersion("some-version"), "some-env", true, Optional.of("some-coordinator-id"), true, Duration.valueOf("1h"));
+        io.trino.server.ServerInfo serverServerInfo = new io.trino.server.ServerInfo("some-node-id", NodeState.ACTIVE, new io.trino.spi.NodeVersion("some-version"), "some-env", true, Optional.of("some-coordinator-id"), true, Duration.valueOf("1h"), Optional.of(DYNAMIC));
         io.trino.client.ServerInfo clientServerInfo = new io.trino.client.ServerInfo(new NodeVersion("some-version"), "some-env", true, true, Optional.of(Duration.valueOf("1h")), Optional.of("some-coordinator-id"), Optional.of("some-node-id"));
         assertThat(CLIENT_SERVER_INFO_CODEC.fromJson(SERVER_SERVER_INFO_CODEC.toJson(serverServerInfo))).isEqualTo(clientServerInfo);
+    }
+
+    @Test
+    void testServerInfoRoundTrip()
+    {
+        io.trino.server.ServerInfo serverInfo = new io.trino.server.ServerInfo("some-node-id", NodeState.ACTIVE, new io.trino.spi.NodeVersion("some-version"), "some-env", false, Optional.empty(), false, Duration.valueOf("1h"), Optional.of(DYNAMIC));
+        assertThat(SERVER_SERVER_INFO_CODEC.fromJson(SERVER_SERVER_INFO_CODEC.toJson(serverInfo))).isEqualTo(serverInfo);
+    }
+
+    @Test
+    void testServerInfoWithoutCatalogManagement()
+    {
+        String json =
+                """
+                {
+                  "nodeId": "some-node-id",
+                  "state": "ACTIVE",
+                  "nodeVersion": {"version": "some-version"},
+                  "environment": "some-env",
+                  "coordinator": false,
+                  "starting": false,
+                  "uptime": "1.00h"
+                }
+                """;
+        assertThat(SERVER_SERVER_INFO_CODEC.fromJson(json).catalogManagement()).isEmpty();
     }
 }
