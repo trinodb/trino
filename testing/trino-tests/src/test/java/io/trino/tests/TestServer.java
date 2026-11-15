@@ -418,6 +418,23 @@ public class TestServer
                 .hasValue("https://my-load-balancer.local/ui/");
     }
 
+    @Test
+    public void testInfoUri()
+    {
+        List<QueryResults> queryResults = postQuery(request -> request
+                .setBodyGenerator(createStaticBodyGenerator("SELECT 1", UTF_8)))
+                .map(JsonResponse::getValue)
+                .peek(result -> assertThat(result.getError()).isNull())
+                .collect(toImmutableList());
+
+        // both the queued and the executing responses link to the query page of the Web UI
+        assertThat(queryResults.getFirst().getStats().getState()).isEqualTo("QUEUED");
+        assertThat(queryResults.getLast().getStats().getState()).isEqualTo("FINISHED");
+        assertThat(queryResults)
+                .extracting(QueryResults::getInfoUri)
+                .containsOnly(URI.create(server.getBaseUrl() + "/ui#/queries/" + queryResults.getFirst().getId()));
+    }
+
     private Stream<JsonResponse<QueryResults>> postQuery(Function<Request.Builder, Request.Builder> requestConfigurer)
     {
         Request.Builder request = preparePost()
