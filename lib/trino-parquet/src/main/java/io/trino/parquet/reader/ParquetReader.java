@@ -75,6 +75,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.time.ZoneId;
 import java.util.Arrays;
@@ -172,6 +173,7 @@ public class ParquetReader
     private AggregatedMemoryContext currentRowGroupMemoryContext;
     private final Map<ChunkKey, ChunkedInputStream> chunkReaders;
     private final Map<ChunkKey, ChunkedInputStream> offsetIndexReaders;
+    private final Map<ChunkKey, Slice> bufferedOffsetIndexes;
     private final Optional<ParquetWriteValidation> writeValidation;
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
     private final Optional<StatisticsValidation> rowGroupStatisticsValidation;
@@ -273,6 +275,7 @@ public class ParquetReader
         this.exceptionTransform = exceptionTransform;
         ListMultimap<ChunkKey, DiskRange> ranges = ArrayListMultimap.create();
         ListMultimap<ChunkKey, DiskRange> offsetIndexRanges = ArrayListMultimap.create();
+        ImmutableMap.Builder<ChunkKey, Slice> bufferedOffsetIndexes = ImmutableMap.builder();
         Map<String, LongCount> codecMetrics = new HashMap<>();
         for (int rowGroup = 0; rowGroup < rowGroups.size(); rowGroup++) {
             PrunedBlockMetadata blockMetadata = rowGroups.get(rowGroup).prunedBlockMetadata();
@@ -304,9 +307,20 @@ public class ParquetReader
                     // Initialize columnIndexRowsFiltered only when column indexes are found and used
                     columnIndexRowsFiltered = 0;
                 }
-                if (blockRowRanges[rowGroup] == null && isOffsetIndexUsedToSkipPages(field.getDescriptor(), chunkMetadata)) {
-                    IndexReference offsetIndexReference = chunkMetadata.getOffsetIndexReference();
-                    offsetIndexRanges.put(new ChunkKey(columnId, rowGroup), new DiskRange(offsetIndexReference.getOffset(), offsetIndexReference.getLength()));
+                IndexReference offsetIndexReference = chunkMetadata.getOffsetIndexReference();
+                if (blockRowRanges[rowGroup] == null && offsetIndexReference != null && decryptionContext.isEmpty()) {
+                    // The offset index lets nested columns skip decoding pages, and column chunks larger than the buffer skip reading them.
+                    // It is taken from the footer tail when it is there, and read separately only for column chunks larger than the buffer.
+                    Optional<Slice> bufferedOffsetIndex = Optional.empty();
+                    if (field.getDescriptor().getPath().length > 1 || field.getDescriptor().getMaxRepetitionLevel() > 0 || totalLength > options.getMaxBufferSize().toBytes()) {
+                        bufferedOffsetIndex = dataSource.getBufferedSlice(offsetIndexReference.getOffset(), offsetIndexReference.getLength());
+                    }
+                    if (bufferedOffsetIndex.isPresent()) {
+                        bufferedOffsetIndexes.put(new ChunkKey(columnId, rowGroup), bufferedOffsetIndex.get());
+                    }
+                    else if (totalLength > options.getMaxBufferSize().toBytes()) {
+                        offsetIndexRanges.put(new ChunkKey(columnId, rowGroup), new DiskRange(offsetIndexReference.getOffset(), offsetIndexReference.getLength()));
+                    }
                 }
                 // Update the metrics which records the codecs used along with data size
                 codecMetrics.merge(
@@ -319,6 +333,7 @@ public class ParquetReader
         this.chunkReaders = dataSource.planRead(ranges, memoryContext);
         // The offset indexes of a file are stored next to each other, so they are fetched with a single read when the first of them is needed
         this.offsetIndexReaders = dataSource.planRead(offsetIndexRanges, memoryContext);
+        this.bufferedOffsetIndexes = bufferedOffsetIndexes.buildOrThrow();
     }
 
     @Override
@@ -1370,29 +1385,55 @@ public class ParquetReader
                     fileCreatedBy,
                     decryptionContext,
                     options.getMaxPageReadSize().toBytes());
+            // Allows to skip whole pages without reading them
+            Slice bufferedOffsetIndex = bufferedOffsetIndexes.get(new ChunkKey(fieldId, currentRowGroup));
             ChunkedInputStream offsetIndexInputStream = offsetIndexReaders.get(new ChunkKey(fieldId, currentRowGroup));
-            if (offsetIndexInputStream != null) {
-                // Allows to skip whole pages of repeated columns, which requires knowing the number of rows in a page
-                pageReader.setOffsetIndexLoader(() -> loadOffsetIndex(offsetIndexInputStream), currentBlockMetadata.getRowCount());
+            if (bufferedOffsetIndex != null) {
+                pageReader.setOffsetIndexLoader(() -> loadBufferedOffsetIndex(bufferedOffsetIndex, metadata), currentBlockMetadata.getRowCount());
+            }
+            else if (offsetIndexInputStream != null) {
+                pageReader.setOffsetIndexLoader(() -> loadOffsetIndex(offsetIndexInputStream, metadata), currentBlockMetadata.getRowCount());
             }
             columnReader.setPageReader(pageReader, Optional.ofNullable(rowRanges));
         }
         return columnReader;
     }
 
-    private boolean isOffsetIndexUsedToSkipPages(ColumnDescriptor columnDescriptor, ColumnChunkMetadata chunkMetadata)
+    @Nullable
+    private static OffsetIndex loadBufferedOffsetIndex(Slice offsetIndex, ColumnChunkMetadata chunkMetadata)
     {
-        return columnDescriptor.getMaxRepetitionLevel() > 0 && chunkMetadata.getOffsetIndexReference() != null && decryptionContext.isEmpty();
+        try {
+            return loadOffsetIndex(offsetIndex.getInput(), chunkMetadata);
+        }
+        catch (RuntimeException _) {
+            // The position of the buffered tail of the file is derived from its estimated size, so the pages are decoded if the index cannot be read from it
+            return null;
+        }
     }
 
-    private static OffsetIndex loadOffsetIndex(ChunkedInputStream input)
+    @VisibleForTesting
+    @Nullable
+    static OffsetIndex loadOffsetIndex(InputStream input, ColumnChunkMetadata chunkMetadata)
     {
+        OffsetIndex offsetIndex;
         try (input) {
-            return fromParquetOffsetIndex(Util.readOffsetIndex(input, null, null));
+            offsetIndex = fromParquetOffsetIndex(Util.readOffsetIndex(input, null, null));
         }
         catch (IOException e) {
             throw new UncheckedIOException("Error reading offset index", e);
         }
+        // The pages are skipped based on their locations, so an offset index which does not match the column chunk is not used
+        long chunkStart = chunkMetadata.getStartingPos();
+        long chunkEnd = chunkStart + chunkMetadata.getTotalSize();
+        long previousOffset = chunkStart - 1;
+        for (int page = 0; page < offsetIndex.getPageCount(); page++) {
+            long offset = offsetIndex.getOffset(page);
+            if (offset <= previousOffset || offset >= chunkEnd) {
+                return null;
+            }
+            previousOffset = offset;
+        }
+        return offsetIndex;
     }
 
     public List<Column> getColumnFields()

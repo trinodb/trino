@@ -162,11 +162,11 @@ public final class PageReader
         if (offsetIndexLoader == null || !hasNext()) {
             return OptionalLong.empty();
         }
-        int pageIndex = getNextPage().getPageIndex();
         OffsetIndex offsetIndex = offsetIndexLoader.get();
         if (offsetIndex == null) {
             return OptionalLong.empty();
         }
+        int pageIndex = getNextDataPageIndex();
         int pageCount = offsetIndex.getPageCount();
         if (pageIndex >= pageCount) {
             throw new ParquetDecodingException(format("Offset index of column in %s has %s pages, but page %s was found", dataSourceId, pageCount, pageIndex));
@@ -301,8 +301,29 @@ public final class PageReader
     public void skipNextPage()
     {
         verifyDictionaryPageRead();
+        if (bufferedPages.isEmpty() && compressedPages instanceof ParquetColumnChunkIterator columnChunkIterator && offsetIndexLoader != null) {
+            OffsetIndex offsetIndex = offsetIndexLoader.get();
+            if (offsetIndex != null) {
+                // The page is skipped without reading its bytes
+                releaseCurrentPage();
+                columnChunkIterator.skipDataPage(offsetIndex);
+                return;
+            }
+        }
         nextCompressedPage();
         releaseCurrentPage();
+    }
+
+    /**
+     * Returns the index of the next data page, without reading it from the column chunk if possible
+     */
+    private int getNextDataPageIndex()
+    {
+        if (bufferedPages.isEmpty() && compressedPages instanceof ParquetColumnChunkIterator columnChunkIterator) {
+            verifyDictionaryPageRead();
+            return columnChunkIterator.getNextDataPageIndex();
+        }
+        return getNextPage().getPageIndex();
     }
 
     public List<DataPage> getNextDataPages(int valueCount, int maxPageCount, long maxBufferedBytes)

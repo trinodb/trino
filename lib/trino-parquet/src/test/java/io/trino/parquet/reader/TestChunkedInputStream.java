@@ -126,6 +126,54 @@ public class TestChunkedInputStream
         }
     }
 
+    @Test
+    public void testSkipTo()
+            throws IOException
+    {
+        // chunks at positions 100, 103, 104 and 106 of the file
+        List<TestingChunkReader> chunkReaders = ImmutableList.of(
+                new TestingChunkReader(Slices.wrappedBuffer(new byte[] {0, 1, 2}), 100),
+                new TestingChunkReader(Slices.wrappedBuffer(new byte[] {3}), 103),
+                new TestingChunkReader(Slices.wrappedBuffer(new byte[] {4, 5}), 104),
+                new TestingChunkReader(Slices.wrappedBuffer(new byte[] {6, 7}), 106));
+        ChunkedInputStream input = new ChunkedInputStream(chunkReaders);
+        assertThat(input.read()).isEqualTo(0);
+        // within the current chunk
+        input.skipTo(102);
+        assertThat(input.read()).isEqualTo(2);
+        // over a chunk which is not read
+        input.skipTo(105);
+        assertThat(chunkReaders.get(0).isFreed()).isTrue();
+        assertThat(chunkReaders.get(1).isRead()).isFalse();
+        assertThat(chunkReaders.get(1).isFreed()).isTrue();
+        assertThat(input.read()).isEqualTo(5);
+        // to the beginning of the next chunk
+        input.skipTo(106);
+        assertThat(input.read()).isEqualTo(6);
+        assertThatThrownBy(() -> input.skipTo(106))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Cannot skip back from 107 to 106");
+        // to the end of the input
+        input.skipTo(108);
+        assertThat(input.read()).isEqualTo(-1);
+        input.close();
+        for (TestingChunkReader chunkReader : chunkReaders) {
+            assertThat(chunkReader.isFreed()).isTrue();
+        }
+
+        // before anything is read, the chunks before the position are not read
+        List<TestingChunkReader> otherChunkReaders = ImmutableList.of(
+                new TestingChunkReader(Slices.wrappedBuffer(new byte[] {0, 1}), 10),
+                new TestingChunkReader(Slices.wrappedBuffer(new byte[] {2, 3}), 12));
+        ChunkedInputStream otherInput = new ChunkedInputStream(otherChunkReaders);
+        otherInput.skipTo(13);
+        assertThat(otherChunkReaders.get(0).isRead()).isFalse();
+        assertThat(otherInput.read()).isEqualTo(3);
+        assertThatThrownBy(() -> new ChunkedInputStream(ImmutableList.of(new TestingChunkReader(Slices.wrappedBuffer(new byte[] {0}), 10))).skipTo(5))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Position 5 is outside of the chunks");
+    }
+
     public static Stream<List<byte[]>> chunks()
     {
         return Stream.of(

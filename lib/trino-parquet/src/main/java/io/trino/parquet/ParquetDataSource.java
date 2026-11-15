@@ -22,6 +22,7 @@ import io.trino.spi.metrics.Metrics;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 
 public interface ParquetDataSource
         extends Closeable
@@ -41,6 +42,14 @@ public interface ParquetDataSource
             throws IOException;
 
     <K> Map<K, ChunkedInputStream> planRead(ListMultimap<K, DiskRange> diskRanges, AggregatedMemoryContext memoryContext);
+
+    /**
+     * Returns the bytes at the given position if they were already read, for example together with the footer, without reading the file.
+     */
+    default Optional<Slice> getBufferedSlice(long position, int length)
+    {
+        return Optional.empty();
+    }
 
     default Metrics getMetrics()
     {

@@ -34,6 +34,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.min;
@@ -102,6 +103,15 @@ public class MemoryParquetDataSource
     public final Slice readFully(long position, int length)
     {
         return data.slice(toIntExact(position), length);
+    }
+
+    @Override
+    public Optional<Slice> getBufferedSlice(long position, int length)
+    {
+        if (position < 0 || position + length > data.length()) {
+            return Optional.empty();
+        }
+        return Optional.of(data.slice(toIntExact(position), length));
     }
 
     @Override
