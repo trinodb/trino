@@ -14,6 +14,7 @@
 package io.trino.execution.resourcegroups;
 
 import com.google.common.collect.ImmutableSet;
+import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.trino.execution.MockManagedQueryExecution;
 import io.trino.execution.MockManagedQueryExecution.MockManagedQueryExecutionBuilder;
@@ -51,6 +52,7 @@ import static io.trino.spi.resourcegroups.SchedulingPolicy.QUERY_PRIORITY;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static java.util.Collections.reverse;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestResourceGroups
@@ -79,7 +81,8 @@ public class TestResourceGroups
     @Timeout(10)
     public void testGetQueryPosition()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        TestingTicker ticker = new TestingTicker();
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor(), ticker);
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(10);
         root.setHardConcurrencyLimit(0);
@@ -95,6 +98,7 @@ public class TestResourceGroups
         assertThat(root.getQueryPosition(new QueryId("query2"))).isEqualTo(OptionalInt.of(2));
         assertThat(root.getQueryPosition(new QueryId("not_queued"))).isEqualTo(OptionalInt.empty());
 
+        ticker.increment(1, SECONDS);
         root.setHardConcurrencyLimit(1);
         root.updateGroupsAndProcessQueuedQueries();
         assertThat(query1.getState()).isEqualTo(RUNNING);
@@ -122,7 +126,8 @@ public class TestResourceGroups
     @Timeout(10)
     public void testGetQueryPositionWhenQueuedQueryFails()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        TestingTicker ticker = new TestingTicker();
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor(), ticker);
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(10);
         root.setHardConcurrencyLimit(0);
@@ -143,6 +148,7 @@ public class TestResourceGroups
         assertThat(root.getQueryPosition(new QueryId("query3"))).isEqualTo(OptionalInt.of(3));
 
         // Canceling a queued query shifts the positions
+        ticker.increment(1, SECONDS);
         query2.fail(new RuntimeException("cancelled"));
         assertThat(query2.getState()).isEqualTo(FAILED);
 
@@ -155,7 +161,8 @@ public class TestResourceGroups
     @Timeout(10)
     public void testGetQueryPositionRefreshOnEnqueue()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        TestingTicker ticker = new TestingTicker();
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor(), ticker);
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(10);
         root.setHardConcurrencyLimit(0);
@@ -165,10 +172,14 @@ public class TestResourceGroups
         assertThat(query1.getState()).isEqualTo(QUEUED);
         assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(OptionalInt.of(1));
 
-        // Enqueueing another query refreshes the previously cached positions
+        // Enqueueing another query does not refresh the cached positions before the debounce interval elapses
         MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().withQueryId("query2").build();
         root.run(query2);
         assertThat(query2.getState()).isEqualTo(QUEUED);
+        assertThat(root.getQueryPosition(new QueryId("query2"))).isEqualTo(OptionalInt.empty());
+
+        // Positions are refreshed at most once per second
+        ticker.increment(1, SECONDS);
         assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(OptionalInt.of(1));
         assertThat(root.getQueryPosition(new QueryId("query2"))).isEqualTo(OptionalInt.of(2));
     }
@@ -177,7 +188,8 @@ public class TestResourceGroups
     @Timeout(10)
     public void testGetQueryPositionAfterSchedulingPolicyChange()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        TestingTicker ticker = new TestingTicker();
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor(), ticker);
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(10);
         root.setHardConcurrencyLimit(0);
@@ -193,6 +205,7 @@ public class TestResourceGroups
         assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(OptionalInt.of(1));
         assertThat(root.getQueryPosition(new QueryId("query2"))).isEqualTo(OptionalInt.of(2));
 
+        ticker.increment(1, SECONDS);
         root.setSchedulingPolicy(QUERY_PRIORITY);
         assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(OptionalInt.of(2));
         assertThat(root.getQueryPosition(new QueryId("query2"))).isEqualTo(OptionalInt.of(1));

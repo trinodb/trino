@@ -14,6 +14,7 @@
 package io.trino.execution.resourcegroups;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -84,12 +85,14 @@ public class InternalResourceGroup
         implements ResourceGroup
 {
     public static final int DEFAULT_WEIGHT = 1;
+    private static final long QUEUE_POSITION_REFRESH_INTERVAL_NANOS = Duration.ofSeconds(1).toNanos();
 
     private final InternalResourceGroup root;
     private final Optional<InternalResourceGroup> parent;
     private final ResourceGroupId id;
     private final BiConsumer<InternalResourceGroup, Boolean> jmxExportListener;
     private final Executor executor;
+    private final Ticker ticker;
     private final AtomicBoolean resourceUsageStagingInProgress;
 
     // Configuration
@@ -136,6 +139,8 @@ public class InternalResourceGroup
     private final Object2IntMap<QueryId> queuePositions = new Object2IntOpenHashMap<>();
     @GuardedBy("root")
     private boolean queuePositionsStale = true;
+    @GuardedBy("root")
+    private long lastQueuePositionsRebuildNanos;
     private final Map<ManagedQueryExecution, StagedResourceUsage> runningQueries = new ConcurrentHashMap<>();
     @GuardedBy("root")
     private int descendantRunningQueries;
@@ -151,14 +156,22 @@ public class InternalResourceGroup
 
     public InternalResourceGroup(String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
     {
-        this(Optional.empty(), name, jmxExportListener, executor);
+        this(Optional.empty(), name, jmxExportListener, executor, Ticker.systemTicker());
     }
 
-    private InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
+    @VisibleForTesting
+    InternalResourceGroup(String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor, Ticker ticker)
+    {
+        this(Optional.empty(), name, jmxExportListener, executor, ticker);
+    }
+
+    private InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor, Ticker ticker)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
         this.executor = requireNonNull(executor, "executor is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
+        this.lastQueuePositionsRebuildNanos = ticker.read() - QUEUE_POSITION_REFRESH_INTERVAL_NANOS;
         requireNonNull(name, "name is null");
         if (parent.isPresent()) {
             id = new ResourceGroupId(parent.get().id, name);
@@ -278,7 +291,7 @@ public class InternalResourceGroup
         requireNonNull(queryId, "queryId is null");
         synchronized (root) {
             if (!(queuedQueries instanceof StochasticPriorityQueue)) {
-                if (queuePositionsStale) {
+                if (queuePositionsStale && shouldRebuildQueuePositions()) {
                     rebuildQueuePositions();
                 }
                 // Positions are 1-based, so 0 means the query is not queued
@@ -291,6 +304,12 @@ public class InternalResourceGroup
         }
     }
 
+    private boolean shouldRebuildQueuePositions()
+    {
+        checkState(Thread.holdsLock(root), "Must hold lock to check queue positions");
+        return ticker.read() - lastQueuePositionsRebuildNanos >= QUEUE_POSITION_REFRESH_INTERVAL_NANOS;
+    }
+
     private void rebuildQueuePositions()
     {
         checkState(Thread.holdsLock(root), "Must hold lock to rebuild queue positions");
@@ -301,6 +320,7 @@ public class InternalResourceGroup
             position++;
         }
         queuePositionsStale = false;
+        lastQueuePositionsRebuildNanos = ticker.read();
     }
 
     private void invalidateQueuePositions()
@@ -704,7 +724,7 @@ public class InternalResourceGroup
             if (subGroups.containsKey(name)) {
                 return subGroups.get(name);
             }
-            InternalResourceGroup subGroup = new InternalResourceGroup(Optional.of(this), name, jmxExportListener, executor);
+            InternalResourceGroup subGroup = new InternalResourceGroup(Optional.of(this), name, jmxExportListener, executor, ticker);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
