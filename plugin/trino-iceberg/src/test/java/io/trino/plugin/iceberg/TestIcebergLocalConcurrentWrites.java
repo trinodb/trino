@@ -910,8 +910,11 @@ final class TestIcebergLocalConcurrentWrites
                 MaterializedResult expected1 = computeActual("VALUES (1, 10)");
                 // If MERGE is executed before INSERTS:
                 MaterializedResult expected2 = computeActual("VALUES (1, 10), (8, 10), (21, 30)");
+                // If MERGE is executed between the INSERTS, it deletes only the row inserted before it:
+                MaterializedResult expected3 = computeActual("VALUES (1, 10), (21, 30)");
+                MaterializedResult expected4 = computeActual("VALUES (1, 10), (8, 10)");
                 assertThat(computeActual("SELECT * FROM " + tableName + " ORDER BY a"))
-                        .isIn(expected1, expected2);
+                        .isIn(expected1, expected2, expected3, expected4);
             }
         }
         finally {
