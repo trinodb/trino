@@ -164,6 +164,42 @@ public class BloomFilterValuesWriter
     }
 
     @Override
+    public void writeIntegers(int[] values, int offset, int length)
+    {
+        writer.writeIntegers(values, offset, length);
+        for (int i = offset; i < offset + length; i++) {
+            bloomFilter.insertHash(bloomFilter.hash(values[i]));
+        }
+    }
+
+    @Override
+    public void writeLongs(long[] values, int offset, int length)
+    {
+        writer.writeLongs(values, offset, length);
+        for (int i = offset; i < offset + length; i++) {
+            bloomFilter.insertHash(bloomFilter.hash(values[i]));
+        }
+    }
+
+    @Override
+    public void writeDoubleBits(long[] values, int offset, int length)
+    {
+        writer.writeDoubleBits(values, offset, length);
+        for (int i = offset; i < offset + length; i++) {
+            bloomFilter.insertHash(bloomFilter.hash(Double.longBitsToDouble(values[i])));
+        }
+    }
+
+    @Override
+    public void writeFloatBits(int[] values, int offset, int length)
+    {
+        writer.writeFloatBits(values, offset, length);
+        for (int i = offset; i < offset + length; i++) {
+            bloomFilter.insertHash(bloomFilter.hash(Float.intBitsToFloat(values[i])));
+        }
+    }
+
+    @Override
     public String memUsageString(String s)
     {
         return writer.memUsageString(s);

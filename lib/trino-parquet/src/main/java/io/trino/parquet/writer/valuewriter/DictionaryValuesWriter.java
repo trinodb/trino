@@ -567,6 +567,14 @@ public abstract class DictionaryValuesWriter
         }
 
         @Override
+        public void writeLongs(long[] values, int offset, int length)
+        {
+            for (int i = offset; i < offset + length; i++) {
+                writeLong(values[i]);
+            }
+        }
+
+        @Override
         public DictionaryPage toDictPageAndClose()
         {
             if (lastUsedDictionarySize > 0) {
@@ -632,7 +640,19 @@ public abstract class DictionaryValuesWriter
         @Override
         public void writeDouble(double v)
         {
-            long bits = Double.doubleToRawLongBits(v);
+            writeDoubleBits(Double.doubleToRawLongBits(v));
+        }
+
+        @Override
+        public void writeDoubleBits(long[] values, int offset, int length)
+        {
+            for (int i = offset; i < offset + length; i++) {
+                writeDoubleBits(values[i]);
+            }
+        }
+
+        private void writeDoubleBits(long bits)
+        {
             int id = doubleDictionaryContent.get(bits);
             if (id == -1) {
                 id = dictionaryValues.size();
@@ -721,6 +741,14 @@ public abstract class DictionaryValuesWriter
         }
 
         @Override
+        public void writeIntegers(int[] values, int offset, int length)
+        {
+            for (int i = offset; i < offset + length; i++) {
+                writeInteger(values[i]);
+            }
+        }
+
+        @Override
         public DictionaryPage toDictPageAndClose()
         {
             if (lastUsedDictionarySize > 0) {
@@ -786,7 +814,19 @@ public abstract class DictionaryValuesWriter
         @Override
         public void writeFloat(float v)
         {
-            int bits = Float.floatToRawIntBits(v);
+            writeFloatBits(Float.floatToRawIntBits(v));
+        }
+
+        @Override
+        public void writeFloatBits(int[] values, int offset, int length)
+        {
+            for (int i = offset; i < offset + length; i++) {
+                writeFloatBits(values[i]);
+            }
+        }
+
+        private void writeFloatBits(int bits)
+        {
             int id = floatDictionaryContent.get(bits);
             if (id == -1) {
                 id = dictionaryValues.size();

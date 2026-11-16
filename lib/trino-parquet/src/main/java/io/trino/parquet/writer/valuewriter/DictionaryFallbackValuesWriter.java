@@ -21,6 +21,7 @@ import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
 
 import static com.google.common.base.Verify.verify;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -29,6 +30,9 @@ import static java.util.Objects.requireNonNull;
 public class DictionaryFallbackValuesWriter
         extends ValuesWriter
 {
+    // number of values written between fall back checks when writing a batch
+    private static final int FALLBACK_CHECK_INTERVAL = 1024;
+
     private final ValuesWriter fallBackWriter;
 
     private boolean fellBackAlready;
@@ -239,6 +243,62 @@ public class DictionaryFallbackValuesWriter
         rawDataByteSize += Double.BYTES;
         currentWriter.writeDouble(value);
         checkFallback();
+    }
+
+    @Override
+    public void writeIntegers(int[] values, int offset, int length)
+    {
+        rawDataByteSize += (long) length * Integer.BYTES;
+        // the fall back check runs once per chunk, which bounds how far the dictionary may grow past its limit
+        int end = offset + length;
+        while (offset < end) {
+            int chunkLength = min(end - offset, FALLBACK_CHECK_INTERVAL);
+            currentWriter.writeIntegers(values, offset, chunkLength);
+            offset += chunkLength;
+            checkFallback();
+        }
+    }
+
+    @Override
+    public void writeLongs(long[] values, int offset, int length)
+    {
+        rawDataByteSize += (long) length * Long.BYTES;
+        // the fall back check runs once per chunk, which bounds how far the dictionary may grow past its limit
+        int end = offset + length;
+        while (offset < end) {
+            int chunkLength = min(end - offset, FALLBACK_CHECK_INTERVAL);
+            currentWriter.writeLongs(values, offset, chunkLength);
+            offset += chunkLength;
+            checkFallback();
+        }
+    }
+
+    @Override
+    public void writeDoubleBits(long[] values, int offset, int length)
+    {
+        rawDataByteSize += (long) length * Double.BYTES;
+        // the fall back check runs once per chunk, which bounds how far the dictionary may grow past its limit
+        int end = offset + length;
+        while (offset < end) {
+            int chunkLength = min(end - offset, FALLBACK_CHECK_INTERVAL);
+            currentWriter.writeDoubleBits(values, offset, chunkLength);
+            offset += chunkLength;
+            checkFallback();
+        }
+    }
+
+    @Override
+    public void writeFloatBits(int[] values, int offset, int length)
+    {
+        rawDataByteSize += (long) length * Float.BYTES;
+        // the fall back check runs once per chunk, which bounds how far the dictionary may grow past its limit
+        int end = offset + length;
+        while (offset < end) {
+            int chunkLength = min(end - offset, FALLBACK_CHECK_INTERVAL);
+            currentWriter.writeFloatBits(values, offset, chunkLength);
+            offset += chunkLength;
+            checkFallback();
+        }
     }
 
     @VisibleForTesting

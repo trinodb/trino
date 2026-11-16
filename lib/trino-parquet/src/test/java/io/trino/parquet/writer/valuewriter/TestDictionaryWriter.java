@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Consumer;
 
 import static io.trino.parquet.ParquetTestUtils.toTrinoDictionaryPage;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
@@ -516,6 +517,85 @@ public class TestDictionaryWriter
         fallbackValuesWriter.resetDictionary();
 
         roundTripFloat(fallbackValuesWriter, decoder, maxDictionaryByteSize);
+    }
+
+    @Test
+    public void testBatchWritesMatchSingleValueWrites()
+            throws IOException
+    {
+        // the batch starts at a non-zero offset and holds enough distinct values to fall back in the middle of it
+        int offset = 3;
+        int count = 3000;
+        long[] longValues = new long[offset + count];
+        int[] intValues = new int[offset + count];
+        for (int i = 0; i < count; i++) {
+            longValues[offset + i] = (i * 31L) % 1500;
+            intValues[offset + i] = (i * 31) % 1500;
+        }
+
+        // the smallest dictionary falls back on the first value, the middle one part way through the batch, the largest never
+        for (int maxDictionaryByteSize : new int[] {1, 2000, 1_000_000}) {
+            assertSameOutput(
+                    newPlainLongDictionaryValuesWriter(maxDictionaryByteSize, 100),
+                    writer -> writer.writeLongs(longValues, offset, count),
+                    newPlainLongDictionaryValuesWriter(maxDictionaryByteSize, 100),
+                    writer -> {
+                        for (int i = 0; i < count; i++) {
+                            writer.writeLong(longValues[offset + i]);
+                        }
+                    });
+            assertSameOutput(
+                    newPlainIntegerDictionaryValuesWriter(maxDictionaryByteSize, 100),
+                    writer -> writer.writeIntegers(intValues, offset, count),
+                    newPlainIntegerDictionaryValuesWriter(maxDictionaryByteSize, 100),
+                    writer -> {
+                        for (int i = 0; i < count; i++) {
+                            writer.writeInteger(intValues[offset + i]);
+                        }
+                    });
+            assertSameOutput(
+                    newPlainDoubleDictionaryValuesWriter(maxDictionaryByteSize, 100),
+                    writer -> writer.writeDoubleBits(longValues, offset, count),
+                    newPlainDoubleDictionaryValuesWriter(maxDictionaryByteSize, 100),
+                    writer -> {
+                        for (int i = 0; i < count; i++) {
+                            writer.writeDouble(Double.longBitsToDouble(longValues[offset + i]));
+                        }
+                    });
+            assertSameOutput(
+                    newPlainFloatDictionaryValuesWriter(maxDictionaryByteSize, 100),
+                    writer -> writer.writeFloatBits(intValues, offset, count),
+                    newPlainFloatDictionaryValuesWriter(maxDictionaryByteSize, 100),
+                    writer -> {
+                        for (int i = 0; i < count; i++) {
+                            writer.writeFloat(Float.intBitsToFloat(intValues[offset + i]));
+                        }
+                    });
+        }
+    }
+
+    private static void assertSameOutput(ValuesWriter batchWriter, Consumer<ValuesWriter> batchWrite, ValuesWriter singleValueWriter, Consumer<ValuesWriter> singleValueWrite)
+            throws IOException
+    {
+        // two pages are written so the second one starts from the state the first one left behind
+        for (int page = 0; page < 2; page++) {
+            batchWrite.accept(batchWriter);
+            singleValueWrite.accept(singleValueWriter);
+
+            assertThat(batchWriter.getBufferedSize()).isEqualTo(singleValueWriter.getBufferedSize());
+            assertThat(batchWriter.getBytes().toByteArray()).isEqualTo(singleValueWriter.getBytes().toByteArray());
+            assertThat(batchWriter.getEncoding()).isEqualTo(singleValueWriter.getEncoding());
+            batchWriter.reset();
+            singleValueWriter.reset();
+        }
+
+        var batchDictionary = batchWriter.toDictPageAndClose();
+        var singleValueDictionary = singleValueWriter.toDictPageAndClose();
+        assertThat(batchDictionary == null).isEqualTo(singleValueDictionary == null);
+        if (batchDictionary != null) {
+            assertThat(batchDictionary.getDictionarySize()).isEqualTo(singleValueDictionary.getDictionarySize());
+            assertThat(batchDictionary.getBytes().toByteArray()).isEqualTo(singleValueDictionary.getBytes().toByteArray());
+        }
     }
 
     private void roundTripLong(DictionaryFallbackValuesWriter fallbackValuesWriter, ValueDecoder<long[]> decoder, int maxDictionaryByteSize)

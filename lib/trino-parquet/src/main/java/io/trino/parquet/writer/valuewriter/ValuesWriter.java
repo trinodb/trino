@@ -125,5 +125,39 @@ public abstract class ValuesWriter
         throw new UnsupportedOperationException(getClass().getName());
     }
 
+    public void writeIntegers(int[] values, int offset, int length)
+    {
+        for (int i = offset; i < offset + length; i++) {
+            writeInteger(values[i]);
+        }
+    }
+
+    public void writeLongs(long[] values, int offset, int length)
+    {
+        for (int i = offset; i < offset + length; i++) {
+            writeLong(values[i]);
+        }
+    }
+
+    /**
+     * Writes doubles given as their raw long bits, which is how double blocks store them
+     */
+    public void writeDoubleBits(long[] values, int offset, int length)
+    {
+        for (int i = offset; i < offset + length; i++) {
+            writeDouble(Double.longBitsToDouble(values[i]));
+        }
+    }
+
+    /**
+     * Writes floats given as their raw int bits, which is how real blocks store them
+     */
+    public void writeFloatBits(int[] values, int offset, int length)
+    {
+        for (int i = offset; i < offset + length; i++) {
+            writeFloat(Float.intBitsToFloat(values[i]));
+        }
+    }
+
     public abstract String memUsageString(String prefix);
 }
