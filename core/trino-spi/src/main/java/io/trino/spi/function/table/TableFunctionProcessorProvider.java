@@ -25,10 +25,24 @@ public interface TableFunctionProcessorProvider
     /**
      * This method returns a {@code TableFunctionDataProcessor}. All the necessary information collected during analysis is available
      * in the form of {@link ConnectorTableFunctionHandle}. It is called once per each partition processed by the table function.
+     *
+     * @deprecated Use overload that accepts {@link MemoryContext}
      */
+    @Deprecated
     default TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
         throw new UnsupportedOperationException("this table function does not process input data");
+    }
+
+    /**
+     * This method returns a {@code TableFunctionDataProcessor}. All the necessary information collected during analysis is available
+     * in the form of {@link ConnectorTableFunctionHandle}. It is called once per each partition processed by the table function.
+     *
+     * @param memoryContext a facade for reporting memory usage of the returned processor
+     */
+    default TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, MemoryContext memoryContext)
+    {
+        return getDataProcessor(session, handle);
     }
 
     /**

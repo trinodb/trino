@@ -241,6 +241,7 @@ public class TableFunctionOperator
     private final PageBuffer pageBuffer = new PageBuffer();
     private final WorkProcessor<Page> outputPages;
     private final boolean processEmptyInput;
+    private final LocalMemoryContext processorMemoryContext;
 
     private TableFunctionDataProcessor processor;
 
@@ -284,6 +285,7 @@ public class TableFunctionOperator
 
         this.operatorContext = operatorContext;
         this.session = operatorContext.getSession().toConnectorSession(catalogHandle);
+        this.processorMemoryContext = operatorContext.newLocalUserMemoryContext(TableFunctionOperator.class.getSimpleName() + "-TableFunctionDataProcessor");
 
         this.processEmptyInput = !pruneWhenEmpty;
 
@@ -364,7 +366,12 @@ public class TableFunctionOperator
     public void close()
             throws Exception
     {
-        closeProcessor();
+        try {
+            closeProcessor();
+        }
+        finally {
+            processorMemoryContext.close();
+        }
     }
 
     private TableFunctionDataProcessor createProcessor(TableFunctionProcessorProvider tableFunctionProvider, ConnectorTableFunctionHandle functionHandle)
@@ -375,7 +382,7 @@ public class TableFunctionOperator
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        processor = tableFunctionProvider.getDataProcessor(session, functionHandle);
+        processor = tableFunctionProvider.getDataProcessor(session, functionHandle, processorMemoryContext::setBytes);
         return processor;
     }
 
@@ -386,6 +393,7 @@ public class TableFunctionOperator
             TableFunctionDataProcessor previousProcessor = processor;
             processor = null;
             previousProcessor.close();
+            processorMemoryContext.setBytes(0);
         }
     }
 
