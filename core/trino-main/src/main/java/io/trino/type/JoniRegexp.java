@@ -45,6 +45,26 @@ public final class JoniRegexp
         return regex.matcher(bytes);
     }
 
+    // regex is always compiled from pattern with the same options (see JoniRegexpCasts), so the pattern identifies it
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        JoniRegexp other = (JoniRegexp) obj;
+        return pattern.equals(other.pattern);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return pattern.hashCode();
+    }
+
     @Override
     public String toString()
     {
