@@ -313,4 +313,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/ydb">
+        <artifact id="${project.groupId}:trino-ydb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>

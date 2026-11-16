@@ -425,6 +425,12 @@
             <artifactId>sdk-core</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>tech.ydb.jdbc</groupId>
+            <artifactId>ydb-jdbc-driver</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <repositories>
