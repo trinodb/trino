@@ -302,8 +302,16 @@ public final class MapBlock
     @Override
     public MapBlock copyWithAppendedNull()
     {
-        long[] newValueIsValid = copyBitmapAndAppendUnset(valueIsValid, startOffset, getPositionCount());
+        // The positions before the start offset are copied as well, as hash tables are built from the first position
+        long[] newValueIsValid = copyBitmapAndAppendUnset(valueIsValid, 0, startOffset + getPositionCount());
         int[] newOffsets = copyOffsetsAndAppendNull(offsets, startOffset, getPositionCount());
+
+        // Hash tables that are not built yet are built from the offsets of the block that needs them first,
+        // so they cannot be shared with a copy that has fewer offsets
+        MapHashTables newHashTables = hashTables;
+        if (hashTables.tryGet().isEmpty()) {
+            newHashTables = new MapHashTables(mapType, DUPLICATE_NOT_CHECKED, newOffsets.length - 1, Optional.empty());
+        }
 
         return createMapBlockInternal(
                 getMapType(),
@@ -313,7 +321,7 @@ public final class MapBlock
                 newOffsets,
                 keyBlock,
                 valueBlock,
-                hashTables);
+                newHashTables);
     }
 
     MapType getMapType()
