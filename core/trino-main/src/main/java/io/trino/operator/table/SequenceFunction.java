@@ -27,6 +27,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.function.table.AbstractConnectorTableFunction;
 import io.trino.spi.function.table.Argument;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
@@ -219,7 +220,8 @@ public class SequenceFunction
                     ConnectorSession session,
                     ConnectorTableFunctionHandle handle,
                     Optional<ConnectorTableCredentials> tableCredentials,
-                    ConnectorSplit split)
+                    ConnectorSplit split,
+                    MemoryContext memoryContext)
             {
                 return new SequenceFunctionProcessor(((SequenceFunctionHandle) handle).step(), (SequenceFunctionSplit) split);
             }
