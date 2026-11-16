@@ -140,8 +140,10 @@ public class LeafTableFunctionOperator
     private void resetProcessor(ConnectorSplit nextSplit)
     {
         if (this.processor != null) {
+            TableFunctionSplitProcessor previousProcessor = this.processor;
+            this.processor = null;
             try {
-                this.processor.close();
+                previousProcessor.close();
             }
             catch (IOException ignored) {
                 // ignore close exceptions, as this is a best-effort cleanup
