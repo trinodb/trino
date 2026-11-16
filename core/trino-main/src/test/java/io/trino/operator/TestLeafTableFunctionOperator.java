@@ -19,6 +19,7 @@ import io.trino.operator.LeafTableFunctionOperator.LeafTableFunctionOperatorFact
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorState;
@@ -122,6 +123,61 @@ public class TestLeafTableFunctionOperator
 
         operator.close();
         assertThat(closed.get()).isEqualTo(1);
+    }
+
+    @Test
+    public void testProcessorMemoryAccounted()
+            throws Exception
+    {
+        AtomicInteger created = new AtomicInteger();
+        TableFunctionProcessorProvider provider = new TableFunctionProcessorProvider()
+        {
+            @Override
+            public TableFunctionSplitProcessor getSplitProcessor(
+                    ConnectorSession session,
+                    ConnectorTableFunctionHandle handle,
+                    Optional<ConnectorTableCredentials> tableCredentials,
+                    ConnectorSplit split,
+                    MemoryContext memoryContext)
+            {
+                // the processor of the second split does not report memory
+                switch (created.getAndIncrement()) {
+                    case 0 -> memoryContext.setBytes(1024);
+                    case 2 -> memoryContext.setBytes(2048);
+                    default -> {}
+                }
+                return () -> FINISHED;
+            }
+        };
+
+        DriverContext driverContext = newDriverContext();
+        SourceOperator operator = new LeafTableFunctionOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                TEST_CATALOG_HANDLE,
+                provider,
+                new ConnectorTableFunctionHandle() {},
+                Optional.empty(),
+                ImmutableList.of(BIGINT))
+                .createOperator(driverContext);
+        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+        operator.noMoreSplits();
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
+
+        assertThat(operator.getOutput()).isNull();
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(1024);
+
+        // memory of the first processor is released when the next split is started
+        assertThat(operator.getOutput()).isNull();
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
+
+        assertThat(operator.getOutput()).isNull();
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(2048);
+
+        operator.close();
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
     }
 
     private DriverContext newDriverContext()
