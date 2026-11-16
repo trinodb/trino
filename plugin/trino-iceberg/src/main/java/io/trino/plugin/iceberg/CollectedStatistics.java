@@ -14,13 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.datasketches.theta.CompactThetaSketch;
 
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public record CollectedStatistics(Map<Integer, CompactThetaSketch> ndvSketches)
+public record CollectedStatistics(Map<Integer, NdvSketch> ndvSketches)
 {
     public CollectedStatistics
     {

@@ -156,6 +156,14 @@ implementation is used:
     equivalent catalog session property is
     `collect_extended_statistics_on_write`.
   - `true`
+* - `iceberg.extended-statistics.ndv-sketch-algorithm`
+  - Sketch algorithm for number of distinct values (NDV) statistics: `THETA`
+    or `HLL`. `HLL` is faster to write but uses a Trino-specific statistics
+    format unreadable by other engines, so only use it when Trino is the only
+    writer of the table. The setting applies to tables without extended
+    statistics. Tables with existing extended statistics keep the algorithm
+    they already use.
+  - `THETA`
 * - `iceberg.projection-pushdown-enabled`
   - Enable [projection pushdown](/optimizer/pushdown)
   - `true`
