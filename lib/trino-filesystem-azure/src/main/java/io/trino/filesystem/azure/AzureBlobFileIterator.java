@@ -16,7 +16,6 @@ package io.trino.filesystem.azure;
 import com.azure.storage.blob.models.BlobItem;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.Location;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -30,13 +29,11 @@ final class AzureBlobFileIterator
 {
     private final AzureLocation location;
     private final Iterator<BlobItem> iterator;
-    private final Location baseLocation;
 
     AzureBlobFileIterator(AzureLocation location, Iterator<BlobItem> iterator)
     {
         this.location = requireNonNull(location, "location is null");
         this.iterator = requireNonNull(iterator, "iterator is null");
-        this.baseLocation = location.baseLocation();
     }
 
     @Override
@@ -58,7 +55,7 @@ final class AzureBlobFileIterator
         try {
             BlobItem blobItem = iterator.next();
             return new FileEntry(
-                    baseLocation.appendPath(blobItem.getName()),
+                    location.blobLocation(blobItem.getName()),
                     blobItem.getProperties().getContentLength(),
                     blobItem.getProperties().getLastModified().toInstant(),
                     Optional.empty());
