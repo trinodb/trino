@@ -115,7 +115,7 @@ public class PipelinedStageExecution
     private final Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers;
     private final TaskLifecycleListener taskLifecycleListener;
     private final InternalNodeManager nodeManager;
-    private final Optional<int[]> bucketToPartition;
+    private final int[] bucketToPartition;
     private final OptionalInt skewedBucketCount;
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
     private final int attempt;
@@ -142,7 +142,7 @@ public class PipelinedStageExecution
             TaskLifecycleListener taskLifecycleListener,
             InternalNodeManager nodeManager,
             Executor executor,
-            Optional<int[]> bucketToPartition,
+            int[] bucketToPartition,
             OptionalInt skewedBucketCount,
             int attempt)
     {
@@ -173,7 +173,7 @@ public class PipelinedStageExecution
             Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers,
             TaskLifecycleListener taskLifecycleListener,
             InternalNodeManager nodeManager,
-            Optional<int[]> bucketToPartition,
+            int[] bucketToPartition,
             OptionalInt skewedBucketCount,
             Map<PlanFragmentId, RemoteSourceNode> exchangeSources,
             int attempt)
@@ -303,7 +303,7 @@ public class PipelinedStageExecution
                 node,
                 partition,
                 attempt,
-                bucketToPartition,
+                Optional.of(bucketToPartition),
                 skewedBucketCount,
                 outputBuffers,
                 initialSplits,
