@@ -18,8 +18,6 @@ import io.trino.parquet.reader.SimpleSliceInputStream;
 
 import java.util.Arrays;
 
-import static io.trino.parquet.ParquetReaderUtils.toByteExact;
-import static io.trino.parquet.ParquetReaderUtils.toShortExact;
 import static io.trino.parquet.reader.decoders.ByteBitUnpackers.getByteBitUnpacker;
 import static io.trino.parquet.reader.decoders.IntBitUnpackers.getIntBitUnpacker;
 import static io.trino.parquet.reader.decoders.LongBitUnpackers.getLongBitUnpacker;
@@ -32,7 +30,8 @@ public final class DeltaPackingUtils
     public static void unpackDelta(byte[] output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth)
     {
         if (bitWidth == 0) {
-            unpackEmpty(output, outputOffset, length, toByteExact(minDelta));
+            // The delta is an int32 and can be wider than a byte, the caller verifies that the values stay in range
+            unpackEmpty(output, outputOffset, length, (byte) minDelta);
         }
         else {
             unpackByte(output, outputOffset, input, length, bitWidth, minDelta);
@@ -42,7 +41,8 @@ public final class DeltaPackingUtils
     public static void unpackDelta(short[] output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth)
     {
         if (bitWidth == 0) {
-            unpackEmpty(output, outputOffset, length, toShortExact(minDelta));
+            // The delta is an int32 and can be wider than a short, the caller verifies that the values stay in range
+            unpackEmpty(output, outputOffset, length, (short) minDelta);
         }
         else {
             unpackShort(output, outputOffset, input, length, bitWidth, minDelta);
