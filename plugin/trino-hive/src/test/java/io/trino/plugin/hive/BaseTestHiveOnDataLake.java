@@ -38,6 +38,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
@@ -79,6 +80,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ;
 
 @TestInstance(PER_CLASS)
 abstract class BaseTestHiveOnDataLake
@@ -86,6 +88,8 @@ abstract class BaseTestHiveOnDataLake
 {
     protected static final String HIVE_TEST_SCHEMA = "hive_datalake";
     private static final DataSize HIVE_S3_STREAMING_PART_SIZE = DataSize.of(5, MEGABYTE);
+    // keeps the whole-cache flush from running while a test asserts on a stale metastore cache entry
+    private static final String METASTORE_CACHE_LOCK = "metastore-cache";
 
     protected final HiveFlociDataLake hiveFlociDataLake;
     protected final String bucketName;
@@ -516,6 +520,7 @@ abstract class BaseTestHiveOnDataLake
     }
 
     @Test
+    @ResourceLock(value = METASTORE_CACHE_LOCK, mode = READ)
     public void testFlushPartitionCache()
     {
         String tableName = "nation_" + randomNameSuffix();
@@ -2464,6 +2469,7 @@ abstract class BaseTestHiveOnDataLake
     }
 
     @Test
+    @ResourceLock(METASTORE_CACHE_LOCK)
     public void testUnsupportedDropSchemaCascadeWithNonHiveTable()
     {
         String schemaName = "test_unsupported_drop_schema_cascade_" + randomNameSuffix();
