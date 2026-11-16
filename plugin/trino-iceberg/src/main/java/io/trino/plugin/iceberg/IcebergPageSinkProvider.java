@@ -176,7 +176,7 @@ public class IcebergPageSinkProvider
                         typeManager,
                         pageSorter);
             }
-            case OPTIMIZE_MANIFESTS, DROP_EXTENDED_STATS, ROLLBACK_TO_SNAPSHOT, EXPIRE_SNAPSHOTS, REMOVE_ORPHAN_FILES, ADD_FILES, ADD_FILES_FROM_TABLE -> {
+            case OPTIMIZE_MANIFESTS, DROP_EXTENDED_STATS, DROP_PARTITION_STATS, COMPUTE_PARTITION_STATS, ROLLBACK_TO_SNAPSHOT, EXPIRE_SNAPSHOTS, REMOVE_ORPHAN_FILES, ADD_FILES, ADD_FILES_FROM_TABLE -> {
                 // handled via ConnectorMetadata.executeTableExecute
                 throw new IllegalArgumentException("Unknown procedure: " + executeHandle.procedureId());
             }

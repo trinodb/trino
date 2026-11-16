@@ -49,6 +49,7 @@ public class IcebergMetadataFactory
     private final IcebergFileSystemFactory fileSystemFactory;
     private final TableStatisticsReader tableStatisticsReader;
     private final TableStatisticsWriter tableStatisticsWriter;
+    private final PartitionStatisticsWriter partitionStatisticsWriter;
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
     private final OrcReaderOptions orcReaderOptions;
@@ -72,6 +73,7 @@ public class IcebergMetadataFactory
             IcebergFileSystemFactory fileSystemFactory,
             TableStatisticsReader tableStatisticsReader,
             TableStatisticsWriter tableStatisticsWriter,
+            PartitionStatisticsWriter partitionStatisticsWriter,
             DeletionVectorWriter deletionVectorWriter,
             @RawHiveMetastoreFactory Optional<HiveMetastoreFactory> metastoreFactory,
             @ForIcebergSplitManager ExecutorService icebergScanExecutor,
@@ -90,6 +92,7 @@ public class IcebergMetadataFactory
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.tableStatisticsReader = requireNonNull(tableStatisticsReader, "tableStatisticsReader is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
+        this.partitionStatisticsWriter = requireNonNull(partitionStatisticsWriter, "partitionStatisticsWriter is null");
         this.deletionVectorWriter = requireNonNull(deletionVectorWriter, "deletionVectorWriter is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
@@ -126,6 +129,7 @@ public class IcebergMetadataFactory
                 fileSystemFactory,
                 tableStatisticsReader,
                 tableStatisticsWriter,
+                partitionStatisticsWriter,
                 deletionVectorWriter,
                 metastoreFactory,
                 addFilesProcedureEnabled,
