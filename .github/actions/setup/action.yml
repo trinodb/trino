@@ -38,9 +38,6 @@ runs:
             echo >&2 "Expected to checkout $expected but got $actual"
             exit 1
           fi
-      - name: Fetch base ref to find merge-base for GIB
-        shell: bash
-        run: .github/bin/git-fetch-base-ref.sh
       - name: Free additional disk space
         if: ${{ format('{0}', inputs.cleanup-node) == 'true' }}
         shell: bash
