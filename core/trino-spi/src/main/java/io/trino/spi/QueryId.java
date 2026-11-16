@@ -63,7 +63,7 @@ public record QueryId(String id)
     {
         for (int i = 0; i < id.length(); i++) {
             char c = id.charAt(i);
-            if (!(c == '_' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9')) {
+            if (!(c == '_' || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))) {
                 return false;
             }
         }
@@ -73,7 +73,7 @@ public record QueryId(String id)
     private static boolean isValidDottedId(char[] chars)
     {
         for (int i = 0; i < chars.length; i++) {
-            if (!(chars[i] == '_' || chars[i] == '.' || chars[i] >= 'a' && chars[i] <= 'z' || chars[i] >= '0' && chars[i] <= '9')) {
+            if (!(chars[i] == '_' || chars[i] == '.' || (chars[i] >= 'a' && chars[i] <= 'z') || (chars[i] >= '0' && chars[i] <= '9'))) {
                 return false;
             }
         }

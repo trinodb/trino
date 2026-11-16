@@ -224,7 +224,7 @@ final class DerUtils
         for (int i = 0; i < numberOfParts - 1; i++) {
             int partToEncode = (numberOfParts - i);
             int shiftSize = (partToEncode - 1) * 7;
-            int part = (number >>> shiftSize) & 0x7F | 0x80;
+            int part = ((number >>> shiftSize) & 0x7F) | 0x80;
             out.write(part);
         }
         out.write(number & 0x7F);

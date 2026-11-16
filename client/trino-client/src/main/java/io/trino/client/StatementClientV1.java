@@ -532,7 +532,7 @@ class StatementClientV1
     private boolean isTransient(Throwable exception)
     {
         return exception != null && getCausalChain(exception).stream()
-                .anyMatch(e -> (e instanceof InterruptedIOException && e.getMessage().equals("timeout")
+                .anyMatch(e -> ((e instanceof InterruptedIOException && e.getMessage().equals("timeout"))
                         || e instanceof ProtocolException
                         || e instanceof SocketTimeoutException));
     }

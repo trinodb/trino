@@ -2359,7 +2359,7 @@ public class IcebergMetadata
             newFiles.add(builder.build());
         }
 
-        if (optimizeHandle.snapshotId().isEmpty() || scannedDataFiles.isEmpty() && fullyAppliedDeleteFiles.isEmpty() && newFiles.isEmpty()) {
+        if (optimizeHandle.snapshotId().isEmpty() || (scannedDataFiles.isEmpty() && fullyAppliedDeleteFiles.isEmpty() && newFiles.isEmpty())) {
             // Either the table is empty, or the table scan turned out to be empty, nothing to commit
             return new OptimizeResult(0L, 0L, 0L).toMap();
         }

@@ -270,7 +270,7 @@ public final class Range
         else {
             int compare = compareValues(comparisonOperator, this.highValue.orElseThrow(), next.lowValue.orElseThrow());
             merge = compare > 0  // overlap
-                    || compare == 0 && (this.highInclusive || next.lowInclusive); // adjacent
+                    || (compare == 0 && (this.highInclusive || next.lowInclusive)); // adjacent
         }
         if (merge) {
             int compareHighBound = compareHighBound(next);

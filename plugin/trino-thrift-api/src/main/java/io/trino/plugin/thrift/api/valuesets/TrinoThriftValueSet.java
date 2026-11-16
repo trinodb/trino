@@ -130,9 +130,9 @@ public final class TrinoThriftValueSet
 
     private static boolean isExactlyOneNonNull(Object a, Object b, Object c)
     {
-        return a != null && b == null && c == null ||
-                a == null && b != null && c == null ||
-                a == null && b == null && c != null;
+        return (a != null && b == null && c == null) ||
+                (a == null && b != null && c == null) ||
+                (a == null && b == null && c != null);
     }
 
     private static Object firstNonNull(Object a, Object b, Object c)

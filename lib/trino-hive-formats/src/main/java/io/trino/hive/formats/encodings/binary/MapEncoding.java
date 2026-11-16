@@ -67,7 +67,7 @@ public class MapEncoding
             }
 
             if (!rawValueBlock.isNull(rawOffset + elementIndex)) {
-                nullByte |= (1 << bits + 1);
+                nullByte |= (1 << (bits + 1));
             }
             bits += 2;
         }

@@ -84,6 +84,6 @@ public final class ArraysOverlapFunction
                 return true;
             }
         }
-        return largerContainsNull || smallerSet.containsNullElement() ? null : false;
+        return (largerContainsNull || smallerSet.containsNullElement()) ? null : false;
     }
 }

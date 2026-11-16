@@ -252,13 +252,13 @@ public class TestExpressionCompiler
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.equals(right));
+                        .isEqualTo((left == null || right == null) ? null : left.equals(right));
 
                 assertThat(assertions.expression("a <> b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : !left.equals(right));
+                        .isEqualTo((left == null || right == null) ? null : !left.equals(right));
 
                 assertThat(assertions.expression("nullif(a, b)")
                         .binding("a", toLiteral(left))
@@ -284,37 +284,37 @@ public class TestExpressionCompiler
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (long) left == right);
+                        .isEqualTo((left == null || right == null) ? null : (long) left == right);
 
                 assertThat(assertions.expression("a <> b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (long) left != right);
+                        .isEqualTo((left == null || right == null) ? null : (long) left != right);
 
                 assertThat(assertions.expression("a > b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (long) left > right);
+                        .isEqualTo((left == null || right == null) ? null : (long) left > right);
 
                 assertThat(assertions.expression("a < b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (long) left < right);
+                        .isEqualTo((left == null || right == null) ? null : (long) left < right);
 
                 assertThat(assertions.expression("a >= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (long) left >= right);
+                        .isEqualTo((left == null || right == null) ? null : (long) left >= right);
 
                 assertThat(assertions.expression("a <= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (long) left <= right);
+                        .isEqualTo((left == null || right == null) ? null : (long) left <= right);
 
                 assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
                         .hasType(INTEGER)
@@ -395,37 +395,37 @@ public class TestExpressionCompiler
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (double) left == right);
+                        .isEqualTo((left == null || right == null) ? null : (double) left == right);
 
                 assertThat(assertions.expression("a <> b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (double) left != right);
+                        .isEqualTo((left == null || right == null) ? null : (double) left != right);
 
                 assertThat(assertions.expression("a > b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (double) left > right);
+                        .isEqualTo((left == null || right == null) ? null : (double) left > right);
 
                 assertThat(assertions.expression("a < b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (double) left < right);
+                        .isEqualTo((left == null || right == null) ? null : (double) left < right);
 
                 assertThat(assertions.expression("a >= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (double) left >= right);
+                        .isEqualTo((left == null || right == null) ? null : (double) left >= right);
 
                 assertThat(assertions.expression("a <= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (double) left <= right);
+                        .isEqualTo((left == null || right == null) ? null : (double) left <= right);
 
                 assertThat(assertions.expression("nullif(a, b)")
                         .binding("a", toLiteral(left))
@@ -481,37 +481,37 @@ public class TestExpressionCompiler
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left == (double) right);
+                        .isEqualTo((left == null || right == null) ? null : left == (double) right);
 
                 assertThat(assertions.expression("a <> b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left != (double) right);
+                        .isEqualTo((left == null || right == null) ? null : left != (double) right);
 
                 assertThat(assertions.expression("a > b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left > (double) right);
+                        .isEqualTo((left == null || right == null) ? null : left > (double) right);
 
                 assertThat(assertions.expression("a < b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left < (double) right);
+                        .isEqualTo((left == null || right == null) ? null : left < (double) right);
 
                 assertThat(assertions.expression("a >= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left >= (double) right);
+                        .isEqualTo((left == null || right == null) ? null : left >= (double) right);
 
                 assertThat(assertions.expression("a <= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left <= (double) right);
+                        .isEqualTo((left == null || right == null) ? null : left <= (double) right);
 
                 assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
                         .hasType(DOUBLE)
@@ -564,37 +564,37 @@ public class TestExpressionCompiler
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (double) left == right);
+                        .isEqualTo((left == null || right == null) ? null : (double) left == right);
 
                 assertThat(assertions.expression("a <> b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (double) left != right);
+                        .isEqualTo((left == null || right == null) ? null : (double) left != right);
 
                 assertThat(assertions.expression("a > b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (double) left > right);
+                        .isEqualTo((left == null || right == null) ? null : (double) left > right);
 
                 assertThat(assertions.expression("a < b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (double) left < right);
+                        .isEqualTo((left == null || right == null) ? null : (double) left < right);
 
                 assertThat(assertions.expression("a >= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (double) left >= right);
+                        .isEqualTo((left == null || right == null) ? null : (double) left >= right);
 
                 assertThat(assertions.expression("a <= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : (double) left <= right);
+                        .isEqualTo((left == null || right == null) ? null : (double) left <= right);
 
                 assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
                         .hasType(DOUBLE)
@@ -647,37 +647,37 @@ public class TestExpressionCompiler
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.equals(new BigDecimal(right)));
+                        .isEqualTo((left == null || right == null) ? null : left.equals(new BigDecimal(right)));
 
                 assertThat(assertions.expression("a <> b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : !left.equals(new BigDecimal(right)));
+                        .isEqualTo((left == null || right == null) ? null : !left.equals(new BigDecimal(right)));
 
                 assertThat(assertions.expression("a > b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) > 0);
+                        .isEqualTo((left == null || right == null) ? null : left.compareTo(new BigDecimal(right)) > 0);
 
                 assertThat(assertions.expression("a < b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) < 0);
+                        .isEqualTo((left == null || right == null) ? null : left.compareTo(new BigDecimal(right)) < 0);
 
                 assertThat(assertions.expression("a >= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) >= 0);
+                        .isEqualTo((left == null || right == null) ? null : left.compareTo(new BigDecimal(right)) >= 0);
 
                 assertThat(assertions.expression("a <= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) <= 0);
+                        .isEqualTo((left == null || right == null) ? null : left.compareTo(new BigDecimal(right)) <= 0);
 
                 assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
                         .isEqualTo(toSqlDecimal(BigDecimal.class.cast(nullIf(left, right))));
@@ -703,37 +703,37 @@ public class TestExpressionCompiler
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).equals(right));
+                        .isEqualTo((left == null || right == null) ? null : new BigDecimal(left).equals(right));
 
                 assertThat(assertions.expression("a <> b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : !new BigDecimal(left).equals(right));
+                        .isEqualTo((left == null || right == null) ? null : !new BigDecimal(left).equals(right));
 
                 assertThat(assertions.expression("a > b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) > 0);
+                        .isEqualTo((left == null || right == null) ? null : new BigDecimal(left).compareTo(right) > 0);
 
                 assertThat(assertions.expression("a < b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) < 0);
+                        .isEqualTo((left == null || right == null) ? null : new BigDecimal(left).compareTo(right) < 0);
 
                 assertThat(assertions.expression("a >= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) >= 0);
+                        .isEqualTo((left == null || right == null) ? null : new BigDecimal(left).compareTo(right) >= 0);
 
                 assertThat(assertions.expression("a <= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) <= 0);
+                        .isEqualTo((left == null || right == null) ? null : new BigDecimal(left).compareTo(right) <= 0);
 
                 assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
                         .hasType(BIGINT)
@@ -760,37 +760,37 @@ public class TestExpressionCompiler
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.equals(new BigDecimal(right)));
+                        .isEqualTo((left == null || right == null) ? null : left.equals(new BigDecimal(right)));
 
                 assertThat(assertions.expression("a <> b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : !left.equals(new BigDecimal(right)));
+                        .isEqualTo((left == null || right == null) ? null : !left.equals(new BigDecimal(right)));
 
                 assertThat(assertions.expression("a > b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) > 0);
+                        .isEqualTo((left == null || right == null) ? null : left.compareTo(new BigDecimal(right)) > 0);
 
                 assertThat(assertions.expression("a < b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) < 0);
+                        .isEqualTo((left == null || right == null) ? null : left.compareTo(new BigDecimal(right)) < 0);
 
                 assertThat(assertions.expression("a >= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) >= 0);
+                        .isEqualTo((left == null || right == null) ? null : left.compareTo(new BigDecimal(right)) >= 0);
 
                 assertThat(assertions.expression("a <= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) <= 0);
+                        .isEqualTo((left == null || right == null) ? null : left.compareTo(new BigDecimal(right)) <= 0);
 
                 assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
                         .isEqualTo(toSqlDecimal(BigDecimal.class.cast(nullIf(left, right))));
@@ -816,37 +816,37 @@ public class TestExpressionCompiler
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).equals(right));
+                        .isEqualTo((left == null || right == null) ? null : new BigDecimal(left).equals(right));
 
                 assertThat(assertions.expression("a <> b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : !new BigDecimal(left).equals(right));
+                        .isEqualTo((left == null || right == null) ? null : !new BigDecimal(left).equals(right));
 
                 assertThat(assertions.expression("a > b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) > 0);
+                        .isEqualTo((left == null || right == null) ? null : new BigDecimal(left).compareTo(right) > 0);
 
                 assertThat(assertions.expression("a < b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) < 0);
+                        .isEqualTo((left == null || right == null) ? null : new BigDecimal(left).compareTo(right) < 0);
 
                 assertThat(assertions.expression("a >= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) >= 0);
+                        .isEqualTo((left == null || right == null) ? null : new BigDecimal(left).compareTo(right) >= 0);
 
                 assertThat(assertions.expression("a <= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) <= 0);
+                        .isEqualTo((left == null || right == null) ? null : new BigDecimal(left).compareTo(right) <= 0);
 
                 assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
                         .hasType(INTEGER)
@@ -872,37 +872,37 @@ public class TestExpressionCompiler
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.doubleValue() == right);
+                        .isEqualTo((left == null || right == null) ? null : left.doubleValue() == right);
 
                 assertThat(assertions.expression("a <> b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.doubleValue() != right);
+                        .isEqualTo((left == null || right == null) ? null : left.doubleValue() != right);
 
                 assertThat(assertions.expression("a > b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.doubleValue() > right);
+                        .isEqualTo((left == null || right == null) ? null : left.doubleValue() > right);
 
                 assertThat(assertions.expression("a < b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.doubleValue() < right);
+                        .isEqualTo((left == null || right == null) ? null : left.doubleValue() < right);
 
                 assertThat(assertions.expression("a >= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.doubleValue() >= right);
+                        .isEqualTo((left == null || right == null) ? null : left.doubleValue() >= right);
 
                 assertThat(assertions.expression("a <= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.doubleValue() <= right);
+                        .isEqualTo((left == null || right == null) ? null : left.doubleValue() <= right);
 
                 assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
                         .isEqualTo(toSqlDecimal(BigDecimal.class.cast(nullIf(left, right))));
@@ -955,37 +955,37 @@ public class TestExpressionCompiler
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left == right.doubleValue());
+                        .isEqualTo((left == null || right == null) ? null : left == right.doubleValue());
 
                 assertThat(assertions.expression("a <> b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left != right.doubleValue());
+                        .isEqualTo((left == null || right == null) ? null : left != right.doubleValue());
 
                 assertThat(assertions.expression("a > b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left > right.doubleValue());
+                        .isEqualTo((left == null || right == null) ? null : left > right.doubleValue());
 
                 assertThat(assertions.expression("a < b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left < right.doubleValue());
+                        .isEqualTo((left == null || right == null) ? null : left < right.doubleValue());
 
                 assertThat(assertions.expression("a >= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left >= right.doubleValue());
+                        .isEqualTo((left == null || right == null) ? null : left >= right.doubleValue());
 
                 assertThat(assertions.expression("a <= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left <= right.doubleValue());
+                        .isEqualTo((left == null || right == null) ? null : left <= right.doubleValue());
 
                 assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
                         .hasType(DOUBLE)
@@ -1039,37 +1039,37 @@ public class TestExpressionCompiler
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.equals(right));
+                        .isEqualTo((left == null || right == null) ? null : left.equals(right));
 
                 assertThat(assertions.expression("a <> b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : !left.equals(right));
+                        .isEqualTo((left == null || right == null) ? null : !left.equals(right));
 
                 assertThat(assertions.expression("a > b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.compareTo(right) > 0);
+                        .isEqualTo((left == null || right == null) ? null : left.compareTo(right) > 0);
 
                 assertThat(assertions.expression("a < b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.compareTo(right) < 0);
+                        .isEqualTo((left == null || right == null) ? null : left.compareTo(right) < 0);
 
                 assertThat(assertions.expression("a >= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.compareTo(right) >= 0);
+                        .isEqualTo((left == null || right == null) ? null : left.compareTo(right) >= 0);
 
                 assertThat(assertions.expression("a <= b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(left == null || right == null ? null : left.compareTo(right) <= 0);
+                        .isEqualTo((left == null || right == null) ? null : left.compareTo(right) <= 0);
 
                 assertThat(assertions.expression("a || b")
                         .binding("a", toLiteral(left))
@@ -2465,7 +2465,7 @@ public class TestExpressionCompiler
             for (String pattern : stringRights) {
                 assertThat(assertions.function("regexp_like", toLiteral(value), toLiteral(pattern)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(value == null || pattern == null ? null : JoniRegexpFunctions.regexpLike(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
+                        .isEqualTo((value == null || pattern == null) ? null : JoniRegexpFunctions.regexpLike(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
 
                 assertThat(assertions.function("regexp_replace", toLiteral(value), toLiteral(pattern)))
                         .hasType(value == null ? VARCHAR : createVarcharType(value.length()))
@@ -2614,7 +2614,7 @@ public class TestExpressionCompiler
                 assertThat(assertions.expression("a LIKE b")
                         .binding("a", toLiteral(value))
                         .binding("b", toLiteral(pattern)))
-                        .isEqualTo(value == null || pattern == null ?
+                        .isEqualTo((value == null || pattern == null) ?
                                 null :
                                 LikeFunctions.likeVarchar(utf8Slice(value), LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"))));
             }

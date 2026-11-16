@@ -26,7 +26,7 @@ final class NameValidationUtils
         checkArgument('a' <= name.charAt(0) && name.charAt(0) <= 'z', "name must start with a lowercase latin letter: '%s'", name);
         for (int i = 1; i < name.length(); i++) {
             char ch = name.charAt(i);
-            checkArgument('a' <= ch && ch <= 'z' || '0' <= ch && ch <= '9' || ch == '_',
+            checkArgument(('a' <= ch && ch <= 'z') || ('0' <= ch && ch <= '9') || ch == '_',
                     "name must contain only lowercase latin letters, digits or underscores: '%s'",
                     name);
         }

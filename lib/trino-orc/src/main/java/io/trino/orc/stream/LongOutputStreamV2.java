@@ -1176,7 +1176,7 @@ public class LongOutputStreamV2
             final int endUnroll = endOffset - remainder;
             int val = 0;
             for (int i = offset; i < endUnroll; i = i + numHops) {
-                val = (int) (val | ((input[i] & 15) << 4) | input[i + 1] & 15);
+                val = (int) (val | ((input[i] & 15) << 4) | (input[i + 1] & 15));
                 output.write(val);
                 val = 0;
             }

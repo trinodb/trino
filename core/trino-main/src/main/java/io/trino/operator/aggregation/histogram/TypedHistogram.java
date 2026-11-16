@@ -246,7 +246,7 @@ public final class TypedHistogram
 
         long hash = valueHashCode(groupId, block, position);
 
-        byte hashPrefix = (byte) (hash & 0x7F | 0x80);
+        byte hashPrefix = (byte) ((hash & 0x7F) | 0x80);
         int bucket = bucket((int) (hash >> 7));
 
         int step = 1;
@@ -388,7 +388,7 @@ public final class TypedHistogram
                 }
 
                 long hash = valueHashCode(groupId, oldRecords, oldIndex);
-                byte hashPrefix = (byte) (hash & 0x7F | 0x80);
+                byte hashPrefix = (byte) ((hash & 0x7F) | 0x80);
                 int bucket = bucket((int) (hash >> 7));
 
                 int step = 1;

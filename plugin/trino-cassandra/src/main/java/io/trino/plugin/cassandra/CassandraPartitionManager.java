@@ -148,7 +148,7 @@ public class CassandraPartitionManager
             }
 
             // todo does cassandra allow null partition keys?
-            if (domain.isNullAllowed() || domain.getValues() instanceof FloatingPointValueSet floatingPoint && floatingPoint.isNaNAllowed()) {
+            if (domain.isNullAllowed() || (domain.getValues() instanceof FloatingPointValueSet floatingPoint && floatingPoint.isNaNAllowed())) {
                 return ImmutableList.of();
             }
 

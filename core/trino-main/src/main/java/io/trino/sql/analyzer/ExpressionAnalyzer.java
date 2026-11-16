@@ -3873,10 +3873,10 @@ public class ExpressionAnalyzer
                 }
             }
 
-            if (!isCharacterStringType(returnedType) &&
+            if ((!isCharacterStringType(returnedType) &&
                     !isNumericType(returnedType) &&
                     !returnedType.equals(BOOLEAN) &&
-                    !isDateTimeType(returnedType) ||
+                    !isDateTimeType(returnedType)) ||
                     returnedType instanceof IntervalDayTimeType ||
                     returnedType instanceof IntervalYearMonthType) {
                 throw semanticException(TYPE_MISMATCH, node, "Invalid return type of function JSON_VALUE: %s", declaredReturnedType.get());
@@ -5272,7 +5272,7 @@ public class ExpressionAnalyzer
                 type.equals(INTEGER) ||
                 type.equals(SMALLINT) ||
                 type.equals(TINYINT) ||
-                type instanceof DecimalType decimalType && decimalType.getScale() == 0;
+                (type instanceof DecimalType decimalType && decimalType.getScale() == 0);
     }
 
     public static boolean isStringType(Type type)

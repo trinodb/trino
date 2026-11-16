@@ -101,6 +101,6 @@ public final class MoreMath
 
     public static int previousPowerOfTwo(int x)
     {
-        return Math.max(1, 1 << 31 - Integer.numberOfLeadingZeros(x));
+        return Math.max(1, 1 << (31 - Integer.numberOfLeadingZeros(x)));
     }
 }
