@@ -20,6 +20,7 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.function.TableFunctionOperator.TableFunctionOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionDataProcessor;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
@@ -36,6 +37,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -122,14 +124,73 @@ public class TestTableFunctionOperator
         assertThat(processors.getFirst().closeCount).isEqualTo(1);
     }
 
+    @Test
+    public void testDataProcessorMemoryAccounted()
+            throws Exception
+    {
+        List<MemoryContext> memoryContexts = new ArrayList<>();
+        Operator operator = createOperator(memoryContext -> {
+            memoryContexts.add(memoryContext);
+            return new TestingDataProcessor(true);
+        });
+        DriverContext driverContext = operator.getOperatorContext().getDriverContext();
+
+        operator.addInput(rowPagesBuilder(BIGINT)
+                .row(1L)
+                .buildPage());
+        operator.finish();
+        assertThat(operator.getOutput()).isNull();
+        assertThat(memoryContexts).hasSize(1);
+
+        // the operator also accounts for the buffered input
+        long memoryUsage = driverContext.getMemoryUsage();
+        memoryContexts.get(0).setBytes(1024);
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(memoryUsage + 1024);
+
+        operator.close();
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(memoryUsage);
+    }
+
+    @Test
+    public void testDataProcessorMemoryReleasedWithPartition()
+            throws Exception
+    {
+        List<MemoryContext> memoryContexts = new ArrayList<>();
+        Operator operator = createOperator(memoryContext -> {
+            // the processor of the second partition does not report memory
+            if (memoryContexts.isEmpty()) {
+                memoryContext.setBytes(1024);
+            }
+            memoryContexts.add(memoryContext);
+            return new TestingDataProcessor(false);
+        });
+        DriverContext driverContext = operator.getOperatorContext().getDriverContext();
+
+        // two partitions
+        List<Page> input = rowPagesBuilder(BIGINT)
+                .row(1L)
+                .row(2L)
+                .build();
+        assertThat(toPages(operator, input.iterator())).isEmpty();
+        assertThat(memoryContexts).hasSize(2);
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
+
+        operator.close();
+    }
+
     private Operator createOperator(Supplier<TableFunctionDataProcessor> processorSupplier)
+    {
+        return createOperator(_ -> processorSupplier.get());
+    }
+
+    private Operator createOperator(Function<MemoryContext, TableFunctionDataProcessor> processorFactory)
     {
         TableFunctionProcessorProvider provider = new TableFunctionProcessorProvider()
         {
             @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, MemoryContext memoryContext)
             {
-                return processorSupplier.get();
+                return processorFactory.apply(memoryContext);
             }
         };
         return new TableFunctionOperatorFactory(
