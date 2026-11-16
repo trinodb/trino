@@ -420,7 +420,7 @@ export async function queryStatusApi(queryId: string, pruned: boolean = false): 
 }
 
 export async function queryPlanApi(queryId: string): Promise<ApiResponse<QueryPlan>> {
-    return await api.get<QueryPlan>(`/ui/api/query/${queryId}/plan`)
+    return await api.get<QueryPlan>(`api/query/${queryId}/plan`)
 }
 
 export async function killQueryApi(queryId: string): Promise<ApiResponse<void>> {

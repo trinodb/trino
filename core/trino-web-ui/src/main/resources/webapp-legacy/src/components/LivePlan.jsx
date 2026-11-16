@@ -220,7 +220,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         if (this.queryPlanUnavailable || this.hasQueryPlan(query)) {
             return Promise.resolve()
         }
-        return fetch('/ui/api/query/' + this.props.queryId + '/plan')
+        return fetch('../api/query/' + this.props.queryId + '/plan')
             .then((response) => {
                 // asking again does not help when the query cannot be viewed or is gone
                 this.queryPlanUnavailable = response.status === 403 || response.status === 410
