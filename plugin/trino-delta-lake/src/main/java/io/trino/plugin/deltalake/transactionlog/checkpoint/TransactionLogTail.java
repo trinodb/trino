@@ -82,7 +82,7 @@ public class TransactionLogTail
         catch (FileNotFoundException e) {
             return Optional.empty();  // end of tail
         }
-        return Optional.of(new TransactionLogEntries(entryNumber, inputFile, transactionLogMaxCachedFileSize));
+        return Optional.of(TransactionLogEntries.forCommit(entryNumber, inputFile, transactionLogMaxCachedFileSize));
     }
 
     public List<DeltaLakeTransactionLogEntry> getFileEntries(TrinoFileSystem fileSystem)
