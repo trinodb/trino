@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -84,15 +85,16 @@ class SystemCachedKnownToken
                     "If it's not a case and another transaction was abandoned - please remove the lock file manually and retry authentication.");
         }
 
-        if (!Files.exists(tokenFile)) {
-            return Optional.empty();
-        }
         try {
             String content = Files.readString(tokenFile).trim();
             if (content.isEmpty()) {
                 return Optional.empty();
             }
             return Optional.of(new Token(content));
+        }
+        catch (NoSuchFileException e) {
+            // also when a concurrent setupToken deletes the token file after the lock file check
+            return Optional.empty();
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to read token from " + tokenFile, e);
