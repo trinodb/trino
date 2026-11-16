@@ -23,7 +23,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -73,12 +72,5 @@ public class PropertyValues
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property must be a valid %s literal".formatted(property, column.getType().getDisplayName()), e);
         }
-    }
-
-    private static List<String> strings(Collection<?> values)
-    {
-        return values.stream()
-                .map(String.class::cast)
-                .collect(toImmutableList());
     }
 }
