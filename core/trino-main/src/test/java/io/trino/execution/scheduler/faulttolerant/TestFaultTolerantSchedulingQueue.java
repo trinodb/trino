@@ -18,9 +18,14 @@ import io.trino.execution.StageId;
 import io.trino.execution.scheduler.faulttolerant.EventDrivenFaultTolerantQueryScheduler.PrioritizedScheduledTask;
 import io.trino.execution.scheduler.faulttolerant.EventDrivenFaultTolerantQueryScheduler.SchedulingQueue;
 import io.trino.spi.QueryId;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.EAGER_SPECULATIVE;
+import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.SPECULATIVE;
+import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.STANDARD;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestFaultTolerantSchedulingQueue
@@ -44,6 +49,49 @@ class TestFaultTolerantSchedulingQueue
         assertThat(queue.pollOrThrow(executionClass)).isEqualTo(task(BUILD_STAGE, 1, executionClass, 1));
         assertThat(queue.pollOrThrow(executionClass)).isEqualTo(task(BUILD_STAGE, 0, executionClass, 1));
         assertThat(queue.isEmpty(executionClass)).isTrue();
+    }
+
+    @Test
+    void testLoadDescriptorsBelowQueueLimit()
+    {
+        SchedulingQueue queue = new SchedulingQueue();
+        assertThat(queue.shouldLoadMoreTaskDescriptors(2, 2)).isTrue();
+        queue.addOrUpdate(PrioritizedScheduledTask.create(BUILD_STAGE, 0, 1));
+        assertThat(queue.shouldLoadMoreTaskDescriptors(2, 2)).isTrue();
+        queue.addOrUpdate(PrioritizedScheduledTask.create(BUILD_STAGE, 1, 1));
+        assertThat(queue.shouldLoadMoreTaskDescriptors(2, 2)).isFalse();
+    }
+
+    @Test
+    void testBuildDescriptorsAreNotBlockedByFullProbeQueue()
+    {
+        SchedulingQueue queue = new SchedulingQueue();
+        for (int partition = 0; partition < 5; partition++) {
+            queue.addOrUpdate(PrioritizedScheduledTask.create(PROBE_STAGE, partition, 2));
+        }
+        assertThat(queue.shouldLoadMoreTaskDescriptors(2, 2)).isFalse();
+
+        assertThat(queue.shouldLoadMoreTaskDescriptors(1, 2)).isTrue();
+
+        PrioritizedScheduledTask buildTask = PrioritizedScheduledTask.create(BUILD_STAGE, 0, 1);
+        queue.addOrUpdate(buildTask);
+        assertThat(queue.shouldLoadMoreTaskDescriptors(1, 2)).isFalse();
+        assertThat(queue.shouldLoadMoreTaskDescriptors(2, 2)).isFalse();
+        assertThat(queue.pollOrThrow(STANDARD)).isEqualTo(buildTask);
+
+        assertThat(queue.shouldLoadMoreTaskDescriptors(1, 2)).isTrue();
+        assertThat(queue.shouldLoadMoreTaskDescriptors(2, 2)).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testSpeculativeTasksDoNotFillStandardQueue(boolean eager)
+    {
+        SchedulingQueue queue = new SchedulingQueue();
+        PrioritizedScheduledTask speculativeTask = PrioritizedScheduledTask.createSpeculative(BUILD_STAGE, 0, 1, eager);
+        queue.addOrUpdate(speculativeTask);
+        assertThat(queue.shouldLoadMoreTaskDescriptors(2, 1)).isTrue();
+        assertThat(queue.pollOrThrow(eager ? EAGER_SPECULATIVE : SPECULATIVE)).isEqualTo(speculativeTask);
     }
 
     private static PrioritizedScheduledTask task(StageId stageId, int partitionId, TaskExecutionClass executionClass, int priority)

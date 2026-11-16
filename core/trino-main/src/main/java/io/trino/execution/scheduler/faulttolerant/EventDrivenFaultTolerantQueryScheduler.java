@@ -1842,9 +1842,9 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void loadMoreTaskDescriptorsIfNecessary()
         {
-            boolean schedulingQueueIsFull = schedulingQueue.getTaskCount(STANDARD) >= maxTasksWaitingForExecution;
             for (StageExecution stageExecution : stageExecutions.values()) {
-                if (!schedulingQueueIsFull || stageExecution.hasOpenTaskRunning() || stageExecution.isEager()) {
+                boolean shouldLoadMoreTaskDescriptors = schedulingQueue.shouldLoadMoreTaskDescriptors(stageExecution.getSchedulingPriority(), maxTasksWaitingForExecution);
+                if (shouldLoadMoreTaskDescriptors || stageExecution.hasOpenTaskRunning() || stageExecution.isEager()) {
                     stageExecution.loadMoreTaskDescriptors().ifPresent(future -> Futures.addCallback(future, new FutureCallback<>()
                     {
                         @Override
@@ -2421,6 +2421,11 @@ public class EventDrivenFaultTolerantQueryScheduler
                 runningPartitions.add(partitionId);
             });
             return task;
+        }
+
+        public int getSchedulingPriority()
+        {
+            return schedulingPriority;
         }
 
         public void setSchedulingPriority(int schedulingPriority)
@@ -3284,6 +3289,17 @@ public class EventDrivenFaultTolerantQueryScheduler
         private int getTaskCount(TaskExecutionClass executionClass)
         {
             return queues.get(executionClass).size();
+        }
+
+        public boolean shouldLoadMoreTaskDescriptors(int priority, int maxTasksWaitingForExecution)
+        {
+            IndexedPriorityQueue<ScheduledTask> queue = queues.get(STANDARD);
+            if (queue.size() < maxTasksWaitingForExecution) {
+                return true;
+            }
+            // A stage ranked ahead of every queued task loads past the limit.
+            IndexedPriorityQueue.Prioritized<ScheduledTask> nextTask = queue.peekPrioritized();
+            return nextTask != null && priority < nextTask.priority();
         }
 
         public SchedulingQueue()
