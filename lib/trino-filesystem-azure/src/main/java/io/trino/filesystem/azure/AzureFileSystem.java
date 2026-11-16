@@ -652,11 +652,10 @@ public class AzureFileSystem
 
     private Set<Location> listBlobDirectories(AzureLocation location)
     {
-        Location baseLocation = location.baseLocation();
         return createBlobContainerClient(location, Optional.empty())
                 .listBlobsByHierarchy(location.directoryPath()).stream()
                 .filter(BlobItem::isPrefix)
-                .map(item -> baseLocation.appendPath(item.getName()))
+                .map(item -> location.blobLocation(item.getName()))
                 .collect(toImmutableSet());
     }
 
@@ -667,7 +666,7 @@ public class AzureFileSystem
             // Normalize consecutive slashes: the Azure DataLake getAccessControl API returns HTTP 400
             // for paths containing "//", while other APIs like listPaths silently canonicalize them
             String canonicalPath = CharMatcher.is('/').collapseFrom(
-                    CharMatcher.is('/').trimTrailingFrom(location.path()), '/');
+                    CharMatcher.is('/').trimFrom(location.path()), '/');
             DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location, Optional.empty());
             fileSystemClient.getDirectoryClient(canonicalPath).getAccessControl();
             return true;
