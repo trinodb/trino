@@ -498,7 +498,7 @@ public class JoinDomainBuilder
 
     private static byte getHashPrefix(long hash)
     {
-        return (byte) (hash & 0x7F | 0x80);
+        return (byte) ((hash & 0x7F) | 0x80);
     }
 
     private int bucket(int hash)

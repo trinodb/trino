@@ -143,7 +143,7 @@ public final class StructuralCastPreimage
             Object input = reverse.get().apply(value);
             Object output = forward.get().apply(input);
             // Range deliberately rejects scalar NaN, but widening REAL to DOUBLE preserves it.
-            boolean equal = source.equals(REAL) && target.equals(DOUBLE) && Double.isNaN((double) value)
+            boolean equal = (source.equals(REAL) && target.equals(DOUBLE) && Double.isNaN((double) value))
                     ? Double.isNaN((double) output)
                     : Range.equal(target, value).overlaps(Range.equal(target, output));
             return equal ? Optional.of(new NullableValue(source, input)) : Optional.empty();

@@ -63,8 +63,8 @@ public class CassandraClusteringPredicatesExtractor
             if (domain == null) {
                 break;
             }
-            if (domain.isNullAllowed() || domain.getValues() instanceof FloatingPointValueSet floatingPoint &&
-                    (floatingPoint.isNaNAllowed() || floatingPoint.isAllOrderedValues())) {
+            if (domain.isNullAllowed() || (domain.getValues() instanceof FloatingPointValueSet floatingPoint &&
+                    (floatingPoint.isNaNAllowed() || floatingPoint.isAllOrderedValues()))) {
                 break;
             }
 

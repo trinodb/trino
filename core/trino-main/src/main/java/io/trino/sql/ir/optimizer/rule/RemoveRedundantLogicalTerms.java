@@ -56,7 +56,7 @@ public class RemoveRedundantLogicalTerms
         boolean removed = false;
         Set<Expression> seen = new HashSet<>();
         for (Expression term : expressions) {
-            if (operator == AND && term.equals(TRUE) || operator == OR && term.equals(FALSE) || seen.contains(term)) {
+            if ((operator == AND && term.equals(TRUE)) || (operator == OR && term.equals(FALSE)) || seen.contains(term)) {
                 removed = true;
             }
             else {

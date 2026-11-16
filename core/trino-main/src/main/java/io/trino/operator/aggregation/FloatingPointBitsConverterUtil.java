@@ -24,7 +24,7 @@ public final class FloatingPointBitsConverterUtil
     public static long doubleToSortableLong(double value)
     {
         long bits = Double.doubleToLongBits(value);
-        return bits ^ (bits >> 63) & Long.MAX_VALUE;
+        return bits ^ ((bits >> 63) & Long.MAX_VALUE);
     }
 
     /**
@@ -34,7 +34,7 @@ public final class FloatingPointBitsConverterUtil
      */
     public static double sortableLongToDouble(long value)
     {
-        value = value ^ (value >> 63) & Long.MAX_VALUE;
+        value = value ^ ((value >> 63) & Long.MAX_VALUE);
         return Double.longBitsToDouble(value);
     }
 
@@ -46,7 +46,7 @@ public final class FloatingPointBitsConverterUtil
     public static int floatToSortableInt(float value)
     {
         int bits = Float.floatToIntBits(value);
-        return bits ^ (bits >> 31) & Integer.MAX_VALUE;
+        return bits ^ ((bits >> 31) & Integer.MAX_VALUE);
     }
 
     /**
@@ -56,7 +56,7 @@ public final class FloatingPointBitsConverterUtil
      */
     public static float sortableIntToFloat(int value)
     {
-        value = value ^ (value >> 31) & Integer.MAX_VALUE;
+        value = value ^ ((value >> 31) & Integer.MAX_VALUE);
         return Float.intBitsToFloat(value);
     }
 }

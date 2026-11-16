@@ -225,7 +225,7 @@ public class SimplifyFilterPredicate
     private static boolean isNotTrue(Expression expression)
     {
         return expression.equals(FALSE) ||
-                expression instanceof Constant literal && literal.value() == null;
+                (expression instanceof Constant literal && literal.value() == null);
     }
 
     private Expression isFalseOrNullPredicate(Session session, Expression expression)

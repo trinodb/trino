@@ -146,7 +146,7 @@ public final class GlueExpressionUtil
         ValueSet valueSet = domain.getValues();
 
         if (domain.isAll() ||
-                valueSet instanceof FloatingPointValueSet floatingPoint && (floatingPoint.isNaNAllowed() || floatingPoint.isAllOrderedValues()) ||
+                (valueSet instanceof FloatingPointValueSet floatingPoint && (floatingPoint.isNaNAllowed() || floatingPoint.isAllOrderedValues())) ||
                 !canConvertSqlTypeToStringForGlue(domain.getType(), assumeCanonicalPartitionKeys)) {
             // if the type can't be converted or Domain.all()
             return Optional.empty();

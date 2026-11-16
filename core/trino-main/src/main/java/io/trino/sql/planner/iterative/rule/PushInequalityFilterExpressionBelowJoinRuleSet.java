@@ -196,7 +196,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
         }
         Set<Symbol> leftSymbols = joinNodeContext.getLeftSymbols();
         Set<Symbol> rightSymbols = joinNodeContext.getRightSymbols();
-        if (!(leftSymbols.containsAll(leftComparisonSymbols) && rightSymbols.containsAll(rightComparisonSymbols) ||
+        if (!((leftSymbols.containsAll(leftComparisonSymbols) && rightSymbols.containsAll(rightComparisonSymbols)) ||
                 (rightSymbols.containsAll(leftComparisonSymbols) && leftSymbols.containsAll(rightComparisonSymbols)))) {
             return false;
         }

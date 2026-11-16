@@ -1977,7 +1977,7 @@ public final class SortedRangeSet
             else {
                 int compare = compareValues(comparisonOperator, this.highValueBlock, this.highValuePosition, next.lowValueBlock, next.lowValuePosition);
                 merge = compare > 0  // overlap
-                        || compare == 0 && (this.highInclusive || next.lowInclusive); // adjacent
+                        || (compare == 0 && (this.highInclusive || next.lowInclusive)); // adjacent
             }
             if (merge) {
                 int compareHighBound = compareHighBound(next);

@@ -56,7 +56,7 @@ public final class ValueColumn
         checkArgument(emptyBehavior != DEFAULT || emptyDefault.isPresent(), "DEFAULT ... ON EMPTY option requires default value");
         this.errorBehavior = requireNonNull(errorBehavior, "errorBehavior is null");
         this.errorDefault = requireNonNull(errorDefault, "errorDefault is null");
-        checkArgument(errorBehavior.isPresent() && errorBehavior.get() == DEFAULT || !errorDefault.isPresent(), "default value can be specified only for DEFAULT ... ON ERROR option");
+        checkArgument((errorBehavior.isPresent() && errorBehavior.get() == DEFAULT) || !errorDefault.isPresent(), "default value can be specified only for DEFAULT ... ON ERROR option");
         checkArgument(!errorBehavior.isPresent() || errorBehavior.get() != DEFAULT || errorDefault.isPresent(), "DEFAULT ... ON ERROR option requires default value");
     }
 

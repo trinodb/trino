@@ -178,7 +178,7 @@ final class FlatSet
 
     private int getIndex(Block block, int position, long hash)
     {
-        byte hashPrefix = (byte) (hash & 0x7F | 0x80);
+        byte hashPrefix = (byte) ((hash & 0x7F) | 0x80);
         int bucket = bucket((int) (hash >> 7));
 
         int step = 1;
@@ -228,7 +228,7 @@ final class FlatSet
 
     private void insert(int index, Block block, int position, long hash)
     {
-        setControl(index, (byte) (hash & 0x7F | 0x80));
+        setControl(index, (byte) ((hash & 0x7F) | 0x80));
 
         byte[] records = getRecords(index);
         int recordOffset = getRecordOffset(index);
@@ -283,7 +283,7 @@ final class FlatSet
                 int oldRecordOffset = getRecordOffset(oldIndex);
 
                 long hash = valueHashCode(oldRecords, oldIndex);
-                byte hashPrefix = (byte) (hash & 0x7F | 0x80);
+                byte hashPrefix = (byte) ((hash & 0x7F) | 0x80);
                 int bucket = bucket((int) (hash >> 7));
 
                 int step = 1;
