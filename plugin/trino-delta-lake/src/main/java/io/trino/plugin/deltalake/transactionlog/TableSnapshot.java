@@ -58,7 +58,6 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTra
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.SIDECAR;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -304,7 +303,6 @@ public class TableSnapshot
                     checkpointSchemaManager,
                     typeManager,
                     stats,
-                    checkpoint,
                     checkpointFile,
                     partitionConstraint,
                     addStatsMinMaxColumnFilter,
@@ -338,7 +336,6 @@ public class TableSnapshot
             CheckpointSchemaManager checkpointSchemaManager,
             TypeManager typeManager,
             FileFormatDataSourceStats stats,
-            LastCheckpoint checkpoint,
             TrinoInputFile checkpointFile,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
             Optional<Predicate<String>> addStatsMinMaxColumnFilter,
@@ -356,7 +353,6 @@ public class TableSnapshot
                 checkpointSchemaManager,
                 typeManager,
                 stats,
-                checkpoint,
                 checkpointFile,
                 partitionConstraint,
                 addStatsMinMaxColumnFilter,
@@ -408,7 +404,6 @@ public class TableSnapshot
             CheckpointSchemaManager checkpointSchemaManager,
             TypeManager typeManager,
             FileFormatDataSourceStats stats,
-            LastCheckpoint checkpoint,
             TrinoInputFile checkpointFile,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
             Optional<Predicate<String>> addStatsMinMaxColumnFilter,
@@ -416,14 +411,7 @@ public class TableSnapshot
             long fileSize)
     {
         if (checkpointFile.location().fileName().endsWith(".json")) {
-            try {
-                return getEntriesFromJson(checkpoint.version(), checkpointFile, transactionLogMaxCachedFileSize)
-                        .stream()
-                        .flatMap(logEntries -> logEntries.getEntries(fileSystem));
-            }
-            catch (IOException e) {
-                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Unexpected IO exception occurred while reading the entries of the file: %s for the table %s", checkpoint, table), e);
-            }
+            return TransactionLogEntries.forCheckpoint(checkpointFile, transactionLogMaxCachedFileSize).getEntries(fileSystem);
         }
         if (checkpointFile.location().fileName().endsWith(".parquet")) {
             CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
