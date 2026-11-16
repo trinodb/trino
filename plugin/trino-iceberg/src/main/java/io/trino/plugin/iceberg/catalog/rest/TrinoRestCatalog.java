@@ -660,8 +660,9 @@ public class TrinoRestCatalog
                         catch (RESTException e) {
                             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to load table '%s'".formatted(schemaTableName.getTableName()), e);
                         }
-                        // Creating a new base table is necessary to adhere to Trino's expectations for quoted table names
-                        return new BaseTable(baseTable.operations(), quotedTableName(schemaTableName), baseTable.reporter());
+                        // Wrapping the loaded table is necessary to adhere to Trino's expectations for quoted table names
+                        // while keeping the scan implementation of the loaded table (e.g. server-side scan planning)
+                        return new BaseTableWrapper(baseTable, quotedTableName(schemaTableName));
                     });
         }
         catch (UncheckedExecutionException e) {
