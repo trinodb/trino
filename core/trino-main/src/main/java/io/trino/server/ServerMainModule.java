@@ -447,6 +447,7 @@ public class ServerMainModule
         newOptionalBinder(binder, PluginsProvider.class).setDefault()
                 .to(ServerPluginsProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(ServerPluginsProviderConfig.class);
+        configBinder(binder).bindConfig(PluginManagerConfig.class);
 
         // SIMD support
         binder.bind(BlockEncodingSimdSupport.class).in(Scopes.SINGLETON);
