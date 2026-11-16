@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.PlannerContext;
@@ -30,6 +31,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.isUseLegacyDecorrelator;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
@@ -60,6 +62,13 @@ public class TransformCorrelatedJoinToJoin
     public Pattern<CorrelatedJoinNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        // Part of the legacy decorrelator, which runs only when explicitly re-enabled.
+        return isUseLegacyDecorrelator(session);
     }
 
     @Override
