@@ -27,6 +27,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.AbstractConnectorTableFunction;
@@ -1257,7 +1258,8 @@ public class TestingTableFunctions
                     ConnectorSession session,
                     ConnectorTableFunctionHandle handle,
                     Optional<ConnectorTableCredentials> tableCredentials,
-                    ConnectorSplit split)
+                    ConnectorSplit split,
+                    MemoryContext memoryContext)
             {
                 return new ConstantFunctionProcessor(((ConstantFunctionHandle) handle).value(), (ConstantFunctionSplit) split);
             }
@@ -1362,7 +1364,8 @@ public class TestingTableFunctions
                     ConnectorSession session,
                     ConnectorTableFunctionHandle handle,
                     Optional<ConnectorTableCredentials> tableCredentials,
-                    ConnectorSplit split)
+                    ConnectorSplit split,
+                    MemoryContext memoryContext)
             {
                 return new EmptySourceFunctionProcessor();
             }

@@ -33,6 +33,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.AbstractConnectorTableFunction;
 import io.trino.spi.function.table.Argument;
@@ -2199,7 +2200,8 @@ public abstract class BaseIcebergMaterializedViewTest
                 ConnectorSession session,
                 ConnectorTableFunctionHandle handle,
                 Optional<ConnectorTableCredentials> tableCredentials,
-                ConnectorSplit split)
+                ConnectorSplit split,
+                MemoryContext memoryContext)
         {
             sequenceFunctionProcessor.reset();
             return sequenceFunctionProcessor;
