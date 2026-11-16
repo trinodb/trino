@@ -18,6 +18,7 @@ import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.function.table.TableFunctionDataProcessor;
 import io.trino.spi.function.table.TableFunctionProcessorState;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,6 +39,15 @@ public class ClassLoaderSafeTableFunctionDataProcessor
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.process(input);
+        }
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.close();
         }
     }
 }

@@ -16,6 +16,7 @@ package io.trino.spi.function.table;
 import io.trino.spi.Page;
 import jakarta.annotation.Nullable;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,4 +34,11 @@ public interface TableFunctionDataProcessor
      *         After the returned state is {@code FINISHED}, the method will not be called again.
      */
     TableFunctionProcessorState process(@Nullable List<Optional<Page>> input);
+
+    /**
+     * Releases resources held by the processor. It is called once, also when processing did not reach the {@code FINISHED} state.
+     */
+    default void close()
+            throws IOException
+    {}
 }
