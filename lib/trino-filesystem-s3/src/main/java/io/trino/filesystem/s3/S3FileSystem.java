@@ -283,7 +283,6 @@ final class S3FileSystem
             throws IOException
     {
         S3Location s3Location = new S3Location(location);
-        Location baseLocation = s3Location.baseLocation();
 
         ListObjectsV2Request request = listObjectsRequest(s3Location, directoryKey(s3Location.key()))
                 .delimiter("/")
@@ -293,7 +292,7 @@ final class S3FileSystem
             return client.listObjectsV2Paginator(request)
                     .commonPrefixes().stream()
                     .map(CommonPrefix::prefix)
-                    .map(baseLocation::appendPath)
+                    .map(prefix -> s3Location.objectLocation(prefix))
                     .collect(toImmutableSet());
         }
         catch (SdkException e) {

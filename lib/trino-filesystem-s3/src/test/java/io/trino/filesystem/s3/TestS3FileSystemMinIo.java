@@ -21,6 +21,7 @@ import io.trino.filesystem.s3.S3FileSystemConfig.S3ChecksumAlgorithm;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.containers.Minio;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -114,6 +115,11 @@ public class TestS3FileSystemMinIo
                 // MinIO does not support object keys with directory navigation ("/./" or "/../") or with double slashes ("//")
                 .hasMessage("S3 HEAD request failed for file: s3://" + bucket + "/test/.././/file");
     }
+
+    @Test
+    @Override
+    @Disabled("MinIO does not support object keys with a leading slash")
+    void testListKeysWithLeadingSlash() {}
 
     @Test
     @Override

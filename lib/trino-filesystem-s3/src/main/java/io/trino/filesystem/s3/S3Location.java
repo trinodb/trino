@@ -57,4 +57,9 @@ record S3Location(Location location)
     {
         return Location.of("%s://%s/".formatted(scheme(), bucket()));
     }
+
+    public Location objectLocation(String key)
+    {
+        return Location.of("%s://%s/%s".formatted(scheme(), bucket(), key));
+    }
 }

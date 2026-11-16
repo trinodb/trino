@@ -15,6 +15,7 @@ package io.trino.filesystem.s3;
 
 import com.adobe.testing.s3mock.testcontainers.S3MockContainer;
 import io.opentelemetry.api.OpenTelemetry;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -70,6 +71,11 @@ public class TestS3FileSystemS3Mock
                         .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer),
                 new S3FileSystemStats());
     }
+
+    @Test
+    @Override
+    @Disabled("S3Mock rejects object keys with a leading slash")
+    void testListKeysWithLeadingSlash() {}
 
     @Test
     @Override

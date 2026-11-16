@@ -16,7 +16,6 @@ package io.trino.filesystem.s3;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.Location;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.model.ObjectStorageClass;
 import software.amazon.awssdk.services.s3.model.RestoreStatus;
@@ -37,7 +36,6 @@ final class S3FileIterator
 {
     private final S3Location location;
     private final Iterator<S3Object> iterator;
-    private final Location baseLocation;
     private static final String S3_GLACIER_TAG = "s3:glacier";
     private static final String S3_GLACIER_AND_RESTORED_TAG = "s3:glacierRestored";
 
@@ -45,7 +43,6 @@ final class S3FileIterator
     {
         this.location = requireNonNull(location, "location is null");
         this.iterator = requireNonNull(iterator, "iterator is null");
-        this.baseLocation = location.baseLocation();
     }
 
     @Override
@@ -79,7 +76,7 @@ final class S3FileIterator
                 tags = ImmutableSet.copyOf(tags);
             }
             return new FileEntry(
-                    baseLocation.appendPath(object.key()),
+                    location.objectLocation(object.key()),
                     object.size(),
                     object.lastModified(),
                     Optional.empty(),
