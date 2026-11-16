@@ -22,6 +22,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionDataProcessor;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
@@ -87,7 +88,7 @@ public final class JsonTable
         return new TableFunctionProcessorProvider()
         {
             @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, MemoryContext memoryContext)
             {
                 JsonTableFunctionHandle jsonTableFunctionHandle = (JsonTableFunctionHandle) handle;
                 Object[] newRow = new Object[jsonTableFunctionHandle.outputTypes().length];

@@ -48,6 +48,14 @@ public final class ClassLoaderSafeTableFunctionProcessorProvider
     }
 
     @Override
+    public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, MemoryContext memoryContext)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getDataProcessor(session, handle, memoryContext);
+        }
+    }
+
+    @Override
     public TableFunctionSplitProcessor getSplitProcessor(
             ConnectorSession session,
             ConnectorTableFunctionHandle handle,
