@@ -784,7 +784,7 @@ public class TestSourcePartitionedScheduler
                 TaskLifecycleListener.NO_OP,
                 TestingInternalNodeManager.createDefault(),
                 queryExecutor,
-                Optional.of(new int[] {0}),
+                new int[] {0},
                 OptionalInt.empty(),
                 0);
     }
