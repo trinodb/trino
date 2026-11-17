@@ -1,0 +1,1 @@
+Partition statistics file for a format version 2 Iceberg table partitioned by an integer column `part`, where `part = 1` has 1000 rows and `part = 2` has 2000. The Parquet file is written by the Iceberg library's built-in internal data writer, which Spark uses: `Parquet.write` with `InternalWriter::createWriter` and `PartitionStatistics.schema(partitionType, 2)`.
