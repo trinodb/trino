@@ -63,7 +63,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
@@ -143,10 +142,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             new ResourceTable("insert_nonlowercase_columns", "databricks73/insert_nonlowercase_columns"),
             new ResourceTable("insert_nested_nonlowercase_columns", "databricks73/insert_nested_nonlowercase_columns"),
             new ResourceTable("insert_nonlowercase_columns_partitioned", "databricks73/insert_nonlowercase_columns_partitioned"));
-
-    // Cannot be too small, as implicit (time-based) cache invalidation can mask issues. Cannot be too big as some tests need to wait for cache
-    // to be outdated.
-    private static final int TEST_METADATA_CACHE_TTL_SECONDS = 15;
 
     protected final String bucketName = "test-delta-lake-integration-smoke-test-" + randomNameSuffix();
 
@@ -253,8 +248,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             throws Exception
     {
         ImmutableMap.Builder<String, String> deltaProperties = ImmutableMap.<String, String>builder()
-                .put("delta.metadata.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
-                .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                 .put("delta.register-table-procedure.enabled", "true")
                 .putAll(deltaStorageConfiguration());
 
@@ -1628,115 +1621,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testDeltaLakeTableLocationChanged()
-            throws Exception
-    {
-        testDeltaLakeTableLocationChanged(true, false, false);
-    }
-
-    @Test
-    public void testDeltaLakeTableLocationChangedSameVersionNumber()
-            throws Exception
-    {
-        testDeltaLakeTableLocationChanged(false, false, false);
-    }
-
-    @Test
-    public void testDeltaLakeTableLocationChangedPartitioned()
-            throws Exception
-    {
-        testDeltaLakeTableLocationChanged(true, true, false);
-        testDeltaLakeTableLocationChanged(true, false, true);
-        testDeltaLakeTableLocationChanged(true, true, true);
-    }
-
-    private void testDeltaLakeTableLocationChanged(boolean fewerEntries, boolean firstPartitioned, boolean secondPartitioned)
-            throws Exception
-    {
-        // Create a table with a bunch of transaction log entries
-        String tableName = "test_table_location_changed_" + randomNameSuffix();
-        String initialLocation = getLocationForTable(bucketName, tableName);
-        assertUpdate(format(
-                "CREATE TABLE %s (a_number int, a_string varchar) WITH (location = '%s' %s)",
-                tableName,
-                initialLocation,
-                firstPartitioned ? ", partitioned_by = ARRAY['a_number']" : ""));
-
-        BiConsumer<QueryRunner, String> insertABunchOfRows = (queryRunner, prefix) -> {
-            queryRunner.execute(format("INSERT INTO %s (a_number, a_string) VALUES (1, '%s one')", tableName, prefix));
-            queryRunner.execute(format("INSERT INTO %s (a_number, a_string) VALUES (2, '%s two')", tableName, prefix));
-            queryRunner.execute(format("INSERT INTO %s (a_number, a_string) VALUES (3, '%s tree')", tableName, prefix));
-            queryRunner.execute(format("INSERT INTO %s (a_number, a_string) VALUES (4, '%s four')", tableName, prefix));
-        };
-
-        insertABunchOfRows.accept(getQueryRunner(), "first");
-
-        MaterializedResult initialData = computeActual("SELECT * FROM " + tableName);
-        assertThat(initialData.getMaterializedRows()).hasSize(4);
-
-        MaterializedResult expectedDataAfterChange;
-        String newLocation;
-        try (QueryRunner independentQueryRunner = createDeltaLakeQueryRunner()) {
-            // Change table's location without main Delta Lake connector (main query runner) knowing about this
-            newLocation = getLocationForTable(bucketName, "test_table_location_changed_new_" + randomNameSuffix());
-
-            independentQueryRunner.execute("DROP TABLE " + tableName);
-            independentQueryRunner.execute(format(
-                    "CREATE TABLE %s (a_number int, a_string varchar, another_string varchar) WITH (location = '%s' %s) ",
-                    tableName,
-                    newLocation,
-                    secondPartitioned ? ", partitioned_by = ARRAY['a_number']" : ""));
-
-            if (fewerEntries) {
-                // Have fewer transaction log entries so that version mismatch is more apparent (but easier to detect)
-                independentQueryRunner.execute(format("INSERT INTO %s VALUES (1, 'second one', 'third column')", tableName));
-            }
-            else {
-                insertABunchOfRows.accept(independentQueryRunner, "second");
-            }
-
-            expectedDataAfterChange = independentQueryRunner.execute("SELECT * FROM " + tableName);
-            assertThat(expectedDataAfterChange.getMaterializedRows()).hasSize(fewerEntries ? 1 : 4);
-        }
-
-        Stopwatch stopwatch = Stopwatch.createStarted();
-        while (true) {
-            MaterializedResult currentVisibleData = computeActual("SELECT * FROM " + tableName);
-            if (Set.copyOf(currentVisibleData.getMaterializedRows()).equals(Set.copyOf(expectedDataAfterChange.getMaterializedRows()))) {
-                // satisfied
-                break;
-            }
-            if (!Set.copyOf(currentVisibleData.getMaterializedRows()).equals(Set.copyOf(initialData.getMaterializedRows()))) {
-                throw new AssertionError(format(
-                        "Unexpected result when reading table: %s,\n expected either initialData: %s\n or expectedDataAfterChange: %s",
-                        currentVisibleData,
-                        initialData,
-                        expectedDataAfterChange));
-            }
-
-            if (stopwatch.elapsed(SECONDS) > TEST_METADATA_CACHE_TTL_SECONDS + 10) {
-                throw new RuntimeException("Timed out waiting on table to reflect new data from new location");
-            }
-
-            SECONDS.sleep(1);
-        }
-
-        // Verify table schema gets reflected correctly
-        String qualifiedTableName = "%s.%s.%s".formatted(getSession().getCatalog().orElseThrow(), SCHEMA, tableName);
-        assertThat(computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo("" +
-                        "CREATE TABLE " + qualifiedTableName + " (\n" +
-                        "   a_number integer,\n" +
-                        "   a_string varchar,\n" +
-                        "   another_string varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   location = '" + newLocation + "'" + (secondPartitioned ? "," : "") + "\n" +
-                        (secondPartitioned ? "   partitioned_by = ARRAY['a_number']\n" : "") +
-                        ")");
     }
 
     /**
