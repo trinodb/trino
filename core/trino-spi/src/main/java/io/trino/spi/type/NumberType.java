@@ -29,6 +29,11 @@ import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
+import java.util.Arrays;
+
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -38,6 +43,9 @@ import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TrinoNumber.AsBigDecimal.COMPARE_NAN_LAST;
+import static io.trino.spi.type.TrinoNumber.HEADER_LENGTH;
+import static io.trino.spi.type.TrinoNumber.MARKER_SCALE_NAN;
+import static io.trino.spi.type.TrinoNumber.header;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static io.trino.spi.type.Verify.verify;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -83,6 +91,9 @@ public class NumberType
     // Precision loss prevents creation of values that would occupy very large amount of memory.
     // Max precision is implementation detail and subject to change.
     static final int MAX_DECIMAL_PRECISION = 200;
+
+    private static final VarHandle SHORT_LE_HANDLE = MethodHandles.byteArrayViewVarHandle(short[].class, ByteOrder.LITTLE_ENDIAN);
+    private static final short NAN_HEADER = header(false, MARKER_SCALE_NAN);
 
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(NumberType.class, lookup(), TrinoNumber.class);
 
@@ -252,8 +263,129 @@ public class NumberType
         rawSlice.getBytes(rawSliceOffset, variableSizeSlice, variableSizeOffset, length);
     }
 
-    // TODO EQUAL with block, position, block, position
-    // TODO EQUAL with flat slice, block position
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(@BlockPosition VariableWidthBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition VariableWidthBlock rightBlock, @BlockIndex int rightPosition)
+    {
+        return identicalOperator(leftBlock, leftPosition, rightBlock, rightPosition) && !isNaN(leftBlock, leftPosition);
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] leftVariableSizeSlice,
+            @FlatVariableOffset int leftVariableSizeOffset,
+            @FlatFixed byte[] rightFixedSizeSlice,
+            @FlatFixedOffset int rightFixedSizeOffset,
+            @FlatVariableWidth byte[] rightVariableSizeSlice,
+            @FlatVariableOffset int rightVariableSizeOffset)
+    {
+        return identicalOperator(leftFixedSizeSlice, leftFixedSizeOffset, leftVariableSizeSlice, leftVariableSizeOffset, rightFixedSizeSlice, rightFixedSizeOffset, rightVariableSizeSlice, rightVariableSizeOffset) &&
+                !isNaN(leftFixedSizeSlice, leftFixedSizeOffset, leftVariableSizeSlice, leftVariableSizeOffset);
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] leftVariableSizeSlice,
+            @FlatVariableOffset int leftVariableSizeOffset,
+            @BlockPosition VariableWidthBlock rightBlock,
+            @BlockIndex int rightPosition)
+    {
+        return identicalOperator(leftFixedSizeSlice, leftFixedSizeOffset, leftVariableSizeSlice, leftVariableSizeOffset, rightBlock, rightPosition) &&
+                !isNaN(leftFixedSizeSlice, leftFixedSizeOffset, leftVariableSizeSlice, leftVariableSizeOffset);
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(
+            @BlockPosition VariableWidthBlock leftBlock,
+            @BlockIndex int leftPosition,
+            @FlatFixed byte[] rightFixedSizeSlice,
+            @FlatFixedOffset int rightFixedSizeOffset,
+            @FlatVariableWidth byte[] rightVariableSizeSlice,
+            @FlatVariableOffset int rightVariableSizeOffset)
+    {
+        return equalOperator(rightFixedSizeSlice, rightFixedSizeOffset, rightVariableSizeSlice, rightVariableSizeOffset, leftBlock, leftPosition);
+    }
+
+    @ScalarOperator(IDENTICAL)
+    private static boolean identicalOperator(@BlockPosition VariableWidthBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition VariableWidthBlock rightBlock, @BlockIndex int rightPosition)
+    {
+        return leftBlock.getRawSlice().equals(
+                leftBlock.getRawSliceOffset(leftPosition),
+                leftBlock.getSliceLength(leftPosition),
+                rightBlock.getRawSlice(),
+                rightBlock.getRawSliceOffset(rightPosition),
+                rightBlock.getSliceLength(rightPosition));
+    }
+
+    @ScalarOperator(IDENTICAL)
+    private static boolean identicalOperator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] leftVariableSizeSlice,
+            @FlatVariableOffset int leftVariableSizeOffset,
+            @FlatFixed byte[] rightFixedSizeSlice,
+            @FlatFixedOffset int rightFixedSizeOffset,
+            @FlatVariableWidth byte[] rightVariableSizeSlice,
+            @FlatVariableOffset int rightVariableSizeOffset)
+    {
+        int leftLength = readFlatLength(leftFixedSizeSlice, leftFixedSizeOffset);
+        int rightLength = readFlatLength(rightFixedSizeSlice, rightFixedSizeOffset);
+        return Arrays.equals(
+                leftVariableSizeSlice,
+                leftVariableSizeOffset,
+                leftVariableSizeOffset + leftLength,
+                rightVariableSizeSlice,
+                rightVariableSizeOffset,
+                rightVariableSizeOffset + rightLength);
+    }
+
+    @ScalarOperator(IDENTICAL)
+    private static boolean identicalOperator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] leftVariableSizeSlice,
+            @FlatVariableOffset int leftVariableSizeOffset,
+            @BlockPosition VariableWidthBlock rightBlock,
+            @BlockIndex int rightPosition)
+    {
+        return rightBlock.getRawSlice().equals(
+                rightBlock.getRawSliceOffset(rightPosition),
+                rightBlock.getSliceLength(rightPosition),
+                leftVariableSizeSlice,
+                leftVariableSizeOffset,
+                readFlatLength(leftFixedSizeSlice, leftFixedSizeOffset));
+    }
+
+    @ScalarOperator(IDENTICAL)
+    private static boolean identicalOperator(
+            @BlockPosition VariableWidthBlock leftBlock,
+            @BlockIndex int leftPosition,
+            @FlatFixed byte[] rightFixedSizeSlice,
+            @FlatFixedOffset int rightFixedSizeOffset,
+            @FlatVariableWidth byte[] rightVariableSizeSlice,
+            @FlatVariableOffset int rightVariableSizeOffset)
+    {
+        return identicalOperator(rightFixedSizeSlice, rightFixedSizeOffset, rightVariableSizeSlice, rightVariableSizeOffset, leftBlock, leftPosition);
+    }
+
+    private static boolean isNaN(VariableWidthBlock block, int position)
+    {
+        Slice rawSlice = block.getRawSlice();
+        return isNaN(rawSlice.byteArray(), rawSlice.byteArrayOffset() + block.getRawSliceOffset(position), block.getSliceLength(position));
+    }
+
+    private static boolean isNaN(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
+    {
+        return isNaN(variableSizeSlice, variableSizeOffset, readFlatLength(fixedSizeSlice, fixedSizeOffset));
+    }
+
+    private static boolean isNaN(byte[] bytes, int offset, int length)
+    {
+        return length == HEADER_LENGTH && (short) SHORT_LE_HANDLE.get(bytes, offset) == NAN_HEADER;
+    }
 
     @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(TrinoNumber value)
