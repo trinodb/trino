@@ -592,6 +592,10 @@ public class TupleDomainParquetPredicate
         if (maxValues.isEmpty()) {
             return Domain.all(type);
         }
+        if (nullPages.stream().allMatch(isNullPage -> isNullPage)) {
+            // Null counts are optional, so only null pages tell that every value is null
+            return Domain.onlyNull(type);
+        }
 
         boolean hasNullValue = true;
         if (nullCounts.isPresent()) {

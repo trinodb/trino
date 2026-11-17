@@ -929,6 +929,22 @@ public class TestTupleDomainParquetPredicate
                         true));
     }
 
+    @Test
+    public void testColumnIndexWithOnlyNullPagesAndNoNullsCount()
+            throws Exception
+    {
+        ColumnIndex columnIndex = ColumnIndexBuilder.build(
+                Types.required(INT64).named("test_int64"),
+                BoundaryOrder.UNORDERED,
+                asList(true, true, true),
+                null,
+                toByteBufferList(null, null, null),
+                toByteBufferList(null, null, null));
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0);
+        assertThat(getDomain(BIGINT, 200, columnIndex, new ParquetDataSourceId("test"), column, UTC))
+                .isEqualTo(Domain.onlyNull(BIGINT));
+    }
+
     private ColumnDescriptor createColumnDescriptor(PrimitiveTypeName typeName, String columnName)
     {
         return new ColumnDescriptor(new String[] {}, new PrimitiveType(REQUIRED, typeName, columnName), 0, 0);
