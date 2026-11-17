@@ -213,6 +213,40 @@ public class TestNumberType
         }
     }
 
+    @Test
+    public void testLessThanOperatorConventionsConsistent()
+            throws Throwable
+    {
+        List<TrinoNumber> values = comparisonTestValues();
+        List<TrinoNumber> otherValues = values.reversed();
+        ValueBlock block = createBlock(values);
+        ValueBlock otherBlock = createBlock(otherValues);
+
+        MethodHandle stackLessThan = TYPE_OPERATORS.getLessThanOperator(NUMBER, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+        MethodHandle blockBlockLessThan = TYPE_OPERATORS.getLessThanOperator(NUMBER, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
+        MethodHandle stackLessThanOrEqual = TYPE_OPERATORS.getLessThanOrEqualOperator(NUMBER, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+        MethodHandle blockBlockLessThanOrEqual = TYPE_OPERATORS.getLessThanOrEqualOperator(NUMBER, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
+
+        for (int left = 0; left < values.size(); left++) {
+            for (int right = 0; right < otherValues.size(); right++) {
+                TrinoNumber leftValue = values.get(left);
+                TrinoNumber rightValue = otherValues.get(right);
+                TrinoNumber.AsBigDecimal leftDecimal = leftValue.toBigDecimal();
+                TrinoNumber.AsBigDecimal rightDecimal = rightValue.toBigDecimal();
+                boolean unordered = leftDecimal instanceof TrinoNumber.NotANumber || rightDecimal instanceof TrinoNumber.NotANumber;
+                int comparison = COMPARE_NAN_LAST.compare(leftDecimal, rightDecimal);
+                boolean expectedLessThan = !unordered && comparison < 0;
+                boolean expectedLessThanOrEqual = !unordered && comparison <= 0;
+                String description = leftDecimal + " vs " + rightDecimal;
+
+                assertThat((boolean) stackLessThan.invoke(leftValue, rightValue)).describedAs(description).isEqualTo(expectedLessThan);
+                assertThat((boolean) blockBlockLessThan.invokeExact(block, left, otherBlock, right)).describedAs(description).isEqualTo(expectedLessThan);
+                assertThat((boolean) stackLessThanOrEqual.invoke(leftValue, rightValue)).describedAs(description).isEqualTo(expectedLessThanOrEqual);
+                assertThat((boolean) blockBlockLessThanOrEqual.invokeExact(block, left, otherBlock, right)).describedAs(description).isEqualTo(expectedLessThanOrEqual);
+            }
+        }
+    }
+
     private static List<TrinoNumber> comparisonTestValues()
     {
         List<TrinoNumber> values = new ArrayList<>();
