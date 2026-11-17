@@ -1503,6 +1503,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         session,
                         summarizeTaskInfo,
                         nodeTaskMap,
+                        nodeManager,
                         queryStateMachine.getStateMachineExecutor(),
                         tracer,
                         schedulerSpan,

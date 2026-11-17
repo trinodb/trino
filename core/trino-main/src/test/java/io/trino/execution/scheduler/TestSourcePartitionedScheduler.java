@@ -768,6 +768,7 @@ public class TestSourcePartitionedScheduler
                 TEST_SESSION,
                 true,
                 nodeTaskMap,
+                TestingInternalNodeManager.createDefault(),
                 queryExecutor,
                 noopTracer(),
                 Span.getInvalid(),

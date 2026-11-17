@@ -13,6 +13,7 @@
  */
 package io.trino.node;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -57,6 +58,9 @@ public class RemoteNodeState
 {
     private static final Logger log = Logger.get(RemoteNodeState.class);
     private static final JsonCodec<ServerInfo> SERVER_INFO_CODEC = jsonCodec(ServerInfo.class);
+
+    @VisibleForTesting
+    static final String UNKNOWN_INSTANCE_ID = "unknown";
 
     private final URI serverUri;
     private final String expectedNodeEnvironment;
@@ -152,8 +156,13 @@ public class RemoteNodeState
                                 nodeState = serverInfo.state();
                             }
 
+                            // Only a node of a different version may not report the instance id. Such node is INVALID and is never used.
+                            String instanceId = nodeState == INVALID
+                                    ? serverInfo.instanceId().orElse(UNKNOWN_INSTANCE_ID)
+                                    : serverInfo.instanceId().orElseThrow(() -> new IllegalStateException("Node did not report instance id"));
                             internalNode.set(new InternalNode(
                                     serverInfo.nodeId(),
+                                    instanceId,
                                     serverUri,
                                     serverInfo.nodeVersion(),
                                     serverInfo.coordinator()));
