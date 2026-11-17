@@ -71,6 +71,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.HttpStatus.PRECONDITION_FAILED;
 import static io.airlift.http.client.HttpStatus.SERVICE_UNAVAILABLE;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -84,6 +85,7 @@ import static io.trino.operator.HttpPageBufferClient.PagesResponse.createEmptyPa
 import static io.trino.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE_HEADER;
 import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID_HEADER;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN_HEADER;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN_HEADER;
 import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED_HEADER;
@@ -134,6 +136,7 @@ public final class HttpPageBufferClient
     private final boolean acknowledgePages;
     private final TaskId remoteTaskId;
     private final URI location;
+    private final String nodeInstanceId;
     private final ClientCallback clientCallback;
     private final ScheduledExecutorService scheduledExecutor;
     private final Backoff backoff;
@@ -181,6 +184,7 @@ public final class HttpPageBufferClient
             boolean acknowledgePages,
             TaskId remoteTaskId,
             URI location,
+            String nodeInstanceId,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduledExecutor,
             Executor pageBufferClientCallbackExecutor)
@@ -194,6 +198,7 @@ public final class HttpPageBufferClient
                 acknowledgePages,
                 remoteTaskId,
                 location,
+                nodeInstanceId,
                 clientCallback,
                 scheduledExecutor,
                 Ticker.systemTicker(),
@@ -210,6 +215,7 @@ public final class HttpPageBufferClient
             boolean acknowledgePages,
             TaskId remoteTaskId,
             URI location,
+            String nodeInstanceId,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduledExecutor,
             Ticker ticker,
@@ -223,6 +229,7 @@ public final class HttpPageBufferClient
         this.acknowledgePages = acknowledgePages;
         this.remoteTaskId = requireNonNull(remoteTaskId, "remoteTaskId is null");
         this.location = requireNonNull(location, "location is null");
+        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
         this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
@@ -368,6 +375,7 @@ public final class HttpPageBufferClient
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
                 prepareGet()
                         .setHeader(TRINO_MAX_SIZE_HEADER, maxResponseSize.toString())
+                        .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
                         .setUri(uri).build(),
                 new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE, maxResponseContentLength));
 
@@ -418,7 +426,7 @@ public final class HttpPageBufferClient
                         // The next request will also make sure the token is acknowledged.
                         // This is to fast release the pages on the buffer side.
                         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getNextToken())).appendPath("acknowledge").build();
-                        httpClient.executeAsync(prepareGet().setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
+                        httpClient.executeAsync(prepareGet().setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId).setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
                         {
                             @Override
                             public Void handleException(Request request, Exception exception)
@@ -528,7 +536,7 @@ public final class HttpPageBufferClient
 
     private synchronized void destroyTaskResults()
     {
-        HttpResponseFuture<StatusResponse> resultFuture = httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+        HttpResponseFuture<StatusResponse> resultFuture = httpClient.executeAsync(prepareDelete().setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId).setUri(location).build(), createStatusResponseHandler());
         future = resultFuture;
         Futures.addCallback(resultFuture, new FutureCallback<>()
         {
@@ -542,7 +550,8 @@ public final class HttpPageBufferClient
                     return;
                 }
 
-                if (result != null && result.getStatusCode() != NO_CONTENT.code()) {
+                // When the remote node has been restarted, the buffer is gone and there is nothing to close
+                if (result != null && result.getStatusCode() != NO_CONTENT.code() && result.getStatusCode() != PRECONDITION_FAILED.code()) {
                     onFailure(new TrinoTransportException(
                             REMOTE_BUFFER_CLOSE_FAILED,
                             fromUri(location),
@@ -704,6 +713,11 @@ public final class HttpPageBufferClient
                 // like other transport errors, instead of failing the client
                 if (response.getStatusCode() == SERVICE_UNAVAILABLE.code()) {
                     throw new RetryableResponseException(SERVICE_UNAVAILABLE, uri);
+                }
+
+                // the request was addressed to a server instance which is no longer there, so the remote task is gone
+                if (response.getStatusCode() == PRECONDITION_FAILED.code()) {
+                    throw new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, fromUri(uri)));
                 }
 
                 // otherwise we must have gotten an OK response, everything else is considered fatal

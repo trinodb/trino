@@ -428,6 +428,12 @@ public final class HttpRemoteTask
     }
 
     @Override
+    public String getNodeInstanceId()
+    {
+        return nodeInstanceId;
+    }
+
+    @Override
     public TaskInfo getTaskInfo()
     {
         return taskInfoFetcher.getTaskInfo();

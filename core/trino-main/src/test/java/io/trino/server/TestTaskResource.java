@@ -101,10 +101,28 @@ final class TestTaskResource
                 .contains(taskId);
     }
 
+    @Test
+    void testResultsRequestToDifferentNodeInstance()
+    {
+        TaskId taskId = new TaskId(new StageId("results_different_node_instance", 0), 0, 0);
+
+        assertThat(get(taskId, "results/0/0", Optional.of("other-" + server.getCurrentNode().getInstanceId())).getStatusCode())
+                .isEqualTo(PRECONDITION_FAILED.code());
+        // the task must not be created on demand
+        assertThat(server.getTaskManager().getAllTasks())
+                .extracting(SqlTask::getTaskId)
+                .doesNotContain(taskId);
+    }
+
     private StatusResponse getTaskStatus(TaskId taskId, Optional<String> nodeInstanceId)
     {
+        return get(taskId, "status", nodeInstanceId);
+    }
+
+    private StatusResponse get(TaskId taskId, String path, Optional<String> nodeInstanceId)
+    {
         Request.Builder request = prepareGet()
-                .setUri(uriBuilderFrom(server.getBaseUrl()).appendPath("/v1/task").appendPath(taskId.toString()).appendPath("status").build());
+                .setUri(uriBuilderFrom(server.getBaseUrl()).appendPath("/v1/task").appendPath(taskId.toString()).appendPath(path).build());
         nodeInstanceId.ifPresent(instanceId -> request.setHeader(TRINO_NODE_INSTANCE_ID_HEADER, instanceId));
         return httpClient.execute(request.build(), createStatusResponseHandler());
     }

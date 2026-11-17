@@ -509,7 +509,7 @@ public class PipelinedQueryScheduler
             URI taskUri = uriBuilderFrom(task.getTaskStatus().self())
                     .appendPath("results")
                     .appendPath("0").build();
-            DirectExchangeInput input = new DirectExchangeInput(task.getTaskId(), taskUri.toString());
+            DirectExchangeInput input = new DirectExchangeInput(task.getTaskId(), taskUri.toString(), task.getNodeInstanceId());
             queryStateMachine.updateInputsForQueryResults(ImmutableList.of(input), false);
         }
 

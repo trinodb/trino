@@ -62,6 +62,7 @@ import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.NOT_FOUND;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.HttpStatus.PRECONDITION_FAILED;
 import static io.airlift.http.client.HttpStatus.SERVICE_UNAVAILABLE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
@@ -72,6 +73,7 @@ import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.PAGE_TOO_LARGE;
 import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.Failures.WORKER_NODE_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -137,6 +139,7 @@ public class TestHttpPageBufferClient
                 true,
                 TASK_ID,
                 location,
+                "node-instance",
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
@@ -226,6 +229,7 @@ public class TestHttpPageBufferClient
                 true,
                 TASK_ID,
                 location,
+                "node-instance",
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
@@ -271,6 +275,7 @@ public class TestHttpPageBufferClient
                 true,
                 TASK_ID,
                 location,
+                "node-instance",
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
@@ -323,6 +328,53 @@ public class TestHttpPageBufferClient
     }
 
     @Test
+    public void testRemoteNodeRestarted()
+            throws Exception
+    {
+        CyclicBarrier beforeRequest = new CyclicBarrier(1);
+        CyclicBarrier afterRequest = new CyclicBarrier(1);
+        StaticRequestProcessor processor = new StaticRequestProcessor(beforeRequest, afterRequest);
+
+        CyclicBarrier requestComplete = new CyclicBarrier(2);
+        TestingClientCallback callback = new TestingClientCallback(requestComplete);
+
+        URI location = URI.create("http://localhost:8080");
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(processor, scheduler),
+                DataIntegrityVerification.ABORT,
+                DataSize.of(10, MEGABYTE),
+                MAX_RESPONSE_CONTENT_LENGTH,
+                new Duration(1, MINUTES),
+                true,
+                TASK_ID,
+                location,
+                "node-instance",
+                callback,
+                scheduler,
+                pageBufferClientCallbackExecutor);
+
+        // the remote node rejects the request, because it is addressed to the previous instance of the node
+        processor.setResponse(new TestingResponse(PRECONDITION_FAILED, ImmutableListMultimap.of(), new byte[0]));
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertThat(callback.getPages()).isEmpty();
+        assertThat(callback.getCompletedRequests()).isEqualTo(1);
+        assertThat(callback.getFinishedBuffers()).isEqualTo(0);
+        assertThat(callback.getFailedBuffers()).isEqualTo(1);
+        assertThat(callback.getFailure())
+                .isInstanceOfSatisfying(TrinoException.class, exception -> assertThat(exception.getErrorCode()).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode()));
+        assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
+
+        // the buffer is gone together with the previous instance of the node, so there is nothing to close
+        callback.resetStats();
+        client.close();
+        requestComplete.await(10, SECONDS);
+        assertThat(callback.getFailedBuffers()).isEqualTo(0);
+        assertStatus(client, location, "closed", 0, 1, 2, 1, "not scheduled");
+    }
+
+    @Test
     public void testCloseDuringPendingRequest()
             throws Exception
     {
@@ -345,6 +397,7 @@ public class TestHttpPageBufferClient
                 true,
                 TASK_ID,
                 location,
+                "node-instance",
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
@@ -404,6 +457,7 @@ public class TestHttpPageBufferClient
                 true,
                 TASK_ID,
                 location,
+                "node-instance",
                 callback,
                 scheduler,
                 ticker,
@@ -479,6 +533,7 @@ public class TestHttpPageBufferClient
                 true,
                 TASK_ID,
                 location,
+                "node-instance",
                 callback,
                 scheduler,
                 ticker,
@@ -542,6 +597,7 @@ public class TestHttpPageBufferClient
                 true,
                 TASK_ID,
                 location,
+                "node-instance",
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
@@ -589,6 +645,7 @@ public class TestHttpPageBufferClient
                 true,
                 TASK_ID,
                 location,
+                "node-instance",
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
@@ -624,6 +681,7 @@ public class TestHttpPageBufferClient
                 true,
                 TASK_ID,
                 location,
+                "node-instance",
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
@@ -660,6 +718,7 @@ public class TestHttpPageBufferClient
                 true,
                 TASK_ID,
                 URI.create("http://localhost:8080"),
+                "node-instance",
                 new TestingClientCallback(new CyclicBarrier(1)),
                 scheduler,
                 new TestingTicker(),
@@ -707,6 +766,7 @@ public class TestHttpPageBufferClient
                 true,
                 TASK_ID,
                 location,
+                "node-instance",
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
