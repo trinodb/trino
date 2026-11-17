@@ -141,6 +141,12 @@ public class TestingRemoteTaskFactory
         }
 
         @Override
+        public String getNodeInstanceId()
+        {
+            return nodeId + "-instance";
+        }
+
+        @Override
         public TaskInfo getTaskInfo()
         {
             return new TaskInfo(

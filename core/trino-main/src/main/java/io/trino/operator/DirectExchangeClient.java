@@ -155,9 +155,10 @@ public class DirectExchangeClient
         }
     }
 
-    public synchronized void addLocation(TaskId taskId, URI location)
+    public synchronized void addLocation(TaskId taskId, URI location, String nodeInstanceId)
     {
         requireNonNull(location, "location is null");
+        requireNonNull(nodeInstanceId, "nodeInstanceId is null");
 
         // Ignore new locations after close
         // NOTE: this MUST happen before checking no more locations is checked
@@ -179,6 +180,7 @@ public class DirectExchangeClient
                 acknowledgePages,
                 taskId,
                 location,
+                nodeInstanceId,
                 new ExchangeClientCallback(),
                 scheduledExecutor,
                 pageBufferClientCallbackExecutor);

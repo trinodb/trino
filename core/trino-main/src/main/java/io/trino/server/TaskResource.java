@@ -354,10 +354,12 @@ public class TaskResource
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
             @PathParam("token") long token,
             @HeaderParam(TRINO_MAX_SIZE) DataSize maxSize,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_RESULTS, asyncResponse)) {
             return;
@@ -393,10 +395,12 @@ public class TaskResource
     public Response acknowledgeResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
-            @PathParam("token") long token)
+            @PathParam("token") long token,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
 
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
         return Response.ok().build();
@@ -407,10 +411,12 @@ public class TaskResource
     public void destroyTaskResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.DESTROY_RESULTS, asyncResponse)) {
             return;
@@ -430,9 +436,9 @@ public class TaskResource
 
     private void failRequestIfNodeInstanceMismatch(String expectedNodeInstanceId)
     {
-        // The coordinator addresses task management requests to a particular instance of the server. When the server is restarted,
-        // the tasks it was running are gone. Reject the request, so that such a task is not silently re-created on demand
-        // and the coordinator learns about the restart no matter how much it knew about the task before.
+        // Task requests are addressed to a particular instance of the server. When the server is restarted, the tasks it was running
+        // are gone. Reject the request, so that such a task is not silently re-created on demand and the caller learns about
+        // the restart no matter how much it knew about the task before.
         if (expectedNodeInstanceId != null && !expectedNodeInstanceId.equals(nodeInstanceId)) {
             throw new WebApplicationException(status(Status.PRECONDITION_FAILED)
                     .type(MediaType.TEXT_PLAIN)

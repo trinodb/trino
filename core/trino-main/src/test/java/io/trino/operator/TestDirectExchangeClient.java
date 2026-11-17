@@ -162,7 +162,7 @@ public class TestDirectExchangeClient
         assertThat(buffer.isNoMoreTasks()).isFalse();
 
         TaskId taskId = new TaskId(new StageId("query", 1), 0, 0);
-        exchangeClient.addLocation(taskId, location);
+        exchangeClient.addLocation(taskId, location, "node-instance");
         assertThat(buffer.getAllTasks()).containsExactly(taskId);
         exchangeClient.noMoreLocations();
         assertThat(buffer.isNoMoreTasks()).isTrue();
@@ -222,7 +222,7 @@ public class TestDirectExchangeClient
                 pageBufferClientCallbackExecutor,
                 (_, _) -> {});
 
-        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
+        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location, "node-instance");
         exchangeClient.noMoreLocations();
 
         assertThat(exchangeClient.isFinished()).isFalse();
@@ -285,7 +285,7 @@ public class TestDirectExchangeClient
         assertThat(buffer.getFailedTasks().asMap()).isEmpty();
         assertThat(buffer.isNoMoreTasks()).isFalse();
 
-        exchangeClient.addLocation(task1, location1);
+        exchangeClient.addLocation(task1, location1, "node-instance");
         assertThat(buffer.getAllTasks()).containsExactly(task1);
         assertTaskIsNotFinished(buffer, task1);
 
@@ -294,7 +294,7 @@ public class TestDirectExchangeClient
         assertThat(buffer.getPages().get(task1)).hasSize(2);
         assertThat(buffer.getFinishedTasks()).containsExactly(task1);
 
-        exchangeClient.addLocation(task2, location2);
+        exchangeClient.addLocation(task2, location2, "node-instance");
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2);
         assertTaskIsNotFinished(buffer, task2);
 
@@ -303,7 +303,7 @@ public class TestDirectExchangeClient
         assertThat(buffer.getFinishedTasks()).containsExactlyInAnyOrder(task1, task2);
         assertThat(buffer.getPages().get(task2)).isEmpty();
 
-        exchangeClient.addLocation(task3, location3);
+        exchangeClient.addLocation(task3, location3, "node-instance");
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3);
         assertTaskIsNotFinished(buffer, task3);
 
@@ -360,7 +360,7 @@ public class TestDirectExchangeClient
         processor.addPage(location1, createPage(2));
         processor.addPage(location1, createPage(3));
         processor.setComplete(location1);
-        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location1);
+        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location1, "node-instance");
 
         assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
@@ -398,7 +398,7 @@ public class TestDirectExchangeClient
         processor.addPage(location2, createPage(5));
         processor.addPage(location2, createPage(6));
         processor.setComplete(location2);
-        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 1, 0), location2);
+        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 1, 0), location2, "node-instance");
 
         tryGetFutureValue(firstBlocked, 5, SECONDS);
         assertThat(firstBlocked.isDone()).isTrue();
@@ -459,8 +459,8 @@ public class TestDirectExchangeClient
                 pageBufferClientCallbackExecutor,
                 (_, _) -> {});
 
-        exchangeClient.addLocation(task1, location1);
-        exchangeClient.addLocation(task2, location2);
+        exchangeClient.addLocation(task1, location1, "node-instance");
+        exchangeClient.addLocation(task2, location2, "node-instance");
 
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
 
@@ -521,11 +521,11 @@ public class TestDirectExchangeClient
                 pageBufferClientCallbackExecutor,
                 (_, _) -> {});
 
-        exchangeClient.addLocation(attempt0Task1, attempt0Task1Location);
+        exchangeClient.addLocation(attempt0Task1, attempt0Task1Location, "node-instance");
         assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS)).isEmpty();
 
-        exchangeClient.addLocation(attempt1Task1, attempt1Task1Location);
-        exchangeClient.addLocation(attempt1Task2, attempt1Task2Location);
+        exchangeClient.addLocation(attempt1Task1, attempt1Task1Location, "node-instance");
+        exchangeClient.addLocation(attempt1Task2, attempt1Task2Location, "node-instance");
         assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS)).isEmpty();
 
         exchangeClient.noMoreLocations();
@@ -579,9 +579,9 @@ public class TestDirectExchangeClient
                 pageBufferClientCallbackExecutor,
                 (_, _) -> {});
 
-        exchangeClient.addLocation(taskP0A0, locationP0A0);
-        exchangeClient.addLocation(taskP1A0, locationP1A0);
-        exchangeClient.addLocation(taskP0A1, locationP0A1);
+        exchangeClient.addLocation(taskP0A0, locationP0A0, "node-instance");
+        exchangeClient.addLocation(taskP1A0, locationP1A0, "node-instance");
+        exchangeClient.addLocation(taskP0A1, locationP0A1, "node-instance");
 
         processor.setComplete(locationP0A0);
         // Failing attempt 0. Results from all tasks for attempt 0 must be discarded.
@@ -675,7 +675,7 @@ public class TestDirectExchangeClient
         assertThat(buffer.getFailedTasks().asMap()).isEmpty();
         assertThat(buffer.isNoMoreTasks()).isFalse();
 
-        exchangeClient.addLocation(task1, location1);
+        exchangeClient.addLocation(task1, location1, "node-instance");
         assertThat(buffer.getAllTasks()).containsExactly(task1);
         assertTaskIsNotFinished(buffer, task1);
 
@@ -684,7 +684,7 @@ public class TestDirectExchangeClient
         assertThat(buffer.getPages().get(task1)).hasSize(1);
         assertThat(buffer.getFinishedTasks()).containsExactly(task1);
 
-        exchangeClient.addLocation(task2, location2);
+        exchangeClient.addLocation(task2, location2, "node-instance");
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2);
         assertTaskIsNotFinished(buffer, task2);
 
@@ -696,7 +696,7 @@ public class TestDirectExchangeClient
         assertThat(buffer.getFailedTasks().keySet()).containsExactly(task2);
         assertThat(buffer.getPages().get(task2)).isEmpty();
 
-        exchangeClient.addLocation(task3, location3);
+        exchangeClient.addLocation(task3, location3, "node-instance");
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3);
         assertTaskIsNotFinished(buffer, task2);
         assertTaskIsNotFinished(buffer, task3);
@@ -713,7 +713,7 @@ public class TestDirectExchangeClient
         assertThat(latch.await(10, SECONDS)).isTrue();
         assertThat(failedTasks).isEqualTo(ImmutableSet.of(task2, task3));
 
-        exchangeClient.addLocation(task4, location4);
+        exchangeClient.addLocation(task4, location4, "node-instance");
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3, task4);
         assertTaskIsNotFinished(buffer, task4);
 
@@ -787,7 +787,7 @@ public class TestDirectExchangeClient
                 pageBufferClientCallbackExecutor,
                 (_, _) -> {});
 
-        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
+        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location, "node-instance");
         exchangeClient.noMoreLocations();
         assertThat(exchangeClient.isFinished()).isFalse();
 
@@ -936,7 +936,7 @@ public class TestDirectExchangeClient
                 pageBufferClientCallbackExecutor,
                 (_, _) -> {});
 
-        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
+        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location, "node-instance");
         exchangeClient.noMoreLocations();
 
         return exchangeClient;
@@ -969,7 +969,7 @@ public class TestDirectExchangeClient
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
                 (_, _) -> {});
-        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
+        exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location, "node-instance");
         exchangeClient.noMoreLocations();
 
         // fetch a page
@@ -1120,6 +1120,7 @@ public class TestDirectExchangeClient
                 true,
                 TASK_ID,
                 location,
+                "node-instance",
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
