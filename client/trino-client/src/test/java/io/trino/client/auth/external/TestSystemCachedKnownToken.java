@@ -26,6 +26,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 import static java.nio.file.attribute.PosixFilePermission.OWNER_READ;
 import static java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
@@ -163,6 +164,20 @@ final class TestSystemCachedKnownToken
     }
 
     @Test
+    void testSetupTokenLeavesNoTemporaryFiles(@TempDir Path tempDir)
+            throws IOException
+    {
+        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
+
+        knownToken.setupToken(() -> Optional.of(new Token("new-token")));
+
+        assertThat(Files.readString(tempDir.resolve(".token"))).isEqualTo("new-token");
+        try (Stream<Path> files = Files.list(tempDir)) {
+            assertThat(files).containsExactly(tempDir.resolve(".token"));
+        }
+    }
+
+    @Test
     void testGetTokenThrowsWhenLockFileExistsAfterMaxWait(@TempDir Path tempDir)
             throws IOException
     {
@@ -206,6 +221,35 @@ final class TestSystemCachedKnownToken
                     .hasValueSatisfying(token -> assertThat(token.token()).isEqualTo("the-token"));
         }
         finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void testGetTokenConcurrentWithSetupToken(@TempDir Path tempDir)
+            throws Exception
+    {
+        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
+        knownToken.setupToken(() -> Optional.of(new Token("the-token")));
+
+        AtomicBoolean done = new AtomicBoolean();
+        ExecutorService executor = newSingleThreadExecutor();
+        try {
+            Future<?> writer = executor.submit(() -> {
+                while (!done.get()) {
+                    knownToken.setupToken(() -> Optional.of(new Token("the-token")));
+                }
+            });
+
+            long deadline = System.nanoTime() + Duration.ofSeconds(3).toNanos();
+            while (System.nanoTime() < deadline) {
+                assertThat(knownToken.getToken().map(Token::token)).isIn(Optional.empty(), Optional.of("the-token"));
+            }
+            done.set(true);
+            writer.get();
+        }
+        finally {
+            done.set(true);
             executor.shutdownNow();
         }
     }

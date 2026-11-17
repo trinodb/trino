@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.exc.StreamConstraintsException;
 import io.trino.json.Json;
 import io.trino.json.JsonArray;
 import io.trino.json.JsonItemBuilder;
@@ -29,6 +28,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import tools.jackson.core.exc.StreamConstraintsException;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;

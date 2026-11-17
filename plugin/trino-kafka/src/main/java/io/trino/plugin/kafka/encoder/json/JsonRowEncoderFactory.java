@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.kafka.encoder.json;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.inject.Inject;
 import io.trino.plugin.kafka.encoder.RowEncoder;
 import io.trino.plugin.kafka.encoder.RowEncoderFactory;
 import io.trino.plugin.kafka.encoder.RowEncoderSpec;
 import io.trino.spi.connector.ConnectorSession;
+import tools.jackson.databind.json.JsonMapper;
 
 import static java.util.Objects.requireNonNull;
 

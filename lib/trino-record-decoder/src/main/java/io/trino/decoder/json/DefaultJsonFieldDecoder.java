@@ -13,7 +13,6 @@
  */
 package io.trino.decoder.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
@@ -21,6 +20,8 @@ import io.trino.decoder.FieldValueProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
@@ -42,12 +43,14 @@ import static java.util.Objects.requireNonNull;
 public class DefaultJsonFieldDecoder
         implements JsonFieldDecoder
 {
+    private final JsonMapper jsonMapper;
     private final DecoderColumnHandle columnHandle;
     private final long minValue;
     private final long maxValue;
 
-    public DefaultJsonFieldDecoder(DecoderColumnHandle columnHandle)
+    public DefaultJsonFieldDecoder(JsonMapper jsonMapper, DecoderColumnHandle columnHandle)
     {
+        this.jsonMapper = requireNonNull(jsonMapper, "jsonMapper is null");
         this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
         if (!isSupportedType(columnHandle.getType())) {
             JsonRowDecoderFactory.throwUnsupportedColumnType(columnHandle);
@@ -96,19 +99,21 @@ public class DefaultJsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        return new JsonValueProvider(value, columnHandle, minValue, maxValue);
+        return new JsonValueProvider(jsonMapper, value, columnHandle, minValue, maxValue);
     }
 
     public static class JsonValueProvider
             extends FieldValueProvider
     {
+        private final JsonMapper jsonMapper;
         private final JsonNode value;
         private final DecoderColumnHandle columnHandle;
         private final long minValue;
         private final long maxValue;
 
-        public JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle, long minValue, long maxValue)
+        public JsonValueProvider(JsonMapper jsonMapper, JsonNode value, DecoderColumnHandle columnHandle, long minValue, long maxValue)
         {
+            this.jsonMapper = jsonMapper;
             this.value = value;
             this.columnHandle = columnHandle;
             this.minValue = minValue;
@@ -124,8 +129,11 @@ public class DefaultJsonFieldDecoder
         @Override
         public boolean getBoolean()
         {
+            if (value.isString()) {
+                return "true".equals(value.asString().trim());
+            }
             if (value.isValueNode()) {
-                return value.asBoolean();
+                return value.asBoolean(false);
             }
             throw new TrinoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
@@ -144,7 +152,7 @@ public class DefaultJsonFieldDecoder
                     }
                 }
                 else if (value.isValueNode()) {
-                    longValue = parseLong(value.asText());
+                    longValue = parseLong(value.asString());
                     if (longValue >= minValue && longValue <= maxValue) {
                         return longValue;
                     }
@@ -155,7 +163,7 @@ public class DefaultJsonFieldDecoder
             }
             throw new TrinoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                    format("could not parse value '%s' as '%s' for column '%s'", textValue(), columnHandle.getType(), columnHandle.getName()));
         }
 
         @Override
@@ -163,10 +171,11 @@ public class DefaultJsonFieldDecoder
         {
             try {
                 if (value.isNumber()) {
-                    return value.doubleValue();
+                    // Number.doubleValue() saturates to infinity for huge integers, unlike JsonNode.doubleValue()
+                    return value.numberValue().doubleValue();
                 }
                 if (value.isValueNode()) {
-                    return parseDouble(value.asText());
+                    return parseDouble(value.asString());
                 }
             }
             catch (NumberFormatException ignore) {
@@ -174,18 +183,22 @@ public class DefaultJsonFieldDecoder
             }
             throw new TrinoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                    format("could not parse value '%s' as '%s' for column '%s'", textValue(), columnHandle.getType(), columnHandle.getName()));
         }
 
         @Override
         public Slice getSlice()
         {
-            String textValue = value.isValueNode() ? value.asText() : value.toString();
-            Slice slice = utf8Slice(textValue);
+            Slice slice = utf8Slice(textValue());
             if (columnHandle.getType() instanceof VarcharType) {
                 slice = truncateToLength(slice, columnHandle.getType());
             }
             return slice;
+        }
+
+        private String textValue()
+        {
+            return value.isValueNode() ? value.asString() : jsonMapper.writeValueAsString(value);
         }
     }
 }

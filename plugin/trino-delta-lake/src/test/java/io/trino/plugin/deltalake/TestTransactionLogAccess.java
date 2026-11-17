@@ -79,6 +79,7 @@ import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.createTable;
+import static io.trino.plugin.deltalake.metastore.DeltaTableType.MANAGED_TABLE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractColumnMetadata;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.LAST_CHECKPOINT_FILENAME;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
@@ -642,7 +643,7 @@ public class TestTransactionLogAccess
                             new DeltaLakeTableHandle(
                                     "schema",
                                     tableName,
-                                    true,
+                                    MANAGED_TABLE,
                                     tableDir.toURI().toString(), // the location should keep the same as the previous test cases
                                     metadataEntry,
                                     protocolEntry,

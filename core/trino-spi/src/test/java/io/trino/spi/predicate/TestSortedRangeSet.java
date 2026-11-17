@@ -13,8 +13,6 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
@@ -31,6 +29,8 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.assertj.core.api.AssertProvider;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1009,7 +1009,6 @@ public class TestSortedRangeSet
 
     @Test
     public void testJsonSerialization()
-            throws Exception
     {
         assertJsonRoundTrip(SortedRangeSet.all(BIGINT));
         assertJsonRoundTrip(SortedRangeSet.none(DOUBLE));
@@ -1102,7 +1101,6 @@ public class TestSortedRangeSet
     }
 
     private static void assertJsonRoundTrip(SortedRangeSet set)
-            throws Exception
     {
         JsonMapper mapper = createJsonMapper();
         assertThat(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class)).isEqualTo(set);

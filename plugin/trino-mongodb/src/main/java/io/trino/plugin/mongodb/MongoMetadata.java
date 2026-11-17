@@ -523,10 +523,9 @@ public class MongoMetadata
             String pageSinkIdColumnName,
             Collection<Slice> fragments)
     {
-        Closer closer = Closer.create();
-        closer.register(() -> mongoSession.dropTable(temporaryTable));
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> mongoSession.dropTable(temporaryTable));
 
-        try {
             // Create the temporary page sink ID table
             RemoteTableName pageSinkIdsTable = new RemoteTableName(temporaryTable.databaseName(), generateTemporaryTableName(session));
             MongoColumnHandle pageSinkIdColumn = new MongoColumnHandle(pageSinkIdColumnName, ImmutableList.of(), TRINO_PAGE_SINK_ID_COLUMN_TYPE, false, false, Optional.empty());
@@ -548,13 +547,8 @@ public class MongoMetadata
                             merge(targetTable.collectionName())))
                     .toCollection();
         }
-        finally {
-            try {
-                closer.close();
-            }
-            catch (IOException e) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
-            }
+        catch (IOException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 

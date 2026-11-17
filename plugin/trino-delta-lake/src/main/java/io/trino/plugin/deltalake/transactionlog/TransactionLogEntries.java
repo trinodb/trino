@@ -30,6 +30,7 @@ import java.io.InputStreamReader;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -47,21 +48,37 @@ public final class TransactionLogEntries
     private static final int INSTANCE_SIZE = instanceSize(TransactionLogEntries.class);
     private static final int JSON_LOG_ENTRY_READ_BUFFER_SIZE = 1024 * 1024;
 
-    private final long entryNumber;
+    private final UnaryOperator<DeltaLakeTransactionLogEntry> entryMapper;
     private final Location transactionLogFilePath;
 
     private final Optional<List<DeltaLakeTransactionLogEntry>> cachedEntries;
 
-    public TransactionLogEntries(long entryNumber, TrinoInputFile inputFile, DataSize maxCachedFileSize)
+    public static TransactionLogEntries forCommit(long version, TrinoInputFile inputFile, DataSize maxCachedFileSize)
     {
-        this.entryNumber = entryNumber;
+        // In case that the commit info version is missing, use the version from the transaction log file name
+        return new TransactionLogEntries(
+                entry -> entry.getCommitInfo() != null && entry.getCommitInfo().version() == 0L
+                        ? entry.withCommitInfo(entry.getCommitInfo().withVersion(version))
+                        : entry,
+                inputFile,
+                maxCachedFileSize);
+    }
+
+    public static TransactionLogEntries forCheckpoint(TrinoInputFile inputFile, DataSize maxCachedFileSize)
+    {
+        return new TransactionLogEntries(UnaryOperator.identity(), inputFile, maxCachedFileSize);
+    }
+
+    private TransactionLogEntries(UnaryOperator<DeltaLakeTransactionLogEntry> entryMapper, TrinoInputFile inputFile, DataSize maxCachedFileSize)
+    {
+        this.entryMapper = entryMapper;
         this.transactionLogFilePath = inputFile.location();
         try {
             if (inputFile.length() > maxCachedFileSize.toBytes()) {
                 this.cachedEntries = Optional.empty();
             }
             else {
-                try (TransactionLogEntryIterator logEntryIterator = new TransactionLogEntryIterator(entryNumber, inputFile)) {
+                try (TransactionLogEntryIterator logEntryIterator = new TransactionLogEntryIterator(entryMapper, inputFile)) {
                     this.cachedEntries = Optional.of(ImmutableList.copyOf(logEntryIterator));
                 }
             }
@@ -80,7 +97,7 @@ public final class TransactionLogEntries
         if (cachedEntries.isPresent()) {
             return cachedEntries.get().stream();
         }
-        TransactionLogEntryIterator iterator = new TransactionLogEntryIterator(entryNumber, fileSystem.newInputFile(transactionLogFilePath));
+        TransactionLogEntryIterator iterator = new TransactionLogEntryIterator(entryMapper, fileSystem.newInputFile(transactionLogFilePath));
         return stream(iterator).onClose(iterator::close);
     }
 
@@ -127,13 +144,13 @@ public final class TransactionLogEntries
             extends AbstractIterator<DeltaLakeTransactionLogEntry>
             implements Closeable
     {
-        private final long entryNumber;
+        private final UnaryOperator<DeltaLakeTransactionLogEntry> entryMapper;
         private final Location location;
         private final BufferedReader reader;
 
-        public TransactionLogEntryIterator(long entryNumber, TrinoInputFile inputFile)
+        public TransactionLogEntryIterator(UnaryOperator<DeltaLakeTransactionLogEntry> entryMapper, TrinoInputFile inputFile)
         {
-            this.entryNumber = entryNumber;
+            this.entryMapper = entryMapper;
             this.location = inputFile.location();
             TrinoInputStream inputStream;
             try {
@@ -159,12 +176,7 @@ public final class TransactionLogEntries
                 close();
                 return endOfData();
             }
-            DeltaLakeTransactionLogEntry deltaLakeTransactionLogEntry = parseJson(line);
-            if (deltaLakeTransactionLogEntry.getCommitInfo() != null && deltaLakeTransactionLogEntry.getCommitInfo().version() == 0L) {
-                // In case that the commit info version is missing, use the version from the transaction log file name
-                deltaLakeTransactionLogEntry = deltaLakeTransactionLogEntry.withCommitInfo(deltaLakeTransactionLogEntry.getCommitInfo().withVersion(entryNumber));
-            }
-            return deltaLakeTransactionLogEntry;
+            return entryMapper.apply(parseJson(line));
         }
 
         @Override

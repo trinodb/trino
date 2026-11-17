@@ -30,6 +30,7 @@ import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.SubPlan;
+import io.trino.sql.planner.optimizations.BeginTableWrite;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.tree.CreateCatalog;
@@ -47,6 +48,7 @@ import io.trino.sql.tree.Statement;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.StandardWarningCode.DEPRECATED_SYNTAX;
@@ -109,7 +111,7 @@ public class QueryExplainer
                 yield DEPRECATED_TYPE_LOGICAL_WARNING + textDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
             }
             case DISTRIBUTED -> textDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
-            case IO -> textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session);
+            case IO -> textIoPlan(getExplainLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session);
             default -> throw new IllegalArgumentException("Unhandled plan type: " + planType);
         };
     }
@@ -152,7 +154,7 @@ public class QueryExplainer
         }
 
         return switch (planType) {
-            case IO -> textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session);
+            case IO -> textIoPlan(getExplainLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session);
             case LOGICAL -> {
                 setDeprecatedTypeLogicalWarning(warningCollector);
                 yield jsonDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
@@ -178,6 +180,21 @@ public class QueryExplainer
 
     public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
+        return getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector, planOptimizers);
+    }
+
+    private Plan getExplainLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    {
+        // EXPLAIN never finishes a write, so it must not begin one: beginning a write can have side effects in the
+        // connector, such as creating the target table
+        List<PlanOptimizer> optimizers = planOptimizers.stream()
+                .filter(optimizer -> !(optimizer instanceof BeginTableWrite))
+                .collect(toImmutableList());
+        return getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector, optimizers);
+    }
+
+    private Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector, List<PlanOptimizer> optimizers)
+    {
         // analyze statement
         Analysis analysis = analyze(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
 
@@ -186,7 +203,7 @@ public class QueryExplainer
         // plan statement
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,
-                planOptimizers,
+                optimizers,
                 idAllocator,
                 plannerContext,
                 statsCalculator,
@@ -205,7 +222,7 @@ public class QueryExplainer
 
     private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        Plan plan = getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
+        Plan plan = getExplainLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
         return planFragmenter.createSubPlans(session, plan, false, warningCollector);
     }
 

@@ -13,8 +13,6 @@
  */
 package io.trino.util.variant;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -66,6 +64,8 @@ import io.trino.type.TinyintOperators;
 import io.trino.type.UnknownType;
 import io.trino.type.UuidOperators;
 import io.trino.type.VarcharOperators;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -78,9 +78,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.fasterxml.jackson.core.json.JsonWriteFeature.COMBINE_UNICODE_SURROGATES_IN_UTF8;
-import static com.fasterxml.jackson.core.json.JsonWriteFeature.ESCAPE_NON_ASCII;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
@@ -130,11 +127,15 @@ import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.time.ZoneOffset.UTC;
+import static tools.jackson.core.TokenStreamFactory.Feature.CANONICALIZE_PROPERTY_NAMES;
+import static tools.jackson.core.json.JsonWriteFeature.COMBINE_UNICODE_SURROGATES_IN_UTF8;
+import static tools.jackson.core.json.JsonWriteFeature.ESCAPE_NON_ASCII;
 
 public final class VariantUtil
 {
     private static final JsonMapper JSON_MAPPER = new JsonMapper(jsonFactoryBuilder()
-            .disable(CANONICALIZE_FIELD_NAMES)
+            .disable(CANONICALIZE_PROPERTY_NAMES)
+            // Deliberately overrides jsonFactoryBuilder(), which disables this feature:
             // prevents characters outside BMP (e.g., emoji) from being escaped as surrogate pairs
             .enable(COMBINE_UNICODE_SURROGATES_IN_UTF8)
             .disable(ESCAPE_NON_ASCII)
@@ -1317,7 +1318,7 @@ public final class VariantUtil
                 variant.objectFields().forEach(fieldIdValue -> {
                     try {
                         String fieldName = metadata.get(fieldIdValue.fieldId()).toStringUtf8();
-                        generator.writeFieldName(fieldName);
+                        generator.writeName(fieldName);
                         toJsonValue(generator, fieldIdValue.value());
                     }
                     catch (IOException e) {

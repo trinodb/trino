@@ -35,10 +35,10 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
 
-import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -864,15 +864,15 @@ public class TestFileBasedSystemAccessControl
                 .execute(transactionId -> {
                     accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView);
                 }))
-                .isInstanceOf(UncheckedIOException.class)
-                .hasMessageStartingWith("Failed to convert JSON tree node");
+                .isInstanceOf(UnrecognizedPropertyException.class)
+                .hasMessageStartingWith("Unrecognized property");
         // test if file based cached control was not cached somewhere
         assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView);
                 }))
-                .isInstanceOf(UncheckedIOException.class)
-                .hasMessageStartingWith("Failed to convert JSON tree node");
+                .isInstanceOf(UnrecognizedPropertyException.class)
+                .hasMessageStartingWith("Unrecognized property");
 
         Files.copy(getResourcePath("catalog.json"), configFile, REPLACE_EXISTING);
         sleep(2);
@@ -888,7 +888,7 @@ public class TestFileBasedSystemAccessControl
     {
         assertThatThrownBy(() -> newAccessControlManager(createTestTransactionManager(), "catalog_allow_unset.json"))
                 .isInstanceOf(CreationException.class)
-                .hasMessageContaining("Failed to convert JSON tree node");
+                .hasMessageContaining("accessMode is null");
     }
 
     @Test
@@ -896,7 +896,7 @@ public class TestFileBasedSystemAccessControl
     {
         assertThatThrownBy(() -> newAccessControlManager(createTestTransactionManager(), "catalog_invalid_allow_value.json"))
                 .isInstanceOf(CreationException.class)
-                .hasMessageContaining("Failed to convert JSON tree node");
+                .hasMessageContaining("Unknown AccessMode: not-a-valid-value");
     }
 
     private AccessControlManager newAccessControlManager(TransactionManager transactionManager, String resourceName)
@@ -926,7 +926,7 @@ public class TestFileBasedSystemAccessControl
     public void parseUnknownRules()
     {
         assertThatThrownBy(() -> parse(getResourcePath("security-config-file-with-unknown-rules.json").toString()))
-                .hasMessageContaining("Failed to convert JSON tree node");
+                .hasMessageContaining("Unrecognized property");
     }
 
     private void parse(String path)

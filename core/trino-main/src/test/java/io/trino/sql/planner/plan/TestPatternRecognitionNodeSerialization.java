@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.plan;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,6 +48,7 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Optional;
 
@@ -86,7 +86,7 @@ public class TestPatternRecognitionNodeSerialization
     private static final JsonCodec<PatternRecognitionNode> PATTERN_RECOGNITION_NODE_CODEC;
 
     static {
-        JsonMapper objectMapper = new JsonMapperProvider()
+        JsonMapper jsonMapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
                         TypeDescriptor.class, new TypeDescriptorKeyDeserializer(),
                         Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
@@ -96,7 +96,7 @@ public class TestPatternRecognitionNodeSerialization
                 .withJsonSerializers(ImmutableMap.of(
                         Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)))
                 .get();
-        JsonCodecFactory factory = new JsonCodecFactory(objectMapper);
+        JsonCodecFactory factory = new JsonCodecFactory(jsonMapper);
 
         VALUE_POINTER_CODEC = factory.jsonCodec(ValuePointer.class);
         EXPRESSION_AND_VALUE_POINTERS_CODEC = factory.jsonCodec(ExpressionAndValuePointers.class);

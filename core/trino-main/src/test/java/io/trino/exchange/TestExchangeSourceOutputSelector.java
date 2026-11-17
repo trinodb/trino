@@ -13,7 +13,6 @@
  */
 package io.trino.exchange;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
@@ -29,6 +28,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import tools.jackson.databind.json.JsonMapper;
 
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.EXCLUDED;
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.INCLUDED;

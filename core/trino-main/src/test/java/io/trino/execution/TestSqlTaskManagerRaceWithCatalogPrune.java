@@ -306,8 +306,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 PLAN_FRAGMENT.getOutputSkewedBucketCount(),
                 PLAN_FRAGMENT.getStatsAndCosts(),
                 activeCatalogs,
-                PLAN_FRAGMENT.getLanguageFunctions(),
-                PLAN_FRAGMENT.getJsonRepresentation());
+                PLAN_FRAGMENT.getLanguageFunctions());
     }
 
     private static class NoInfoTransactionManager

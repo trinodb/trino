@@ -13,10 +13,10 @@
  */
 package io.trino.parquet.spark;
 
-import com.fasterxml.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.ObjectWriteContext;
 
 import java.io.CharArrayWriter;
-import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -160,13 +160,10 @@ public final class Variant
     private static String escapeJson(String value)
     {
         try (CharArrayWriter writer = new CharArrayWriter();
-                JsonGenerator generator = jsonFactory().createGenerator(writer)) {
+                JsonGenerator generator = jsonFactory().createGenerator(ObjectWriteContext.empty(), writer)) {
             generator.writeString(value);
             generator.flush();
             return writer.toString();
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 }

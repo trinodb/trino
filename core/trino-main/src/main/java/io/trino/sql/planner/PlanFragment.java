@@ -57,7 +57,6 @@ public class PlanFragment
     private final StatsAndCosts statsAndCosts;
     private final List<CatalogProperties> activeCatalogs;
     private final Map<FunctionId, LanguageFunctionData> languageFunctions;
-    private final Optional<String> jsonRepresentation;
     private final boolean containsTableScanNode;
 
     @JsonCreator
@@ -72,8 +71,7 @@ public class PlanFragment
             @JsonProperty("outputSkewedBucketCount") OptionalInt outputSkewedBucketCount,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
             @JsonProperty("activeCatalogs") List<CatalogProperties> activeCatalogs,
-            @JsonProperty("languageFunctions") Map<FunctionId, LanguageFunctionData> languageFunctions,
-            @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
+            @JsonProperty("languageFunctions") Map<FunctionId, LanguageFunctionData> languageFunctions)
     {
         this(id,
                 root,
@@ -88,8 +86,7 @@ public class PlanFragment
                 outputSkewedBucketCount,
                 statsAndCosts,
                 activeCatalogs,
-                languageFunctions,
-                jsonRepresentation);
+                languageFunctions);
 
         // Potentially more expensive check, applied only in public constructor
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputPartitioningScheme.getOutputLayout()),
@@ -112,8 +109,7 @@ public class PlanFragment
             OptionalInt outputSkewedBucketCount,
             StatsAndCosts statsAndCosts,
             List<CatalogProperties> activeCatalogs,
-            Map<FunctionId, LanguageFunctionData> languageFunctions,
-            Optional<String> jsonRepresentation)
+            Map<FunctionId, LanguageFunctionData> languageFunctions)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -129,7 +125,6 @@ public class PlanFragment
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.activeCatalogs = ImmutableList.copyOf(requireNonNull(activeCatalogs, "activeCatalogs is null"));
         this.languageFunctions = ImmutableMap.copyOf(requireNonNull(languageFunctions, "languageFunctions is null"));
-        this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
         this.containsTableScanNode = partitionedSourceNodes.stream().anyMatch(TableScanNode.class::isInstance);
 
         checkArgument(
@@ -209,37 +204,6 @@ public class PlanFragment
         return languageFunctions;
     }
 
-    @JsonProperty
-    public Optional<String> getJsonRepresentation()
-    {
-        // @reviewer: I believe this should be a json raw value, but that would make this class have a different deserialization constructor.
-        // workers don't need this, so that should be OK, but it's worth thinking about.
-        return jsonRepresentation;
-    }
-
-    public PlanFragment withoutEmbeddedJsonRepresentation()
-    {
-        if (jsonRepresentation.isEmpty()) {
-            return this;
-        }
-        return new PlanFragment(
-                this.id,
-                this.root,
-                this.symbols,
-                this.partitioning,
-                this.partitionCount,
-                this.partitionedSources,
-                this.partitionedSourcesSet,
-                this.partitionedSourceNodes,
-                this.remoteSourceNodes,
-                this.outputPartitioningScheme,
-                this.outputSkewedBucketCount,
-                this.statsAndCosts,
-                this.activeCatalogs,
-                this.languageFunctions,
-                Optional.empty());
-    }
-
     public List<Type> getTypes()
     {
         return outputPartitioningScheme.getOutputTypes();
@@ -317,8 +281,7 @@ public class PlanFragment
                 outputSkewedBucketCount,
                 statsAndCosts,
                 activeCatalogs,
-                languageFunctions,
-                Optional.empty());
+                languageFunctions);
     }
 
     public PlanFragment withOutputPartitioning(Optional<int[]> bucketToPartition, OptionalInt skewedBucketCount)
@@ -337,8 +300,7 @@ public class PlanFragment
                 skewedBucketCount,
                 statsAndCosts,
                 activeCatalogs,
-                languageFunctions,
-                jsonRepresentation);
+                languageFunctions);
     }
 
     @Override

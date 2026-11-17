@@ -13,11 +13,6 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
@@ -29,8 +24,12 @@ import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -671,11 +670,10 @@ public class TestTupleDomain
                 .withJsonDeserializers(Map.of(
                         Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
                         Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde()),
-                        ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
+                        ColumnHandle.class, new ValueDeserializer<ColumnHandle>()
                         {
                             @Override
                             public ColumnHandle deserialize(JsonParser parser, DeserializationContext context)
-                                    throws IOException
                             {
                                 return context.readValue(parser, TestingColumnHandle.class);
                             }

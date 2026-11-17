@@ -86,8 +86,7 @@ import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
 import static io.trino.SystemSessionProperties.isPredicatePushdownUseTableProperties;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -103,6 +102,7 @@ import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.IrUtils.filterDeterministicConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.DomainTranslator.isStructural;
 import static io.trino.sql.planner.EqualityInference.isInferenceCandidate;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
@@ -1212,7 +1212,9 @@ public class PredicatePushDown
             }
 
             if (operator == IDENTICAL) {
-                if ((left.type().equals(REAL) || right.type().equals(REAL) || left.type().equals(DOUBLE) || right.type().equals(DOUBLE))) {
+                // Dynamic filters follow = semantics: NaN is not collected, and structural values containing nulls or NaN
+                // do not match themselves, while IS NOT DISTINCT FROM matches them
+                if (mayBeUnequalToItself(left.type()) || mayBeUnequalToItself(right.type())) {
                     return false;
                 }
             }
@@ -1223,6 +1225,11 @@ public class PredicatePushDown
             // Build side expression must be a symbol reference, since DynamicFilterSourceOperator can only collect column values (not expressions)
             return (right instanceof Reference && rightSymbols.contains(Symbol.from(right)))
                     || (left instanceof Reference && rightSymbols.contains(Symbol.from(left)));
+        }
+
+        private static boolean mayBeUnequalToItself(Type type)
+        {
+            return typeHasNaN(type) || isStructural(type);
         }
 
         @Override

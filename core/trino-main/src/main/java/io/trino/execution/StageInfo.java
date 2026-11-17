@@ -81,7 +81,7 @@ public record StageInfo(
                 failureCause);
     }
 
-    public static StageInfo createInitial(QueryId queryId, StageState state, PlanFragment fragment)
+    public static StageInfo createInitial(QueryId queryId, StageState state, PlanFragment fragment, Map<PlanNodeId, TableInfo> tables)
     {
         return new StageInfo(
                 StageId.create(queryId, fragment.getId()),
@@ -92,7 +92,7 @@ public record StageInfo(
                 StageStats.createInitial(),
                 ImmutableList.of(),
                 ImmutableList.of(),
-                ImmutableMap.of(),
+                tables,
                 null);
     }
 }
