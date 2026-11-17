@@ -30,7 +30,7 @@ public class CodePointsType
 
     private CodePointsType()
     {
-        super(new TypeDescriptor(NAME), int[].class);
+        super(new TypeDescriptor(NAME), CodePoints.class);
     }
 
     @Override
@@ -57,13 +57,13 @@ public class CodePointsType
         Slice slice = valueBlock.getSlice(valuePosition);
         int[] codePoints = new int[slice.length() / Integer.BYTES];
         slice.getInts(0, codePoints);
-        return codePoints;
+        return new CodePoints(codePoints);
     }
 
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        int[] codePoints = (int[]) value;
+        int[] codePoints = ((CodePoints) value).codePoints();
         Slice slice = Slices.allocate(codePoints.length * Integer.BYTES);
         slice.setInts(0, codePoints);
         ((VariableWidthBlockBuilder) blockBuilder).writeEntry(slice);

@@ -97,6 +97,7 @@ import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
+import static io.trino.operator.scalar.StringFunctions.castVarcharToCodePoints;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -115,6 +116,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
+import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.JsonType.JSON;
@@ -653,6 +655,7 @@ public class TestPageFunctionCompiler
         PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
         ResolvedFunction jsonExtractScalar = FUNCTION_RESOLUTION.resolveFunction("json_extract_scalar", fromTypes(VARCHAR, JSON_PATH));
         ResolvedFunction joniRegexpLike = FUNCTION_RESOLUTION.resolveFunction("regexp_like", fromTypes(VARCHAR, JONI_REGEXP));
+        ResolvedFunction leftTrim = FUNCTION_RESOLUTION.resolveFunction("ltrim", fromTypes(VARCHAR, CODE_POINTS));
         Reference input = new Reference(VARCHAR, "c");
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "c"), 0);
 
@@ -677,6 +680,17 @@ public class TestPageFunctionCompiler
         cacheCompiler.compileProjection(call(joniRegexpLike, input, new Constant(JONI_REGEXP, joniRegexp(utf8Slice("b.*")))), layout, SQL_STANDARD, Optional.empty());
         assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(6);
         assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(4);
+
+        // Separately created code points with the same content: cache hit
+        cacheCompiler.compileProjection(call(leftTrim, input, new Constant(CODE_POINTS, castVarcharToCodePoints(utf8Slice("ab")))), layout, SQL_STANDARD, Optional.empty());
+        cacheCompiler.compileProjection(call(leftTrim, input, new Constant(CODE_POINTS, castVarcharToCodePoints(utf8Slice("ab")))), layout, SQL_STANDARD, Optional.empty());
+        assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(8);
+        assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(5);
+
+        // Different code points: cache miss
+        cacheCompiler.compileProjection(call(leftTrim, input, new Constant(CODE_POINTS, castVarcharToCodePoints(utf8Slice("ac")))), layout, SQL_STANDARD, Optional.empty());
+        assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(9);
+        assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(6);
     }
 
     @Test
