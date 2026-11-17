@@ -103,7 +103,7 @@ public class TestNumberType
     }
 
     @Test
-    public void testEqualOperatorConventionsConsistent()
+    public void testOperatorConventionsConsistent()
             throws Throwable
     {
         List<TrinoNumber> values = List.of(
@@ -124,6 +124,9 @@ public class TestNumberType
         FlatValues flat = FlatValues.write(block, 0, 0);
         FlatValues otherFlat = FlatValues.write(otherBlock, 3, 5);
 
+        MethodHandle stackHash = TYPE_OPERATORS.getXxHash64Operator(NUMBER, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+        MethodHandle blockHash = TYPE_OPERATORS.getXxHash64Operator(NUMBER, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
+        MethodHandle flatHash = TYPE_OPERATORS.getXxHash64Operator(NUMBER, simpleConvention(FAIL_ON_NULL, FLAT));
         MethodHandle stackEqual = TYPE_OPERATORS.getEqualOperator(NUMBER, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
         MethodHandle blockBlockEqual = TYPE_OPERATORS.getEqualOperator(NUMBER, simpleConvention(NULLABLE_RETURN, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         MethodHandle flatFlatEqual = TYPE_OPERATORS.getEqualOperator(NUMBER, simpleConvention(NULLABLE_RETURN, FLAT, FLAT));
@@ -136,6 +139,10 @@ public class TestNumberType
         MethodHandle blockFlatIdentical = TYPE_OPERATORS.getIdenticalOperator(NUMBER, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, FLAT));
 
         for (int left = 0; left < values.size(); left++) {
+            long expectedHash = (long) stackHash.invoke(values.get(left));
+            assertThat((long) blockHash.invokeExact(block, left)).isEqualTo(expectedHash);
+            assertThat((long) flatHash.invokeExact(flat.fixed(), flat.fixedOffset(left), flat.variable(), flat.variableOffset(left))).isEqualTo(expectedHash);
+
             for (int right = 0; right < otherValues.size(); right++) {
                 TrinoNumber.AsBigDecimal leftDecimal = values.get(left).toBigDecimal();
                 TrinoNumber.AsBigDecimal rightDecimal = otherValues.get(right).toBigDecimal();
@@ -158,6 +165,10 @@ public class TestNumberType
                         .isEqualTo(expectedIdentical);
                 assertThat((boolean) flatBlockIdentical.invokeExact(flat.fixed(), flat.fixedOffset(left), flat.variable(), flat.variableOffset(left), otherBlock, right)).describedAs(description).isEqualTo(expectedIdentical);
                 assertThat((boolean) blockFlatIdentical.invokeExact(block, left, otherFlat.fixed(), otherFlat.fixedOffset(right), otherFlat.variable(), otherFlat.variableOffset(right))).describedAs(description).isEqualTo(expectedIdentical);
+                if (expectedIdentical) {
+                    assertThat((long) blockHash.invokeExact(otherBlock, right)).describedAs(description).isEqualTo(expectedHash);
+                    assertThat((long) flatHash.invokeExact(otherFlat.fixed(), otherFlat.fixedOffset(right), otherFlat.variable(), otherFlat.variableOffset(right))).describedAs(description).isEqualTo(expectedHash);
+                }
             }
         }
     }
