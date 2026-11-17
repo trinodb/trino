@@ -141,6 +141,7 @@ import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
+import io.trino.server.PluginManagerConfig;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
@@ -545,7 +546,8 @@ public class PlanTester
                 new HandleResolver(),
                 exchangeManagerRegistry,
                 spoolingManagerRegistry,
-                cacheManagerRegistry);
+                cacheManagerRegistry,
+                new PluginManagerConfig());
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
         languageFunctionManager.setPlannerContext(plannerContext);
