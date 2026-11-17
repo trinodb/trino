@@ -172,6 +172,7 @@ class TestAnnounceNodeInventory
                     binder.bind(NodeVersion.class).toInstance(new NodeVersion("test-version"));
                     binder.bind(InternalNode.class).toInstance(new InternalNode(
                             "test-node-id",
+                            "test-node-id-instance",
                             URI.create("https://example.com:1234"),
                             new NodeVersion("test-version"),
                             true));

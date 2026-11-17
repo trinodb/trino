@@ -44,14 +44,6 @@ public class InternalNode
     private final boolean coordinator;
     private final long longHashCode;
 
-    /**
-     * Creates a node for which process restarts are not modeled. The node identifier is used as the instance id.
-     */
-    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
-    {
-        this(nodeIdentifier, nullToEmpty(nodeIdentifier).trim(), internalUri, nodeVersion, coordinator);
-    }
-
     public InternalNode(String nodeIdentifier, String instanceId, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
