@@ -16,11 +16,6 @@ package io.trino.geospatial.epsg;
 public class EpsgException
         extends RuntimeException
 {
-    public EpsgException(String message)
-    {
-        super(message);
-    }
-
     public EpsgException(String message, Throwable cause)
     {
         super(message, cause);
