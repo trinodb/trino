@@ -13,9 +13,14 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
+import io.trino.filesystem.Location;
+import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -34,8 +39,23 @@ public class TestS3SecurityMappingsUriSource
     {
         Response response = mockResponse(HttpStatus.OK, JSON_UTF_8, MOCK_MAPPINGS_RESPONSE);
         S3SecurityMappingConfig config = new S3SecurityMappingConfig().setConfigUri(URI.create("http://test:1234/api/endpoint"));
-        var provider = new S3SecurityMappingsUriSource(config, new TestingHttpClient(_ -> response));
+        var provider = new S3SecurityMappingsUriSource(config, new TestingHttpClient(_ -> response), new SecretsResolver(ImmutableMap.of()));
         String result = provider.getRawJsonString();
         assertThat(result).isEqualTo(MOCK_MAPPINGS_RESPONSE);
+    }
+
+    @Test
+    public void testSecretsResolution()
+    {
+        String jsonWithSecrets = "{\"mappings\": [{\"iamRole\":\"${TESTING:my-role}\",\"prefix\":\"s3://my-bucket/\",\"user\":\"test\"}]}";
+        Response response = mockResponse(HttpStatus.OK, JSON_UTF_8, jsonWithSecrets);
+        S3SecurityMappingConfig config = new S3SecurityMappingConfig().setConfigUri(URI.create("http://test:1234/api/endpoint"));
+        SecretsResolver secretsResolver = new SecretsResolver(ImmutableMap.of("testing", key -> "arn:aws:iam::resolved-" + key));
+        var provider = new S3SecurityMappingsUriSource(config, new TestingHttpClient(_ -> response), secretsResolver);
+
+        S3SecurityMappings mappings = provider.get();
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test").withGroups(ImmutableSet.of()).build();
+        S3SecurityMapping mapping = mappings.getMapping(identity, new S3Location(Location.of("s3://my-bucket/test"))).orElseThrow();
+        assertThat(mapping.iamRole()).hasValue("arn:aws:iam::resolved-my-role");
     }
 }
