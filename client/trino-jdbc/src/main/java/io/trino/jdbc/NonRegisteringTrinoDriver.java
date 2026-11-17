@@ -34,19 +34,29 @@ import static io.trino.jdbc.DriverInfo.DRIVER_NAME;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MAJOR;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
+import static java.util.Objects.requireNonNull;
 
 public class NonRegisteringTrinoDriver
         implements Driver, Closeable
 {
     private static final String USER_AGENT = createUserAgent(DRIVER_NAME, DRIVER_VERSION);
 
-    private final Dispatcher dispatcher;
-    private final ConnectionPool pool;
+    private final String userAgent;
+    private final Dispatcher dispatcher = new Dispatcher();
+    private final ConnectionPool pool = new ConnectionPool();
 
     protected NonRegisteringTrinoDriver()
     {
-        this.dispatcher = new Dispatcher();
-        this.pool = new ConnectionPool();
+        this.userAgent = USER_AGENT;
+    }
+
+    /**
+     * Allows applications embedding the driver to identify themselves to the server,
+     * using the given product name instead of the driver name in the user agent.
+     */
+    protected NonRegisteringTrinoDriver(String product)
+    {
+        this.userAgent = createUserAgent(requireNonNull(product, "product is null"));
     }
 
     @Override
@@ -68,11 +78,11 @@ public class NonRegisteringTrinoDriver
 
         try {
             TrinoDriverUri uri = TrinoDriverUri.createDriverUri(url, info);
-            OkHttpClient.Builder httpClientBuilder = HttpClientFactory.toHttpClientBuilder(uri, USER_AGENT);
+            OkHttpClient.Builder httpClientBuilder = HttpClientFactory.toHttpClientBuilder(uri, userAgent);
             httpClientBuilder.connectionPool(pool);
             httpClientBuilder.dispatcher(dispatcher);
 
-            OkHttpClient.Builder segmentHttpClientBuilder = HttpClientFactory.unauthenticatedClientBuilder(uri, USER_AGENT);
+            OkHttpClient.Builder segmentHttpClientBuilder = HttpClientFactory.unauthenticatedClientBuilder(uri, userAgent);
             segmentHttpClientBuilder.connectionPool(pool);
             segmentHttpClientBuilder.dispatcher(dispatcher);
 

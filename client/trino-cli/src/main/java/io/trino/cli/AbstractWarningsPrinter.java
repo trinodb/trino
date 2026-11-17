@@ -13,9 +13,9 @@
  */
 package io.trino.cli;
 
-import io.trino.client.Warning;
 import org.jline.utils.AttributedStringBuilder;
 
+import java.sql.SQLWarning;
 import java.util.List;
 import java.util.OptionalInt;
 
@@ -37,7 +37,7 @@ abstract class AbstractWarningsPrinter
         this.theme = requireNonNull(theme, "theme is null");
     }
 
-    private String getWarningMessage(Warning warning)
+    private String getWarningMessage(SQLWarning warning)
     {
         // The theme drives the styling; the NONE theme emits no escape codes, so this
         // produces plain text for dumb terminals and when color is disabled.
@@ -49,7 +49,7 @@ abstract class AbstractWarningsPrinter
                 .toAnsi();
     }
 
-    private List<String> getNewWarnings(List<Warning> warnings)
+    private List<String> getNewWarnings(List<SQLWarning> warnings)
     {
         int end = warnings.size();
         if (maxWarnings.isPresent()) {
@@ -96,7 +96,7 @@ abstract class AbstractWarningsPrinter
     }
 
     @Override
-    public void print(List<Warning> warnings, boolean withInitialSeparator, boolean withTrailingSeparator)
+    public void print(List<SQLWarning> warnings, boolean withInitialSeparator, boolean withTrailingSeparator)
     {
         requireNonNull(warnings, "warnings is null");
         List<String> newWarnings = getNewWarnings(warnings);

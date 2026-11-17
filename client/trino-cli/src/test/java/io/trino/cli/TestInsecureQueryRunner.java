@@ -33,10 +33,9 @@ import static com.google.common.io.Resources.getResource;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.trino.cli.ClientOptions.OutputFormat.CSV;
 import static io.trino.cli.TerminalUtils.getTerminal;
-import static io.trino.cli.TestQueryRunner.createClientSession;
+import static io.trino.cli.TestQueryRunner.createConnectionFactory;
 import static io.trino.cli.TestQueryRunner.createQueryRunner;
 import static io.trino.cli.TestQueryRunner.createResults;
-import static io.trino.cli.TestQueryRunner.createTrinoUri;
 import static io.trino.cli.TestQueryRunner.nullPrintStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -68,9 +67,8 @@ public class TestInsecureQueryRunner
                 .body(createResults(server))
                 .build());
 
-        QueryRunner queryRunner = createQueryRunner(createTrinoUri(server, true), createClientSession(server));
-
-        try (Query query = queryRunner.startQuery("query with insecure mode")) {
+        try (QueryRunner queryRunner = createQueryRunner(createConnectionFactory(server, true));
+                Query query = queryRunner.startQuery("query with insecure mode")) {
             query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false, false);
         }
 

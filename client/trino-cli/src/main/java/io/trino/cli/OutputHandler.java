@@ -14,20 +14,14 @@
 package io.trino.cli;
 
 import io.airlift.units.Duration;
-import io.trino.client.StatementClient;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -38,17 +32,15 @@ public final class OutputHandler
         implements Closeable
 {
     private static final Duration MAX_BUFFER_TIME = new Duration(3, SECONDS);
-    private static final List<?> END_TOKEN = new ArrayList<>(0);
+    private static final List<?> END_TOKEN = StatementExecution.END_OF_ROWS;
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final OutputPrinter printer;
-    private final int maxQueuedRows;
     private final int maxBufferedRows;
 
-    public OutputHandler(OutputPrinter printer, int maxQueuedRows, int maxBufferedRows)
+    public OutputHandler(OutputPrinter printer, int maxBufferedRows)
     {
         this.printer = requireNonNull(printer, "printer is null");
-        this.maxQueuedRows = maxQueuedRows;
         this.maxBufferedRows = maxBufferedRows;
     }
 
@@ -61,23 +53,14 @@ public final class OutputHandler
         }
     }
 
-    public void processRows(StatementClient client)
+    public void processRows(StatementExecution execution)
             throws IOException
     {
-        BlockingQueue<List<?>> rowQueue = new ArrayBlockingQueue<>(maxQueuedRows);
-        CompletableFuture<Void> readerFuture = CompletableFuture.runAsync(() -> {
-            while (client.isRunning()) {
-                for (List<Object> row : client.currentRows()) {
-                    putOrThrow(rowQueue, row);
-                }
-                client.advance();
-            }
-        }).whenComplete((result, ex) -> putOrThrow(rowQueue, END_TOKEN));
-
+        BlockingQueue<List<?>> rowQueue = execution.getRows();
         List<List<?>> rowBuffer = new ArrayList<>(maxBufferedRows);
         long bufferStart = System.nanoTime();
         try {
-            while (!readerFuture.isDone()) {
+            while (!execution.isFinished()) {
                 boolean atEnd = drainDetectingEnd(rowQueue, rowBuffer, maxBufferedRows, END_TOKEN);
                 if (atEnd) {
                     break;
@@ -102,19 +85,10 @@ public final class OutputHandler
                 drainDetectingEnd(rowQueue, rowBuffer, Integer.MAX_VALUE, END_TOKEN);
             }
             printer.printRows(unmodifiableList(rowBuffer), true);
-            readerFuture.get(); // propagate any exceptions
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
-        }
-        catch (ExecutionException e) {
-            Throwable cause = e.getCause();
-            if (cause != null) {
-                throwIfInstanceOf(cause, IOException.class);
-                throwIfUnchecked(cause);
-            }
-            throw new RuntimeException(e.getCause());
         }
     }
 
@@ -127,16 +101,5 @@ public final class OutputHandler
         }
 
         return false;
-    }
-
-    private static <E> void putOrThrow(BlockingQueue<E> blockingQueue, E element)
-    {
-        try {
-            blockingQueue.put(element);
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
     }
 }

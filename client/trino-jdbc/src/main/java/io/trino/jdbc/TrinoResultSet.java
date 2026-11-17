@@ -18,6 +18,7 @@ import io.trino.client.Column;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
 
+import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
@@ -36,9 +37,10 @@ public class TrinoResultSet
     private final Statement statement;
     private final StatementClient client;
     private final String queryId;
+    private final Optional<URI> infoUri;
 
-    @GuardedBy("this")
-    private boolean closed;
+    // written while holding the lock, but read without it, because every column access checks it
+    private volatile boolean closed;
     @GuardedBy("this")
     private boolean closeStatementOnClose;
 
@@ -46,7 +48,7 @@ public class TrinoResultSet
             throws SQLException
     {
         requireNonNull(client, "client is null");
-        List<Column> columns = getColumns(client, progressCallback);
+        List<Column> columns = getColumns(client, progressCallback, warningsManager);
         return new TrinoResultSet(statement, client, columns, maxRows, progressCallback, warningsManager);
     }
 
@@ -62,6 +64,7 @@ public class TrinoResultSet
         requireNonNull(progressCallback, "progressCallback is null");
 
         this.queryId = client.currentStatusInfo().getId();
+        this.infoUri = Optional.ofNullable(client.currentStatusInfo().getInfoUri());
     }
 
     public String getQueryId()
@@ -71,7 +74,21 @@ public class TrinoResultSet
 
     public QueryStats getStats()
     {
-        return QueryStats.create(queryId, client.getStats());
+        return QueryStats.create(queryId, infoUri, client.getStats());
+    }
+
+    /**
+     * Returns the column value as decoded from the Trino client protocol, without converting it to JDBC types.
+     * Temporal, decimal, number, and interval values are strings formatted by the server,
+     * arrays are {@link List}s, maps are {@link java.util.Map}s,
+     * rows are {@link Row}s, {@code varbinary} values are byte arrays, and variants are JSON strings.
+     * The same representation is used for values nested in arrays, maps, and rows.
+     */
+    @Override
+    public Object getRawObject(int columnIndex)
+            throws SQLException
+    {
+        return super.getRawObject(columnIndex);
     }
 
     void setCloseStatementOnClose()
@@ -110,7 +127,7 @@ public class TrinoResultSet
     }
 
     @Override
-    public synchronized boolean isClosed()
+    public boolean isClosed()
             throws SQLException
     {
         return closed;
@@ -121,12 +138,13 @@ public class TrinoResultSet
         client.cancelLeafStage();
     }
 
-    private static List<Column> getColumns(StatementClient client, Consumer<QueryStats> progressCallback)
+    private static List<Column> getColumns(StatementClient client, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         while (client.isRunning()) {
             QueryStatusInfo results = client.currentStatusInfo();
-            progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
+            progressCallback.accept(QueryStats.create(results));
+            warningsManager.addWarnings(results.getWarnings());
             List<Column> columns = results.getColumns();
             if (columns != null) {
                 return columns;

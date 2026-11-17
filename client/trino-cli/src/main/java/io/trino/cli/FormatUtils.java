@@ -18,7 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.client.Row;
+import io.trino.jdbc.Row;
 
 import java.math.RoundingMode;
 import java.text.DecimalFormat;

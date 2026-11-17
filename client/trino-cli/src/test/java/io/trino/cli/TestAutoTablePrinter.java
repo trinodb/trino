@@ -14,15 +14,13 @@
 package io.trino.cli;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.client.ClientTypeSignature;
-import io.trino.client.Column;
 import org.junit.jupiter.api.Test;
 
 import java.io.StringWriter;
 import java.util.List;
 
-import static io.trino.client.ClientStandardTypes.BIGINT;
-import static io.trino.client.ClientStandardTypes.VARCHAR;
+import static java.sql.Types.BIGINT;
+import static java.sql.Types.VARCHAR;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -96,9 +94,9 @@ public class TestAutoTablePrinter
         assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
-    static Column column(String name, String type)
+    static Column column(String name, int type)
     {
-        return new Column(name, type, new ClientTypeSignature(type));
+        return new Column(name, type);
     }
 
     static List<?> row(Object... values)

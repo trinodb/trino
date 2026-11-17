@@ -33,6 +33,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -55,7 +56,7 @@ public final class QueryPreprocessor
 
     private QueryPreprocessor() {}
 
-    public static String preprocessQuery(Terminal terminal, Optional<String> catalog, Optional<String> schema, String query)
+    public static String preprocessQuery(Terminal terminal, Supplier<Optional<String>> catalog, Supplier<Optional<String>> schema, String query)
             throws QueryPreprocessorException
     {
         Duration timeout = DEFAULT_PREPROCESSOR_TIMEOUT;
@@ -68,7 +69,8 @@ public final class QueryPreprocessor
         if (emptyToNull(preprocessorCommand) == null) {
             return query;
         }
-        return preprocessQuery(terminal, catalog, schema, query, ImmutableList.of("/bin/sh", "-c", preprocessorCommand), timeout);
+        // the current catalog and schema can be expensive to get from some drivers, so only fetch them when needed
+        return preprocessQuery(terminal, catalog.get(), schema.get(), query, ImmutableList.of("/bin/sh", "-c", preprocessorCommand), timeout);
     }
 
     public static String preprocessQuery(Terminal terminal, Optional<String> catalog, Optional<String> schema, String query, List<String> preprocessorCommand, Duration timeout)

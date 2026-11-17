@@ -19,14 +19,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.trino.client.ClientSession;
-import io.trino.client.auth.external.ExternalRedirectStrategy;
-import io.trino.client.uri.LoggingLevel;
-import io.trino.client.uri.PropertyName;
-import io.trino.client.uri.RestrictedPropertyException;
-import io.trino.client.uri.TrinoUri;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import picocli.CommandLine;
@@ -37,68 +32,75 @@ import java.io.Console;
 import java.lang.annotation.Retention;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.cli.TerminalUtils.getTerminal;
-import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
-import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.client.uri.PropertyName.ACCESS_TOKEN;
-import static io.trino.client.uri.PropertyName.CATALOG;
-import static io.trino.client.uri.PropertyName.CLIENT_INFO;
-import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
-import static io.trino.client.uri.PropertyName.DISABLE_COMPRESSION;
-import static io.trino.client.uri.PropertyName.ENCODING;
-import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION;
-import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
-import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
-import static io.trino.client.uri.PropertyName.EXTRA_HEADERS;
-import static io.trino.client.uri.PropertyName.HTTP_LOGGING_LEVEL;
-import static io.trino.client.uri.PropertyName.HTTP_PROXY;
-import static io.trino.client.uri.PropertyName.KERBEROS_CONFIG_PATH;
-import static io.trino.client.uri.PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH;
-import static io.trino.client.uri.PropertyName.KERBEROS_KEYTAB_PATH;
-import static io.trino.client.uri.PropertyName.KERBEROS_PRINCIPAL;
-import static io.trino.client.uri.PropertyName.KERBEROS_REMOTE_SERVICE_NAME;
-import static io.trino.client.uri.PropertyName.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
-import static io.trino.client.uri.PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME;
-import static io.trino.client.uri.PropertyName.OAUTH2_CLIENT_ID;
-import static io.trino.client.uri.PropertyName.OAUTH2_CLIENT_SECRET;
-import static io.trino.client.uri.PropertyName.OAUTH2_SCOPE;
-import static io.trino.client.uri.PropertyName.OAUTH2_TOKEN_ENDPOINT;
-import static io.trino.client.uri.PropertyName.PASSWORD;
-import static io.trino.client.uri.PropertyName.RESOURCE_ESTIMATES;
-import static io.trino.client.uri.PropertyName.SCHEMA;
-import static io.trino.client.uri.PropertyName.SESSION_PROPERTIES;
-import static io.trino.client.uri.PropertyName.SESSION_USER;
-import static io.trino.client.uri.PropertyName.SOCKS_PROXY;
-import static io.trino.client.uri.PropertyName.SOURCE;
-import static io.trino.client.uri.PropertyName.SQL_PATH;
-import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_PASSWORD;
-import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_PATH;
-import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_TYPE;
-import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PASSWORD;
-import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PATH;
-import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_TYPE;
-import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_KEY_STORE;
-import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_TRUST_STORE;
-import static io.trino.client.uri.PropertyName.SSL_VERIFICATION;
-import static io.trino.client.uri.PropertyName.TIMEOUT;
-import static io.trino.client.uri.PropertyName.TIMEZONE;
-import static io.trino.client.uri.PropertyName.TRACE_TOKEN;
-import static io.trino.client.uri.PropertyName.USER;
+import static io.trino.cli.TrinoConnectionProperties.ACCESS_TOKEN;
+import static io.trino.cli.TrinoConnectionProperties.CATALOG;
+import static io.trino.cli.TrinoConnectionProperties.CLIENT_INFO;
+import static io.trino.cli.TrinoConnectionProperties.CLIENT_TAGS;
+import static io.trino.cli.TrinoConnectionProperties.DISABLE_COMPRESSION;
+import static io.trino.cli.TrinoConnectionProperties.ENCODING;
+import static io.trino.cli.TrinoConnectionProperties.EXTERNAL_AUTHENTICATION;
+import static io.trino.cli.TrinoConnectionProperties.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
+import static io.trino.cli.TrinoConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
+import static io.trino.cli.TrinoConnectionProperties.EXTRA_CREDENTIALS;
+import static io.trino.cli.TrinoConnectionProperties.EXTRA_HEADERS;
+import static io.trino.cli.TrinoConnectionProperties.HTTP_LOGGING_LEVEL;
+import static io.trino.cli.TrinoConnectionProperties.HTTP_PROXY;
+import static io.trino.cli.TrinoConnectionProperties.KERBEROS_CONFIG_PATH;
+import static io.trino.cli.TrinoConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
+import static io.trino.cli.TrinoConnectionProperties.KERBEROS_KEYTAB_PATH;
+import static io.trino.cli.TrinoConnectionProperties.KERBEROS_PRINCIPAL;
+import static io.trino.cli.TrinoConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
+import static io.trino.cli.TrinoConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
+import static io.trino.cli.TrinoConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
+import static io.trino.cli.TrinoConnectionProperties.OAUTH2_CLIENT_ID;
+import static io.trino.cli.TrinoConnectionProperties.OAUTH2_CLIENT_SECRET;
+import static io.trino.cli.TrinoConnectionProperties.OAUTH2_SCOPE;
+import static io.trino.cli.TrinoConnectionProperties.OAUTH2_TOKEN_ENDPOINT;
+import static io.trino.cli.TrinoConnectionProperties.PASSWORD;
+import static io.trino.cli.TrinoConnectionProperties.RESOURCE_ESTIMATES;
+import static io.trino.cli.TrinoConnectionProperties.SCHEMA;
+import static io.trino.cli.TrinoConnectionProperties.SESSION_PROPERTIES;
+import static io.trino.cli.TrinoConnectionProperties.SESSION_USER;
+import static io.trino.cli.TrinoConnectionProperties.SOCKS_PROXY;
+import static io.trino.cli.TrinoConnectionProperties.SOURCE;
+import static io.trino.cli.TrinoConnectionProperties.SQL_PATH;
+import static io.trino.cli.TrinoConnectionProperties.SSL;
+import static io.trino.cli.TrinoConnectionProperties.SSL_KEY_STORE_PASSWORD;
+import static io.trino.cli.TrinoConnectionProperties.SSL_KEY_STORE_PATH;
+import static io.trino.cli.TrinoConnectionProperties.SSL_KEY_STORE_TYPE;
+import static io.trino.cli.TrinoConnectionProperties.SSL_TRUST_STORE_PASSWORD;
+import static io.trino.cli.TrinoConnectionProperties.SSL_TRUST_STORE_PATH;
+import static io.trino.cli.TrinoConnectionProperties.SSL_TRUST_STORE_TYPE;
+import static io.trino.cli.TrinoConnectionProperties.SSL_USE_SYSTEM_KEY_STORE;
+import static io.trino.cli.TrinoConnectionProperties.SSL_USE_SYSTEM_TRUST_STORE;
+import static io.trino.cli.TrinoConnectionProperties.SSL_VERIFICATION;
+import static io.trino.cli.TrinoConnectionProperties.TIMEOUT;
+import static io.trino.cli.TrinoConnectionProperties.TIMEZONE;
+import static io.trino.cli.TrinoConnectionProperties.TRACE_TOKEN;
+import static io.trino.cli.TrinoConnectionProperties.USER;
 import static java.lang.String.format;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class ClientOptions
 {
@@ -107,12 +109,16 @@ public class ClientOptions
     private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
     private static final String SERVER_DEFAULT = "localhost:8080";
     private static final String SOURCE_DEFAULT = "trino-cli";
+    private static final String JDBC_URL_PREFIX = "jdbc:";
+    private static final String TRINO_JDBC_URL_PREFIX = "jdbc:trino:";
+    private static final Set<String> GENERIC_DRIVER_PROPERTIES = ImmutableSet.of(USER, PASSWORD, CATALOG, SCHEMA);
+    private static final Splitter URL_PARAMETERS_SPLITTER = Splitter.on('&').omitEmptyStrings();
     static final String DEBUG_OPTION_NAME = "--debug";
 
-    @Parameters(paramLabel = "URL", description = "Trino server URL", arity = "0..1")
+    @Parameters(paramLabel = "URL", description = "Trino server URL, or a JDBC URL for a driver available on the class path", arity = "0..1")
     public Optional<String> url;
 
-    @Option(names = "--server", paramLabel = "<server>", description = "Trino server location (default: " + SERVER_DEFAULT + ")")
+    @Option(names = "--server", paramLabel = "<server>", description = "Trino server location, or a JDBC URL for a driver available on the class path (default: " + SERVER_DEFAULT + ")")
     public Optional<String> server;
 
     @PropertyMapping(KERBEROS_SERVICE_PRINCIPAL_PATTERN)
@@ -133,7 +139,7 @@ public class ClientOptions
 
     @PropertyMapping(KERBEROS_CREDENTIAL_CACHE_PATH)
     @Option(names = "--krb5-credential-cache-path", paramLabel = "<path>", description = "Kerberos credential cache path")
-    public Optional<String> krb5CredentialCachePath = defaultCredentialCachePath();
+    public Optional<String> krb5CredentialCachePath = defaultKerberosCredentialCachePath();
 
     @PropertyMapping(KERBEROS_PRINCIPAL)
     @Option(names = "--krb5-principal", paramLabel = "<principal>", description = "Kerberos principal to be used")
@@ -197,7 +203,7 @@ public class ClientOptions
 
     @PropertyMapping(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
     @Option(names = "--external-authentication-redirect-handler", paramLabel = "<externalAuthenticationRedirectHandler>", description = "External authentication redirect handlers: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ALL")
-    public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
+    public List<ExternalAuthenticationRedirectHandler> externalAuthenticationRedirectHandler = new ArrayList<>();
 
     @PropertyMapping(OAUTH2_CLIENT_ID)
     @Option(names = "--oauth2-client-id", paramLabel = "<clientId>", description = "OAuth2 client ID for client credentials authentication")
@@ -258,7 +264,7 @@ public class ClientOptions
 
     @PropertyMapping(HTTP_LOGGING_LEVEL)
     @Option(names = "--network-logging", paramLabel = "<level>", defaultValue = "NONE", description = "Network logging level [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
-    public Optional<LoggingLevel> networkLogging;
+    public Optional<NetworkLogging> networkLogging;
 
     @Option(names = "--progress", paramLabel = "<progress>", description = "Show query progress", negatable = true)
     public Optional<Boolean> progress;
@@ -336,6 +342,15 @@ public class ClientOptions
     @Option(names = "--max-queued-rows", paramLabel = "<maxQueuedRows>", description = "Maximum number of rows to queue before blocking the query (default: ${DEFAULT-VALUE})")
     public int maxQueuedRows = 50_000;
 
+    @Option(names = "--driver-path", paramLabel = "<path>", description = "JAR file, or directory with JAR files, of the JDBC driver for a URL of a database other than Trino (option can be used multiple times)")
+    public List<Path> driverPaths = new ArrayList<>();
+
+    @Option(names = "--driver-class", paramLabel = "<class>", description = "Class name of the JDBC driver, for drivers that are not registered as a service")
+    public Optional<String> driverClass;
+
+    @Option(names = "--connection-property", paramLabel = "<property>", description = "JDBC driver connection property (option can be used multiple times; format is key=value)")
+    public Map<String, String> connectionProperties = new LinkedHashMap<>();
+
     public enum OutputFormat
     {
         AUTO,
@@ -355,7 +370,27 @@ public class ClientOptions
     @Retention(RUNTIME)
     @interface PropertyMapping
     {
-        PropertyName value();
+        /**
+         * Name of the connection property of the Trino JDBC driver
+         */
+        String value();
+    }
+
+    public enum ExternalAuthenticationRedirectHandler
+    {
+        DESKTOP_OPEN,
+        SYSTEM_OPEN,
+        PRINT,
+        OPEN,
+        ALL,
+    }
+
+    public enum NetworkLogging
+    {
+        NONE,
+        BASIC,
+        HEADERS,
+        BODY,
     }
 
     public enum EditingMode
@@ -376,132 +411,258 @@ public class ClientOptions
         }
     }
 
-    public ClientSession toClientSession(TrinoUri uri)
+    public ConnectionFactory createConnectionFactory(Map<String, String> restrictedProperties)
     {
-        return uri
-                .toClientSessionBuilder()
-                .source(uri.getSource().orElse(SOURCE_DEFAULT))
-                .encoding(encoding)
-                .build();
-    }
-
-    public TrinoUri getTrinoUri()
-    {
-        return getTrinoUri(ImmutableMap.of());
-    }
-
-    public TrinoUri getTrinoUri(Map<PropertyName, String> restrictedProperties)
-    {
-        URI uri;
-        if (url.isPresent()) {
-            if (server.isPresent()) {
+        Optional<String> jdbcUrl = url.or(() -> server)
+                .filter(ClientOptions::isNonTrinoJdbcUrl);
+        if (jdbcUrl.isPresent()) {
+            if (url.isPresent() && server.isPresent()) {
                 throw new IllegalArgumentException("Using both the URL parameter and the --server option is not allowed");
             }
-            uri = parseServer(url.get());
-        }
-        else {
-            uri = parseServer(server.orElse(SERVER_DEFAULT));
-        }
-        List<PropertyName> bannedProperties = ImmutableList.<PropertyName>builder()
-                .addAll(restrictedProperties.keySet())
-                .add(PASSWORD)
-                .add(OAUTH2_CLIENT_SECRET)
-                .build();
-        TrinoUri.Builder builder = TrinoUri.builder()
-                .setUri(uri)
-                .setRestrictedProperties(bannedProperties);
-        catalog.ifPresent(builder::setCatalog);
-        schema.ifPresent(builder::setSchema);
-        user.ifPresent(builder::setUser);
-        sessionUser.ifPresent(builder::setSessionUser);
-        if (!path.isEmpty()) {
-            builder.setPath(path);
-        }
-        if (password) {
-            builder.setPassword(getPassword());
-        }
-        krb5RemoteServiceName.ifPresent(builder::setKerberosRemoteServiceName);
-        krb5ServicePrincipalPattern.ifPresent(builder::setKerberosServicePrincipalPattern);
-        if (krb5RemoteServiceName.isPresent()) {
-            krb5ConfigPath.ifPresent(builder::setKerberosConfigPath);
-            krb5KeytabPath.ifPresent(builder::setKerberosKeytabPath);
-            krb5CredentialCachePath.ifPresent(builder::setKerberosCredentialCachePath);
-        }
-        krb5Principal.ifPresent(builder::setKerberosPrincipal);
-        if (krb5DisableRemoteServiceHostnameCanonicalization) {
-            builder.setKerberosUseCanonicalHostname(false);
-        }
-        if (insecure) {
-            builder.setSslVerificationNone();
-        }
-        keystorePath.ifPresent(builder::setSslKeyStorePath);
-        keystorePassword.ifPresent(builder::setSslKeyStorePassword);
-        keystoreType.ifPresent(builder::setSslKeyStoreType);
-        if (useSystemKeystore) {
-            builder.setSslUseSystemKeyStore(true);
-        }
-        truststorePath.ifPresent(builder::setSslTrustStorePath);
-        truststorePassword.ifPresent(builder::setSslTrustStorePassword);
-        truststoreType.ifPresent(builder::setSslTrustStoreType);
-        if (useSystemTruststore) {
-            builder.setSslUseSystemTrustStore(true);
-        }
-        accessToken.ifPresent(builder::setAccessToken);
-        if (!extraCredentials.isEmpty()) {
-            builder.setExtraCredentials(toExtraCredentials(extraCredentials));
-        }
-        if (!sessionProperties.isEmpty()) {
-            builder.setSessionProperties(toProperties(sessionProperties));
-        }
-        if (!extraHeaders.isEmpty()) {
-            builder.setExtraHeaders(toExtraHeaders(extraHeaders));
-        }
-        if (!resourceEstimates.isEmpty()) {
-            builder.setResourceEstimates(toResourceEstimates(resourceEstimates));
-        }
-        builder.setExternalAuthentication(externalAuthentication);
-        if (!externalAuthenticationRedirectHandler.isEmpty()) {
-            builder.setExternalAuthenticationRedirectHandlers(externalAuthenticationRedirectHandler);
-        }
-        oauth2ClientId.ifPresent(builder::setOauth2ClientId);
-        if (oauth2ClientSecret) {
-            builder.setOauth2ClientSecret(getClientSecret());
-        }
-        oauth2TokenEndpoint.ifPresent(builder::setOauth2TokenEndpoint);
-        oauth2Scope.ifPresent(builder::setOauth2Scope);
-        source.ifPresent(builder::setSource);
-        clientInfo.ifPresent(builder::setClientInfo);
-        clientTags.ifPresent(builder::setClientTags);
-        traceToken.ifPresent(builder::setTraceToken);
-        socksProxy.ifPresent(builder::setSocksProxy);
-        httpProxy.ifPresent(builder::setHttpProxy);
-        builder.setTimeZone(timeZone);
-        builder.setDisableCompression(disableCompression);
-        builder.setTimeout(clientRequestTimeout);
-        networkLogging.ifPresent(builder::setHttpLoggingLevel);
-        if (!resourceEstimates.isEmpty()) {
-            builder.setResourceEstimates(toResourceEstimates(resourceEstimates));
+            return createDriverConnectionFactory(jdbcUrl.get(), restrictedProperties);
         }
 
-        try {
-            return builder.build();
+        if (!driverPaths.isEmpty() || driverClass.isPresent()) {
+            throw new IllegalArgumentException("Options '--driver-path' and '--driver-class' can only be used with JDBC URLs of databases other than Trino");
         }
-        catch (RestrictedPropertyException e) {
-            if (e.getPropertyName() == PropertyName.PASSWORD) {
+        return new TrinoConnectionFactory(toTrinoJdbcUrl(restrictedProperties), toTrinoConnectionProperties(restrictedProperties), clientRequestTimeout);
+    }
+
+    /**
+     * Returns the Trino JDBC driver URL, after verifying it does not set connection properties that are also set by options.
+     */
+    public String toTrinoJdbcUrl(Map<String, String> restrictedProperties)
+    {
+        URI uri = getServerUri();
+        Map<String, String> urlProperties = getUrlProperties(uri);
+        for (String property : urlProperties.keySet()) {
+            if (property.equals(PASSWORD)) {
                 throw new IllegalArgumentException(
                         "Setting the password in the URL parameter is not allowed, " +
                                 "use the `--password` option or the `TRINO_PASSWORD` environment variable");
             }
-            if (e.getPropertyName() == PropertyName.OAUTH2_CLIENT_SECRET) {
+            if (property.equals(OAUTH2_CLIENT_SECRET)) {
                 throw new IllegalArgumentException(
                         "Setting the OAuth2 client secret in the URL parameter is not allowed, " +
                                 "use the `--oauth2-client-secret` option or the `TRINO_OAUTH2_CLIENT_SECRET` environment variable");
             }
-            throw new IllegalArgumentException(format(
-                    "Connection property '%s' cannot be set in the URL when option '%s' is set",
-                    e.getPropertyName(),
-                    restrictedProperties.get(e.getPropertyName())), e);
+            if (restrictedProperties.containsKey(property)) {
+                throw new IllegalArgumentException(format(
+                        "Connection property '%s' cannot be set in the URL when option '%s' is set",
+                        property,
+                        restrictedProperties.get(property)));
+            }
         }
+        return TRINO_JDBC_URL_PREFIX + uri.getRawSchemeSpecificPart();
+    }
+
+    /**
+     * Returns the Trino JDBC driver connection properties set by options, in the format of the driver.
+     */
+    public Properties toTrinoConnectionProperties(Map<String, String> restrictedProperties)
+    {
+        Map<String, String> urlProperties = getUrlProperties(getServerUri());
+        Properties properties = new Properties();
+        catalog.ifPresent(value -> properties.setProperty(CATALOG, value));
+        schema.ifPresent(value -> properties.setProperty(SCHEMA, value));
+        user.ifPresent(value -> properties.setProperty(USER, value));
+        sessionUser.ifPresent(value -> properties.setProperty(SESSION_USER, value));
+        if (!path.isEmpty()) {
+            properties.setProperty(SQL_PATH, String.join(",", path));
+        }
+        if (password) {
+            properties.setProperty(PASSWORD, getPassword());
+        }
+        krb5RemoteServiceName.ifPresent(value -> properties.setProperty(KERBEROS_REMOTE_SERVICE_NAME, value));
+        krb5ServicePrincipalPattern.ifPresent(value -> properties.setProperty(KERBEROS_SERVICE_PRINCIPAL_PATTERN, value));
+        if (krb5RemoteServiceName.isPresent()) {
+            krb5ConfigPath.ifPresent(value -> properties.setProperty(KERBEROS_CONFIG_PATH, value));
+            krb5KeytabPath.ifPresent(value -> properties.setProperty(KERBEROS_KEYTAB_PATH, value));
+            krb5CredentialCachePath.ifPresent(value -> properties.setProperty(KERBEROS_CREDENTIAL_CACHE_PATH, value));
+        }
+        krb5Principal.ifPresent(value -> properties.setProperty(KERBEROS_PRINCIPAL, value));
+        if (krb5DisableRemoteServiceHostnameCanonicalization) {
+            properties.setProperty(KERBEROS_USE_CANONICAL_HOSTNAME, "false");
+        }
+        if (insecure) {
+            properties.setProperty(SSL_VERIFICATION, "NONE");
+        }
+        keystorePath.ifPresent(value -> properties.setProperty(SSL_KEY_STORE_PATH, value));
+        keystorePassword.ifPresent(value -> properties.setProperty(SSL_KEY_STORE_PASSWORD, value));
+        keystoreType.ifPresent(value -> properties.setProperty(SSL_KEY_STORE_TYPE, value));
+        if (useSystemKeystore) {
+            properties.setProperty(SSL_USE_SYSTEM_KEY_STORE, "true");
+        }
+        truststorePath.ifPresent(value -> properties.setProperty(SSL_TRUST_STORE_PATH, value));
+        truststorePassword.ifPresent(value -> properties.setProperty(SSL_TRUST_STORE_PASSWORD, value));
+        truststoreType.ifPresent(value -> properties.setProperty(SSL_TRUST_STORE_TYPE, value));
+        if (useSystemTruststore) {
+            properties.setProperty(SSL_USE_SYSTEM_TRUST_STORE, "true");
+        }
+        accessToken.ifPresent(value -> properties.setProperty(ACCESS_TOKEN, value));
+        if (!extraCredentials.isEmpty()) {
+            properties.setProperty(EXTRA_CREDENTIALS, toMapProperty(toExtraCredentials(extraCredentials)));
+        }
+        if (!sessionProperties.isEmpty()) {
+            properties.setProperty(SESSION_PROPERTIES, toMapProperty(toProperties(sessionProperties)));
+        }
+        if (!extraHeaders.isEmpty()) {
+            properties.setProperty(EXTRA_HEADERS, toMapProperty(toExtraHeaders(extraHeaders)));
+        }
+        if (!resourceEstimates.isEmpty()) {
+            properties.setProperty(RESOURCE_ESTIMATES, toMapProperty(toResourceEstimates(resourceEstimates)));
+        }
+        properties.setProperty(EXTERNAL_AUTHENTICATION, String.valueOf(externalAuthentication));
+        if (!externalAuthenticationRedirectHandler.isEmpty()) {
+            properties.setProperty(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS, externalAuthenticationRedirectHandler.stream()
+                    .map(Enum::name)
+                    .collect(joining(",")));
+        }
+        if (externalAuthentication && !urlProperties.containsKey(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)) {
+            // share the token between the query and the auto-completion connections, to authenticate only once
+            properties.setProperty(EXTERNAL_AUTHENTICATION_TOKEN_CACHE, "MEMORY");
+        }
+        oauth2ClientId.ifPresent(value -> properties.setProperty(OAUTH2_CLIENT_ID, value));
+        if (oauth2ClientSecret) {
+            properties.setProperty(OAUTH2_CLIENT_SECRET, getClientSecret());
+        }
+        oauth2TokenEndpoint.ifPresent(value -> properties.setProperty(OAUTH2_TOKEN_ENDPOINT, value));
+        oauth2Scope.ifPresent(value -> properties.setProperty(OAUTH2_SCOPE, value));
+        if (source.isPresent()) {
+            properties.setProperty(SOURCE, source.get());
+        }
+        else if (!urlProperties.containsKey(SOURCE)) {
+            properties.setProperty(SOURCE, SOURCE_DEFAULT);
+        }
+        clientInfo.ifPresent(value -> properties.setProperty(CLIENT_INFO, value));
+        clientTags.ifPresent(value -> properties.setProperty(CLIENT_TAGS, String.join(",", value)));
+        traceToken.ifPresent(value -> properties.setProperty(TRACE_TOKEN, value));
+        socksProxy.ifPresent(value -> properties.setProperty(SOCKS_PROXY, value.toString()));
+        httpProxy.ifPresent(value -> properties.setProperty(HTTP_PROXY, value.toString()));
+        properties.setProperty(TIMEZONE, timeZone.getId());
+        properties.setProperty(DISABLE_COMPRESSION, String.valueOf(disableCompression));
+        properties.setProperty(TIMEOUT, clientRequestTimeout.toString());
+        networkLogging.ifPresent(value -> properties.setProperty(HTTP_LOGGING_LEVEL, value.name()));
+        encoding.ifPresent(value -> properties.setProperty(ENCODING, value));
+        if (!urlProperties.containsKey(SSL)) {
+            isSecureScheme(getServerUri()).ifPresent(secure -> properties.setProperty(SSL, String.valueOf(secure)));
+        }
+        // explicit properties override the defaults set above
+        properties.putAll(getConnectionProperties(restrictedProperties));
+        return properties;
+    }
+
+    private ConnectionFactory createDriverConnectionFactory(String jdbcUrl, Map<String, String> restrictedProperties)
+    {
+        Set<String> unsupportedProperties = Sets.difference(restrictedProperties.keySet(), GENERIC_DRIVER_PROPERTIES);
+        if (!unsupportedProperties.isEmpty()) {
+            throw new IllegalArgumentException(format(
+                    "Option '%s' is only supported when connecting to Trino",
+                    restrictedProperties.get(unsupportedProperties.iterator().next())));
+        }
+        Properties properties = new Properties();
+        properties.putAll(getConnectionProperties(restrictedProperties));
+        if (restrictedProperties.containsKey(USER)) {
+            user.ifPresent(value -> properties.setProperty(USER, value));
+        }
+        if (password) {
+            properties.setProperty(PASSWORD, getPassword());
+        }
+        try {
+            return DriverConnectionFactory.builder(jdbcUrl)
+                    .setProperties(properties)
+                    .setCatalog(catalog)
+                    .setSchema(schema)
+                    .setDriverPaths(driverPaths)
+                    .setDriverClass(driverClass)
+                    .build();
+        }
+        catch (SQLException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
+    }
+
+    private Map<String, String> getConnectionProperties(Map<String, String> restrictedProperties)
+    {
+        for (String property : connectionProperties.keySet()) {
+            if (property.equals(PASSWORD) || property.equals(OAUTH2_CLIENT_SECRET)) {
+                throw new IllegalArgumentException(format(
+                        "Connection property '%s' cannot be set with the --connection-property option, use the --password or --oauth2-client-secret option instead",
+                        property));
+            }
+            if (restrictedProperties.containsKey(property)) {
+                throw new IllegalArgumentException(format(
+                        "Connection property '%s' cannot be set with the --connection-property option when option '%s' is set",
+                        property,
+                        restrictedProperties.get(property)));
+            }
+        }
+        return connectionProperties;
+    }
+
+    private static boolean isNonTrinoJdbcUrl(String url)
+    {
+        String lowerUrl = url.toLowerCase(ENGLISH);
+        return lowerUrl.startsWith(JDBC_URL_PREFIX) && !lowerUrl.startsWith(TRINO_JDBC_URL_PREFIX);
+    }
+
+    private URI getServerUri()
+    {
+        if (url.isPresent()) {
+            if (server.isPresent()) {
+                throw new IllegalArgumentException("Using both the URL parameter and the --server option is not allowed");
+            }
+            return parseServer(url.get());
+        }
+        return parseServer(server.orElse(SERVER_DEFAULT));
+    }
+
+    /**
+     * Returns connection properties set in the URL path and parameters, the same way the driver parses them.
+     */
+    private static Map<String, String> getUrlProperties(URI uri)
+    {
+        Map<String, String> properties = new HashMap<>();
+        List<String> pathSegments = Splitter.on('/').omitEmptyStrings().splitToList(nullToEmpty(uri.getPath()));
+        if (!pathSegments.isEmpty()) {
+            properties.put(CATALOG, pathSegments.get(0));
+        }
+        if (pathSegments.size() > 1) {
+            properties.put(SCHEMA, pathSegments.get(1));
+        }
+        for (String parameter : URL_PARAMETERS_SPLITTER.split(nullToEmpty(uri.getQuery()))) {
+            List<String> nameValue = NAME_VALUE_SPLITTER.splitToList(parameter);
+            properties.put(nameValue.get(0), nameValue.size() > 1 ? nameValue.get(1) : "");
+        }
+        return properties;
+    }
+
+    // The driver URL has no scheme, so TLS must be configured explicitly for HTTP URLs
+    private static Optional<Boolean> isSecureScheme(URI uri)
+    {
+        switch (uri.getScheme().toLowerCase(ENGLISH)) {
+            case "https":
+                return Optional.of(true);
+            case "http":
+                return Optional.of(false);
+        }
+        return Optional.empty();
+    }
+
+    private static String toMapProperty(Map<String, String> values)
+    {
+        return values.entrySet().stream()
+                .map(entry -> entry.getKey() + ":" + entry.getValue())
+                .collect(joining(";"));
+    }
+
+    private static Optional<String> defaultKerberosCredentialCachePath()
+    {
+        String value = nullToEmpty(System.getenv("KRB5CCNAME"));
+        if (value.startsWith("FILE:")) {
+            value = value.substring("FILE:".length());
+        }
+        return Optional.ofNullable(emptyToNull(value));
     }
 
     private String getClientSecret()
@@ -549,6 +710,9 @@ public class ClientOptions
     public static URI parseServer(String server)
     {
         String lowerServer = server.toLowerCase(ENGLISH);
+        if (lowerServer.startsWith(TRINO_JDBC_URL_PREFIX)) {
+            return URI.create(server.substring(JDBC_URL_PREFIX.length()));
+        }
         if (lowerServer.startsWith("http://") || lowerServer.startsWith("https://") || lowerServer.startsWith("trino://")) {
             return URI.create(server);
         }
@@ -692,7 +856,6 @@ public class ClientOptions
             this.header = nameValue.get(0);
             this.value = nameValue.get(1);
 
-            checkArgument(!TRINO_HEADERS.isProtocolHeader(header), "Header '%s' is a protocol header and cannot be set as an extra header", header);
             checkArgument(!header.isEmpty(), "Header name is empty");
             checkArgument(!value.isEmpty(), "Header value is empty");
         }

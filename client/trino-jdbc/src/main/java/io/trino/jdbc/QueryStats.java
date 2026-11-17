@@ -13,8 +13,10 @@
  */
 package io.trino.jdbc;
 
+import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementStats;
 
+import java.net.URI;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
@@ -47,6 +49,9 @@ public final class QueryStats
     private final long physicalWrittenBytes;
     private final long internalNetworkInputBytes;
     private final Optional<StageStats> rootStage;
+    private final OptionalDouble runningPercentage;
+    private final long spilledBytes;
+    private final Optional<URI> infoUri;
 
     public QueryStats(
             String queryId,
@@ -75,6 +80,66 @@ public final class QueryStats
             long internalNetworkInputBytes,
             Optional<StageStats> rootStage)
     {
+        this(queryId,
+                state,
+                queued,
+                scheduled,
+                progressPercentage,
+                nodes,
+                totalSplits,
+                queuedSplits,
+                runningSplits,
+                completedSplits,
+                planningTimeMillis,
+                analysisTimeMillis,
+                cpuTimeMillis,
+                wallTimeMillis,
+                queuedTimeMillis,
+                elapsedTimeMillis,
+                finishingTimeMillis,
+                physicalInputTimeMillis,
+                processedRows,
+                processedBytes,
+                peakMemoryBytes,
+                physicalInputBytes,
+                physicalWrittenBytes,
+                internalNetworkInputBytes,
+                rootStage,
+                OptionalDouble.empty(),
+                0,
+                Optional.empty());
+    }
+
+    private QueryStats(
+            String queryId,
+            String state,
+            boolean queued,
+            boolean scheduled,
+            OptionalDouble progressPercentage,
+            int nodes,
+            int totalSplits,
+            int queuedSplits,
+            int runningSplits,
+            int completedSplits,
+            long planningTimeMillis,
+            long analysisTimeMillis,
+            long cpuTimeMillis,
+            long wallTimeMillis,
+            long queuedTimeMillis,
+            long elapsedTimeMillis,
+            long finishingTimeMillis,
+            long physicalInputTimeMillis,
+            long processedRows,
+            long processedBytes,
+            long peakMemoryBytes,
+            long physicalInputBytes,
+            long physicalWrittenBytes,
+            long internalNetworkInputBytes,
+            Optional<StageStats> rootStage,
+            OptionalDouble runningPercentage,
+            long spilledBytes,
+            Optional<URI> infoUri)
+    {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.state = requireNonNull(state, "state is null");
         this.queued = queued;
@@ -100,9 +165,17 @@ public final class QueryStats
         this.physicalWrittenBytes = physicalWrittenBytes;
         this.internalNetworkInputBytes = internalNetworkInputBytes;
         this.rootStage = requireNonNull(rootStage, "rootStage is null");
+        this.runningPercentage = requireNonNull(runningPercentage, "runningPercentage is null");
+        this.spilledBytes = spilledBytes;
+        this.infoUri = requireNonNull(infoUri, "infoUri is null");
     }
 
-    static QueryStats create(String queryId, StatementStats stats)
+    static QueryStats create(QueryStatusInfo results)
+    {
+        return create(results.getId(), Optional.ofNullable(results.getInfoUri()), results.getStats());
+    }
+
+    static QueryStats create(String queryId, Optional<URI> infoUri, StatementStats stats)
     {
         return new QueryStats(
                 queryId,
@@ -129,7 +202,10 @@ public final class QueryStats
                 stats.getPhysicalInputBytes(),
                 stats.getPhysicalWrittenBytes(),
                 stats.getInternalNetworkInputBytes(),
-                Optional.ofNullable(stats.getRootStage()).map(StageStats::create));
+                Optional.ofNullable(stats.getRootStage()).map(StageStats::create),
+                stats.getRunningPercentage(),
+                stats.getSpilledBytes(),
+                infoUri);
     }
 
     public String getQueryId()
@@ -255,5 +331,20 @@ public final class QueryStats
     public Optional<StageStats> getRootStage()
     {
         return rootStage;
+    }
+
+    public OptionalDouble getRunningPercentage()
+    {
+        return runningPercentage;
+    }
+
+    public long getSpilledBytes()
+    {
+        return spilledBytes;
+    }
+
+    public Optional<URI> getInfoUri()
+    {
+        return infoUri;
     }
 }

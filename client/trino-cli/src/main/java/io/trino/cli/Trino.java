@@ -29,6 +29,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.ResourceBundle;
@@ -38,8 +39,7 @@ import static com.google.common.base.StandardSystemProperty.USER_HOME;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.trino.cli.ClientOptions.DEBUG_OPTION_NAME;
-import static io.trino.client.spooling.encoding.QueryDataDecoders.getPreferredEncodings;
-import static io.trino.client.spooling.encoding.QueryDataDecoders.getSupportedEncodings;
+import static io.trino.cli.TrinoConnectionFactory.getSupportedEncodings;
 import static java.lang.System.getenv;
 import static java.util.Collections.enumeration;
 import static java.util.Objects.requireNonNullElse;
@@ -138,9 +138,10 @@ public final class Trino
 
         public TrinoResourceBundle()
         {
+            List<String> encodings = getSupportedEncodings();
             this.variables = ImmutableMap.<String, String>builder()
-                    .put("ENCODINGS", Joiner.on(", ").join(getSupportedEncodings()))
-                    .put("PREFERRED_ENCODINGS", getPreferredEncodings())
+                    .put("ENCODINGS", Joiner.on(", ").join(encodings))
+                    .put("PREFERRED_ENCODINGS", Joiner.on(",").join(encodings))
                     .buildOrThrow();
         }
 

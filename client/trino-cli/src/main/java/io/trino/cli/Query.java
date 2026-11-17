@@ -15,14 +15,9 @@ package io.trino.cli;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.OutputFormat;
-import io.trino.client.ClientSelectedRole;
-import io.trino.client.Column;
-import io.trino.client.ErrorLocation;
-import io.trino.client.QueryError;
-import io.trino.client.QueryStatusInfo;
-import io.trino.client.StatementClient;
-import io.trino.client.Warning;
+import io.trino.jdbc.TrinoSqlException;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.Terminal.Signal;
 import org.jline.terminal.Terminal.SignalHandler;
@@ -36,122 +31,63 @@ import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.io.Writer;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.STANDARD;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
+import static io.trino.cli.Trino.formatCliErrorMessage;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static java.util.logging.Level.FINE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 
 public class Query
         implements Closeable
 {
-    private static final Logger log = Logger.getLogger(Query.class.getName());
+    private static final long WARNINGS_POLL_INTERVAL_MILLIS = 100;
+    private static final Duration CANCELLATION_TIMEOUT = new Duration(3, SECONDS);
 
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
-    private final StatementClient client;
+    private final AtomicBoolean userAborted = new AtomicBoolean();
+    private final Statement statement;
+    private final String sql;
+    private final StatementExecution execution;
+    private final Executor executor;
     private final boolean debug;
-    private final int maxQueuedRows;
     private final int maxBufferedRows;
     private final Theme theme;
 
-    public Query(StatementClient client, boolean debug, int maxQueuedRows, int maxBufferedRows, Theme theme)
+    public Query(Statement statement, String sql, Executor executor, boolean debug, int maxQueuedRows, int maxBufferedRows, Theme theme)
     {
-        this.client = requireNonNull(client, "client is null");
+        this.statement = requireNonNull(statement, "statement is null");
+        this.sql = requireNonNull(sql, "sql is null");
+        this.execution = new StatementExecution(statement, sql, maxQueuedRows);
+        this.executor = requireNonNull(executor, "executor is null");
         this.debug = debug;
-        this.maxQueuedRows = maxQueuedRows;
         this.maxBufferedRows = maxBufferedRows;
         this.theme = requireNonNull(theme, "theme is null");
-    }
-
-    public Optional<String> getSetCatalog()
-    {
-        return client.getSetCatalog();
-    }
-
-    public Optional<String> getSetSchema()
-    {
-        return client.getSetSchema();
-    }
-
-    public Optional<List<String>> getSetPath()
-    {
-        return client.getSetPath();
-    }
-
-    public Optional<String> getSetAuthorizationUser()
-    {
-        return client.getSetAuthorizationUser();
-    }
-
-    public boolean isResetAuthorizationUser()
-    {
-        return client.isResetAuthorizationUser();
-    }
-
-    public Set<ClientSelectedRole> getSetOriginalRoles()
-    {
-        return client.getSetOriginalRoles();
-    }
-
-    public Map<String, String> getSetSessionProperties()
-    {
-        return client.getSetSessionProperties();
-    }
-
-    public Set<String> getResetSessionProperties()
-    {
-        return client.getResetSessionProperties();
-    }
-
-    public Map<String, ClientSelectedRole> getSetRoles()
-    {
-        return client.getSetRoles();
-    }
-
-    public Map<String, String> getAddedPreparedStatements()
-    {
-        return client.getAddedPreparedStatements();
-    }
-
-    public Set<String> getDeallocatedPreparedStatements()
-    {
-        return client.getDeallocatedPreparedStatements();
-    }
-
-    public String getStartedTransactionId()
-    {
-        return client.getStartedTransactionId();
-    }
-
-    public boolean isClearTransactionId()
-    {
-        return client.isClearTransactionId();
     }
 
     public boolean renderOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, Optional<String> pager, boolean showProgress, boolean decimalDataSize)
     {
         Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = terminal.handle(Signal.INT, signal -> {
-            if (ignoreUserInterrupt.get() || client.isClientAborted()) {
+            if (ignoreUserInterrupt.get() || userAborted.get()) {
                 return;
             }
-            client.close();
+            abort();
             clientThread.interrupt();
         });
         try {
@@ -168,53 +104,44 @@ public class Query
         StatusPrinter statusPrinter = null;
         WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(errorChannel, theme);
 
-        if (showProgress) {
-            statusPrinter = new StatusPrinter(client, errorChannel, debug, isInteractive(pager), decimalDataSize, theme);
-            statusPrinter.printInitialStatusUpdates(terminal);
-        }
-        else {
-            processInitialStatusUpdates(warningsPrinter);
-        }
-
-        // if running or finished
-        if (client.isRunning() || (client.isFinished() && client.finalStatusInfo().getError() == null)) {
-            QueryStatusInfo results = client.isRunning() ? client.currentStatusInfo() : client.finalStatusInfo();
-            if (results.getUpdateType() != null) {
-                renderUpdate(terminal, errorChannel, results, outputFormat, pager);
-            }
-            // TODO once https://github.com/trinodb/trino/issues/14253 is done this else here should be needed
-            // and should be replaced with just simple:
-            // if there is updateCount print it
-            // if there are columns(resultSet) then print it
-            else if (results.getColumns() == null) {
-                errorChannel.printf("Query %s has no columns\n", results.getId());
-                return false;
+        execution.start(executor);
+        try {
+            if (showProgress) {
+                statusPrinter = new StatusPrinter(execution, this::abort, errorChannel, debug, isInteractive(pager), decimalDataSize, theme);
+                statusPrinter.printInitialStatusUpdates(terminal);
             }
             else {
-                renderResults(terminal, out, outputFormat, pager, results.getColumns());
+                processInitialStatusUpdates(warningsPrinter);
             }
+
+            Optional<String> updateStatus = execution.getUpdateStatus();
+            Optional<List<Column>> columns = execution.getColumns();
+            if (updateStatus.isPresent()) {
+                errorChannel.println(updateStatus.get());
+            }
+            if (columns.isPresent() && !userAborted.get()) {
+                renderResults(terminal, out, outputFormat, pager, columns.get());
+            }
+            execution.awaitFinished();
+        }
+        catch (InterruptedException e) {
+            abort();
         }
 
-        checkState(!client.isRunning());
-
-        warningsPrinter.print(client.finalStatusInfo().getWarnings(), true, true);
+        warningsPrinter.print(execution.getWarnings(), true, true);
 
         if (showProgress) {
             statusPrinter.printFinalInfo();
         }
 
-        if (client.isClientAborted()) {
+        if (userAborted.get()) {
             errorChannel.println("Query aborted by user");
             return false;
         }
-        if (client.isClientError()) {
-            errorChannel.println("Query is gone (server restarted?)");
-            return false;
-        }
 
-        verify(client.isFinished());
-        if (client.finalStatusInfo().getError() != null) {
-            renderFailure(errorChannel);
+        Optional<Throwable> failure = execution.getFailure();
+        if (failure.isPresent()) {
+            renderFailure(errorChannel, failure.get());
             return false;
         }
 
@@ -227,52 +154,12 @@ public class Query
     }
 
     private void processInitialStatusUpdates(WarningsPrinter warningsPrinter)
+            throws InterruptedException
     {
-        while (client.isRunning() && client.currentRows().isNull()) {
-            warningsPrinter.print(client.currentStatusInfo().getWarnings(), true, false);
-            try {
-                client.advance();
-            }
-            catch (RuntimeException e) {
-                log.log(FINE, "error printing status", e);
-            }
+        while (!execution.awaitResults(WARNINGS_POLL_INTERVAL_MILLIS, MILLISECONDS)) {
+            warningsPrinter.print(execution.getWarnings(), true, false);
         }
-        List<Warning> warnings;
-        if (client.isRunning()) {
-            warnings = client.currentStatusInfo().getWarnings();
-        }
-        else {
-            warnings = client.finalStatusInfo().getWarnings();
-        }
-        warningsPrinter.print(warnings, false, true);
-    }
-
-    private void renderUpdate(Terminal terminal, PrintStream out, QueryStatusInfo results, OutputFormat outputFormat, Optional<String> pager)
-    {
-        String status = results.getUpdateType();
-        if (results.getUpdateCount().isPresent()) {
-            long count = results.getUpdateCount().orElseThrow();
-            status += format(": %s row%s", count, (count != 1) ? "s" : "");
-            out.println(status);
-        }
-        else if (results.getColumns() != null && !results.getColumns().isEmpty()) {
-            out.println(status);
-            renderResults(terminal, out, outputFormat, pager, results.getColumns());
-        }
-        else {
-            out.println(status);
-        }
-        discardResults();
-    }
-
-    private void discardResults()
-    {
-        try (OutputHandler handler = new OutputHandler(new NullPrinter(), 100, 100)) {
-            handler.processRows(client);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        warningsPrinter.print(execution.getWarnings(), false, true);
     }
 
     private void renderResults(Terminal terminal, PrintStream out, OutputFormat outputFormat, Optional<String> pager, List<Column> columns)
@@ -282,10 +169,16 @@ public class Query
         }
         catch (QueryAbortedException e) {
             System.out.println("(query aborted by user)");
-            client.close();
+            abort();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+        catch (RuntimeException e) {
+            // reading rows is interrupted when the user aborts the query
+            if (!userAborted.get()) {
+                throw e;
+            }
         }
     }
 
@@ -306,37 +199,37 @@ public class Query
         try (Pager pager = Pager.create(pagerName);
                 ThreadInterruptor clientThread = new ThreadInterruptor();
                 Writer writer = createWriter(pager);
-                OutputHandler handler = createOutputHandler(format, maxWidth, writer, columns, maxQueuedRows, maxBufferedRows)) {
+                OutputHandler handler = createOutputHandler(format, maxWidth, writer, columns)) {
             if (!pager.isNullPager()) {
                 // ignore the user pressing ctrl-C while in the pager
                 ignoreUserInterrupt.set(true);
                 pager.getFinishFuture().thenRun(() -> {
                     ignoreUserInterrupt.set(false);
-                    client.close();
+                    abort();
                     clientThread.interrupt();
                 });
             }
-            handler.processRows(client);
+            handler.processRows(execution);
         }
         catch (RuntimeException | IOException e) {
-            if (client.isClientAborted() && !(e instanceof QueryAbortedException)) {
+            if (userAborted.get() && !(e instanceof QueryAbortedException)) {
                 throw new QueryAbortedException(e);
             }
             throw e;
         }
     }
 
-    private void sendOutput(PrintStream out, OutputFormat format, int maxWidth, List<Column> fieldNames)
+    private void sendOutput(PrintStream out, OutputFormat format, int maxWidth, List<Column> columns)
             throws IOException
     {
-        try (OutputHandler handler = createOutputHandler(format, maxWidth, createWriter(out), fieldNames, maxQueuedRows, maxBufferedRows)) {
-            handler.processRows(client);
+        try (OutputHandler handler = createOutputHandler(format, maxWidth, createWriter(out), columns)) {
+            handler.processRows(execution);
         }
     }
 
-    private OutputHandler createOutputHandler(OutputFormat format, int maxWidth, Writer writer, List<Column> columns, int maxQueuedRows, int maxBufferedRows)
+    private OutputHandler createOutputHandler(OutputFormat format, int maxWidth, Writer writer, List<Column> columns)
     {
-        return new OutputHandler(createOutputPrinter(format, maxWidth, writer, columns), maxQueuedRows, maxBufferedRows);
+        return new OutputHandler(createOutputPrinter(format, maxWidth, writer, columns), maxBufferedRows);
     }
 
     private OutputPrinter createOutputPrinter(OutputFormat format, int maxWidth, Writer writer, List<Column> columns)
@@ -381,34 +274,54 @@ public class Query
     @Override
     public void close()
     {
-        client.close();
+        if (execution.isStarted() && !execution.isFinished()) {
+            execution.cancel();
+            execution.awaitFinishedUninterruptibly(CANCELLATION_TIMEOUT.toMillis(), MILLISECONDS);
+        }
+        try {
+            statement.close();
+        }
+        catch (SQLException ignored) {
+        }
     }
 
-    public void renderFailure(PrintStream out)
+    /**
+     * Cancels the query, unless it already finished.
+     */
+    private void abort()
     {
-        QueryStatusInfo results = client.finalStatusInfo();
-        QueryError error = results.getError();
-        checkState(error != null);
+        if (!execution.isStarted() || execution.isFinished()) {
+            return;
+        }
+        userAborted.set(true);
+        execution.cancel();
+    }
 
-        out.printf("Query %s failed: %s%n", results.getId(), error.getMessage());
-        if (debug && (error.getFailureInfo() != null)) {
-            error.getFailureInfo().toException().printStackTrace(out);
+    private void renderFailure(PrintStream out, Throwable failure)
+    {
+        if (!(failure instanceof TrinoSqlException)) {
+            out.println(formatCliErrorMessage(failure, theme, debug));
+            return;
         }
-        if (error.getErrorLocation() != null) {
-            renderErrorLocation(client.getQuery(), error.getErrorLocation(), out);
+
+        TrinoSqlException exception = (TrinoSqlException) failure;
+        out.printf("Query %s failed: %s%n", exception.getQueryId(), exception.getErrorMessage());
+        if (debug && (exception.getCause() != null)) {
+            exception.getCause().printStackTrace(out);
         }
+        exception.getErrorLocation().ifPresent(location -> renderErrorLocation(sql, location.getLineNumber(), location.getColumnNumber(), out));
         out.println();
     }
 
-    private void renderErrorLocation(String query, ErrorLocation location, PrintStream out)
+    private void renderErrorLocation(String query, int lineNumber, int columnNumber, PrintStream out)
     {
         List<String> lines = ImmutableList.copyOf(Splitter.on('\n').split(query).iterator());
 
-        String errorLine = lines.get(location.getLineNumber() - 1);
-        String good = errorLine.substring(0, location.getColumnNumber() - 1);
-        String bad = errorLine.substring(location.getColumnNumber() - 1);
+        String errorLine = lines.get(lineNumber - 1);
+        String good = errorLine.substring(0, columnNumber - 1);
+        String bad = errorLine.substring(columnNumber - 1);
 
-        if ((location.getLineNumber() == lines.size()) && bad.trim().isEmpty()) {
+        if ((lineNumber == lines.size()) && bad.trim().isEmpty()) {
             bad = " <EOF>";
         }
 
@@ -416,14 +329,14 @@ public class Query
             AttributedStringBuilder builder = new AttributedStringBuilder();
 
             builder.style(theme.errorContext());
-            for (int i = 1; i < location.getLineNumber(); i++) {
+            for (int i = 1; i < lineNumber; i++) {
                 builder.append(lines.get(i - 1)).append("\n");
             }
             builder.append(good);
 
             builder.style(theme.error());
             builder.append(bad).append("\n");
-            for (int i = location.getLineNumber(); i < lines.size(); i++) {
+            for (int i = lineNumber; i < lines.size(); i++) {
                 builder.append(lines.get(i)).append("\n");
             }
 
@@ -431,8 +344,8 @@ public class Query
             out.print(builder.toAnsi());
         }
         else {
-            String prefix = format("LINE %s: ", location.getLineNumber());
-            String padding = " ".repeat(prefix.length() + (location.getColumnNumber() - 1));
+            String prefix = format("LINE %s: ", lineNumber);
+            String padding = " ".repeat(prefix.length() + (columnNumber - 1));
             out.println(prefix + errorLine);
             out.println(padding + "^");
         }

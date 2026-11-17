@@ -203,6 +203,7 @@ abstract class AbstractTrinoResultSet
     protected final CloseableIterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
     private final List<ColumnInfo> columnInfoList;
+    private final boolean[] rawConversionRequired;
     private final ResultSetMetaData resultSetMetaData;
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicLong currentRowNumber = new AtomicLong(); // Index into 'rows' of our current row (1-based)
@@ -217,6 +218,10 @@ abstract class AbstractTrinoResultSet
         requireNonNull(columns, "columns is null");
         this.fieldMap = getFieldMap(columns);
         this.columnInfoList = getColumnInfo(columns);
+        this.rawConversionRequired = new boolean[columns.size()];
+        for (int i = 0; i < columns.size(); i++) {
+            rawConversionRequired[i] = isRawConversionRequired(columns.get(i).getTypeSignature());
+        }
         this.resultSetMetaData = new TrinoResultSetMetaData(columnInfoList);
 
         this.results = requireNonNull(results, "results is null");
@@ -739,6 +744,80 @@ abstract class AbstractTrinoResultSet
             return TYPE_CONVERSIONS.convert(columnType, value, defaultRepresentation);
         }
 
+        return value;
+    }
+
+    Object getRawObject(int columnIndex)
+            throws SQLException
+    {
+        Object value = column(columnIndex);
+        // column() already validated the index
+        if (value == null || !rawConversionRequired[columnIndex - 1]) {
+            return value;
+        }
+        return convertToRawRepresentation(columnInfoList.get(columnIndex - 1).getColumnTypeSignature(), value);
+    }
+
+    private static boolean isRawConversionRequired(ClientTypeSignature type)
+    {
+        switch (type.getRawType()) {
+            case "array":
+            case "map":
+            case "row":
+            case "variant":
+                return true;
+        }
+        return false;
+    }
+
+    private static Object convertToRawRepresentation(ClientTypeSignature columnType, @Nullable Object value)
+    {
+        if (value == null) {
+            return null;
+        }
+
+        switch (columnType.getRawType()) {
+            case "array": {
+                ClientTypeSignature elementType = getOnlyElement(columnType.getArgumentsAsTypeSignatures());
+                List<?> listValue = (List<?>) value;
+                List<Object> converted = Lists.newArrayListWithExpectedSize(listValue.size());
+                for (Object element : listValue) {
+                    converted.add(convertToRawRepresentation(elementType, element));
+                }
+                return unmodifiableList(converted);
+            }
+
+            case "map": {
+                List<ClientTypeSignature> typeSignatures = columnType.getArgumentsAsTypeSignatures();
+                verify(typeSignatures.size() == 2, "Unexpected map parameters: %s", typeSignatures);
+                ClientTypeSignature keyType = typeSignatures.get(0);
+                ClientTypeSignature valueType = typeSignatures.get(1);
+                Map<?, ?> mapValue = (Map<?, ?>) value;
+                // preserve the iteration order of the decoded map
+                Map<Object, Object> converted = Maps.newLinkedHashMapWithExpectedSize(mapValue.size());
+                for (Entry<?, ?> entry : mapValue.entrySet()) {
+                    converted.put(convertToRawRepresentation(keyType, entry.getKey()), convertToRawRepresentation(valueType, entry.getValue()));
+                }
+                return unmodifiableMap(converted);
+            }
+
+            case "row": {
+                io.trino.client.Row row = (io.trino.client.Row) value;
+                List<io.trino.client.RowField> fields = row.getFields();
+                List<ClientTypeSignatureParameter> typeArguments = columnType.getArguments();
+                verify(fields.size() == typeArguments.size(), "Type mismatch: %s, %s", row, columnType);
+                Row.Builder builder = Row.builderWithExpectedSize(fields.size());
+                for (int i = 0; i < fields.size(); i++) {
+                    io.trino.client.RowField field = fields.get(i);
+                    builder.addField(field.getName(), convertToRawRepresentation(typeArguments.get(i).getTypeSignature(), field.getValue()));
+                }
+                return builder.build();
+            }
+        }
+
+        if (value instanceof EncodedVariant) {
+            return decodeVariant((EncodedVariant) value).toJson();
+        }
         return value;
     }
 
@@ -1934,6 +2013,14 @@ abstract class AbstractTrinoResultSet
         if (row.get() == null) {
             throw new SQLException("Not on a valid row");
         }
+    }
+
+    List<Object> currentRow()
+            throws SQLException
+    {
+        checkOpen();
+        checkValidRow();
+        return row.get();
     }
 
     private Object column(int index)
