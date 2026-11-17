@@ -16,14 +16,6 @@ package io.trino.sql.ir.optimizer.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
@@ -47,6 +39,7 @@ import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.type.TypeUtils.isDirectLongComparisonValidForContinuousValues;
 
 /**
  * Simplify IN expression with continuous range of constant test values into a BETWEEN expression. E.g,
@@ -78,10 +71,6 @@ public class SimplifyContinuousInValues
 
         Type valueType = value.type();
         if (!isDirectLongComparisonValidForContinuousValues(valueType)) {
-            return Optional.empty();
-        }
-
-        if (valueType.getJavaType() != long.class) {
             return Optional.empty();
         }
 
@@ -124,21 +113,6 @@ public class SimplifyContinuousInValues
         return new Logical(AND, ImmutableList.of(
                 comparison(metadata, getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, value, new Constant(valueType, min)),
                 comparison(metadata, getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, value, new Constant(valueType, max))));
-    }
-
-    private static boolean isDirectLongComparisonValidForContinuousValues(Type type)
-    {
-        // Types for which we can safely use equality and comparison on the stored long value
-        // instead of going through type specific methods and where the next consecutive value
-        // can be obtained by incrementing the stored long value by 1
-        return type instanceof TinyintType ||
-                type instanceof SmallintType ||
-                type instanceof IntegerType ||
-                type instanceof BigintType ||
-                (type instanceof TimeType timeType && timeType.getPrecision() == 12) ||
-                type instanceof DateType ||
-                (type instanceof TimestampType timestampType && timestampType.getPrecision() == 6) ||
-                (type instanceof DecimalType decimalType && decimalType.isShort());
     }
 
     private static boolean areAllValuesInRangeIncluded(long max, long min, long nonNullsCount)
