@@ -39,6 +39,7 @@ import io.trino.sql.planner.iterative.rule.AddIntermediateAggregations;
 import io.trino.sql.planner.iterative.rule.ApplyTableScanRedirection;
 import io.trino.sql.planner.iterative.rule.ArraySortAfterArrayDistinct;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressions;
+import io.trino.sql.planner.iterative.rule.CombineUnionAllAggregations;
 import io.trino.sql.planner.iterative.rule.CreatePartialTopN;
 import io.trino.sql.planner.iterative.rule.DecorrelateInnerUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DecorrelateLeftUnnestWithGlobalAggregation;
@@ -507,6 +508,9 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new MergeUnion(),
+                                // Nested unions are flat at this point, and filters are still above the scans.
+                                // Combining the aggregations here lets later pushdown and AddExchanges share one scan.
+                                new CombineUnionAllAggregations(),
                                 new MergeIntersect(),
                                 new MergeExcept(),
                                 new PruneDistinctAggregation())),
