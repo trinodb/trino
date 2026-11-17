@@ -356,7 +356,7 @@ public class TestSqlStage
 
     private void createTestTask(SqlStage stage, int partition)
     {
-        InternalNode node = new InternalNode("node" + partition, URI.create("http://node/" + partition), NodeVersion.UNKNOWN, false);
+        InternalNode node = new InternalNode("node" + partition, "node" + partition + "-instance", URI.create("http://node/" + partition), NodeVersion.UNKNOWN, false);
         stage.createTask(
                 node,
                 partition,
@@ -410,6 +410,7 @@ public class TestSqlStage
                     }
                     InternalNode node = new InternalNode(
                             "source" + i,
+                            "source" + i + "-instance",
                             URI.create("http://10.0.0." + (i / 10_000) + ":" + (i % 10_000)),
                             NodeVersion.UNKNOWN,
                             false);

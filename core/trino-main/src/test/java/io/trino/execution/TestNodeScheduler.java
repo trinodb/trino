@@ -131,9 +131,9 @@ public class TestNodeScheduler
     private void setUpNodes()
     {
         nodeManager.addNodes(
-                new InternalNode("other1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other3", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("other1", "other1-instance", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", "other2-instance", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", "other3-instance", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false));
     }
 
     @AfterEach
@@ -175,9 +175,9 @@ public class TestNodeScheduler
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         InternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(
-                new InternalNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("node1", "node1-instance", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("node2", "node2-instance", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("node3", "node3-instance", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
 
         // contents of taskMap indicate the node-task map for the current stage
         Map<InternalNode, RemoteTask> taskMap = new HashMap<>();
@@ -312,7 +312,7 @@ public class TestNodeScheduler
     public void testMaxSplitsPerNode()
     {
         setUpNodes();
-        InternalNode newNode = new InternalNode("other4", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
+        InternalNode newNode = new InternalNode("other4", "other4-instance", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
@@ -371,7 +371,7 @@ public class TestNodeScheduler
     public void testMaxSplitsPerNodePerTask()
     {
         setUpNodes();
-        InternalNode newNode = new InternalNode("other4", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
+        InternalNode newNode = new InternalNode("other4", "other4-instance", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
@@ -472,9 +472,9 @@ public class TestNodeScheduler
     @Test
     public void testOptimizedLocalScheduling()
     {
-        InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        InternalNode node1 = new InternalNode("node1", "node1-instance", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node1);
-        InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
+        InternalNode node2 = new InternalNode("node2", "node2-instance", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node2);
 
         Set<Split> splits = new LinkedHashSet<>();
@@ -604,9 +604,9 @@ public class TestNodeScheduler
     public void testTopologyAwareFailover()
     {
         nodeManager = TestingInternalNodeManager.createDefault(
-                new InternalNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("node1", "node1-instance", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("node2", "node2-instance", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("node3", "node3-instance", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
         NodeSelectorFactory nodeSelectorFactory = new TopologyAwareNodeSelectorFactory(
                 new TestNetworkTopology(),
                 CURRENT_NODE,
