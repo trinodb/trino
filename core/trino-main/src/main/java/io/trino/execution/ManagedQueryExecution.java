@@ -35,6 +35,14 @@ public interface ManagedQueryExecution
      */
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
+    /**
+     * Add a listener for the final query info, which is set once every task of the query has ended.
+     * This notification is guaranteed to be fired only once. Listener is always notified asynchronously
+     * using a dedicated notification thread pool so, care should be taken to avoid leaking {@code this}
+     * when adding a listener in a constructor.
+     */
+    void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener);
+
     Session getSession();
 
     DataSize getUserMemoryReservation();

@@ -16,6 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
@@ -55,6 +56,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class StageManager
 {
+    private static final Logger log = Logger.get(StageManager.class);
+
     private final QueryStateMachine queryStateMachine;
     private final Map<StageId, SqlStage> stages;
     private final List<SqlStage> stagesInTopologicalOrder;
@@ -163,7 +166,22 @@ class StageManager
     private void initialize()
     {
         for (SqlStage stage : stages.values()) {
-            stage.addFinalStageInfoListener(_ -> queryStateMachine.updateFinalQueryInfo(() -> Optional.of(getStagesInfo())));
+            stage.addFinalStageInfoListener(_ -> publishFinalQueryInfo());
+        }
+    }
+
+    /**
+     * Updates the query info from the current stages once the query is done, which publishes the final query info
+     * once every stage is final. An error while building the query info is logged and the publication is retried
+     * by the next final stage info.
+     */
+    public void publishFinalQueryInfo()
+    {
+        try {
+            queryStateMachine.updateFinalQueryInfo(() -> Optional.of(getStagesInfo()));
+        }
+        catch (RuntimeException e) {
+            log.error(e, "Error updating the query info of query %s", queryStateMachine.getQueryId());
         }
     }
 

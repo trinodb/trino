@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.ExecutionFailureInfo;
@@ -58,6 +59,8 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -68,6 +71,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.trino.execution.SqlStage.terminateTask;
 import static io.trino.execution.scheduler.StageExecution.State.ABORTED;
 import static io.trino.execution.scheduler.StageExecution.State.CANCELED;
 import static io.trino.execution.scheduler.StageExecution.State.FAILED;
@@ -84,6 +88,7 @@ import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.synchronize;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * This class is designed to facilitate the pipelined mode of execution.
@@ -115,6 +120,8 @@ public class PipelinedStageExecution
     private final Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers;
     private final TaskLifecycleListener taskLifecycleListener;
     private final InternalNodeManager nodeManager;
+    private final ScheduledExecutorService executor;
+    private final Duration finalTaskInfoTimeout;
     private final Optional<int[]> bucketToPartition;
     private final OptionalInt skewedBucketCount;
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
@@ -141,7 +148,8 @@ public class PipelinedStageExecution
             Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers,
             TaskLifecycleListener taskLifecycleListener,
             InternalNodeManager nodeManager,
-            Executor executor,
+            ScheduledExecutorService executor,
+            Duration finalTaskInfoTimeout,
             Optional<int[]> bucketToPartition,
             OptionalInt skewedBucketCount,
             int attempt)
@@ -159,6 +167,8 @@ public class PipelinedStageExecution
                 outputBufferManagers,
                 taskLifecycleListener,
                 nodeManager,
+                executor,
+                finalTaskInfoTimeout,
                 bucketToPartition,
                 skewedBucketCount,
                 exchangeSources.buildOrThrow(),
@@ -173,6 +183,8 @@ public class PipelinedStageExecution
             Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers,
             TaskLifecycleListener taskLifecycleListener,
             InternalNodeManager nodeManager,
+            ScheduledExecutorService executor,
+            Duration finalTaskInfoTimeout,
             Optional<int[]> bucketToPartition,
             OptionalInt skewedBucketCount,
             Map<PlanFragmentId, RemoteSourceNode> exchangeSources,
@@ -183,6 +195,8 @@ public class PipelinedStageExecution
         this.outputBufferManagers = ImmutableMap.copyOf(requireNonNull(outputBufferManagers, "outputBufferManagers is null"));
         this.taskLifecycleListener = requireNonNull(taskLifecycleListener, "taskLifecycleListener is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.finalTaskInfoTimeout = requireNonNull(finalTaskInfoTimeout, "finalTaskInfoTimeout is null");
         this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
         this.skewedBucketCount = requireNonNull(skewedBucketCount, "skewedBucketCount is null");
         this.exchangeSources = ImmutableMap.copyOf(requireNonNull(exchangeSources, "exchangeSources is null"));
@@ -260,7 +274,7 @@ public class PipelinedStageExecution
     {
         // Only send tasks a cancel command if the stage is successfully cancelled and not already failed
         if (stateMachine.transitionToCanceled()) {
-            tasks.values().forEach(RemoteTask::cancel);
+            tasks.values().forEach(task -> terminateTask(task, "cancel", RemoteTask::cancel));
         }
     }
 
@@ -268,13 +282,13 @@ public class PipelinedStageExecution
     public synchronized void abort()
     {
         stateMachine.transitionToAborted();
-        tasks.values().forEach(RemoteTask::abort);
+        tasks.values().forEach(task -> terminateTask(task, "abort", RemoteTask::abort));
     }
 
     public synchronized void fail(Throwable failureCause)
     {
         stateMachine.transitionToFailed(failureCause);
-        tasks.values().forEach(RemoteTask::abort);
+        tasks.values().forEach(task -> terminateTask(task, "abort", RemoteTask::abort));
     }
 
     @Override
@@ -334,6 +348,7 @@ public class PipelinedStageExecution
         completeSources.forEach(task::noMoreSplits);
 
         task.addStateChangeListener(this::updateTaskStatus);
+        addFinalTaskInfoCheck(task);
 
         task.start();
 
@@ -344,6 +359,32 @@ public class PipelinedStageExecution
         updateSourceTasksOutputBuffers(outputBufferManager -> outputBufferManager.addOutputBuffer(outputBufferId));
 
         return Optional.of(task);
+    }
+
+    // A done task whose final task info never arrives (lost task info update) would keep the stage, and the query, from its final info.
+    // A FINISHED task is finalized too: its output has already flowed through its buffers, so only its stats are lost.
+    private void addFinalTaskInfoCheck(RemoteTask task)
+    {
+        AtomicBoolean finalTaskInfoReceived = new AtomicBoolean();
+        AtomicBoolean checkScheduled = new AtomicBoolean();
+        task.addFinalTaskInfoListener(_ -> finalTaskInfoReceived.set(true));
+        task.addStateChangeListener(taskStatus -> {
+            if (!taskStatus.state().isDone() || !checkScheduled.compareAndSet(false, true)) {
+                return;
+            }
+            executor.schedule(() -> {
+                if (finalTaskInfoReceived.get()) {
+                    return;
+                }
+                log.error("Did not receive final task info for task %s within %s after it %s; finalizing task info locally", task.getTaskId(), finalTaskInfoTimeout, taskStatus.state());
+                try {
+                    task.forceFinalizationUsingTaskStatus();
+                }
+                catch (RuntimeException e) {
+                    log.error(e, "Failed to finalize task info locally for task %s", task.getTaskId());
+                }
+            }, finalTaskInfoTimeout.toMillis(), MILLISECONDS);
+        });
     }
 
     private void updateTaskStatus(TaskStatus taskStatus)

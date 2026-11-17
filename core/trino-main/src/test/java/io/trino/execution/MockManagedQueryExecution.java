@@ -50,12 +50,15 @@ public class MockManagedQueryExecution
         implements ManagedQueryExecution
 {
     private final List<StateChangeListener<QueryState>> listeners = new ArrayList<>();
+    private final List<StateChangeListener<QueryInfo>> finalQueryInfoListeners = new ArrayList<>();
     private final Session session;
 
     private DataSize memoryUsage;
     private Duration cpuUsage;
     private DataSize physicalInputDataUsage;
     private QueryState state = QUEUED;
+    private boolean tasksRunning;
+    private boolean statsFailWhileTasksRun;
     private Throwable failureCause;
 
     private MockManagedQueryExecution(String queryId, int priority, DataSize memoryUsage, Duration cpuUsage, DataSize physicalInputDataUsage)
@@ -73,7 +76,7 @@ public class MockManagedQueryExecution
 
     public void consumeCpuTimeMillis(long cpuTimeDeltaMillis)
     {
-        checkState(state == RUNNING, "cannot consume CPU in a non-running state");
+        checkState(state == RUNNING || tasksRunning, "cannot consume CPU in a non-running state");
         long newCpuTime = cpuUsage.toMillis() + cpuTimeDeltaMillis;
         this.cpuUsage = new Duration(newCpuTime, MILLISECONDS);
     }
@@ -93,8 +96,57 @@ public class MockManagedQueryExecution
 
     public void complete()
     {
+        completeWithRunningTasks();
+        finishTasks();
+    }
+
+    /**
+     * The query is done but its tasks are still running, so its final query info is not set yet.
+     */
+    public void completeWithRunningTasks()
+    {
+        end(FINISHED, null);
+    }
+
+    public void failWithRunningTasks(Throwable cause)
+    {
+        end(FAILED, cause);
+    }
+
+    public void finishTasks()
+    {
+        checkState(tasksRunning, "tasks are not running");
+        tasksRunning = false;
+        QueryInfo finalQueryInfo = getFullQueryInfo();
+        for (StateChangeListener<QueryInfo> listener : finalQueryInfoListeners) {
+            listener.stateChanged(finalQueryInfo);
+        }
+    }
+
+    /**
+     * The final query info is published without its stages, so it reports no CPU time and no physical input.
+     */
+    public void finishTasksWithoutStageStats()
+    {
+        cpuUsage = new Duration(0, MILLISECONDS);
+        physicalInputDataUsage = DataSize.ofBytes(0);
+        finishTasks();
+    }
+
+    /**
+     * The stats of the query cannot be read while it is done but its tasks are still running.
+     */
+    public void failStatsWhileTasksRun()
+    {
+        statsFailWhileTasksRun = true;
+    }
+
+    private void end(QueryState endState, Throwable cause)
+    {
         memoryUsage = DataSize.ofBytes(0);
-        state = FINISHED;
+        state = endState;
+        failureCause = cause;
+        tasksRunning = true;
         fireStateChange();
     }
 
@@ -118,6 +170,7 @@ public class MockManagedQueryExecution
     @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
+        checkStatsReadable();
         return new BasicQueryInfo(
                 new QueryId("test"),
                 session.toSessionRepresentation(),
@@ -317,7 +370,15 @@ public class MockManagedQueryExecution
     @Override
     public Duration getTotalCpuTime()
     {
+        checkStatsReadable();
         return cpuUsage;
+    }
+
+    private void checkStatsReadable()
+    {
+        if (statsFailWhileTasksRun && tasksRunning) {
+            throw new IllegalStateException("stats of query " + session.getQueryId() + " cannot be read while its tasks are running");
+        }
     }
 
     @Override
@@ -336,10 +397,8 @@ public class MockManagedQueryExecution
     @Override
     public void fail(Throwable cause)
     {
-        memoryUsage = DataSize.ofBytes(0);
-        state = FAILED;
-        failureCause = cause;
-        fireStateChange();
+        failWithRunningTasks(cause);
+        finishTasks();
     }
 
     @Override
@@ -352,6 +411,12 @@ public class MockManagedQueryExecution
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         listeners.add(stateChangeListener);
+    }
+
+    @Override
+    public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        finalQueryInfoListeners.add(stateChangeListener);
     }
 
     private void fireStateChange()
