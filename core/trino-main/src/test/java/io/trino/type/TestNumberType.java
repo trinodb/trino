@@ -25,7 +25,10 @@ import org.junit.jupiter.api.Test;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -36,6 +39,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.NumberType.NUMBER;
+import static io.trino.spi.type.TrinoNumber.AsBigDecimal.COMPARE_NAN_LAST;
 import static java.math.RoundingMode.UP;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -171,6 +175,102 @@ public class TestNumberType
                 }
             }
         }
+    }
+
+    @Test
+    public void testComparisonOperatorConventionsConsistent()
+            throws Throwable
+    {
+        List<TrinoNumber> values = comparisonTestValues();
+
+        List<TrinoNumber> otherValues = values.reversed();
+        ValueBlock block = createBlock(values);
+        ValueBlock otherBlock = createBlock(otherValues);
+        FlatValues flat = FlatValues.write(block, 0, 0);
+        FlatValues otherFlat = FlatValues.write(otherBlock, 3, 5);
+
+        MethodHandle stackComparison = TYPE_OPERATORS.getComparisonUnorderedLastOperator(NUMBER, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+        MethodHandle blockBlockComparison = TYPE_OPERATORS.getComparisonUnorderedLastOperator(NUMBER, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
+        MethodHandle flatFlatComparison = TYPE_OPERATORS.getComparisonUnorderedLastOperator(NUMBER, simpleConvention(FAIL_ON_NULL, FLAT, FLAT));
+        MethodHandle flatBlockComparison = TYPE_OPERATORS.getComparisonUnorderedLastOperator(NUMBER, simpleConvention(FAIL_ON_NULL, FLAT, VALUE_BLOCK_POSITION_NOT_NULL));
+        MethodHandle blockFlatComparison = TYPE_OPERATORS.getComparisonUnorderedLastOperator(NUMBER, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, FLAT));
+
+        for (int left = 0; left < values.size(); left++) {
+            for (int right = 0; right < otherValues.size(); right++) {
+                TrinoNumber leftValue = values.get(left);
+                TrinoNumber rightValue = otherValues.get(right);
+                long expected = Long.signum(COMPARE_NAN_LAST.compare(leftValue.toBigDecimal(), rightValue.toBigDecimal()));
+                String description = leftValue + " vs " + rightValue;
+
+                assertThat(Long.signum((long) stackComparison.invoke(leftValue, rightValue))).describedAs(description).isEqualTo(expected);
+                assertThat(Long.signum((long) blockBlockComparison.invokeExact(block, left, otherBlock, right))).describedAs(description).isEqualTo(expected);
+                assertThat(Long.signum((long) flatFlatComparison.invokeExact(flat.fixed(), flat.fixedOffset(left), flat.variable(), flat.variableOffset(left), otherFlat.fixed(), otherFlat.fixedOffset(right), otherFlat.variable(), otherFlat.variableOffset(right))))
+                        .describedAs(description)
+                        .isEqualTo(expected);
+                assertThat(Long.signum((long) flatBlockComparison.invokeExact(flat.fixed(), flat.fixedOffset(left), flat.variable(), flat.variableOffset(left), otherBlock, right))).describedAs(description).isEqualTo(expected);
+                assertThat(Long.signum((long) blockFlatComparison.invokeExact(block, left, otherFlat.fixed(), otherFlat.fixedOffset(right), otherFlat.variable(), otherFlat.variableOffset(right)))).describedAs(description).isEqualTo(expected);
+            }
+        }
+    }
+
+    private static List<TrinoNumber> comparisonTestValues()
+    {
+        List<TrinoNumber> values = new ArrayList<>();
+        values.add(TrinoNumber.from(new TrinoNumber.NotANumber()));
+        values.add(TrinoNumber.from(new TrinoNumber.Infinity(false)));
+        values.add(TrinoNumber.from(new TrinoNumber.Infinity(true)));
+        values.add(TrinoNumber.from(BigDecimal.ZERO));
+        for (String value : List.of(
+                "1",
+                "2",
+                "9",
+                "10",
+                "11",
+                "99",
+                "100",
+                "101",
+                "0.1",
+                "0.9",
+                "0.99",
+                "1.5",
+                "15",
+                "150",
+                "255",
+                "256",
+                "1E-100",
+                "1E+100",
+                "999999999999999999",
+                "1000000000000000000",
+                "1000000000000000001",
+                "0.999999999999999999",
+                "72057594037927935",
+                "72057594037927936",
+                "7.2057594037927935",
+                "720.57594037927936",
+                "720.5759403792794",
+                "12345678901234567890.1234567890",
+                "12345678901234567890.123456789",
+                "12345678901234567891",
+                "9E-18",
+                "1E-18",
+                "1E-19",
+                "1.000000000000000001",
+                "1.0000000000000000001",
+                "1E+16384",
+                "1E-16383")) {
+            BigDecimal decimal = new BigDecimal(value);
+            values.add(TrinoNumber.from(decimal));
+            values.add(TrinoNumber.from(decimal.negate()));
+        }
+        Random random = new Random(42);
+        for (int i = 0; i < 200; i++) {
+            BigDecimal decimal = new BigDecimal(new BigInteger(1 + random.nextInt(200), random), random.nextInt(80) - 40);
+            values.add(TrinoNumber.from(random.nextBoolean() ? decimal : decimal.negate()));
+            // a close neighbour at a different scale
+            BigDecimal neighbour = decimal.add(BigDecimal.ONE.movePointLeft(random.nextInt(80) - 40));
+            values.add(TrinoNumber.from(random.nextBoolean() ? neighbour : neighbour.negate()));
+        }
+        return values;
     }
 
     private static ValueBlock createBlock(List<TrinoNumber> values)
