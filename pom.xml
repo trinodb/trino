@@ -87,6 +87,7 @@
         <module>plugin/trino-http-server-event-listener</module>
         <module>plugin/trino-hudi</module>
         <module>plugin/trino-iceberg</module>
+        <module>plugin/trino-iceberg-gpu</module>
         <module>plugin/trino-ignite</module>
         <module>plugin/trino-jmx</module>
         <module>plugin/trino-kafka</module>
