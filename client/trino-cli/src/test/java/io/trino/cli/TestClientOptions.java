@@ -110,6 +110,29 @@ public class TestClientOptions
     }
 
     @Test
+    public void testServerHttpsUriSchemeIsCaseInsensitive()
+    {
+        Console uppercaseConsole = createConsole("--server=HTTPS://test/foo");
+        ClientSession uppercaseSession = uppercaseConsole.clientOptions.toClientSession(uppercaseConsole.clientOptions.getTrinoUri());
+        assertThat(uppercaseSession.getServer().toString()).isEqualTo("https://test:443");
+        assertThat(uppercaseSession.getCatalog()).isEqualTo(Optional.of("foo"));
+
+        Console mixedCaseConsole = createConsole("--server=HtTpS://test/foo");
+        ClientSession mixedCaseSession = mixedCaseConsole.clientOptions.toClientSession(mixedCaseConsole.clientOptions.getTrinoUri());
+        assertThat(mixedCaseSession.getServer().toString()).isEqualTo("https://test:443");
+        assertThat(mixedCaseSession.getCatalog()).isEqualTo(Optional.of("foo"));
+    }
+
+    @Test
+    public void testServerTrinoUriSchemeIsCaseInsensitive()
+    {
+        Console console = createConsole("--server=TRINO://test:443/foo");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getServer().toString()).isEqualTo("https://test:443");
+        assertThat(session.getCatalog()).isEqualTo(Optional.of("foo"));
+    }
+
+    @Test
     public void testServer443Port()
     {
         Console console = createConsole("--server=test:443");

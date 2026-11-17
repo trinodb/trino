@@ -537,7 +537,7 @@ public class TrinoUri
 
     public static boolean isSecureConnection(URI uri)
     {
-        return uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443);
+        return uri.getScheme().equalsIgnoreCase("https") || (uri.getScheme().equalsIgnoreCase("trino") && uri.getPort() == 443);
     }
 
     public ClientSession.Builder toClientSessionBuilder()
