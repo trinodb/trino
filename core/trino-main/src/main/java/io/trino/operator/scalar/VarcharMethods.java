@@ -23,6 +23,7 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.StaticMethod;
 import io.trino.spi.type.StandardTypes;
+import io.trino.type.CodePoints;
 import io.trino.type.CodePointsType;
 
 public final class VarcharMethods
@@ -143,7 +144,7 @@ public final class VarcharMethods
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice trim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    public static Slice trim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) CodePoints codePointsToTrim)
     {
         return StringFunctions.trim(slice, codePointsToTrim);
     }
@@ -163,7 +164,7 @@ public final class VarcharMethods
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice leftTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    public static Slice leftTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) CodePoints codePointsToTrim)
     {
         return StringFunctions.leftTrim(slice, codePointsToTrim);
     }
@@ -183,7 +184,7 @@ public final class VarcharMethods
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice rightTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    public static Slice rightTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) CodePoints codePointsToTrim)
     {
         return StringFunctions.rightTrim(slice, codePointsToTrim);
     }
