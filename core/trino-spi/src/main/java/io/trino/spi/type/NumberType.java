@@ -394,8 +394,22 @@ public class NumberType
         return XxHash64.hash(slice);
     }
 
-    // TODO XX_HASH_64 with block, position
-    // TODO XX_HASH_64 with flat slice
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(@BlockPosition VariableWidthBlock block, @BlockIndex int position)
+    {
+        return XxHash64.hash(block.getRawSlice(), block.getRawSliceOffset(position), block.getSliceLength(position));
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] variableSizeSlice,
+            @FlatVariableOffset int variableSizeOffset)
+    {
+        int length = readFlatLength(fixedSizeSlice, fixedSizeOffset);
+        return XxHash64.hash(variableSizeSlice, variableSizeOffset, length);
+    }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(TrinoNumber left, TrinoNumber right)
