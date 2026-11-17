@@ -240,6 +240,7 @@ public class PipelinedQueryScheduler
                 metadata,
                 remoteTaskFactory,
                 nodeTaskMap,
+                nodeManager,
                 tracer,
                 schedulerSpan,
                 schedulerStats,

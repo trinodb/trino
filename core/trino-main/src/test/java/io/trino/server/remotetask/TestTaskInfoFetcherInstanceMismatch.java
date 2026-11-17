@@ -253,6 +253,7 @@ public class TestTaskInfoFetcherInstanceMismatch
                 _ -> {},
                 TASK_ID,
                 TASK_URI,
+                "node-instance",
                 new Duration(10, SECONDS),
                 JsonCodec.jsonCodec(VersionedDynamicFilterDomains.class),
                 executor,
@@ -270,6 +271,7 @@ public class TestTaskInfoFetcherInstanceMismatch
         return new ContinuousTaskStatusFetcher(
                 onFail,
                 initialStatus,
+                "node-instance",
                 new Duration(10, SECONDS),
                 JsonCodec.jsonCodec(TaskStatus.class),
                 dynamicFiltersFetcher,
@@ -290,6 +292,7 @@ public class TestTaskInfoFetcherInstanceMismatch
                 _ -> {},
                 statusFetcher,
                 initialTask,
+                "node-instance",
                 new TestingHttpClient(_ -> { throw new UnsupportedOperationException(); }),
                 () -> noopTracer().spanBuilder("test"),
                 new Duration(10, SECONDS),

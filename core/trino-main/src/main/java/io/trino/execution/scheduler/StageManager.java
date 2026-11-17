@@ -34,6 +34,7 @@ import io.trino.execution.StagesInfo;
 import io.trino.execution.TableInfo;
 import io.trino.execution.TaskId;
 import io.trino.metadata.Metadata;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
@@ -69,6 +70,7 @@ class StageManager
             Metadata metadata,
             RemoteTaskFactory taskFactory,
             NodeTaskMap nodeTaskMap,
+            InternalNodeManager nodeManager,
             Tracer tracer,
             Span schedulerSpan,
             SplitSchedulerStats schedulerStats,
@@ -95,6 +97,7 @@ class StageManager
                     session,
                     summarizeTaskInfo,
                     nodeTaskMap,
+                    nodeManager,
                     queryStateMachine.getStateMachineExecutor(),
                     tracer,
                     schedulerSpan,

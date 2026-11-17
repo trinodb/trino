@@ -44,6 +44,7 @@ import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION_HEADER;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID_HEADER;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static java.lang.String.format;
@@ -54,6 +55,7 @@ class ContinuousTaskStatusFetcher
     private static final Logger log = Logger.get(ContinuousTaskStatusFetcher.class);
 
     private final TaskId taskId;
+    private final String nodeInstanceId;
     private final Consumer<Throwable> onFail;
     private final StateMachine<TaskStatus> taskStatus;
     private final AtomicLong expectedTaskInstanceId = new AtomicLong();
@@ -76,6 +78,7 @@ class ContinuousTaskStatusFetcher
     public ContinuousTaskStatusFetcher(
             Consumer<Throwable> onFail,
             TaskStatus initialTaskStatus,
+            String nodeInstanceId,
             Duration refreshMaxWait,
             JsonCodec<TaskStatus> taskStatusCodec,
             DynamicFiltersFetcher dynamicFiltersFetcher,
@@ -89,6 +92,7 @@ class ContinuousTaskStatusFetcher
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
         this.taskId = initialTaskStatus.taskId();
+        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
         this.expectedTaskInstanceId.set(initialTaskStatus.taskInstanceId());
@@ -151,6 +155,7 @@ class ContinuousTaskStatusFetcher
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(TRINO_CURRENT_VERSION_HEADER, Long.toString(taskStatus.version()))
                 .setHeader(TRINO_MAX_WAIT_HEADER, refreshMaxWait.toString())
+                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
                 .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 
@@ -171,13 +176,14 @@ class ContinuousTaskStatusFetcher
 
     /**
      * Checks whether a response was produced by a different task instance than the one this
-     * task is tracking. This happens when a worker restarts at the same address: the replacement
-     * JVM creates a new task on demand ({@code SqlTaskManager#getTask}) with a different
-     * {@code taskInstanceId}.
+     * task is tracking. A restarted worker rejects the requests based on the node instance id,
+     * so this happens only when the worker no longer remembers the task, for example because
+     * it was removed after it had completed, and creates a new task on demand
+     * ({@code SqlTaskManager#getTask}) with a different {@code taskInstanceId}.
      *
      * <p>Both the task status and the task info responses are checked here. The first non-zero
-     * instance id seen in either is latched as the expected value, so the restart is detected
-     * even when only one of them reached the coordinator before the worker went away.
+     * instance id seen in either is latched as the expected value, so the mismatch is detected
+     * even when only one of them reached the coordinator before the task was replaced.
      */
     boolean isTaskInstanceMismatch(long remoteInstanceId)
     {
