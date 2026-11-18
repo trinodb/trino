@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.stream.IntStream;
 
 import static io.trino.parquet.reader.ListColumnReader.calculateAnyCollectionOffsets;
 import static io.trino.parquet.reader.ListColumnReader.calculateCollectionOffsets;
@@ -40,41 +41,81 @@ public class TestListColumnReader
     @Test
     public void testFixedSizeCollections()
     {
-        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 3, 3, 3, 3}, new int[] {0, 1, 1, 0, 1, 1}, new int[] {0, 3, 6}, false);
-        assertOffsets(REQUIRED_LIST, new int[] {2, 2, 2, 2}, new int[] {0, 1, 0, 1}, new int[] {0, 2, 4}, false);
+        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 3, 3, 3, 3}, new int[] {0, 1, 1, 0, 1, 1}, new int[] {0, 3, 6});
+        assertOffsets(REQUIRED_LIST, new int[] {2, 2, 2, 2}, new int[] {0, 1, 0, 1}, new int[] {0, 2, 4});
         // A single element per collection
-        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 3}, new int[] {0, 0, 0}, new int[] {0, 1, 2, 3}, false);
+        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 3}, new int[] {0, 0, 0}, new int[] {0, 1, 2, 3});
         // Elements of the collection nested inside have repetition level 2
-        assertOffsets(INNER_LIST, new int[] {5, 5, 5, 5, 5, 5}, new int[] {0, 2, 2, 0, 2, 2}, new int[] {0, 3, 6}, false);
+        assertOffsets(INNER_LIST, new int[] {5, 5, 5, 5, 5, 5}, new int[] {0, 2, 2, 0, 2, 2}, new int[] {0, 3, 6});
         // Null elements do not change offsets
-        assertOffsets(OPTIONAL_LIST, new int[] {3, 2, 3, 2, 3, 3}, new int[] {0, 1, 1, 0, 1, 1}, new int[] {0, 3, 6}, false);
+        assertOffsets(OPTIONAL_LIST, new int[] {3, 2, 3, 2, 3, 3}, new int[] {0, 1, 1, 0, 1, 1}, new int[] {0, 3, 6});
         // The only collection of the batch
-        assertOffsets(REQUIRED_LIST, new int[] {2, 2, 2, 2}, new int[] {0, 1, 1, 1}, new int[] {0, 4}, false);
+        assertOffsets(REQUIRED_LIST, new int[] {2, 2, 2, 2}, new int[] {0, 1, 1, 1}, new int[] {0, 4});
     }
 
     @Test
     public void testNonFixedSizeCollections()
     {
         // Variable sizes summing to a multiple of the first size
-        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 3, 3, 3, 3, 3, 3}, new int[] {0, 1, 0, 1, 1, 1, 1, 1}, new int[] {0, 2, 8}, false);
-        // A null collection
-        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 0, 3, 3}, new int[] {0, 1, 0, 0, 1}, new int[] {0, 2, 2, 4}, true);
+        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 3, 3, 3, 3, 3, 3}, new int[] {0, 1, 0, 1, 1, 1, 1, 1}, new int[] {0, 2, 8});
+        // A null collection, after a collection of two elements
+        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 0, 3, 3}, new int[] {0, 1, 0, 0, 1}, new int[] {0, 2, 2, 4}, 1);
         // An empty collection
-        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 1, 3, 3}, new int[] {0, 1, 0, 0, 1}, new int[] {0, 2, 2, 4}, false);
-        assertOffsets(REQUIRED_LIST, new int[] {2, 2, 0, 2, 2}, new int[] {0, 1, 0, 0, 1}, new int[] {0, 2, 2, 4}, false);
+        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 1, 3, 3}, new int[] {0, 1, 0, 0, 1}, new int[] {0, 2, 2, 4});
+        assertOffsets(REQUIRED_LIST, new int[] {2, 2, 0, 2, 2}, new int[] {0, 1, 0, 0, 1}, new int[] {0, 2, 2, 4});
         // Elements nested in the elements of a collection have a higher repetition level and are not counted
-        assertOffsets(INNER_LIST, new int[] {5, 5, 5, 5, 5, 5}, new int[] {0, 3, 2, 0, 3, 2}, new int[] {0, 2, 4}, false);
+        assertOffsets(INNER_LIST, new int[] {5, 5, 5, 5, 5, 5}, new int[] {0, 3, 2, 0, 3, 2}, new int[] {0, 2, 4});
         // The batch starts in the middle of a collection
-        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 3, 3}, new int[] {1, 1, 0, 1}, new int[] {0, 2, 4}, false);
+        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 3, 3}, new int[] {1, 1, 0, 1}, new int[] {0, 2, 4});
         // A null or empty collection where the next collection of the first size would start
-        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 0, 3, 3, 3}, new int[] {0, 1, 0, 0, 1, 1}, new int[] {0, 2, 2, 5}, true);
-        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 1, 3, 3, 3}, new int[] {0, 1, 0, 0, 1, 1}, new int[] {0, 2, 2, 5}, false);
-        assertOffsets(REQUIRED_LIST, new int[] {2, 2, 0, 2, 2, 2}, new int[] {0, 1, 0, 0, 1, 1}, new int[] {0, 2, 2, 5}, false);
+        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 0, 3, 3, 3}, new int[] {0, 1, 0, 0, 1, 1}, new int[] {0, 2, 2, 5}, 1);
+        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 1, 3, 3, 3}, new int[] {0, 1, 0, 0, 1, 1}, new int[] {0, 2, 2, 5});
+        assertOffsets(REQUIRED_LIST, new int[] {2, 2, 0, 2, 2, 2}, new int[] {0, 1, 0, 0, 1, 1}, new int[] {0, 2, 2, 5});
         // Two collections where one collection of the first size would be
-        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 3, 3, 3, 3}, new int[] {0, 1, 1, 0, 0, 1}, new int[] {0, 3, 4, 6}, false);
+        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 3, 3, 3, 3}, new int[] {0, 1, 1, 0, 0, 1}, new int[] {0, 3, 4, 6});
         // A collection longer than the first size, so the collection before it is not verified
-        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 3, 3, 3, 3, 3, 3}, new int[] {0, 1, 0, 1, 0, 1, 1, 0}, new int[] {0, 2, 4, 7, 8}, false);
-        assertOffsets(REQUIRED_LIST, new int[] {2, 2, 2, 2, 2, 2, 2, 2}, new int[] {0, 1, 0, 1, 0, 1, 1, 0}, new int[] {0, 2, 4, 7, 8}, false);
+        assertOffsets(OPTIONAL_LIST, new int[] {3, 3, 3, 3, 3, 3, 3, 3}, new int[] {0, 1, 0, 1, 0, 1, 1, 0}, new int[] {0, 2, 4, 7, 8});
+        assertOffsets(REQUIRED_LIST, new int[] {2, 2, 2, 2, 2, 2, 2, 2}, new int[] {0, 1, 0, 1, 0, 1, 1, 0}, new int[] {0, 2, 4, 7, 8});
+    }
+
+    @Test
+    public void testNullCollectionPositions()
+    {
+        // Collections of two elements with null collections at the given positions. The first null is past the 64th bit of the validity bitmap,
+        // so the earlier collections are marked valid in more than one word, and the later nulls are not set again.
+        int collections = 140;
+        int[] nullCollections = {70, 71, 130};
+        int[] definitionLevels = new int[collections * 2 - nullCollections.length];
+        int[] repetitionLevels = new int[definitionLevels.length];
+        int[] offsets = new int[collections + 1];
+        int index = 0;
+        for (int collection = 0; collection < collections; collection++) {
+            if (Arrays.binarySearch(nullCollections, collection) >= 0) {
+                definitionLevels[index] = 0;
+                repetitionLevels[index++] = 0;
+                offsets[collection + 1] = offsets[collection];
+                continue;
+            }
+            definitionLevels[index] = 3;
+            definitionLevels[index + 1] = 3;
+            repetitionLevels[index] = 0;
+            repetitionLevels[index + 1] = 1;
+            index += 2;
+            offsets[collection + 1] = offsets[collection] + 2;
+        }
+        assertOffsets(OPTIONAL_LIST, definitionLevels, repetitionLevels, offsets, nullCollections);
+    }
+
+    @Test
+    public void testFirstNullAfterValidityWordBoundary()
+    {
+        int[] definitionLevels = new int[68];
+        Arrays.fill(definitionLevels, 3);
+        definitionLevels[65] = 0;
+        definitionLevels[66] = 1;
+        BlockPositions positions = calculateCollectionOffsets(OPTIONAL_LIST, definitionLevels, new int[68]);
+        assertThat(positions.valueIsValid().orElseThrow()).containsExactly(-1L, 0b1101L);
+        assertThat(Arrays.copyOfRange(positions.offsets(), 65, 69)).containsExactly(65, 65, 65, 66);
     }
 
     @Test
@@ -122,13 +163,25 @@ public class TestListColumnReader
         }
     }
 
-    private static void assertOffsets(GroupField field, int[] definitionLevels, int[] repetitionLevels, int[] expectedOffsets, boolean expectNulls)
+    private static void assertOffsets(GroupField field, int[] definitionLevels, int[] repetitionLevels, int[] expectedOffsets, int... expectedNullCollections)
     {
         BlockPositions actual = calculateCollectionOffsets(field, definitionLevels, repetitionLevels);
         assertThat(actual.offsets()).isEqualTo(expectedOffsets);
-        assertThat(actual.valueIsValid().isPresent()).isEqualTo(expectNulls);
+        assertThat(nullCollections(actual)).containsExactly(expectedNullCollections);
         BlockPositions general = calculateAnyCollectionOffsets(field, definitionLevels, repetitionLevels);
         assertThat(actual.offsets()).isEqualTo(general.offsets());
+        assertThat(nullCollections(general)).containsExactly(expectedNullCollections);
+    }
+
+    private static int[] nullCollections(BlockPositions positions)
+    {
+        if (positions.valueIsValid().isEmpty()) {
+            return new int[0];
+        }
+        long[] valid = positions.valueIsValid().get();
+        return IntStream.range(0, positions.offsets().length - 1)
+                .filter(collection -> (valid[collection >> 6] & (1L << collection)) == 0)
+                .toArray();
     }
 
     private static GroupField listField(int repetitionLevel, int definitionLevel, boolean required)

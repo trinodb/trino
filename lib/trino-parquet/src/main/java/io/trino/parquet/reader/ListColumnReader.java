@@ -81,47 +81,40 @@ public final class ListColumnReader
             offset += fixedSize;
             offsets.add(offset);
         }
-        int firstIndex = fixedSizeCollections * fixedSize;
-        if (required) {
-            for (int i = firstIndex; i < definitionLevels.length; i = getNextCollectionStartIndex(repetitionLevels, maxElementRepetitionLevel, i)) {
-                if (definitionLevels[i] == maxDefinitionLevel) {
-                    // Collection is defined but empty
-                    offsets.add(offset);
+        int minimumDefinitionLevel = required ? maxDefinitionLevel : maxDefinitionLevel - 1;
+        long[] collectionIsValid = null;
+        int index = fixedSizeCollections * fixedSize;
+        while (index < definitionLevels.length) {
+            int definitionLevel = definitionLevels[index++];
+            int size = 1;
+            while (index < repetitionLevels.length && repetitionLevels[index] >= maxElementRepetitionLevel) {
+                // Higher repetition levels belong to an inner collection.
+                if (repetitionLevels[index] == maxElementRepetitionLevel) {
+                    size++;
                 }
-                else if (definitionLevels[i] > maxDefinitionLevel) {
-                    // Collection is defined and not empty
-                    offset += getCollectionSize(repetitionLevels, maxElementRepetitionLevel, i + 1);
-                    offsets.add(offset);
+                index++;
+            }
+            if (definitionLevel < minimumDefinitionLevel) {
+                // The parent is not defined, so there is no collection
+                continue;
+            }
+            int position = offsets.size() - 1;
+            if (!required && isOptionalFieldValueNull(definitionLevel, maxDefinitionLevel)) {
+                if (collectionIsValid == null) {
+                    // Earlier collections are valid, and later nulls need no write as the bits start clear
+                    collectionIsValid = new long[wordsForBits(definitionLevels.length)];
+                    setBits(collectionIsValid, 0, 0, position);
                 }
             }
-            return new BlockPositions(Optional.empty(), offsets.toIntArray());
-        }
-
-        long[] collectionIsValid = new long[wordsForBits(definitionLevels.length)];
-        int position = fixedSizeCollections;
-        setBits(collectionIsValid, 0, 0, position);
-        int nullValuesCount = 0;
-        for (int i = firstIndex; i < definitionLevels.length; i = getNextCollectionStartIndex(repetitionLevels, maxElementRepetitionLevel, i)) {
-            if (definitionLevels[i] >= maxDefinitionLevel - 1) {
-                boolean isNull = isOptionalFieldValueNull(definitionLevels[i], maxDefinitionLevel);
-                nullValuesCount += isNull ? 1 : 0;
-                if (!isNull) {
-                    set(collectionIsValid, 0, position);
-                }
-                position++;
-                // definitionLevels[i] == maxDefinitionLevel - 1 => Collection is null
-                // definitionLevels[i] == maxDefinitionLevel     => Collection is defined but empty
-                if (definitionLevels[i] > maxDefinitionLevel) {
-                    // Collection is defined and not empty
-                    offset += getCollectionSize(repetitionLevels, maxElementRepetitionLevel, i + 1);
-                }
-                offsets.add(offset);
+            else if (collectionIsValid != null) {
+                set(collectionIsValid, 0, position);
             }
+            if (definitionLevel > maxDefinitionLevel) {
+                offset += size;
+            }
+            offsets.add(offset);
         }
-        if (nullValuesCount == 0) {
-            return new BlockPositions(Optional.empty(), offsets.toIntArray());
-        }
-        return new BlockPositions(Optional.of(collectionIsValid), offsets.toIntArray());
+        return new BlockPositions(Optional.ofNullable(collectionIsValid), offsets.toIntArray());
     }
 
     /**
@@ -171,40 +164,4 @@ public final class ListColumnReader
     }
 
     public record BlockPositions(Optional<long[]> valueIsValid, int[] offsets) {}
-
-    private static int getNextCollectionStartIndex(int[] repetitionLevels, int maxRepetitionLevel, int elementIndex)
-    {
-        do {
-            elementIndex++;
-        }
-        while (hasMoreElements(repetitionLevels, elementIndex) && !isCollectionBeginningMarker(repetitionLevels, maxRepetitionLevel, elementIndex));
-        return elementIndex;
-    }
-
-    /**
-     * This method is only called for non-empty collections
-     */
-    private static int getCollectionSize(int[] repetitionLevels, int maxRepetitionLevel, int nextIndex)
-    {
-        int size = 1;
-        while (hasMoreElements(repetitionLevels, nextIndex) && !isCollectionBeginningMarker(repetitionLevels, maxRepetitionLevel, nextIndex)) {
-            // Collection elements cannot only be primitive, but also can have nested structure
-            // Counting only elements which belong to current collection, skipping inner elements of nested collections/structs
-            if (repetitionLevels[nextIndex] <= maxRepetitionLevel) {
-                size++;
-            }
-            nextIndex++;
-        }
-        return size;
-    }
-
-    private static boolean isCollectionBeginningMarker(int[] repetitionLevels, int maxRepetitionLevel, int nextIndex)
-    {
-        return repetitionLevels[nextIndex] < maxRepetitionLevel;
-    }
-
-    private static boolean hasMoreElements(int[] repetitionLevels, int nextIndex)
-    {
-        return nextIndex < repetitionLevels.length;
-    }
 }
