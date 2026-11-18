@@ -15,6 +15,7 @@ package io.trino.parquet;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.math.LongMath;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
@@ -57,6 +58,7 @@ import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
@@ -67,7 +69,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.log.Level.ERROR;
@@ -93,7 +94,9 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -159,19 +162,7 @@ public class TestTupleDomainParquetPredicate
             ColumnDescriptor nanColumn = new ColumnDescriptor(new String[] {"nan"}, Types.required(type.equals(DOUBLE) ? PrimitiveTypeName.DOUBLE : FLOAT).named("nan"), 0, 0);
             ColumnDescriptor otherColumn = new ColumnDescriptor(new String[] {"other"}, Types.required(INT64).named("other"), 0, 0);
             List<ColumnPath> requested = new ArrayList<>();
-            BloomFilterStore store = new BloomFilterStore(
-                    new TestingParquetDataSource(EMPTY_SLICE, ParquetReaderOptions.defaultOptions()),
-                    new BlockMetadata(0, 10, List.of()),
-                    Set.of(),
-                    Optional.empty())
-            {
-                @Override
-                public Optional<BloomFilter> getBloomFilter(ColumnPath columnPath)
-                {
-                    requested.add(columnPath);
-                    return Optional.of(new BlockSplitBloomFilter(1024));
-                }
-            };
+            BloomFilterStore store = recordingBloomFilterStore(requested);
             TupleDomainParquetPredicate predicate = new TupleDomainParquetPredicate(
                     withColumnDomains(ImmutableMap.of(nanColumn, domain)), List.of(nanColumn), UTC);
             assertThat(predicate.matches(store, 256)).isTrue();
@@ -183,6 +174,42 @@ public class TestTupleDomainParquetPredicate
             assertThat(predicate.matches(store, 256)).isFalse();
             assertThat(requested).containsExactly(ColumnPath.get(otherColumn.getPath()));
         }
+    }
+
+    @Test
+    public void testSkipBloomFilterForUnsupportedType()
+            throws Exception
+    {
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"column"}, Types.required(INT64).named("column"), 0, 0);
+        for (Domain domain : ImmutableList.of(
+                singleValue(TIMESTAMP_MICROS, 42L),
+                singleValue(TIME_MICROS, 42_000_000L),
+                singleValue(createDecimalType(10, 2), 42L),
+                singleValue(BOOLEAN, true))) {
+            List<ColumnPath> requested = new ArrayList<>();
+            TupleDomainParquetPredicate predicate = new TupleDomainParquetPredicate(
+                    withColumnDomains(ImmutableMap.of(column, domain)), ImmutableList.of(column), UTC);
+            assertThat(predicate.matches(recordingBloomFilterStore(requested), 256)).isTrue();
+            assertThat(requested).isEmpty();
+        }
+    }
+
+    private static BloomFilterStore recordingBloomFilterStore(List<ColumnPath> requested)
+            throws IOException
+    {
+        return new BloomFilterStore(
+                new TestingParquetDataSource(EMPTY_SLICE, ParquetReaderOptions.defaultOptions()),
+                new BlockMetadata(0, 10, ImmutableList.of()),
+                ImmutableSet.of(),
+                Optional.empty())
+        {
+            @Override
+            public Optional<BloomFilter> getBloomFilter(ColumnPath columnPath)
+            {
+                requested.add(columnPath);
+                return Optional.of(new BlockSplitBloomFilter(1024));
+            }
+        };
     }
 
     @Test
