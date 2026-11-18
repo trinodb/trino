@@ -25,13 +25,17 @@ import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.LongStream;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TestingIdType.ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -331,6 +335,106 @@ public class TestEquatableValueSet
         iterator.next();
         assertThatThrownBy(iterator::remove)
                 .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    public void testOwnedEntries()
+    {
+        Set<EquatableValueSet.ValueEntry> input = new LinkedHashSet<>();
+        input.add(EquatableValueSet.ValueEntry.create(ID, 1L));
+        input.add(EquatableValueSet.ValueEntry.create(ID, 2L));
+        EquatableValueSet values = new EquatableValueSet(ID, true, input);
+        EquatableValueSet complement = values.complement();
+        assertThat(complement.getEntries()).isSameAs(values.getEntries());
+        input.clear();
+        assertThat(values.getValues()).containsExactly(1L, 2L);
+        assertThat(complement.getValues()).containsExactly(1L, 2L);
+        for (ValueSet result : List.of(
+                complement,
+                values.union(EquatableValueSet.of(ID, 3L)),
+                values.intersect(EquatableValueSet.of(ID, 2L, 3L)),
+                values.union(List.of(EquatableValueSet.of(ID, 3L), EquatableValueSet.of(ID, 4L))))) {
+            assertThat(result).isInstanceOfSatisfying(
+                    EquatableValueSet.class,
+                    equatable -> assertThatThrownBy(() -> equatable.getEntries().clear()).isInstanceOf(UnsupportedOperationException.class));
+        }
+        assertThat(values.getValues()).containsExactly(1L, 2L);
+    }
+
+    @Test
+    public void testBatchedUnion()
+    {
+        List<EquatableValueSet> sets = new ArrayList<>();
+        for (int mask = 0; mask < 8; mask++) {
+            List<Long> values = new ArrayList<>();
+            for (int bit = 0; bit < 3; bit++) {
+                if ((mask & (1 << bit)) != 0) {
+                    values.add((long) bit);
+                }
+            }
+            EquatableValueSet set = EquatableValueSet.copyOf(ID, values);
+            sets.add(set);
+            sets.add(set.complement());
+        }
+        for (EquatableValueSet first : sets) {
+            for (EquatableValueSet second : sets) {
+                for (EquatableValueSet third : sets) {
+                    ValueSet result = first.union(List.of(second, third));
+                    assertThat(result).isEqualTo(first.union(second).union(third));
+                    for (long value = 0; value < 4; value++) {
+                        assertThat(result.containsValue(value))
+                                .isEqualTo(first.containsValue(value) || second.containsValue(value) || third.containsValue(value));
+                    }
+                }
+            }
+        }
+        assertThat(EquatableValueSet.of(ID, 3L, 1L)
+                .union(List.of(EquatableValueSet.of(ID, 2L, 1L), EquatableValueSet.of(ID, 4L, 2L)))
+                .getDiscreteValues().getValues()).containsExactly(3L, 1L, 2L, 4L);
+        assertThatThrownBy(() -> EquatableValueSet.all(ID).union(List.of(EquatableValueSet.none(ID), ValueSet.all(BIGINT))))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    public void testBatchedUnionCompactsExclusions()
+    {
+        // The exclusions shrink from 100 values to 1, which takes the compaction branch
+        EquatableValueSet excluded = EquatableValueSet.copyOf(ID, LongStream.range(0, 100).boxed().toList()).complement();
+        EquatableValueSet included = EquatableValueSet.copyOf(ID, LongStream.range(0, 99).boxed().toList());
+
+        ValueSet result = excluded.union(List.of(included, EquatableValueSet.none(ID)));
+
+        assertThat(result).isEqualTo(EquatableValueSet.of(ID, 99L).complement());
+        assertThat(result.containsValue(98L)).isTrue();
+        assertThat(result.containsValue(99L)).isFalse();
+        assertThat(excluded.union(List.of(included, EquatableValueSet.of(ID, 99L)))).isEqualTo(EquatableValueSet.all(ID));
+    }
+
+    @Test
+    public void testUnchangedResults()
+    {
+        EquatableValueSet values = EquatableValueSet.of(ID, 1L, 2L);
+        assertThat(values.union(values)).isSameAs(values);
+        assertThat(values.intersect(values)).isSameAs(values);
+        assertThat(values.union(EquatableValueSet.none(ID))).isSameAs(values);
+        assertThat(values.intersect(EquatableValueSet.all(ID))).isSameAs(values);
+        assertThat(values.union(List.of())).isSameAs(values);
+        assertThat(values.union(List.of(values, values))).isSameAs(values);
+        EquatableValueSet none = EquatableValueSet.none(ID);
+        EquatableValueSet all = EquatableValueSet.all(ID);
+        assertThat(none.union(values)).isSameAs(values);
+        assertThat(all.intersect(values)).isSameAs(values);
+        assertThat(all.union(values)).isSameAs(all);
+        assertThat(none.union(List.of(none, values))).isSameAs(values);
+        assertThat(none.union(List.of(values, values))).isSameAs(values);
+        assertThat(none.union(List.of(none, none))).isSameAs(none);
+        assertThat(values.union(List.of(none, all))).isSameAs(all);
+        EquatableValueSet excluded = EquatableValueSet.of(ID, 1L, 2L, 3L).complement();
+        EquatableValueSet smallestExcluded = EquatableValueSet.of(ID, 1L, 2L).complement();
+        assertThat(excluded.union(List.of(smallestExcluded, EquatableValueSet.of(ID, 5L)))).isSameAs(smallestExcluded);
+        assertThat(EquatableValueSet.of(ID, 1L).union(List.of(EquatableValueSet.of(ID, 1L), none))).isEqualTo(EquatableValueSet.of(ID, 1L));
+        assertThatThrownBy(() -> EquatableValueSet.all(ID).union(ValueSet.all(BIGINT))).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> EquatableValueSet.none(ID).intersect(ValueSet.none(BIGINT))).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
