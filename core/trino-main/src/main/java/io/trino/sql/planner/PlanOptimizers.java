@@ -43,6 +43,7 @@ import io.trino.sql.planner.iterative.rule.CreatePartialTopN;
 import io.trino.sql.planner.iterative.rule.DecorrelateInnerUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DecorrelateLeftUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DecorrelateUnnest;
+import io.trino.sql.planner.iterative.rule.DeduplicatePartialAggregations;
 import io.trino.sql.planner.iterative.rule.DesugarLambdaExpression;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
@@ -1029,7 +1030,8 @@ public class PlanOptimizers
                         .addAll(new PushPartialAggregationThroughExchange(plannerContext).rules())
                         .add(new PruneJoinColumns(),
                                 new PruneJoinChildrenColumns(),
-                                new RemoveRedundantIdentityProjections())
+                                new RemoveRedundantIdentityProjections(),
+                                new DeduplicatePartialAggregations())
                         .build()));
         builder.add(new UnaliasSymbolReferences()); // Resolve symbol renames added by pushing partial aggregations
         builder.add(new IterativeOptimizer(
