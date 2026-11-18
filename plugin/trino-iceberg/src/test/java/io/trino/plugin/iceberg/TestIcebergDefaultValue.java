@@ -371,6 +371,59 @@ final class TestIcebergDefaultValue
         }
     }
 
+    @Test
+    void testCreateTableWithRowFieldDefault()
+    {
+        try (TestTable table = newTrinoTable("test_row_field_default", "(id int, info ROW(name varchar, active boolean DEFAULT true, score integer DEFAULT 5))")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("active boolean DEFAULT true")
+                    .contains("score integer DEFAULT 5");
+
+            Types.StructType info = loadTable(table.getName()).schema().findField("info").type().asStructType();
+            assertThat(info.field("name").writeDefault()).isNull();
+            assertThat(info.field("active").initialDefault()).isEqualTo(true);
+            assertThat(info.field("active").writeDefault()).isEqualTo(true);
+            assertThat(info.field("score").initialDefault()).isEqualTo(5);
+        }
+    }
+
+    @Test
+    void testAddFieldWithDefault()
+    {
+        try (TestTable table = newTrinoTable("test_add_field_default", "(id int, info ROW(name varchar)) WITH (format_version = 3)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN info.active boolean DEFAULT true");
+
+            Types.NestedField active = loadTable(table.getName()).schema().findField("info.active");
+            assertThat(active.initialDefault()).isEqualTo(true);
+            assertThat(active.writeDefault()).isEqualTo(true);
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("active boolean DEFAULT true");
+        }
+    }
+
+    @Test
+    void testAddColumnWithRowFieldDefault()
+    {
+        try (TestTable table = newTrinoTable("test_add_row_column_default", "(id int) WITH (format_version = 3)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN info ROW(name varchar, score integer DEFAULT 5)");
+
+            assertThat(loadTable(table.getName()).schema().findField("info.score").initialDefault()).isEqualTo(5);
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("score integer DEFAULT 5");
+        }
+    }
+
+    @Test
+    void testUnsupportedRowFieldDefaultOnFormatVersion2()
+    {
+        assertQueryFails(
+                "CREATE TABLE test_unsupported_row_field_default(info ROW(a int DEFAULT 1)) WITH (format_version = 2)",
+                "Default column values are not supported for Iceberg table format version < 3");
+
+        try (TestTable table = newTrinoTable("test_unsupported_row_field_default", "(id int, info ROW(name varchar)) WITH (format_version = 2)")) {
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN info.active boolean DEFAULT true", "Default column values are not supported for Iceberg table format version < 3");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN extra ROW(a int DEFAULT 1)", "Default column values are not supported for Iceberg table format version < 3");
+        }
+    }
+
     private BaseTable loadTable(String tableName)
     {
         return IcebergTestUtils.loadTable(
