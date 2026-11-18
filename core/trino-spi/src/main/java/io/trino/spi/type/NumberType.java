@@ -161,11 +161,8 @@ public class NumberType
     @ScalarOperator(EQUAL)
     static boolean equalOperator(TrinoNumber left, TrinoNumber right)
     {
-        if (left.isNaN() || right.isNaN()) {
-            // NaN is not equal to any value, including itself
-            return false;
-        }
-        return left.bytes().equals(right.bytes());
+        // NaN is not equal to any value, including itself
+        return left.bytes().equals(right.bytes()) && !left.isNaN();
     }
 
     @ScalarOperator(IDENTICAL)
