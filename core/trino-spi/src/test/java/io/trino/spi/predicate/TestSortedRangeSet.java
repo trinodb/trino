@@ -1325,6 +1325,18 @@ public class TestSortedRangeSet
     }
 
     @Test
+    public void testExpandRangesBeyondLimit()
+    {
+        ValueSet twoRanges = ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 3L, true), Range.range(BIGINT, 10L, false, 13L, false));
+        assertThat(twoRanges.tryExpandRanges(5)).hasValue(List.of(1L, 2L, 3L, 11L, 12L));
+        assertThat(twoRanges.tryExpandRanges(4)).isEmpty();
+
+        assertThat(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 1L << 40, true)).tryExpandRanges(Integer.MAX_VALUE)).isEmpty();
+        assertThat(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, Long.MAX_VALUE, true)).tryExpandRanges(10)).isEmpty();
+        assertThat(ValueSet.all(BIGINT).tryExpandRanges(10)).isEmpty();
+    }
+
+    @Test
     public void testRangeSetHashcode()
     {
         assertThat(ValueSet.ofRanges(Range.lessThan(INTEGER, 0L)).hashCode()).isNotEqualTo(ValueSet.ofRanges(Range.greaterThan(INTEGER, 0L)).hashCode());
