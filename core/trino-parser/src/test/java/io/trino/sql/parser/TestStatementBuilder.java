@@ -145,6 +145,8 @@ public class TestStatementBuilder
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on not(a.id > b.id)");
 
+        printStatement("create table foo (a row(x bigint default 1, y varchar default 'b'))");
+        printStatement("alter table foo add column a row(x bigint default 1, y varchar)");
         printStatement("create table foo as (select * from abc)");
         printStatement("create table if not exists foo as (select * from abc)");
         printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");
