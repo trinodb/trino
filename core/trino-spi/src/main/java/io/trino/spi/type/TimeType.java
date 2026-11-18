@@ -26,6 +26,8 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 import java.util.Optional;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
@@ -140,6 +142,19 @@ public final class TimeType
             return Optional.empty();
         }
         return Optional.of(value + step);
+    }
+
+    @Override
+    public Optional<Stream<?>> getDiscreteValues(Range range)
+    {
+        long min = (long) range.getMin();
+        long max = (long) range.getMax();
+        if (min % step != 0 || max % step != 0) {
+            return Optional.empty();
+        }
+        return Optional.of(LongStream.rangeClosed(min / step, max / step)
+                .map(value -> value * step)
+                .boxed());
     }
 
     @ScalarOperator(READ_VALUE)

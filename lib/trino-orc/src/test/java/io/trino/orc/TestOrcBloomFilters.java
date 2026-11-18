@@ -383,6 +383,39 @@ public class TestOrcBloomFilters
     }
 
     @Test
+    public void testMatchesExpandedTimestampRange()
+    {
+        TupleDomainOrcPredicate predicate = rangePredicate(Range.range(TIMESTAMP_MILLIS, 1_233_000L, true, 1_235_000L, true), 100);
+        assertThat(predicate.matches(1L, bloomFilterStatistics(1234L))).isTrue();
+        assertThat(predicate.matches(1L, bloomFilterStatistics(9876L))).isFalse();
+    }
+
+    @Test
+    public void testMatchesExpandedUnalignedTimestampRange()
+    {
+        TupleDomainOrcPredicate predicate = rangePredicate(Range.range(TIMESTAMP_MICROS, 1_233_001L, true, 1_233_999L, true), 1000);
+        assertThat(predicate.matches(1L, bloomFilterStatistics(1233L))).isTrue();
+        assertThat(predicate.matches(1L, bloomFilterStatistics(1232L))).isFalse();
+        assertThat(predicate.matches(1L, bloomFilterStatistics(1234L))).isFalse();
+    }
+
+    @Test
+    public void testMatchesTimestampRangeAboveThreshold()
+    {
+        Range range = Range.range(TIMESTAMP_MICROS, 1_233_000L, true, 1_235_000L, true);
+        assertThat(rangePredicate(range, 1000).matches(1L, bloomFilterStatistics(9876L))).isTrue();
+        assertThat(rangePredicate(range, 3000).matches(1L, bloomFilterStatistics(9876L))).isFalse();
+    }
+
+    @Test
+    public void testMatchesExpandedDateRange()
+    {
+        TupleDomainOrcPredicate predicate = rangePredicate(Range.range(DATE, 100L, true, 102L, true), 100);
+        assertThat(predicate.matches(1L, bloomFilterStatistics(101L))).isTrue();
+        assertThat(predicate.matches(1L, bloomFilterStatistics(200L))).isFalse();
+    }
+
+    @Test
     public void testMatchesNonExpandedRange()
     {
         ColumnMetadata<ColumnStatistics> matchingStatisticsByColumnIndex = new ColumnMetadata<>(ImmutableList.of(new ColumnStatistics(
@@ -508,6 +541,15 @@ public class TestOrcBloomFilters
                 assertThat(BloomFilter.OrcMurmur3.hash64(bytes)).isEqualTo(Murmur3.hash64(bytes));
             }
         }
+    }
+
+    private static TupleDomainOrcPredicate rangePredicate(Range range, int domainCompactionThreshold)
+    {
+        return TupleDomainOrcPredicate.builder()
+                .setBloomFiltersEnabled(true)
+                .addColumn(ROOT_COLUMN, Domain.create(ValueSet.ofRanges(range), false))
+                .setDomainCompactionThreshold(domainCompactionThreshold)
+                .build();
     }
 
     private static ColumnMetadata<ColumnStatistics> bloomFilterStatistics(long bloomFilterValue)
