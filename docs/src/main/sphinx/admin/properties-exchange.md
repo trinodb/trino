@@ -38,12 +38,19 @@ network utilization.
 ## `exchange.compression-codec`
 
 - **Type:** {ref}`prop-type-string`
-- **Allowed values:** `NONE`, `LZ4`, `ZSTD`
+- **Allowed values:** `NONE`, `LZ4`, `ZSTD`, `ZSTD_STREAMING`
 - **Default value:** `NONE`
 
 The compression codec to use for [](file-compression) when exchanging data
 between nodes and the exchange storage with [](/admin/fault-tolerant-execution)
 mode.
+
+`ZSTD_STREAMING` is an experimental format that compresses each page as one Zstd
+frame, instead of independently compressing fixed-size blocks. It uses native
+streams when available and otherwise falls back to Java. Every page is compressed,
+including incompressible data. It can also be selected
+with `SET SESSION exchange_compression_codec = 'ZSTD_STREAMING'`. All participating
+nodes must support this format. Existing codecs and defaults are unchanged.
 
 ## `exchange.data-integrity-verification`
 

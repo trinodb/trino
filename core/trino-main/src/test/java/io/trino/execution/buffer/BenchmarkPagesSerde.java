@@ -102,7 +102,7 @@ public class BenchmarkPagesSerde
         private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
         @Param({"true", "false"})
         private boolean encrypted;
-        @Param({"LZ4", "NONE"})
+        @Param({"LZ4", "NONE", "ZSTD", "ZSTD_STREAMING"})
         private CompressionCodec compressionCodec = NONE;
         @Param("1000")
         private int randomSeed = 1000;
