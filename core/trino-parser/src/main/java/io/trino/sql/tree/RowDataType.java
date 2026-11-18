@@ -73,13 +73,20 @@ public final class RowDataType
     {
         private final Optional<Identifier> name;
         private final DataType type;
+        private final Optional<Expression> defaultValue;
 
         public Field(NodeLocation location, Optional<Identifier> name, DataType type)
+        {
+            this(location, name, type, Optional.empty());
+        }
+
+        public Field(NodeLocation location, Optional<Identifier> name, DataType type, Optional<Expression> defaultValue)
         {
             super(location);
 
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
+            this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
         }
 
         @Deprecated
@@ -89,6 +96,7 @@ public final class RowDataType
 
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
+            this.defaultValue = Optional.empty();
         }
 
         public Optional<Identifier> getName()
@@ -101,12 +109,18 @@ public final class RowDataType
             return type;
         }
 
+        public Optional<Expression> getDefaultValue()
+        {
+            return defaultValue;
+        }
+
         @Override
         public List<? extends Node> getChildren()
         {
             ImmutableList.Builder<Node> children = ImmutableList.builder();
             name.ifPresent(children::add);
             children.add(type);
+            defaultValue.ifPresent(children::add);
 
             return children.build();
         }
@@ -120,6 +134,7 @@ public final class RowDataType
                 builder.append(" ");
             }
             builder.append(type);
+            defaultValue.ifPresent(value -> builder.append(" DEFAULT ").append(value));
 
             return builder.toString();
         }
@@ -135,13 +150,14 @@ public final class RowDataType
             }
             Field field = (Field) o;
             return name.equals(field.name) &&
-                    type.equals(field.type);
+                    type.equals(field.type) &&
+                    defaultValue.equals(field.defaultValue);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(name, type);
+            return Objects.hash(name, type, defaultValue);
         }
 
         @Override
