@@ -36,6 +36,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.StringJoiner;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -1728,7 +1730,20 @@ public final class SortedRangeSet
             if (discreteValues.isEmpty()) {
                 return Optional.empty();
             }
-            Iterator<?> iterator = discreteValues.get().iterator();
+            Spliterator<?> spliterator = discreteValues.get().spliterator();
+            long valueCount = spliterator.getExactSizeIfKnown();
+            if (valueCount >= 0) {
+                if (!range.isLowInclusive()) {
+                    valueCount--;
+                }
+                if (!range.isHighInclusive()) {
+                    valueCount--;
+                }
+                if (valueCount > valuesLimit - result.size()) {
+                    return Optional.empty();
+                }
+            }
+            Iterator<?> iterator = Spliterators.iterator(spliterator);
             checkState(iterator.hasNext(), "discreteValues iterator is empty");
             if (!range.isLowInclusive()) {
                 iterator.next();
