@@ -42,7 +42,6 @@ public final class FloatingPointValueSet
         implements ValueSet
 {
     private static final int INSTANCE_SIZE = instanceSize(FloatingPointValueSet.class);
-    private static final int OPTIONAL_INSTANCE_SIZE = instanceSize(Optional.class);
     private static final SortedRangeSet ALL_ORDERED_DOUBLE_VALUES = SortedRangeSet.of(Range.range(DOUBLE, Double.NEGATIVE_INFINITY, true, Double.POSITIVE_INFINITY, true));
     private static final SortedRangeSet ALL_ORDERED_REAL_VALUES = SortedRangeSet.of(Range.range(
             REAL,
@@ -60,20 +59,24 @@ public final class FloatingPointValueSet
     private final SortedRangeSet orderedValues;
     private final boolean nanAllowed;
     private final boolean allOrderedValues;
-    private final Optional<SortedRangeSet> ranges;
+    private volatile Optional<SortedRangeSet> ranges;
 
     @JsonCreator
     public FloatingPointValueSet(@JsonProperty("orderedValues") SortedRangeSet orderedValues, @JsonProperty("nanAllowed") boolean nanAllowed)
+    {
+        this(orderedValues, nanAllowed, false);
+    }
+
+    private FloatingPointValueSet(SortedRangeSet orderedValues, boolean nanAllowed, boolean normalized)
     {
         requireNonNull(orderedValues, "orderedValues is null");
         if (!typeHasNaN(orderedValues.getType())) {
             throw new IllegalArgumentException("Type does not support NaN: " + orderedValues.getType());
         }
         SortedRangeSet orderedUniverse = allOrderedValues(orderedValues.getType());
-        this.orderedValues = orderedValues.intersect(orderedUniverse);
+        this.orderedValues = normalized ? orderedValues : orderedValues.intersect(orderedUniverse);
         this.nanAllowed = nanAllowed;
         this.allOrderedValues = this.orderedValues.equals(orderedUniverse);
-        this.ranges = createRanges(orderedUniverse.getSpan());
     }
 
     /// Preserves the membership of the range representation: only its all-values set includes NaN.
@@ -95,7 +98,7 @@ public final class FloatingPointValueSet
                 ordered.add(value);
             }
         }
-        return new FloatingPointValueSet(SortedRangeSet.of(type, ordered), nan);
+        return new FloatingPointValueSet(SortedRangeSet.of(type, ordered), nan, true);
     }
 
     @Override
@@ -163,13 +166,12 @@ public final class FloatingPointValueSet
         if (!isDiscreteSet()) {
             throw new IllegalStateException("Set is not discrete");
         }
-        List<Object> values = new ArrayList<>();
-        if (!orderedValues.isNone()) {
-            values.addAll(orderedValues.getDiscreteSet());
+        if (!nanAllowed) {
+            return orderedValues.getDiscreteSet();
         }
-        if (nanAllowed) {
-            values.add(nanValue(getType()));
-        }
+        List<Object> values = new ArrayList<>(orderedValues.getRangeCount() + 1);
+        values.addAll(orderedValues.getDiscreteSet());
+        values.add(nanValue(getType()));
         return List.copyOf(values);
     }
 
@@ -184,10 +186,15 @@ public final class FloatingPointValueSet
     /// NaN have no such representation; use the floating-point [ValuesProcessor] callback.
     public Optional<SortedRangeSet> asRanges()
     {
-        return ranges;
+        Optional<SortedRangeSet> result = ranges;
+        if (result == null) {
+            result = createRanges();
+            ranges = result;
+        }
+        return result;
     }
 
-    private Optional<SortedRangeSet> createRanges(Range full)
+    private Optional<SortedRangeSet> createRanges()
     {
         if (isAll()) {
             return Optional.of(SortedRangeSet.all(getType()));
@@ -199,6 +206,7 @@ public final class FloatingPointValueSet
             return Optional.of(orderedValues);
         }
         Range span = orderedValues.getSpan();
+        Range full = allOrderedValues(getType()).getSpan();
         Range minimum = Range.equal(getType(), full.getLowBoundedValue());
         Range maximum = Range.equal(getType(), full.getHighBoundedValue());
         if (!span.contains(minimum) && !span.contains(maximum)) {
@@ -290,14 +298,26 @@ public final class FloatingPointValueSet
     public FloatingPointValueSet intersect(ValueSet other)
     {
         FloatingPointValueSet that = compatible(other);
-        return new FloatingPointValueSet(orderedValues.intersect(that.orderedValues), nanAllowed && that.nanAllowed);
+        if (this == that || that.isAll() || isNone()) {
+            return this;
+        }
+        if (isAll() || that.isNone()) {
+            return that;
+        }
+        return withOrderedValues(orderedValues.intersect(that.orderedValues), nanAllowed && that.nanAllowed);
     }
 
     @Override
     public FloatingPointValueSet union(ValueSet other)
     {
         FloatingPointValueSet that = compatible(other);
-        return new FloatingPointValueSet(orderedValues.union(that.orderedValues), nanAllowed || that.nanAllowed);
+        if (this == that || that.isNone() || isAll()) {
+            return this;
+        }
+        if (isNone() || that.isAll()) {
+            return that;
+        }
+        return withOrderedValues(orderedValues.union(that.orderedValues), nanAllowed || that.nanAllowed);
     }
 
     @Override
@@ -310,7 +330,15 @@ public final class FloatingPointValueSet
             ranges.add(other.orderedValues);
             includeNaN |= other.nanAllowed;
         }
-        return new FloatingPointValueSet(orderedValues.unionRanges(ranges), includeNaN);
+        return withOrderedValues(orderedValues.unionRanges(ranges), includeNaN);
+    }
+
+    private FloatingPointValueSet withOrderedValues(SortedRangeSet result, boolean includeNaN)
+    {
+        if (result == orderedValues && includeNaN == nanAllowed) {
+            return this;
+        }
+        return new FloatingPointValueSet(result, includeNaN, true);
     }
 
     @Override
@@ -331,7 +359,7 @@ public final class FloatingPointValueSet
         if (isNone()) {
             return Optional.of(List.of());
         }
-        if (isDiscreteSet() && getDiscreteSet().size() <= valuesLimit) {
+        if (isDiscreteSet() && (long) orderedValues.getRangeCount() + (nanAllowed ? 1 : 0) <= valuesLimit) {
             return Optional.of(getDiscreteSet());
         }
         return Optional.empty();
@@ -340,11 +368,9 @@ public final class FloatingPointValueSet
     @Override
     public long getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE + OPTIONAL_INSTANCE_SIZE + orderedValues.getRetainedSizeInBytes();
-        if (ranges.isPresent() && ranges.get() != orderedValues) {
-            size += ranges.get().getRetainedSizeInBytes();
-        }
-        return size;
+        // The lazily created legacy range view is deliberately not counted: the size must not change
+        // after construction, because callers subtract a recomputed size from the one they added
+        return INSTANCE_SIZE + orderedValues.getRetainedSizeInBytes();
     }
 
     @Override
@@ -396,7 +422,7 @@ public final class FloatingPointValueSet
         if (floatingPoint.allOrderedValues) {
             return List.of();
         }
-        return new FloatingPointValueSet(floatingPoint.orderedValues, false).getRanges().getOrderedRanges();
+        return floatingPoint.withOrderedValues(floatingPoint.orderedValues, false).getRanges().getOrderedRanges();
     }
 
     /// Returns the ranges of `values`, keeping inclusive infinity bounds on a floating-point set
