@@ -92,14 +92,24 @@ public class TestDoubleType
     @Test
     public void testPreviousValue()
     {
-        assertThat(type.getPreviousValue(getSampleValue()))
-                .isEmpty();
+        assertThat(type.getPreviousValue(1.0)).contains(Math.nextDown(1.0));
+        assertThat(type.getPreviousValue(0.0)).contains(-Double.MIN_VALUE);
+        assertThat(type.getPreviousValue(-0.0)).contains(-Double.MIN_VALUE);
+        assertThat(type.getPreviousValue(Double.MIN_VALUE)).contains(0.0);
+        assertThat(type.getPreviousValue(Double.POSITIVE_INFINITY)).contains(Double.MAX_VALUE);
+        assertThat(type.getPreviousValue(Double.NEGATIVE_INFINITY)).isEmpty();
+        assertThat(type.getPreviousValue(Double.NaN)).isEmpty();
     }
 
     @Test
     public void testNextValue()
     {
-        assertThat(type.getNextValue(getSampleValue()))
-                .isEmpty();
+        assertThat(type.getNextValue(1.0)).contains(Math.nextUp(1.0));
+        assertThat(type.getNextValue(0.0)).contains(Double.MIN_VALUE);
+        assertThat(type.getNextValue(-0.0)).contains(Double.MIN_VALUE);
+        assertThat(type.getNextValue(-Double.MIN_VALUE)).contains(0.0);
+        assertThat(type.getNextValue(Double.NEGATIVE_INFINITY)).contains(-Double.MAX_VALUE);
+        assertThat(type.getNextValue(Double.POSITIVE_INFINITY)).isEmpty();
+        assertThat(type.getNextValue(Double.NaN)).isEmpty();
     }
 }
