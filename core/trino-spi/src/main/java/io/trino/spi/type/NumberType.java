@@ -193,7 +193,7 @@ public class NumberType
     @Override
     public int getFlatVariableWidthLength(byte[] fixedSizeSlice, int fixedSizeOffset)
     {
-        return fixedSizeSlice[fixedSizeOffset] & 0xFF;
+        return readFlatLength(fixedSizeSlice, fixedSizeOffset);
     }
 
     @ScalarOperator(READ_VALUE)
@@ -203,7 +203,7 @@ public class NumberType
             @FlatVariableWidth byte[] variableSizeSlice,
             @FlatVariableOffset int variableSizeOffset)
     {
-        int length = fixedSizeSlice[fixedSizeOffset] & 0xFF;
+        int length = readFlatLength(fixedSizeSlice, fixedSizeOffset);
         return new TrinoNumber(wrappedBuffer(variableSizeSlice, variableSizeOffset, length));
     }
 
@@ -215,7 +215,7 @@ public class NumberType
             @FlatVariableOffset int variableSizeOffset,
             BlockBuilder blockBuilder)
     {
-        int length = fixedSizeSlice[fixedSizeOffset] & 0xFF;
+        int length = readFlatLength(fixedSizeSlice, fixedSizeOffset);
         ((VariableWidthBlockBuilder) blockBuilder).writeEntry(variableSizeSlice, variableSizeOffset, length);
     }
 
@@ -296,4 +296,9 @@ public class NumberType
     }
 
     // TODO LESS_THAN_OR_EQUAL with block, position, block, position ?
+
+    private static int readFlatLength(byte[] fixedSizeSlice, int fixedSizeOffset)
+    {
+        return fixedSizeSlice[fixedSizeOffset] & 0xFF;
+    }
 }
