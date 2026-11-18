@@ -31,6 +31,8 @@ import io.trino.orc.metadata.statistics.Utf8BloomFilterBuilder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
 import org.apache.orc.OrcProto;
@@ -50,12 +52,19 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.orc.TupleDomainOrcPredicate.checkInBloomFilter;
 import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -79,7 +88,7 @@ public class TestOrcBloomFilters
             .put(789, SMALLINT)
             .put(77, TINYINT)
             .put(901, DATE)
-            .put(987654L, TIMESTAMP_MILLIS)
+            .put(987_654_000L, TIMESTAMP_MILLIS)
             .put(234.567, DOUBLE)
             .put((long) floatToIntBits(987.654f), REAL)
             .buildOrThrow();
@@ -175,6 +184,10 @@ public class TestOrcBloomFilters
                 if (testValue.getValue() instanceof RealType) {
                     bloomFilter.addDouble(intBitsToFloat(longValue.intValue()));
                 }
+                else if (testValue.getValue() == TIMESTAMP_MILLIS) {
+                    // the bloom filter holds epoch millis of the epoch micros test value
+                    bloomFilter.addLong(987_654L);
+                }
                 else {
                     bloomFilter.addLong(longValue);
                 }
@@ -221,6 +234,45 @@ public class TestOrcBloomFilters
                     .describedAs("type " + testValue.getKey().getClass())
                     .isFalse();
         }
+    }
+
+    @Test
+    public void testTimestampRoundedUpToNextMillisecond()
+    {
+        // A file value of 987654.999 ms is stored as 987654 ms and read as 987655 ms
+        BloomFilter bloomFilter = new BloomFilter(100, 0.01);
+        bloomFilter.addLong(987_654L);
+
+        assertThat(checkInBloomFilter(bloomFilter, 987_655_000L, TIMESTAMP_MILLIS)).isTrue();
+        assertThat(checkInBloomFilter(bloomFilter, 987_656_000L, TIMESTAMP_MILLIS)).isFalse();
+        assertThat(checkInBloomFilter(bloomFilter, 987_655_000L, TIMESTAMP_MICROS)).isTrue();
+        assertThat(checkInBloomFilter(bloomFilter, 987_655_001L, TIMESTAMP_MICROS)).isFalse();
+        assertThat(checkInBloomFilter(bloomFilter, packDateTimeWithZone(987_655L, UTC_KEY), TIMESTAMP_TZ_MILLIS)).isTrue();
+        assertThat(checkInBloomFilter(bloomFilter, packDateTimeWithZone(987_656L, UTC_KEY), TIMESTAMP_TZ_MILLIS)).isFalse();
+        assertThat(checkInBloomFilter(bloomFilter, LongTimestampWithTimeZone.fromEpochMillisAndFraction(987_655L, 0, UTC_KEY), TIMESTAMP_TZ_MICROS)).isTrue();
+        assertThat(checkInBloomFilter(bloomFilter, LongTimestampWithTimeZone.fromEpochMillisAndFraction(987_655L, 1_000_000, UTC_KEY), TIMESTAMP_TZ_MICROS)).isFalse();
+        assertThat(checkInBloomFilter(bloomFilter, new LongTimestamp(987_654_999L, 999_000), TIMESTAMP_NANOS)).isTrue();
+        assertThat(checkInBloomFilter(bloomFilter, new LongTimestamp(987_655_000L, 0), TIMESTAMP_NANOS)).isFalse();
+        assertThat(checkInBloomFilter(bloomFilter, LongTimestampWithTimeZone.fromEpochMillisAndFraction(987_654L, 999_999_000, UTC_KEY), TIMESTAMP_TZ_NANOS)).isTrue();
+        assertThat(checkInBloomFilter(bloomFilter, LongTimestampWithTimeZone.fromEpochMillisAndFraction(987_655L, 0, UTC_KEY), TIMESTAMP_TZ_NANOS)).isFalse();
+    }
+
+    @Test
+    public void testPreEpochTimestamp()
+    {
+        // A file value of -1.5 ms is stored as -2 ms and read as -1 ms
+        BloomFilter bloomFilter = new BloomFilter(100, 0.01);
+        bloomFilter.addLong(-2L);
+
+        assertThat(checkInBloomFilter(bloomFilter, -1_000L, TIMESTAMP_MILLIS)).isTrue();
+        assertThat(checkInBloomFilter(bloomFilter, 0L, TIMESTAMP_MILLIS)).isFalse();
+        assertThat(checkInBloomFilter(bloomFilter, -1_000L, TIMESTAMP_MICROS)).isTrue();
+        assertThat(checkInBloomFilter(bloomFilter, -1_001L, TIMESTAMP_MICROS)).isTrue();
+        assertThat(checkInBloomFilter(bloomFilter, -999L, TIMESTAMP_MICROS)).isFalse();
+        assertThat(checkInBloomFilter(bloomFilter, new LongTimestamp(-1_001L, 0), TIMESTAMP_NANOS)).isTrue();
+        assertThat(checkInBloomFilter(bloomFilter, new LongTimestamp(-1_000L, 0), TIMESTAMP_NANOS)).isFalse();
+        assertThat(checkInBloomFilter(bloomFilter, LongTimestampWithTimeZone.fromEpochMillisAndFraction(-2L, 999_999_000, UTC_KEY), TIMESTAMP_TZ_NANOS)).isTrue();
+        assertThat(checkInBloomFilter(bloomFilter, LongTimestampWithTimeZone.fromEpochMillisAndFraction(-1L, 0, UTC_KEY), TIMESTAMP_TZ_NANOS)).isFalse();
     }
 
     @Test
