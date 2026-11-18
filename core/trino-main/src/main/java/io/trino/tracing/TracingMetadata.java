@@ -543,11 +543,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, Optional<String> defaultValue, boolean ignoreExisting)
     {
         Span span = startSpan("addField", tableHandle);
         try (var _ = scopedSpan(span)) {
-            delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+            delegate.addField(session, tableHandle, parentPath, fieldName, type, defaultValue, ignoreExisting);
         }
     }
 

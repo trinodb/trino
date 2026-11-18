@@ -41,6 +41,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TableElement;
@@ -349,6 +350,57 @@ class TestCreateTableTask
                     getFutureValue(createTableTask.internalExecute(statement, transactionSession, ImmutableList.of(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(NOT_SUPPORTED)
                     .hasMessage("line 1:1: Catalog 'other_catalog' does not support default value for column name 'b'");
+            return null;
+        });
+    }
+
+    private static RowDataType rowWithFieldDefault()
+    {
+        return new RowDataType(
+                new NodeLocation(1, 1),
+                ImmutableList.of(
+                        new RowDataType.Field(new NodeLocation(1, 1), Optional.of(new Identifier("a")), toSqlType(DATE)),
+                        new RowDataType.Field(
+                                new NodeLocation(1, 1),
+                                Optional.of(new Identifier("b")),
+                                toSqlType(VARCHAR),
+                                Optional.of(new StringLiteral(new NodeLocation(1, 1), "x")))));
+    }
+
+    @Test
+    void testCreateWithFieldDefault()
+    {
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("info"), rowWithFieldDefault(), Optional.empty(), true, ImmutableList.of(), Optional.empty()));
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_field_default"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, ImmutableList.of(), _ -> {}, WarningCollector.NOOP));
+            ColumnMetadata column = metadata.getReceivedTableMetadata().getFirst().getColumns().getFirst();
+            assertThat(column.getDefaultValue()).isEmpty();
+            assertThat(column.getFieldDefaults()).isEqualTo(ImmutableMap.of(ImmutableList.of("b"), "'x'"));
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateWithUnsupportedFieldDefault()
+    {
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("info"), rowWithFieldDefault(), Optional.empty(), true, ImmutableList.of(), Optional.empty()));
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table_unsupported_field_default"),
+                inputColumns,
+                IGNORE,
+                ImmutableList.of(),
+                Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() ->
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, ImmutableList.of(), _ -> {}, WarningCollector.NOOP)))
+                    .hasErrorCode(NOT_SUPPORTED)
+                    .hasMessage("line 1:1: Catalog 'other_catalog' does not support default value for fields of column name 'info'");
             return null;
         });
     }

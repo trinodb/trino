@@ -99,6 +99,15 @@ public final class RowDataType
             this.defaultValue = Optional.empty();
         }
 
+        public Field(Optional<NodeLocation> location, Optional<Identifier> name, DataType type, Optional<Expression> defaultValue)
+        {
+            super(location);
+
+            this.name = requireNonNull(name, "name is null");
+            this.type = requireNonNull(type, "type is null");
+            this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
+        }
+
         public Optional<Identifier> getName()
         {
             return name;

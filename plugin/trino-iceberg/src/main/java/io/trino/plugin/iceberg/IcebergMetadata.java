@@ -3093,8 +3093,11 @@ public class IcebergMetadata
     }
 
     @Override
-    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, io.trino.spi.type.Type type, boolean ignoreExisting)
+    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, io.trino.spi.type.Type type, Optional<String> defaultValue, boolean ignoreExisting)
     {
+        if (defaultValue.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "Default values for fields are not supported");
+        }
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
         NestedField parent = icebergTable.schema().caseInsensitiveFindField(String.join(".", parentPath));
         String caseSensitiveParentName = icebergTable.schema().findColumnName(parent.fieldId());
