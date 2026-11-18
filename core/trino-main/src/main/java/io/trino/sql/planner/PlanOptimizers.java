@@ -222,6 +222,7 @@ import io.trino.sql.planner.iterative.rule.ReplaceDecimalSumAndAvgWithSumAndCoun
 import io.trino.sql.planner.iterative.rule.ReplaceJoinOverConstantWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithSource;
+import io.trino.sql.planner.iterative.rule.ReplaceStddevWithSqrtOfVariance;
 import io.trino.sql.planner.iterative.rule.ReplaceWindowWithRowNumber;
 import io.trino.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjection;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
@@ -843,6 +844,7 @@ public class PlanOptimizers
                         .add(new PushFilterIntoValues(plannerContext))
                         .add(new ReplaceJoinOverConstantWithProject())
                         .add(new ReplaceDecimalSumAndAvgWithSumAndCount(plannerContext)) // must run after unreferenced columns are pruned
+                        .add(new ReplaceStddevWithSqrtOfVariance(metadata)) // must run after unreferenced columns are pruned and symbols are unaliased
                         .build()));
 
         builder.add(new IterativeOptimizer(
