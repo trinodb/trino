@@ -17,6 +17,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -33,6 +34,7 @@ public class ColumnMetadata
     private final Type type;
     private final Optional<TimeZoneKey> timeZone;
     private final Optional<String> defaultValue;
+    private final Map<List<String>, String> fieldDefaults;
     private final boolean nullable;
     private final Optional<String> comment;
     private final Optional<String> extraInfo;
@@ -41,7 +43,7 @@ public class ColumnMetadata
 
     public ColumnMetadata(String name, Type type)
     {
-        this(name, type, Optional.empty(), Optional.empty(), true, Optional.empty(), Optional.empty(), false, Map.of());
+        this(name, type, Optional.empty(), Optional.empty(), Map.of(), true, Optional.empty(), Optional.empty(), false, Map.of());
     }
 
     // VisibleForTesting
@@ -50,6 +52,7 @@ public class ColumnMetadata
             Type type,
             Optional<TimeZoneKey> timeZone,
             Optional<String> defaultValue,
+            Map<List<String>, String> fieldDefaults,
             boolean nullable,
             Optional<String> comment,
             Optional<String> extraInfo,
@@ -63,6 +66,7 @@ public class ColumnMetadata
             throw new IllegalArgumentException("timeZone is set for column %s of type %s, which contains no timestamp with time zone".formatted(name, type));
         }
         requireNonNull(defaultValue, "defaultValue is null");
+        requireNonNull(fieldDefaults, "fieldDefaults is null");
         requireNonNull(comment, "comment is null");
         requireNonNull(extraInfo, "extraInfo is null");
         requireNonNull(properties, "properties is null");
@@ -71,6 +75,7 @@ public class ColumnMetadata
         this.type = type;
         this.timeZone = timeZone;
         this.defaultValue = defaultValue;
+        this.fieldDefaults = fieldDefaults.isEmpty() ? Map.of() : unmodifiableMap(new LinkedHashMap<>(fieldDefaults));
         this.comment = comment;
         this.extraInfo = extraInfo;
         this.hidden = hidden;
@@ -98,6 +103,13 @@ public class ColumnMetadata
     public Optional<String> getDefaultValue()
     {
         return defaultValue;
+    }
+
+    /// Default values of fields nested in a `row` column, keyed by the path of the field within the column.
+    /// Each value is a SQL literal, in the same format as [#getDefaultValue()].
+    public Map<List<String>, String> getFieldDefaults()
+    {
+        return fieldDefaults;
     }
 
     public boolean isNullable()
@@ -195,6 +207,7 @@ public class ColumnMetadata
         private Type type;
         private Optional<TimeZoneKey> timeZone = Optional.empty();
         private Optional<String> defaultValue = Optional.empty();
+        private Map<List<String>, String> fieldDefaults = Map.of();
         private boolean nullable = true;
         private Optional<String> comment = Optional.empty();
         private Optional<String> extraInfo = Optional.empty();
@@ -209,6 +222,7 @@ public class ColumnMetadata
             this.type = columnMetadata.getType();
             this.timeZone = columnMetadata.getTimeZone();
             this.defaultValue = columnMetadata.getDefaultValue();
+            this.fieldDefaults = columnMetadata.getFieldDefaults();
             this.nullable = columnMetadata.isNullable();
             this.comment = columnMetadata.getComment();
             this.extraInfo = columnMetadata.getExtraInfo();
@@ -237,6 +251,12 @@ public class ColumnMetadata
         public Builder setDefaultValue(Optional<String> defaultValue)
         {
             this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
+            return this;
+        }
+
+        public Builder setFieldDefaults(Map<List<String>, String> fieldDefaults)
+        {
+            this.fieldDefaults = requireNonNull(fieldDefaults, "fieldDefaults is null");
             return this;
         }
 
@@ -277,6 +297,7 @@ public class ColumnMetadata
                     type,
                     timeZone,
                     defaultValue,
+                    fieldDefaults,
                     nullable,
                     comment,
                     extraInfo,

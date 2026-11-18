@@ -463,9 +463,9 @@ public class LakehouseMetadata
     }
 
     @Override
-    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, Optional<String> defaultValue, boolean ignoreExisting)
     {
-        forHandle(tableHandle).addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+        forHandle(tableHandle).addField(session, tableHandle, parentPath, fieldName, type, defaultValue, ignoreExisting);
     }
 
     @Override

@@ -29,9 +29,11 @@ import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -46,6 +48,7 @@ public class TestLakehouseMetadata
         try {
             EXCLUSIONS = ImmutableSet.<Method>builder()
                     .add(ConnectorMetadata.class.getMethod("supportsMissingColumnsOnInsert"))
+                    .add(ConnectorMetadata.class.getMethod("addField", ConnectorSession.class, ConnectorTableHandle.class, List.class, String.class, Type.class, boolean.class))
                     .add(ConnectorMetadata.class.getMethod("resolveIndex", ConnectorSession.class, ConnectorTableHandle.class, Set.class, Set.class, TupleDomain.class))
                     .add(ConnectorMetadata.class.getMethod("listFunctions", ConnectorSession.class, String.class))
                     .add(ConnectorMetadata.class.getMethod("getFunctions", ConnectorSession.class, SchemaFunctionName.class))
