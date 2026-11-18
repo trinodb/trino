@@ -28,8 +28,7 @@ TRINO_VERSION=
 TAG_PREFIX=trino
 SERVER_ARTIFACT=trino-server
 
-TEMURIN_RELEASE=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=temurin.release -DforceStdout --raw-streams)
-TEMURIN_DOWNLOAD_URL="https://api.adoptium.net/v3/binary/version/{release_name}/linux/{arch}/jdk/hotspot/normal/eclipse?project=jdk"
+CORRETTO_RELEASE=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=corretto.release -DforceStdout --raw-streams)
 
 SKIP_TESTS=false
 
@@ -79,20 +78,20 @@ function check_environment() {
     fi
 }
 
-function temurin_download_uri() {
-  local RELEASE_NAME="${1}"
-  local ARCH="${2}"
+function corretto_download_uri() {
+    local release="${1}"
+    local arch
 
-  case "${ARCH}" in
-      "arm64")
-        echo "${TEMURIN_DOWNLOAD_URL}" | sed -e "s/{release_name}/${RELEASE_NAME}/" -e "s/{arch}/aarch64/" ;;
-      "amd64")
-        echo "${TEMURIN_DOWNLOAD_URL}" | sed -e "s/{release_name}/${RELEASE_NAME}/" -e "s/{arch}/x64/" ;;
-      *)
-        echo "Unsupported architecture: ${ARCH}" >&2
-        exit 1
-        ;;
-  esac
+    case "${2}" in
+        arm64) arch=aarch64 ;;
+        amd64) arch=x64 ;;
+        *)
+            echo "Unsupported architecture: ${2}" >&2
+            return 1
+            ;;
+    esac
+
+    echo "https://corretto.aws/downloads/resources/${release}/amazon-corretto-${release}-linux-${arch}.tar.gz"
 }
 
 check_environment
@@ -129,14 +128,14 @@ fi
 TAG="${TAG_PREFIX}:${TRINO_VERSION}"
 
 for arch in "${ARCHITECTURES[@]}"; do
-    JDK_DOWNLOAD_LINK="$(temurin_download_uri "${TEMURIN_RELEASE}" "${arch}")"
+    JDK_DOWNLOAD_LINK="$(corretto_download_uri "${CORRETTO_RELEASE}" "${arch}")"
     echo "🫙  Building the image for $arch with JDK ${JDK_DOWNLOAD_LINK}"
     docker build \
         "${WORK_DIR}" \
         --progress=plain \
         --pull \
         --build-arg ARCH="${arch}" \
-        --build-arg JDK_VERSION="${TEMURIN_RELEASE}" \
+        --build-arg JDK_VERSION="${CORRETTO_RELEASE}" \
         --build-arg JDK_DOWNLOAD_LINK="${JDK_DOWNLOAD_LINK}" \
         --platform "linux/$arch" \
         -f Dockerfile \

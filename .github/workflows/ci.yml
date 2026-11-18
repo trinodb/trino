@@ -125,9 +125,9 @@ jobs:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix:
         include:
-          - { java-version: 25.0.5, cache: 'true', cleanup-node: true }
-          - { java-version: 27, cache: 'restore', cleanup-node: true }
-          - { java-version: 28-ea, cache: 'restore', cleanup-node: true }
+          - { java-distribution: corretto, java-version: 25.0.5.1.2, cache: 'true', cleanup-node: true }
+          - { java-distribution: corretto, java-version: 27, cache: 'restore', cleanup-node: true }
+          - { java-distribution: temurin, java-version: 28-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7.0.1
@@ -152,6 +152,7 @@ jobs:
         timeout-minutes: 15
         with:
           cache: ${{ matrix.cache }}
+          java-distribution: ${{ matrix.java-distribution }}
           java-version: ${{ matrix.java-version }}
           cleanup-node: true
       - name: Check SPI backward compatibility
