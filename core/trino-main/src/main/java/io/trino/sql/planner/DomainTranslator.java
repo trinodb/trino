@@ -314,23 +314,16 @@ public final class DomainTranslator
                             combineConjuncts(residuals));
                 }
                 case OR -> {
-                    TupleDomain<Symbol> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(tupleDomains);
-
-                    // In most cases, the columnUnionedTupleDomain is only a superset of the actual strict union
-                    // and so we can return the current node as the remainingExpression so that all bounds will be double checked again at execution time.
-                    Expression remainingExpression = complementIfNecessary(node, complement);
-
-                    // However, there are a few cases where the column-wise union is actually equivalent to the strict union, so we if can detect
-                    // some of these cases, we won't have to double check the bounds unnecessarily at execution time.
-
-                    // We can only make inferences if the remaining expressions on all terms are equal and deterministic
+                    // An exact union can eliminate the OR only when all residuals are equal and deterministic.
                     if (Set.copyOf(residuals).size() == 1 && DeterminismEvaluator.isDeterministic(residuals.get(0))) {
-                        if (strictUnion(tupleDomains).isPresent()) {
-                            remainingExpression = residuals.get(0);
+                        Optional<TupleDomain<Symbol>> exactUnion = strictUnion(tupleDomains);
+                        if (exactUnion.isPresent()) {
+                            return new ExtractionResult(exactUnion.get(), residuals.get(0));
                         }
                     }
 
-                    return new ExtractionResult(columnUnionedTupleDomain, remainingExpression);
+                    // A column-wise union may admit extra tuples, so retain the original predicate.
+                    return new ExtractionResult(TupleDomain.columnWiseUnion(tupleDomains), complementIfNecessary(node, complement));
                 }
             }
             throw new AssertionError("Unknown operator: " + node.operator());

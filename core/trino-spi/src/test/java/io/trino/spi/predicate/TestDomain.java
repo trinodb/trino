@@ -42,6 +42,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestDomain
 {
     @Test
+    public void testSetOperationReuse()
+    {
+        Domain point = Domain.singleValue(BIGINT, 1L);
+        assertThat(point.intersect(point)).isSameAs(point);
+        assertThat(point.union(point)).isSameAs(point);
+        assertThat(point.intersect(Domain.all(BIGINT))).isSameAs(point);
+        assertThat(Domain.all(BIGINT).intersect(point)).isSameAs(point);
+        assertThat(point.union(Domain.none(BIGINT))).isSameAs(point);
+        assertThat(Domain.none(BIGINT).union(point)).isSameAs(point);
+        assertThatThrownBy(() -> point.intersect(Domain.all(DOUBLE))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> point.union(Domain.none(DOUBLE))).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     public void testOrderableNone()
     {
         Domain domain = Domain.none(BIGINT);

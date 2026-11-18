@@ -213,12 +213,24 @@ public final class Domain
     public Domain intersect(Domain other)
     {
         checkCompatibility(other);
+        if (this == other || isNone() || other.isAll()) {
+            return this;
+        }
+        if (other.isNone() || isAll()) {
+            return other;
+        }
         return new Domain(values.intersect(other.getValues()), this.isNullAllowed() && other.isNullAllowed());
     }
 
     public Domain union(Domain other)
     {
         checkCompatibility(other);
+        if (this == other || isAll() || other.isNone()) {
+            return this;
+        }
+        if (other.isAll() || isNone()) {
+            return other;
+        }
         return new Domain(values.union(other.getValues()), this.isNullAllowed() || other.isNullAllowed());
     }
 
