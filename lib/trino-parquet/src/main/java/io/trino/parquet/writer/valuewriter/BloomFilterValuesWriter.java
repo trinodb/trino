@@ -19,9 +19,10 @@ import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
-import org.apache.parquet.io.api.Binary;
 
 import java.util.Optional;
+
+import static io.trino.parquet.BloomFilterStore.hash;
 
 public class BloomFilterValuesWriter
         extends ValuesWriter
@@ -125,14 +126,14 @@ public class BloomFilterValuesWriter
     public void writeBytes(Slice value)
     {
         writer.writeBytes(value);
-        bloomFilter.insertHash(bloomFilter.hash(Binary.fromReusedByteArray(value.byteArray(), value.byteArrayOffset(), value.length())));
+        bloomFilter.insertHash(hash(value, 0, value.length()));
     }
 
     @Override
     public void writeBytes(Slice base, int offset, int length)
     {
         writer.writeBytes(base, offset, length);
-        bloomFilter.insertHash(bloomFilter.hash(Binary.fromReusedByteArray(base.byteArray(), base.byteArrayOffset() + offset, length)));
+        bloomFilter.insertHash(hash(base, offset, length));
     }
 
     @Override

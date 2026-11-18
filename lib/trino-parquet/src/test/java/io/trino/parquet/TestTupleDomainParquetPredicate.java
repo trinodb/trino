@@ -49,6 +49,7 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.BoundaryOrder;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
+import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit;
 import org.apache.parquet.schema.PrimitiveType;
@@ -69,6 +70,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.log.Level.ERROR;
@@ -104,6 +106,9 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.NaN;
@@ -137,9 +142,34 @@ public class TestTupleDomainParquetPredicate
     private static final ParquetDataSourceId ID = new ParquetDataSourceId("testFile");
 
     @Test
+    public void testBinaryBloomFilterMembership()
+    {
+        Random random = new Random(0);
+        BloomFilter bloomFilter = new BlockSplitBloomFilter(16 * 1024);
+        for (int length = 0; length <= 1024; length++) {
+            byte[] bytes = new byte[length + 11];
+            random.nextBytes(bytes);
+            Slice value = Slices.wrappedBuffer(bytes, 7, length);
+            long hash = bloomFilter.hash(Binary.fromConstantByteArray(value.getBytes()));
+            for (Type type : List.of(VARCHAR, VARBINARY)) {
+                assertThat(checkInBloomFilter(bloomFilter, value, type)).isEqualTo(bloomFilter.findHash(hash));
+            }
+            if (length == 16) {
+                assertThat(checkInBloomFilter(bloomFilter, value, UUID)).isEqualTo(bloomFilter.findHash(hash));
+            }
+            bloomFilter.insertHash(hash);
+            assertThat(checkInBloomFilter(bloomFilter, value, VARCHAR)).isTrue();
+            assertThat(checkInBloomFilter(bloomFilter, value, VARBINARY)).isTrue();
+            if (length == 16) {
+                assertThat(checkInBloomFilter(bloomFilter, value, UUID)).isTrue();
+            }
+        }
+    }
+
+    @Test
     public void testNaNBloomFilterMembership()
     {
-        BlockSplitBloomFilter bloom = new BlockSplitBloomFilter(1024);
+        BloomFilter bloom = new BlockSplitBloomFilter(1024);
         // Empty bits cannot prove NaN absence: producers may hash a different payload.
         assertThat(checkInBloomFilter(bloom, Double.NaN, DOUBLE)).isTrue();
         assertThat(checkInBloomFilter(bloom, Double.longBitsToDouble(0x7FF0000000000001L), DOUBLE)).isTrue();

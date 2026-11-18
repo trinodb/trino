@@ -16,6 +16,7 @@ package io.trino.parquet;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 import io.trino.parquet.crypto.AesCipherUtils;
 import io.trino.parquet.crypto.ColumnDecryptionContext;
 import io.trino.parquet.crypto.FileDecryptionContext;
@@ -56,6 +57,16 @@ public class BloomFilterStore
     private final ParquetDataSource dataSource;
     private final Map<ColumnPath, ColumnChunkMetadata> columnChunks;
     private final Optional<FileDecryptionContext> decryptionContext;
+
+    /**
+     * Hashes binary values as defined by the Parquet format (XXH64 with seed zero),
+     * which is the only hash a supported bloom filter can use. Hashing the slice
+     * directly avoids copying it into a byte array.
+     */
+    public static long hash(Slice value, int offset, int length)
+    {
+        return XxHash64.hash(value, offset, length);
+    }
 
     public BloomFilterStore(ParquetDataSource dataSource, BlockMetadata block, Set<ColumnPath> columnsFiltered, Optional<FileDecryptionContext> decryptionContext)
     {

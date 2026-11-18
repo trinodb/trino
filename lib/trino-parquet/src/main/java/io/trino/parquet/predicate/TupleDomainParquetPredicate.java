@@ -754,11 +754,9 @@ public class TupleDomainParquetPredicate
         else if (sqlType == REAL) {
             return bloomFilter.findHash(bloomFilter.hash(intBitsToFloat(toIntExact(((Number) predicateValue).longValue()))));
         }
-        else if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
-            return bloomFilter.findHash(bloomFilter.hash(Binary.fromConstantByteBuffer(((Slice) predicateValue).toByteBuffer())));
-        }
-        else if (sqlType instanceof UuidType) {
-            return bloomFilter.findHash(bloomFilter.hash(Binary.fromConstantByteArray(((Slice) predicateValue).getBytes())));
+        else if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType || sqlType instanceof UuidType) {
+            Slice value = (Slice) predicateValue;
+            return bloomFilter.findHash(BloomFilterStore.hash(value, 0, value.length()));
         }
 
         return true;
