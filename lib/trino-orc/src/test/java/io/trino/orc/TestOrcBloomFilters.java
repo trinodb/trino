@@ -412,6 +412,19 @@ public class TestOrcBloomFilters
     }
 
     @Test
+    public void testBuilderSettingsAfterAddColumn()
+    {
+        TupleDomainOrcPredicate predicate = TupleDomainOrcPredicate.builder()
+                .addColumn(ROOT_COLUMN, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1233L, true, 1235L, true)), false))
+                .setDomainCompactionThreshold(100)
+                .setBloomFiltersEnabled(true)
+                .build();
+
+        assertThat(predicate.matches(1L, bloomFilterStatistics(1234L))).isTrue();
+        assertThat(predicate.matches(1L, bloomFilterStatistics(9876L))).isFalse();
+    }
+
+    @Test
     public void testBloomFilterCompatibility()
     {
         for (int n = 0; n < 200; n++) {
@@ -495,6 +508,25 @@ public class TestOrcBloomFilters
                 assertThat(BloomFilter.OrcMurmur3.hash64(bytes)).isEqualTo(Murmur3.hash64(bytes));
             }
         }
+    }
+
+    private static ColumnMetadata<ColumnStatistics> bloomFilterStatistics(long bloomFilterValue)
+    {
+        return new ColumnMetadata<>(ImmutableList.of(new ColumnStatistics(
+                null,
+                0,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new Utf8BloomFilterBuilder(1000, 0.01)
+                        .addLong(bloomFilterValue)
+                        .buildBloomFilter())));
     }
 
     private static byte[] randomBytes(int length)
