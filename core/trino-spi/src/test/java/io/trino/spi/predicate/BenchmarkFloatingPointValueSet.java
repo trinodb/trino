@@ -26,7 +26,9 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
@@ -64,6 +66,69 @@ public class BenchmarkFloatingPointValueSet
         return data.ranges.overlaps(data.candidateRanges);
     }
 
+    @Benchmark
+    @Warmup(iterations = 3, time = 1)
+    @Measurement(iterations = 5, time = 1)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public ValueSet create(SetOperationData data)
+    {
+        return ValueSet.copyOf(DOUBLE, data.values);
+    }
+
+    @Benchmark
+    @Warmup(iterations = 3, time = 1)
+    @Measurement(iterations = 5, time = 1)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public ValueSet union(SetOperationData data)
+    {
+        return data.left.union(data.right);
+    }
+
+    @Benchmark
+    @Warmup(iterations = 3, time = 1)
+    @Measurement(iterations = 5, time = 1)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public ValueSet intersect(SetOperationData data)
+    {
+        return data.left.intersect(data.right);
+    }
+
+    @Benchmark
+    @Warmup(iterations = 3, time = 1)
+    @Measurement(iterations = 5, time = 1)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public ValueSet unionUnbounded(SetOperationData data)
+    {
+        return data.below.union(data.above);
+    }
+
+    @Benchmark
+    @Warmup(iterations = 3, time = 1)
+    @Measurement(iterations = 5, time = 1)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public ValueSet unionIdentity(SetOperationData data)
+    {
+        return data.left.union(data.left);
+    }
+
+    @Benchmark
+    @Warmup(iterations = 3, time = 1)
+    @Measurement(iterations = 5, time = 1)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public Optional<Collection<Object>> expand(SetOperationData data)
+    {
+        return data.left.tryExpandRanges(data.valueCount);
+    }
+
+    @Benchmark
+    @Warmup(iterations = 3, time = 1)
+    @Measurement(iterations = 5, time = 1)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public Optional<Collection<Object>> rejectExpansion(SetOperationData data)
+    {
+        return data.left.tryExpandRanges(1);
+    }
+
     @State(Scope.Thread)
     public static class Data
     {
@@ -85,6 +150,29 @@ public class BenchmarkFloatingPointValueSet
             candidateRanges = SortedRangeSet.copyOf(DOUBLE, List.of(Range.range(DOUBLE, 0.0, true, 1.0, true)));
             domain = Domain.create(ranges, false);
             candidateDomain = Domain.create(candidateRanges, false);
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class SetOperationData
+    {
+        @Param({"16", "1000"})
+        public int valueCount;
+
+        private List<Double> values;
+        private ValueSet left;
+        private ValueSet right;
+        private ValueSet below;
+        private ValueSet above;
+
+        @Setup
+        public void setup()
+        {
+            values = IntStream.range(0, valueCount).mapToObj(value -> (double) value).toList();
+            left = ValueSet.copyOf(DOUBLE, values);
+            right = ValueSet.copyOf(DOUBLE, IntStream.range(valueCount / 2, valueCount + valueCount / 2).mapToObj(value -> (double) value).toList());
+            below = ValueSet.ofRanges(Range.lessThan(DOUBLE, 0.0));
+            above = ValueSet.ofRanges(Range.greaterThan(DOUBLE, 1.0));
         }
     }
 
