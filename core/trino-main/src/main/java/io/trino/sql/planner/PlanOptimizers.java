@@ -1031,6 +1031,7 @@ public class PlanOptimizers
                                 new PruneJoinChildrenColumns(),
                                 new RemoveRedundantIdentityProjections())
                         .build()));
+        builder.add(new UnaliasSymbolReferences()); // Resolve symbol renames added by pushing partial aggregations
         builder.add(new IterativeOptimizer(
                 "AddPartialAggBelowGroupIdExchanges",
                 plannerContext,
