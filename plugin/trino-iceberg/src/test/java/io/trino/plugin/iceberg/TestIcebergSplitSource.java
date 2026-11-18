@@ -238,17 +238,12 @@ public class TestIcebergSplitSource
         String tableName = "test_large_dynamic_filter_bucket_pruning";
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['bucket(key, 2)']) AS SELECT key FROM UNNEST(sequence(0, 999)) t(key)", 1000);
         try {
-            SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
-            Table table = catalog.loadTable(SESSION, schemaTableName);
-            IcebergTableHandle tableHandle = createTableHandle(schemaTableName, table, TupleDomain.all());
-            IcebergColumnHandle key = IcebergColumnHandle.optional(new ColumnIdentity(1, "key", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
-                    .columnType(BIGINT)
-                    .build();
+            BucketedTable table = loadBucketedTable(tableName);
             SerializableFunction<Long, Integer> bucket = Transforms.<Long>bucket(2).bind(Types.LongType.get());
 
             // value set of one bucket prunes the file of the other bucket
-            assertThat(generateSplits(table, tableHandle, key, multipleValues(LongStream.range(0, 1000).filter(value -> bucket.apply(value) == 0)))).hasSize(1);
-            assertThat(generateSplits(table, tableHandle, key, multipleValues(LongStream.range(0, 1000).filter(value -> bucket.apply(value) == 1)))).hasSize(1);
+            assertThat(generateSplits(table, multipleValues(LongStream.range(0, 1000).filter(value -> bucket.apply(value) == 0)))).hasSize(1);
+            assertThat(generateSplits(table, multipleValues(LongStream.range(0, 1000).filter(value -> bucket.apply(value) == 1)))).hasSize(1);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -263,16 +258,11 @@ public class TestIcebergSplitSource
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['bucket(key, 2)']) AS SELECT key FROM UNNEST(sequence(0, 499)) t(key)", 500);
         try {
             assertUpdate("INSERT INTO " + tableName + " SELECT key FROM UNNEST(sequence(500, 999)) t(key)", 500);
-            SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
-            Table table = catalog.loadTable(SESSION, schemaTableName);
-            IcebergTableHandle tableHandle = createTableHandle(schemaTableName, table, TupleDomain.all());
-            IcebergColumnHandle key = IcebergColumnHandle.optional(new ColumnIdentity(1, "key", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
-                    .columnType(BIGINT)
-                    .build();
+            BucketedTable table = loadBucketedTable(tableName);
 
             // Iceberg prunes the files outside the span of the value set
             InMemoryMetricsReporter metricsReporter = new InMemoryMetricsReporter();
-            assertThat(generateSplits(table, tableHandle, key, multipleValues(LongStream.range(0, 300)), metricsReporter)).hasSize(2);
+            assertThat(generateSplits(table.table(), table.tableHandle(), table.key(), multipleValues(LongStream.range(0, 300)), metricsReporter)).hasSize(2);
             assertThat(metricsReporter.scanReport().scanMetrics().skippedDataFiles().value()).isEqualTo(2);
         }
         finally {
@@ -297,6 +287,24 @@ public class TestIcebergSplitSource
         TupleDomain<ColumnHandle> dynamicFilterPredicate = TupleDomain.<ColumnHandle>withColumnDomains(ImmutableMap.of(column, dynamicFilterDomain));
         return generateSplits(SESSION, table, tableHandle, ImmutableSet.of(column), new DynamicFilterSnapshot(dynamicFilterPredicate, true), metricsReporter);
     }
+
+    private List<IcebergSplit> generateSplits(BucketedTable table, Domain keyDomain)
+            throws Exception
+    {
+        return generateSplits(table.table(), table.tableHandle(), table.key(), keyDomain);
+    }
+
+    private BucketedTable loadBucketedTable(String tableName)
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+        Table table = catalog.loadTable(SESSION, schemaTableName);
+        IcebergColumnHandle key = IcebergColumnHandle.optional(new ColumnIdentity(1, "key", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                .columnType(BIGINT)
+                .build();
+        return new BucketedTable(table, createTableHandle(schemaTableName, table, TupleDomain.all()), key);
+    }
+
+    private record BucketedTable(Table table, IcebergTableHandle tableHandle, IcebergColumnHandle key) {}
 
     @Test
     public void testBigintPartitionPruning()
